@@ -8,11 +8,13 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
@@ -663,4 +665,75 @@ func smcANSIC(s string, utf8Locale bool) string {
 	}
 	b.WriteString("'")
 	return b.String()
+}
+
+// trapExitSignals makes the terminating signals do what they did to a bash
+// script with an EXIT trap: the trap -- cleanup here -- ran at once, and
+// the script died of the signal, leaving any running child orphaned. A
+// signal ignored at start stays ignored, as a non-interactive bash cannot
+// trap one. It returns the function that stops listening.
+//
+// SIGHUP, SIGINT and SIGTERM are re-raised, so the process dies of them.
+// The rest cannot be: the Go runtime drops a SIGPIPE it did not raise
+// itself, and answers a sent SIGABRT, SIGFPE, SIGSYS, SIGTRAP (and, on
+// linux, SIGSEGV, SIGBUS, SIGILL) with a stack dump and exit 2 -- which mutate-and-verify's caller would read as
+// "refused, nothing was mutated". They end in exit 128+n, the status a
+// shell reads for death by that signal. A SIGPIPE arriving on the caller's
+// last write is handled too: the returned function takes a pending signal
+// before letting the caller return its own exit code.
+//
+// ponytail: gaps against bash, each closable only by a trap in the shim,
+// if a caller ever depends on it. The other signals bash's trap caught
+// (SIGUSR1, SIGUSR2, SIGALRM, ...) the Go runtime ignores, so the run
+// carries on to its normal exit. A sent SIGSEGV, SIGBUS or SIGILL is
+// trapped on linux but never reaches signal.Notify on darwin, nor does
+// darwin's SIGEMT: the runtime crashes with exit 2, and nothing is cleaned
+// up. A SIGPIPE ignored at start is trapped anyway (exit 141 after the
+// cleanup), where bash carried on to its own exit. A SIGTERM
+// ignored at start is handled anyway: Go reports an inherited ignore for
+// SIGHUP and SIGINT only. A SIGINT sent to this pid alone ends the run at
+// once, where bash waited for its foreground child and carried on if that
+// child survived; a Ctrl-C reaches the whole process group, so both end.
+func trapExitSignals(cleanup func()) func() {
+	var sigs []os.Signal
+	for _, s := range []os.Signal{syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGPIPE,
+		syscall.SIGABRT, syscall.SIGBUS, syscall.SIGFPE, syscall.SIGILL, syscall.SIGSEGV, syscall.SIGSYS, syscall.SIGTRAP} {
+		if !signal.Ignored(s) {
+			sigs = append(sigs, s)
+		}
+	}
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, sigs...)
+	die := func(s os.Signal) {
+		cleanup()
+		sig := s.(syscall.Signal)
+		if sig == syscall.SIGHUP || sig == syscall.SIGINT || sig == syscall.SIGTERM {
+			signal.Reset(s)
+			_ = syscall.Kill(os.Getpid(), sig)
+			time.Sleep(time.Second) // reached only if the reset signal did not end the process
+		}
+		os.Exit(128 + int(sig))
+	}
+	done, finished := make(chan struct{}), make(chan struct{})
+	go func() {
+		select {
+		case s := <-ch:
+			die(s)
+		case <-done:
+			// signal.Stop has delivered any signal still in flight -- a
+			// SIGPIPE raised by the caller's last write, typically -- so
+			// one pending now is handled before the caller's own exit.
+			select {
+			case s := <-ch:
+				die(s)
+			default:
+			}
+			close(finished)
+		}
+	}()
+	return func() {
+		signal.Stop(ch)
+		close(done)
+		<-finished
+	}
 }

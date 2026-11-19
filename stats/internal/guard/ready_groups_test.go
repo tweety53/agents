@@ -2,6 +2,7 @@ package guard
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -187,4 +188,17 @@ func TestReadyGroupsReadsADeciderDecision(t *testing.T) {
 	if r.rc != 0 || r.stdout != "launch 1: 1+2 backend throwaway\nlaunch 2: 3 backend throwaway\n" {
 		t.Errorf("rc=%d out=%q\n%s", r.rc, r.stdout, r.out)
 	}
+}
+
+// pdgProjectFixture writes plan as tasks.md beside a .flow/project.md whose
+// `## apps` table declares each of repos as the Repo root /repos/<repo>.
+func pdgProjectFixture(t *testing.T, plan string, repos ...string) string {
+	t.Helper()
+	p := psFixture(t, plan)
+	apps := "## apps\n\n| App | Repo root | Kind | URL | Notes |\n|-----|-----------|------|-----|-------|\n"
+	for _, r := range repos {
+		apps += "| " + r + " | `/repos/" + r + "` | Go | — | — |\n"
+	}
+	writeFile(t, filepath.Join(filepath.Dir(p), ".flow", "project.md"), apps)
+	return p
 }

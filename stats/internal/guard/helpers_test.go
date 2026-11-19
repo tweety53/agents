@@ -1357,3 +1357,28 @@ func pjJSON(text, extra string) string {
 	b, _ := json.Marshal(text)
 	return "printf '%s\\n' '{\"type\":\"result\",\"result\":" + string(b) + extra + "}'\n"
 }
+
+func gdcCopyTree(t *testing.T, src, dst string) {
+	t.Helper()
+	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		target := dst + strings.TrimPrefix(p, src)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, b, fi.Mode().Perm())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}

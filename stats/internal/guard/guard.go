@@ -23,11 +23,11 @@ type Env struct {
 	Environ func() []string
 	// Deadlines override the guards' integer-second env knobs in tests only;
 	// zero means "parse the env knob as the bash guard does".
-	ReproducerBound, ReproducerGrace, SurvivorsTimeout, SurvivorsKillGrace time.Duration
+	SurvivorsTimeout, SurvivorsKillGrace time.Duration
 	// PairJudgeTimeout is pair-judge's model-call deadline; zero means 60 s.
 	PairJudgeTimeout time.Duration
-	// LoadAvg returns the one-minute load average run-reproducer names on a
-	// timeout; nil reads it from the machine.
+	// LoadAvg returns the one-minute load average loadGate reads; nil reads
+	// it from the machine.
 	LoadAvg func() (float64, error)
 	// LoadGate turns loadGate on: flow-guard's main sets it, so a test's
 	// zero Env never waits on the machine it runs on. LoadPoll is the gate's
@@ -41,9 +41,6 @@ type Env struct {
 	// timer: the running pass is killed as timed out when it receives, so a
 	// test decides which pass hits the bound and the baseline never races it.
 	MutateExpire <-chan time.Time
-	// ProcTable, when non-nil, replaces run-reproducer's process-table read
-	// (rrProcTable), so a test can make the read fail.
-	ProcTable func() ([]rrProc, error)
 	// Findings returns `flow record findings -change <name>`'s JSON; nil
 	// means exec the `flow` CLI on PATH, as the bash guard does.
 	Findings func(change string) ([]byte, error)

@@ -136,13 +136,13 @@ type ic struct {
 //	never deletes it), reshape-branch per
 //	worktree, the ledger render, the design record (the canonical
 //	change directory's design.md written to docs/designs/<name>.md
-//	under a two-line header, else STOP: design-record), commit-split per
+//	under a two-line header, else STOP: design-record), commitTwo per
 //	worktree in `## Merge order`, then the push of each reshaped
 //	branch. A
 //	worktree with nothing on the implementation side takes no
 //	subject; the canonical one whose only implementation path is a
 //	link.md takes `chore(spectre): merge order`; any other without
-//	one stops `commit-split`.
+//	one stops `commit-two`.
 //	Before any of it, a narrative lacking the section of a fix or
 //	integrate run the store marked stops `narrative`
 //	(check-narrative-runs.sh). A `flow-fix` row `flow self-review
@@ -880,10 +880,10 @@ func (c *ic) reshapeFile(w string) string {
 
 var icExportable = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
 
-// implPaths: the paths commit-split would put in the implementation commit
+// implPaths: the paths commitTwo would put in the implementation commit
 // after a reshape to <rev> — every change against <rev>, committed, staged,
 // unstaged or untracked, outside the change's own <spec>/changes/<name>/ and
-// <name>-fix-<N>/ folders, plus its own link.md: commit-split's pathspecs
+// <name>-fix-<N>/ folders, plus its own link.md: commitTwo's pathspecs
 // (kan-1072 self-review, F1). Empty means that commit is skipped, so the
 // worktree needs no implementation subject.
 func (c *ic) implPaths(w, rev string) []string {
@@ -894,7 +894,7 @@ func (c *ic) implPaths(w, rev string) []string {
 	for _, l := range append(icLines(diff), icLines(others)...) {
 		dir, _, _ := strings.Cut(strings.TrimPrefix(l, p), "/")
 		// A fix folder counts only while the worktree holds it, as in
-		// commit-split, which lists it from disk.
+		// commitTwo, which lists it from disk.
 		planning := strings.HasPrefix(l, p) && (dir == c.name || isFixOf(dir, c.name) && isDir(w+"/"+p+dir))
 		if !planning || l == p+c.name+"/link.md" {
 			out = append(out, l)

@@ -1,290 +1,96 @@
 package guard
 
 import (
-	"bytes"
-	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
-	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 )
 
-// The contract below moved here from the header of the deleted
-// scripts/close-task.sh shim (KAN-1058).
+// flow-guard close-task — the task-close step of skills/flow/implement.md: tick
+// and push every task a returning implementer committed.
 //
-// flow-guard close-task — run the task-close sequence of skills/flow/implement.md
-// (**A group boundary is one wake, one Bash call and one launch
-// message.**, step 2) for every task a
-// returning implementer committed.
-//
-// Usage: flow-guard close-task [-session-token <token> (-end-key <key> [-end-commit <sha>])…]
-//
-//          <canonical-worktree> <name> <merge-base> <task-id>[:<sha|worktree=sha[,worktree=sha…]>]…
+// Usage: flow-guard close-task <canonical-worktree> <name> <merge-base> <task-id>[:<sha|worktree=sha[,worktree=sha…]>]…
 //
 // A bare <task-id> resolves to the newest commit since <merge-base> in the
-// canonical worktree whose Task-Id: trailer names it, none a usage error
-// (kan-1058 self-review, F8).
+// canonical worktree whose Task-Id: trailer names it, none a usage error. A
+// bare <sha> is the canonical worktree's commit; the map form names one
+// commit per worktree of a cross-repository task.
 //
 // In this order:
-//   1. With -end-key: one `flow record dispatch end -change <name> -key <key>
-//      -session-token <token> [-commit <sha>] -outcome completed` per
-//      -end-key/-end-commit pair, paired by position, in order — -end-commit
-//      given for every key or for none, any other count a usage error (kan-1058
-//      self-review, F1: a group's close kept only its last key). A record
-//      never blocks: a failed call prints a warning and the sequence goes on,
-//      and every exit after it prints `close-task: UNRECORDED — the dispatch
-//      end for <key> did not reach the store; run: flow record dispatch end
-//      …` (the full command) as a closing stderr line, one per failed record,
-//      turning exit 0 into 3.
-//      Then, for every task it closes that the plan's `**Tasks appended:**`
-//      line counts or whose title opens `In-run fix <k> — `,
-//      `flow record dispatches -change <name> -C <canonical>`:
-//      an appended task no row names, or whose naming rows all carry no
-//      commit, is refused at step 4 (exit 1); a store that cannot be read
-//      refuses nothing.
-//   2. Each task's commit first gains one <worktree>=<sha> pair per worktree
-//      of `flow state get -C <canonical> <name>`'s worktrees map the argument
-//      left out whose newest commit since its base carries the task's
-//      Task-Id: trailer — a bare sha is the canonical worktree's pair — each
-//      named on stderr as `close-task: task <id>: joined <worktree>=<sha>`
-//      (kan-1008's self-review: a map omitting the backend repository left
-//      its commits unjudged). Then every task's commit's — every map pair's —
-//      Task-Id: trailer must name the task or a task its red fold joins (exit
-//      1 otherwise): the trailer is how a task's commit is found again.
-//      A commit — any map pair's — whose diff-tree lists a path named
-//      full-app-suite.zip has that zip rebuilt in its worktree by
-//      flow-guard rebuild-full-app-suite-zip, the zip's directory as <screenshots
-//      root>, and the committed bytes written back — save a zip a later
-//      commit of the same close, in the same worktree, changes again, which
-//      is that commit's to judge (kan-1051): a difference prints
-//      `close-task: task <id>: <path> is not flow-guard rebuild-full-app-suite-zip's
-//      output — rebuild it with that script and re-commit` (exit 1); a
-//      screenshots root git status reports dirty, or a rebuild exit other
-//      than 0, is exit 2 (kan-1016's self-review: a hand-built zip).
-//      For a task titled `In-run fix <k> — `, once the commit guards pass,
-//      `close-task: task <id>: affected specs — <spec> <spec>…` (or `— none`)
-//      is printed: flow-guard affected-specs' task set (`-task`) over each
-//      map pair's own commit and every worktree of the map holding a
-//      `<spec>.sources` sidecar (skills/flow/verify-fix-loop.md step 2). A
-//      pair holding a spec no flow-guard recapture receipt covers -- a run
-//      that passed it, and saw each source file of the commit at the blob
-//      the commit holds -- is refused, exit 1, nothing ticked or pushed.
-//      Nothing is checked where no worktree holds a sidecar.
-//      Where the task's **Opener:** is a `visual-verify…` key, each such
-//      spec carrying a `<spec>.mockups` sidecar is refused the same way
-//      until a `visual-manifest-implementer-<k>.json` under
-//      `.superpowers/sdd/` of <canonical> or a map worktree pairs it -- the
-//      manifest `flow-guard visual-verify-pass measure <canonical> <name>
-//      implementer-<k> <spec path>` writes (kan-1099: five in-run fix tasks
-//      were handed back unmeasured, and each left a departure the next
-//      verifier found).
-//      Any other task is held to both checks for each spec of its task set
-//      carrying a `<spec>.mockups` sidecar, its measure under `task-<id>`,
-//      and prints the line only when it has one: a view is verified against
-//      its mockup in the task that draws it (kan-1091: every departure
-//      surfaced in the stage after verify, eight whole-set runs later).
-//   3. flow-guard check-task-commit-planning-paths <canonical> <merge-base>, then
-//      flow-guard check-untasked-commits <worktree> refs/remotes/origin/spectre/<name>
-//      once per distinct worktree whose branch origin already holds: the push
-//      at step 7 sends those commits, and one outside every task carries its
-//      `Flow-Key:` trailer before it leaves (kan-941).
-//   4. Any guard exit 2 → exit 2; else any exit 1 → exit 1; else an
-//      appended task step 1 found no row naming → exit 1. Nothing is ticked
-//      or pushed either way, so a refused commit is never pushed.
-//   5. `flow tasks tick -C <canonical> <name> <id>` for every task.
-//   6. `git -C <worktree> push origin spectre/<name>` once per distinct
-//      worktree: the canonical one for a bare sha, each map pair's otherwise.
-//   A failed tick or push → exit 2; every tick and push is still attempted.
+//  1. Every task's commit — every map pair's — must exist in its worktree
+//     and sit on that worktree's HEAD, the branch the push below sends; a
+//     commit that does not is refused (exit 1) before anything is ticked or
+//     pushed, so a task never ticks over work that would not leave the
+//     machine.
+//  2. `flow tasks tick -C <canonical> <name> <id>` for every task.
+//  3. `git -C <worktree> push origin spectre/<name>` once per distinct
+//     worktree, in first-named order.
 //
-// The guards run in-process in flow-guard; their own lines are printed as
-// they print them.
+// A failed tick or push is exit 2; every tick and push is still attempted.
 //
-// Exit 0 closed; 1 a commit guard refused — re-commit, then re-run without the
-// -end-* flags — or an appended task has no dispatch row — record it, then
-// re-run without the -end-* flags; 2 stop: a guard could not judge, a tick or push failed, or
-// a usage error; 3 closed as exit 0 — every tick and push done — but step 1's
-// dispatch end never reached the store: run the command the UNRECORDED line
-// prints.
-
-// closeTask is `flow-guard close-task`: the comment above is the contract.
-// It runs the task-close sequence of skills/flow/implement.md (**A group
-// boundary is one wake, one Bash call and one launch message.**, step 2),
-// composing the guards
-// in-process through Registry.
+// Exit 0 closed; 1 a commit is missing or off the branch — commit it, then
+// re-run; 2 a tick or push failed, or a usage error.
 func init() { Registry["close-task"] = closeTask }
 
-func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
-	usage := func(id, msg string) int {
-		Reason(env, id)
-		fmt.Fprintf(stderr, "close-task: %s\nusage: flow-guard close-task [-session-token <token> (-end-key <key> [-end-commit <sha>])…] <canonical-worktree> <name> <merge-base> <task-id>[:<sha|worktree=sha[,worktree=sha…]>]…\n", msg)
-		return 2
-	}
-	fset := flag.NewFlagSet("close-task", flag.ContinueOnError)
-	fset.SetOutput(stderr)
-	var endKeys, endCommits []string
-	fset.Func("end-key", "an implementer dispatch's key, to close its record; repeatable", func(v string) error {
-		endKeys = append(endKeys, v)
-		return nil
-	})
-	token := fset.String("session-token", "", "the run's literal session token, for the dispatch end")
-	fset.Func("end-commit", "the commit the -end-key in the same position produced, for its dispatch end", func(v string) error {
-		endCommits = append(endCommits, v)
-		return nil
-	})
-	if fset.Parse(args) != nil {
+func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
+	if len(args) < 4 {
 		Reason(env, "usage")
+		fmt.Fprintln(stderr, "usage: flow-guard close-task <canonical-worktree> <name> <merge-base> <task-id>[:<sha|worktree=sha[,worktree=sha…]>]…")
 		return 2
 	}
-	if len(endCommits) != 0 && len(endCommits) != len(endKeys) {
-		return usage("end-commits-mismatch", fmt.Sprintf("%d -end-commit for %d -end-key: give one per key, in order, or none", len(endCommits), len(endKeys)))
-	}
-	pos := fset.Args()
-	if len(pos) < 4 {
-		return usage("positional-arguments-wrong", fmt.Sprintf("got %d positional argument(s)", len(pos)))
-	}
-	canonical, name, mergeBase := pos[0], pos[1], pos[2]
-	type task struct{ id, commit string }
-	var tasks []task
-	var worktrees []string // distinct, in first-named order: one push each
-	recorded := ctRecordedWorktrees(env, canonical, name)
-	for _, a := range pos[3:] {
-		id, commit, ok := strings.Cut(a, ":")
-		if id == "" || (ok && commit == "") {
-			return usage("bad-task-argument", "task argument is not <task-id>[:<sha|map>]: "+a)
+	canonical, name, mergeBase := args[0], args[1], args[2]
+	git := envGit(env)
+	var ids, worktrees []string // worktrees: distinct, in first-named order — one push each
+	refused := false
+	for _, a := range args[3:] {
+		id, commit, given := strings.Cut(a, ":")
+		if id == "" || given && commit == "" {
+			Reason(env, "bad-task-argument")
+			fmt.Fprintln(stderr, "close-task: task argument is not <task-id>[:<sha|map>]: "+a)
+			return 2
 		}
-		if !ok {
-			if commit = ctTrailerCommit(envGit(env), canonical, mergeBase, id); commit == "" {
-				return usage("no-task-commit", fmt.Sprintf("task %s: no commit since %s carries Task-Id: %s", id, mergeBase, id))
+		if !given {
+			if commit = ctTrailerCommit(git, canonical, mergeBase, id); commit == "" {
+				Reason(env, "no-task-commit")
+				fmt.Fprintf(stderr, "close-task: task %s: no commit since %s carries Task-Id: %s\n", id, mergeBase, id)
+				return 2
 			}
 		}
-		commit = ctJoinRecorded(env, stderr, canonical, id, commit, recorded)
-		tasks = append(tasks, task{id, commit})
-		wts := []string{canonical}
+		ids = append(ids, id)
+		pairs := []string{canonical + "=" + commit}
 		if strings.Contains(commit, "=") {
-			wts = nil
-			for _, pair := range strings.Split(commit, ",") {
-				wt, _, _ := strings.Cut(strings.TrimSpace(pair), "=")
-				wts = append(wts, wt)
-			}
+			pairs = strings.Split(commit, ",")
 		}
-		for _, wt := range wts {
+		for _, p := range pairs {
+			wt, sha, _ := strings.Cut(strings.TrimSpace(p), "=")
+			if _, ok := capture(git("-C", wt, "merge-base", "--is-ancestor", sha, "HEAD")); !ok {
+				fmt.Fprintf(stderr, "close-task: task %s: %s is not a commit on %s's HEAD — commit the task there, then re-run\n", id, sha, wt)
+				refused = true
+			}
 			if !slices.Contains(worktrees, wt) {
 				worktrees = append(worktrees, wt)
 			}
 		}
 	}
-
-	// A record never blocks: a failed dispatch end is reported, never a stop.
-	// Its UNRECORDED line is printed last on every exit from here, in key
-	// order, and exit 3 where it would be 0 (design.md:
-	// close-task-unrecorded-exit-3).
-	var unrecorded []string
-	defer func() {
-		for _, line := range unrecorded {
-			fmt.Fprintln(stderr, line)
-		}
-		if len(unrecorded) > 0 && exit == 0 {
-			exit = 3
-		}
-	}()
-	for i, key := range endKeys {
-		rec := []string{"record", "dispatch", "end", "-change", name, "-C", canonical, "-key", key, "-session-token", *token}
-		if len(endCommits) > 0 {
-			// The store takes a full sha only; expand an abbreviated one,
-			// passing it unchanged where it does not resolve.
-			sha := endCommits[i]
-			if full, ok := capture(envGit(env)("-C", canonical, "rev-parse", "--verify", "--quiet", sha+"^{commit}")); ok && full != "" {
-				sha = full
-			}
-			rec = append(rec, "-commit", sha)
-		}
-		rec = append(rec, "-outcome", "completed")
-		if ctFlow(env, stdout, stderr, rec...) != 0 {
-			fmt.Fprintf(stderr, "close-task: the dispatch end for %s did not reach the store — continuing; a record never blocks\n", key)
-			unrecorded = append(unrecorded, fmt.Sprintf("close-task: UNRECORDED — the dispatch end for %s did not reach the store; run: flow %s", key, strings.Join(rec, " ")))
-		}
-	}
-
-	// SIGNAL FOUR at close time (flow-guard check-unfinished-work): an
-	// appended task no dispatch row names is refused here, nothing ticked
-	// or pushed, while its row can still be recorded. A warning was ticked
-	// past (kan-982: Tasks 19-21 closed with none) and surfaced only at
-	// integrate's gate. A store that cannot be read refuses nothing --
-	// ctUndispatched reads it as no finding: a record never blocks.
-	var closed []string
-	for _, t := range tasks {
-		closed = append(closed, t.id)
-	}
-	undispatched := ctUndispatched(env, canonical, name, closed)
-	for _, line := range undispatched {
-		fmt.Fprintln(stderr, line)
-	}
-
-	// Both commit guards run before anything is ticked or pushed, so a
-	// refused commit is never pushed (design.md: close-task-push-after-guards).
-	worst := 0
-	for _, t := range tasks {
-		worst = max(worst, ctCheckTrailer(env, stdout, stderr, canonical, name, t.id, t.commit))
-		var others []string
-		for _, o := range tasks {
-			if o.id != t.id {
-				others = append(others, o.commit)
-			}
-		}
-		worst = max(worst, ctCheckSuiteZips(env, stderr, canonical, t.id, t.commit, others))
-	}
-	worst = max(worst, Registry["check-task-commit-planning-paths"]([]string{canonical, mergeBase}, env, stdout, stderr))
-	// The push below sends every commit origin lacks: one outside every task
-	// needs its Flow-Key: trailer before it leaves (git-boundaries.md,
-	// Commits outside every task; kan-941 pushed four with none). A worktree
-	// whose branch origin does not hold yet has nothing to judge.
-	for _, wt := range worktrees {
-		remote := "refs/remotes/origin/spectre/" + name
-		if _, ok := capture(envGit(env)("-C", wt, "rev-parse", "--verify", "-q", remote)); ok {
-			worst = max(worst, Registry["check-untasked-commits"]([]string{wt, remote, "--not-remotes"}, env, stdout, stderr))
-		}
-	}
-	switch worst {
-	case 0:
-	case 1:
-		fmt.Fprintln(stderr, "close-task: RE-COMMIT — a commit guard refused; nothing was ticked or pushed")
-		Reason(env, "commit-guard-refused")
-		return 1
-	default:
-		fmt.Fprintln(stderr, "close-task: STOP — a commit guard could not judge; nothing was ticked or pushed")
-		Reason(env, "commit-guard-cannot-judge")
-		return 2
-	}
-	uncaptured := 0
-	for _, t := range tasks {
-		uncaptured = max(uncaptured, ctAffectedSpecs(env, stdout, stderr, canonical, name, t.id, t.commit))
-	}
-	if uncaptured != 0 {
-		fmt.Fprintln(stderr, "close-task: RECAPTURE — a task's affected specs have no passing capture run or no measure; nothing was ticked or pushed")
-		Reason(env, "affected-specs-not-captured")
-		return 1
-	}
-	if len(undispatched) > 0 {
-		fmt.Fprintln(stderr, "close-task: RECORD — an appended task has no dispatch row carrying its commit; nothing was ticked or pushed")
-		Reason(env, "appended-task-undispatched")
+	if refused {
+		Reason(env, "commit-not-on-branch")
+		fmt.Fprintln(stderr, "close-task: RE-COMMIT — nothing was ticked or pushed")
 		return 1
 	}
 
 	rc := 0
-	for _, t := range tasks {
-		id := t.id
-		if ctFlow(env, stdout, stderr, "tasks", "tick", "-C", canonical, name, id) != 0 {
+	for _, id := range ids {
+		out, errb, code := pcFlow(env, false, "tasks", "tick", "-C", canonical, name, id)
+		_, _ = stdout.Write(out)
+		_, _ = stderr.Write(errb)
+		if code != 0 {
 			fmt.Fprintf(stderr, "close-task: STOP — flow tasks tick failed for task %s\n", id)
 			Reason(env, "tick-failed")
 			rc = 2
 		}
 	}
-	git := envGit(env)
 	for _, wt := range worktrees {
 		cmd := git("-C", wt, "push", "origin", "spectre/"+name)
 		cmd.Stdout, cmd.Stderr = stdout, stderr
@@ -297,66 +103,6 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 	return rc
 }
 
-// ctRecordedWorktrees is the change's recorded worktree set, the keys of
-// `flow state get`'s worktrees map, sorted; nil when it cannot be read.
-func ctRecordedWorktrees(env Env, canonical, name string) []string {
-	out, _, rc := pcFlow(env, false, "state", "get", "-C", canonical, name)
-	var rec struct {
-		Worktrees map[string]json.RawMessage `json:"worktrees"`
-	}
-	if rc != 0 || json.Unmarshal(out, &rec) != nil {
-		return nil
-	}
-	var wts []string
-	for wt := range rec.Worktrees {
-		if wt != "" {
-			wts = append(wts, wt)
-		}
-	}
-	slices.Sort(wts)
-	return wts
-}
-
-// ctJoinRecorded adds to a task's commit — a bare sha is the canonical
-// worktree's — one <worktree>=<sha> pair for each recorded worktree the
-// caller left out whose newest commit since its base carries the task's
-// Task-Id: trailer, and names each on stderr (kan-1008's self-review: the
-// parent's map omitted the backend repository, and Task 13's and 14's
-// backend commits were never judged against their Files:). The base is
-// defaultBase's; a worktree with none, or that git cannot read, adds
-// nothing.
-func ctJoinRecorded(env Env, stderr io.Writer, canonical, id, commit string, recorded []string) string {
-	pairs := []string{canonical + "=" + commit}
-	if strings.Contains(commit, "=") {
-		pairs = strings.Split(commit, ",")
-	}
-	have := map[string]bool{}
-	for _, p := range pairs {
-		wt, _, _ := strings.Cut(strings.TrimSpace(p), "=")
-		have[trResolvePath(env, wt)] = true
-	}
-	git := envGit(env)
-	added := false
-	for _, wt := range recorded {
-		if have[trResolvePath(env, wt)] {
-			continue
-		}
-		base, _, ok := defaultBase(git, wt)
-		if !ok {
-			continue
-		}
-		if sha := ctTrailerCommit(git, wt, base, id); sha != "" {
-			fmt.Fprintf(stderr, "close-task: task %s: joined %s=%s — a recorded worktree the commit map left out\n", id, wt, sha)
-			pairs = append(pairs, wt+"="+sha)
-			added = true
-		}
-	}
-	if !added {
-		return commit
-	}
-	return strings.Join(pairs, ",")
-}
-
 // ctTrailerCommit is the newest commit in wt's base..HEAD whose Task-Id:
 // trailer names id, "" when none does or git cannot read the range.
 func ctTrailerCommit(git func(...string) *exec.Cmd, wt, base, id string) string {
@@ -366,345 +112,9 @@ func ctTrailerCommit(git func(...string) *exec.Cmd, wt, base, id string) string 
 	}
 	for _, line := range strings.Split(out, "\n") {
 		sha, ids, _ := strings.Cut(strings.TrimSpace(line), " ")
-		if sha != "" && slices.Contains(ctTaskNumberRE.FindAllString(ids, -1), id) {
+		if sha != "" && slices.Contains(uwTaskNumberRE.FindAllString(ids, -1), id) {
 			return sha
 		}
 	}
 	return ""
-}
-
-// ctFlow runs the flow CLI from env's PATH, its output relayed; non-zero
-// when it is missing or fails.
-func ctFlow(env Env, stdout, stderr io.Writer, args ...string) int {
-	flow, ok := lookPath(env, "flow")
-	if !ok {
-		fmt.Fprintln(stderr, "close-task: no flow binary on PATH")
-		Reason(env, "no-flow-binary-on-path")
-		return 127
-	}
-	cmd := exec.Command(flow, args...)
-	cmd.Dir = env.Dir
-	cmd.Stdout, cmd.Stderr = stdout, stderr
-	if cmd.Run() != nil {
-		Reason(env, "flow-record-failed")
-		return 1
-	}
-	return 0
-}
-
-var ctTaskNumberRE = regexp.MustCompile(`[0-9]+`)
-
-// ctCheckTrailer refuses (1) a task commit — every pair of a commit map —
-// whose Task-Id: trailer names neither the task nor a task its Build: red
-// fold joins (the red's commit carries its partner's id, implement.md). The
-// trailer, not the sha close-task was handed, is how a task's commit is
-// found later: flow-task-list's landed check, check-task-commit-planning-
-// paths and the panel's fix round all read it, so a commit without it closes
-// a task nothing can find again. 2 when git cannot read a commit.
-func ctCheckTrailer(env Env, stdout, stderr io.Writer, canonical, name, id, commit string) int {
-	accepted := []string{id}
-	if tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical); tasksMD != "" {
-		if raw, err := os.ReadFile(tasksMD); err == nil {
-			if lines, err := tcfPlanLines(raw); err == nil {
-				if task, ok := tcfParseTask(lines, id); ok {
-					for _, red := range tcfFoldReds(lines, task, tcfRedTasks(lines)) {
-						redTask, _ := tcfParseTask(lines, red)
-						accepted = append(append(accepted, red), tcfJoinedPartners(lines, redTask)...)
-					}
-				}
-			}
-		}
-	}
-	pairs := [][2]string{{canonical, commit}}
-	if strings.Contains(commit, "=") {
-		pairs = nil
-		for _, pair := range strings.Split(commit, ",") {
-			wt, sha, _ := strings.Cut(strings.TrimSpace(pair), "=")
-			pairs = append(pairs, [2]string{wt, sha})
-		}
-	}
-	git := envGit(env)
-	rc := 0
-	for _, p := range pairs {
-		cmd := git("-C", p[0], "log", "-1", "--format=%(trailers:key=Task-Id,valueonly)", p[1])
-		cmd.Stderr = stderr
-		out, err := cmd.Output()
-		if err != nil {
-			fmt.Fprintf(stderr, "close-task: cannot read the Task-Id trailer of %s in %s\n", p[1], p[0])
-			Reason(env, "cannot-read-the-task-id")
-			return 2
-		}
-		named := ctTaskNumberRE.FindAllString(string(out), -1)
-		if !slices.ContainsFunc(named, func(n string) bool { return slices.Contains(accepted, n) }) {
-			fmt.Fprintf(stdout, "task %s: commit %s carries no Task-Id: trailer naming task %s (found %q) — re-commit with `Task-Id: %s`\n", id, p[1], id, strings.TrimSpace(string(out)), id)
-			Reason(env, "no-task-id-trailer")
-			rc = 1
-		}
-	}
-	return rc
-}
-
-// ctUndispatched is signal four's predicate (uwAppended, uwRowTasks) at
-// close time, one refusal line per closed task the plan's **Tasks
-// appended:** line marks as appended that no dispatch row of the change
-// names -- or whose naming rows all carry no commit, which the ledger then
-// reads as "no commit" (kan-1059 self-review, 5a). Nil when no closed task
-// is appended -- the store is then never read -- or when the plan or the
-// store cannot be read: a warning that cannot judge stays silent.
-func ctUndispatched(env Env, canonical, name string, closed []string) []string {
-	tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical)
-	if tasksMD == "" {
-		return nil
-	}
-	appended, ok := uwAppended(tasksMD, false)
-	if !ok {
-		return nil
-	}
-	var judged []string
-	for _, id := range closed {
-		if slices.Contains(appended, id) {
-			judged = append(judged, id)
-		}
-	}
-	if len(judged) == 0 {
-		return nil
-	}
-	out, _, rc := pcFlow(env, false, "record", "dispatches", "-change", name, "-C", canonical)
-	var rows []struct {
-		ID        int64  `json:"id"`
-		Key       string `json:"key"`
-		TaskID    string `json:"taskId"`
-		CommitSha string `json:"commitSha"`
-	}
-	if rc != 0 || json.Unmarshal(out, &rows) != nil {
-		return nil
-	}
-	named := map[string][]int64{}
-	committed := map[string]bool{}
-	for _, d := range rows {
-		for _, id := range uwRowTasks(d.Key, d.TaskID) {
-			named[id] = append(named[id], d.ID)
-			committed[id] = committed[id] || d.CommitSha != ""
-		}
-	}
-	var lines []string
-	for _, id := range judged {
-		switch {
-		case named[id] == nil:
-			lines = append(lines, fmt.Sprintf("close-task: appended task %s has no dispatch row naming it — record its dispatch (`flow record dispatch backfill … -task %s -started-at <instant> -ended-at <instant> -outcome <outcome>`), then re-run without the -end-* flags", id, id))
-		case !committed[id]:
-			for _, row := range named[id] {
-				lines = append(lines, fmt.Sprintf("close-task: appended task %s: dispatch row %d carries no commit — stamp it (`flow record dispatch retime -change %s -id %d -started-at <t> -ended-at <t> -commit <the task's sha> -reason <why>`, or `-commit` on the back-fill), then re-run without the -end-* flags", id, row, name, row))
-			}
-		}
-	}
-	return lines
-}
-
-// ctCheckSuiteZips refuses a task commit — every map pair's — whose
-// full-app-suite.zip is not rebuild-full-app-suite-zip.sh's output: it
-// rebuilds the zip in that worktree, compares the bytes with the committed
-// ones and writes the on-disk bytes back (kan-1016's self-review: a zip
-// hand-built with archive/zip was committed). The rebuild's <worktree> is the
-// canonical worktree, whose .flow/project.md declares where screenshots live
-// — the zip may sit in another repository, the regression checkout. A commit
-// deleting the zip is not judged, and neither is one a later commit of the
-// same close changes again — others holds the close's other task commits —
-// since the worktree holds only the last one's screenshots root (kan-1051:
-// tasks 6 and 7 both wrote the zip and closed together). 1 a difference; 2 a
-// screenshots root that differs from the commit's or a rebuild that did not
-// answer 0.
-func ctCheckSuiteZips(env Env, stderr io.Writer, canonical, id, commit string, others []string) int {
-	pairsOf := func(c string) []string {
-		if strings.Contains(c, "=") {
-			return strings.Split(c, ",")
-		}
-		return []string{canonical + "=" + c}
-	}
-	pairs := pairsOf(commit)
-	absOf := func(p string) string {
-		if filepath.IsAbs(p) {
-			return p
-		}
-		return filepath.Join(env.Dir, p)
-	}
-	absCanonical := absOf(canonical)
-	git := envGit(env)
-	// superseded: a later commit of the close, in the same worktree, changes path too.
-	superseded := func(wt, sha, path string) bool {
-		for _, o := range others {
-			for _, op := range pairsOf(o) {
-				owt, osha, _ := strings.Cut(strings.TrimSpace(op), "=")
-				if osha == sha || absOf(owt) != absOf(wt) || git("-C", wt, "merge-base", "--is-ancestor", sha, osha).Run() != nil {
-					continue
-				}
-				if out, _ := capture(git("-C", wt, "diff-tree", "--no-renames", "--no-commit-id", "--name-only", "-r", osha, "--", path)); out != "" {
-					return true
-				}
-			}
-		}
-		return false
-	}
-	worst := 0
-	for _, p := range pairs {
-		wt, sha, _ := strings.Cut(strings.TrimSpace(p), "=")
-		out, ok := capture(git("-C", wt, "diff-tree", "--no-renames", "--no-commit-id", "--name-only", "--diff-filter=d", "-r", sha))
-		if !ok {
-			continue // the fields guard already answers for an unreadable commit
-		}
-		for _, path := range strings.Split(out, "\n") {
-			if filepath.Base(path) != "full-app-suite.zip" || superseded(wt, sha, path) {
-				continue
-			}
-			abs := filepath.Join(absOf(wt), path)
-			root := filepath.Dir(abs)
-			untracked, ok := capture(git("-C", wt, "ls-files", "--others", "--exclude-standard", "--", root))
-			if !ok || untracked != "" || git("-C", wt, "diff", "--quiet", sha, "--", root).Run() != nil {
-				fmt.Fprintf(stderr, "close-task: task %s: %s is not the commit's — cannot rebuild %s to compare\n", id, root, path)
-				worst = max(worst, 2)
-				continue
-			}
-			committed, err := git("-C", wt, "show", sha+":"+path).Output()
-			if err != nil {
-				fmt.Fprintf(stderr, "close-task: task %s: cannot read %s at %s\n", id, path, sha)
-				worst = max(worst, 2)
-				continue
-			}
-			onDisk, err := os.ReadFile(abs)
-			if err != nil {
-				fmt.Fprintf(stderr, "close-task: task %s: cannot read %s: %v\n", id, path, err)
-				worst = max(worst, 2)
-				continue
-			}
-			rbEnv := env
-			rbEnv.Dir = absCanonical
-			rc := Registry["rebuild-full-app-suite-zip"]([]string{absCanonical, root}, rbEnv, io.Discard, stderr)
-			rebuilt, _ := os.ReadFile(abs)
-			if err := os.WriteFile(abs, onDisk, 0o644); err != nil {
-				fmt.Fprintf(stderr, "close-task: task %s: cannot restore %s: %v\n", id, path, err)
-				worst = max(worst, 2)
-				continue
-			}
-			switch {
-			case rc != 0:
-				fmt.Fprintf(stderr, "close-task: task %s: rebuild-full-app-suite-zip exited %d — cannot judge %s\n", id, rc, path)
-				worst = max(worst, 2)
-			case !bytes.Equal(rebuilt, committed):
-				fmt.Fprintf(stderr, "close-task: task %s: %s is not flow-guard rebuild-full-app-suite-zip's output — rebuild it with that script and re-commit\n", id, path)
-				worst = max(worst, 1)
-			}
-		}
-	}
-	return worst
-}
-
-// ctAffectedSpecs is step 2's affected-specs check: for an in-run fix task
-// it prints the task set flow-guard affected-specs maps the commit to and
-// returns 1 when a map pair holds a spec with no passing flow-guard
-// recapture receipt on that commit's sources, or a departure's spec with no
-// measure; for a planned task it holds the specs carrying a `.mockups`
-// sidecar to both. Else 0.
-func ctAffectedSpecs(env Env, stdout, stderr io.Writer, canonical, name, id, commit string) int {
-	tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "close-task", canonical, name, canonical)
-	plan, _ := os.ReadFile(tasksMD)
-	title := regexp.MustCompile(`(?m)^- \[[ xX]\] ` + regexp.QuoteMeta(id) + `\. In-run fix ([0-9]+) — `).FindSubmatchIndex(plan)
-	// key is the measure's: an in-run fix a visual-verify report opened
-	// closes a mockup departure, and its implementer measures before it
-	// hands back (verify-fix-loop.md step 2); a planned task measures every
-	// mocked-up view it draws.
-	inRun, key, why, base := title != nil, "task-"+id, "draws a view that carries a mockup", "<the commit the task started from>"
-	departure := true
-	if inRun {
-		round := string(plan[title[2]:title[3]])
-		body, _, _ := strings.Cut(string(plan[title[1]:]), "\n- [")
-		departure = regexp.MustCompile("(?m)^\\*\\*Opener:\\*\\*\\s*`?visual-verify").MatchString(body)
-		key, why, base = "implementer-"+round, "In-run fix "+round+" closes a mockup departure", "<round base>"
-	}
-	pairs := []string{canonical + "=" + commit}
-	if strings.Contains(commit, "=") {
-		pairs = strings.Split(commit, ",")
-	}
-	git := envGit(env)
-	var roots []string    // every worktree of the map holding a sidecar
-	var measured []string // the spec paths a manifest of this task's key pairs
-	manifests := []string{canonical}
-	for _, p := range pairs {
-		wt, _, _ := strings.Cut(strings.TrimSpace(p), "=")
-		if out, _ := capture(git("-C", wt, "ls-files", "-co", "--exclude-standard", "--", "*.sources")); out != "" {
-			roots = append(roots, wt)
-		}
-		manifests = append(manifests, wt)
-	}
-	for _, wt := range manifests {
-		var m vvmManifestOut
-		if b, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "visual-manifest-"+key+".json")); err == nil && json.Unmarshal(b, &m) == nil {
-			// A measure over a spec whose sidecar finds no frame here pairs
-			// nothing, yet ran: its spec is recorded all the same.
-			for _, p := range m.Pairs {
-				measured = append(measured, filepath.ToSlash(p.Spec))
-			}
-			for _, s := range m.Specs {
-				measured = append(measured, filepath.ToSlash(s))
-			}
-		}
-	}
-	if len(roots) == 0 {
-		return 0
-	}
-	var all []string
-	rc := 0
-	for _, p := range pairs {
-		wt, sha, _ := strings.Cut(strings.TrimSpace(p), "=")
-		for _, root := range roots {
-			var out bytes.Buffer
-			Registry["affected-specs"]([]string{"-task", tasksMD + ":" + id, wt, sha + "^.." + sha, root}, quietReasons(env), &out, io.Discard)
-			sidecars, _ := capture(git("-C", root, "ls-files", "-co", "--exclude-standard", "--", "*.mockups"))
-			// sidecar is the root-relative spec path of token's `.mockups`
-			// sidecar -- the path measure takes -- or "" when it has none.
-			sidecar := func(token string) string {
-				spec := rcSpecFile(token)
-				for _, f := range strings.Split(sidecars, "\n") {
-					if f == spec+".mockups" || strings.HasSuffix(f, "/"+spec+".mockups") {
-						return strings.TrimSuffix(f, ".mockups")
-					}
-				}
-				return ""
-			}
-			specs := strings.Fields(out.String())
-			if !inRun {
-				specs = slices.DeleteFunc(specs, func(s string) bool { return sidecar(s) == "" })
-			}
-			for _, spec := range specs {
-				if !slices.Contains(all, spec) {
-					all = append(all, spec)
-				}
-			}
-			if len(specs) > 0 && !rcCovered(env, wt, root, sha, specs) {
-				fmt.Fprintf(stderr, "close-task: task %s: no passing capture run covers commit %s's sources in %s for %s — run `flow-guard recapture %s:%s %s %s=%s '<the capture command with <spec>>'`, commit what it moves, and re-run\n", id, sha, wt, strings.Join(specs, " "), tasksMD, id, root, wt, base)
-				Reason(env, "affected-specs-not-captured")
-				rc = 1
-			}
-			// ponytail: the key alone dates a measure -- one taken before
-			// the task's last recapture still counts; compare the manifest
-			// with the captures' blobs if that ever bites.
-			for _, spec := range specs {
-				spec = rcSpecFile(spec)
-				path := sidecar(spec)
-				if !departure || path == "" || slices.ContainsFunc(measured, func(m string) bool { return m == spec || strings.HasSuffix(m, "/"+spec) }) {
-					continue
-				}
-				fmt.Fprintf(stderr, "close-task: task %s: %s and no measure of %s ran under %s — run `flow-guard visual-verify-pass measure %s %s %s %s` on the views the fix touched, close or name every flagged band, seam and `over` row, and re-run\n", id, why, spec, key, root, name, key, path)
-				Reason(env, "departure-not-measured")
-				rc = 1
-			}
-		}
-	}
-	if len(all) == 0 {
-		if !inRun {
-			return rc
-		}
-		all = []string{"none"}
-	}
-	fmt.Fprintf(stdout, "close-task: task %s: affected specs — %s\n", id, strings.Join(all, " "))
-	return rc
 }

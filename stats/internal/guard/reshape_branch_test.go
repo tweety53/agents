@@ -1,15 +1,17 @@
 package guard
 
 import (
+	"bytes"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
-// reshape-branch runs in-process, followed by commit-split exactly as
-// integrate runs them, each calling checkChangeWorktreeLocation.
+// reshape-branch runs in-process, followed by the implementation commit
+// integrate makes, calling checkChangeWorktreeLocation.
 
 type rbFx struct{ main, wt, base string }
 
@@ -85,10 +87,8 @@ func TestReshapeBranch(t *testing.T) {
 		check(t, rc == 0, "reshape exit", "rc=%d out=%s", rc, out)
 		check(t, strings.HasSuffix(out, "\nRESHAPED: "+w+" — reset to "+fx.base[:12]), "reshape verdict", "%q", out)
 		check(t, splitGit(t, w, nil, "rev-parse", "HEAD") == fx.base, "HEAD is the merge base", "HEAD moved elsewhere")
-		if rc, out := runSplitGuard(t, commitSplit, w,
-			w, "demo", "feat(src): the change", "chore(spectre): plan demo\n\noutstanding: none"); rc != 0 {
-			t.Fatalf("commit-split rc=%d out=%s", rc, out)
-		}
+		splitGit(t, w, nil, "add", "-A")
+		splitGit(t, w, nil, "commit", "-q", "-m", "feat(src): the change")
 
 		subjects := splitGit(t, w, nil, "log", "--reverse", "--format=%s", fx.base+"..HEAD")
 		check(t, subjects == "feat(src): the change", "one implementation commit and no planning commit", "subjects:\n%s", subjects)
@@ -170,4 +170,46 @@ func TestReshapeBranch(t *testing.T) {
 		rc, out := runSplitGuard(t, reshapeBranch, t.TempDir(), "a", "b")
 		check(t, rc == 2 && out == "usage: flow-guard reshape-branch <worktree> <name> <merge-base>", "usage", "rc=%d out=%q", rc, out)
 	})
+}
+
+// splitGit runs fixture git in dir under fixtureGitEnv plus extra, failing
+// the test on error, and returns stdout with trailing newlines stripped.
+func splitGit(t *testing.T, dir string, extra []string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command(fixtureGit, append([]string{"-C", dir}, args...)...)
+	cmd.Env = append(append(os.Environ(), fixtureGitEnv...), extra...)
+	var errb bytes.Buffer
+	cmd.Stderr = &errb
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, errb.String())
+	}
+	return strings.TrimRight(string(out), "\n")
+}
+
+// splitRepo copies an unborn repository on branch (git's default when empty)
+// to main, gives it a local identity and a seed commit of files, and adds a linked worktree at wt on
+// spectre/demo — the only place the location guard lets either guard commit.
+func splitRepo(t *testing.T, main, wt, branch string, files map[string]string) {
+	t.Helper()
+	fixtureRepo(t, main, repoShape{Branch: branch})
+	for _, kv := range [][2]string{{"user.email", "test@example.com"}, {"user.name", "Test"}, {"commit.gpgsign", "false"}} {
+		splitGit(t, main, nil, "config", kv[0], kv[1])
+	}
+	for p, body := range files {
+		writeFile(t, main+"/"+p, body)
+	}
+	splitGit(t, main, nil, "add", "-A")
+	splitGit(t, main, nil, "commit", "-q", "-m", "seed")
+	splitGit(t, main, nil, "worktree", "add", "-q", "-b", "spectre/demo", wt)
+}
+
+// runSplitGuard runs guard fn in-process from dir as its shim would, stdout
+// and stderr merged in write order with trailing newlines stripped.
+func runSplitGuard(t *testing.T, fn Func, dir string, args ...string) (int, string) {
+	t.Helper()
+	env := Env{Dir: dir, Getenv: os.Getenv}
+	var all bytes.Buffer
+	rc := fn(args, env, &all, &all)
+	return rc, strings.TrimRight(all.String(), "\n")
 }

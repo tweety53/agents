@@ -31,8 +31,7 @@ import (
 // The judged set (decisions judged-set, judged-set-by-function): planner,
 // self-review-plan, pipeline-fix-plan, implementer, panel-fix,
 // self-review-fix, pipeline-fix-fix, design-reviewer, gated-reviewer,
-// gated-re-reviewer, panel-reviewer, panel-sanity-efficiency,
-// panel-mutation-failure, panel-rerun, self-review-pass,
+// gated-re-reviewer, panel-reviewer, panel-rerun, self-review-pass,
 // self-review-review-1, self-review-review-r, pipeline-fix-review-1,
 // pipeline-fix-review-r, explorer and plan-designer. Every other role keeps
 // the rule it had and is refused.
@@ -107,7 +106,7 @@ var pjJudged = map[string]bool{
 	"implementer": true,
 	"panel-fix":   true, "self-review-fix": true, "pipeline-fix-fix": true,
 	"design-reviewer": true, "gated-reviewer": true, "gated-re-reviewer": true, "panel-reviewer": true,
-	"panel-sanity-efficiency": true, "panel-mutation-failure": true, "panel-rerun": true,
+	"panel-rerun":      true,
 	"self-review-pass": true, "self-review-review-1": true, "self-review-review-r": true,
 	"pipeline-fix-review-1": true, "pipeline-fix-review-r": true,
 	"explorer": true, "plan-designer": true,

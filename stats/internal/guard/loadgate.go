@@ -3,8 +3,11 @@ package guard
 import (
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -49,4 +52,23 @@ func loadGate(env Env, name string, stderr io.Writer) bool {
 			told = true
 		}
 	}
+}
+
+// rrLoadAvg reads the one-minute load average: /proc/loadavg's first field,
+// else `sysctl -n vm.loadavg`'s second token (`{ 2.82 2.97 5.40 }`).
+func rrLoadAvg() (float64, error) {
+	if b, err := os.ReadFile("/proc/loadavg"); err == nil {
+		if f := strings.Fields(string(b)); len(f) > 0 {
+			return strconv.ParseFloat(f[0], 64)
+		}
+	}
+	out, err := exec.Command("sysctl", "-n", "vm.loadavg").Output()
+	if err != nil {
+		return 0, err
+	}
+	f := strings.Fields(string(out))
+	if len(f) < 2 {
+		return 0, fmt.Errorf("unreadable vm.loadavg %q", out)
+	}
+	return strconv.ParseFloat(f[1], 64)
 }

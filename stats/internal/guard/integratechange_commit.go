@@ -85,15 +85,14 @@ func (c *ic) commit() {
 				subj = "chore(spectre): merge order"
 			}
 			if subj == "" && len(c.implPaths(c.wt[o], rb)) > 0 {
-				c.stopAs("subject-not-given", "commit-split", "no implementation subject given for "+c.wt[o]+" — pass "+c.wt[o]+"=<subject>")
+				c.stopAs("subject-not-given", "commit-two", "no implementation subject given for "+c.wt[o]+" — pass "+c.wt[o]+"=<subject>")
 			}
 			if subj != "" && c.outstanding != "" {
 				subj += "\n\nOutstanding: " + c.outstanding
 			}
 			before, _ := c.git("-C", c.wt[o], "rev-parse", "HEAD")
-			c.run("commit-split", append([]string{c.wt[o], c.name, subj, c.planMsg}, c.squashed[o]...)...)
-			if c.rc != 0 {
-				c.stopAs("commit-split-failed", "commit-split", fmt.Sprintf("commit-split exit %d in %s — report its lines", c.rc, c.wt[o]))
+			if !c.commitTwo(c.wt[o], subj, c.squashed[o]) {
+				c.stopAs("commit-two-failed", "commit-two", "the implementation or plan commit failed in "+c.wt[o]+" — report its lines")
 			}
 			if after, _ := c.git("-C", c.wt[o], "rev-parse", "HEAD"); subj != "" && c.outstanding != "" && after != before {
 				carried = true
@@ -267,7 +266,7 @@ func (c *ic) designRecord() {
 // writeDesignRecord writes the change's design.md to docs/designs/<name>.md in
 // the canonical worktree, under a fixed two-line header, for the
 // implementation commit to carry (The design record,
-// skills/flow-contracts/finish-contract-run1.md). commit-split stages it.
+// skills/flow-contracts/finish-contract-run1.md). commitTwo stages it.
 func (c *ic) writeDesignRecord(design string) {
 	body, err := os.ReadFile(design)
 	if err != nil {
@@ -286,4 +285,38 @@ func (c *ic) writeDesignRecord(design string) {
 	if err := os.WriteFile(out, append([]byte(head), body...), 0o644); err != nil {
 		c.stopAs("record-not-writable", "design-record", "cannot write "+out+": "+err.Error())
 	}
+}
+
+// commitTwo is the guarded commit chain of skills/flow-contracts/git-boundaries.md
+// in wt, refused (false, its verdict printed) where wt is a main checkout or
+// not on spectre/<name>: it stages everything and commits it under subj — skipped, not
+// failed, when nothing is staged — with `Flow-Key: flow.commit-two` and each
+// trailer (a squashed commit's `Task-Id: <n>`) in its trailer block, then
+// commits anything left under c.planMsg the same way. The change directory
+// is in neither commit: `<spec root>/changes/` must be gitignored (false,
+// named, otherwise), and `<spec root>/changes/<name>/` is first untracked,
+// kept on disk, where an older tooling committed it. False on any git
+// failure, its own lines passed through.
+func (c *ic) commitTwo(wt, subj string, trailers []string) bool {
+	if checkChangeWorktreeLocation([]string{wt, c.name}, c.env, c.stdout, c.stderr) != 0 {
+		return false
+	}
+	changes := specRootLeaf(wt, c.stderr) + "/changes/"
+	if _, ok := c.gitQuiet("-C", wt, "check-ignore", "-q", "--no-index", changes); !ok {
+		fmt.Fprintf(c.stderr, "integrate-change: %s is not gitignored in %s — add it to .gitignore before integrating\n", changes, wt)
+		return false
+	}
+	commit := func(msg ...string) bool {
+		if _, staged := c.gitQuiet("-C", wt, "diff", "--cached", "--quiet"); staged {
+			return true
+		}
+		return c.gitPass(append([]string{"-C", wt, "commit"}, msg...)...)
+	}
+	impl := []string{"-m", subj, "--trailer", "Flow-Key: flow.commit-two"}
+	for _, t := range trailers {
+		impl = append(impl, "--trailer", t)
+	}
+	return c.gitPass("-C", wt, "rm", "-r", "-q", "-f", "--cached", "--ignore-unmatch", "--", changes+c.name) &&
+		c.gitPass("-C", wt, "add", "-A", "--", ".") && commit(impl...) &&
+		c.gitPass("-C", wt, "add", "-A") && commit("-m", c.planMsg)
 }

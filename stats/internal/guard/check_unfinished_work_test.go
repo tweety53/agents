@@ -76,8 +76,6 @@ func newUWBare(t *testing.T, wt string) *uwFix {
 	f.setFile(t, "dispatches.json", `[{"key":"task-1-implementer","outcome":"completed"}]`+"\n")
 	// A pass row for every round a fixture's panel rows run in (0..2).
 	f.setFile(t, "passes.json", `[{"id":1,"round":0,"note":"roster: full"},{"id":2,"round":1,"note":"n"},{"id":3,"round":2,"note":"n"}]`+"\n")
-	// A fix-mutation row for the round fixing the fixture's round-0 findings.
-	f.setFile(t, "mutations.json", `[{"id":1,"round":1,"path":"a","mutated":"none","test":"doc-only"}]`+"\n")
 	// A recorded change summary: the bundle header signal six reads.
 	f.setFile(t, "bundle.json", "# Self-review context bundle for demo\n\nfound: 1 of 1 sources; skipped: 0 of 1 sources\n\n## change summary\n\nwhat changed\n")
 	f.setFindings(t)
@@ -1224,33 +1222,6 @@ func TestCheckUnfinishedWorkMergeOrderRecord(t *testing.T) {
 	}
 }
 
-// TestCheckUnfinishedWorkReportCount pins kan-1015's self-review: five panel
-// reports counted 13 Critical and Important findings the store never held,
-// and integrate read CLEAR. The gate now counts each report against the
-// store as check-panel-findings-closed does.
-func TestCheckUnfinishedWorkReportCount(t *testing.T) {
-	t.Parallel()
-	const reason = "panel-report-0-primary.md (report 2, recorded 0)"
-	for _, c := range []struct {
-		name, findings string
-		want           bool
-	}{
-		{"a report the store under-counts is OUTSTANDING", "[]", true},
-		{"a report the store holds is not refused", `[{"ref":"F1","status":"fixed","severity":"important","round":0,"slot":"primary"},{"ref":"F2","status":"fixed","severity":"important","round":0,"slot":"primary"}]`, false},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			f := newUW(t)
-			f.findings = []byte(c.findings)
-			writeFile(t, f.wt+"/.superpowers/sdd/panel-report-0-primary.md", "# primary\n\nCritical: 0\nImportant: 2\n")
-			r := f.run(t, f.wt, "demo")
-			if got := strings.Contains(r.out, reason); got != c.want || (c.want && !strings.HasPrefix(r.out, "OUTSTANDING:")) {
-				t.Fatalf("exit %d stdout %q stderr %q; want reason %q present=%v", r.rc, r.out, r.err, reason, c.want)
-			}
-		})
-	}
-}
-
 // TestUWVerifyFailuresSpecExcludesOpeningPunctuation pins kan-1023's
 // self-review: a Playwright location wrapped in `(`, `[`, a backtick or a
 // quote names the spec alone, so the citation the guard demands carries no
@@ -1270,49 +1241,6 @@ func TestUWVerifyFailuresSpecExcludesOpeningPunctuation(t *testing.T) {
 	if got := uwVerifyFailures(report); !slices.Equal(got, want) {
 		t.Fatalf("uwVerifyFailures = %+v, want %+v", got, want)
 	}
-}
-
-// TestUnfinishedWorkRefusesAFixedRoundWithNoMutationRow pins kan-1018's
-// self-review: a round holding a fixed Critical or Important finding needs a
-// fix-mutation row at that round or the next, a `none — <reason>` row
-// included; Minor-only rounds and withdrawn findings demand none.
-func TestUnfinishedWorkRefusesAFixedRoundWithNoMutationRow(t *testing.T) {
-	t.Parallel()
-	const want = "fixed Critical/Important finding(s) in round(s) 0 and no fix-mutation row for that fix round"
-	findings := `[{"ref":"F1","round":0,"status":"fixed","severity":"Important"},{"ref":"F2","round":0,"status":"fixed","severity":"Minor"},{"ref":"F3","round":1,"status":"withdrawn not real","severity":"Critical"}]`
-	for _, c := range []struct {
-		name, findings, mutations, want string
-	}{
-		{"fixed findings with no mutation row are OUTSTANDING", findings, "[]", want},
-		{"a none row for the fix round is CLEAR", findings, `[{"id":1,"round":1,"path":"a","mutated":"none","test":"doc-only"}]`, "CLEAR:"},
-		{"a row for the findings' own round is CLEAR", findings, `[{"id":1,"round":0,"path":"a","mutated":"none","test":"doc-only"}]`, "CLEAR:"},
-		{"a row two rounds later is OUTSTANDING", findings, `[{"id":1,"round":2,"path":"a","mutated":"none","test":"doc-only"}]`, want},
-		{"a round of fixed Minors is CLEAR", `[{"ref":"F1","round":0,"status":"fixed","severity":"Minor"}]`, "[]", "CLEAR:"},
-		{"a lowercase important is OUTSTANDING", `[{"ref":"F1","round":0,"status":"fixed","severity":"important"},{"ref":"F2","round":0,"status":"fixed","severity":"minor"}]`, "[]", want},
-		{"only withdrawn findings are CLEAR", `[{"ref":"F1","round":0,"status":"withdrawn not real"}]`, "[]", "CLEAR:"},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			f := newUW(t)
-			f.findings = []byte(c.findings)
-			f.setFile(t, "findings.json", c.findings+"\n")
-			f.setFile(t, "mutations.json", c.mutations+"\n")
-			r := f.run(t, f.wt, "demo")
-			if r.rc != 0 || !strings.Contains(r.out, c.want) {
-				t.Fatalf("exit %d stdout %q stderr %q, want exit 0 and %q", r.rc, r.out, r.err, c.want)
-			}
-		})
-	}
-	t.Run("an unreadable mutation store exits 2", func(t *testing.T) {
-		t.Parallel()
-		f := newUW(t)
-		f.findings = []byte(findings)
-		f.setFile(t, "findings.json", findings+"\n")
-		f.setFile(t, "mutations.fail", "")
-		if r := f.run(t, f.wt, "demo"); r.rc != 2 {
-			t.Fatalf("exit %d stdout %q, want exit 2", r.rc, r.out)
-		}
-	})
 }
 
 // uwVerifyCase runs signal seven on one code commit at 11:00 and one verify
@@ -1427,7 +1355,6 @@ func TestUnfinishedWorkIgnoresGatedRowsForFixRoundProof(t *testing.T) {
 			f := newUW(t)
 			f.findings = []byte(c.findings)
 			f.setFile(t, "findings.json", c.findings+"\n")
-			f.setFile(t, "mutations.json", "[]\n")
 			r := f.run(t, f.wt, "demo")
 			if r.rc != 0 || !strings.Contains(r.out, c.want) {
 				t.Fatalf("exit %d stdout %q stderr %q, want exit 0 and %q", r.rc, r.out, r.err, c.want)

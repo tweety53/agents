@@ -1,50 +1,21 @@
 package guard
 
 import (
-	"archive/zip"
-	"bytes"
-	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
-
-	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // The close-task fixture: the change "demo" on branch spectre/demo, pushed
-// to a real bare origin, with the real guards run in-process against real
+// to a real bare origin, with close-task run in-process against real
 // commits. Only `flow` is a stub; `git` on PATH is a wrapper that logs each
 // push into the same log as the stub, then execs the real git.
 
-var ctPlan = bt(`- [ ] 1. One
-
-**Files:** ¤a.txt¤
-**Tests:** none
-**Commit:** one
-**Build:** green
-
-- [ ] 2. Two
-
-**Files:** ¤b.txt¤
-**Tests:** none
-**Commit:** two
-**Build:** green
-
-- [ ] 3. Spanning
-
-**Files:** ¤c.txt¤, ¤d.txt¤
-**Tests:** none
-**Commit:** three
-**Build:** green
-`)
-
 type ctFx struct {
-	wt, peer, base, log, dispatches, state string
-	env                                    Env
-	origin                                 bool // the repositories carry an origin
+	wt, peer, base, log string
+	env                 Env
+	origin              bool // the repositories carry an origin
 }
 
 // ctRepo is a repository on spectre/demo with one base commit and a bare
@@ -62,22 +33,18 @@ func ctRepo(t *testing.T, dir string, origin bool) {
 	}
 }
 
-// ctFixture builds the canonical worktree (plan on disk, never committed),
-// names a peer repository withPeer builds, and the flow stub: tickRC and recordRC are the exit
-// codes of `flow tasks tick` and `flow record …`; `flow record dispatches`
-// prints fx.dispatches when a test wrote it, nothing otherwise; `flow state get` prints fx.state the
-// same way and is never logged.
-func ctFixture(t *testing.T, origin bool, tickRC, recordRC string) *ctFx {
+// ctFixture builds the canonical worktree, names a peer repository withPeer
+// builds, and the flow stub, whose `flow tasks tick` exits tickRC.
+func ctFixture(t *testing.T, origin bool, tickRC string) *ctFx {
 	t.Helper()
 	root := t.TempDir()
-	fx := &ctFx{wt: root + "/wt", peer: root + "/peer", log: root + "/calls.log", dispatches: root + "/dispatches.json", state: root + "/state.json", origin: origin}
+	fx := &ctFx{wt: root + "/wt", peer: root + "/peer", log: root + "/calls.log", origin: origin}
 	ctRepo(t, fx.wt, origin)
-	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", ctPlan)
 	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
 	bin := root + "/bin"
 	// Both stubs find root from their own path, so their bodies are shared
 	// across fixtures and each is assessed once (execFixtures).
-	writeExec(t, bin+"/flow", "#!/bin/sh\nr=${0%/bin/flow}\n[ \"$1 $2\" = \"state get\" ] && { cat \"$r/state.json\" 2>/dev/null; exit 0; }\necho \"flow $*\" >> \"$r/calls.log\"\ncase \"$1 $2\" in\n\"tasks tick\") exit "+tickRC+";;\n\"record dispatches\") cat \"$r/dispatches.json\" 2>/dev/null; exit "+recordRC+";;\nrecord*) exit "+recordRC+";;\nesac\n")
+	writeExec(t, bin+"/flow", "#!/bin/sh\necho \"flow $*\" >> \"${0%/bin/flow}/calls.log\"\nexit "+tickRC+"\n")
 	writeExec(t, bin+"/git", "#!/bin/sh\ncase \" $* \" in *\" push \"*) echo \"git $*\" >> \"${0%/bin/git}/calls.log\";; *) exec "+fixtureGit+" \"$@\";; esac\nexec "+fixtureGit+" \"$@\"\n")
 	fx.env = Env{Getenv: pathEnv(bin), Dir: fx.wt}
 	return fx
@@ -128,24 +95,18 @@ func ctEqual(t *testing.T, got, want []string) {
 	}
 }
 
-// Cost: 6.42 s — ten full close-task runs, each its five checks over real git
-// (about sixty git calls) and the push it ends in, one fixture each because
-// every case leaves a different tree; the runs are the operation proved.
-// smoke: core — a task's close, its five checks run in process
-func TestCloseTaskOrder(t *testing.T) {
+// smoke: core — a task's close: its commit checked, ticked and pushed
+func TestCloseTask(t *testing.T) {
 	t.Parallel()
 	t.Run("clean: every task ticked, one push", func(t *testing.T) {
 		t.Parallel()
-		fx := ctFixture(t, true, "0", "0")
+		fx := ctFixture(t, true, "0")
 		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
 		s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
-		r := fx.run("-end-key", "task-1-implementer", "-session-token", "mf-t", "-end-commit", s2,
-			fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2)
-		if r.rc != 0 {
+		if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2); r.rc != 0 {
 			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
 		}
 		ctEqual(t, fx.calls(t), []string{
-			"flow record dispatch end -change demo -C " + fx.wt + " -key task-1-implementer -session-token mf-t -commit " + s2 + " -outcome completed",
 			"flow tasks tick -C " + fx.wt + " demo 1",
 			"flow tasks tick -C " + fx.wt + " demo 2",
 			"git -C " + fx.wt + " push origin spectre/demo",
@@ -154,116 +115,64 @@ func TestCloseTaskOrder(t *testing.T) {
 			t.Errorf("origin spectre/demo at %s, want %s", got, s2)
 		}
 	})
-	t.Run("planning-paths refusal: exit 1, no tick, no push", func(t *testing.T) {
+	t.Run("a commit off HEAD or unknown: exit 1, no tick, no push", func(t *testing.T) {
 		t.Parallel()
-		fx := ctFixture(t, true, "0", "0")
-		fx.commit(t, fx.wt, "swept", "9", "spectre/changes/demo/notes.md", "n\n")
+		fx := ctFixture(t, true, "0")
 		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-		r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
-		if r.rc != 1 {
-			t.Fatalf("exit %d, want 1\n%s", r.rc, r.out)
+		gitRun(t, fx.wt, "reset", "-q", "--hard", fx.base)
+		for _, sha := range []string{s1, "0000000"} {
+			if r := fx.run(fx.wt, "demo", fx.base, "1:"+sha); r.rc != 1 || !strings.Contains(r.err, "RE-COMMIT") {
+				t.Fatalf("%s: exit %d, want 1 and RE-COMMIT\n%s", sha, r.rc, r.out)
+			}
 		}
 		ctEqual(t, fx.calls(t), nil)
 	})
-	t.Run("untasked unpushed commit: exit 1, no tick, no push", func(t *testing.T) {
+	t.Run("a bare task id resolves through its Task-Id trailer", func(t *testing.T) {
 		t.Parallel()
-		fx := ctFixture(t, true, "0", "0")
-		gitRun(t, fx.wt, "push", "-q", "-u", "origin", "spectre/demo")
-		writeFile(t, fx.wt+"/m.txt", "m\n")
-		gitRun(t, fx.wt, "add", "--", "m.txt")
-		gitRun(t, fx.wt, "commit", "-q", "-m", "fix(app): review Minors")
+		fx := ctFixture(t, true, "0")
 		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-		r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
-		if r.rc != 1 || !strings.Contains(r.stdout, "UNTASKED: 1 commit(s) sit outside every task") {
-			t.Fatalf("exit %d, want 1 and the UNTASKED verdict\n%s", r.rc, r.out)
+		fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
+		if r := fx.run(fx.wt, "demo", fx.base, "1"); r.rc != 0 {
+			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+		}
+		if got := tcfGit(t, fx.wt+".origin", "log", "--format=%H", "spectre/demo"); !strings.Contains(got, s1) {
+			t.Errorf("origin lacks task 1's commit %s", s1)
+		}
+	})
+	t.Run("a task argument without a commit is a usage error", func(t *testing.T) {
+		t.Parallel()
+		fx := ctFixture(t, true, "0")
+		for _, a := range []string{"1", "1:", ":abc"} { // "1": no commit carries Task-Id: 1
+			if r := fx.run(fx.wt, "demo", fx.base, a); r.rc != 2 {
+				t.Errorf("%q: exit %d, want 2\n%s", a, r.rc, r.out)
+			}
 		}
 		ctEqual(t, fx.calls(t), nil)
 	})
-	t.Run("a rebase onto a moved base: the base's commits are not judged", func(t *testing.T) {
-		t.Parallel()
-		fx := ctFixture(t, true, "0", "0")
-		gitRun(t, fx.wt, "push", "-q", "-u", "origin", "spectre/demo")
-		writeFile(t, fx.wt+"/m.txt", "m\n")
-		gitRun(t, fx.wt, "add", "--", "m.txt")
-		gitRun(t, fx.wt, "commit", "-q", "-m", "fix(build): someone else's work")
-		gitRun(t, fx.wt, "push", "-q", "origin", "HEAD:refs/heads/main")
-		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-		if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.rc != 0 {
-			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
-		}
-	})
-	t.Run("a Flow-Key unpushed commit pushes", func(t *testing.T) {
-		t.Parallel()
-		fx := ctFixture(t, true, "0", "0")
-		gitRun(t, fx.wt, "push", "-q", "-u", "origin", "spectre/demo")
-		writeFile(t, fx.wt+"/m.txt", "m\n")
-		gitRun(t, fx.wt, "add", "--", "m.txt")
-		gitRun(t, fx.wt, "commit", "-q", "-m", "fix(app): review Minors", "-m", "Flow-Key: panel-fix-1")
-		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-		if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.rc != 0 {
-			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
-		}
-	})
-}
-
-func TestCloseTaskExitContract(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	cases := []struct {
-		name             string
-		origin           bool
-		tickRC, recordRC string
-		args             func(fx *ctFx, s1 string) []string
-		rc               int
-		calls            func(fx *ctFx) []string
+	for _, c := range []struct {
+		name   string
+		origin bool
+		tickRC string
 	}{
-		{"fields could not judge", true, "0", "0",
-			func(fx *ctFx, s1 string) []string { return []string{fx.wt, "demo", fx.base, "1:0000000"} },
-			2, func(*ctFx) []string { return nil }},
-		{"planning-paths could not judge", true, "0", "0",
-			func(fx *ctFx, s1 string) []string { return []string{fx.wt, "demo", "no-such-base", "1:" + s1} },
-			2, func(*ctFx) []string { return nil }},
-		{"failed tick", true, "1", "0",
-			func(fx *ctFx, s1 string) []string { return []string{fx.wt, "demo", fx.base, "1:" + s1} },
-			2, func(fx *ctFx) []string {
-				return []string{"flow tasks tick -C " + fx.wt + " demo 1", "git -C " + fx.wt + " push origin spectre/demo"}
-			}},
-		{"failed push", false, "0", "0",
-			func(fx *ctFx, s1 string) []string { return []string{fx.wt, "demo", fx.base, "1:" + s1} },
-			2, func(fx *ctFx) []string {
-				return []string{"flow tasks tick -C " + fx.wt + " demo 1", "git -C " + fx.wt + " push origin spectre/demo"}
-			}},
-		{"a failed record never blocks", true, "0", "1",
-			func(fx *ctFx, s1 string) []string {
-				return []string{"-end-key", "k", "-session-token", "mf-t", fx.wt, "demo", fx.base, "1:" + s1}
-			},
-			3, func(fx *ctFx) []string {
-				return []string{"flow record dispatch end -change demo -C " + fx.wt + " -key k -session-token mf-t -outcome completed",
-					"flow tasks tick -C " + fx.wt + " demo 1", "git -C " + fx.wt + " push origin spectre/demo"}
-			}},
-		{"task argument with an empty sha", true, "0", "0",
-			func(fx *ctFx, s1 string) []string { return []string{fx.wt, "demo", fx.base, "1:"} },
-			2, func(*ctFx) []string { return nil }},
-	}
-	for _, c := range cases {
+		{"a failed tick is exit 2, the push still runs", true, "1"},
+		{"a failed push is exit 2", false, "0"},
+	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			fx := ctFixture(t, c.origin, c.tickRC, c.recordRC)
+			fx := ctFixture(t, c.origin, c.tickRC)
 			s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-			r := fx.run(c.args(fx, s1)...)
-			if r.rc != c.rc {
-				t.Fatalf("exit %d, want %d\n%s", r.rc, c.rc, r.out)
+			if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.rc != 2 {
+				t.Fatalf("exit %d, want 2\n%s", r.rc, r.out)
 			}
-			ctEqual(t, fx.calls(t), c.calls(fx))
+			ctEqual(t, fx.calls(t), []string{"flow tasks tick -C " + fx.wt + " demo 1", "git -C " + fx.wt + " push origin spectre/demo"})
 		})
 	}
 	t.Run("map form: one push per distinct worktree", func(t *testing.T) {
 		t.Parallel()
-		fx := ctFixture(t, true, "0", "0").withPeer(t)
+		fx := ctFixture(t, true, "0").withPeer(t)
 		s3 := fx.commit(t, fx.wt, "three", "3", "c.txt", "c\n")
 		p3 := fx.commit(t, fx.peer, "three", "3", "d.txt", "d\n")
-		r := fx.run(fx.wt, "demo", fx.base, "3:"+fx.wt+"="+s3+","+fx.peer+"="+p3)
-		if r.rc != 0 {
+		if r := fx.run(fx.wt, "demo", fx.base, "3:"+fx.wt+"="+s3+","+fx.peer+"="+p3); r.rc != 0 {
 			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
 		}
 		ctEqual(t, fx.calls(t), []string{
@@ -274,745 +183,5 @@ func TestCloseTaskExitContract(t *testing.T) {
 		if got := tcfGit(t, filepath.Clean(fx.peer+".origin"), "rev-parse", "spectre/demo"); got != p3 {
 			t.Errorf("peer origin at %s, want %s", got, p3)
 		}
-	})
-}
-
-// The Task-Id trailer, not the sha close-task is handed, is how a task's
-// commit is found again, so a commit without one naming the task — or the
-// green partner a red task folds into — is refused before any tick or push.
-func TestCloseTaskTaskIdTrailer(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	fold := ctPlan + bt(`
-- [ ] 4. Red half
-
-**Files:** ¤e.txt¤
-**Tests:** none
-**Commit:** four
-**Build:** red
-
-**Squash-with:** Task 5
-
-- [ ] 5. Green half
-
-**Files:** ¤f.txt¤
-**Tests:** none
-**Commit:** five
-**Build:** green
-`)
-	cases := []struct {
-		name, task, trailer, subject string
-		files                        []string
-		rc                           int
-		untrailered                  bool // a second repository's commit of the task with no trailer, passed as a commit map
-	}{
-		{name: "trailer names the task", task: "1", trailer: "Task-Id: 1", subject: "one", files: []string{"a.txt", "a\n"}, rc: 0},
-		{name: "no trailer", task: "1", subject: "one", files: []string{"a.txt", "a\n"}, rc: 1},
-		{name: "trailer names another task", task: "1", trailer: "Task-Id: 2", subject: "one", files: []string{"a.txt", "a\n"}, rc: 1},
-		{name: "red task closed on its partner's commit", task: "4", trailer: "Task-Id: 5", subject: "five", files: []string{"e.txt", "e\n", "f.txt", "f\n"}, rc: 0},
-		{name: "trailer names several tasks", task: "1", trailer: "Task-Id: 1+2", subject: "one", files: []string{"a.txt", "a\n"}, rc: 0},
-		{name: "commit map pair without a trailer", task: "1", trailer: "Task-Id: 1", subject: "one", files: []string{"a.txt", "a\n"}, rc: 1, untrailered: true},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			fx := ctFixture(t, true, "0", "0")
-			writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", fold)
-			var paths []string
-			for i := 0; i < len(c.files); i += 2 {
-				writeFile(t, fx.wt+"/"+c.files[i], c.files[i+1])
-				paths = append(paths, c.files[i])
-			}
-			gitRun(t, fx.wt, append([]string{"add", "--"}, paths...)...)
-			msg := []string{"commit", "-q", "-m", c.subject}
-			if c.trailer != "" {
-				msg = append(msg, "-m", c.trailer)
-			}
-			gitRun(t, fx.wt, msg...)
-			sha := tcfGit(t, fx.wt, "rev-parse", "HEAD")
-			commit := sha
-			if c.untrailered {
-				wt2 := t.TempDir() + "/wt2"
-				gitRun(t, fx.wt, "worktree", "add", "-q", "-b", "other", wt2, fx.base)
-				writeFile(t, wt2+"/"+c.files[0], "again\n")
-				gitRun(t, wt2, "add", "--", c.files[0])
-				gitRun(t, wt2, "commit", "-q", "-m", c.subject)
-				commit = fx.wt + "=" + sha + "," + wt2 + "=" + tcfGit(t, wt2, "rev-parse", "HEAD")
-			}
-			r := fx.run(fx.wt, "demo", fx.base, c.task+":"+commit)
-			if r.rc != c.rc {
-				t.Fatalf("exit %d, want %d\n%s", r.rc, c.rc, r.out)
-			}
-			if c.rc == 1 && (len(fx.calls(t)) != 0 || !strings.Contains(r.stdout, "carries no Task-Id: trailer naming task "+c.task)) {
-				t.Errorf("want a trailer refusal and no tick or push\n%s\ncalls: %v", r.out, fx.calls(t))
-			}
-		})
-	}
-}
-
-// Signal four at close time: closing an appended task no dispatch row names
-// is refused, exit 1, nothing ticked or pushed (kan-982 self-review); a
-// plan-time task never reads the store at all.
-func TestCloseTaskRefusesAnUndispatchedAppendedTask(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	for _, c := range []struct {
-		name, rows string
-		warn       bool
-	}{
-		{"an appended task no row names is refused", `[{"key":"task-1-implementer","taskId":""}]`, true},
-		{"an appended task its key names is silent", `[{"key":"task-2-implementer","taskId":"","commitSha":"abc"}]`, false},
-		{"an appended task its taskId names is silent", `[{"key":"impl","taskId":"2","commitSha":"abc"}]`, false},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			fx := ctFixture(t, true, "0", "0")
-			writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", "> **Tasks appended:** 2\n\n"+ctPlan)
-			writeFile(t, fx.dispatches, c.rows)
-			s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
-			r := fx.run(fx.wt, "demo", fx.base, "2:"+s2)
-			const want = "close-task: appended task 2 has no dispatch row naming it"
-			if got := strings.Contains(r.err, want); got != c.warn {
-				t.Errorf("refusal present %v, want %v\n%s", got, c.warn, r.out)
-			}
-			if c.warn {
-				if r.rc != 1 || !strings.Contains(r.err, "close-task: RECORD —") {
-					t.Fatalf("exit %d, want 1 and the RECORD line\n%s", r.rc, r.out)
-				}
-				ctEqual(t, fx.calls(t), []string{"flow record dispatches -change demo -C " + fx.wt})
-				return
-			}
-			if r.rc != 0 {
-				t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
-			}
-			ctEqual(t, fx.calls(t), []string{
-				"flow record dispatches -change demo -C " + fx.wt,
-				"flow tasks tick -C " + fx.wt + " demo 2",
-				"git -C " + fx.wt + " push origin spectre/demo",
-			})
-		})
-	}
-}
-
-// TestCloseTaskExpandsAnAbbreviatedEndCommit pins that an abbreviated
-// -end-commit reaches `flow record dispatch end` as the full sha, which is
-// all the store accepts.
-func TestCloseTaskExpandsAnAbbreviatedEndCommit(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	fx := ctFixture(t, true, "0", "0")
-	s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-	r := fx.run("-end-key", "task-1-implementer", "-session-token", "mf-t", "-end-commit", s1[:8],
-		fx.wt, "demo", fx.base, "1:"+s1)
-	if r.rc != 0 {
-		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
-	}
-	want := "flow record dispatch end -change demo -C " + fx.wt + " -key task-1-implementer -session-token mf-t -commit " + s1 + " -outcome completed"
-	if calls := fx.calls(t); len(calls) == 0 || calls[0] != want {
-		t.Errorf("first call = %q, want %q", calls, want)
-	}
-}
-
-func TestCloseTaskSurfacesAFailedDispatchEnd(t *testing.T) {
-	t.Parallel()
-	fx := ctFixture(t, true, "0", "1")
-	s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-	r := runGuard("close-task", []string{"-end-key", "k", "-session-token", "mf-t", fx.wt, "demo", fx.base, "1:" + s1}, fx.env)
-	if r.rc != 3 {
-		t.Fatalf("exit %d, want 3\n%s", r.rc, r.out)
-	}
-	calls := strings.Join(fx.calls(t), "\n")
-	if !strings.Contains(calls, "flow tasks tick -C "+fx.wt+" demo 1") || !strings.Contains(calls, "git -C "+fx.wt+" push origin spectre/demo") {
-		t.Fatalf("tick or push missing:\n%s", calls)
-	}
-	lines := strings.Split(strings.TrimRight(r.err, "\n"), "\n")
-	last := lines[len(lines)-1]
-	if !strings.HasPrefix(last, "close-task: UNRECORDED — the dispatch end for k did not reach the store; run: flow record dispatch end -change demo -C ") || !strings.HasSuffix(last, "-outcome completed") {
-		t.Fatalf("last stderr line %q", last)
-	}
-}
-
-// kan-1058 self-review, R4: several failed ends print their UNRECORDED lines
-// last, in key order.
-func TestCloseTaskPrintsUnrecordedLinesInKeyOrder(t *testing.T) {
-	t.Parallel()
-	fx := ctFixture(t, true, "0", "1")
-	s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-	r := runGuard("close-task", []string{"-session-token", "mf-t", "-end-key", "k1", "-end-key", "k2", fx.wt, "demo", fx.base, "1:" + s1}, fx.env)
-	if r.rc != 3 {
-		t.Fatalf("exit %d, want 3\n%s", r.rc, r.out)
-	}
-	lines := strings.Split(strings.TrimRight(r.err, "\n"), "\n")
-	if len(lines) < 2 {
-		t.Fatalf("stderr %q", r.err)
-	}
-	for i, key := range []string{"k1", "k2"} {
-		if want := "close-task: UNRECORDED — the dispatch end for " + key + " "; !strings.HasPrefix(lines[len(lines)-2+i], want) {
-			t.Errorf("stderr line %d from the end = %q, want prefix %q", 2-i, lines[len(lines)-2+i], want)
-		}
-	}
-}
-
-// kan-1008's self-review: a recorded worktree the commit map leaves out
-// joins the verdict through its newest commit carrying the task's trailer,
-// so its commit is judged with the task's; a worktree with no such commit
-// adds nothing.
-func TestCloseTaskJoinsARecordedWorktreeTheMapLeftOut(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	for _, c := range []struct {
-		name, peerTask string
-	}{
-		{"a peer commit of the task joins", "1"},
-		{"a peer commit of another task adds nothing", "2"},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			fx := ctFixture(t, true, "0", "0").withPeer(t)
-			gitRun(t, fx.peer, "branch", "main")
-			writeFile(t, fx.state, `{"worktrees":{"`+fx.wt+`":"`+fx.base+`","`+fx.peer+`":"-"}}`)
-			fx.commit(t, fx.peer, "one", c.peerTask, "z.txt", "p\n")
-			s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-			r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
-			if r.rc != 0 {
-				t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
-			}
-			joined := strings.Contains(r.err, "close-task: task 1: joined "+fx.peer+"=")
-			if joined != (c.peerTask == "1") {
-				t.Errorf("joined line present = %v, want %v\n%s", joined, c.peerTask == "1", r.out)
-			}
-		})
-	}
-}
-
-// A task commit carrying a full-app-suite.zip the rebuild script did not
-// build is refused, and the committed bytes are left on disk; the script's
-// own zip closes (design.md suite-zip-at-close-task).
-func TestCloseTaskRefusesAHandBuiltSuiteZip(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	if _, err := exec.LookPath("zip"); err != nil {
-		t.Skip("zip is not on PATH")
-	}
-	fx := ctFixture(t, true, "0", "0")
-	base := fx.env.Getenv
-	fx.env.Getenv = func(k string) string {
-		switch k {
-		case "FLOW_GUARD_CACHE_DIR":
-			return guardCache(t)
-		}
-		return base(k)
-	}
-	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `screenshots` | `shots` |\n")
-	writeFile(t, fx.wt+"/shots/full-app-suite.spec.ts-snapshots/a.png", "a")
-	gitRun(t, fx.wt, "add", "-f", ".flow", "shots")
-	gitRun(t, fx.wt, "commit", "-q", "-m", "shots")
-	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	plan := strings.Replace(ctPlan, "**Files:** `a.txt`", "**Files:** `a.txt`, `shots/full-app-suite.zip`", 1)
-	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", plan)
-	zipPath := fx.wt + "/shots/full-app-suite.zip"
-
-	// Hand-built with archive/zip.
-	var buf bytes.Buffer
-	zw := zip.NewWriter(&buf)
-	w, _ := zw.Create("a.png")
-	w.Write([]byte("a"))
-	zw.Close()
-	writeFile(t, fx.wt+"/a.txt", "a\n")
-	if err := os.WriteFile(zipPath, buf.Bytes(), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	gitRun(t, fx.wt, "add", "-f", "a.txt", "shots/full-app-suite.zip")
-	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
-	s1 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	r := fx.run(fx.wt, "demo", fx.base, "1:"+s1)
-	if r.rc != 1 || !strings.Contains(r.out, "close-task: task 1: shots/full-app-suite.zip is not flow-guard rebuild-full-app-suite-zip's output") {
-		t.Fatalf("hand-built zip: exit %d, want 1\n%s", r.rc, r.out)
-	}
-	if got, _ := os.ReadFile(zipPath); !bytes.Equal(got, buf.Bytes()) {
-		t.Errorf("the committed zip's bytes were not written back")
-	}
-
-	// The script's own zip closes.
-	gitRun(t, fx.wt, "reset", "-q", "--hard", fx.base)
-	if rc := Registry["rebuild-full-app-suite-zip"]([]string{fx.wt, fx.wt + "/shots"}, fx.env, io.Discard, os.Stderr); rc != 0 {
-		t.Fatalf("rebuild exit %d", rc)
-	}
-	writeFile(t, fx.wt+"/a.txt", "a\n")
-	gitRun(t, fx.wt, "add", "-f", "a.txt", "shots/full-app-suite.zip")
-	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
-	s1 = tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.rc != 0 {
-		t.Fatalf("script-built zip: exit %d, want 0\n%s", r.rc, r.out)
-	}
-}
-
-// The zip lives in the regression checkout, a second repository whose own
-// tree has no .flow/project.md: the rebuild reads the canonical worktree's
-// config, which names that checkout (kan-1016's self-review, C1).
-func TestCloseTaskRebuildsASuiteZipInTheRegressionCheckout(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	if _, err := exec.LookPath("zip"); err != nil {
-		t.Skip("zip is not on PATH")
-	}
-	fx := ctFixture(t, true, "0", "0").withPeer(t)
-	// The resolver answers with git's real paths; the temp dir sits under a symlink on macOS.
-	var err error
-	if fx.peer, err = filepath.EvalSymlinks(fx.peer); err != nil {
-		t.Fatal(err)
-	}
-	base := fx.env.Getenv
-	fx.env.Getenv = func(k string) string {
-		switch k {
-		case "FLOW_GUARD_CACHE_DIR":
-			return guardCache(t)
-		}
-		return base(k)
-	}
-	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `screenshots` | `shots` |\n| `regression checkout` | `"+fx.peer+"` |\n")
-	gitRun(t, fx.wt, "add", "-f", ".flow")
-	gitRun(t, fx.wt, "commit", "-q", "-m", "config")
-	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	writeFile(t, fx.peer+"/shots/full-app-suite.spec.ts-snapshots/a.png", "a")
-	if rc := Registry["rebuild-full-app-suite-zip"]([]string{fx.wt, fx.peer + "/shots"}, fx.env, io.Discard, os.Stderr); rc != 0 {
-		t.Fatalf("rebuild exit %d", rc)
-	}
-	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", strings.Replace(ctPlan, "**Files:** `c.txt`, `d.txt`", "**Files:** `c.txt`, `shots/full-app-suite.zip`, `shots/full-app-suite.spec.ts-snapshots/a.png`", 1))
-	s3 := fx.commit(t, fx.wt, "three", "3", "c.txt", "c\n")
-	gitRun(t, fx.peer, "add", "-f", "shots")
-	gitRun(t, fx.peer, "commit", "-q", "-m", "three", "-m", "Task-Id: 3")
-	p3 := tcfGit(t, fx.peer, "rev-parse", "HEAD")
-	if r := fx.run(fx.wt, "demo", fx.base, "3:"+fx.wt+"="+s3+","+fx.peer+"="+p3); r.rc != 0 {
-		t.Fatalf("script-built zip in the regression checkout: exit %d, want 0\n%s", r.rc, r.out)
-	}
-}
-
-// A zip deleted by the task commit is not judged (kan-1016's self-review, M1).
-func TestCloseTaskSuiteZipAgainstTheTaskCommit(t *testing.T) {
-	t.Parallel()
-	fx := ctFixture(t, true, "0", "0")
-	writeFile(t, fx.wt+"/shots/full-app-suite.zip", "z")
-	gitRun(t, fx.wt, "add", "-f", "shots")
-	gitRun(t, fx.wt, "commit", "-q", "-m", "zip")
-	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", strings.Replace(ctPlan, "**Files:** `a.txt`", "**Files:** `a.txt`, `shots/full-app-suite.zip`", 1))
-	writeFile(t, fx.wt+"/a.txt", "a\n")
-	gitRun(t, fx.wt, "rm", "-q", "shots/full-app-suite.zip")
-	gitRun(t, fx.wt, "add", "-f", "a.txt")
-	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
-	s1 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.rc != 0 {
-		t.Fatalf("deleted zip: exit %d, want 0\n%s", r.rc, r.out)
-	}
-}
-
-// A close whose later commit re-records the screenshots and rebuilds the zip
-// judges that later commit's zip alone: the earlier one's screenshots root is
-// no longer the worktree's (kan-1051: tasks 6 and 7, exit 2 before). The
-// close's last zip is still judged, so a hand-built one is refused
-// (kan-1016's self-review).
-func TestCloseTaskJudgesTheLastSuiteZipOfAClose(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	if _, err := exec.LookPath("zip"); err != nil {
-		t.Skip("zip is not on PATH")
-	}
-	fx := ctFixture(t, true, "0", "0")
-	base := fx.env.Getenv
-	fx.env.Getenv = func(k string) string {
-		switch k {
-		case "FLOW_GUARD_CACHE_DIR":
-			return guardCache(t)
-		}
-		return base(k)
-	}
-	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `screenshots` | `shots` |\n")
-	writeFile(t, fx.wt+"/shots/full-app-suite.spec.ts-snapshots/a.png", "a")
-	gitRun(t, fx.wt, "add", "-f", ".flow", "shots")
-	gitRun(t, fx.wt, "commit", "-q", "-m", "shots")
-	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	plan := strings.Replace(ctPlan, "**Files:** `a.txt`", "**Files:** `a.txt`, `shots/full-app-suite.zip`", 1)
-	plan = strings.Replace(plan, "**Files:** `b.txt`", "**Files:** `b.txt`, `shots/full-app-suite.zip`, `shots/full-app-suite.spec.ts-snapshots/a.png`\n**After:** Task 1", 1)
-	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", plan)
-	rebuild := func() {
-		t.Helper()
-		if rc := Registry["rebuild-full-app-suite-zip"]([]string{fx.wt, fx.wt + "/shots"}, fx.env, io.Discard, os.Stderr); rc != 0 {
-			t.Fatalf("rebuild exit %d", rc)
-		}
-	}
-	// Task 1 writes a script-built zip; task 2 re-records a.png and rebuilds it.
-	rebuild()
-	writeFile(t, fx.wt+"/a.txt", "a\n")
-	gitRun(t, fx.wt, "add", "-f", "a.txt", "shots/full-app-suite.zip")
-	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
-	s1 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	writeFile(t, fx.wt+"/shots/full-app-suite.spec.ts-snapshots/a.png", "b")
-	rebuild()
-	writeFile(t, fx.wt+"/b.txt", "b\n")
-	gitRun(t, fx.wt, "add", "-f", "b.txt", "shots")
-	gitRun(t, fx.wt, "commit", "-q", "-m", "two", "-m", "Task-Id: 2")
-	s2 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2); r.rc != 0 {
-		t.Fatalf("superseded script-built zip: exit %d, want 0\n%s", r.rc, r.out)
-	}
-
-	// The close's last zip is still judged: a hand-built one is refused.
-	gitRun(t, fx.wt, "reset", "-q", "--hard", s1)
-	writeFile(t, fx.wt+"/shots/full-app-suite.spec.ts-snapshots/a.png", "b")
-	writeFile(t, fx.wt+"/shots/full-app-suite.zip", "hand-built")
-	writeFile(t, fx.wt+"/b.txt", "b\n")
-	gitRun(t, fx.wt, "add", "-f", "b.txt", "shots")
-	gitRun(t, fx.wt, "commit", "-q", "-m", "two", "-m", "Task-Id: 2")
-	s2 = tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2); r.rc != 1 || !strings.Contains(r.out, "close-task: task 2: shots/full-app-suite.zip is not flow-guard rebuild-full-app-suite-zip's output") {
-		t.Fatalf("hand-built last zip: exit %d, want 1\n%s", r.rc, r.out)
-	}
-}
-
-// scripts/close-task.sh is close-task's only caller, and it runs the zip
-// rebuild in-process, whose resolve-visual-screenshots runs in the same
-// binary (kan-1024 Task 14: unable to reach it, close-task stopped on exit 2
-// for every committed zip).
-func TestCloseTaskShimRebuildsTheZip(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	if _, err := exec.LookPath("zip"); err != nil {
-		t.Skip("zip is not on PATH")
-	}
-	fx := ctFixture(t, true, "0", "0")
-	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `screenshots` | `shots` |\n")
-	writeFile(t, fx.wt+"/shots/full-app-suite.spec.ts-snapshots/a.png", "a")
-	gitRun(t, fx.wt, "add", "-f", ".flow", "shots")
-	gitRun(t, fx.wt, "commit", "-q", "-m", "shots")
-	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", strings.Replace(ctPlan, "**Files:** `a.txt`", "**Files:** `a.txt`, `shots/full-app-suite.zip`", 1))
-	writeFile(t, fx.wt+"/a.txt", "a\n")
-	writeFile(t, fx.wt+"/shots/full-app-suite.zip", "hand-built")
-	gitRun(t, fx.wt, "add", "-f", "a.txt", "shots/full-app-suite.zip")
-	gitRun(t, fx.wt, "commit", "-q", "-m", "one", "-m", "Task-Id: 1")
-	s1 := tcfGit(t, fx.wt, "rev-parse", "HEAD")
-	cmd := exec.Command(guardShim(t, "close-task"), fx.wt, "demo", fx.base, "1:"+s1)
-	cmd.Dir = fx.wt
-	cmd.Env = []string{"PATH=" + fx.env.Getenv("PATH"), "HOME=" + os.Getenv("HOME"), "FLOW_GUARD_TELEMETRY=off", "FLOW_GUARD_CACHE_DIR=" + guardCache(t)}
-	out, err := cmd.CombinedOutput()
-	if code := exitCode(err); code != 1 || !strings.Contains(string(out), "is not flow-guard rebuild-full-app-suite-zip's output") {
-		t.Fatalf("close-task.sh on a hand-built zip: exit %d, want 1 (the rebuild ran and differed)\n%s", code, out)
-	}
-}
-
-// TestCloseTaskEnforcesAffectedSpecs pins close-task's affected-specs check:
-// an in-run fix task closes only once flow-guard recapture has run the specs
-// its commit maps to -- the screen its file belongs to, never every spec --
-// on the sources the commit holds.
-func TestCloseTaskEnforcesAffectedSpecs(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	fx := ctFixture(t, true, "0", "0")
-	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", bt(ctPlan+"\n- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** ¤e.txt¤\n**Tests:** none\n**Commit:** four\n**Opener:** ¤visual-verify¤\n**Build:** green\n"))
-	writeFile(t, fx.dispatches, `[{"key":"verify-fix-1","taskId":"4","commitSha":"abc"}]`)
-	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `*.txt` |\n")
-	for spec, source := range map[string]string{"shots/day.spec.js": "e.txt", "shots/rooms.spec.js": "z.txt"} {
-		writeFile(t, fx.wt+"/"+spec, "test('x', () => {})\n")
-		writeFile(t, fx.wt+"/"+spec+".sources", source+"\n")
-	}
-	recapture := func(want int) {
-		t.Helper()
-		if r := runGuard("recapture", []string{fx.wt + "/spectre/changes/demo/tasks.md:4", fx.wt, fx.wt + "=HEAD", "echo <spec> >> " + fx.wt + "/.git/ran"}, fx.env); r.rc != want {
-			t.Fatalf("recapture: exit %d, want %d\n%s", r.rc, want, r.out)
-		}
-	}
-	// A capture of an earlier draft of the file does not cover the commit.
-	writeFile(t, fx.wt+"/e.txt", "draft\n")
-	recapture(0)
-	sha := fx.commit(t, fx.wt, "four", "4", "e.txt", "x\n")
-	r := fx.run(fx.wt, "demo", fx.base, "4:"+sha)
-	if r.rc != 1 || !strings.Contains(r.err, "no passing capture run covers commit "+sha) || !strings.Contains(r.err, "shots/day.spec.js") || strings.Contains(r.err, "rooms.spec.js") {
-		t.Fatalf("a stale capture: exit %d, want 1 naming day.spec.js alone\n%s\n%s", r.rc, r.out, r.err)
-	}
-	for _, call := range fx.calls(t) {
-		if strings.HasPrefix(call, "flow tasks tick") {
-			t.Errorf("ticked after a refusal: %s", call)
-		}
-	}
-	// The same sources, captured: the receipt covers the commit.
-	gitRun(t, fx.wt, "reset", "-q", "--soft", "HEAD^")
-	recapture(0)
-	sha = fx.commit(t, fx.wt, "four", "4", "e.txt", "x\n")
-	r = fx.run(fx.wt, "demo", fx.base, "4:"+sha)
-	if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 4: affected specs — shots/day.spec.js\n") {
-		t.Fatalf("a covering capture: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
-	}
-	// Both specs are untracked here, so each run's working-tree diff holds them too.
-	if ran, _ := os.ReadFile(fx.wt + "/.git/ran"); string(ran) != strings.Repeat("shots/day.spec.js shots/rooms.spec.js --retries=1\n", 2) {
-		t.Errorf("recapture ran %q, want one run of the affected specs per call", ran)
-	}
-}
-
-// TestCloseTaskRefusesAnUnmeasuredDeparture pins the kan-1099 fix (its in-run
-// fix tasks 53, 55 and 57-59 were handed back with no measure run, and each
-// left a departure the next verifier found): an in-run fix task opened by a
-// visual-verify report closes only once `flow-guard visual-verify-pass
-// measure` has measured, under `implementer-<k>`, every affected spec that
-// carries a `.mockups` sidecar.
-func TestCloseTaskRefusesAnUnmeasuredDeparture(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	fx := ctFixture(t, true, "0", "0")
-	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", bt(ctPlan+"\n- [ ] 4. In-run fix 3 — visual-verify: x\n\n**Files:** ¤e.txt¤\n**Tests:** none\n**Commit:** four\n**Opener:** ¤visual-verify¤\n**Build:** green\n"))
-	writeFile(t, fx.dispatches, `[{"key":"verify-fix-3","taskId":"4","commitSha":"abc"}]`)
-	writeFile(t, fx.wt+"/.flow/project.md", "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `*.txt` |\n")
-	for _, spec := range []string{"shots/day.spec.js", "shots/night.spec.js"} {
-		writeFile(t, fx.wt+"/"+spec, "test('x', () => {})\n")
-		writeFile(t, fx.wt+"/"+spec+".sources", "e.txt\n")
-	}
-	writeFile(t, fx.wt+"/shots/day.spec.js.mockups", "day 1:2\n")
-	writeFile(t, fx.wt+"/e.txt", "x\n")
-	if r := runGuard("recapture", []string{fx.wt + "/spectre/changes/demo/tasks.md:4", fx.wt, fx.wt + "=HEAD", "true <spec>"}, fx.env); r.rc != 0 {
-		t.Fatalf("recapture: exit %d\n%s", r.rc, r.out)
-	}
-	sha := fx.commit(t, fx.wt, "four", "4", "e.txt", "x\n")
-	manifest := func(key, spec string) {
-		writeFile(t, fx.wt+"/.superpowers/sdd/visual-manifest-"+key+".json", `{"pairs":[{"spec":"`+fx.wt+"/"+spec+`","frame":"day"}]}`)
-	}
-	// Another round's measure, and a measure of another spec, cover nothing.
-	manifest("implementer-2", "shots/day.spec.js")
-	manifest("implementer-3", "shots/night.spec.js")
-	r := fx.run(fx.wt, "demo", fx.base, "4:"+sha)
-	if want := "visual-verify-pass measure " + fx.wt + " demo implementer-3 shots/day.spec.js`"; r.rc != 1 || !strings.Contains(r.err, "no measure of shots/day.spec.js ran under implementer-3") || !strings.Contains(r.err, want) || strings.Contains(r.err, "night.spec.js") {
-		t.Fatalf("an unmeasured departure: exit %d, want 1 naming day.spec.js alone and %q\n%s\n%s", r.rc, want, r.out, r.err)
-	}
-	for _, call := range fx.calls(t) {
-		if strings.HasPrefix(call, "flow tasks tick") {
-			t.Errorf("ticked after a refusal: %s", call)
-		}
-	}
-	manifest("implementer-3", "shots/day.spec.js")
-	if r := fx.run(fx.wt, "demo", fx.base, "4:"+sha); r.rc != 0 {
-		t.Fatalf("a measured departure: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
-	}
-}
-
-// TestCloseTaskVerifiesAPlannedUITaskAgainstItsMockup pins the per-task
-// visual close (kan-1091: every departure surfaced in the stage after verify):
-// a planned task whose commit reaches a spec carrying a `.mockups` sidecar
-// closes only once that spec is recaptured on the commit's sources and
-// measured under `task-<id>`; a spec with no mockup holds nothing.
-func TestCloseTaskVerifiesAPlannedUITaskAgainstItsMockup(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	fx := ctFixture(t, true, "0", "0")
-	for _, spec := range []string{"shots/day.spec.js", "shots/night.spec.js"} {
-		writeFile(t, fx.wt+"/"+spec, "test('x', () => {})\n")
-		writeFile(t, fx.wt+"/"+spec+".sources", "a.txt\n")
-	}
-	writeFile(t, fx.wt+"/shots/day.spec.js.mockups", "day 1:2\n")
-	sha := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-	r := fx.run(fx.wt, "demo", fx.base, "1:"+sha)
-	if r.rc != 1 || !strings.Contains(r.err, "no passing capture run covers commit "+sha) || !strings.Contains(r.err, "shots/day.spec.js") || strings.Contains(r.err, "night.spec.js") {
-		t.Fatalf("an uncaptured mocked-up view: exit %d, want 1 naming day.spec.js alone\n%s\n%s", r.rc, r.out, r.err)
-	}
-	if r := runGuard("recapture", []string{fx.wt + "/spectre/changes/demo/tasks.md:1", fx.wt, fx.wt + "=HEAD^", "true <spec>"}, fx.env); r.rc != 0 {
-		t.Fatalf("recapture: exit %d\n%s", r.rc, r.out)
-	}
-	r = fx.run(fx.wt, "demo", fx.base, "1:"+sha)
-	if want := "visual-verify-pass measure " + fx.wt + " demo task-1 shots/day.spec.js`"; r.rc != 1 || !strings.Contains(r.err, "no measure of shots/day.spec.js ran under task-1") || !strings.Contains(r.err, want) {
-		t.Fatalf("an unmeasured mocked-up view: exit %d, want 1 and %q\n%s\n%s", r.rc, want, r.out, r.err)
-	}
-	for _, call := range fx.calls(t) {
-		if strings.HasPrefix(call, "flow tasks tick") {
-			t.Errorf("ticked after a refusal: %s", call)
-		}
-	}
-	writeFile(t, fx.wt+"/.superpowers/sdd/visual-manifest-task-1.json", `{"pairs":[{"spec":"`+fx.wt+`/shots/day.spec.js","frame":"day"}]}`)
-	r = fx.run(fx.wt, "demo", fx.base, "1:"+sha)
-	if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 1: affected specs — shots/day.spec.js\n") {
-		t.Fatalf("a captured, measured view: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
-	}
-}
-
-// TestCloseTaskTakesAMeasureThatPairedNothing pins the pipeline-fix-82 fix
-// (kan-1132 task 15 was refused after every measure): a measure that ran over
-// a spec whose sidecar finds no frame in this worktree pairs nothing, yet
-// counts; and the refusal names the spec as measure takes it, from the
-// worktree root, never as affected-specs prints it from its app's root.
-func TestCloseTaskTakesAMeasureThatPairedNothing(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	fx := ctFixture(t, true, "0", "0")
-	writeFile(t, fx.wt+"/web/package.json", "{}\n")
-	writeFile(t, fx.wt+"/web/shots/day.spec.js", "test('x', () => {})\n")
-	writeFile(t, fx.wt+"/web/shots/day.spec.js.sources", "a.txt\n")
-	writeFile(t, fx.wt+"/web/shots/day.spec.js.mockups", "day 1:2\n")
-	sha := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-	if r := runGuard("recapture", []string{fx.wt + "/spectre/changes/demo/tasks.md:1", fx.wt, fx.wt + "=HEAD^", "true <spec>"}, fx.env); r.rc != 0 {
-		t.Fatalf("recapture: exit %d\n%s", r.rc, r.out)
-	}
-	r := fx.run(fx.wt, "demo", fx.base, "1:"+sha)
-	if want := "visual-verify-pass measure " + fx.wt + " demo task-1 web/shots/day.spec.js`"; r.rc != 1 || !strings.Contains(r.err, want) {
-		t.Fatalf("an unmeasured view: exit %d, want 1 and %q\n%s\n%s", r.rc, want, r.out, r.err)
-	}
-	writeFile(t, fx.wt+"/.superpowers/sdd/visual-manifest-task-1.json", `{"specs":["`+fx.wt+`/web/shots/day.spec.js"],"pairs":null}`)
-	if r := fx.run(fx.wt, "demo", fx.base, "1:"+sha); r.rc != 0 {
-		t.Fatalf("a measure that paired nothing: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
-	}
-}
-
-// TestCloseTaskTakesTheTaskSet pins the kan-1091 fix: an in-run fix task
-// touching only a fixture every spec renders closes on a capture run of the
-// spec its Tests name, never of every spec, and a run red on one spec is
-// covered by the re-run of its failing test alone.
-func TestCloseTaskTakesTheTaskSet(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	fx := ctFixture(t, true, "0", "0")
-	tasks := fx.wt + "/spectre/changes/demo/tasks.md"
-	writeFile(t, tasks, bt(ctPlan+"\n- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** ¤e.txt¤\n**Tests:** none\n**Regression:** shots/rooms.spec.js and e2e/shots/week.spec.js render the fixture\n**Commit:** four\n**Opener:** ¤visual-verify¤\n**Build:** green\n"))
-	writeFile(t, fx.dispatches, `[{"key":"verify-fix-1","taskId":"4","commitSha":"abc"}]`)
-	var setup []string
-	for p, body := range map[string]string{
-		".flow/project.md":  "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `*.txt` |\n",
-		"shots/all.sources": "e.txt\n",
-		"shots/day.spec.js": "test('x', () => {})\n", "shots/day.spec.js.sources": "d.txt\n",
-		"shots/rooms.spec.js": "test('x', () => {})\n", "shots/rooms.spec.js.sources": "r.txt\n",
-		"shots/week.spec.js": "test('x', () => {})\n", "shots/week.spec.js.sources": "w.txt\n",
-	} {
-		setup = append(setup, p, body)
-	}
-	roundBase := fx.commit(t, fx.wt, "specs", "0", setup...)
-	ran := fx.wt + "/.git/ran"
-	recapture := func(command string, want int) {
-		t.Helper()
-		if r := runGuard("recapture", []string{tasks + ":4", fx.wt, fx.wt + "=" + roundBase, command}, fx.env); r.rc != want {
-			t.Fatalf("recapture: exit %d, want %d\n%s", r.rc, want, r.out)
-		}
-	}
-	writeFile(t, fx.wt+"/e.txt", "x\n")
-	recapture("printf '  1 failed\\n    [chromium] › shots/week.spec.js:3:1 › x\\n'; echo <spec> >> "+ran+"; exit 1", 1)
-	sha := fx.commit(t, fx.wt, "four", "4", "e.txt", "x\n")
-	r := fx.run(fx.wt, "demo", fx.base, "4:"+sha)
-	if r.rc != 1 || !strings.Contains(r.err, "no passing capture run covers commit "+sha) {
-		t.Fatalf("a run red on one spec: exit %d, want 1\n%s\n%s", r.rc, r.out, r.err)
-	}
-	recapture("echo <spec> >> "+ran, 0)
-	r = fx.run(fx.wt, "demo", fx.base, "4:"+sha)
-	if r.rc != 0 || !strings.Contains(r.stdout, "close-task: task 4: affected specs — shots/rooms.spec.js shots/week.spec.js\n") {
-		t.Fatalf("the failing spec re-run green: exit %d, want 0\n%s\n%s", r.rc, r.out, r.err)
-	}
-	const want = "shots/rooms.spec.js shots/week.spec.js --retries=1\nshots/week.spec.js:3 --retries=1\n"
-	if got, _ := os.ReadFile(ran); string(got) != want {
-		t.Errorf("recapture ran %q, want %q", got, want)
-	}
-}
-
-// TestCloseTaskRefusesAnAppendedTaskRowWithNoCommit pins the kan-1059
-// self-review fix, 5a: an appended task none of whose naming rows carries a
-// commit is refused, exit 1, nothing ticked, naming the row and the repair;
-// one naming row with a commit closes it, and a non-appended task is never
-// judged.
-func TestCloseTaskRefusesAnAppendedTaskRowWithNoCommit(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	for _, c := range []struct {
-		name, header, rows string
-		refused            bool
-	}{
-		{"an appended task whose row carries no commit is refused", "> **Tasks appended:** 2\n\n", `[{"id":8623,"key":"task-2-implementer","taskId":""}]`, true},
-		{"an appended task with one row carrying a commit closes", "> **Tasks appended:** 2\n\n", `[{"id":8623,"key":"task-2-implementer","taskId":""},{"id":8624,"key":"task-2-implementer-retry","taskId":"2","commitSha":"abc"}]`, false},
-		{"a non-appended task with a commit-less row closes", "", `[{"id":8623,"key":"task-2-implementer","taskId":""}]`, false},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			fx := ctFixture(t, true, "0", "0")
-			writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", c.header+ctPlan)
-			writeFile(t, fx.dispatches, c.rows)
-			s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
-			r := fx.run(fx.wt, "demo", fx.base, "2:"+s2)
-			if !c.refused {
-				if r.rc != 0 {
-					t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
-				}
-				return
-			}
-			if r.rc != 1 || !strings.Contains(r.err, "dispatch row 8623 carries no commit") || !strings.Contains(r.err, "flow record dispatch retime -change demo -id 8623") {
-				t.Fatalf("exit %d, want 1 naming row 8623 and flow record dispatch retime\n%s", r.rc, r.out)
-			}
-			ctEqual(t, fx.calls(t), []string{"flow record dispatches -change demo -C " + fx.wt})
-		})
-	}
-}
-
-// kan-1058 self-review, F1: one close-task call closing a group carries one
-// -end-key/-end-commit pair per member, and every pair reaches the store in
-// order — a single-value flag kept only the last.
-func TestCloseTaskClosesEveryEndKeyPair(t *testing.T) {
-	t.Parallel()
-	fx := ctFixture(t, true, "0", "0")
-	s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-	s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
-	r := fx.run("-session-token", "mf-t", "-end-key", "task-1-implementer", "-end-commit", s1,
-		"-end-key", "task-2-implementer", "-end-commit", s2, fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2)
-	if r.rc != 0 {
-		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
-	}
-	calls := fx.calls(t)
-	want := []string{
-		"flow record dispatch end -change demo -C " + fx.wt + " -key task-1-implementer -session-token mf-t -commit " + s1 + " -outcome completed",
-		"flow record dispatch end -change demo -C " + fx.wt + " -key task-2-implementer -session-token mf-t -commit " + s2 + " -outcome completed",
-	}
-	if len(calls) < 2 {
-		t.Fatalf("calls %q, want the two dispatch ends first", calls)
-	}
-	ctEqual(t, calls[:2], want)
-}
-
-// An -end-commit count that is neither 0 nor the -end-key count cannot be
-// paired by position: a usage error, nothing recorded.
-func TestCloseTaskRefusesUnpairedEndCommits(t *testing.T) {
-	t.Parallel()
-	fx := ctFixture(t, true, "0", "0")
-	s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-	s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
-	r := fx.run("-session-token", "mf-t", "-end-key", "task-1-implementer", "-end-commit", s1,
-		"-end-key", "task-2-implementer", fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2)
-	if r.rc != 2 || !strings.Contains(r.err, "close-task:") || !strings.Contains(r.err, "usage:") {
-		t.Fatalf("exit %d, want 2 and close-task usage on stderr\n%s", r.rc, r.out)
-	}
-	ctEqual(t, fx.calls(t), nil)
-}
-
-// kan-1058 self-review, F8: a bare <task-id> resolves to the newest commit
-// since the merge base whose Task-Id: trailer names it; a bare id no commit
-// names is a usage error naming the task.
-func TestCloseTaskResolvesABareTaskID(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	t.Run("the newest trailer commit is judged and ticked", func(t *testing.T) {
-		t.Parallel()
-		fx := ctFixture(t, true, "0", "0")
-		// The older commit touches an undeclared path the fields guard
-		// refuses, so judging it instead of the newest fails the test.
-		fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n", "e.txt", "e\n")
-		fx.commit(t, fx.wt, "one", "1", "a.txt", "a2\n")
-		r := fx.run(fx.wt, "demo", fx.base, "1")
-		if r.rc != 0 {
-			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
-		}
-		if !slices.Contains(fx.calls(t), "flow tasks tick -C "+fx.wt+" demo 1") {
-			t.Errorf("no tick of task 1:\n%s", strings.Join(fx.calls(t), "\n"))
-		}
-		if strings.Contains(r.out, "RE-COMMIT") || strings.Contains(r.out, "STOP") {
-			t.Errorf("a refusal:\n%s", r.out)
-		}
-	})
-	t.Run("a bare id no commit names is a usage error", func(t *testing.T) {
-		t.Parallel()
-		fx := ctFixture(t, true, "0", "0")
-		fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-		r := fx.run(fx.wt, "demo", fx.base, "9")
-		if r.rc != 2 || !strings.Contains(r.err, "task 9") {
-			t.Fatalf("exit %d, want 2 and stderr naming task 9\n%s", r.rc, r.out)
-		}
-		ctEqual(t, fx.calls(t), nil)
 	})
 }

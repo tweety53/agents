@@ -164,7 +164,7 @@ check "nested_link: commit exits 0" '[ "$RC" -eq 0 ]'
 check "nested_link: b's implementation commit carries the nested link.md" \
   '[ "$(git -C "$WORK/b-worktrees/demo" log --format=%s --diff-filter=A -1 -- spectre/changes/archive/y/link.md)" = "feat(b): nest a link" ]'`},
 		{"archive_deletion", `# --- archive_deletion ---
-# commit-split plans only the change's own folders, so an archive deletion is
+# commitTwo plans only the change's own folders, so an archive deletion is
 # implementation and needs a subject (kan-1072 self-review, F1).
 fixture
 mkdir -p "$WORK/b/spectre/changes/archive/old"
@@ -176,7 +176,7 @@ sut prepare "$WORK/a" demo
 check "archive_deletion: prepare's NEXT asks a subject for b" \
   '[ "$RC" -eq 0 ] && printf "%s" "$OUT" | tail -1 | grep -qF "$WORK/b-worktrees/demo=<impl subject>"'`},
 		{"fix_folder_deletion", `# --- fix_folder_deletion ---
-# commit-split excludes only the fix folders on disk, so deleting one is
+# commitTwo excludes only the fix folders on disk, so deleting one is
 # implementation and needs a subject (kan-1072 self-review, M1).
 fixture
 mkdir -p "$WORK/b/spectre/changes/demo-fix-1"
@@ -239,7 +239,7 @@ sut prepare "$WORK/a" demo
 printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work"
 check "pre_reshape_pin: commit with no subject for b stops after the reshape" \
-  'printf "%s" "$OUT" | grep -q "^STOP: commit-split" && [ "$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)" = "$(git -C "$WORK/b" rev-parse main)" ]'
+  'printf "%s" "$OUT" | grep -q "^STOP: commit-two" && [ "$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)" = "$(git -C "$WORK/b" rev-parse main)" ]'
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
 check "pre_reshape_pin: the re-run commit exits 0" '[ "$RC" -eq 0 ]'
 check "pre_reshape_pin: each pin is the pre-reshape HEAD, not the reshaped one" \

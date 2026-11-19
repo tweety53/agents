@@ -39,3 +39,6 @@ func projectSection(file, key string) string {
 	}
 	return strings.TrimRight(strings.Join(body, "\n"), "\n")
 }
+
+// gdcSpace is awk's and tr's [:space:] less the newline lines never carry.
+const gdcSpace = " 	"

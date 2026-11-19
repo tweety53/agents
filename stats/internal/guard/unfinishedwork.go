@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -553,45 +552,6 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "open-findings")
 		reasons = append(reasons, strconv.Itoa(open)+" open finding(s) in the review panel record")
 	}
-	rounds, cause := uwUnprovedFixRounds(env, name, anchor, findingsJSON)
-	if cause != "" {
-		fmt.Fprintln(stderr, uwPrefix+cause)
-		Reason(env, "fix-rounds-unreadable")
-		return 2
-	}
-	if len(rounds) > 0 {
-		Reason(env, "unproved-fix-rounds")
-		reasons = append(reasons, "fixed Critical/Important finding(s) in round(s) "+uwJoinRounds(rounds)+" and no fix-mutation row for that fix round — record each fix's fix-mutation: line, or one `-mutated none -test <reason>` row for a fix that changed nothing executable (skills/flow/review-panel-fix-round.md) before landing")
-	}
-	// Signal two's report half (kan-1015): a slot's report counting more
-	// Critical and Important findings than the store holds is a finding that
-	// never reached the store -- check-panel-findings-closed's count, read
-	// once, by the worktree holding the plan.
-	if anchor == worktree {
-		rows, ok := cfcParse(findingsJSON)
-		if !ok {
-			fmt.Fprintln(stderr, uwPrefix+"jq failed — cannot determine anything")
-			Reason(env, "jq-failed")
-			return 2
-		}
-		uncounted, undercounted, err := cfcUncounted(anchor, rows)
-		if err != nil {
-			fmt.Fprintf(stderr, "%s%v\n", uwPrefix, err)
-			Reason(env, "cannot-count-findings")
-			return 2
-		}
-		if len(uncounted) > 0 {
-			Reason(env, "uncounted-findings")
-			reasons = append(reasons, strconv.Itoa(len(uncounted))+" panel report(s) count findings the store does not hold ("+strings.Join(uncounted, " ")+") — record each with `flow record finding -change "+name+" -C "+anchor+"` before landing")
-		}
-		// The store-side direction (kan-1096 self-review, F3): store rows no
-		// report counts mean a report was lost.
-		if len(undercounted) > 0 {
-			Reason(env, "undercounted-findings")
-			reasons = append(reasons, strconv.Itoa(len(undercounted))+" slot(s) whose store rows outnumber their reports ("+strings.Join(undercounted, " ")+") — restore or write each missing panel report before landing")
-		}
-	}
-
 	// Signal three — dispatch rows never closed with an outcome (kan-929: a
 	// `dispatch end` run without -C in a second repo's worktree journalled
 	// against the wrong project, another dropped -outcome, a third was
@@ -1092,7 +1052,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 						Reason(env, "cannot-read-the-commits")
 						return 2
 					}
-					for _, id := range ctTaskNumberRE.FindAllString(out, -1) {
+					for _, id := range uwTaskNumberRE.FindAllString(out, -1) {
 						committed[id] = true
 					}
 				}
@@ -1482,57 +1442,5 @@ func uwVerifyFailures(report string) []uwVerifyFailure {
 	return out
 }
 
-// uwUnprovedFixRounds is the rounds, sorted, holding a fixed Critical or
-// Important finding no fix-mutation row proves. A fixed Critical or
-// Important finding is proved by its fix round's fix-mutation: rows
-// (skills/flow/review-panel-fix-round.md; a `none — <reason>` row counts,
-// and a fix round that changed nothing executable still records one). A
-// Minor-only round is exempt (review-panel.md). The store holds round N's
-// rows under N or N+1, so either satisfies round N; a withdrawn finding
-// needs none. cause is non-empty when the findings or the mutation rows
-// cannot be read: the message, without its guard's prefix. Shared by
-// check-unfinished-work and check-panel-findings-closed. A gated reviewer's
-// row (records.GatedReviewerSlot) records no fix-mutation row and is skipped.
-func uwUnprovedFixRounds(env Env, name, anchor string, findingsJSON []byte) (rounds []int, cause string) {
-	var fixedRows []struct {
-		Round    int    `json:"round"`
-		Status   string `json:"status"`
-		Severity string `json:"severity"`
-		Slot     string `json:"slot"`
-	}
-	if json.Unmarshal(findingsJSON, &fixedRows) != nil {
-		return nil, "jq failed — cannot determine anything"
-	}
-	fixedRounds := map[int]bool{}
-	for _, r := range fixedRows {
-		if sev := strings.ToLower(r.Severity); r.Slot != records.GatedReviewerSlot && r.Status == "fixed" && (sev == "critical" || sev == "important") {
-			fixedRounds[r.Round] = true
-		}
-	}
-	if len(fixedRounds) == 0 {
-		return nil, ""
-	}
-	mutOut, mutErr, mutRC := pcFlow(env, false, "record", "mutations", "-change", name, "-C", anchor)
-	if mutRC != 0 {
-		return nil, fmt.Sprintf("cannot read fix-mutation rows for '%s' from the store — cannot determine anything: %s", name, strings.TrimRight(string(mutErr), "\n"))
-	}
-	var muts []struct {
-		Round int `json:"round"`
-	}
-	if json.Unmarshal(mutOut, &muts) != nil || muts == nil {
-		return nil, fmt.Sprintf("fix-mutation rows for '%s' are not one JSON array — cannot determine anything", name)
-	}
-	for _, m := range muts {
-		delete(fixedRounds, m.Round)
-		delete(fixedRounds, m.Round-1)
-	}
-	return slices.Sorted(maps.Keys(fixedRounds)), ""
-}
-
-func uwJoinRounds(rounds []int) string {
-	var nums []string
-	for _, n := range rounds {
-		nums = append(nums, strconv.Itoa(n))
-	}
-	return strings.Join(nums, ", ")
-}
+// uwTaskNumberRE finds the task numbers a Task-Id: trailer names.
+var uwTaskNumberRE = regexp.MustCompile(`[0-9]+`)

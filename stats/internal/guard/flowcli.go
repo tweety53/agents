@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 )
 
 // pcFlow runs the flow CLI from env's PATH in env.Dir: stdout (with stderr
@@ -91,3 +92,8 @@ const (
 	pcNotFound  = "flow: command not found"
 	pcNotFoundC = 127
 )
+
+// pcIsString reports whether raw is a JSON string.
+func pcIsString(raw json.RawMessage) bool {
+	return strings.HasPrefix(strings.TrimSpace(string(raw)), `"`)
+}

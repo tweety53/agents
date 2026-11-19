@@ -74,7 +74,6 @@ var selfJudging = map[string]bool{
 	"check-spec-reach":          true,
 	"check-uitest-overrides":    true,
 	"check-python-suppressions": true,
-	"plan-dispatch-bundles":     true,
 }
 
 // CwdCheckout is the KAN-902 re-exec: for a self-judging guard called from

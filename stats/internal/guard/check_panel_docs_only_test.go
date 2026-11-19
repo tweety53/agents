@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -284,4 +285,14 @@ func TestCheckPanelDocsOnly(t *testing.T) {
 			tc.fn(t)
 		})
 	}
+}
+
+// cpctRecorder writes <dir>/git: it appends its argv, one line per call, to
+// <dir>/calls, then runs the real git.
+func cpctRecorder(t *testing.T, dir string) {
+	t.Helper()
+	writeExec(t, dir+"/git", fmt.Sprintf(`#!/usr/bin/env bash
+printf '%%s\n' "$*" >> "${0%%/*}/calls"
+exec %q "$@"
+`, fixtureGit))
 }

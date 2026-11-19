@@ -53,11 +53,9 @@ about one change, not about the state of the repository's text. A lint step that
 a bare tree would fail on every unrelated invocation, so
 the omission is a decision, not an oversight. They are covered instead by their harnesses under
 `## test`.
-`flow-guard check-panel-diff-size`, `flow-guard plan-dispatch-bundles`, `flow-guard check-panel-reproducers`,
-`flow-guard check-panel-reproducer-exit-contract` and
-`flow-guard run-reproducer` are excluded for the same reason: they are `/flow` implementation helpers that
-likewise need a change in flight and a worktree passed in, so they are covered by their own
-harnesses under `## test` instead.
+`flow-guard run-reproducer` is excluded for the same reason: it is a `/flow` implementation helper that
+likewise needs a change in flight and a worktree passed in, so it is covered by its own
+harness under `## test` instead.
 
 The list is cited by count nowhere in this file, deliberately: a
 written count went stale the first time a guard was added to it, and the same sentence would go
