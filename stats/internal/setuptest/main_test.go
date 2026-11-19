@@ -59,6 +59,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -168,6 +169,9 @@ func runMain(m *testing.M) int {
 		return die("%v", err)
 	}
 	fixtureBefore := treeFingerprint(fixture)
+	if err := buildGuardCache(); err != nil {
+		return die("%v", err)
+	}
 
 	fmt.Printf("setup.sh regression harness\n  repo    : %s\n  sandbox : %s\n", repoRoot, sandbox)
 	code := m.Run()
@@ -179,6 +183,25 @@ func runMain(m *testing.M) int {
 }
 
 // fpCheck is one close-out comparison: a fingerprint taken before the tests, and how to retake it.
+// buildGuardCache builds flow-guard once into the sandbox and points every child at it
+// through FLOW_GUARD_CACHE_DIR. setup.sh resolves {{lint-commands}} through
+// `scripts/flow-guard project-get`; with HOME a fresh sandbox and no shared cache, each such
+// run built flow-guard cold, Go caches included (~15s a run), and a shim run outside a
+// sandbox HOME wrote into the operator's own cache. Every fixture keys to this one binary:
+// each links stats/ to the real tree, and the key hashes only the sources.
+func buildGuardCache() error {
+	cache := filepath.Join(sandbox, "flow-guard-cache")
+	if err := os.Setenv("FLOW_GUARD_CACHE_DIR", cache); err != nil {
+		return err
+	}
+	// spec-root's verdict is not read: the call is for the build the bootstrap does first.
+	out, _ := exec.Command(filepath.Join(repoRoot, "scripts", "flow-guard"), "spec-root").CombinedOutput()
+	if bins, _ := filepath.Glob(filepath.Join(cache, "*", "flow-guard")); len(bins) == 0 {
+		return fmt.Errorf("building flow-guard into %s left no binary:\n%s", cache, out)
+	}
+	return nil
+}
+
 type fpCheck struct {
 	desc, before string
 	now          func() string

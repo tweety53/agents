@@ -17,6 +17,7 @@ func TestBlockUnsafeCommandsRecognisesFlowGuardSpelling(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	defer f.flush()
 	main := root + "/main"
 	f.vars["MAIN"], f.vars["SIB"] = main, root+"/main-worktrees/sib"
 	f.git("init", "-q", "--bare", root+"/origin.git")

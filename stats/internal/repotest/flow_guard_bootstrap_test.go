@@ -104,15 +104,18 @@ func appendFile(t *testing.T, path, line string) {
 	}
 }
 
-// copyBootstrap puts this repository's scripts/flow-guard at <root>/scripts/flow-guard.
+// copyBootstrap puts this repository's scripts/flow-guard at <root>/scripts/flow-guard:
+// a hard link to the package's one copy (pkgDir), already run, so no fixture
+// pays macOS's first-exec check of a newly written script.
 func copyBootstrap(t *testing.T, root string) string {
 	t.Helper()
-	b, err := os.ReadFile(filepath.Join(repoRoot(t), "scripts", "flow-guard"))
-	if err != nil {
+	p := filepath.Join(root, "scripts", "flow-guard")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	p := filepath.Join(root, "scripts", "flow-guard")
-	writeFile(t, p, string(b), 0o755)
+	if err := os.Link(filepath.Join(pkgDir, "scripts", "flow-guard"), p); err != nil {
+		t.Fatal(err)
+	}
 	return p
 }
 
@@ -192,6 +195,20 @@ func cachedBinaries(t *testing.T, cache string) []string {
 	return bins
 }
 
+// fakeGoBuild is a `go` body whose `build -o <out>` links <out> to /usr/bin/true
+// instead of compiling: for the cases whose subject is the bootstrap's key,
+// cache and failure handling, not what go builds. Cases 4, 11b and 12 and
+// TestFlowGuardBootstrapRepoRootAndCodes keep the real build.
+const fakeGoBuild = "while [ $# -gt 0 ]; do [ \"$1\" = -o ] && ln -s /usr/bin/true \"$2\"; shift; done\n"
+
+// fakeGoPath is path behind a directory whose `go` runs body.
+func fakeGoPath(t *testing.T, path, body string) string {
+	t.Helper()
+	dir := t.TempDir()
+	writeStub(t, filepath.Join(dir, "go"), body)
+	return dir + ":" + path
+}
+
 func goBinary(t *testing.T) string {
 	t.Helper()
 	p, err := exec.LookPath("go")
@@ -208,11 +225,17 @@ func TestFlowGuardBootstrap(t *testing.T) {
 	goBin := goBinary(t)
 	path := os.Getenv("PATH")
 
-	// Cases 1–3 and 14 share one copy of the real sources and one cache:
-	// case 1 builds it, the rest answer from it with no go on PATH.
+	// Cases 1–3 and 14 share one copy of the real sources and the package's
+	// guard cache, which TestMain built from the same sources through the same
+	// bootstrap, so the copy keys to its binary; they answer from it, with no
+	// go on PATH from case 2 on.
 	realTree := copyRealSources(t)
 	realBoot := filepath.Join(realTree, "scripts", "flow-guard")
-	realEnv := bootstrapEnv(t.TempDir())
+	cache, err := sharedGuardCache()
+	if err != nil {
+		t.Fatal(err)
+	}
+	realEnv := bootstrapEnv(cache)
 
 	t.Run("case 1: a flow-guard on PATH is ignored; the checkout-built guard answers", func(t *testing.T) {
 		stale := t.TempDir()
@@ -276,7 +299,7 @@ func TestFlowGuardBootstrap(t *testing.T) {
 		t.Parallel()
 		fix := newBootstrapFixture(t, "v5")
 		cache := t.TempDir()
-		env := withPath(bootstrapEnv(cache), path)
+		env := withPath(bootstrapEnv(cache), fakeGoPath(t, path, fakeGoBuild))
 		k0 := keyAfter(t, fix, env, cache)
 		appendFile(t, filepath.Join(fix, "stats/internal/guard/guard_test.go"), "// edit\n")
 		k1 := keyAfter(t, fix, env, cache)
@@ -292,7 +315,7 @@ func TestFlowGuardBootstrap(t *testing.T) {
 		t.Parallel()
 		fix := newBootstrapFixture(t, "v5b")
 		cache := t.TempDir()
-		env := withPath(bootstrapEnv(cache), path)
+		env := withPath(bootstrapEnv(cache), fakeGoPath(t, path, fakeGoBuild))
 		want := len(keyAfter(t, fix, env, cache))
 		for _, pkg := range []string{"records", "modelpolicy"} {
 			dir := filepath.Join(fix, "stats/internal", pkg)
@@ -343,7 +366,7 @@ func TestFlowGuardBootstrap(t *testing.T) {
 		t.Parallel()
 		fix := newBootstrapFixture(t, "v9")
 		xdg := t.TempDir()
-		r := runBootstrap(t, fix, withPath(bootstrapEnv("", "XDG_CACHE_HOME="+xdg), path), filepath.Join(fix, "scripts", "flow-guard"), "check-x")
+		r := runBootstrap(t, fix, withPath(bootstrapEnv("", "XDG_CACHE_HOME="+xdg), fakeGoPath(t, path, fakeGoBuild)), filepath.Join(fix, "scripts", "flow-guard"), "check-x")
 		if bins := cachedBinaries(t, filepath.Join(xdg, "flow-guard")); r.rc != 0 || len(bins) != 1 {
 			t.Fatalf("rc=%d out=%s bins=%v", r.rc, r.out(), bins)
 		}
@@ -362,11 +385,9 @@ func TestFlowGuardBootstrap(t *testing.T) {
 	t.Run("case 11: sources edited mid-build exit the cannot-answer code and cache nothing", func(t *testing.T) {
 		t.Parallel()
 		fix := newBootstrapFixture(t, "v11")
-		wrap := t.TempDir()
-		writeFile(t, filepath.Join(wrap, "go"), fmt.Sprintf("#!/bin/sh\nprintf '// edited mid-build\\n' >> '%s'\nexec '%s' \"$@\"\n",
-			filepath.Join(fix, "stats/cmd/flow-guard/main.go"), goBin), 0o755)
+		goPath := fakeGoPath(t, path, fmt.Sprintf("printf '// edited mid-build\\n' >> '%s'\n", filepath.Join(fix, "stats/cmd/flow-guard/main.go"))+fakeGoBuild)
 		cache := t.TempDir()
-		r := runBootstrap(t, fix, withPath(bootstrapEnv(cache), wrap+":"+path), filepath.Join(fix, "scripts", "flow-guard"), "run-reproducer")
+		r := runBootstrap(t, fix, withPath(bootstrapEnv(cache), goPath), filepath.Join(fix, "scripts", "flow-guard"), "run-reproducer")
 		if r.rc != 4 || !strings.Contains(r.out(), "changed during its build") || len(cachedBinaries(t, cache)) != 0 {
 			t.Fatalf("rc=%d out=%s", r.rc, r.out())
 		}
@@ -376,8 +397,8 @@ func TestFlowGuardBootstrap(t *testing.T) {
 		fix := newBootstrapFixture(t, "v11b")
 		wrap := t.TempDir()
 		once := filepath.Join(wrap, "edited")
-		writeFile(t, filepath.Join(wrap, "go"), fmt.Sprintf("#!/bin/sh\n[ -e '%s' ] || { : > '%s'; printf '// edited mid-build\\n' >> '%s'; }\nexec '%s' \"$@\"\n",
-			once, once, filepath.Join(fix, "stats/cmd/flow-guard/main.go"), goBin), 0o755)
+		writeStub(t, filepath.Join(wrap, "go"), fmt.Sprintf("[ -e '%s' ] || { : > '%s'; printf '// edited mid-build\\n' >> '%s'; }\nexec '%s' \"$@\"\n",
+			once, once, filepath.Join(fix, "stats/cmd/flow-guard/main.go"), goBin))
 		cache := t.TempDir()
 		r := runBootstrap(t, fix, withPath(bootstrapEnv(cache), wrap+":"+path), filepath.Join(fix, "scripts", "flow-guard"), "check-x")
 		if r.rc != 0 || !strings.Contains(r.out(), "v11b check-x") || len(cachedBinaries(t, cache)) != 1 {
@@ -405,10 +426,9 @@ func TestFlowGuardBootstrap(t *testing.T) {
 	t.Run("case 13: a failed rename exits the cannot-answer code naming the install", func(t *testing.T) {
 		t.Parallel()
 		fix := newBootstrapFixture(t, "v13")
-		wrap := t.TempDir()
-		writeFile(t, filepath.Join(wrap, "go"), fmt.Sprintf("#!/bin/sh\n'%s' \"$@\" || exit $?\nwhile [ $# -gt 0 ]; do [ \"$1\" = -o ] && chmod 555 \"$(dirname \"$2\")\"; shift; done\n", goBin), 0o755)
+		goPath := fakeGoPath(t, path, "while [ $# -gt 0 ]; do [ \"$1\" = -o ] && ln -s /usr/bin/true \"$2\" && chmod 555 \"$(dirname \"$2\")\"; shift; done\n")
 		cache := t.TempDir()
-		r := runBootstrap(t, fix, withPath(bootstrapEnv(cache), wrap+":"+path), filepath.Join(fix, "scripts", "flow-guard"), "run-reproducer")
+		r := runBootstrap(t, fix, withPath(bootstrapEnv(cache), goPath), filepath.Join(fix, "scripts", "flow-guard"), "run-reproducer")
 		for _, k := range cacheKeys(t, cache) {
 			_ = os.Chmod(filepath.Join(cache, k), 0o755)
 		}

@@ -41,11 +41,9 @@ func newLoopStub(t *testing.T, rc string) loopStub {
 		t.Fatal(err)
 	}
 	s := loopStub{dir: dir, check: dir + "/check", log: dir + "/args", cwdFile: dir + "/cwd"}
-	body := "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" >\"" + s.log + "\"\npwd -P >\"" + s.cwdFile +
+	body := "printf '%s\\n' \"$@\" >\"" + s.log + "\"\npwd -P >\"" + s.cwdFile +
 		"\"\necho \"stub output\"\nexit " + rc + "\n"
-	if err := os.WriteFile(s.check, []byte(body), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	writeStub(t, s.check, body)
 	return s
 }
 

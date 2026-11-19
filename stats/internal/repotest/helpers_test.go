@@ -38,18 +38,22 @@ func goCacheEnv() []string {
 // guardCacheDir is the directory sharedGuardCache made, "" until then.
 var guardCacheDir string
 
+// pkgDir holds the package run's shared executables: the stub trampoline
+// writeStub links to and the bootstrap copy copyBootstrap links to. macOS
+// checks every newly written executable on its first exec (0.2-0.5s, and
+// serialized across parallel tests), so each test linking one already-run
+// file instead of writing its own is what keeps the hook tests cheap.
+var pkgDir string
+
 // sharedGuardCache makes one temp directory and builds flow-guard into it
 // once per package run, as internal/guard's guardCacheBuilt does.
 var sharedGuardCache = sync.OnceValues(func() (string, error) {
-	dir, err := os.MkdirTemp("", "repotest-flow-guard-")
-	if err != nil {
+	dir := filepath.Join(pkgDir, "guard-cache")
+	if err := os.Mkdir(dir, 0o755); err != nil {
 		return "", err
 	}
 	guardCacheDir = dir
-	boot, err := filepath.Abs("../../../scripts/flow-guard")
-	if err != nil {
-		return "", err
-	}
+	boot := filepath.Join(pkgDir, "scripts", "flow-guard")
 	// The bootstrap builds under its key, then execs the binary;
 	// spec-root's verdict is not read.
 	cmd := exec.Command(boot, "spec-root")
@@ -65,18 +69,71 @@ var sharedGuardCache = sync.OnceValues(func() (string, error) {
 // build is not charged to whichever hook test calls runHook first (kan-1124,
 // slowest-threshold).
 func TestMain(m *testing.M) {
-	if _, err := sharedGuardCache(); err != nil {
+	code, err := runMain(m)
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		if guardCacheDir != "" {
-			_ = os.RemoveAll(guardCacheDir)
-		}
-		os.Exit(2)
 	}
-	code := m.Run()
-	if guardCacheDir != "" {
-		_ = os.RemoveAll(guardCacheDir)
+	if pkgDir != "" {
+		_ = os.RemoveAll(pkgDir)
 	}
 	os.Exit(code)
+}
+
+func runMain(m *testing.M) (int, error) {
+	var err error
+	if pkgDir, err = os.MkdirTemp("", "repotest-"); err != nil {
+		return 2, err
+	}
+	// The bootstrap copy is what every fixture links; it resolves its checkout
+	// from its own path, so it is a copy beside a link to the real stats/.
+	boot, err := os.ReadFile("../../../scripts/flow-guard")
+	if err != nil {
+		return 2, err
+	}
+	stats, err := filepath.Abs("../..")
+	if err != nil {
+		return 2, err
+	}
+	if err := os.Mkdir(filepath.Join(pkgDir, "scripts"), 0o755); err != nil {
+		return 2, err
+	}
+	for _, f := range []struct {
+		path string
+		body []byte
+	}{
+		{filepath.Join(pkgDir, "scripts", "flow-guard"), boot},
+		{stubTrampoline(), []byte("#!/bin/sh\nexec /bin/sh \"$0.body\" \"$@\"\n")},
+	} {
+		if err := os.WriteFile(f.path, f.body, 0o755); err != nil {
+			return 2, err
+		}
+	}
+	if err := os.Symlink(stats, filepath.Join(pkgDir, "stats")); err != nil {
+		return 2, err
+	}
+	if _, err := sharedGuardCache(); err != nil {
+		return 2, err
+	}
+	// Run the trampoline once so its first-exec check is not charged to a test;
+	// with no stub.body beside it, it exits non-zero.
+	_ = exec.Command(stubTrampoline()).Run()
+	return m.Run(), nil
+}
+
+// stubTrampoline is the one executable every writeStub stub links to.
+func stubTrampoline() string { return filepath.Join(pkgDir, "stub") }
+
+// writeStub makes path an executable running body under /bin/sh: body lands in
+// path.body and path is a symlink to the package's one trampoline, which execs
+// "$0.body" — a stub costs no first-exec check of a newly written file.
+func writeStub(t *testing.T, path, body string) {
+	t.Helper()
+	if err := os.WriteFile(path+".body", []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(stubTrampoline(), path); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // runHook execs `python3 <repo>/hooks/<hook>` with payload on stdin and HOME set
@@ -154,10 +211,7 @@ func incidentStub(t *testing.T, rc int) (cmd, log string) {
 	t.Helper()
 	dir := t.TempDir()
 	cmd, log = filepath.Join(dir, "flow"), filepath.Join(dir, "argv")
-	body := fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"$@\" >>%q\necho -- >>%q\necho noise\nexit %d\n", log, log, rc)
-	if err := os.WriteFile(cmd, []byte(body), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	writeStub(t, cmd, fmt.Sprintf("printf '%%s\\n' \"$@\" >>%q\necho -- >>%q\necho noise\nexit %d\n", log, log, rc))
 	return cmd, log
 }
 
@@ -211,9 +265,6 @@ func policyFlowDir(t *testing.T) string {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	script := "#!/bin/sh\n[ \"$1 $2\" = \"policy get\" ] && exec cat '" + fixture + "'\nPATH=${PATH#*:} exec flow \"$@\"\n"
-	if err := os.WriteFile(filepath.Join(dir, "flow"), []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	writeStub(t, filepath.Join(dir, "flow"), "[ \"$1 $2\" = \"policy get\" ] && exec cat '"+fixture+"'\nPATH=${PATH#*:} exec flow \"$@\"\n")
 	return dir
 }
