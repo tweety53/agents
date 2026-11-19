@@ -676,7 +676,10 @@ type TrendChange struct {
 // withdrawn, finishing at updated_at; its cost is
 // the sum of stageRunCostExpr over its stage runs, and a change with no
 // costed run is absent, never $0; its week is WeeklyCosts' Wednesday
-// bucket; its command is that of its first stage run by started_at.
+// bucket; its command is that of its first stage run by started_at. A
+// change's self-review pass, recorded as its own change
+// self-review-<name> (in whichever project), adds to <name>'s cost; it and a
+// pipeline-fix-<k> tooling change are never rows of their own.
 func (s *Store) TrendFinishedChanges(ctx context.Context, period Period) ([]TrendChange, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH costed AS (
@@ -692,11 +695,14 @@ func (s *Store) TrendFinishedChanges(ctx context.Context, period Period) ([]Tren
 		)
 		SELECT
 			date_trunc('week', c.updated_at - interval '2 days', 'UTC') + interval '2 days',
-			f.command, c.project_key, k.cost
+			f.command, c.project_key, k.cost + COALESCE((
+				SELECT SUM(sk.cost) FROM changes sc JOIN costed sk ON sk.change_id = sc.id
+				WHERE sc.name = 'self-review-' || c.name), 0)
 		FROM changes c
 		JOIN costed k ON k.change_id = c.id
 		JOIN first_cmd f ON f.change_id = c.id
 		WHERE c.state = 'FINISHED' AND NOT c.withdrawn
+		  AND c.name NOT LIKE 'self-review-%' AND c.name NOT LIKE 'pipeline-fix-%'
 		  AND c.updated_at >= $1 AND c.updated_at < $2
 		ORDER BY c.updated_at, c.id
 	`, period.From, period.To)

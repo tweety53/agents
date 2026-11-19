@@ -3269,3 +3269,43 @@ func TestStageLeaderboardFoldsRetiredStages(t *testing.T) {
 		t.Fatalf("rows = %+v, want one flow.implement row: 2 runs ($3 folded, $5), $8 total, median $4", rows)
 	}
 }
+
+// TestTrendFoldsSelfReviewIntoItsChange: a change's self-review pass runs
+// as its own change, self-review-<name>; the trend counts it as part of
+// <name>'s whole-life cost, never as a finished change of its own, and a
+// pipeline-fix-<k> tooling change is no finished change either.
+func TestTrendFoldsSelfReviewIntoItsChange(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-trend-fold-%d", time.Now().UnixNano())
+	done := time.Date(2026, 6, 11, 10, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		name string
+		cost float64
+	}{{"kan-1", 10}, {"self-review-kan-1", 2}, {"pipeline-fix-3", 1}} {
+		seedChange(t, st, projectKey, c.name)
+		in := baseBeginInput(projectKey, c.name, "/flow", "flow.implement")
+		in.SessionID = ptr(c.name)
+		in.StartedAt = done.Add(-time.Hour)
+		costRun(t, st, in, c.cost)
+		ch := baseChange(projectKey, c.name)
+		ch.State, ch.UpdatedAt = store.StateFinished, done
+		if err := st.PutChange(ctx, ch); err != nil {
+			t.Fatalf("PutChange %s: %v", c.name, err)
+		}
+	}
+	rows, err := st.TrendFinishedChanges(ctx, store.Period{From: done.Add(-24 * time.Hour), To: done.Add(24 * time.Hour)})
+	if err != nil {
+		t.Fatalf("TrendFinishedChanges: %v", err)
+	}
+	var got []store.TrendChange
+	for _, r := range rows {
+		if r.ProjectKey == projectKey {
+			got = append(got, r)
+		}
+	}
+	if len(got) != 1 || got[0].CostUSD != 12 {
+		t.Fatalf("rows = %+v, want kan-1 alone at $12 (its $2 self-review folded in)", got)
+	}
+}
