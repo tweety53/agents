@@ -82,7 +82,8 @@ states.
   worktree kickoff created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
   path is gitignored: never stage or commit it, and
   never write it to the main checkout.
-- **A mockup is read from where the project declares mockups** (`## visual verification`,
+- **A mockup is read from where the project declares mockups**, the `## visual verification`
+  section (**Project configuration — visual verification**,
   `skills/flow-contracts/project-configuration-visual.md`), never copied into an app repository; a
   design specified by a mockup that is not there yet is not approvable until it is.
 - **A visible change is prototyped before its design is approved** (`plan-visual-prototype`). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
