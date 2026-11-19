@@ -25,7 +25,7 @@ pipeline did not choose — and neither ever gates a state write.
 belongs to another change's issue and this pipeline never authored it. What is echoed there instead
 is under **Joining a follow-up** (`skills/flow-contracts/jira-followups-join.md`).
 
-### Labels on issues the pipeline creates
+### Labels and body of issues the pipeline creates
 
 An issue any `/flow*` command creates carries **every label on the change's linked issue, plus
 `AI-generated`**. No label is invented: the parent's labels exist by construction, and
@@ -37,6 +37,24 @@ one exists.
 on top of the set above, the label naming the angle that produced it. The angle-to-label table is
 canonical in `skills/flow-self-review/SKILL.md`'s step 2, cited here rather than copied, so the
 two cannot drift.
+
+**Every issue the pipeline creates has a description of exactly three sections, in this order:**
+
+```markdown
+## Why
+<what was observed and what breaks because of it — the concrete symptom, figures where measured>
+
+## How
+<the fix as numbered steps — files, commands, the order they run in>
+
+## DoD
+<the checkable conditions that close the issue, as bullets>
+```
+
+Nothing precedes `## Why` and nothing follows `## DoD`; a context line or a link goes inside the
+section it belongs to. This holds for every issue a `/flow*` command or a self-review files —
+an issue filed on request, a follow-up, a self-review finding, a story split — and for an issue
+joined by a description append, whose appended part takes the same three sections.
 
 **Creation is a Jira write like any other, and fails the same way.** `createJiraIssue` can be
 refused for auth, permission, an unknown project key, a label the project does not allow, or a
