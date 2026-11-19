@@ -2400,9 +2400,8 @@ type LiveStateByName struct {
 
 // TestReviewersScopesByDispatchStart pins that the view attributes a
 // dispatch to the period containing ITS OWN started_at and never requires
-// a stage_run_id: nothing that records a dispatch (flow record dispatch
-// begin) sets that column, so a join through stage_runs left the live view
-// empty from its first day.
+// a stage_run_id: a begin no stage run holds stays unlinked
+// (dispatch_stage_run), so a join through stage_runs would drop it.
 func TestReviewersScopesByDispatchStart(t *testing.T) {
 	t.Parallel()
 	st, _ := newRecordStore(t)

@@ -1088,8 +1088,8 @@ func (s *Store) ReviewerProjects(ctx context.Context, period Period) ([]ProjectD
 // reviewers" -- for every dispatch whose slot is set and whose own
 // started_at falls within period (and, when project/model is non-nil,
 // matches it). It scopes on the dispatch's start, never through
-// stage_run_id: that column is nullable and nothing that records a
-// dispatch sets it, so a join on it returns no rows at all.
+// stage_run_id: that column is nullable -- a begin no stage run holds
+// stays unlinked (dispatch_stage_run) -- so a join on it drops those rows.
 //
 // A bundle is one dispatches row whose slot carries several roles
 // "+"-joined (design.md's compound-slot-one-row-per-bundle); scoped_dispatches
