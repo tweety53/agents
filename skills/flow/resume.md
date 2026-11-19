@@ -8,7 +8,9 @@ a missing worktree runs its steps 1–4, and every other resume point below runs
 brainstorming and planning through the planner role**. A resume at **B** re-enters the planner loop
 at the round after the last `round-<r>.md` under `<abs-worktree>/.superpowers/sdd/planner/` — its
 relay first when that round has no `answers-<r>.md`, the resumed round reading `findings.md`, that
-latest round file and its answers.
+latest round file and its answers. Every planner dispatch a resume makes is short or full as
+`<abs-worktree>/.superpowers/sdd/planner/triage.md` says (**Triage the planning**,
+`skills/flow/brainstorm.md`).
 
 **Load `skills/flow/seeded-note.md`** only when the change was seeded from a note and the resume
 point is point 3 below, which never reopens the checklist that otherwise loads it.

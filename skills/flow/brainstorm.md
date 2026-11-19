@@ -90,8 +90,8 @@ output.
 
 **A headless triage decides whether this change gets full or short planning; nothing is asked.**
 It runs on a creating `/flow` run only, once the worktree exists and before the first planner
-dispatch. A resumed run, a `/flow-plan` capture, a fix run and `/flow-fast` never triage, and
-their planning runs full.
+dispatch. A `/flow-plan` capture, a fix run and `/flow-fast` never triage, and their planning
+runs full. A resumed run never triages either: it reads the saved verdict (below).
 
 The parent first writes the planner's ticket, `<abs-worktree>/.superpowers/sdd/planner/ticket.md`:
 the linked Jira issue's summary and description, else the operator's request verbatim. Then:
@@ -102,9 +102,14 @@ flow-guard plan-triage <abs-worktree> <abs-worktree>/.superpowers/sdd/planner/ti
 
 Its header is canonical for the call, its fallback and its exits;
 `skills/flow/plan-triage-prompt.md` is canonical for the criteria and the answer's shape. It
-prints one line, `TRIAGE: full|short — <reason>`: print it as the run's narrative line and go on.
-Its exit 2 stops the run with its stderr. When the run's argument carries the word `full`
-(`skills/flow/SKILL.md`), the call is skipped and the line is `TRIAGE: full — operator asked`.
+prints one line, `TRIAGE: full|short — <reason>`, and saves it as
+`<abs-worktree>/.superpowers/sdd/planner/triage.md`: print it as the run's narrative line and go
+on. Its exit 2 stops the run with its stderr. When the run's argument carries the word `full`
+(`skills/flow/SKILL.md`), the call is skipped, nothing is saved and the line is
+`TRIAGE: full — operator asked`.
+
+**`triage.md` is the verdict a resumed run plans by**: a line opening `TRIAGE: short` keeps the
+run short; any other line, or no file, runs it full.
 
 **`short` runs the planning below on the `planner-short` role** — every planner dispatch, key
 `plan-short-<n>` in place of `plan-<n>`, each design round a short round (step 1 below) — until a
@@ -154,8 +159,9 @@ token spend.
    competing-designs step; its prompt carries no PLANNING DELEGATION paragraph and says so. When it finds the change `large` by the
    `**Scope:**` criteria (**The checklist**, `skills/flow/brainstorm-planner.md`), it says so in
    its round file and returns `ESCALATE: <reason>`: the parent prints one line,
-   `escalated to full planning — <reason>`, relays nothing from that round, and dispatches the
-   next round as a full round on `planner`, as is every later dispatch of the run.
+   `escalated to full planning — <reason>`, overwrites `triage.md` with
+   `TRIAGE: full — escalated: <reason>`, relays nothing from that round, and dispatches the next
+   round as a full round on `planner`, as is every later dispatch of the run.
 2. **Relay.** The parent first publishes the prototype
    (**The checklist**, `skills/flow/brainstorm-planner.md`). The parent prints the round's `## Summary` verbatim and
    the round file's absolute path — the design draft stays in the file — with the

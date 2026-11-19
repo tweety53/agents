@@ -22,7 +22,9 @@ import (
 //
 // The answer is the first line of the result text shaped `TRIAGE: full|short
 // — <reason>`. Prints that verdict as one line, `TRIAGE: <verdict> —
-// <reason> (judge <s>s[, $<cost>])`.
+// <reason> (judge <s>s[, $<cost>])`, and saves the same line, overwriting,
+// beside the ticket as triage.md, which a resumed run reads; a failed save
+// is one stderr line and leaves the exit 0.
 //
 // The fallback, on any failure -- an unreadable ticket, prompt or worktree
 // listing, no plan-triage pair, the command missing or failing, the
@@ -44,7 +46,12 @@ func planTriage(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	verdict, reason := ptAsk(env, args[0], args[1])
-	fmt.Fprintf(stdout, "TRIAGE: %s — %s\n", verdict, strings.TrimSpace(pjSpace.ReplaceAllString(reason, " ")))
+	line := fmt.Sprintf("TRIAGE: %s — %s\n", verdict, strings.TrimSpace(pjSpace.ReplaceAllString(reason, " ")))
+	file := filepath.Join(filepath.Dir(args[1]), "triage.md")
+	if err := os.WriteFile(file, []byte(line), 0o644); err != nil {
+		fmt.Fprintf(stderr, "plan-triage: could not save %s: %v\n", file, err)
+	}
+	fmt.Fprint(stdout, line)
 	return 0
 }
 

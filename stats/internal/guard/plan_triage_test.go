@@ -1,6 +1,8 @@
 package guard
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -35,6 +37,9 @@ func TestPlanTriage(t *testing.T) {
 		if r.rc != 0 || !strings.HasPrefix(r.stdout, want+" (judge ") || strings.Count(r.stdout, "\n") != 1 || r.err != "" {
 			t.Fatalf("rc=%d stdout=%q err=%q, want %q", r.rc, r.stdout, r.err, want)
 		}
+		if b, err := os.ReadFile(filepath.Join(filepath.Dir(ticket), "triage.md")); err != nil || string(b) != r.stdout {
+			t.Errorf("triage.md = %q, %v; want the printed line %q", b, err, r.stdout)
+		}
 		if in := stub.stdin(t); !strings.Contains(in, "KAN-9: rename the export button") || !strings.Contains(in, "cmd/app/main.go\n") || !strings.Contains(in, "README.md\n") {
 			t.Errorf("stdin %q", in)
 		}
@@ -64,6 +69,9 @@ func TestPlanTriageFallsBack(t *testing.T) {
 			if r.rc != 0 || !strings.HasPrefix(r.stdout, "TRIAGE: full — fallback: ") || !strings.Contains(r.stdout, c.cause) || strings.Count(r.stdout, "\n") != 1 {
 				t.Fatalf("rc=%d stdout=%q err=%q, want the fallback naming %q", r.rc, r.stdout, r.err, c.cause)
 			}
+			if b, _ := os.ReadFile(filepath.Join(filepath.Dir(ticket), "triage.md")); string(b) != r.stdout {
+				t.Errorf("triage.md = %q, want the printed fallback", b)
+			}
 		})
 	}
 	t.Run("ticket unreadable", func(t *testing.T) {
@@ -84,6 +92,18 @@ func TestPlanTriageFallsBack(t *testing.T) {
 			t.Fatalf("rc=%d stdout=%q ran=%v, want the fallback without a call", r.rc, r.stdout, stub.ran())
 		}
 	})
+}
+
+// TestPlanTriageUnsaved: a triage.md that cannot be written is one stderr
+// line; the verdict still prints and the exit stays 0.
+func TestPlanTriageUnsaved(t *testing.T) {
+	t.Parallel()
+	wt, ticket := ptFixture(t)
+	mkdir(t, filepath.Join(filepath.Dir(ticket), "triage.md"))
+	r := runGuard("plan-triage", []string{wt, ticket}, pjEnv(t, pjPolicy(ptPolicy), newPJStub(t, pjJSON("TRIAGE: short — x", ""))))
+	if r.rc != 0 || !strings.HasPrefix(r.stdout, "TRIAGE: short — x") || !strings.Contains(r.err, "could not save") || strings.Count(r.err, "\n") != 1 {
+		t.Fatalf("rc=%d stdout=%q err=%q", r.rc, r.stdout, r.err)
+	}
 }
 
 // TestPlanTriageUsage: a wrong argument count exits 2, nothing on stdout.
