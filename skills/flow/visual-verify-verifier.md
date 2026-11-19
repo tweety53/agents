@@ -626,7 +626,7 @@ against the tap it replaces — record the sibling in the same session by the sa
 and compare the two strips by their `<ms>` offsets; a frame one strip lacks only because its
 sampling skipped that instant is no departure.
 
-11. **Write `<changeRoot>/visual-verification.md`** — one entry per view: its screenshot
+11. **Write `<changeRoot>/visual-verification.md`** whenever any view was captured — one entry per view: its screenshot
     path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
     pair, the composite's path in `<changeRoot>/visual-verification/`, the frame id, its `diff=`
     ratio, what was seen, its
@@ -724,6 +724,6 @@ attribution beside it — one cause drawn on 34 frames is one line, never one li
 - motion: <named motions recorded>/<named> — <each motion id: its strip directory, frame count, and `clean` or each departing frame's index and what it shows> | n/a — no motions named
   - <a strip recorded beyond the named motions>
 - wire contract: <method> <path> — <the shape and wire names read, and the acceptance behaviour seen, or each departure> | n/a — no wire contract named
-- visual-verification.md: written | not written — <reason>
+- visual-verification.md: written | not written — no view captured
 - steps: 4 <status> | 8 <status> | 9 <status> | 10 <status> | 11 <status> | motion <status>
 ```
