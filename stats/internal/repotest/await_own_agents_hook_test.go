@@ -215,8 +215,11 @@ func TestAwaitOwnAgentsHookTaskStopEndsBackground(t *testing.T) {
 }
 
 // TestAwaitOwnAgentsHookRunsTheHandback pins decision gated-bracket-handback:
-// a stopping agent with nothing running hands its dispatch key -- the first
-// word of its meta description -- to `flow record dispatch handback`; the
+// a stopping agent with nothing running hands its dispatch key -- its
+// prompt's `Key:` line, read from the transcript's first user message, as
+// enforce-agent-baseline.py's begin_key reads it; the conventional
+// `Task 3/22 (review)` description never names it -- to `flow record
+// dispatch handback`; the
 // hand-back's failure never changes the hook's answer, and a blocked stop
 // runs none.
 func TestAwaitOwnAgentsHookRunsTheHandback(t *testing.T) {
@@ -237,7 +240,11 @@ func TestAwaitOwnAgentsHookRunsTheHandback(t *testing.T) {
 		"hook_event_name": "SubagentStop", "agent_id": "rev", "session_id": "sess-1", "cwd": cwd,
 		"agent_transcript_path": filepath.Join(dir, "agent-rev.jsonl"),
 	})
-	meta("rev", "", "task-3-reviewer review")
+	meta("rev", "", "Task 3/22 (review)")
+	first, _ := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": "Role: gated-reviewer\nKey: task-3-reviewer\nReview task 3."}})
+	if err := os.WriteFile(filepath.Join(dir, "agent-rev.jsonl"), append(first, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	for _, rc := range []int{0, 1} {
 		cmd, log := incidentStub(t, rc)
