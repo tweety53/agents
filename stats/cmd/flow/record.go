@@ -449,8 +449,8 @@ seq order, every role and session token -- for a guard to filter and count
 itself instead of deriving the same facts from prose. A change the store
 has never heard of prints exactly "[]" and exits 0, and a store it cannot
 reach is reported to stderr and exits non-zero, never a silent empty
-array: flow-guard check-panel-fix-single-dispatch counts rows from this verb, and
-an outage that read as zero rows would pass every round it was blind to.
+array: a guard counting rows from this verb would otherwise pass every
+round an outage left it blind to.
 
 finding-patterns and finding-pattern query the finding-pattern registry
 (KAN-416), so a panel can ask how often a defect pattern has recurred
@@ -552,13 +552,6 @@ and never re-reads past it, so a row that appears only at close is
 invisible to every harvest tick the dispatch ran through -- that usage is
 dropped or credited to an unrelated earlier dispatch -- and a row never
 closed leaves an open window that goes on claiming its successors' tokens.
-An "end" of a gated reviewer row (task-<ids>-reviewer...) or a panel merger
-row (panel-<r>-merger...) first runs flow-guard check-plan-unchanged verify
-against .superpowers/sdd/plan-snapshot-<key>.txt or
-plan-snapshot-panel-<r>.txt in the change's worktree, and refuses, writing
-nothing, on its exit 1 or 2 -- a missing snapshot included -- unless
--outcome is aborted.
-
 A dispatch recorded only after it finished is a back-fill, and is ONE
 "backfill" call: begin's flags and end's together, with -started-at,
 -ended-at and -outcome required, so the row carries the dispatch's real
@@ -2824,9 +2817,8 @@ func runRecordFindingPattern(ctx context.Context, args []string, getenv func(str
 }
 
 // runRecordDispatches implements `flow record dispatches`: the findings
-// verb's read contract over dispatch rows, so
-// flow-guard check-panel-fix-single-dispatch can count one run's panel-fix
-// dispatches per round instead of trusting prose. Like `findings`, it
+// verb's read contract over dispatch rows, so a guard can count one run's
+// dispatches instead of trusting prose. Like `findings`, it
 // marshals Run.Dispatches ALONE -- a guard consuming this verb needs
 // key/role/sessionToken, not findings it has no use for -- and it shares
 // the same journalling asymmetry: a read has nothing to replay, so a store

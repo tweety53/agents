@@ -26,7 +26,7 @@ import (
 // is unchanged by the move into the store, so the marker contract it
 // enforces -- the single `findings-total:` line, the unbroken
 // `finding-status:` span, and the SEPARATE `reproducers-total:` /
-// `finding-reproducer:` block that flow-guard check-panel-reproducers reads --
+// `finding-reproducer:` block --
 // is now this file's obligation rather than an agent's discipline.
 
 // markerLabels are the marker labels the two panel guards read, plus the
@@ -169,9 +169,8 @@ func RenderGatedFindings(r Run) (string, bool) {
 // sorted lists, so the order is for the reader alone.
 //
 // A finding with no recorded reproducer renders the exemption form
-// flow-guard check-panel-reproducers defines, `none — <reason>`, rather than no
-// line at all: that guard requires exactly one reproducer line per
-// finding, and an omitted line would be reported as a missing one.
+// `none — <reason>` rather than no line at all, so every finding keeps
+// exactly one reproducer line.
 //
 // A gated per-task reviewer's row (GatedReviewerSlot) is no panel finding
 // and is left out of the record and both totals.
