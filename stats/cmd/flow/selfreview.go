@@ -54,8 +54,8 @@ landed sha for fixed, the issue key for filed and omitted for declined
 and noted;
 -blast-radius is the finding's file count, omitted when none was counted;
 -severity is the finding's grade, required for fixed and filed and omitted for declined and noted when none was given;
--theme is what a cost or speed observation is about, one of the ids
-flow self-review themes prints: required on a noted flow-cost or flow-speed
+-theme is what a cost observation is about, one of the ids
+flow self-review themes prints: required on a noted flow-cost
 finding, and carried by the fixed, filed or declined row of a finding
 raised because its theme was due.
 

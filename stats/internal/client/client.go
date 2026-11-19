@@ -621,8 +621,7 @@ func (c *Client) FindState(ctx context.Context, name string) ([]StateChange, err
 }
 
 // StageRunRow is the fields of a GET /api/v1/stage-runs row the CLI reads:
-// `flow stage sessions` the session, `flow state set`'s IN_PROGRESS gate the
-// outcome.
+// `flow state set`'s IN_PROGRESS gate the outcome.
 type StageRunRow struct {
 	// ID and Stage let the handoff's **Stages:** line name each open run.
 	ID        int64   `json:"stageRunId"`

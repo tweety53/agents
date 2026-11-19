@@ -46,16 +46,11 @@ const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] 
        flow stage mark [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
                         -command cmd -stages key,key,... -session-token token (<change> | -change name | -jira-key KEY)
        flow stage keys
-       flow stage sessions [-addr url] [-timeout dur] [-C dir] -stage key (<change> | -change name)
        flow stage completed [-addr url] [-timeout dur] [-C dir] -stage key <change>
 
 -stage takes a stage KEY, not its prose name -- one of README.md's Level 1
 -- the stages of each command table's Key column; an undocumented key is
 rejected before it ever reaches the store.
-
-stage sessions prints how many /flow runs of -stage the store marked for
-<change>: distinct session ids, plus one per row with none. Exit 1 when the
-read fails (decision narrative-runs-from-stage-marks).
 
 stage completed answers whether the store holds a run of -stage for
 <change> that ended completed: exit 0 yes, 1 no, 2 the store cannot be
@@ -105,8 +100,6 @@ func runStage(ctx context.Context, args []string, getenv func(string) string, st
 		return runStageMark(ctx, args[1:], getenv, stderr)
 	case "keys":
 		return runStageKeys(args[1:], stdout, stderr)
-	case "sessions":
-		return runStageSessions(ctx, args[1:], getenv, stdout, stderr)
 	case "completed":
 		return runStageCompleted(ctx, args[1:], getenv, stderr)
 	case "-h", "-help", "--help":
@@ -991,68 +984,6 @@ func runStageMark(ctx context.Context, args []string, getenv func(string) string
 			return rc
 		}
 	}
-	return 0
-}
-
-// runStageSessions implements `flow stage sessions`: the number of /flow
-// runs of one stage the store marked for a change -- distinct non-empty
-// session ids, plus one per row carrying none. flow-guard check-narrative-runs
-// compares it with the narrative's run sections (decision
-// narrative-runs-from-stage-marks).
-func runStageSessions(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
-	fset := flag.NewFlagSet("flow stage sessions", flag.ContinueOnError)
-	fset.SetOutput(io.Discard)
-	var addr string
-	registerRecordsAddrFlag(fset, &addr, getenv)
-	timeout := fset.Duration("timeout", defaultTimeout, "store request timeout")
-	dir := fset.String("C", ".", "the change's repository")
-	stage := fset.String("stage", "", "a /flow stage key")
-	change := fset.String("change", "", "the change name, in place of the <change> argument (kan-1037)")
-	pos, err := parseInterspersed(fset, args)
-	if err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			fmt.Fprint(stderr, stageUsage)
-			return 0
-		}
-		stageErr(stderr, "sessions", err)
-		return 2
-	}
-	if *change != "" && len(pos) == 0 {
-		pos = []string{*change}
-	} else if *change != "" {
-		pos = nil
-	}
-	if len(pos) != 1 || *stage == "" {
-		stageErr(stderr, "sessions", errors.New("takes -stage and one <change> or -change"))
-		return 2
-	}
-	if err := stages.Validate(stages.Command("/flow"), *stage); err != nil {
-		stageErr(stderr, "sessions", err)
-		return 2
-	}
-	projectKey, _, err := fallback.ProjectKey(*dir)
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
-		return 1
-	}
-	reqCtx, cancel := context.WithTimeout(ctx, *timeout)
-	defer cancel()
-	rows, err := client.New(addr, &http.Client{Timeout: *timeout}).ListStageRuns(reqCtx, projectKey, pos[0], "/flow", *stage)
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: stage sessions: %v\n", err)
-		return 1
-	}
-	seen := map[string]bool{}
-	n := 0
-	for _, r := range rows {
-		if r.SessionID == nil || *r.SessionID == "" {
-			n++
-		} else if !seen[*r.SessionID] {
-			seen[*r.SessionID] = true
-			n++
-		}
-	}
-	fmt.Fprintln(stdout, n)
 	return 0
 }
 

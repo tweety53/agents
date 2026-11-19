@@ -346,7 +346,7 @@ func TestSelfReviewThemesCLI(t *testing.T) {
 		code := run(context.Background(), append([]string{"self-review"}, args...), env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stdout.String(), stderr.String()
 	}
-	if code, _, stderr := call("finding", "-addr", srv.URL, "-C", repo, "-change", "demo", "-angle", "flow-speed",
+	if code, _, stderr := call("finding", "-addr", srv.URL, "-C", repo, "-change", "demo", "-angle", "flow-cost",
 		"-disposition", "noted", "-theme", "mutation-slot", "-note", "slot waited"); code != 0 || posted["theme"] != "mutation-slot" {
 		t.Fatalf("finding -theme: exit %d, posted %v, stderr %s", code, posted["theme"], stderr)
 	}

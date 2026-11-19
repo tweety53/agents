@@ -382,8 +382,7 @@ func trimmedOutput(b []byte, err error) string {
 }
 
 // changeFiles are the change directory's files the bundle serves, in
-// order. visual-verification.md is the record the flow-eval angle's visual
-// candidates are read from (skills/flow-self-review/SKILL.md, angle 7), and
+// order. visual-verification.md is the visual verifier's record, and
 // live-verification.md the live check's before/after figures
 // (skills/flow/verify-and-handoff.md); a change with neither reports each
 // skipped like any absent source.

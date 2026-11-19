@@ -1646,64 +1646,6 @@ func TestStageBeginTakesFlagsAfterTheChangeName(t *testing.T) {
 	}
 }
 
-// TestRunStageSessions pins `flow stage sessions`: the one read
-// check-narrative-runs.sh counts a change's marked runs by (decision
-// narrative-runs-from-stage-marks). Distinct session ids count once; a row
-// with no session id counts as a run of its own.
-func TestRunStageSessions(t *testing.T) {
-	t.Parallel()
-	t.Run("counts distinct sessions", func(t *testing.T) {
-		repo := gitRepo(t)
-		env := newTestEnv(t)
-		wantKey, _, err := fallback.ProjectKey(repo)
-		if err != nil {
-			t.Fatalf("project key: %v", err)
-		}
-		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-			q := r.URL.Query()
-			if r.Method != http.MethodGet || r.URL.Path != "/api/v1/stage-runs" {
-				t.Errorf("request = %s %s, want GET /api/v1/stage-runs", r.Method, r.URL.Path)
-			}
-			for k, want := range map[string]string{
-				"project_key": wantKey, "name": "kan-1", "command": "/flow",
-				"stage": "flow.document-fix", "limit": "1000",
-			} {
-				if got := q.Get(k); got != want {
-					t.Errorf("query %s = %q, want %q", k, got, want)
-				}
-			}
-			_, _ = w.Write([]byte(`{"total":4,"stageRuns":[{"sessionId":"a"},{"sessionId":"a"},{"sessionId":"b"},{}]}`))
-		}))
-		defer srv.Close()
-		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), []string{"stage", "sessions", "-addr", srv.URL, "-C", repo, "-stage", "flow.document-fix", "kan-1"},
-			env.get, strings.NewReader(""), &stdout, &stderr)
-		if code != 0 || stdout.String() != "3\n" {
-			t.Fatalf("exit %d stdout %q, want 0 and \"3\\n\"; stderr:\n%s", code, stdout.String(), stderr.String())
-		}
-	})
-	t.Run("a failed read exits 1", func(t *testing.T) {
-		repo := gitRepo(t)
-		env := newTestEnv(t)
-		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), []string{"stage", "sessions", "-addr", deadPortAddr(t), "-timeout", "500ms", "-C", repo, "-stage", "flow.document-fix", "kan-1"},
-			env.get, strings.NewReader(""), &stdout, &stderr)
-		if code != 1 || stdout.Len() != 0 {
-			t.Fatalf("exit %d stdout %q, want 1 and empty", code, stdout.String())
-		}
-	})
-	t.Run("an undocumented stage exits 2", func(t *testing.T) {
-		repo := gitRepo(t)
-		env := newTestEnv(t)
-		var stdout, stderr bytes.Buffer
-		code := run(context.Background(), []string{"stage", "sessions", "-addr", deadPortAddr(t), "-C", repo, "-stage", "flow.nope", "kan-1"},
-			env.get, strings.NewReader(""), &stdout, &stderr)
-		if code != 2 {
-			t.Fatalf("exit %d, want 2", code)
-		}
-	})
-}
-
 // TestStageEndReviewPanelResolvesWorktreeWithoutC pins that a completed
 // /flow flow.review-panel end run with no -C from the main checkout runs
 // check-panel-findings-closed against the linked worktree carrying the

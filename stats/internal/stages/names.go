@@ -94,7 +94,6 @@ var Table = []Stage{
 	{Key: "flow.landing-routes", Name: "The landing routes, including moving the issue to In Review (run 1) ▸", Commands: []Command{Flow, FlowFast, FlowInteractive}},
 	{Key: "flow.verify-merge", Name: "Verify the merge (run 2)", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.cleanup", Name: "Cleanup (run 2) ▸", Commands: []Command{Flow, FlowFast, FlowInteractive}},
-	{Key: "flow.verify-cleanup", Name: "Verify the cleanup (run 2)", Commands: []Command{Flow}},
 	{Key: "flow.write-finished", Name: "Write `FINISHED` (run 2)", Commands: []Command{Flow, FlowFast, FlowInteractive}},
 	{Key: "flow.refresh-main-checkout", Name: "Bring the main checkout forward (run 2)", Commands: []Command{Flow, FlowFast, FlowInteractive}},
 	// /flow-plan -- plan.session is its own stage: the research session up to

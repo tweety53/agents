@@ -323,9 +323,8 @@ func TestSelfReviewThemes(t *testing.T) {
 		return err
 	}
 	for name, f := range map[string]records.SelfReviewFinding{
-		"noted cost without a theme":  {Change: "kan-1", Angle: "flow-cost", Note: "n", Disposition: "noted"},
-		"noted speed without a theme": {Change: "kan-1", Angle: "flow-speed", Note: "n", Disposition: "noted"},
-		"a theme outside the list":    {Change: "kan-1", Angle: "flow-cost", Note: "n", Disposition: "noted", Theme: "vibes"},
+		"noted cost without a theme": {Change: "kan-1", Angle: "flow-cost", Note: "n", Disposition: "noted"},
+		"a theme outside the list":   {Change: "kan-1", Angle: "flow-cost", Note: "n", Disposition: "noted", Theme: "vibes"},
 	} {
 		if err := rec(f); !errors.Is(err, store.ErrSelfReviewFindingInvalid) {
 			t.Errorf("%s: err = %v, want ErrSelfReviewFindingInvalid", name, err)
@@ -335,9 +334,9 @@ func TestSelfReviewThemes(t *testing.T) {
 		t.Errorf("a noted finding of another angle needs no theme: %v", err)
 	}
 	for _, f := range []records.SelfReviewFinding{
-		{Change: "kan-1", Angle: "flow-speed", Note: "slot waited", Disposition: "noted", Theme: "mutation-slot"},
+		{Change: "kan-1", Angle: "flow-cost", Note: "slot waited", Disposition: "noted", Theme: "mutation-slot"},
 		{Change: "kan-1", Angle: "flow-cost", Note: "slot cost", Disposition: "noted", Theme: "mutation-slot"},
-		{Change: "kan-2", Angle: "flow-speed", Note: "slot waited", Disposition: "noted", Theme: "mutation-slot"},
+		{Change: "kan-2", Angle: "flow-cost", Note: "slot waited", Disposition: "noted", Theme: "mutation-slot"},
 		{Change: "kan-2", Angle: "flow-cost", Note: "planning 60%", Disposition: "noted", Theme: "planning-share"},
 		{Change: "kan-3", Angle: "flow-cost", Note: "planning is intended", Disposition: "declined", Theme: "planning-share"},
 	} {

@@ -31,7 +31,6 @@ const LABELS: Record<string, string> = {
   "flow.preserve-sessions": "Saving session logs",
   "flow.refresh-main-checkout": "Updating the main checkout",
   "flow.cleanup": "Cleaning up",
-  "flow.verify-cleanup": "Checking the cleanup",
   "flow.write-finished": "Finishing",
 };
 

@@ -47,7 +47,6 @@ export const STAGE_PHASE: Record<string, Phase> = {
   "flow.landing-routes": "Landing",
   "flow.verify-merge": "Landing",
   "flow.cleanup": "Cleanup",
-  "flow.verify-cleanup": "Cleanup",
   "flow.write-finished": "Cleanup",
   "flow.refresh-main-checkout": "Cleanup",
 };
