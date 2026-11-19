@@ -4238,7 +4238,7 @@ func TestEndDispatchWritesReportedTokensIntoBag(t *testing.T) {
 	begin.SessionToken = ptr(token)
 	// A harness whose transcript the harvester never reads: -tokens is its
 	// only measurement (ErrTokensOnHarvestedSession).
-	begin.Harness = "muse"
+	begin.Harness = "no-transcript-harness"
 	if _, err := st.BeginStage(ctx, begin); err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -4318,7 +4318,7 @@ func TestEndDispatchTokenReplayIsIdempotent(t *testing.T) {
 	begin.SessionToken = ptr(token)
 	// A harness whose transcript the harvester never reads: -tokens is its
 	// only measurement (ErrTokensOnHarvestedSession).
-	begin.Harness = "muse"
+	begin.Harness = "no-transcript-harness"
 	if _, err := st.BeginStage(ctx, begin); err != nil {
 		t.Fatalf("BeginStage: %v", err)
 	}
@@ -4523,7 +4523,7 @@ func TestRecordDispatchRejectsInvalidAgentID(t *testing.T) {
 
 	// The placeholder words are the stand-ins a dispatcher types when it
 	// does not hold the harness's identifier yet; the malformed shapes are
-	// strings no identifier this pipeline records -- ZCode's agent_<uuid>,
+	// strings no identifier this pipeline records -- agent_<uuid>,
 	// Claude Code's bare launch hex, the pipeline's own inline -- could
 	// ever carry, since every one of them is ASCII letters, digits and the
 	// '-' '_' '.' separators.
@@ -4947,8 +4947,8 @@ func TestRekeyDispatchSetsTheKey(t *testing.T) {
 // TestStampDispatchAgentStillAcceptsHarnessShapes pins the boundary
 // KAN-560 draws: the validation covers the dispatcher-typed paths, and the
 // daemon's stamp stays verbatim (its own doc comment records why). Both
-// shapes the harvester actually forwards -- ZCode's agent_<uuid> and
-// Claude Code's bare launch hex -- must stamp onto an unclaimed row.
+// shapes -- agent_<uuid> and Claude Code's bare launch hex -- must stamp
+// onto an unclaimed row.
 func TestStampDispatchAgentStillAcceptsHarnessShapes(t *testing.T) {
 	t.Parallel()
 	st, _ := newRecordStore(t)

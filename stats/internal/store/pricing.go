@@ -132,8 +132,8 @@ func (t chargeableTokens) hasCharge() bool {
 //     top-level cost_usd rule already guards against, one level down.
 //     Where the row's 1h rate equals its 5m rate (the row was published
 //     flat) the unknown split is priced at that one value, which is exact
-//     rather than a guess (kan-479): ZCode reports a single collapsed
-//     cacheWriteTokens with no 5m/1h split, and a model with one flat
+//     rather than a guess (kan-479): a harness reporting a single collapsed
+//     cache-write count has no 5m/1h split, and a model with one flat
 //     cache-write rate charges that same rate whichever TTL the provider
 //     picked internally. A row whose columns disagree (the seeded Claude
 //     rows, where 5m and 1h genuinely differ) or carries no 1h rate at all

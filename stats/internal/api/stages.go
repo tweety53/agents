@@ -182,9 +182,8 @@ type EndStageMark struct {
 // machine-readable transcript for internal/harvest to read -- design.md's
 // "Harvesting" section and its "Claude Code gets full telemetry; other
 // harnesses degrade honestly" decision. claude-code's transcripts under
-// ~/.claude/projects and zcode's model-io rollouts under
-// ~/.zcode/cli/rollout are the two sources the harvester reads (kan-479);
-// every other harness degrades honestly.
+// ~/.claude/projects are the source the harvester reads; every other
+// harness degrades honestly.
 //
 // ApplyEndStageMark reads this against the stage run's own recorded
 // Harness -- the value BeginStage stored at `stage begin`, immutable
@@ -196,7 +195,6 @@ type EndStageMark struct {
 // differently on every call.
 var harvestedHarnesses = map[string]bool{
 	"claude-code": true,
-	"zcode":       true,
 }
 
 // stages.SyntheticChangeUpdatedBy marks a change row PutChange creates

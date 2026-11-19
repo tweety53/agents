@@ -131,8 +131,8 @@ var ErrDispatchWindowTooShort = errors.New("store: subagent dispatch window too 
 var ErrTokensOnHarvestedSession = errors.New("store: token report refused on a harvested session")
 
 // harvestedHarnesses are the stage-run harnesses whose transcripts the
-// daemon's watcher reads (cmd/flowd: the Claude and ZCode rollout sources).
-var harvestedHarnesses = []string{"claude-code", "zcode"}
+// daemon's watcher reads (cmd/flowd: the Claude transcript source).
+var harvestedHarnesses = []string{"claude-code"}
 
 // ErrInlineCommitMissing is returned by EndDispatch when an inline row on a
 // task's implementer key (`task-<ids>-implementer…`) closes completed with no
@@ -175,8 +175,8 @@ var agentIDPlaceholders = []string{
 // and `inline` names a same-session dispatch), but a present one is
 // either a placeholder word or a plausible harness identifier, never
 // anything else. The plausible-id test is a charset, not a pattern: every
-// identifier this pipeline has observed -- ZCode's `agent_<uuid>`, Claude
-// Code's bare launch hex, the pipeline's own `inline` -- is ASCII
+// identifier this pipeline has observed -- `agent_<uuid>`, Claude Code's
+// bare launch hex, the pipeline's own `inline` -- is ASCII
 // letters, digits and the `-` `_` `.` separators, and the harvester
 // matches the column by exact equality, so whitespace, punctuation or
 // non-ASCII could never match a window and can only be a typo or a
@@ -366,9 +366,6 @@ const maxDispatchSeqRetries = 100
 // is not reachable from this repository's own callers.
 func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
 	if err := validateAgentID(in.AgentID); err != nil {
-		return records.Dispatch{}, fmt.Errorf("store: record dispatch for %s/%s: %w", projectKey, change, err)
-	}
-	if err := s.validateDispatchPair(ctx, in); err != nil {
 		return records.Dispatch{}, fmt.Errorf("store: record dispatch for %s/%s: %w", projectKey, change, err)
 	}
 	for range maxDispatchSeqRetries {

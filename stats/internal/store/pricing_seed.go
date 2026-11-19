@@ -41,7 +41,7 @@ func fastRate(v float64) *float64 { return &v }
 // claude-haiku-4-5 and claude-fable-5-1 have no fast-mode rate at all,
 // per the source table's own "—" cells; glm-5.3-flash has no fast rate
 // either, and its 1-hour cache rate equals its 5-minute one, which is what
-// lets the pricer price ZCode's unknown-split cache writes exactly --
+// lets the pricer price its unknown-split cache writes exactly --
 // chargeableTokens.cost's flat-rate rule) is priced as unavailable by
 // Store.Price rather than at an invented rate: see PricingRate's own doc
 // comment, and chargeableTokens.cost, for how a nil rate here is treated

@@ -158,11 +158,11 @@ func TestSeedPricingRatesOmitFastForModelsWithNone(t *testing.T) {
 	}
 }
 
-// TestSeedPricingRatesCarriesGLMFlash pins the kan-479 seed row: the one
-// model this machine's ZCode rollouts record, at the discounted plan rates
+// TestSeedPricingRatesCarriesGLMFlash pins the kan-479 seed row: the GLM
+// model earlier harvested rows record, at the discounted plan rates
 // published at docs.z.ai/guides/overview/pricing (read 2026-09-09) -- and
 // with a 1h cache-write rate equal to the 5m one, which is what makes the
-// model's single published cache rate priceable for ZCode's unknown-split
+// model's single published cache rate priceable for its unknown-split
 // cache writes.
 func TestSeedPricingRatesCarriesGLMFlash(t *testing.T) {
 	t.Parallel()

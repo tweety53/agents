@@ -905,31 +905,11 @@ func TestApplyEndStageMarkSurvivesLiteralNullMetrics(t *testing.T) {
 
 // TestApplyEndStageMarkTokensAvailableFollowsHarvestedHarnesses pins the
 // kan-479 set semantics: tokens_available: false is stamped only for
-// harnesses whose transcripts internal/harvest does NOT read. zcode joins
-// claude-code in the harvested set -- its rollout transcripts are a second
-// source the harvester reads -- while a harness with no transcript at all
+// harnesses whose transcripts internal/harvest does NOT read: claude-code
+// is harvested, while a harness with no transcript at all
 // (no-transcript-harness) keeps the honest stamp.
 func TestApplyEndStageMarkTokensAvailableFollowsHarvestedHarnesses(t *testing.T) {
 	t.Parallel()
-	t.Run("zcode is harvested and gets no stamp", func(t *testing.T) {
-		fs := newFakeStore()
-		fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
-		srv := newStageTestServer(t, fs)
-		defer srv.Close()
-
-		beginThenEnd(t, srv, "zcode")
-
-		var metrics map[string]any
-		if len(fs.stageRuns[0].run.Metrics) > 0 {
-			if err := json.Unmarshal(fs.stageRuns[0].run.Metrics, &metrics); err != nil {
-				t.Fatalf("decode metrics: %v", err)
-			}
-		}
-		if _, present := metrics["tokens_available"]; present {
-			t.Errorf("metrics carried tokens_available for a zcode run: %v -- its rollouts are harvested", metrics["tokens_available"])
-		}
-	})
-
 	t.Run("claude-code gets no stamp", func(t *testing.T) {
 		fs := newFakeStore()
 		fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
