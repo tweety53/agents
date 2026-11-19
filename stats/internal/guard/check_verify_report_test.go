@@ -10,6 +10,7 @@ import (
 )
 
 func TestCheckVerifyReport(t *testing.T) {
+	t.Parallel()
 	const allDone = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — no motions named\n"
 	cases := []struct {
 		name    string
@@ -70,6 +71,7 @@ func TestCheckVerifyReport(t *testing.T) {
 // the row, its parent's step-6 result never named in the prompt. A bare one
 // is an undone item; one carrying step 6's reason, or an exit, is not.
 func TestCheckVerifyReportFingerprintReason(t *testing.T) {
+	t.Parallel()
 	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
 	for _, tc := range []struct {
 		line string
@@ -96,6 +98,7 @@ func TestCheckVerifyReportFingerprintReason(t *testing.T) {
 // the code path alone and its baseline re-captured over the defect. A
 // pre-existing attribution must name its merge-base evidence.
 func TestCheckVerifyReportPreExistingNeedsMergeBaseEvidence(t *testing.T) {
+	t.Parallel()
 	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
 	for _, tc := range []struct {
 		line string
@@ -121,6 +124,7 @@ func TestCheckVerifyReportPreExistingNeedsMergeBaseEvidence(t *testing.T) {
 // kan-1017 (sr12): every verifier wrote `no mockup source` while design.md
 // cited a handoff page that existed, and left 7 of 11 matrix columns n/a.
 func TestCheckVerifyReportNoMockupSourceWithCitedSource(t *testing.T) {
+	t.Parallel()
 	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
 	for _, tc := range []struct {
 		name                  string
@@ -164,6 +168,7 @@ func TestCheckVerifyReportNoMockupSourceWithCitedSource(t *testing.T) {
 // with kan-1016's lesson: one line covered nine frames. A `done` step 10 needs
 // a spot-check: line per composed frame.
 func TestCheckVerifyReportSpotCheckLinePerFrame(t *testing.T) {
+	t.Parallel()
 	frames := vrtFrame("templates-W1") + "- templates-W1 over-tolerance: 0\n" + vrtFrame("templates-A4b") + "- templates-A4b over-tolerance: 0\n"
 	noA4b := strings.Replace(frames, "- templates-A4b spot-check:", "- templates-A4b notes:", 1)
 	for _, tc := range []struct {
@@ -194,6 +199,7 @@ func TestCheckVerifyReportSpotCheckLinePerFrame(t *testing.T) {
 // n/a beside an approved prototype design.md cites is undone: the prototype is
 // rendered as each capture's frame (kan-1038).
 func TestCheckVerifyReportStep10WithACitedPrototype(t *testing.T) {
+	t.Parallel()
 	const na = "- steps: 4 done | 7 done | 8 done | 9 done | 10 n/a — mockups not declared | 11 done | motion n/a — none\n"
 	const wire = "- wire contract: GET /api/x — shape matched\n- steps: 4 done | 7 done | 8 n/a — wire contract, no view drawn | 9 n/a — wire contract, no view drawn | 10 n/a — wire contract, no view drawn | 11 done | motion n/a — none\n"
 	for _, tc := range []struct {
@@ -232,6 +238,7 @@ func TestCheckVerifyReportStep10WithACitedPrototype(t *testing.T) {
 // every view no frame is composed for its per-view sweeps line
 // (group-allowed-pairs-roles self-review).
 func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
+	t.Parallel()
 	const allDone = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
 	for _, tc := range []struct {
 		name, drop, shots string
@@ -286,6 +293,7 @@ func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 // nothing in an unscoped row, on a view no frame is composed for, or for
 // another view (KAN-1122).
 func TestCheckVerifyReportAccountsForAnUnchangedView(t *testing.T) {
+	t.Parallel()
 	const allDone = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
 	const marker = " — capture unchanged since abc1234"
 	for _, tc := range []struct {
@@ -334,6 +342,7 @@ func TestCheckVerifyReportAccountsForAnUnchangedView(t *testing.T) {
 // the verifier no longer runs `verify`, so the guard takes no scoped-spec count
 // and step 7 is no required step — an item still naming it is ignored.
 func TestCheckVerifyReportTakesNoScopedSpecs(t *testing.T) {
+	t.Parallel()
 	const usage = "flow-guard check-verify-report <report file> <motions named> [--design <design.md>]"
 	path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
 	r := runGuard("check-verify-report", []string{path, "0", "2"}, Env{Getenv: os.Getenv})
@@ -356,6 +365,7 @@ func TestCheckVerifyReportTakesNoScopedSpecs(t *testing.T) {
 // TestCheckVerifyReportReadsReportAlone pins decision verdict-only-handback:
 // a `## Verdict` block's `- steps:` line never stands in for the `## Report`'s.
 func TestCheckVerifyReportReadsReportAlone(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
 	body := "## Verdict\n- verify: exit 0 — clean\n- steps: 4 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n\n" +
 		"## Report\n- verify: exit 1\n- steps: 4 done | 8 done | 9 done | 11 done | motion n/a — none\n"
@@ -421,6 +431,7 @@ func vrtOver(row int, status, keys string) any {
 // every row the manifest's `over` list names for a composed frame is named on
 // its `over-tolerance:` line with the manifest's count.
 func TestCheckVerifyReportOverToleranceLine(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, key, line string
 		manifest        bool
@@ -449,6 +460,7 @@ func TestCheckVerifyReportOverToleranceLine(t *testing.T) {
 
 // TestCheckVerifyReportOverToleranceCauses pins step 10's closed cause list.
 func TestCheckVerifyReportOverToleranceCauses(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		cause, status, keys string
 		ok                  bool
@@ -486,6 +498,7 @@ func TestCheckVerifyReportOverToleranceCauses(t *testing.T) {
 // report carries no matrix:, bands: or seams: line and step 10 is still done
 // (TestCheckVerifyReportSweepItems pins the sweeps: line's items).
 func TestCheckVerifyReportNoMatrixBandsSeamsLines(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, sweeps string
 		rc           int
@@ -509,6 +522,7 @@ func TestCheckVerifyReportNoMatrixBandsSeamsLines(t *testing.T) {
 // n/a only in a column vrNAColumns lists for its class, `unresolved — ` only
 // on an unresolved row, and a missing row's absent side null.
 func TestCheckVerifyReportManifestCells(t *testing.T) {
+	t.Parallel()
 	filled := map[string]any{"a": map[string]any{"box.width": 40}, "b": map[string]any{"box.width": 50}, "delta": map[string]any{}}
 	row := func(class string, set map[string]any) any {
 		c := map[string]any{"row": 10, "class": class}
@@ -553,6 +567,7 @@ func TestCheckVerifyReportManifestCells(t *testing.T) {
 // rows, or every row off the over list when fewer; each a cells row off that
 // list, its script figure one of the cell's b figures.
 func TestCheckVerifyReportSpotCheck(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, line, overLine string
 		over                 []any
@@ -584,6 +599,7 @@ func TestCheckVerifyReportSpotCheck(t *testing.T) {
 
 // TestCheckVerifyReportSweepItems pins that a sweep item reads `done` or `n/a — <why>`.
 func TestCheckVerifyReportSweepItems(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		line string
 		rc   int
@@ -638,6 +654,7 @@ func vrtBaselineRepo(t *testing.T) (string, string) {
 // F6: a mangled `merge-base baseline:` citation stood as merge-base evidence.
 // Every one must resolve with git cat-file -e in the report's worktree.
 func TestCheckVerifyReportUnresolvedBaselineCitation(t *testing.T) {
+	t.Parallel()
 	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 n/a — no mockups declared | 11 done | motion n/a — none\n"
 	for _, tc := range []struct {
 		name, cite, named string
@@ -664,6 +681,7 @@ func TestCheckVerifyReportUnresolvedBaselineCitation(t *testing.T) {
 // A baseline cited from a sibling repository's worktree of the same change
 // resolves there; one that resolves in no tree still fails.
 func TestCheckVerifyReportBaselineCitationInSiblingWorktree(t *testing.T) {
+	t.Parallel()
 	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 n/a — no mockups declared | 11 done | motion n/a — none\n"
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -698,6 +716,7 @@ func TestCheckVerifyReportBaselineCitationInSiblingWorktree(t *testing.T) {
 // F20: an over-tolerance item's cause was read off a neighbouring row. Each
 // item whose manifest row carries figures quotes one of its own.
 func TestCheckVerifyReportOverItemQuotesRowFigures(t *testing.T) {
+	t.Parallel()
 	row := func(n int, a, b string, figures bool) any {
 		r := map[string]any{"row": n, "status": "paired", "keys": "height"}
 		if figures {
@@ -735,6 +754,7 @@ func TestCheckVerifyReportOverItemQuotesRowFigures(t *testing.T) {
 // capture the spec's sidecar maps only to frames outside its slice, and a
 // capture no sidecar line maps is owed by the `-s1of<n>` report alone.
 func TestCheckVerifyReportFrames(t *testing.T) {
+	t.Parallel()
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, ".flow/project.md"), rvsSection("tests/visual"))
 	snaps := filepath.Join(root, "tests/visual/a.spec.ts-snapshots")

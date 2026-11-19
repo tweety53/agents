@@ -9,6 +9,7 @@ import (
 
 // Every case of the check-sidecar-reach contract (scripts/check-sidecar-reach.sh).
 func TestCheckSidecarReach(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name  string
 		files map[string]string // root-relative path → content
@@ -122,6 +123,7 @@ func TestCheckSidecarReach(t *testing.T) {
 // A sidecar given alone is the only one judged: the capture folder's other
 // sidecars point at other frames folders (kan-1055 self-review, F1).
 func TestCheckSidecarReachSingleFile(t *testing.T) {
+	t.Parallel()
 	root, mockups := t.TempDir(), t.TempDir()
 	for rel, body := range map[string]string{
 		"a.spec.ts":         "'a-1.png'",

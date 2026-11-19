@@ -116,6 +116,7 @@ func (f *vvpFix) stageFile() string {
 }
 
 func TestVisualVerifyPassUsage(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "")
 	base := []string{f.wt, "demo", "visual-verify"}
 	ok := []string{"--harness", "claude", "--session-token", "mf-tok", "--merge-base", f.wt + "=" + f.mb}
@@ -149,6 +150,7 @@ func TestVisualVerifyPassUsage(t *testing.T) {
 }
 
 func TestVisualVerifyPassPrepareKickoff(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "")
 	other := filepath.Join(filepath.Dir(f.wt), "regress")
 	writeFile(t, filepath.Join(other, "README"), "x\n")
@@ -165,6 +167,7 @@ func TestVisualVerifyPassPrepareKickoff(t *testing.T) {
 }
 
 func TestVisualVerifyPassPrepareSkipNeedsNoKickoff(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "")
 	other := filepath.Join(filepath.Dir(f.wt), "regress")
 	writeFile(t, filepath.Join(other, "README"), "x\n")
@@ -182,6 +185,7 @@ func TestVisualVerifyPassPrepareSkipNeedsNoKickoff(t *testing.T) {
 }
 
 func TestVisualVerifyPassPrepareSkips(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "")
 	writeFile(t, filepath.Join(f.wt, ".superpowers/sdd/decision.json"), `{"visual":{"verify":"skipped","reason":"copy only"}}`)
 	rc, out, calls := f.prepare()
@@ -197,6 +201,7 @@ func TestVisualVerifyPassPrepareSkips(t *testing.T) {
 }
 
 func TestVisualVerifyPassPrepareComposeOnly(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "| `mockups` | `design/mockups` |\n")
 	writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
 	gitRun(t, f.wt, "add", "-A")
@@ -211,6 +216,7 @@ func TestVisualVerifyPassPrepareComposeOnly(t *testing.T) {
 }
 
 func TestVisualVerifyPassPrepareStopsOnVerifyNotGreen(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "")
 	f.commit("src/ui/late.tsx")
 	rc, out, calls := f.prepare()
@@ -220,6 +226,7 @@ func TestVisualVerifyPassPrepareStopsOnVerifyNotGreen(t *testing.T) {
 }
 
 func TestVisualVerifyPassPrepareStopsOnPreflight(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "| `mockups` | `design/mockups` |\n")
 	writeFile(t, filepath.Join(f.wt, "tests/visual/a.spec.ts.mockups"), "gone.png f1\n")
 	writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
@@ -246,6 +253,7 @@ func TestVisualVerifyPassPrepareStopsOnPreflight(t *testing.T) {
 }
 
 func TestVisualVerifyPassPrepareMissStopsForAnalyst(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "")
 	rc, out, calls := f.prepare("--miss")
 	if rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: analyst") || strings.Contains(calls, "dispatch begin") || strings.Contains(calls, "stage end") {
@@ -254,6 +262,7 @@ func TestVisualVerifyPassPrepareMissStopsForAnalyst(t *testing.T) {
 }
 
 func TestVisualVerifyPassPrepareWritesStageFile(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "")
 	rb := f.mb
 	if rc, out, _ := f.prepare("--miss", "--round-base", f.wt+"="+rb); rc != 0 {
@@ -294,6 +303,7 @@ func (f *vvpFix) sibling(name string) (string, string) {
 }
 
 func TestVisualVerifyPassPrepareStartStack(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "")
 	dead := httptest.NewServer(http.NotFoundHandler())
 	dead.Close()
@@ -310,6 +320,7 @@ func TestVisualVerifyPassPrepareStartStack(t *testing.T) {
 }
 
 func TestVisualVerifyPassPrepareRestartStack(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "| `fingerprint` | `echo stale bundle; exit 1` |\n")
 	rc, out, calls := f.prepare()
 	if rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: restart-stack") || strings.Contains(calls, "dispatch begin") {
@@ -330,6 +341,7 @@ func TestVisualVerifyPassPrepareRestartStack(t *testing.T) {
 
 // smoke: core — the bundle a visual-verify pass prepares
 func TestVisualVerifyPassPrepareBundle(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "| `mockups` | `design/mockups` |\n| `mockup frame` | `phone` |\n")
 	writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
 	writeFile(t, filepath.Join(f.wt, "design/proto.html"), "<html></html>\n")
@@ -392,6 +404,7 @@ func TestVisualVerifyPassPrepareBundle(t *testing.T) {
 }
 
 func TestVisualVerifyPassPrepareDecodesBundledPage(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "")
 	var gz bytes.Buffer
 	zw := gzip.NewWriter(&gz)
@@ -429,6 +442,7 @@ func TestVisualVerifyPassPrepareDecodesBundledPage(t *testing.T) {
 // row, and a failed allowed-pairs read, stops prepare.
 func TestVisualVerifyPassPrepareReadsThePair(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	f := vvpFixture(t, "")
 	policy := filepath.Join(filepath.Dir(f.log), "policy.json")
 	writeFile(t, policy, `{"visual-verifier":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}}`)
@@ -466,6 +480,7 @@ func vvpReceipt(t *testing.T, wt, spec, path, blob string) {
 // specs a task's capture still stands for (rcTaskCaptured).
 func TestVisualVerifyPassPrepareNamesCapturedSpecs(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	bundle := func(f *vvpFix) string {
 		b, _ := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/verify-prompt-visual-verify.md"))
 		return string(b)
@@ -503,6 +518,7 @@ func TestVisualVerifyPassPrepareNamesCapturedSpecs(t *testing.T) {
 
 func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	f := vvpFixture(t, "")
 	head := vgHead(t, f.wt)
 	rc, out, calls := f.prepare("--round-base", f.wt+"="+f.mb)
@@ -545,6 +561,7 @@ func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 // gets none.
 func TestVisualVerifyPassPrepareWritesTheRoundFile(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	f := vvpFixture(t, "")
 	sdd := filepath.Join(f.wt, ".superpowers/sdd")
 	before := time.Now()
@@ -590,6 +607,7 @@ func TestVisualVerifyPassPrepareWritesTheRoundFile(t *testing.T) {
 // file's third field, comma-joined (kan-1122 self-review, F1).
 func TestVisualVerifyPassPrepareWritesTheDefects(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	f := vvpFixture(t, "")
 	if rc, out, _ := f.prepare("--round-base", f.wt+"="+f.mb, "--defects", f.wt+"=f1,f2"); rc != 0 {
 		t.Fatalf("scoped prepare with --defects: exit %d\n%s", rc, out)
@@ -605,6 +623,7 @@ func TestVisualVerifyPassPrepareWritesTheDefects(t *testing.T) {
 // succeeds with output still reaches the operator.
 func TestVisualVerifyPassPrepareForwardsBeginWarning(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	f := vvpFixture(t, "")
 	const warn = "flow: warning: this stage begin superseded 1 still-open run of the same session"
 	writeExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2\" in \"record dispatches\") cat "+filepath.Join(filepath.Dir(f.log), "rows.json")+";; \"stage begin\") echo '"+warn+"' >&2;; \"policy get\") PATH=${PATH#*:} exec flow \"$@\";; esac\n")
@@ -616,6 +635,7 @@ func TestVisualVerifyPassPrepareForwardsBeginWarning(t *testing.T) {
 
 func TestVisualVerifyPassPrepareContinue(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	f := vvpFixture(t, "")
 	if rc, out, _ := f.prepare(); rc != 0 {
 		t.Fatalf("exit %d\n%s", rc, out)
@@ -655,6 +675,7 @@ func TestVisualVerifyPassPrepareContinue(t *testing.T) {
 // specs command reads (kan-1083 self-review, F3).
 func TestVisualVerifyPassPrepareSpecsNameTheSibling(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	section := strings.NewReplacer("`src/ui/**`", "`src/ui/**, gymie-frontend/**`",
 		"`<frontend-root>/specs-since <merge-base>`", "`node specs.mjs <frontend-root> <merge-base>`").Replace(vvpSection)
 	newFix := func() *vvpFix {
@@ -703,6 +724,7 @@ func TestVisualVerifyPassPrepareSpecsNameTheSibling(t *testing.T) {
 // survivor no --app pair names is a usage error naming it, never a
 // `NEXT: start-stack` for a stack nothing can probe.
 func TestVisualVerifyPassPrepareContinueNamesSurvivorWithoutApp(t *testing.T) {
+	t.Parallel()
 	g := vvpFixture(t, "")
 	w, mb := g.sibling("gymie-frontend")
 	if rc, out, _ := g.prepare("--worktree", w, "--merge-base", w+"="+mb, "--app", w+":.="+g.app.URL); rc != 0 {
@@ -722,6 +744,7 @@ func TestVisualVerifyPassPrepareContinueNamesSurvivorWithoutApp(t *testing.T) {
 // the DISPATCH line now names its description, subagent_type, model and
 // Role line, from the pair the row begins on.
 func TestVisualVerifyPassPrepareNamesTheAgentCall(t *testing.T) {
+	t.Parallel()
 	f := vvpFixture(t, "")
 	f.green()
 	rc, out, _ := f.prepare()
@@ -738,6 +761,7 @@ func TestVisualVerifyPassPrepareNamesTheAgentCall(t *testing.T) {
 // worktree's prepare-workspace output and a pair whose root is absent
 // dropped; an explicit --app replaces the declared set.
 func TestVisualVerifyPassPrepareDefaultsAppsFromTheProject(t *testing.T) {
+	t.Parallel()
 	iso := "\n## workspace isolation\n\n| Resource | Variable | Default | In a workspace |\n|---|---|---|---|\n| `port` | `FRONTEND_PORT` | `3000` | `+<offset>` |\n"
 	f := vvpFixture(t, "| `preflight apps` | `web=http://localhost:${FRONTEND_PORT}`, `missing=http://localhost:1` |\n"+iso)
 	mkdir(t, filepath.Join(f.wt, "web"))
@@ -775,6 +799,7 @@ func TestVisualVerifyPassPrepareDefaultsAppsFromTheProject(t *testing.T) {
 // With `specs` declared only the printed specs' sidecars are checked.
 func TestVisualVerifyPassPrepareChecksOnlyCapturedSidecars(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	setup := func(t *testing.T, specs string) *vvpFix {
 		section := "| `mockups` | `design/mockups` |\n"
 		f := vvpFixture(t, section)
@@ -795,21 +820,25 @@ func TestVisualVerifyPassPrepareChecksOnlyCapturedSidecars(t *testing.T) {
 		return f
 	}
 	t.Run("the captured spec's sidecar alone", func(t *testing.T) {
+		t.Parallel()
 		if rc, out, _ := setup(t, "echo a.spec.ts\n").prepare(); rc != 0 || strings.Contains(out, "STOP:") {
 			t.Fatalf("exit %d\n%s", rc, out)
 		}
 	})
 	t.Run("a captured spec's stale sidecar", func(t *testing.T) {
+		t.Parallel()
 		if rc, out, _ := setup(t, "echo foreign.spec.ts\n").prepare(); rc != 1 || !strings.Contains(out, "check-sidecar-reach") || !strings.Contains(out, "gone") {
 			t.Fatalf("exit %d\n%s", rc, out)
 		}
 	})
 	t.Run("a failing specs command", func(t *testing.T) {
+		t.Parallel()
 		if rc, out, _ := setup(t, "exit 1\n").prepare(); rc != 1 || !strings.Contains(out, "specs-since") {
 			t.Fatalf("exit %d\n%s", rc, out)
 		}
 	})
 	t.Run("no specs row checks the whole root", func(t *testing.T) {
+		t.Parallel()
 		if rc, out, _ := setup(t, "").prepare(); rc != 1 || !strings.Contains(out, "check-sidecar-reach") || !strings.Contains(out, "foreign") {
 			t.Fatalf("exit %d\n%s", rc, out)
 		}
@@ -820,6 +849,7 @@ func TestVisualVerifyPassPrepareChecksOnlyCapturedSidecars(t *testing.T) {
 // sidecars before check-sidecar-reach; a reference absent at its tag stops
 // preflight naming render-frames, and one already rendered passes.
 func TestVisualVerifyPassPrepareRendersFrames(t *testing.T) {
+	t.Parallel()
 	setup := func(t *testing.T, frame string) *vvpFix {
 		design, _ := rfFixture(t, "/nowhere")
 		f := vvpFixture(t, "| `mockups` | `design/mockups` |\n| `regression checkout` | `.` |\n| `design repo` | `"+design+" "+design+"` |\n")
@@ -834,11 +864,13 @@ func TestVisualVerifyPassPrepareRendersFrames(t *testing.T) {
 		return f
 	}
 	t.Run("a reference absent at its tag", func(t *testing.T) {
+		t.Parallel()
 		if rc, out, _ := setup(t, "t1/NOPE").prepare(); rc != 1 || !strings.Contains(out, "render-frames") || !strings.Contains(out, "t1/NOPE") {
 			t.Fatalf("exit %d\n%s", rc, out)
 		}
 	})
 	t.Run("a reference already rendered", func(t *testing.T) {
+		t.Parallel()
 		if rc, out, _ := setup(t, "t1/F1").prepare(); rc != 0 || strings.Contains(out, "STOP:") {
 			t.Fatalf("exit %d\n%s", rc, out)
 		}
@@ -849,6 +881,7 @@ func TestVisualVerifyPassPrepareRendersFrames(t *testing.T) {
 // survives on a sibling's diff, so a --round-base on the sibling decides
 // "round diff empty" too, never the canonical's own empty diff alone.
 func TestVisualVerifyPassPrepareRoundDiffReadsTheSiblings(t *testing.T) {
+	t.Parallel()
 	section := strings.NewReplacer("`src/ui/**`", "`src/ui/**, gymie-frontend/**`").Replace(vvpSection)
 	f := vvpFixture(t, "")
 	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## run\n\n```bash\nnpm run dev\n```\n\n"+section)
@@ -964,6 +997,7 @@ func vvpShardFixture(t *testing.T, n int, capture string) *vvpFix {
 // shard-key-segment (KAN-1121).
 func TestVisualVerifyPassPrepareShards(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	runLog := func(f *vvpFix) string { b, _ := os.ReadFile(filepath.Join(f.wt, "run.log")); return string(b) }
 	bundle := func(f *vvpFix, key string) string {
 		b, _ := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/verify-prompt-"+key+".md"))
@@ -975,6 +1009,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 	}
 
 	t.Run("25 frames run one unsharded verifier", func(t *testing.T) {
+		t.Parallel()
 		f := vvpShardFixture(t, 25, "")
 		writeFile(t, part(f), "# old\n")
 		rc, out, _ := f.prepare()
@@ -990,6 +1025,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 	})
 
 	t.Run("60 frames run three shards", func(t *testing.T) {
+		t.Parallel()
 		f := vvpShardFixture(t, 60, "")
 		writeFile(t, part(f), "# old\n")
 		rc, out, calls := f.prepare()
@@ -1019,6 +1055,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 	})
 
 	t.Run("every spec is captured in one run", func(t *testing.T) {
+		t.Parallel()
 		f := vvpShardFixture(t, 60, "")
 		writeFile(t, filepath.Join(f.wt, "tests/visual/b.spec.ts"), "shot('b.png')\n")
 		writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts tests/visual/b.spec.ts\n")
@@ -1031,6 +1068,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 	})
 
 	t.Run("a failed capture falls back to one verifier", func(t *testing.T) {
+		t.Parallel()
 		f := vvpShardFixture(t, 60, "exit 1\n")
 		rc, out, _ := f.prepare()
 		if rc != 0 || !strings.Contains(out, "SHARDS: none — ./cap "+spec(f)+" "+vvpWorkersFlag+"--update-snapshots=all exit 1") || len(vvpLines(out, "DISPATCH: ")) != 1 ||
@@ -1040,6 +1078,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 	})
 
 	t.Run("a missing merge-base baseline stops no shard", func(t *testing.T) {
+		t.Parallel()
 		shots := filepath.Join("tests/visual/a.spec.ts-snapshots")
 		f := vvpShardFixture(t, 60, "mkdir -p "+shots+" && printf png > "+shots+"/shot-F1-darwin.png\n")
 		rc, out, _ := f.prepare()
@@ -1070,6 +1109,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 	// kan-1099 ran ~32 frames as one verifier: its set held the regression
 	// checkout's worktree beside the one surviving worktree.
 	t.Run("one survivor of a two-worktree set shards", func(t *testing.T) {
+		t.Parallel()
 		f := vvpShardFixture(t, 60, "")
 		// The regression checkout, a worktree of the set whose diff touches no
 		// UI path: it holds the spec, its sidecar and a baseline at its merge base.
@@ -1119,6 +1159,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 	})
 
 	t.Run("a scoped pass and a set with two survivors never shard", func(t *testing.T) {
+		t.Parallel()
 		f := vvpShardFixture(t, 60, "")
 		if rc, out, _ := f.prepare("--round-base", f.wt+"="+f.mb); rc != 0 || strings.Contains(f.stageFile(), "slice ") || len(vvpLines(out, "DISPATCH: ")) != 1 {
 			t.Fatalf("--round-base: exit %d\n%s", rc, out)
@@ -1131,6 +1172,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 	})
 
 	t.Run("the merge-base flags need --continue", func(t *testing.T) {
+		t.Parallel()
 		f := vvpShardFixture(t, 60, "")
 		if rc, out, _ := f.prepare("--merge-base-failed", "stack down"); rc != 2 || !strings.Contains(out, "--continue") {
 			t.Fatalf("exit %d\n%s", rc, out)

@@ -42,6 +42,7 @@ func runFastRecord(t *testing.T, wt, base string, argv []string) (int, string, s
 }
 
 func TestFastRouteRecordClean(t *testing.T) {
+	t.Parallel()
 	wt := fastRecordRepo(t, "kan-838-demo",
 		[2]string{"feat(guard): read the series as the record", ""},
 		[2]string{"docs(flow): point the fast route at the guard", ""},
@@ -56,6 +57,7 @@ func TestFastRouteRecordClean(t *testing.T) {
 // task commits, which carry `Task-Id: <n>` for a task of the run's own plan,
 // read as the record, while a trailer naming no task of it is still refused.
 func TestFastRouteRecordAdmitsAPlanTasksTrailer(t *testing.T) {
+	t.Parallel()
 	wt := fastRecordRepo(t, "kan-838-demo", [2]string{"feat(guard): x", "Task-Id: 1"})
 	writeFile(t, filepath.Join(wt, ".superpowers/sdd/kan-838-demo/tasks.md"),
 		"# demo\n\n- [x] 1. Add alpha\n\n**Commit:** feat(guard): x\n")
@@ -69,6 +71,7 @@ func TestFastRouteRecordAdmitsAPlanTasksTrailer(t *testing.T) {
 }
 
 func TestFastRouteRecordBreakingMarker(t *testing.T) {
+	t.Parallel()
 	for _, subject := range []string{"feat!: reshape the record", "feat(guard)!: reshape the record"} {
 		wt := fastRecordRepo(t, "kan-838-demo", [2]string{subject, ""})
 		if code, out, _ := runFastRecord(t, wt, "main", nil); code != 0 || out != "" {
@@ -78,6 +81,7 @@ func TestFastRouteRecordBreakingMarker(t *testing.T) {
 }
 
 func TestFastRouteRecordEmptySeries(t *testing.T) {
+	t.Parallel()
 	wt := fastRecordRepo(t, "kan-838-demo")
 	if code, out, errOut := runFastRecord(t, wt, "main", nil); code != 0 || out != "" || errOut != "" {
 		t.Fatalf("exit %d, stdout %q, stderr %q", code, out, errOut)
@@ -86,6 +90,7 @@ func TestFastRouteRecordEmptySeries(t *testing.T) {
 
 func TestFastRouteRecordFindings(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	tests := []struct {
 		name    string
 		branch  string
@@ -124,6 +129,7 @@ func TestFastRouteRecordFindings(t *testing.T) {
 }
 
 func TestFastRouteRecordWalkOrder(t *testing.T) {
+	t.Parallel()
 	wt := fastRecordRepo(t, "kan-838-demo",
 		[2]string{"older bad subject", ""},
 		[2]string{"newer bad subject", ""},
@@ -150,6 +156,7 @@ func TestFastRouteRecordWalkOrder(t *testing.T) {
 }
 
 func TestFastRouteRecordMergeCommit(t *testing.T) {
+	t.Parallel()
 	wt := fastRecordRepo(t, "kan-838-demo", [2]string{"feat(guard): fine", ""})
 	gitRun(t, wt, "checkout", "-q", "-b", "side", "main")
 	gitRun(t, wt, "commit", "--allow-empty", "-q", "-m", "feat(side): elsewhere")
@@ -165,6 +172,7 @@ func TestFastRouteRecordMergeCommit(t *testing.T) {
 }
 
 func TestFastRouteRecordBaseFallback(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	fixtureRepo(t, dir, repoShape{Branch: "main", Commit: "init: base"})
 	// No refs/remotes/origin/main: the base resolves through the bare-name
@@ -177,6 +185,7 @@ func TestFastRouteRecordBaseFallback(t *testing.T) {
 }
 
 func TestFastRouteRecordProseBodyClean(t *testing.T) {
+	t.Parallel()
 	// A prose body that merely opens a line with "Generated with" is not an
 	// attribution banner — the banner shape is the copied-in footer's own,
 	// a markdown link with an optional 🤖 prefix.
@@ -198,6 +207,7 @@ func TestFastRouteRecordProseBodyClean(t *testing.T) {
 }
 
 func TestFastRouteRecordCannotAnswer(t *testing.T) {
+	t.Parallel()
 	wt := fastRecordRepo(t, "kan-838-demo")
 	if code, out, errOut := runFastRecord(t, wt, "", []string{}); code != 2 || out != "" || !strings.Contains(errOut, "usage: flow-guard check-fast-route-record") {
 		t.Fatalf("no args: exit %d, stdout %q, stderr %q", code, out, errOut)

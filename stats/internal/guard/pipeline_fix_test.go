@@ -39,6 +39,7 @@ func pfNew(t *testing.T, rows string) pfFx {
 	}
 	fixtureRepo(t, fx.origin, repoShape{Branch: "main", Bare: true})
 	gitRun(t, "", "clone", "-q", fx.origin, fx.repo)
+	pfIdentity(t, fx.repo)
 	writeFile(t, fx.repo+"/"+mpFile, string(table))
 	writeFile(t, fx.repo+"/.flow/project.md", pfProject)
 	writeFile(t, fx.repo+"/.gitignore", ".setup-ran\n.superpowers/\nspectre/changes/\n")
@@ -85,20 +86,18 @@ func (fx pfFx) wt(branch string) string {
 	return filepath.Join(filepath.Dir(fx.repo), "agents-worktrees", branch)
 }
 
-// pfIdentity gives the guard's own git calls (a rebase commits) an identity:
-// they run under the process environment, so these tests do not run in parallel.
-func pfIdentity(t *testing.T) {
-	for _, k := range []string{"GIT_AUTHOR_NAME", "GIT_COMMITTER_NAME"} {
-		t.Setenv(k, "test")
-	}
-	for _, k := range []string{"GIT_AUTHOR_EMAIL", "GIT_COMMITTER_EMAIL"} {
-		t.Setenv(k, "test@example.com")
-	}
+// pfIdentity gives the guard's own git calls in repo (a rebase commits, in the
+// repository or a worktree of it) an identity: its local config, never the
+// process environment, so these tests run in parallel.
+func pfIdentity(t *testing.T, repo string) {
+	t.Helper()
+	gitRun(t, repo, "config", "user.name", "test")
+	gitRun(t, repo, "config", "user.email", "test@example.com")
 }
 
 // smoke: core — a pipeline fix's start
 func TestPipelineFixStart(t *testing.T) {
-	pfIdentity(t)
+	t.Parallel()
 	for _, tc := range []struct {
 		args   []string
 		branch string
@@ -128,7 +127,7 @@ func TestPipelineFixStart(t *testing.T) {
 }
 
 func TestPipelineFixStartRefusesANonUniqueK(t *testing.T) {
-	pfIdentity(t)
+	t.Parallel()
 	fx := pfNew(t, "")
 	for _, k := range []string{"5", "7"} {
 		if rc, out := fx.pf(t, "start", "kan-1-demo", k); rc != 1 || !strings.Contains(out, "<k> is 6") {
@@ -142,7 +141,7 @@ func TestPipelineFixStartRefusesANonUniqueK(t *testing.T) {
 }
 
 func TestPipelineFixEnd(t *testing.T) {
-	pfIdentity(t)
+	t.Parallel()
 	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed"))
 	gitRun(t, fx.repo, "branch", lpBranch)
 	if rc, out := fx.pf(t, "end", "pipeline-fix-6-review-1", "completed"); rc != 2 {
@@ -171,7 +170,7 @@ func TestPipelineFixEnd(t *testing.T) {
 
 func TestPipelineFixVerify(t *testing.T) {
 	smoke.Heavy(t)
-	pfIdentity(t)
+	t.Parallel()
 	fx := pfNew(t, "")
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
 		t.Fatal(out)
@@ -249,7 +248,7 @@ func TestPipelineFixChecksHooks(t *testing.T) {
 
 func TestPipelineFixLand(t *testing.T) {
 	smoke.Heavy(t)
-	pfIdentity(t)
+	t.Parallel()
 	reviewed := lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean")
 	for _, tc := range []struct {
 		name, rows string
@@ -316,7 +315,7 @@ func TestPipelineFixLand(t *testing.T) {
 // unrecorded).
 func TestPipelineFixLandRecordsTheFixedRow(t *testing.T) {
 	smoke.Heavy(t)
-	pfIdentity(t)
+	t.Parallel()
 	for _, tc := range []struct {
 		name, start, branch string
 		grade               []string
@@ -375,7 +374,7 @@ func TestPipelineFixLandRecordsTheFixedRow(t *testing.T) {
 // in the deleted cwd, failed to chdir and exited 1 printing nothing).
 func TestPipelineFixLandFromItsOwnWorktree(t *testing.T) {
 	smoke.Heavy(t)
-	pfIdentity(t)
+	t.Parallel()
 	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean"))
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
 		t.Fatal(out)
@@ -399,7 +398,7 @@ func TestPipelineFixLandFromItsOwnWorktree(t *testing.T) {
 // from inside the loop worktree it removes, it still deletes the worktree
 // and the branch and exits 0.
 func TestPipelineFixDropFromItsOwnWorktree(t *testing.T) {
-	pfIdentity(t)
+	t.Parallel()
 	fx := pfNew(t, "")
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
 		t.Fatal(out)
@@ -420,7 +419,7 @@ func TestPipelineFixDropFromItsOwnWorktree(t *testing.T) {
 // with no output is named on stderr rather than leaving an exit 1 that
 // prints nothing (kan-1075 self-review, F13).
 func TestPipelineFixRemoveNamesASilentFailure(t *testing.T) {
-	pfIdentity(t)
+	t.Parallel()
 	fx := pfNew(t, "")
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
 		t.Fatal(out)
@@ -434,7 +433,7 @@ func TestPipelineFixRemoveNamesASilentFailure(t *testing.T) {
 }
 
 func TestPipelineFixDrop(t *testing.T) {
-	pfIdentity(t)
+	t.Parallel()
 	fx := pfNew(t, "")
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
 		t.Fatal(out)
@@ -458,6 +457,7 @@ func TestPipelineFixDrop(t *testing.T) {
 // end of the pass closes the row check-loop-dispatch began, under the
 // change <name> its begin used; it takes completed or aborted only.
 func TestPipelineFixEndClosesThePass(t *testing.T) {
+	t.Parallel()
 	fx := pfNew(t, "[]")
 	rc, out := fx.pf(t, "end", "self-review-kan-1-demo-pass", "completed")
 	if rc != 0 {
@@ -475,13 +475,14 @@ func TestPipelineFixEndClosesThePass(t *testing.T) {
 // that project -- the caller's working directory -- and verify diffs a
 // worktree against its own origin/HEAD, not <agents repo>'s.
 func TestPipelineFixOwnBranchInAnotherProject(t *testing.T) {
-	pfIdentity(t)
+	t.Parallel()
 	const token = "self-review-kan-1-demo"
 	fx := pfNew(t, lpRowsJSON(token+"-", token, "plan completed", "fix completed"))
 	tmp := filepath.Dir(fx.repo)
 	porigin, proj := tmp+"/gymie.git", tmp+"/gymie"
 	fixtureRepo(t, porigin, repoShape{Branch: "develop", Bare: true})
 	gitRun(t, "", "clone", "-q", porigin, proj)
+	pfIdentity(t, proj)
 	writeFile(t, proj+"/README.md", "gymie\n")
 	gitRun(t, proj, "add", "-A")
 	gitRun(t, proj, "commit", "-q", "-m", "init")
@@ -508,7 +509,7 @@ func TestPipelineFixOwnBranchInAnotherProject(t *testing.T) {
 
 func TestPipelineFixLandRestartsFlowdWhenStatsMoved(t *testing.T) {
 	smoke.Heavy(t)
-	pfIdentity(t)
+	t.Parallel()
 	reviewed := lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean")
 	for _, tc := range []struct {
 		name    string
@@ -546,7 +547,7 @@ func TestPipelineFixLandRestartsFlowdWhenStatsMoved(t *testing.T) {
 
 func TestPipelineFixVerifyRunsVisualOnUIPath(t *testing.T) {
 	smoke.Heavy(t)
-	pfIdentity(t)
+	t.Parallel()
 	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean"))
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
 		t.Fatal(out)
@@ -585,7 +586,7 @@ func TestPipelineFixVerifyRunsVisualOnUIPath(t *testing.T) {
 
 func TestPipelineFixVerifyFillsVisualSpecs(t *testing.T) {
 	smoke.Heavy(t)
-	pfIdentity(t)
+	t.Parallel()
 	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 clean"))
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
 		t.Fatal(out)
@@ -634,7 +635,7 @@ func TestPipelineFixVerifyFillsVisualSpecs(t *testing.T) {
 // it refuses anything but a complete store answer.
 func TestPipelineFixStartWaitsLongerForTheStoreList(t *testing.T) {
 	smoke.Heavy(t)
-	pfIdentity(t)
+	t.Parallel()
 	fx := pfNew(t, "")
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
 		t.Fatal(out)

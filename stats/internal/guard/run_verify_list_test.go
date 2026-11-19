@@ -313,6 +313,7 @@ func TestRunVerifyList(t *testing.T) {
 // pins each outcome).
 // smoke: core — the verify row a list records for itself
 func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
@@ -373,6 +374,7 @@ func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 // A `# suite:` line runs the command below it under `flow suite record`, so
 // its runtime reaches the store; no `flow` on PATH runs it bare.
 func TestRunVerifyListRecordsSuiteRuntimes(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	writeExec(t, filepath.Join(dir, "flow"), "#!/usr/bin/env bash\necho \"$*\" >> "+log+"\nif [ \"$1 $2\" = \"suite record\" ]; then\n  while [ \"$1\" != -- ]; do shift; done\n  shift\n  exec \"$@\"\nfi\n")
@@ -412,6 +414,7 @@ func TestRunVerifyListRecordsSuiteRuntimes(t *testing.T) {
 // the store refuses stops the list, exit 4, before any command; a failed end
 // never changes the exit code.
 func TestRunVerifyListStopsOnARefusedBegin(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
@@ -454,6 +457,7 @@ func TestRunVerifyListStopsOnARefusedBegin(t *testing.T) {
 // optional eighth argument names the worktree that does, and every recording
 // call carries it as -C.
 func TestRunVerifyListRecordsAgainstTheCanonicalWorktree(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
@@ -513,6 +517,7 @@ func TestRunVerifyListRecordsAgainstTheCanonicalWorktree(t *testing.T) {
 // carries -tokens.
 func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
@@ -641,6 +646,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 // while its sibling still runs — or was killed before its end — records no
 // end; the last group to finish ends the row.
 func TestRunVerifyListLeavesTheRowOpenWhileASiblingRuns(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	gate := filepath.Join(dir, "go")
@@ -718,6 +724,7 @@ func TestRunVerifyListLeavesTheRowOpenWhileASiblingRuns(t *testing.T) {
 // command's JUnit result files are copied out of the tree into a per-run
 // directory the next run does not overwrite.
 func TestRunVerifyListKeepsResultFiles(t *testing.T) {
+	t.Parallel()
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -761,6 +768,7 @@ func TestRunVerifyListKeepsResultFiles(t *testing.T) {
 // child copy of this test binary, since SIGPIPE ends its process.
 func TestRunVerifyListSurvivesAClosedStdout(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	if wt := os.Getenv("RVL_SIGPIPE_WT"); wt != "" {
 		os.Exit(runVerifyList([]string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low"},
 			Env{Getenv: os.Getenv, Environ: os.Environ, Dir: wt}, os.Stdout, os.Stderr))
@@ -1057,6 +1065,7 @@ func TestRunVerifyListVisualList(t *testing.T) {
 // name> is refused, exit 2, before the begin and before any command.
 func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
@@ -1113,6 +1122,7 @@ func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
 // begin carries `-diff-base` with the HEAD of the verified worktree (the first
 // argument), never the canonical one.
 func TestRunVerifyListRecordsHead(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
@@ -1193,6 +1203,7 @@ func TestProjectTestListRunsGoSuitesOnACoreShare(t *testing.T) {
 // the worktree's `flow-lint-green`, the evidence a landed request end reads;
 // a failing or dirty run writes nothing.
 func TestRunVerifyListStampsLintGreen(t *testing.T) {
+	t.Parallel()
 	head := func(t *testing.T, d string) string {
 		out, err := exec.Command("git", "-C", d, "rev-parse", "HEAD").Output()
 		if err != nil {
@@ -1272,6 +1283,7 @@ func TestRunVerifyListStampsLintGreen(t *testing.T) {
 // and a new commit runs it again (kan-1103 self-review, F10).
 // smoke: core — the green-commands skip at an unchanged HEAD
 func TestRunVerifyListSkipsACommandGreenAtHead(t *testing.T) {
+	t.Parallel()
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -2189,6 +2201,7 @@ func TestRunVerifyListOnlyGroupsAsTheFailingRowDid(t *testing.T) {
 // worktree, before any `begin`; the suffixed key, or a one-worktree change,
 // runs.
 func TestRunVerifyListRefusesAnUnsuffixedKeyInAMultiWorktreeChange(t *testing.T) {
+	t.Parallel()
 	tmp, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -2232,6 +2245,7 @@ func TestRunVerifyListRefusesAnUnsuffixedKeyInAMultiWorktreeChange(t *testing.T)
 // gives every command its KEY=value lines, the caller's own value winning; a
 // failing prepare-workspace stops the list, exit 2, before any command.
 func TestRunVerifyListAppliesPrepareWorkspace(t *testing.T) {
+	t.Parallel()
 	iso := func(res string) string {
 		return "## workspace isolation\n\n| Resource | Variable | Default | In a workspace |\n|----------|----------|---------|----------------|\n" +
 			"| `" + res + "` | `FRONTEND_URL` | `http://localhost:3000` | `http://localhost:4290` |\n" + pwCommands +
@@ -2276,6 +2290,7 @@ func TestRunVerifyListAppliesPrepareWorkspace(t *testing.T) {
 // a verify group's begin ends `-outcome aborted` the open inline verifier row
 // of its own token and group that a killed run left, and nothing else.
 func TestRunVerifyListAbortsTheSupersededOpenRow(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	rows := `[{"key":"verify-a","role":"verifier","agentId":"inline","sessionToken":"mf-k1"},` +

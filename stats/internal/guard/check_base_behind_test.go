@@ -13,6 +13,7 @@ import (
 // branch). The fixture: a bare origin on `main` with `feature/x` at its first
 // commit, a clone (origin/HEAD = main) on `spectre/c` at origin/feature/x.
 func TestCheckBaseBehind(t *testing.T) {
+	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -74,6 +75,7 @@ func TestCheckBaseBehind(t *testing.T) {
 // printed sync line, run with an empty C, must abort rather than push an empty refspec
 // that deletes the remote base.
 func TestCheckBaseBehindRefusesAnEmptyC(t *testing.T) {
+	t.Parallel()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)

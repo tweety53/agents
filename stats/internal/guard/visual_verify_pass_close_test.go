@@ -93,6 +93,7 @@ func vvcLog(t *testing.T, dir, format string) string {
 
 // smoke: core — a visual-verify pass closing done
 func TestVisualVerifyPassCloseDone(t *testing.T) {
+	t.Parallel()
 	f := vvcFixture(t, "")
 	f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
 	rc, out, calls := f.close("visual-verify")
@@ -116,6 +117,7 @@ func TestVisualVerifyPassCloseDone(t *testing.T) {
 
 func TestVisualVerifyPassCloseRest(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	f := vvcFixture(t, "")
 	before := vgHead(t, f.wt)
 	undone := strings.Replace(vvcSteps, "10 done", "10 not done", 1)
@@ -161,6 +163,7 @@ func (f *vvpFix) appendRow(key, w string) {
 const vvcBlocked = "4 done | 7 done | 8 blocked — capture exit 1 | 9 blocked — capture exit 1 | 10 blocked — capture exit 1 | 11 blocked — capture exit 1 | motion n/a — no motion named"
 
 func TestVisualVerifyPassCloseRedispatch(t *testing.T) {
+	t.Parallel()
 	f := vvcFixture(t, "")
 	before := vgHead(t, f.wt)
 	f.report("visual-verify", f.wt, vvcVerdict("1", vvcBlocked, "test-failure"), "- steps: "+vvcBlocked+"\n")
@@ -174,6 +177,7 @@ func TestVisualVerifyPassCloseRedispatch(t *testing.T) {
 // Any non-zero exit blocks, and a blocked report naming no cause is an
 // environment block.
 func TestVisualVerifyPassCloseBlockedDefaults(t *testing.T) {
+	t.Parallel()
 	f := vvcFixture(t, "")
 	f.report("visual-verify", f.wt, vvcVerdict("2", vvcBlocked, ""), "- steps: "+vvcBlocked+"\n")
 	rc, out, calls := f.close("visual-verify")
@@ -184,6 +188,7 @@ func TestVisualVerifyPassCloseBlockedDefaults(t *testing.T) {
 
 // A die after the stage opened ends the stage rather than leaving it open.
 func TestVisualVerifyPassCloseDieEndsStage(t *testing.T) {
+	t.Parallel()
 	f := vvcFixture(t, "")
 	writeExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2 $3\" in \"record dispatch end\") echo store down; exit 1;; esac\n")
 	f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
@@ -194,6 +199,7 @@ func TestVisualVerifyPassCloseDieEndsStage(t *testing.T) {
 }
 
 func TestVisualVerifyPassCloseLaterBlocks(t *testing.T) {
+	t.Parallel()
 	f := vvcFixture(t, "")
 	f.report("visual-verify", f.wt, vvcVerdict("1", vvcBlocked, "environment"), "- steps: "+vvcBlocked+"\n")
 	f.close("visual-verify")
@@ -215,6 +221,7 @@ func TestVisualVerifyPassCloseLaterBlocks(t *testing.T) {
 
 func TestVisualVerifyPassCloseJudge(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	f := vvcFixture(t, "")
 	f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, "", "home: the card is 3px narrower — departure"), "- steps: "+vvcSteps+"\n")
 	before := vgHead(t, f.wt)
@@ -245,6 +252,7 @@ func vvcDepartures(n int) string {
 // round a No-progress escalation.
 func TestVisualVerifyPassCloseEscalates(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	f := vvcFixture(t, "")
 	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/tasks.md"),
 		"- [x] 1. In-run fix 1 — flow.visual-verify: two departures\n**Opener:** visual-verify\n\n"+
@@ -295,6 +303,7 @@ func TestVisualVerifyPassCloseEscalates(t *testing.T) {
 // verifier's snapshot; an unscoped row prints no CLOSES-LOOP: line.
 func TestVisualVerifyPassCloseClosesTheLoop(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	const judged = "- f1 sweeps: text done\n"
 	vvDir := func(f *vvpFix) string { return filepath.Join(f.wt, "spectre/changes/demo/visual-verification") }
 	proto := func(f *vvpFix) {
@@ -446,6 +455,7 @@ func TestVisualVerifyPassCloseClosesTheLoop(t *testing.T) {
 // its capture is unchanged since the round base (kan-1122 self-review, F1).
 func TestVisualVerifyPassCloseDemandsDefectLines(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	for _, c := range []struct {
 		name, lines, want string
 		closes            bool
@@ -480,6 +490,7 @@ func TestVisualVerifyPassCloseDemandsDefectLines(t *testing.T) {
 }
 
 func TestVisualVerifyPassCloseNoReport(t *testing.T) {
+	t.Parallel()
 	f := vvcFixture(t, "")
 	rc, out, calls := f.close("visual-verify")
 	if rc != 1 || !strings.Contains(out, "STOP: no report") || !strings.Contains(calls, "-outcome aborted") || !strings.Contains(calls, "-stage flow.visual-verify -outcome stopped") {
@@ -492,6 +503,7 @@ func TestVisualVerifyPassCloseNoReport(t *testing.T) {
 
 func TestVisualVerifyPassCloseCommitsPathspec(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	f := vvcFixture(t, "")
 	writeFile(t, filepath.Join(f.wt, "foreign.txt"), "x\n")
 	gitRun(t, f.wt, "add", "foreign.txt")
@@ -558,6 +570,7 @@ func TestVisualVerifyPassCloseCommitsPathspec(t *testing.T) {
 }
 
 func TestVisualVerifyPassCloseSkipsIgnoredPaths(t *testing.T) {
+	t.Parallel()
 	f := vvcFixture(t, "")
 	png := filepath.Join(f.wt, "spectre/changes/demo/visual-verification/home.png")
 	writeFile(t, png, "png\n")
@@ -579,6 +592,7 @@ func TestVisualVerifyPassCloseSkipsIgnoredPaths(t *testing.T) {
 }
 
 func TestVisualVerifyPassCloseUsage(t *testing.T) {
+	t.Parallel()
 	f := vvcFixture(t, "")
 	for _, args := range [][]string{
 		{f.wt, "demo", "visual-verify", "x", "--session-token", "mf-tok"},
@@ -595,6 +609,7 @@ func TestVisualVerifyPassCloseUsage(t *testing.T) {
 // reads any non-zero `exits:` number as a failed command, and `measure` exits
 // 1 on findings step 10 explains, so its exit lives on the `- measure:` line.
 func TestVerifierExitsTemplateOmitsMeasure(t *testing.T) {
+	t.Parallel()
 	b, err := os.ReadFile("../../../skills/flow/visual-verify-verifier.md")
 	if err != nil {
 		t.Fatal(err)
@@ -610,6 +625,7 @@ func TestVerifierExitsTemplateOmitsMeasure(t *testing.T) {
 // redispatch-key-keeps-round: a blocked `-fix-<k>` row's redispatch keeps the
 // segment `flow record` requires while In-run fix k is open.
 func TestVisualVerifyPassCloseKeepsTheRound(t *testing.T) {
+	t.Parallel()
 	f := vvcFixture(t, "")
 	f.appendRow("visual-verify-fix-3", f.wt)
 	f.report("visual-verify-fix-3", f.wt, vvcVerdict("1", vvcBlocked, "test-failure"), "- steps: "+vvcBlocked+"\n")
@@ -626,6 +642,7 @@ func TestVisualVerifyPassCloseKeepsTheRound(t *testing.T) {
 // visual-verification.md is the shards' parts joined in order.
 func TestVisualVerifyPassCloseShards(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	f := vvcFixture(t, "")
 	f.appendRow("visual-verify-s1of3", f.wt)
 	f.appendRow("visual-verify-s2of3", f.wt)
@@ -697,6 +714,7 @@ func TestVisualVerifyPassCloseShards(t *testing.T) {
 // files it stays unscoped.
 func TestVisualVerifyPassCloseRemainderClosesTheLoop(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	for _, c := range []struct {
 		name  string
 		round bool
@@ -750,6 +768,7 @@ func TestVisualVerifyPassCloseRemainderClosesTheLoop(t *testing.T) {
 // start; without that entry, or with a changed blob, it stays stale.
 func TestVisualVerifyPassCloseIdenticalRecaptureIsFresh(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	for _, c := range []struct {
 		name     string
 		ran      bool
@@ -813,6 +832,7 @@ func TestVisualVerifyPassCloseIdenticalRecaptureIsFresh(t *testing.T) {
 // the proof walks up to that checkout's own root.
 func TestVisualVerifyPassCloseIdenticalRecaptureInAnotherCheckout(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	f := vvcFixture(t, "")
 	other := t.TempDir()
 	gitRun(t, other, "init", "-q")
@@ -853,6 +873,7 @@ func TestVisualVerifyPassCloseIdenticalRecaptureInAnotherCheckout(t *testing.T) 
 // reads as changed and does.
 func TestVisualVerifyPassCloseReadsEachCheckoutsRoundBase(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	for _, c := range []struct {
 		name  string
 		bases bool
@@ -900,6 +921,7 @@ func TestVisualVerifyPassCloseReadsEachCheckoutsRoundBase(t *testing.T) {
 // compared with that checkout's own round base.
 func TestVisualVerifyPassCloseRemainderReadsEachCheckoutsRoundBase(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	for _, c := range []struct {
 		name  string
 		bases bool
@@ -954,6 +976,7 @@ func TestVisualVerifyPassCloseRemainderReadsEachCheckoutsRoundBase(t *testing.T)
 
 // TestVvcParseVerdictIgnoresParenthesisedCounts: `capture 0 (28 passed)` is exit 0; a bare non-zero exit still counts.
 func TestVvcParseVerdictIgnoresParenthesisedCounts(t *testing.T) {
+	t.Parallel()
 	if bad, _, _ := vvcParseVerdict("- exits: setup 0, capture 0 (28 passed), spec reach 0 (132 reached), measure 0/0"); bad {
 		t.Error("a parenthesised count read as a non-zero exit")
 	}

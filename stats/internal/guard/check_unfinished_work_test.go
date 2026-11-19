@@ -825,6 +825,7 @@ func TestCheckUnfinishedWorkReasonNamesFreshVerifyKey(t *testing.T) {
 // an unticked `- [ ] Parent:` line in the plan's design.md holds run 1; a
 // ticked one, or any other design checkbox, does not.
 func TestCheckUnfinishedWorkParentAction(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ name, design, want string }{
 		{"unticked", "### A\n\n- [ ] Parent: delete the dead entries\n", "1 unticked parent action(s)"},
 		{"ticked", "### A\n\n- [x] Parent: delete the dead entries\n", "CLEAR:"},
@@ -854,6 +855,7 @@ func TestCheckUnfinishedWorkParentAction(t *testing.T) {
 // OUTSTANDING verdict records the id of the signal that held it open, and a
 // CLEAR verdict records nothing.
 func TestCheckUnfinishedWorkOutstandingRecordsItsReason(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, design, verdict string
 		want                  []string
@@ -881,6 +883,7 @@ func TestCheckUnfinishedWorkOutstandingRecordsItsReason(t *testing.T) {
 // a `visual-verify-fix-…` implementer's commit still does.
 func TestUnfinishedWorkSkipsVisualVerifierCommit(t *testing.T) {
 	smoke.Heavy(t)
+	t.Parallel()
 	run := func(t *testing.T, key, role string) uwResult {
 		f := newUW(t)
 		fixtureRepo(t, f.wt, repoShape{Commit: "base"})

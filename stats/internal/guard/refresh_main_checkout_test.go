@@ -195,6 +195,7 @@ func TestRefreshMainCheckout(t *testing.T) {
 }
 
 func TestRefreshMainCheckoutRestartsFlowdWhenStatsMoved(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name string
 		exit string

@@ -10,6 +10,7 @@ import (
 // Every case of the check-identical-baselines contract
 // (scripts/check-identical-baselines.sh).
 func TestCheckIdenticalBaselines(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		name  string
 		files []string // "rel=content"; "" is a blank stdin line

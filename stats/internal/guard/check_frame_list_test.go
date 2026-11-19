@@ -13,6 +13,7 @@ import (
 // the declared list is the mockups dir's frames design.md names as whole
 // tokens, and each declared frame needs a sidecar line and a report line.
 func TestCheckFrameList(t *testing.T) {
+	t.Parallel()
 	const design = "Frames `Q1` and Q2 (see mockups/M1.png); Q100 and UNCITED-old are other ids.\n"
 	cases := []struct {
 		name    string
@@ -108,6 +109,7 @@ func TestCheckFrameList(t *testing.T) {
 // self-review: a range `LM-R1 … LM-R4` declares every frame between its
 // ends, and a `**Considered:**` line's rejected alternatives declare none.
 func TestCheckFrameListExpandsRangesAndSkipsConsidered(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mockups := filepath.Join(dir, "mockups")
 	if err := os.Mkdir(mockups, 0o755); err != nil {
@@ -164,6 +166,7 @@ func TestCheckFrameListExpandsRangesAndSkipsConsidered(t *testing.T) {
 // is a question label, so a mockup of that name is never declared — not even
 // where the design names the id elsewhere as a bare token (kan-1085).
 func TestCheckFrameListSkipsAnsweredQuestionLabels(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mockups := filepath.Join(dir, "mockups")
 	if err := os.Mkdir(mockups, 0o755); err != nil {
@@ -197,6 +200,7 @@ func TestCheckFrameListSkipsAnsweredQuestionLabels(t *testing.T) {
 // `## Verdict` departure line `- <frame id>: …` does not stand in for that
 // frame's missing per-frame line under `## Report`.
 func TestCheckFrameListReadsReportAlone(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mockups := filepath.Join(dir, "mockups")
 	if err := os.Mkdir(mockups, 0o755); err != nil {
@@ -230,6 +234,7 @@ func TestCheckFrameListReadsReportAlone(t *testing.T) {
 // `round 1, Q1`, `answer-2 Q1` or `question Q4`, is a question label and declares no frame; the
 // same id written as a plain token still declares one.
 func TestCheckFrameListSkipsCitedQuestionLabels(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mockups := filepath.Join(dir, "mockups")
 	if err := os.Mkdir(mockups, 0o755); err != nil {
@@ -273,6 +278,7 @@ func TestCheckFrameListSkipsCitedQuestionLabels(t *testing.T) {
 // a cited sub-directory's frame shadows the root's, a root id after a `/`
 // matches only under the mockups root's own name, and no `dk-` twin is inferred.
 func TestCheckFrameListDeclaresCitedSubDirectoryFrames(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mockups := filepath.Join(dir, "mockups")
 	for _, f := range []string{"P3.png", "NS25.png", "kan-1084/P3.png", "kan-1084/FV1.png", "kan-1084/dk-FV1.png",
@@ -322,6 +328,7 @@ func TestCheckFrameListDeclaresCitedSubDirectoryFrames(t *testing.T) {
 // TestCheckFrameListRootNeedsAnExplicitCitationBesideASubDirectory pins kan-1087 self-review F5:
 // while design.md cites a sub-directory, a rule range or bare token declares no root frame.
 func TestCheckFrameListRootNeedsAnExplicitCitationBesideASubDirectory(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mockups := filepath.Join(dir, "mockups")
 	for _, f := range []string{"R1.png", "R2.png", "R6.png", "v2-plan/A1.png"} {
@@ -371,6 +378,7 @@ func TestCheckFrameListRootNeedsAnExplicitCitationBesideASubDirectory(t *testing
 // (KAN-1121): with --frames a shard's report owes only the declared frames of
 // its slice, its frames line counted against them alone.
 func TestCheckFrameListFrames(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	mockups := filepath.Join(dir, "mockups")
 	for _, f := range []string{"Q1.png", "Q2.png", "M1.png"} {

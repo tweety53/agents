@@ -19,7 +19,7 @@ import (
 // <main>-worktrees/ count, and an answer from flowd's fallback journal
 // refuses exit 2.
 func TestPipelineFixHighestKReadsFlowdChanges(t *testing.T) {
-	pfIdentity(t)
+	t.Parallel()
 	fx := pfNew(t, "")
 	writeFile(t, fx.states, `{"source":"store","complete":true,"records":[{"name":"pipeline-fix-x-9","state":"FINISHED"}]}`)
 	mkdir(t, fx.repo+"-worktrees/pipeline-fix-y-11")
