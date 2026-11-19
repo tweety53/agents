@@ -7630,6 +7630,78 @@ func TestRecordDispatchBackfillRefusesInlinePanelFixUnderSdd(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchAdmitsInlinePanelFixOfAMinorOnlyRoundUnderSdd pins
+// pipeline-fix 84: under execution: sdd the parent's round-close inline fix of
+// a Minor-only round (skills/flow/review-panel-fix-round.md) is recorded, by
+// back-fill or live begin, while a round holding an Important finding still
+// refuses the inline row and a non-inline begin on the Minor-only round is
+// still refused.
+func TestRecordDispatchAdmitsInlinePanelFixOfAMinorOnlyRoundUnderSdd(t *testing.T) {
+	t.Parallel()
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = ""
+	repo := recordRepo(t, "kan-258")
+	fixtureCommit(t, repo, "2026-10-23T09:19:34Z")
+	sha := fixtureCommit(t, repo, "2026-10-23T09:30:03Z")
+	recordWith := func(severity, held string) string {
+		return `{"change":"kan-258","dispatches":[` + held +
+			`{"key":"panel-0-primary","role":"reviewer","slot":"primary","startedAt":"2026-10-23T09:10:00Z","endedAt":"2026-10-23T09:15:00Z"},` +
+			`{"key":"panel-0-merger","role":"merger","startedAt":"2026-10-23T09:15:00Z","endedAt":"2026-10-23T09:16:00Z","outcome":"completed"}],` +
+			`"findings":[{"ref":"F1","round":0,"slot":"primary","severity":"` + severity + `","note":"n","status":"open"}]}`
+	}
+	for _, tc := range []struct {
+		name, severity, verb, agentID, held, want string
+		code                                      int
+	}{
+		{"backfill inline minor", "Minor", "backfill", "inline", "", "", 0},
+		{"begin inline minor", "Minor", "begin", "inline", "", "", 0},
+		{"backfill inline important", "Important", "backfill", "inline", "", "execution: sdd", 2},
+		{"begin subagent minor", "Minor", "begin", "none", "", "holds no Critical or Important", 2},
+		{"begin inline minor held by another session", "Minor", "begin", "inline",
+			`{"key":"panel-fix-1","role":"panel-fix","sessionToken":"mf-other","startedAt":"2026-10-23T09:20:00Z"},`,
+			"is already used by session", 2},
+	} {
+		record := recordWith(tc.severity, tc.held)
+		posts := 0
+		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/decisions") {
+				_, _ = w.Write([]byte(decisionsBody(`{"execution":"sdd"}`)))
+				return
+			}
+			if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/records/") {
+				_, _ = w.Write([]byte(record))
+				return
+			}
+			if r.Method != http.MethodPost {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			posts++
+			_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"panel-fix","model":"opus"}`))
+		}))
+		args := []string{"record", "dispatch", tc.verb, "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "panel-fix", "-model", "opus", "-key", "panel-fix-1",
+			"-session-token", "mf-record-sdd-minor", "-agent-id", tc.agentID}
+		if tc.verb == "backfill" {
+			args = append(args, "-outcome", "completed", "-commit", sha)
+		} else {
+			args = append(args, "-effort", "high")
+		}
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
+		srv.Close()
+		if code != tc.code {
+			t.Fatalf("%s: exit %d, want %d; stderr:\n%s", tc.name, code, tc.code, stderr.String())
+		}
+		if tc.code == 0 && posts == 0 {
+			t.Errorf("%s: no POST, want the row written", tc.name)
+		}
+		if tc.code == 2 && (!strings.Contains(stderr.String(), tc.want) || posts != 0) {
+			t.Errorf("%s: stderr %q, %d POSTs; want %q named and no POST", tc.name, stderr.String(), posts, tc.want)
+		}
+	}
+}
+
 // TestRecordDispatchBeginRefusesAboveSessionCap pins the decision's
 // session_cap: a row above the cap's model or effort, an unstated default
 // effort included, is refused; a row at or under it, and a decision with no
@@ -8246,12 +8318,12 @@ func TestPanelFixBeginRefusalReusedKeyNamesTheAbortedRemedy(t *testing.T) {
 		Findings:   []records.Finding{{Round: 0, Severity: "Critical"}},
 		Dispatches: []records.Dispatch{{Key: "panel-fix-1", SessionToken: "other", Outcome: "blocked"}},
 	}
-	msg := panelFixBeginRefusal(run, "panel-fix-1", "1", "mine")
+	msg := panelFixBeginRefusal(run, "panel-fix-1", "1", "mine", false)
 	if !strings.Contains(msg, "-session-token other -outcome aborted") || strings.Contains(msg, "panel-fix-2") {
 		t.Errorf("reused key with an empty round 1: %q", msg)
 	}
 	run.Findings = append(run.Findings, records.Finding{Round: 1, Severity: "Important"})
-	if msg := panelFixBeginRefusal(run, "panel-fix-1", "1", "mine"); !strings.Contains(msg, "a later fix round is panel-fix-2") {
+	if msg := panelFixBeginRefusal(run, "panel-fix-1", "1", "mine", false); !strings.Contains(msg, "a later fix round is panel-fix-2") {
 		t.Errorf("reused key with a blocking round 1: %q", msg)
 	}
 }

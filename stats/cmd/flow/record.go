@@ -1354,7 +1354,8 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		}
 	}
 	// A panel-fix fixes review round <r>-1 (skills/flow/review-panel-fix-round.md),
-	// so it begins only once that round holds a Critical or Important row,
+	// so it begins only once that round holds a Critical or Important row —
+	// save the parent's inline fix of a Minor-only round at its close —
 	// and never under a key another session of the change already used
 	// (decision panel-fix-begin-needs-findings). As above, a failed read
 	// skips both checks and a back-filled row is admitted.
@@ -1362,8 +1363,9 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
 			return cl.GetRunRecord(ctx, projectKey, f.change)
 		})
+		r, _ := strconv.Atoi(m[1])
 		if err == nil {
-			if msg := panelFixBeginRefusal(run, *key, m[1], *sessionToken); msg != "" {
+			if msg := panelFixBeginRefusal(run, *key, m[1], *sessionToken, *agentID == "inline" && minorOnlyRound(run, r-1)); msg != "" {
 				fmt.Fprintf(stderr, "flow: -key %q %s\n", *key, msg)
 				return 2
 			}
@@ -1483,12 +1485,16 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		return 2
 	}
 
+	// A panel-fix inline row whose key fixes a Minor-only round is the
+	// round-close inline fix the contract names (skills/flow/review-panel-fix-round.md)
+	// and is admitted under sdd; a failed record read keeps the refusal.
 	d, decided := latestDecision(ctx, f, projectKey)
 	var execution string
 	if decided && (*role == "implementer" || *role == "panel-fix") && *agentID == "inline" &&
 		(strings.HasPrefix(*key, "task-") || strings.HasPrefix(*key, "full-suite-fix-") || strings.HasPrefix(*key, "panel-fix-")) &&
 		json.Unmarshal(d["execution"], &execution) == nil && execution == "sdd" &&
-		!(*role == "panel-fix" && *wsCommit != "" && whitespaceOnlyCommit(*wsCommit, mutationRoots(ctx, f, projectKey))) {
+		!(*role == "panel-fix" && *wsCommit != "" && whitespaceOnlyCommit(*wsCommit, mutationRoots(ctx, f, projectKey))) &&
+		!(*role == "panel-fix" && inlineFixesMinorOnlyRound(ctx, f, projectKey, *key)) {
 		fmt.Fprintf(stderr, "flow: -role %s -key %s -agent-id inline records the parent's own work, but the change's recorded decision is execution: sdd — under sdd every task and every fix is a fresh one-shot dispatch (skills/flow/implement.md, Every fix is a fresh one-shot)\n", *role, *key)
 		return 2
 	}
@@ -5020,11 +5026,44 @@ func mergerMissingMsg(round int) string {
 	return fmt.Sprintf("round %d holds no completed panel-%d-merger row -- the parent reads a round's findings through one findings merger before it fixes or re-reviews them (skills/flow/review-panel.md)", round, round)
 }
 
+// minorOnlyRound reports whether review round holds at least one finding
+// and none of them Critical or Important — the round whose Minors the
+// parent fixes inline at its close (skills/flow/review-panel-fix-round.md).
+func minorOnlyRound(run records.Run, round int) bool {
+	found := false
+	for _, f := range run.Findings {
+		if f.Round != round {
+			continue
+		}
+		if sev := strings.ToLower(f.Severity); sev == "critical" || sev == "important" {
+			return false
+		}
+		found = true
+	}
+	return found
+}
+
+// inlineFixesMinorOnlyRound reports whether key is a well-formed panel-fix
+// key whose review round is Minor-only; a failed read reports false.
+func inlineFixesMinorOnlyRound(ctx context.Context, f recordIdentityFlags, projectKey, key string) bool {
+	m := panelFixRoundRE.FindStringSubmatch(key)
+	if m == nil || !panelFixKeyRE.MatchString(key) {
+		return false
+	}
+	run, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Run, error) {
+		return cl.GetRunRecord(ctx, projectKey, f.change)
+	})
+	r, _ := strconv.Atoi(m[1])
+	return err == nil && minorOnlyRound(run, r-1)
+}
+
 // panelFixBeginRefusal is why run refuses a panel-fix begin under key, whose
 // round is round, from session token — "" when it is admitted: review round
 // <round>-1 must hold a Critical or Important finding, and no dispatch of
 // another session may carry key with an outcome other than aborted.
-func panelFixBeginRefusal(run records.Run, key, round, token string) string {
+// inlineMinor waives the first check alone, for the parent's inline fix of a
+// Minor-only round.
+func panelFixBeginRefusal(run records.Run, key, round, token string, inlineMinor bool) string {
 	r, _ := strconv.Atoi(round)
 	blocking := func(round int) bool {
 		return slices.ContainsFunc(run.Findings, func(f records.Finding) bool {
@@ -5032,7 +5071,7 @@ func panelFixBeginRefusal(run records.Run, key, round, token string) string {
 			return f.Round == round && (sev == "critical" || sev == "important")
 		})
 	}
-	if !blocking(r - 1) {
+	if !inlineMinor && !blocking(r-1) {
 		return fmt.Sprintf("fixes review round %d, which holds no Critical or Important finding — record that round's findings with `flow record finding -from` first (skills/flow/review-panel-fix-round.md)", r-1)
 	}
 	next := r
