@@ -16,7 +16,7 @@ vi.mock("../api", async (importOriginal) => {
     ...actual,
     getRunTimings: runTimingsMock,
     fetchStatsView: vi.fn(async () => ({
-      rows: [{ name: C, project: P, state: "FINISHED", tasks: [{ n: 13, title: "Fold the guards in-process", state: "done" }, { n: 14, title: "Drop the old guard", state: "done" }] }],
+      rows: [{ name: C, project: P, state: "FINISHED", tasks: [{ n: 13, title: "Fold the guards in-process", state: "done" }, { n: 14, title: "Drop the old guard", state: "done" }, { n: 31, title: "Price the run", state: "done" }] }],
     })),
     getDecisions: vi.fn(async () => [{ decision: { groups: [{ tasks: ["13", "14"], reason: "" }, { tasks: ["31"], reason: "" }] } }]),
   };
@@ -192,7 +192,7 @@ describe("RunTimings", () => {
     await within(panel).findByText("Fold the guards in-process · Drop the old guard");
     const rows = within(panel).getAllByRole("row").slice(1).map((r) => [...r.querySelectorAll("td")].map((c) => c.textContent));
     expect(rows).toEqual([
-      ["Group 2 · Task 31", "1h 00m", "$9.88"],
+      ["Group 2 · Task 31Price the run", "1h 00m", "$9.88"],
       ["Group 1 · Tasks 13, 14Fold the guards in-process · Drop the old guard", "0h 30m", "$3.68"],
     ]);
     const rounds = screen.getByRole("region", { name: "Cost per verify round" });

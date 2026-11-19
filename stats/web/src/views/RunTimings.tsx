@@ -219,7 +219,7 @@ function Body({ run, titles, planned }: { run: RunTimingsDTO; titles: Map<string
                     <tr key={g.tasks.join("+")}>
                       <td>
                         <div>{`${g.n ? `Group ${g.n} · ` : ""}${g.tasks.length > 1 ? "Tasks" : "Task"} ${g.tasks.join(", ")}`}</div>
-                        {named.length > 1 && <div className="lb-hint">{named.join(" · ")}</div>}
+                        {named.length > 0 && <div className="lb-hint">{named.join(" · ")}</div>}
                       </td>
                       <td className="r lb-num">{hm(g.shareMs)}</td>
                       <td className="r lb-num">{formatUsd(g.cost)}</td>
