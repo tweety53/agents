@@ -49,6 +49,7 @@ export type ViewName =
   | "flow-health"
   | "self-review"
   | "review-dynamics"
+  | "role-costs"
   | "agent-roles";
 
 export const VIEW_NAMES: readonly ViewName[] = [
@@ -62,6 +63,7 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "flow-health",
   "self-review",
   "review-dynamics",
+  "role-costs",
   "agent-roles",
 ];
 
@@ -693,9 +695,29 @@ async function getJSON<T>(path: string, init?: RequestInit): Promise<T> {
   return handleResponse<T>(res);
 }
 
+/** GET /api/v1/stats/role-costs (internal/api/rolecosts.go): each allowed-pairs
+ * role's dispatches in the period, costliest first, and the weekly spend per role. */
+export interface RoleCostsResult {
+  roles: {
+    role: string;
+    group: string;
+    dispatches: number;
+    /** Dispatches carrying a cost. */
+    priced: number;
+    failed: number;
+    costUSD: number;
+    /** Every ended dispatch's span summed; parallel agents add up. */
+    agentSeconds: number;
+    medianSeconds: number;
+    pairs: { pair: string; costUSD: number; dispatches: number }[];
+  }[];
+  weeks: { week: string; roles: Record<string, number> }[];
+}
+
 /** GET /api/v1/stats/{view}?from=&to=&project=&breakdown=&change= --
  * `run-costs` answers its raw RunCostsResult, every other view the envelope. */
 export async function fetchStatsView(view: "run-costs", params: StatsViewParams, init?: RequestInit): Promise<RunCostsResult>;
+export async function fetchStatsView(view: "role-costs", params: StatsViewParams, init?: RequestInit): Promise<RoleCostsResult>;
 export async function fetchStatsView<Row = unknown, Project = ProjectSpend>(
   view: StatsViewSlug,
   params: StatsViewParams,

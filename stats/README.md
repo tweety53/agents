@@ -149,6 +149,15 @@ flowd serves the current roles with their pairs on `GET /api/v1/roles` — the r
 SPA's **Agent roles** view draws that table, grouped by the pipeline stage each role runs in, each
 role's base and opt-in pairs editable and saved straight to the store.
 
+## Role costs
+
+`GET /api/v1/stats/role-costs?from=&to=[&project=]` folds every dispatch started in the period by
+the allowed-pairs role it ran as — `api.RoleOf` derives it from the stored role and the dispatch
+key, a key no rule places counting as `other` — into its dispatches, cost, summed agent time
+(parallel agents add up), median run, failed count and model · effort split, costliest first, with
+the weekly spend per role. Roles are derived at read time; no stored row changes. The stats SPA's
+**Role costs** view draws it.
+
 ## Jira transitions
 
 The daemon can perform the pipeline's Jira status transitions itself: the

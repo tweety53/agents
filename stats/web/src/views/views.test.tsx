@@ -249,7 +249,7 @@ const REVIEWER_PROJECTS = [
 ];
 
 const fixtures: Record<
-  Exclude<ViewName, "flow-health" | "agent-roles" | "run-costs"> | HealthViewSlug | WeeklyModelEffortViewSlug,
+  Exclude<ViewName, "flow-health" | "agent-roles" | "run-costs" | "role-costs"> | HealthViewSlug | WeeklyModelEffortViewSlug,
   StatsResponse<unknown, unknown>
 > = {
   "state-board": envelope("state-board", [

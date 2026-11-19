@@ -27,6 +27,7 @@ import { SelfReview } from "./views/SelfReview";
 import { StageLeaderboard } from "./views/StageLeaderboard";
 import { StateBoard } from "./views/StateBoard";
 import { Trend } from "./views/Trend";
+import { RoleCosts } from "./views/RoleCosts";
 import { WeeklyCosts } from "./views/WeeklyCosts";
 
 const DEFAULT_VIEW: ViewName = "state-board";
@@ -42,6 +43,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   "flow-health": "Flow health",
   "self-review": "Self-review fixes",
   "review-dynamics": "Review dynamics",
+  "role-costs": "Role costs",
   "agent-roles": "Agent roles",
 };
 
@@ -56,6 +58,7 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   "flow-health": FlowHealth,
   "self-review": SelfReview,
   "review-dynamics": ReviewDynamics,
+  "role-costs": RoleCosts,
   "agent-roles": AgentRoles,
 };
 
@@ -253,7 +256,7 @@ export function App() {
             Decisions carries its own Period, Project, Class and Review grouping chips (decision
             decisions-chip-filters); Flow health carries its own Period, Project and Rank by chips
             (decision chip-filters-period-project-rank); Run costs carries its own Period and Project chips;
-            Agent roles has no period. */}
+            Role costs carries its own Period and Project chips; Agent roles has no period. */}
         {route.kind === "view" &&
           route.view !== "weekly-costs" &&
           route.view !== "run-costs" &&
@@ -263,6 +266,7 @@ export function App() {
           route.view !== "reviewers" &&
           route.view !== "decisions" &&
           route.view !== "flow-health" &&
+          route.view !== "role-costs" &&
           route.view !== "agent-roles" && (
           <DashboardBar
             period={period}

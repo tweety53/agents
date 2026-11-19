@@ -204,6 +204,7 @@ type serverOptions struct {
 	guardRuns   GuardRunStore
 	repricer    Repricer
 	policy      PolicyStore
+	roleCosts   RoleCostsStore
 	changeFiles ChangeFileStore
 	runTimings  RunTimingsStore
 	stateRoot   string
@@ -476,6 +477,10 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	if so.repricer != nil {
 		ph := &pricingHandler{store: so.repricer, logger: logger}
 		mux.HandleFunc("POST /api/v1/pricing/reprice", ph.reprice)
+	}
+	if so.roleCosts != nil {
+		rch := &roleCostsHandler{store: so.roleCosts, table: so.rolesTable, log: logger}
+		mux.Handle("GET /api/v1/stats/role-costs", http.TimeoutHandler(http.HandlerFunc(rch.get), so.statsTimeout, statsTimeoutMessage))
 	}
 	if so.policy != nil {
 		eh := &policyHandler{store: so.policy, table: so.rolesTable, logger: logger}
