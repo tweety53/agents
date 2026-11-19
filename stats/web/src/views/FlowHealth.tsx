@@ -362,7 +362,7 @@ export function FlowHealth(_props: ViewProps) {
         <div className="lb-panel-h">
           <span>{title}</span>
           <span className="lb-panel-note">
-            fired = the guard refused; speed-up = the fewest guards that together take 80% of all guard run time; helper commands (project-get, workspace, run-capped, …) are not guards and are left out
+            fired = the guard refused; speed-up = the fewest guards that together take 80% of all guard run time; helper commands (project-get, workspace, run-verify-list, …) are not guards and are left out
           </span>
         </div>
         <div className="lb-scroll">

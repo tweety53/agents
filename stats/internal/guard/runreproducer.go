@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"sync/atomic"
@@ -21,14 +22,13 @@ import (
 // file and `.superpowers/sdd`, where a panel reproducer is written — made under the system temporary directory and removed afterwards,
 // so nothing the command writes, reverts or deletes reaches the worktree
 // (kan-1040: a reviewer's `git checkout -q -- skills` reverted an uncommitted
-// edit). It runs under flow-guard run-capped, the project's memory cap, and is
-// killed — its whole process tree, by run-capped — once it outlives the time
-// bound: -t seconds, 300 when not given.
+// edit). It runs in a process group of its own, stdin /dev/null, and the
+// whole group is killed once it outlives the time bound: -t seconds, 300 when
+// not given.
 //
 // Exit codes: the command's own status; 124 when the bound killed it
-// (stderr carries `run-reproducer: TIMED OUT after <n>s`); run-capped's 137
-// when the memory cap killed it; 2 usage, a worktree that is not a
-// directory, or a copy that could not be made.
+// (stderr carries `run-reproducer: TIMED OUT after <n>s`); 2 usage, a
+// worktree that is not a directory, or a copy that could not be made.
 func init() { Registry["run-reproducer"] = runReproducer }
 
 const rrUsage = "usage: flow-guard run-reproducer <worktree> [-t <seconds>] -- <cmd...>"
@@ -75,16 +75,17 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 		return fail("copy-failed", "cannot copy "+wt+": "+err.Error())
 	}
 
-	cmd := runSibling(env, "run-capped", rest...)
+	cmd := exec.Command(rest[1], rest[2:]...)
 	cmd.Dir = cp
 	cmd.Stdout, cmd.Stderr = stdout, stderr
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Start(); err != nil {
 		return fail("exec-failed", err.Error())
 	}
 	var timedOut atomic.Bool
 	timer := time.AfterFunc(bound, func() {
 		timedOut.Store(true)
-		_ = cmd.Process.Signal(syscall.SIGTERM) // run-capped kills the whole tree
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	})
 	err = cmd.Wait()
 	timer.Stop()

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // rrRepo is a committed repository with an uncommitted edit to a.txt: the
@@ -50,12 +51,16 @@ func TestRunReproducer(t *testing.T) {
 			t.Errorf("the copy was not removed:\n%s", out)
 		}
 	})
-	t.Run("a command outliving the bound is killed: exit 124", func(t *testing.T) {
+	t.Run("a command outliving the bound is killed with its children: exit 124", func(t *testing.T) {
 		t.Parallel()
 		wt := rrRepo(t)
-		r := runGuard("run-reproducer", []string{wt, "-t", "1", "--", "sleep", "30"}, Env{Getenv: os.Getenv})
+		start := time.Now()
+		r := runGuard("run-reproducer", []string{wt, "-t", "1", "--", "sh", "-c", "sleep 30; true"}, Env{Getenv: os.Getenv})
 		if r.rc != 124 || !strings.Contains(r.err, "TIMED OUT after 1s") {
 			t.Fatalf("exit %d, want 124 and the TIMED OUT line\n%s", r.rc, r.out)
+		}
+		if d := time.Since(start); d > 20*time.Second {
+			t.Errorf("returned after %s: the child sleep outlived the kill", d)
 		}
 	})
 }

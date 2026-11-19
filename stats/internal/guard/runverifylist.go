@@ -295,7 +295,7 @@
 //   5  the load average stayed over the core count (THE LOAD GATE): no
 //      command ran and no row was begun
 //
-// project-get, check-spec-reach and run-capped run in this same binary
+// project-get and check-spec-reach run in this same binary
 // (runSibling, selfExe). The test
 // list runs on rgtRun, a job pool, with one job per command so
 // every one starts at once (decision verify-list-on-rgtrun).
@@ -1359,18 +1359,10 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		// A default run is the smoke set whatever its caller exported.
 		cmdEnv = append(cmdEnv, "FLOW_VERIFY_FULL=")
 	}
-	// Every command runs under run-capped, which kills its process tree
-	// past the project's `## resource cap` (kan-1044).
-	self, err := selfExe()
-	if err != nil {
-		fmt.Fprintf(stderr, "run-verify-list: cannot resolve flow-guard's own executable: %v\n", err)
-		Reason(env, "cannot-resolve-flow-guard")
-		return 2
-	}
-	capped := []string{self, "run-capped", "--", "bash", "-c"}
+	bashC := []string{"bash", "-c"}
 	// run runs one command in the foreground.
 	run := func(shown, cmd, key string) {
-		results := rgtRun(context.Background(), [][]string{append(capped[:len(capped):len(capped)], cmd)}, 1, outDir, abs(wt), cmdEnv)
+		results := rgtRun(context.Background(), [][]string{append(bashC[:len(bashC):len(bashC)], cmd)}, 1, outDir, abs(wt), cmdEnv)
 		report(shown, results[0].rc, results[0].out, list+"-"+key)
 	}
 
@@ -1419,9 +1411,9 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			skip[i] = true
 		case list == "test":
 			if flow, ok := lookPath(env, "flow"); ok && suites[i] != "" {
-				argvs = append(argvs, append([]string{flow, "suite", "record", "-C", abs(wt), "-suite", suites[i] + suffixFull, "--"}, append(capped[:len(capped):len(capped)], c)...))
+				argvs = append(argvs, append([]string{flow, "suite", "record", "-C", abs(wt), "-suite", suites[i] + suffixFull, "--"}, append(bashC[:len(bashC):len(bashC)], c)...))
 			} else {
-				argvs = append(argvs, append(capped[:len(capped):len(capped)], c))
+				argvs = append(argvs, append(bashC[:len(bashC):len(bashC)], c))
 			}
 		default:
 			run(c, c, fmt.Sprint(i))

@@ -829,7 +829,6 @@ var GuardHelpers = []string{
 	"reshape-branch",
 	"resolve-base-branch",
 	"resolve-visual-screenshots",
-	"run-capped",
 	"run-reproducer",
 	"run-verify-list",
 	"smoke-keep",

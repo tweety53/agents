@@ -1403,7 +1403,7 @@ func runCostsRuns() []runCostsRun {
 		},
 		guards: []runCostsGuard{
 			{"check-plan-shape", beta, 112, 2},
-			{"run-capped", beta, 125, 5},
+			{"run-reproducer", beta, 125, 5},
 			{"close-task", beta, 214, 2},
 			{"run-verify-list", beta, 334, 4},
 			{"run-verify-list", betaWeb, 398, 6},

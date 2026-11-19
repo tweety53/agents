@@ -60,7 +60,7 @@ func rtStage(stage string, from, to float64, cost string) store.StageRun {
 }
 
 func rtGuard(from, to float64) records.GuardRun {
-	return records.GuardRun{Guard: "run-capped", Worktree: "/x/gymie-worktrees/kan-1-a", RecordedAt: rtAt(to), DurationMS: int(rtMin(to - from))}
+	return records.GuardRun{Guard: "run-verify-list", Worktree: "/x/gymie-worktrees/kan-1-a", RecordedAt: rtAt(to), DurationMS: int(rtMin(to - from))}
 }
 
 // rtInput is one run of 160 minutes: overlapping task rows, a group key, a

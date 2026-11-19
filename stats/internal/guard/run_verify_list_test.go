@@ -400,7 +400,7 @@ func TestRunVerifyListRecordsSuiteRuntimes(t *testing.T) {
 	if rc != 0 || !strings.Contains(out, "- `echo one` — exit 0\n  one\n") || !strings.Contains(out, "- `echo two` — exit 0\n  two\n") {
 		t.Errorf("with flow: exit %d, output:\n%s", rc, out)
 	}
-	if want := "suite record -C " + wt + " -suite demo-suite -- " + siblingExe + " run-capped -- bash -c echo one\n"; string(calls) != want {
+	if want := "suite record -C " + wt + " -suite demo-suite -- bash -c echo one\n"; string(calls) != want {
 		t.Errorf("flow calls %q, want %q", calls, want)
 	}
 	if rc, out := run("/usr/bin:/bin"); rc != 0 || !strings.Contains(out, "  one\n") {
@@ -1049,38 +1049,6 @@ func TestRunVerifyListVisualList(t *testing.T) {
 				t.Fatalf("not-run line printed = %v, want %v\n%s", !tc.notRun, tc.notRun, out)
 			}
 		})
-	}
-}
-
-// TestRunVerifyListCapsMemory pins kan-1044's cap: every listed command runs
-// under run-capped, so one allocating past `## resource cap` (64 MB here,
-// the child ~128 MB) is killed and the list fails naming CAPPED:.
-func TestRunVerifyListCapsMemory(t *testing.T) {
-	smoke.Heavy(t)
-	wt, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	fixtureRepo(t, wt, repoShape{})
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## resource cap\n\n64\n\n## test\n\n```bash\npython3 -c 'import os, time; b = bytearray(os.urandom(128 << 20)); [(b.__setitem__(slice(None, None, 4096), os.urandom(len(b) // 4096)), time.sleep(0.2)) for _ in range(50)]'\n```\n")
-	// An outer run-capped's RUN_CAPPED_PGID would make the inner one run
-	// in place under the outer cap, never this fixture's 64 MB.
-	environ := slices.DeleteFunc(os.Environ(), func(kv string) bool { return strings.HasPrefix(kv, "RUN_CAPPED_PGID=") })
-	environ = append(environ, "FLOW_GUARD_CACHE_DIR="+guardCache(t))
-	getenv := func(k string) string {
-		for i := len(environ) - 1; i >= 0; i-- {
-			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
-				return v
-			}
-		}
-		return ""
-	}
-	var o, e bytes.Buffer
-	if rc := runVerifyList([]string{wt, "test"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e); rc != 1 {
-		t.Fatalf("exit %d: %s %s", rc, o.String(), e.String())
-	}
-	if !strings.Contains(o.String()+e.String(), "CAPPED:") {
-		t.Errorf("no CAPPED: line:\n%s\n%s", o.String(), e.String())
 	}
 }
 
