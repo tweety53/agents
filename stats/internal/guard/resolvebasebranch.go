@@ -5,6 +5,7 @@ import (
 	"io"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // The contract below moved here from the header of the deleted
@@ -38,13 +39,19 @@ import (
 // longer carries — merged and deleted — is refused by name (`ls-remote
 // --exit-code` status 2); an unreachable remote never refuses.
 //
-// WHY THE FETCH IS WRAPPED. `git remote show origin` against an unreachable
-// host blocks for roughly 75s on the default TCP timeout, which would turn a
-// correct refusal into a two-minute hang. `-c core.askpass=true` stops it
-// prompting for credentials, `2>/dev/null` swallows the chatter, and `|| true`
-// means a failed fetch is not this script's failure — a stale origin/HEAD is
-// still resolved, just possibly out of date, which the fetch on the next
-// invocation corrects.
+// WHY THE FETCH IS WRAPPED. A call to origin — the `fetch`, the `remote show
+// origin` fallback, the `ls-remote --exit-code` — against an unreachable or
+// stalled host blocks for as long as the connection does: roughly 75s on the
+// default TCP timeout, with no end at all over an ssh connection that stalls
+// without closing. A live panel or verifier begin runs this guard for each of
+// the change's worktrees (stats/cmd/flow/record.go), so such a stall held the
+// begin with it (kan-1132 self-review, F2). Each of the three calls is
+// therefore bounded at rbbRemoteTimeout (20s): its process group — git and its
+// ssh child — is killed at the bound, and the call counts as failed, exactly
+// as an unreachable remote does. `-c core.askpass=true` stops it prompting for
+// credentials, and a failed fetch is not this guard's failure — a stale
+// origin/HEAD is still resolved, just possibly out of date, which the fetch on
+// the next invocation corrects.
 //
 // WHY HEAD@{upstream} IS NEVER CONSULTED. Inside an apply worktree, HEAD *is*
 // the change's own branch, spectre/<name>, by construction. Its upstream is
@@ -57,11 +64,10 @@ import (
 // no-remote message. A caller that could only tell the two apart by matching
 // stderr text would stop being able to the first time the wording changes.
 //
-// The unreachable-remote hang is deliberately NOT covered by this script's
-// tests (TestResolveBaseBranch): a wall-clock assertion on a TCP timeout is flaky by
-// construction. The wrapping above is carried forward verbatim from the
-// fenced block this script replaces, and this comment is where its reasoning
-// now lives.
+// The stalled-remote case is covered (TestResolveBaseBranchBoundsAStalledRemote)
+// by a GIT_SSH_COMMAND stub that sleeps, which stalls deterministically where
+// a TCP timeout does not: the test shortens the bound and asserts the guard
+// still resolves the recorded base, well inside the stub's stall.
 
 // resolveBaseBranch is `flow-guard resolve-base-branch`: the comment above is the contract -- the bare branch name alone on stdout at exit 0;
 // 1 a named refusal, 2 cannot answer, 3 no `origin` remote, each with its
@@ -71,6 +77,9 @@ import (
 func init() {
 	Registry["resolve-base-branch"] = resolveBaseBranch
 }
+
+// rbbRemoteTimeout bounds each call resolve-base-branch makes to origin.
+var rbbRemoteTimeout = 20 * time.Second
 
 func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// NO REFUSAL BELOW MAY DEPEND ON THE OPERATOR'S LOCALE. The bash pinned
@@ -113,7 +122,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// A failed fetch is not this guard's failure (the header's WHY THE FETCH
 	// IS WRAPPED): a stale origin/HEAD still resolves, and the next
 	// invocation's fetch corrects it.
-	fetched := git("-C", dir, "-c", "core.askpass=true", "fetch", "--quiet", "origin").Run() == nil
+	_, fetched, _ := rbbRemote(git("-C", dir, "-c", "core.askpass=true", "fetch", "--quiet", "origin"))
 
 	// Each resolution attempt is allowed to fail -- a missing origin/HEAD or
 	// an unreachable remote is an ordinary outcome here -- so only its output
@@ -124,7 +133,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 		return strings.TrimPrefix(l, "origin/"), true
 	})
 	if base == "" {
-		show, _ := capture(envGit(env, "LC_ALL=C", "GIT_TERMINAL_PROMPT=0")("-C", dir, "remote", "show", "origin"))
+		show, _, _ := rbbRemote(envGit(env, "LC_ALL=C", "GIT_TERMINAL_PROMPT=0")("-C", dir, "remote", "show", "origin"))
 		base = rbbSed(show, func(l string) (string, bool) {
 			return strings.CutPrefix(strings.TrimLeft(l, " "), "HEAD branch: ")
 		})
@@ -190,8 +199,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// fetch that just failed already answered "unreachable", so the call is
 	// skipped rather than blocking a second time.
 	if rec != "" && fetched {
-		err := envGit(env, "LC_ALL=C", "GIT_TERMINAL_PROMPT=0")("-C", dir, "-c", "core.askpass=true", "ls-remote", "--exit-code", "--heads", "origin", "refs/heads/"+base).Run()
-		if ee, ok := err.(*exec.ExitError); ok && ee.ExitCode() == 2 {
+		if _, _, rc := rbbRemote(envGit(env, "LC_ALL=C", "GIT_TERMINAL_PROMPT=0")("-C", dir, "-c", "core.askpass=true", "ls-remote", "--exit-code", "--heads", "origin", "refs/heads/"+base)); rc == 2 {
 			fmt.Fprintf(stderr, "resolve-base-branch: recorded base '%s' is not on origin — re-point the change (skills/flow/SKILL.md)\n", base)
 			Reason(env, "recorded-base-gone")
 			return 1
@@ -207,6 +215,20 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 func recordedBase(git func(...string) *exec.Cmd, dir, branch string) string {
 	rec, _ := capture(git("-C", dir, "config", "--get", "branch."+branch+".flowBase"))
 	return strings.TrimRight(strings.ReplaceAll(rec, "\x00", ""), "\n")
+}
+
+// rbbRemote runs a git call that reaches origin, its process group killed
+// once rbbRemoteTimeout elapses (mvRunBounded), and returns its stdout as
+// capture does, whether it succeeded, and its exit code. A call that timed
+// out or never started reports failure and exit -1, as an unreachable
+// remote does (kan-1132 self-review, F2).
+func rbbRemote(cmd *exec.Cmd) (string, bool, int) {
+	var out strings.Builder
+	cmd.Stdout = &out
+	if mvRunBounded(cmd, rbbRemoteTimeout, nil) || cmd.ProcessState == nil {
+		return "", false, -1
+	}
+	return strings.TrimRight(out.String(), "\n"), cmd.ProcessState.Success(), cmd.ProcessState.ExitCode()
 }
 
 // rbbNameByte is the C locale's [A-Za-z0-9._], plus `/` and `-` when rest.

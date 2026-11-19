@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
@@ -322,5 +323,40 @@ func TestResolveBaseBranchRefusesARecordedBaseGoneFromOrigin(t *testing.T) {
 	code := Registry["resolve-base-branch"]([]string{wt}, Env{Dir: t.TempDir(), Getenv: os.Getenv}, &out, &errb)
 	if code != 1 || out.String() != "" || !strings.Contains(errb.String(), "recorded base 'feature/gone' is not on origin") {
 		t.Fatalf("exit %d stdout %q stderr %q, want exit 1 naming the gone base", code, out.String(), errb.String())
+	}
+}
+
+// TestResolveBaseBranchBoundsAStalledRemote pins kan-1132's self-review, F2:
+// an origin whose ssh connection stalls holds each call to it no longer than
+// rbbRemoteTimeout, and the recorded base still resolves. The stalled ssh is
+// a GIT_SSH_COMMAND stub, deterministic where a TCP timeout is not.
+func TestResolveBaseBranchBoundsAStalledRemote(t *testing.T) {
+	wt := t.TempDir()
+	for _, args := range [][]string{
+		{"init", "-q", "-b", "feat"},
+		{"commit", "-q", "--allow-empty", "-m", "one"},
+		{"config", "branch.feat.flowBase", "main"},
+		{"remote", "add", "origin", "ssh://example.invalid/x.git"},
+	} {
+		rbbGit(t, wt, args...)
+	}
+	stub := t.TempDir() + "/ssh"
+	writeFile(t, stub, "#!/bin/sh\nexec sleep 60\n")
+	if err := os.Chmod(stub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GIT_SSH_COMMAND", stub)
+	old := rbbRemoteTimeout
+	rbbRemoteTimeout = time.Second
+	t.Cleanup(func() { rbbRemoteTimeout = old })
+
+	start := time.Now()
+	var out, errb bytes.Buffer
+	code := Registry["resolve-base-branch"]([]string{wt}, Env{Dir: t.TempDir(), Getenv: os.Getenv}, &out, &errb)
+	if code != 0 || out.String() != "main\n" {
+		t.Errorf("exit %d stdout %q stderr %q, want exit 0 and main", code, out.String(), errb.String())
+	}
+	if d := time.Since(start); d >= 20*time.Second {
+		t.Errorf("took %s against a stalled remote, want under 20s", d)
 	}
 }
