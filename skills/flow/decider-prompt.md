@@ -28,12 +28,13 @@ bundle is one reviewer dispatch.
 | `test-sanity` | would each test the diff adds or changes fail if its behaviour broke |
 | `call-efficiency` | second callers, a read repeated in one request, a query per list item |
 | `failure-modes` | error returns, timeouts, partial writes, concurrent re-entry |
-| `mutation` | sabotage-proofing: breaks the code on purpose to prove the tests notice — always runs |
+| `mutation` | sabotage-proofing: breaks the code on purpose to prove the tests notice |
 
 - Pick a reviewer only when the change gives it something to read: no `call-efficiency` for a
   change that adds no call, query or request; no `failure-modes` without I/O, persistence or
-  concurrency; no `test-sanity` when no test is added or changed.
-- `mutation` is always a bundle alone. Every other bundle holds one or two reviewers.
+  concurrency; no `test-sanity` when no test is added or changed; no `mutation` when the change
+  adds no logic a test should catch breaking.
+- `mutation`, when picked, is a bundle alone. Every other bundle holds one or two reviewers.
 
 **3. Visual verification.** `not configured` when the project declares no `## visual
 verification` section. Otherwise `required` when anything a user sees can change — a page, a
