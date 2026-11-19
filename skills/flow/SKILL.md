@@ -32,32 +32,9 @@ A recorded base gone from origin — merged and deleted — is refused by name b
 
 ## Model resolution
 
-**Resolve this once, near the top of every run, before any dispatch below reads it:**
-
-```bash
-SETTINGS_JSON="$(flow settings get || true)"
-REVIEWERS="$(printf '%s' "$SETTINGS_JSON" | jq -r '.reviewers[]')"
-```
-
-A non-zero exit from `flow settings get` means the settings store could not be reached — there is
-no per-change fallback file for this record. The read leaves the CLI's stderr visible: report it
-verbatim as the cause, and resolve `REVIEWERS` by the table's Unreachable row below, never as the
-empty list the failed read leaves. Settings unreachable is never a reason to block
-implementation.
-
-**Execution mode and the review panel are decided per change, never configured.** The plan's
-class decides them — **Decide** (`skills/flow/brainstorm-planner.md`) — and the run reads them from
-the recorded `decision.json`.
-
-**`REVIEWERS` resolves from the same call, into the roster a `micro` decision's panel
-dispatches** — the one class whose `panel` is the string `default` (`skills/flow/review-panel.md`
-is canonical for what dispatching it means):
-
-| Store state | Resolved roster |
-|-------------|-----------------|
-| Reachable, list non-empty | exactly the list |
-| Reachable, list empty | `primary` alone |
-| Unreachable | `primary`, `principles` (`DefaultReviewers` in `<agents repo>/stats/internal/store/settings.go`), naming this a fallback rather than a resolved value |
+**The implementer groups, the review panel and visual verification are decided per change, never
+configured** — by a fresh decider at **Decide** (`skills/flow/brainstorm-planner.md`) — and the
+run reads them from the recorded `decision.json`.
 
 **Every dispatch runs on its role's pair, picked by `flow-guard pair-judge` at dispatch time** —
 **Model and effort** (`skills/flow/brainstorm-planner.md`) is canonical.
@@ -139,9 +116,10 @@ that string written in place of the placeholder. A `stage begin` carries it too.
 
 ## Review-before-landing instruction
 
-**A plain-language instruction to review before landing, or to land without review, given at any
-point of any `/flow` run of the change — the creating run's planning included — is written to the
-record at once:**
+**A change lands without review by default** — no run asks whether to stop for review or testing.
+**Only the operator's own plain-language instruction to review or test before landing** — or to
+land without review again — given at any point of any `/flow` run of the change, the creating run's
+planning included, is written to the record at once:
 
 ```bash
 flow state get <name> | jq '.reviewBeforeLanding = <true|false>' | flow state set <name>

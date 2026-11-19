@@ -146,8 +146,8 @@ token spend.
    paths of `proposal.md`, `design.md` and `tasks.md`; a second failure stops the run with both
    returns.
 
-The parent then runs **Plan review** below unless the planner's return skips it, then **Decide**
-(`skills/flow/brainstorm-planner.md`) and the gate.
+The parent then runs **Plan review** below, then **Decide** (`skills/flow/brainstorm-planner.md`)
+and the gate.
 
 **Prose preceding a question is shown too, not dropped.** When the checklist carries a summary
 before a question — most concretely the convergence confirm's "state what you believe settled"
@@ -173,9 +173,8 @@ flow stage end -command '/flow' -stage flow.plan -outcome completed <name>
 
 ### Plan review
 
-**A fresh reviewer that has seen nothing but the documents reads the plan once**, after the final
-planner returned `PLAN-WRITTEN`, in `/flow`'s creating run and a `/flow-plan` capture. A return
-whose second line is `Plan review: skip — <reason>` skips it: print that line and go on. A fix
+**A fresh reviewer that has seen nothing but the documents reads every plan once**, after the
+final planner returned `PLAN-WRITTEN`, in `/flow`'s creating run and a `/flow-plan` capture. A fix
 run's re-plan, the self-review and in-run fix planners and `/flow-fast` never run it.
 
 1. **Dispatch.** One Agent call on the design-reviewer role's pair (**Model and effort**,
