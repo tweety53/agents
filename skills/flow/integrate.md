@@ -250,8 +250,6 @@ Next:
 ```
 ````
 
-The `**Learning:**` and `**Prompt tuning:**` lines are not printed here — only the Finished handoff (`skills/flow/cleanup.md`) carries them.
-
 | Route taken in step 5 | Heading |
 |--------------------|---------|
 | pull request | *waiting on the merge* |

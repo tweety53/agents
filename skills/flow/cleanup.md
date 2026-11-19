@@ -89,21 +89,7 @@ merged** (`skills/flow-contracts/finish-contract-run2.md`).
 **Main checkout:** fast-forwarded | already current | <the REFRESH-REFUSED line>
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
-**Learning:** <the learning note's absolute path> | NONE — <reason>
-**Prompt tuning:** <each case's `index.html` absolute path in `<agents repo>`'s main checkout> | NONE
 ```
-
-**`Learning:` and `Prompt tuning:` are never omitted** — this block, and `/flow-fast`'s landing report, which carries the same two lines, are where they are canonical. `Learning:` names the file **Learning**
-(`skills/flow-contracts/learning.md`) places at `<project>-learning/<name>.md` when it exists; its
-`NONE` reason is the setting off or the store unreachable. `Prompt tuning:` names every case the
-self-review's step 2a wrote (`skills/flow-self-review/SKILL.md`), and is the literal `NONE`, with no
-reason after it, when that step wrote none.
-
-**The `Learning:` and `Prompt tuning:` lines are shown only once the change is fully done** — in
-this Finished handoff and `/flow-fast`'s final report — and a final report written beside it or
-instead of it still carries them. No earlier handoff carries either: not the `IN_PROGRESS` handoff
-(`skills/flow/verify-and-handoff.md`) and not integrate run 1's `## Handoff` block
-(`skills/flow/integrate.md`).
 
 A run 2 that **completes step 5** is terminal and names **no** next command.
 

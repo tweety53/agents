@@ -11,8 +11,6 @@ relay first when that round has no `answers-<r>.md`, the resumed round reading `
 latest round file and its answers — and a resume at **D** dispatches the final
 planner.
 
-**Load `skills/flow/withdrawal.md`** only when `total == 0` below.
-
 **Load `skills/flow/seeded-note.md`** only when the change was seeded from a note and the resume
 point is section C or D, which never reopens the checklist that otherwise loads it.
 
@@ -28,9 +26,7 @@ by reading, not by assuming:
   the `STARTED` write and that step: run steps 1–4 now, then continue below. `<changeRoot>` is
   always `<project>-worktrees/<name>/spectre/changes/<name>/`, never a main-checkout path.
 - `spectre list --json`'s entry for this change's `done`/`total`, run in the worktree —
-  `total == 0` means no plan exists yet: the run first opens with the withdrawal route's resume
-  ask (**The withdrawal route**, `skills/flow/withdrawal.md`) — resume brainstorming, the default, or withdraw — and a
-  resume answer continues at **B** in
+  `total == 0` means no plan exists yet: the run continues at **B** in
   `skills/flow/brainstorm-planner.md`. <!-- refs-guard:allow -->
 - The change root's own `tasks.md` — a scaffold with no enriched steps means writing-plans has not
   run: resume at **D** in `skills/flow/brainstorm-planner.md`. A plan meeting writing-plans <!-- refs-guard:allow -->

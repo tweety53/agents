@@ -9,7 +9,7 @@ section name below without a path is a section of `skills/flow/review-panel.md`.
 **A fix run whose delta is small against an already-clean, already-verified stage reduces pass 1
 to `primary` alone reading the delta only** — the narrow late-fix review path. Like the docs-only reduction this only ever removes, and
 it fires only on a **fix run** — a `/flow` invocation whose argument is fix instructions — never
-on a creating run, whose pass 1 is always the full resolved roster. Every condition must hold,
+on a creating run, whose pass 1 is always the full decided panel. Every condition must hold,
 checked once when this stage opens its first round on the fix run, by one call — the canonical
 worktree's triple first:
 
@@ -29,20 +29,18 @@ reshaped branch head.
 `<base-verdict>` is that worktree's **Check base movement first** line this round. Exit 0 → the
 reduction fires; exit 1 → the full path, each failed condition on its own line; exit 2 → it cannot
 answer, read as the full path; exit 3 → **The append scope** below — the full path for the
-roster, never for the read scope; exit 4 → **The small append** below.
+panel, never for the read scope; exit 4 → **The small append** below.
 
-**On trigger, pass 1 is one dispatch: `primary` alone**, beside **The extra dispatches** (`skills/flow/review-panel.md`), which still run, plus every slot the operator named at
+**On trigger, pass 1 is one dispatch: `primary` alone**, beside the decision's `mutation` bundle where it carries one, which still runs, plus every slot the operator named at
 this stage's start, reading not the whole `final-review.diff` but only
 `<abs-worktree>/.superpowers/sdd/late-fix.diff`, written over the since-close range by
 `flow-guard write-panel-diff late-fix <abs-worktree> <worktree> <since-close-sha> [<worktree> <since-close-sha>…]`,
-whose exits read as the pass-1 write's. On a decided panel the dispatch runs on the `panel-rerun` role's
-pair, its Role line `panel-rerun`, under the fix-round re-run's 5-minute ceiling; on a `default`
-panel on the `late-fix` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`)
-under the ordinary 15-minute ceiling. Each dropped slot is recorded
+whose exits read as the pass-1 write's. The dispatch runs on the `panel-rerun` role's
+pair, its Role line `panel-rerun`, under the fix-round re-run's 5-minute ceiling. Each dropped slot is recorded
 with `flow record pass -round <round> -note 'not dispatched — late-fix reduction: <slot>'`, the
 docs-only reduction's own convention. Every entry check above still runs as any round's — base
 movement, the diff-size cap, the docs-only guard — and where both reductions fire, the late-fix
-one governs the read scope, the roster being `primary` alone either way. The reduction itself is
+one governs the read scope, the panel being `primary` alone either way. The reduction itself is
 recorded with `flow record pass -round <round>`:
 `late-fix reduction: <n> changed lines since <sha>`.
 
@@ -61,16 +59,15 @@ The same holds for a delta the late-fix reduction's targeted dispatch read — c
 or with every finding it raised a Minor the parent fixed inline under the standing rule:
 `primary`'s read on the since-close range leaves every slot it did not dispatch current —
 the reduction's own conditions, already clean and already verified with the machinery untouched,
-being what the full roster's coverage rests on for that delta. A delta the small append's dispatch
+being what the full panel's coverage rests on for that delta. A delta the small append's dispatch
 read — clean, or with every finding it raised a Minor the parent fixed inline under the standing
 rule — leaves every slot it did not dispatch current the same way.
 
 ## The append scope
 
 **A fix run whose late-fix check fails on its size or scope-growth condition alone — exit 3 —
-keeps the decided roster and narrows only the read scope.** Pass 1 runs the roster a full pass 1
-would: the same `panel.dispatches`, role pairs and ceilings, and on a `default` panel its
-settings-store grouping. Every dispatch reads `<abs-worktree>/.superpowers/sdd/late-fix.diff`,
+keeps the decided panel and narrows only the read scope.** Pass 1 runs the bundles a full pass 1
+would: the same `panel` bundles, role pairs and ceilings. Every dispatch reads `<abs-worktree>/.superpowers/sdd/late-fix.diff`,
 written over the since-close range by the same `flow-guard write-panel-diff late-fix` call the late-fix
 reduction makes, whose exits read as the pass-1 write's, and rendered with `-diff late-fix`,
 never the whole `final-review.diff` — the render points every shared paragraph at that diff.
@@ -83,19 +80,17 @@ recorded with `flow record pass -round <round>`:
 `append scope: <n> changed lines since <sha>`.
 
 A Critical or Important finding it raises feeds the ordinary fix-round loop and **voids nothing**:
-the full roster already read the delta, so a severe finding says nothing about the read being too
+the full panel already read the delta, so a severe finding says nothing about the read being too
 narrow. A clean close moves the close sha to the round's HEAD, as any close does.
 
 ## The small append
 
 **A fix run whose late-fix check exits 4 — the append scope's verdict on a countable delta of at
-most 250 changed lines — runs pass 1 as one dispatch: `primary` alone**, beside **The extra dispatches** (`skills/flow/review-panel.md`), which still run, plus every slot the
-operator named at this stage's start, on the `late-fix` role's pair (**Model and effort**,
+most 250 changed lines — runs pass 1 as one dispatch: `primary` alone**, beside the decision's `mutation` bundle where it carries one, which still runs, plus every slot the
+operator named at this stage's start, on the `panel-rerun` role's pair (**Model and effort**,
 `skills/flow/brainstorm-planner.md`) under the ordinary 15-minute ceiling, reading `late-fix.diff` written and rendered as **The append scope** writes and renders
 it. `primary` reads every line of the new source, so nothing appended goes unreviewed; what the
-small append drops is the second lens and the higher effort. It runs on that pair, never the rerun pair: the delta is new
-source, a first read rather than a re-run. Every other slot pass 1 would carry — the experimental
-slot included — is not dispatched, each recorded with
+small append drops is the second lens. Every other slot pass 1 would carry is not dispatched, each recorded with
 `flow record pass -round <round> -note 'not dispatched — small append: <slot>'`, and the small
 append itself with `flow record pass -round <round>`:
 `small append: <n> changed lines since <sha>`. Every entry check still runs as the append scope's.
@@ -106,7 +101,7 @@ and a clean close moves the close sha to the round's HEAD.
 
 ## The fix-run judge
 
-**A fix run decides its panel roster and its verify mode once, through one judge held above a
+**A fix run decides its panel and its verify mode once, through one judge held above a
 mechanical floor.** When this stage opens its first round on the fix run, after the late-fix
 check above and in the same Bash call, run — in a change whose resolved set holds one worktree;
 a wider set takes the full path, with no floor and no judge:
@@ -152,8 +147,8 @@ verbatim:
 
 It also states: the absolute worktree path; the fix instructions, verbatim; the output of
 `git -C <worktree> diff --stat <merge-base>`; the three lines `flow-guard fix-run-floor` printed;
-the roles this round's pass 1 would dispatch without a verdict — the roster the reductions above
-leave, the extra dispatches' roles **The slot triggers** (`skills/flow/review-panel.md`) leave and every slot the operator named — one id per
+the roles this round's pass 1 would dispatch without a verdict — the roles the reductions above
+leave and every slot the operator named — one id per
 line; the absolute path of the rendered panel record under
 `<abs-worktree>/.superpowers/sdd/reviews/`, whose findings are the earlier rounds'; and this
 task, as written:
@@ -192,13 +187,13 @@ or `fix-run judge: full path — <the guard's stderr, or aborted>`.
 
 **What a verdict in force changes, and what holds it there:**
 
-- **The roster.** Pass 1 dispatches a role only when the verdict's roster names it. The verdict
-  is applied after the reductions above and the slot triggers, to the roster and to the extra dispatches
+- **The panel.** Pass 1 dispatches a role only when the verdict's `roster` names it. The verdict
+  is applied after the reductions above, to every bundle
   alike, and only ever removes: a bundle dispatches the roles it still names, on its own pair
   and read scope, and a bundle left naming none is not dispatched. Each dropped role is recorded
   with `flow record pass -round <round> -note 'not dispatched — fix-run judge: <slot>'`.
   `flow-guard panel-round-begins` refuses the round's begins — exit 3, none recorded — while a
-  slot carries a role the roster omits.
+  slot carries a role the verdict's `roster` omits.
 - **Verify.** Under `"verify": "fast"`, `flow-guard run-verify-list <worktree> test` skips every
   command and ends its row `skipped`; the `lint` group runs whole. Under `"verify": "full"` that
   command runs the whole test list — the default run, never the full suite, which is

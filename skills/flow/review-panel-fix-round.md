@@ -17,11 +17,11 @@ boundary proceeds into the round's own remaining steps — the citation pre-chec
 entry check is an entry step, and the round does not re-run it. The section's before-review planning
 commit comes first at a round boundary too.
 
-**Pass 1 runs the roster **The docs-only reduction** or **The late-fix reduction** chose — the
-resolved roster, `primary` alone on a docs-only branch, or `primary` alone on the late-fix delta
-where the reduction's trigger holds, or the decided roster on the since-close delta under the
+**Pass 1 runs the panel **The docs-only reduction** or **The late-fix reduction** chose — the
+decided panel, `primary` alone on a docs-only branch, or `primary` alone on the late-fix delta
+where the reduction's trigger holds, or the decided panel on the since-close delta under the
 append scope, or `primary` alone on that delta under the small append — plus every slot the operator named at this stage's start
-that it did not already carry.** Only re-runs after a fix are scoped. A `test-sanity`, `call-efficiency` or `failure-modes` role re-runs in the round's rerun bundle like any other role, on `opus` on a `default` panel. Record
+that it did not already carry.** Only re-runs after a fix are scoped. Record
 `FIX_BASE` — the branch tip the fix round starts from, per worktree — commit the fix, then write
 `<abs-worktree>/.superpowers/sdd/fix-round-N.diff` and its touched list with
 `flow-guard write-panel-diff fix-round <N> <abs-worktree> <worktree> <fix-base> [<worktree> <fix-base>…]`,
@@ -75,7 +75,7 @@ secondary summary, and records the confirmation with the round's pass log. A pre
 source does not support withdraws the finding with that reason through the round's auto-decisions
 below, and the working code stands.
 
-**After a fix round, re-run on deltas — every slot that raised a finding the round touched,
+**After a fix round, re-run on deltas — only the slots that raised a finding the round touched,
 Critical, Important or Minor alike.** A slot's last-reviewed sha is
 held **per slot per worktree**: each dispatch sets that slot's sha in every worktree to the HEAD it
 was dispatched against, and a slot not dispatched in a round keeps the shas it had. A delta is
@@ -88,11 +88,8 @@ the rebased worktree on a clean rebase, whether taken at panel entry or at a rou
 that worktree's section falls under the no-held-sha rule in the next round. Then:
 
 - **a slot re-runs when it raised a finding the round touched — Critical, Important or Minor
-  alike — or the previous round raised a new Critical**, a row linked by `-supersedes` to another
-  role's row of the same round counting as that other role's (**Bundled dispatch**, `skills/flow/review-panel.md`);
-  the new-Critical clause sends every slot
-  in the resolved roster, Primary included, and every operator-added slot already dispatched in
-  an earlier pass of this run. **A fix round is never exempt from being itself reviewed**: the
+  alike**, a row linked by `-supersedes` to another
+  role's row of the same round counting as that other role's (**Bundled dispatch**, `skills/flow/review-panel.md`). **A fix round is never exempt from being itself reviewed**: the
   fix for one finding can introduce the very class it fixed, no per-file or per-test check
   catches that, and the round's own mutation-proof and reproducer flips never substitute for the
   re-run its fixes name — for every role but Mutation, below. A slot that raised nothing keeps the
@@ -106,10 +103,10 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
   delta is empty in every worktree is not dispatched** — record `not re-run —
   nothing new since its last read` with `flow record pass -round <round>`;
 - **a slot the operator has not named for this run is never added here** — that addition happens
-  only through the explicit-request check **The roster** states, at the start of any round;
-- **on a decided panel, the round's re-running roles ride one bundled dispatch, on
-  the `panel-rerun` role's pair**, under the 5-minute ceiling — one **PASS** section
-  per role, the full-roster fallback (**Bundled dispatch**, `skills/flow/review-panel.md`)
+  only through the explicit-request check **The panel** states, at the start of any round;
+- **the round's re-running roles ride one bundled dispatch, on role `panel-rerun`**, its pair
+  from `flow-guard pair-judge`, under the 5-minute ceiling — one **PASS** section
+  per role, the one-per-role fallback (**Bundled dispatch**, `skills/flow/review-panel.md`)
   separating them one per role when the bundled findings need separation. **Each role's re-run is
   targeted at what that role raised and nothing else**: in place of
   its held-sha delta it reads the round's `fix-round-N.diff` plus the sites of its own open
@@ -117,8 +114,7 @@ that worktree's section falls under the no-held-sha rule in the next round. Then
   those `F<n>` rows verbatim, states that it is re-reviewing their fix, and names that diff path.
   Its verdict is per listed finding — fixed, or not fixed with the reproducer output — plus any
   defect the fix diff itself introduces at those sites.
-  A role that raised nothing in the previous round does not re-run under the new-Critical clause
-  above either — with no finding of its own to target it has nothing to re-review. Each
+  Each
   `-model`/`-effort` recorded is the rerun pair (**Bundled dispatch**).
 
 **A fix-round re-run reviews the fix, never the branch** — and no pass after pass 1 re-reads the
@@ -180,25 +176,17 @@ sharing a sha in a worktree need one call there, not two); a slot with no held s
 counts from that worktree's merge base. **The gating count is the largest per-slot sum across
 worktrees** — the largest single combined read any one slot this round faces — and an exit-1
 result from a call contributing to it proceeds unasked exactly as the pass-1 check does (**The
-roster**, above), reporting the gating sum, its per-worktree counts and, when it differs, the
+panel**, above), reporting the gating sum, its per-worktree counts and, when it differs, the
 full-branch sum. Record both with `flow record pass -round <round>` for this round,
 alongside the agents-ran/why/diff-path lines the fix pass records.
 
 **The docs-only guard runs again beside that cap check**, `flow-guard check-panel-docs-only <worktree>
 <merge-base>`. A branch that stays docs-only keeps the
-reduced roster, and `primary` re-runs on its delta as above. A branch the fix round made no
+reduced panel, and `primary` re-runs on its delta as above. A branch the fix round made no
 longer docs-only — exit 1 or 2 where pass 1 saw exit 0 — dispatches, in this round, every
-resolved slot not yet dispatched this run, each reading the whole `final-review.diff` under the
+decided slot not yet dispatched this run, each reading the whole `final-review.diff` under the
 no-last-reviewed-sha rule above; Mutation among them takes its pass-1 shape, throwaway
 worktree included. Record which slots joined this way and the path the guard printed.
-
-**The slot triggers run again beside it**, `flow-guard panel-slot-triggers <worktree> <merge-base>
-[<worktree> <merge-base>…]` over the whole branch (**The slot triggers**,
-`skills/flow/review-panel.md`). A gated role not yet dispatched this run that the guard now prints
-`run` for, or every such role on its exit 2, joins this round as a docs-only join does, reading
-the whole `final-review.diff`, recorded with `flow record pass -round <round> -note 'joined — slot
-trigger: <slot> — guard: <guard reason>'`. The decision's `slot_triggers` is never asked again; a
-role still skipped by both sources stays skipped, the docs-only join above included.
 
 Union all **open** findings, dedupe by **defect identity — file:line + theme.** *File:line* is the
 finding's own recorded location, taken verbatim from the findings table. *Theme* is the finding's
@@ -374,8 +362,7 @@ round's re-review begins.
 
 **Every fixed Critical or Important finding leaves a tracked suite test behind** — the
 `regression-test:` line of the REPORT FILE paragraph (`skills/flow/review-panel.md`), so a
-regression of a reviewed defect is still caught once the worktree and its reproducers are gone. Where the parent fixes inline, it writes those lines to
-`panel-fix-report-<round>.md` itself. `check-panel-findings-closed` refuses the close without them;
+regression of a reviewed defect is still caught once the worktree and its reproducers are gone. `check-panel-findings-closed` refuses the close without them;
 a fixed Minor needs none.
 
 **A fix round that fixed a Critical or Important finding and changed no executable behaviour still
@@ -460,21 +447,16 @@ re-review's reviewer rows while a commit authored since the reviewed round began
 chunk's `-key` is exactly `panel-fix-<round>`; each further chunk appends `-<n>`
 (`panel-fix-<round>-2`, `-3`, …), contiguous from 2; the handshake retry suffixes `-retry` onto
 its own chunk's key (`panel-fix-<round>[|-<n>]-retry`), and any other key shape is a violation
-whatever the dispatch count, save the parent's own `full-suite-fix-<n>` rows recorded with
-`-agent-id inline` (`skills/flow/implement.md`). A gated reviewer's fix round is no panel-fix row: it records under `-role implementer` (`skills/flow/gated-review-fix.md`), and an in-run verify fix under its appended task's implementer pair (`skills/flow/verify-fix-loop.md`). A round may not chunk freely: its chunk count is bounded by
+whatever the dispatch count. A gated reviewer's fix round is no panel-fix row: it records under `-role implementer` (`skills/flow/gated-review-fix.md`), and an in-run verify fix under its appended task's implementer pair (`skills/flow/verify-fix-loop.md`). A round may not chunk freely: its chunk count is bounded by
 `ceil(findings raised in earlier rounds / 10)`. Before recording each `dispatch begin`, confirm that key has
 no panel-fix begin already recorded — a second begin under a fresh key is over-dispatching even
 when every key is well-formed. `flow-guard check-panel-fix-single-dispatch` holds every run's panel close
-to exactly this shape (**Before closing the stage**, below). Inline
-(`skills/flow/implement.md`'s **Inline — the parent implements**), the parent applies the fix
-itself under the same paragraphs, dispatching no subagent, and records the pass with `-role
-panel-fix -model <parent model> -effort <parent effort> -agent-id inline`, `begin` before its first
-edit and `end` once the fix commit lands, as that section's **Records** bullet states. Where a finding is
+to exactly this shape (**Before closing the stage**, below). Where a finding is
 confirmed as a real defect, the fix subagent reads and follows **superpowers:systematic-debugging**
 from its file before writing its fix — on Claude Code the newest
 `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`, since a `flow-*` agent
-carries no Skill tool. **Dispatch it on the `panel-fix` role's pair** (**Model and effort**,
-`skills/flow/brainstorm-planner.md`), `subagent_type: flow-<effort>` with that `model` passed as
+carries no Skill tool. **Dispatch it on the `panel-fix` role's pair** from `flow-guard pair-judge` (**Model and effort**,
+`skills/flow/brainstorm-planner.md`), `subagent_type` the pair's agent type with its `model` passed as
 the Agent tool's own `model` parameter, and `-model`/`-effort` below carry that pair. On harness `zcode` the pair given and recorded is `glm-5.3-flash` / `high` instead (**Harness mapping**, `skills/flow-contracts/model-policy.md`); on harness `muse` the dispatch names no model and no `subagent_type`, and the recorded pair is the session's own. Record
 every pass with `flow record pass -round <round>`: which agents ran, why,
 the diff path they read, and — when this pass bounced any finding — each bounced finding's defect

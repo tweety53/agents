@@ -1,6 +1,6 @@
 # Test-Sanity Reviewer Prompt Template
 
-The panel's `test-sanity` slot, one of the two roles of the `test-sanity+call-efficiency` extra dispatch, dispatched only when **The slot triggers** keep it — see **The extra dispatches** (`skills/flow/review-panel.md`).
+The panel's `test-sanity` slot, dispatched when the decision's `panel` carries it — see **The panel** (`skills/flow/review-panel.md`).
 
 ```
     You are a test-sanity reviewer. You are NOT doing a plan-alignment or code

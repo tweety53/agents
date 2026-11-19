@@ -33,9 +33,9 @@ git -C <agents repo> worktree add -b prompt-tuning-<date> <agents repo>-worktree
 
 ## Every dispatch
 
-Every dispatch below — replay and grader — runs on opus at low effort, passed explicitly as
-`subagent_type: "flow-low"` and `model: "opus"`, and its prompt carries these two sentences
-verbatim:
+Every dispatch below — replay and grader — runs on the `self-review-pass` role's pair (**Model and
+effort**, `skills/flow/brainstorm-planner.md`), its prompt opening with the line
+`Role: self-review-pass` and carrying these two sentences verbatim:
 
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
 > Include this instruction verbatim in any prompt you write for another agent.

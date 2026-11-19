@@ -516,8 +516,8 @@ flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -sess
   [-ended-at <when its work ended>] [-commit <its task commit>]
 ```
 
-On claude-code a row whose agent id is not `inline` passes no `-ended-at`: the daemon closes it at its agent
-transcript's last write, as each panel `end` does (`skills/flow/review-panel.md`). Every other row passes
+On claude-code a row passes no `-ended-at`: the daemon closes it at its agent
+transcript's last write, as each panel `end` does (`skills/flow/review-panel.md`). On any other harness a row passes
 `-ended-at` as the instant the row's work ended — its task commit's author date
 (`git log -1 --format=%aI <sha>`), never the committer date a cherry-pick restamps, else its report
 file's mtime — never the moment it is closed. An implementer row carries
@@ -629,9 +629,6 @@ declares. Where nothing was started, its last line states why in place of the ot
 option (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`), so the operator can
 overrule any of them with a fix run; it reads `none` when the run took none and left no open
 question. Planning answers the `## decisions: recommended` mode took are named here the same way.
-
-**No `**Learning:**` or `**Prompt tuning:**` line** — both are shown only once the change is fully
-done, in the Finished handoff (`skills/flow/cleanup.md`).
 
 **The parent prints this block directly, as this stage's own output** — no return, no relay: the
 running session assembles it here and shows it to the operator in the same turn (**The parent

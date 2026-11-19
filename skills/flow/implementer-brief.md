@@ -1,9 +1,7 @@
 # Implementer brief
 
 Every implementer and fixer dispatch of **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) reads
-this file in full first: its prompt is a stub naming this file, never these paragraphs. On an
-`inline` run the parent loads it and is bound by it in the same words (**Inline — the parent
-implements**, `skills/flow/implement.md`).
+this file in full first: its prompt is a stub naming this file, never these paragraphs.
 
 > **FLOW — COMMIT-PER-TASK:** Do **not** run `git push`, merge, or open a PR. As soon as
 > RED-GREEN-REFACTOR completes for this task — before the guard runs on it — commit

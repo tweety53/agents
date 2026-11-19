@@ -1,14 +1,13 @@
 # Review panel — optional slots
 
-Loaded by `skills/flow/review-panel.md` only for a round that dispatches `mutation`, which rides the `mutation+failure-modes`
-extra dispatch, alone where `failure-modes` is dropped. Every
+Loaded by `skills/flow/review-panel.md` only for a round that dispatches `mutation`, always a bundle alone. Every
 section name below without a path is a section of `skills/flow/review-panel.md`.
 
 ## The mutation slot's prompt
 
 The mutating
-role (`mutation`) is always the last pass of a bundle and still works in its
-throwaway copy (**The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`); the reading passes before them read the shared
+role (`mutation`) works in its
+throwaway copy (**The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`); every other bundle reads the shared
 `<worktree>`.
 
 **The mutation slot's dispatch prompt also carries the MUTATION ENTRY CONTEXT paragraph**, every
@@ -38,7 +37,7 @@ not dispatched against that copy.
 
 Never symlink a shared `node_modules` into a copy: the copy's own `npm ci` installs one, and over a symlink it empties the shared directory — `<agents repo>/stats/Makefile` refuses to run it there.
 
-Dispatch each slot present in this round's roster **once**, its brief rendered by
+Dispatch each slot present in this round's panel **once**, its brief rendered by
 `flow-guard render-slot-prompt` from the shared resolved set after `--`, never from a copy: the
 renderer names each copy, `<worktree>-<slot>-<round>`, as the repository path to mutate and test
 in, and refuses a `--` worktree whose name already ends `-mutation-<round>` (kan-1119 self-review, F1).

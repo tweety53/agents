@@ -123,8 +123,7 @@ Next:
 ```
 ````
 
-**`/flow`'s implement phase prints `Summary`, `Running`, `Decisions`, the `Learning` line
-(**Learning**, `skills/flow-contracts/learning.md`) and `Next` alone** (**Write
+**`/flow`'s implement phase prints `Summary`, `Running`, `Decisions` and `Next` alone** (**Write
 `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`) — every other line of this rendering is
 `/flow-status`'s only, and the run omits it — the one rendering whose skill copy carries fewer
 lines than its template.
@@ -244,9 +243,7 @@ that **stops** on a cleanup leftover is not this case: it leaves the change
 at `IN_PROGRESS` and prints its own interrupted-run report, every field of which is likewise
 run-only — what that run left behind, which the state file does not record.
 `/flow-status` regenerates one of the two `IN_PROGRESS` renderings above for such a change, by
-the test just given. A **withdrawal's** terminal block (**The withdrawal route**,
-`skills/flow/withdrawal.md`) is the same case: run-only, printed once by the run that withdrew
-the change, and no template here.
+the test just given.
 
 Which path each `open` line names, and why `open -na` rather than the `idea` shim, are
 **IntelliJ commands** (`pipeline.md`).

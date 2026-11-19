@@ -1,6 +1,6 @@
 ---
 name: flow-fast
-description: Minimal-ceremony /flow variant — one invocation from Jira key to landed change. A git worktree for isolation and nothing else, implementation and review panel as the plan's class decides, project lint plus targeted tests, then the project's default landing route and cleanup; no spectre artifacts, no state file. Use for /flow-fast.
+description: Minimal-ceremony /flow variant — one invocation from Jira key to landed change. A git worktree for isolation and nothing else, implementation and review panel as a fresh decider decides, project lint plus targeted tests, then the project's default landing route and cleanup; no spectre artifacts, no state file. Use for /flow-fast.
 allowed-tools: Bash(flow:*)
 license: MIT
 ---
@@ -8,8 +8,8 @@ license: MIT
 Do the work the way a careful engineer does it by hand — read, edit, verify, commit, land — and
 record it the way `/flow` does: every `flow.*` stage mark below, in this order, so the stats views see a `/flow-fast` run as the same pipeline. Nothing else of
 `/flow` survives here. There is no spectre change, no `proposal.md`/`design.md`, no state file
-and no three states, no staged-diff gate, no archive, and no pipeline guard. Dispatch and a review panel exist only where the recorded
-decision names them (**Dynamic decisions** below). The only isolation is git's: a
+and no three states, no staged-diff gate, no archive, and no pipeline guard. Dispatch and the review panel
+follow the recorded decision (**Dynamic decisions** below). The only isolation is git's: a
 worktree on its own branch. `flow-guard prepare-workspace`, the per-change
 database, bucket, ports and cache index of **Workspace isolation**
 (`skills/flow-contracts/workspace-isolation.md`) are never set up.
@@ -28,7 +28,7 @@ marks each `-stages` key begun and ended `completed`, in order: the stages `/flo
 to run for; the mark stays so the run's stage set matches `/flow`'s.
 
 **Guardrails, the whole list.** Never dispatch a subagent the recorded decision does not name —
-an implementer per group on `sdd`, the decision's panel dispatches, the panel-fix subagent; never
+an implementer per group and its gated reviewer, the decision's panel dispatches, the panel-fix subagent; never
 a planner or a verifier, save the in-run fix loop of **Pipeline defects found mid-run**
 (`skills/flow-contracts/pipeline.md`), which a `/flow-fast` run follows too, and the
 self-review pass's own dispatches (`skills/flow-self-review/SKILL.md`). Never ask a model,
@@ -61,8 +61,7 @@ dispatch's last sibling.
 
 ## Dynamic decisions
 
-`REVIEWERS` resolves per **Model resolution** (`skills/flow/SKILL.md`) before section 2; every
-dispatch runs on its role's pair, per **Model and effort**
+Every dispatch runs on its role's pair, per **Model and effort**
 (`skills/flow/brainstorm-planner.md`).
 
 Every dispatch's `description` and `Role:` line follow **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`).
@@ -92,18 +91,19 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
 **After:** none
 ```
 
-- **decide**: `flow-guard plan-class <changeRoot>/tasks.md 1 <abs-worktree> <merge-base>`, then **Decide** steps 1–5
-  (`skills/flow/brainstorm-planner.md`) as written, writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
+- **decide**: **Decide** (`skills/flow/brainstorm-planner.md`) as written, its decider reading
+  `<changeRoot>/tasks.md` and no `design.md`, writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
   `## Decision` block.
-- **sdd-tdd**: on `execution` `sdd`, **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
+- **sdd-tdd**: **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
   written except its task close: `flow-guard close-task` is not run — its tick writes a spectre plan,
   and its planning-paths guard reads a planning tree, neither of which flow-fast writes. A group closes on the implementer's
-  `flow record dispatch end` and `git -C <worktree> push origin <name>`, then section 5's lint and tests. On `inline`, section 4 as this file states it.
-- **review-panel**: when the decision's `panel` is an object, `skills/flow/review-panel.md` as
-  written, **Check base movement first** through **Panel re-runs**. A `default` panel (the `micro` class) runs **The extra dispatches**, as **The slot triggers** leave them, and **The findings merger** (`skills/flow/review-panel.md`) alone.
+  `flow record dispatch end` and `git -C <worktree> push origin <name>`, its gated per-task reviewer
+  running at that close, then section 5's lint and tests.
+- **review-panel**: `skills/flow/review-panel.md` as
+  written, **Check base movement first** through **Panel re-runs**.
 
-The change summary in section 5 then also carries the `## Decision` block and, when a panel ran,
-each finding with its status — on every class, since `micro` runs the extra dispatches.
+The change summary in section 5 then also carries the `## Decision` block and each finding with
+its status.
 
 ## 1. Kickoff
 
@@ -202,10 +202,7 @@ flow stage end   -command '/flow-fast' -stage flow.decide -outcome completed <na
 flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Compose the learning note here per **Learning** (`skills/flow-contracts/learning.md`), write its
-file and print its absolute path; the final report repeats the path.
-
-The branch is then rebased onto its base before task 1 runs, as the base-sync step of **1. Load
+The branch is rebased onto its base before task 1 runs, as the base-sync step of **1. Load
 context and validate the plan** (`skills/flow/implement.md`) states, with no `flow state
 add-worktree` call and `<name>` as the pushed branch.
 
@@ -236,15 +233,13 @@ Then:
 flow stage begin -command '/flow-fast' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-Implement in the worktree, in this session — or, on a decided `sdd`, per **Dynamic decisions**'
-`sdd-tdd` step. Test first where a test can express the behaviour
+Implement per **Dynamic decisions**' `sdd-tdd` step. Test first where a test can express the behaviour
 (**superpowers:test-driven-development**); a defect gets a failing test before its fix. A
 refactor of output-producing code follows the PIN BEFORE REFACTOR rule
 (`skills/flow/implementer-brief.md`). On a fix run the fix's own condition is mutation-killed before
 section 5 closes: after the fix commits, mutate each fix's own condition — flip the gate, drop the
 guard, substitute the lagging value — confirm a named test fails, and restore — per the MUTATION
-PROOF paragraph (`skills/flow/review-panel.md`) when the decision's `panel` is an object, per this
-sentence's own mechanics when it is not — naming the mutation and its killing test in the
+PROOF paragraph (`skills/flow/review-panel.md`) — naming the mutation and its killing test in the
 fix commit's body; a mutant nothing kills is an unfinished fix, its killing test added under this
 section's commit rule before the run lands. Commit
 one logical unit at a time on the `<name>` branch, subject in Conventional Commits form, no
@@ -268,7 +263,7 @@ flow stage end   -command '/flow-fast' -stage flow.sdd-tdd -outcome completed <n
 flow stage begin -command '/flow-fast' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
-**Dynamic decisions**' `review-panel` step runs here on every class.
+**Dynamic decisions**' `review-panel` step runs here.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.review-panel -outcome completed <name>
@@ -327,8 +322,7 @@ flow stage begin -command '/flow-fast' -stage flow.run-instructions -harness <ha
 
 Print the change summary: what changed and why, grouped by area, one or two sentences each;
 what was verified and how; anything deliberately left out; the self-review's fixed shas when
-section 5 landed any; and the `**Learning:**` and `**Prompt tuning:**`
-lines of the Finished handoff (`skills/flow/cleanup.md`), never omitted. This is the one report the run prints.
+section 5 landed any. This is the one report the run prints.
 
 **Then the handoff, decided by `## handoff`** (**Project configuration**,
 `skills/flow-contracts/project-configuration.md`): `none`, or the key absent, continues to

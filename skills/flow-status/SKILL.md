@@ -133,7 +133,7 @@ there.
 
 Sort by state order per **States** in `skills/flow-contracts/pipeline.md` (`STARTED`,
 `IN_PROGRESS`, `FINISHED`), then by `updatedAt` descending. Omit `FINISHED` changes — they have
-landed, or withdrawn (the record's `withdrawn` field); neither is open.
+landed.
 
 ```
 ## flow status

@@ -110,14 +110,13 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    On `NEXT: loop`, `flow-guard visual-verify-pass close` has closed the row, and the stage mark once every surviving worktree's newest row is closed (**The verifier dispatch**, `skills/flow/visual-verify.md`).
 2. **Implement it.** **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) executes the appended
    task exactly as a plan-time task: the `implementer` role's pair, `flow-guard close-task` with its
-   guard and its review gate. **The gated reviewer runs once per round, after its last fixer.**
-   On `big`, the round's gate-fired tasks, its slices included, go out in one reviewer bundle once
+   guard. **The gated reviewer runs once per round, after its last fixer.**
+   The round's tasks, its slices included, go out in one reviewer bundle once
    the last of them has closed through `flow-guard close-task`; a `fix` verdict takes one fixer
-   (`skills/flow/gated-review-fix.md`) and no re-review bundle — each task ticks, and each finding
-   closes `fixed`, on that fixer's guard pass, and step 3's panel reads the fix in `late-fix.diff`.
-   `flow-guard check-task-reviewer-single-dispatch` refuses a re-review of an in-run fix task and a
-   review begun before the round's last slice. Step 4 follows: `verify`, then one `visual-verify`.
-   The task closes through `flow-guard close-task` — an inline-committed one included — before step 3 opens any `panel-<round>-*` dispatch; `flow record dispatch begin` refuses a panel key while `tasks.md` holds an unticked task. The implementer's dispatch stub also carries its `In-run fix:` line, naming the MUTATION PROOF
+   (`skills/flow/gated-review-fix.md`) and no re-review bundle — each finding
+   closes `fixed` on that fixer's guard pass, and step 3's panel reads the fix in `late-fix.diff`.
+   Step 4 follows: `verify`, then one `visual-verify`.
+   The task closes through `flow-guard close-task` before step 3 opens any `panel-<round>-*` dispatch; `flow record dispatch begin` refuses a panel key while `tasks.md` holds an unticked task. The implementer's dispatch stub also carries its `In-run fix:` line, naming the MUTATION PROOF
    and PIXEL PROBE paragraphs (`skills/flow/review-panel.md`) by pointer (`skills/flow/implement.md`), and the round closes only when every reported
    `fix-mutation:` line is checked against the fix diff the way **The fix round mutation-proves
    what it changed** (`skills/flow/review-panel-fix-round.md`) walks them — a mutant nothing
@@ -189,7 +188,7 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
 3. **Re-review the delta, once the loop's re-runs are clean.** A round does not open the panel:
    step 4 follows step 2 directly, and the next round opens on any defect it reports. When the
    run that closes the loop reports no fixable defect, open `flow.review-panel` once and run `primary`
-   beside **The extra dispatches** (`skills/flow/review-panel.md`), reading
+   beside the decision's `mutation` bundle where it carries one, reading
    `late-fix.diff` over the range since the panel's last clean close — every round's fix in one
    read. A Critical or Important it raises is fixed by the ordinary fix round, and that fix is
    then verified by one step-4 re-run scoped to its diff; a fix that touches no `ui paths` entry
@@ -204,13 +203,13 @@ One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
    round, so an `In-run fix` a defect it reports opens is numbered `<k+2>`; its `verify` re-run always runs — `flow-guard run-verify-list` records `skipped`
    itself where nothing a test command reads changed — since a code commit no completed or skipped
    verify row covers is unfinished work (`flow-guard check-unfinished-work`).
-   The three dispatches are keyed `panel-<round>-primary`,
-   `panel-<round>-test-sanity+call-efficiency` and `panel-<round>-mutation+failure-modes`, `<round>` the number `flow record next-round`
+   The dispatches are keyed `panel-<round>-primary` and
+   `panel-<round>-mutation`, `<round>` the number `flow record next-round`
    prints, and the round records its `flow record pass -round <round>` rows like any panel round.
    That file's finding, voiding and staleness rules
    apply as written — a clean or Minor-only read leaves every slot it did not dispatch current.
    Once any round's read raises a Critical or Important, the reduction is void for the rest of the
-   run: every later round's step 3 opens the decided full roster, never `primary` alone.
+   run: every later round's step 3 opens the decided full panel, never `primary` alone.
    `flow-guard check-late-fix-trigger` is not run: its scope-growth condition denies every appended task the late-fix reduction,
    and this task's premise is a defect a verifier measured, not an operator's unverified flag.
    The stage then closes through its own close (**Review panel**, `skills/flow/review-panel.md`).

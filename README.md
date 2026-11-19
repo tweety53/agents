@@ -85,11 +85,10 @@ No command takes a flag.
 | Command | What it does |
 |---------|--------------|
 | `/flow <name>` | The whole pipeline, one command, re-entrant — see below |
-| `/flow-fast <name>` | Lighter: worktree, class-decided implementation and panel, lint + targeted tests, default landing route, cleanup. No spectre artifacts or state file |
+| `/flow-fast <name>` | Lighter: worktree, decider-decided implementation and panel, lint + targeted tests, default landing route, cleanup. No spectre artifacts or state file |
 | `/flow-interactive [key or name]` | Conversational session: each request is implemented inline, verified, landed by merge and push (`flow interactive land`); an explicit stop self-reviews, cleans up and finishes |
 | `/flow-plan` | Thinking-partner mode, no implementation; a captured session creates the change at `STARTED` |
 | `/flow-status [name]` | Read-only report of every open change |
-| `/flow-settings` | Global reviewer slots |
 | `/flow-self-review <name>` | Runs the self-review pass an older run deferred |
 | `/flow-prompt-tuning` | Applies saved implementer/reviewer prompt updates after a replay proves each; logs to `docs/prompt-tuning/LEDGER.md` |
 | `/flow-experiment-close` | Closes an allowed-pairs experiment from its stored stats with a verdict; a positive one starts the `/flow` change that makes it permanent |
@@ -153,35 +152,22 @@ Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), a
 
 ### Deciding how to implement (Decide)
 
-**The class and the rolls decide execution and panel; every dispatch runs on its role's first
-pair; nothing in a project configures them.**
-The planner prints a `## Decision` table and proceeds without asking.
+**A fresh decider subagent decides the implementer groups, the review panel and visual
+verification; every dispatch runs on its role's pair from `scripts/flow-guard pair-judge`; nothing in
+a project configures them.** The run prints a `## Decision` block and proceeds without asking.
 
-- **Classify.** `scripts/flow-guard plan-class` counts tasks, files and repositories, flags
-  migrations and spec edits, and prints `micro`, `small`, `regular`
-  or `big`. The planner may raise it one step with a reason, never lower it.
-- **Roll.** Hashed from the change name, so they repeat: `compact` (smaller roster), `experimental`
-  (one prompt from `skills/flow/experimental/`), `bundle` (reviewer grouping).
-- **Decide.** Per the table; saved to `.superpowers/sdd/decision.json` and `flowd`.
+- **Groups.** One implementer dispatch per group: a `**Size:** big` task alone, any other group at
+  most three tasks, never two repositories. Every group gets the gated per-task reviewer once its
+  tasks pass `close-task`.
+- **Panel.** `primary` always runs; `principles`, `test-sanity`, `call-efficiency`,
+  `failure-modes` and `mutation` run only when the change gives them something to read. A bundle
+  holds one or two reviewers, `mutation` always alone. A fix round re-runs only the roles that
+  raised a finding.
+- **Visual.** `required`, `skipped` or `not configured`.
+- Saved to `.superpowers/sdd/decision.json` and `flowd`.
 
-| Class | Execution | Implementer effort | Review panel |
-|-------|-----------|--------------------|--------------|
-| `micro` | inline | — | the reviewer list in `/flow-settings`, delta re-runs |
-| `small` | inline | — | `primary`, delta re-runs |
-| `regular` | inline | — | `primary`+`principles`, delta re-runs |
-| `big` | `sdd`: subagent implementers, one per task group of at most weight 3 (a `**Size:** big` task weighs 3, any other 1) | the `implementer` role's pair | same roster as `regular`, full re-runs |
-
-- **Rosters.** `compact` shrinks any roster but `micro`'s and `small`'s to `primary`+`principles`; a
-  round runs at most two review dispatches of up to three roles, beside the
-  `test-sanity+call-efficiency` and `mutation+failure-modes` dispatches.
-- **Slot triggers.** `test-sanity`, `call-efficiency` and `failure-modes` run only when the change
-  gives them something to read: `scripts/flow-guard panel-slot-triggers` reads the diff at review
-  time, `scripts/flow-guard slot-judge` reads the plan at Decide, and a role is skipped only when
-  both say skip. `mutation` always runs.
-- **`micro`** (at most two tasks, docs only, at most 20 changed lines) makes no choices but still
-  gets the decision record, verify and self-review.
-
-Canonical: **Decide** and **Model and effort** (`skills/flow/brainstorm-planner.md`).
+Canonical: **Decide** and **Model and effort** (`skills/flow/brainstorm-planner.md`), and
+`skills/flow/decider-prompt.md`.
 
 ### Level 1 — the stages of each command
 
@@ -243,7 +229,6 @@ them all. `.flow/project.md` `## lint` lists this repository's own.
   (`scripts/flow-guard check-loop-landing`).
 - `flow-active-change.py` — routes a plain problem report to the open change as a fix run, or to an
   unfinished `/flow-interactive` session as its next request or stop.
-- `flow-stop-guard.py` — refuses a `/flow` turn end mid-phase and names the next stage.
 - `await-own-agents.py` — blocks a subagent's stop while an agent it launched still runs, so it
   waits inside its prompt-cache window.
 - `flow-session-activity.py` — reports each session's working/waiting state to `flowd` for the
@@ -283,13 +268,12 @@ every `/flow*` command writes through the `flow` CLI.**
   never estimated).
 - **Records** — findings with reproducers, verdicts, dispatches, decisions, incidents
   (`flow record`); the guards read these, not Markdown.
-- **Settings** — default reviewer slots (`flow settings`, `/flow-settings`).
 - **Jira** — forward-only transitions with retries (`flow jira transition`); off until the three
   `FLOWD_JIRA_*` variables are set.
 
 **Web UI** at http://127.0.0.1:4173, filterable by project, period and model (`stats/web/src/views/`):
 - state board, stage leaderboard, cost and token trend, weekly costs
-- planner decisions (implementer choice and review grouping per class), reviewers, review dynamics, experiments
+- planner decisions (implementer groups and review grouping), reviewers, review dynamics, experiments
 - self-review, flow health (which guards fire, which never fire, and what they cost in run time), run detail
 
 Run detail's **Timings and costs →** opens that run's own page (`#/run-costs/<project>/<change>`):

@@ -63,7 +63,7 @@ operator's call, made in the editor. A role's pairs come in three tiers:
   grant lapses when its change reaches `FINISHED`.
 
 `flow policy get` caches its last good answer under the flow state directory; with flowd down it
-answers from that cache, and with neither a dispatch runs on `opus`.
+answers from that cache, and with neither a dispatch runs on the session's own pair (`<parent model>` / `<parent effort>`, **Harness mapping** below).
 
 Each `###` heading below is one pipeline area, and a role sits under exactly one, with its `Does`
 cell, a plain-English line on what the role does. flowd serves both, with the role's pairs, on

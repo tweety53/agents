@@ -1,6 +1,6 @@
 ---
 name: flow
-description: Single-command pipeline — brainstorm, implement behind the decided review panel (a micro change's from the settings store), then integrate and clean up across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Use for /flow.
+description: Single-command pipeline — brainstorm, implement behind the decided review panel, then integrate and clean up across the same three-state pipeline, pausing only at the human gates. Re-run to resume, fix, or integrate. Use for /flow.
 allowed-tools: Bash(spectre:*), Bash(flow:*)
 license: MIT
 ---
@@ -144,12 +144,12 @@ command at once in each of the change's worktrees. The command runs only under t
 
 ## Guardrails
 
-- Never ask a planning-effort, model, or review-panel-roster question on a creating run. The
-  roster is the recorded decision's, never asked — the settings store's on a `micro` decision; see **Model resolution** above and
+- Never ask a planning-effort, model, or review-panel question on a creating run. The
+  panel is the recorded decision's, never asked; see **Model resolution** above and
   **Review panel** (`skills/flow/review-panel.md`).
 - Never skip brainstorming's design gate, or leave `tasks.md` a thin scaffold.
 - Never advance the state past what the phase in force is entitled to write — a fix never moves
   the state; an implementation run only ever writes `IN_PROGRESS`; only run 2 (`skills/flow/cleanup.md`)
-  and **The withdrawal route** (`skills/flow/withdrawal.md`) write `FINISHED`.
+  writes `FINISHED`.
 - Never end a turn mid-run over a phase file's length; read it in offset chunks and continue
   (**A run's size is never a stop.**, `skills/flow-contracts/pipeline.md`).

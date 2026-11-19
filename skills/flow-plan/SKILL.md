@@ -196,17 +196,14 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
    issue when one is linked, then a `## Research session` section — the operator's statements
    verbatim and the session's findings with their file paths, marked as findings, not decisions.
 5. **Run brainstorming and planning through the planner role** (`skills/flow/brainstorm.md`), from
-   its start through the gate, after resolving `REVIEWERS` per **Model
-   resolution** (`skills/flow/SKILL.md`). Every `-command '/flow'` those sections show,
+   its start through the gate. Every `-command '/flow'` those sections show,
    `skills/flow/brainstorm-planner.md`'s included, is `-command '/flow-plan'`. The final planner's prompt also carries the line "`design.md` follows **The Fixed Section
    Structure** and **The Step-by-Step Breakdown** of `skills/flow-plan/SKILL.md`". The gate asks
    **Save the plan?**.
 
 Every guard those sections invoke runs per **Guard resolution**
 (`skills/flow-contracts/pipeline.md`): `flow-guard kickoff-worktree <project> <name>` with its sibling
-`flow-guard project-get <project> <key>` (kickoff),
-`flow-guard plan-class <tasks.md> <repos>`, `flow-guard plan-dispatch-bundles <tasks.md>` and
-`flow-guard plan-dispatch-groups <tasks.md>` (Decide).
+`flow-guard project-get <project> <key>` (kickoff).
 
 **On Yes, nothing is staged, committed or pushed**: a capture leaves the change on disk at `STARTED` in its worktree,
 resumed by `/flow <name>` exactly as any `STARTED` change's is (**Resuming at `STARTED`**,

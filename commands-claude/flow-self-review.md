@@ -1,5 +1,5 @@
 ---
-description: Run a change's self-review pass, a one-shot opus dispatch, from the context bundle an older /flow or /flow-fast run saved; plan in full, fix and land every non-big finding, file the big ones
+description: Run a change's self-review pass, a one-shot dispatch, from the context bundle an older /flow or /flow-fast run saved; plan in full, fix and land every non-big finding, file the big ones
 ---
 
 Use the **flow-self-review** skill — installed globally, so let your harness resolve it by name
