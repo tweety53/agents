@@ -6,10 +6,11 @@ package repotest
 // It builds one bare origin with a clone whose main checkout sits on `main`
 // (origin/HEAD set), a linked worktree of it on a feature branch, and one repo
 // with no origin at all, then feeds the hook PreToolUse payloads and asserts
-// deny/allow on each. The cases share one fixture that later cases mutate
-// (archiving a change, adding worktrees, moving the main checkout off main),
-// so they run in the harness's order, one subtest per harness case; the case
-// numbers are the harness's own. In command templates {ROOT}, {MAIN},
+// deny/allow on each. The cases share one fixture the test body mutates
+// between them (adding worktrees, flipping a file, moving the main checkout
+// off main); a hook call never mutates it, so the cases between two mutations
+// run concurrently and each mutation waits for them (pmFixture.batch), one
+// subtest per harness case; the case numbers are the harness's own. In command templates {ROOT}, {MAIN},
 // {SIB} and {WT} stand for the fixture paths;
 // every other `$NAME` is literal shell text the hook sees unexpanded.
 
@@ -20,6 +21,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/smoke"
@@ -31,7 +33,29 @@ type pmFixture struct {
 	t    *testing.T
 	home string
 	vars map[string]string
-	env  []string // env the hook sees on every run, on top of runHook's
+	// pending holds the cases check queued since the last flush; a test
+	// defers f.flush() so the last ones run before it returns.
+	pending []pmCase
+}
+
+type pmCase struct {
+	name string
+	fn   func(t *testing.T)
+}
+
+// flush runs the queued cases concurrently, as flat subtests, and returns once
+// all have finished: the barrier every fixture mutation sits behind.
+func (f *pmFixture) flush() {
+	var wg sync.WaitGroup
+	for _, c := range f.pending {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			f.t.Run(c.name, c.fn)
+		}()
+	}
+	wg.Wait()
+	f.pending = nil
 }
 
 func (f *pmFixture) x(s string) string {
@@ -43,12 +67,14 @@ func (f *pmFixture) x(s string) string {
 
 func (f *pmFixture) git(args ...string) string {
 	f.t.Helper()
+	f.flush()
 	return sh(f.t, "", []string{"HOME=" + f.home}, "git",
 		append([]string{"-c", "user.email=t@t", "-c", "user.name=t", "-c", "commit.gpgsign=false"}, args...)...)
 }
 
 func (f *pmFixture) write(path, body string) {
 	f.t.Helper()
+	f.flush()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		f.t.Fatal(err)
 	}
@@ -66,7 +92,7 @@ func (f *pmFixture) run(t *testing.T, cwd, tool string, input map[string]string,
 	if err := enc.Encode(map[string]any{"tool_name": tool, "tool_input": input, "cwd": cwd}); err != nil {
 		t.Fatal(err)
 	}
-	out, stderr, rc := runHook(t, "block-unsafe-commands.py", buf.Bytes(), append(append([]string{}, f.env...), env...)...)
+	out, stderr, rc := runHook(t, "block-unsafe-commands.py", buf.Bytes(), env...)
 	if rc != 0 {
 		// a crashing hook prints nothing, which would read as allow
 		t.Fatalf("hook exited %d: %s", rc, stderr)
@@ -81,16 +107,16 @@ func decision(out string) string {
 	return "allow"
 }
 
-// check runs one case as a subtest.
+// check queues one case, run as a subtest by the next flush.
 func (f *pmFixture) check(name string, fn func(t *testing.T)) {
-	f.t.Helper()
-	f.t.Run(name, fn)
+	f.pending = append(f.pending, pmCase{name, fn})
 }
 
 func (f *pmFixture) expect(name, want, cwd, tool string, input map[string]string, env ...string) {
 	f.t.Helper()
+	cwd = f.x(cwd)
 	f.check(name, func(t *testing.T) {
-		if got := decision(f.run(t, f.x(cwd), tool, input, env...)); got != want {
+		if got := decision(f.run(t, cwd, tool, input, env...)); got != want {
 			t.Errorf("wanted %s, got %s", want, got)
 		}
 	})
@@ -109,11 +135,6 @@ func (f *pmFixture) writeTool(name, want, path string) {
 func (f *pmFixture) editTool(name, want, path string) {
 	f.t.Helper()
 	f.expect(name, want, "{ROOT}", "Edit", map[string]string{"file_path": f.x(path), "old_string": "a", "new_string": "b"})
-}
-
-func (f *pmFixture) readLog(path string) string {
-	b, _ := os.ReadFile(f.x(path))
-	return strings.ReplaceAll(string(b), "\n", " ")
 }
 
 // newPMFixture builds one bare origin with a clone {MAIN} on `main` (origin/HEAD set,
@@ -149,6 +170,7 @@ func TestBlockUnsafeCommandsScopesACdToItsGroup(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	f, _, main, _ := newPMFixture(t)
+	defer f.flush()
 	f.write(main+"/scratch.out", "x\n")
 	f.bash("redirect after a cd group lands in main", "deny", "{MAIN}", `(cd {WT} && true) > c56.out 2> c56.out.fix`)
 	f.bash("redirect after a cd command substitution lands in main", "deny", "{MAIN}", `x=$(cd {WT} && pwd) && echo "$x" > f.txt`)
@@ -169,6 +191,7 @@ func TestBlockUnsafeCommands(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	f, root, main, wt := newPMFixture(t)
+	defer f.flush()
 	// repo with no origin, on develop
 	f.git("init", "-q", "-b", "develop", root+"/noorigin")
 	f.write(root+"/noorigin/f.txt", "a\n")
@@ -273,7 +296,7 @@ func TestBlockUnsafeCommands(t *testing.T) {
 	f.bash("75 a heredoc inside bash <( keeps its body scanned", "deny", "{ROOT}", "bash <(\ncat > /dev/stdout <<'EOF'\nrm {MAIN}/f.txt\nEOF\n)")
 	f.bash("76 a heredoc written then run under another spelling keeps its body scanned", "deny", "{ROOT}", "cat > {SIB}/x.sh <<'EOF'\nrm {MAIN}/f.txt\nEOF\nsh \"{SIB}\"/x.sh")
 
-	f.env = nil
+	f.flush()
 	if err := os.MkdirAll(main+"/sub", 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -367,6 +390,7 @@ func TestBlockUnsafeCommandsDeniesABareCatRedirect(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	defer f.flush()
 	for _, c := range []string{"cat > /tmp/x.go", "cat >> f", "cat >f; echo", "a && cat > f", "false || cat > f", "(cat > f)"} {
 		f.check("deny "+c, func(t *testing.T) {
 			out := f.run(t, root, "Bash", map[string]string{"command": c})
@@ -392,6 +416,7 @@ func TestBlockUnsafeCommandsReadsADataHeredocBodyAsData(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	defer f.flush()
 	main := root + "/main"
 	f.vars["MAIN"], f.vars["SIB"] = main, root+"/sib"
 	f.git("init", "-q", "--bare", root+"/origin.git")
@@ -436,6 +461,7 @@ func TestBlockUnsafeCommandsReadsTwoDataHeredocsAsData(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	defer f.flush()
 	main := root + "/main"
 	f.vars["MAIN"], f.vars["SIB"] = main, root+"/sib"
 	f.git("init", "-q", "--bare", root+"/origin.git")
@@ -466,6 +492,7 @@ func TestBlockUnsafeCommandsReadsASingleQuotedBacktickAsLiteral(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	defer f.flush()
 	main := root + "/main"
 	f.vars["MAIN"], f.vars["SIB"] = main, root+"/sib"
 	f.git("init", "-q", "--bare", root+"/origin.git")
@@ -496,6 +523,7 @@ func TestBlockUnsafeCommandsAdmitsRemovingALocalClone(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	f, root, main, _ := newPMFixture(t)
+	defer f.flush()
 	f.git("clone", "-q", "--local", main, root+"/clone")
 	f.git("clone", "-q", "--local", main, root+"/netclone")
 	f.git("-C", root+"/netclone", "remote", "set-url", "origin", "https://example.invalid/x.git")
@@ -518,6 +546,7 @@ func TestBlockUnsafeCommandsReadsALiteralExportAsData(t *testing.T) {
 		t.Fatal(err)
 	}
 	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
+	defer f.flush()
 	main := root + "/main"
 	f.vars["MAIN"], f.vars["SIB"] = main, root+"/sib"
 	f.git("init", "-q", "--bare", root+"/origin.git")
