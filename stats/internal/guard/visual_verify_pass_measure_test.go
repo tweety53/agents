@@ -66,7 +66,7 @@ func vvmFixture(t *testing.T, sidecar string) vvmFix {
 	}
 	f := vvmFix{wt: filepath.Join(root, "demo")}
 	f.changeRoot = filepath.Join(f.wt, "spectre/changes/demo")
-	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n"+vvpSection+"| `mockups` | `design/frames` |\n")
+	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n"+vvpSect(t, "| `mockups` | `design/frames` |\n"))
 	writeFile(t, filepath.Join(f.changeRoot, "design.md"), "# design\n")
 	writeFile(t, filepath.Join(f.wt, "tests/visual/app.spec.ts"), "// spec\n")
 	writeFile(t, filepath.Join(f.wt, "tests/visual/app.spec.ts.mockups"), "frame none\n"+sidecar)

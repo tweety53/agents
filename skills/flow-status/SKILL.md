@@ -140,7 +140,7 @@ landed.
 
 | Change | Jira | State | PR | Next | Updated |
 |--------|------|-------|----|------|---------|
-| kan-8-stats-ledger-render | KAN-8 | IN_PROGRESS | #42 | review the diff — the stack is running, then `/flow <name>` | 2h ago (/flow) |
+| kan-8-stats-ledger-render | KAN-8 | IN_PROGRESS | #42 | review the diff, then `/flow <name>` | 2h ago (/flow) |
 | active-workout-session-editing | — | STARTED | — | read the artifact, then `/flow`'s implement phase | 19h ago (/flow) |
 ```
 
@@ -169,7 +169,7 @@ Next-command mapping:
 | State | Next |
 |-------|------|
 | `STARTED` | read the artifact, then `/flow <name>` (or re-run `/flow`'s creating run to revise) |
-| `IN_PROGRESS`, branch not merged | review the diff — the stack is running, then `/flow <name>` (or re-run `/flow`'s implement phase to fix) |
+| `IN_PROGRESS`, branch not merged | review the diff, then `/flow <name>` (or re-run `/flow`'s implement phase to fix) |
 | `IN_PROGRESS`, branch merged | `/flow <name>` — it will clean up |
 | `FINISHED` | — |
 
@@ -219,13 +219,6 @@ one.
   happened — and what that costs, plus why it is accepted rather than replaced, is stated under
   **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`).
 - `FINISHED` changes have no regenerated block, exactly as they have no row.
-- **The `Running:` section is resolved, never copied from a stored run.** Follow **Resolve the
-  run instructions** (`skills/flow/verify-and-handoff.md`) — canonical for how those lines are produced —
-  and apply it here exactly as `/flow`'s implement phase does: resolve from the worktree named in the record
-  and `<project>/.flow/project.md` — never the project's declared base — not from any text
-  `/flow`'s implement phase printed earlier. This command prints the resolved commands without re-probing
-  whether the stack is still running — it states that the stack's liveness is not re-checked, it
-  does not attempt to confirm it.
 
 With no change name there is no block at all: the no-argument report stays the table above,
 unchanged.

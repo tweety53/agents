@@ -22,7 +22,13 @@ describe("phases", () => {
   it("puts every stage the store can record in a phase", () => {
     const go = readFileSync(`${process.cwd()}/../internal/stages/names.go`, "utf8");
     const keys = [...go.matchAll(/\{Key: "([^"]+)"/g)].map((m) => m[1]);
-    expect(keys.length).toBeGreaterThan(25);
+    expect(keys.length).toBeGreaterThan(5);
     expect(keys.filter((k) => !(k in STAGE_PHASE))).toEqual([]);
+  });
+  it("puts every retired key in its replacement's phase", () => {
+    const go = readFileSync(`${process.cwd()}/../internal/stages/names.go`, "utf8");
+    const pairs = [...go.matchAll(/"(flow\.[^"]+)":\s*"(flow\.[^"]+)"/g)];
+    expect(pairs.length).toBeGreaterThan(0);
+    for (const [, old = "", repl = ""] of pairs) expect(STAGE_PHASE[old]).toBe(STAGE_PHASE[repl]);
   });
 });

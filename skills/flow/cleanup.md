@@ -6,7 +6,7 @@ worktree.
 
 **`skills/flow-contracts/finish-contract-run2.md` is canonical for the full procedure.**
 `flow-guard integrate-change` runs it — chained from `land` on the merge-and-push route, or called once
-`prepare`'s `NEXT:` names it — with its four stage marks; the parent handles each stop, makes the
+`prepare`'s `NEXT:` names it — with its `flow.cleanup` stage mark; the parent handles each stop, makes the
 Jira transition, and prints the handoff. **Load `skills/flow-contracts/finish-contract-run2.md`
 only when** a stop below cites one of its sections.
 
@@ -46,6 +46,9 @@ flow-guard integrate-change cleanup <main-checkout> <name> --harness <harness> -
 Run it with a Bash `timeout: 600000`: a refresh that moved `<agents repo>/stats/` restarts flowd inside the call,
 and a kill partway leaves it down.
 
+- **`STOP: self-review-report`** → `cleanup` refuses without a completed `flow.self-review` run:
+  run the self-review pass of `skills/flow/integrate.md` — beginning `flow.self-review` again first
+  when its run was ended `stopped` — end the stage `completed`, re-run.
 - **`STOP: not-merged`** → this is not run 2; fall back to `skills/flow/integrate.md` and **remove
   nothing**.
 - **`STOP: worktree-cleanup`** → a `REFUSED:` line, or the guard's exit 2: stop at

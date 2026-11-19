@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
+	"github.com/tweety53/agents/stats/internal/stages"
 )
 
 // Period bounds an aggregation by a stage run's start instant:
@@ -708,17 +710,30 @@ func (s *Store) TrendFinishedChanges(ctx context.Context, period Period) ([]Tren
 // weeklyCostStages are the stage keys each WeeklyCosts category counts,
 // drawn from the stages vocabulary; TestWeeklyCostStagesAreDeclared fails on
 // a key it does not declare, so a rename there cannot silently move cost
-// into overall-only. flow.design-approval and flow.plan-review are retired
-// keys only historical rows carry, kept so their cost stays planning.
+// into overall-only. Each category lists its stages.Table key and every
+// stages.Retired key mapped to it.
 var weeklyCostStages = struct {
-	selfReview, visualVerify, implementation, review string
-	planning                                         []string
+	selfReview                       string
+	planning, implementation, review []string
+	verify                           []string
 }{
 	selfReview:     "flow.self-review",
-	visualVerify:   "flow.visual-verify",
-	implementation: "flow.sdd-tdd",
-	review:         "flow.review-panel",
-	planning:       []string{"plan.session", "flow.plan", "flow.brainstorm", "flow.design-approval", "flow.create-artifacts", "flow.writing-plans", "flow.plan-review", "flow.decide"},
+	verify:         withRetired("flow.verify", "flow.visual-verify"),
+	planning:       withRetired("plan.session", "flow.plan"),
+	implementation: withRetired("flow.implement"),
+	review:         withRetired("flow.review"),
+}
+
+// withRetired returns keys plus every stages.Retired key mapped to one of
+// them, so a category counts what its mark replaced.
+func withRetired(keys ...string) []string {
+	out := slices.Clone(keys)
+	for old, now := range stages.Retired {
+		if slices.Contains(keys, now) {
+			out = append(out, old)
+		}
+	}
+	return out
 }
 
 // WeeklyCostPoint is one Wednesday-to-Wednesday week's cost totals: overall,
@@ -726,12 +741,13 @@ var weeklyCostStages = struct {
 // the categories and Other add up to overall (decision other-category). A
 // category with no costed run that week is nil, never 0.
 type WeeklyCostPoint struct {
-	Week            time.Time
-	OverallUSD      *float64
-	PlanningUSD     *float64
-	ImplementUSD    *float64
-	ReviewUSD       *float64
-	SelfReviewUSD   *float64
+	Week          time.Time
+	OverallUSD    *float64
+	PlanningUSD   *float64
+	ImplementUSD  *float64
+	ReviewUSD     *float64
+	SelfReviewUSD *float64
+	// VisualVerifyUSD is the verify category: it counts flow.verify, which now holds visual verification.
 	VisualVerifyUSD *float64
 	OtherUSD        *float64
 }
@@ -753,9 +769,9 @@ func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *
 				CASE
 					WHEN c.name LIKE 'self-review-%' OR c.name LIKE 'pipeline-fix-%' OR sr.stage = $5 THEN 'self-review'
 					WHEN sr.stage = ANY($8::text[]) THEN 'planning'
-					WHEN sr.stage = $6 THEN 'implementation'
-					WHEN sr.stage = $7 THEN 'review'
-					WHEN sr.stage = $9 THEN 'visual-verify'
+					WHEN sr.stage = ANY($6::text[]) THEN 'implementation'
+					WHEN sr.stage = ANY($7::text[]) THEN 'review'
+					WHEN sr.stage = ANY($9::text[]) THEN 'visual-verify'
 				END AS category
 			FROM stage_runs sr
 			JOIN changes c ON c.id = sr.change_id
@@ -776,7 +792,7 @@ func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *
 		ORDER BY week
 	`, period.From, period.To, project, model,
 		weeklyCostStages.selfReview, weeklyCostStages.implementation, weeklyCostStages.review, weeklyCostStages.planning,
-		weeklyCostStages.visualVerify)
+		weeklyCostStages.verify)
 	if err != nil {
 		return nil, fmt.Errorf("store: weekly costs: %w", err)
 	}

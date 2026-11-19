@@ -9,55 +9,34 @@ import (
 	"testing"
 )
 
-// kan-1024: a STARTED change goes IN_PROGRESS only once the store shows the
-// handoff's own stages -- run-instructions completed, write-in-progress open.
-func TestStateSetInProgressNeedsTheHandoffStages(t *testing.T) {
+// A STARTED change goes IN_PROGRESS with no run instructions and no open
+// flow.write-in-progress run.
+func TestStateSetInProgressNeedsNoRunInstructions(t *testing.T) {
 	t.Parallel()
-	cases := []struct {
-		name         string
-		stored       string
-		instructions string
-		writing      string
-		want         int
-	}{
-		{"hand flip refused", "STARTED", `[]`, `[]`, 1},
-		{"instructions missing refused", "STARTED", `[]`, `[{}]`, 1},
-		{"instructions aborted refused", "STARTED", `[{"outcome":"aborted"}]`, `[{}]`, 1},
-		{"write-in-progress not begun refused", "STARTED", `[{"outcome":"completed"}]`, `[{"outcome":"completed"}]`, 1},
-		{"handoff stages pass", "STARTED", `[{"outcome":"completed"}]`, `[{"outcome":"completed"},{}]`, 0},
-		{"fix run at IN_PROGRESS passes", "IN_PROGRESS", `[]`, `[]`, 0},
+	repo := gitRepo(t)
+	env := newTestEnv(t)
+	put := false
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v1/stage-runs":
+			_, _ = w.Write([]byte(`{"stageRuns":[]}`))
+		case r.Method == http.MethodPut:
+			put = true
+			_, _ = w.Write([]byte(`{"state":"IN_PROGRESS"}`))
+		default:
+			_, _ = w.Write([]byte(`{"state":"STARTED"}`))
+		}
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
+		env.get, strings.NewReader(`{"state":"IN_PROGRESS"}`), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; stderr:\n%s", code, stderr.String())
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			repo := gitRepo(t)
-			env := newTestEnv(t)
-			put := false
-			srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-				switch {
-				case r.URL.Path == "/api/v1/stage-runs" && r.URL.Query().Get("stage") == "flow.run-instructions":
-					_, _ = w.Write([]byte(`{"stageRuns":` + tc.instructions + `}`))
-				case r.URL.Path == "/api/v1/stage-runs":
-					_, _ = w.Write([]byte(`{"stageRuns":` + tc.writing + `}`))
-				case r.Method == http.MethodPut:
-					put = true
-					_, _ = w.Write([]byte(`{"state":"IN_PROGRESS"}`))
-				default:
-					_, _ = w.Write([]byte(`{"state":"` + tc.stored + `"}`))
-				}
-			}))
-			defer srv.Close()
-
-			var stdout, stderr bytes.Buffer
-			code := run(context.Background(),
-				[]string{"state", "set", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "kan-16"},
-				env.get, strings.NewReader(`{"state":"IN_PROGRESS"}`), &stdout, &stderr)
-
-			if code != tc.want {
-				t.Fatalf("exit = %d, want %d; stderr:\n%s", code, tc.want, stderr.String())
-			}
-			if put != (tc.want == 0) {
-				t.Errorf("store written = %v, want %v", put, tc.want == 0)
-			}
-		})
+	if !put {
+		t.Error("store not written")
 	}
 }

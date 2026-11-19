@@ -19,7 +19,7 @@ import (
 // Usage: flow-guard check-dev-stack-fresh <worktree>
 //
 // ONE ARGUMENT, THE WORKTREE — the directory holding `.flow/project.md` and
-// the build the stack ought to be serving, matching flow-guard check-visual-verification's
+// the build the stack ought to be serving, matching the in-process visual-verification check (visual-verify-pass prepare)'s
 // own project-root convention.
 //
 // KAN-334's failure, measured on kan-333: a handoff printed `localhost:3000`
@@ -54,7 +54,7 @@ import (
 // it is the evidence, and a diff or a curl failure names itself.
 //
 // THE DECLARED COMMAND IS EXECUTED — that is this guard's purpose, and the
-// one thing that separates it from flow-guard check-visual-verification, which
+// one thing that separates it from the in-process visual-verification check (visual-verify-pass prepare), which
 // validates the same section and deliberately runs nothing. The command
 // comes from the project's own tracked `.flow/project.md`, the same trust
 // every `## run` command the pipeline executes already carries.

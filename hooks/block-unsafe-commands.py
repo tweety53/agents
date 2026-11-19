@@ -34,7 +34,7 @@ the default branch is how work gets a branch of its own.
 
 It also denies, in a linked worktree, a `git checkout … -- <path>` or `git restore <path>` naming
 a path with unstaged edits: the restore reverts it to its index state and an uncommitted fix dies
-with it. The reason points at flow-guard break-and-prove and flow-guard mutate-and-verify, which restore from a
+with it. The reason points at flow-guard break-and-prove, which restores from a
 byte snapshot.
 
 Allowed everywhere: reads, `git pull --ff-only`, `git fetch`, `git checkout -b`, `git switch -c`,
@@ -320,9 +320,6 @@ GIT_READ_SUBCOMMANDS = {"diff", "add", "show", "log", "status"}
 CHECK_SCRIPT_RE = re.compile(r"check-[\w.-]*\.(?:sh|py)")
 # A guard run through the bootstrap: `flow-guard check-…`, bare or as `…/scripts/flow-guard`.
 CHECK_GUARD_RE = re.compile(r"check-[\w.-]*")
-# Pipeline guards that only read a file argument: render-slot-prompt names its -fix-report
-# paths in the prompt it prints (kan-1026: a panel round's report write was denied over its body).
-PIPELINE_READERS = {"render-slot-prompt"}
 # Interpreters whose program text is not shell: a body they run is scanned for git verbs only.
 PROGRAM_RUNNERS = {"python", "python3", "node"}
 
@@ -335,11 +332,9 @@ def reads_only(words, target):
     name = words[0].rsplit("/", 1)[-1]
     if CHECK_SCRIPT_RE.fullmatch(name) and name != target.rsplit("/", 1)[-1]:
         return True
-    if name.removesuffix(".sh") in PIPELINE_READERS:
-        return True
     # The bootstrap runs a compiled guard, never a file it is given; written as the target it runs that body.
     if name == "flow-guard" and name != target.rsplit("/", 1)[-1] and len(words) > 1:
-        return bool(CHECK_GUARD_RE.fullmatch(words[1])) or words[1] in PIPELINE_READERS
+        return bool(CHECK_GUARD_RE.fullmatch(words[1]))
     if name in READER_WORDS:
         return True
     if name == "git":
@@ -784,7 +779,7 @@ def discards_unstaged(verb, args, target):
         f"Blocked: this `git {verb}` would discard the uncommitted edits on {files} — it reverts the "
         "file to its index state, and an uncommitted fix on it is lost with the flip a mutation "
         "proof made (**Restoring a path with unstaged edits**, skills/flow-contracts/git-boundaries.md). "
-        "Restore a flipped file with `flow-guard break-and-prove` or `flow-guard mutate-and-verify`, which restore "
+        "Restore a flipped file with `flow-guard break-and-prove`, which restores "
         "from a pre-mutation byte snapshot; edits that must go are committed or stashed first."
     )
 

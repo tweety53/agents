@@ -4,26 +4,17 @@ Which phase file marks each key, for **Stage marks** (`skills/flow-contracts/pip
 
 ## Stage keys
 
-Every stage `/flow` marks uses a `flow.*` key.
+Every stage `/flow` marks uses one of seven `flow.*` keys, one per phase. A fix round re-runs its
+phase under the same key; no sub-step has a mark of its own.
 
-The full key list, in the order each phase file marks them:
+| Mark | Begins | Ends | Retired keys it covers |
+|------|--------|------|------------------------|
+| `flow.plan` | `skills/flow/brainstorm.md`, at kickoff | the plan gate | `flow.kickoff`, `flow.brainstorm`, `flow.create-artifacts`, `flow.writing-plans`, `flow.decide` |
+| `flow.implement` | `skills/flow/implement.md`, at the implementing run's start (also `cross-repo-worktrees.md`, `sdd-dispatch.md`, `gated-review-fix.md`, `fix.md` re-runs) | the last task closed | `flow.load-context`, `flow.isolate-workspace`, `flow.sdd-tdd` |
+| `flow.review` | `skills/flow/review-panel.md`, at the first pass (also `review-panel-fix-round.md`, `review-panel-optional-slots.md`) | the last fix round | `flow.review-panel` |
+| `flow.verify` | `skills/flow/verify-and-handoff.md`, at the lint/test list (visual verify, `visual-verify.md`, runs inside it; `fix.md` re-runs it) | `IN_PROGRESS` written | `flow.visual-verify`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
+| `flow.land` | `flow-guard integrate-change`, through `skills/flow/integrate.md` | the landing route done | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.landing-routes` |
+| `flow.self-review` | `flow-guard integrate-change`, after land | the self-review pass closed | none |
+| `flow.cleanup` | `flow-guard integrate-change`, through `skills/flow/cleanup.md` | `FINISHED` written | `flow.verify-merge`, `flow.write-finished`, `flow.refresh-main-checkout` |
 
-| Phase file | Keys |
-|------------|------|
-| `skills/flow/brainstorm.md` | `flow.plan` — kickoff to the plan gate |
-| `skills/flow/implement.md` | `flow.load-context`, `flow.isolate-workspace`, `flow.sdd-tdd` |
-| `skills/flow/document-fix.md` | `flow.document-fix` — loaded only on a fix run |
-| `skills/flow/cross-repo-worktrees.md` | `flow.isolate-workspace` — loaded only when the change links a peer, an `## apps` entry names a repository holding no worktree for it, `## visual verification` names a `regression checkout`, or the resolved set spans more than one repository |
-| `skills/flow/sdd-dispatch.md` | `flow.sdd-tdd` |
-| `skills/flow/gated-review-fix.md` | `flow.sdd-tdd` — loaded only when, once the last group's guard has passed and every gated bundle has returned, a gated pass closed `fix` or left a Minor open |
-| `skills/flow/review-panel.md` | `flow.review-panel` |
-| `skills/flow/review-panel-fix-round.md` | `flow.review-panel` — loaded only once a round has recorded a Critical or Important finding; read by section where a citer names it |
-| `skills/flow/review-panel-optional-slots.md` | `flow.review-panel` — loaded per that file's own trigger |
-| `skills/flow/verify-and-handoff.md` | `flow.verify`, `flow.visual-verify` (steps 1–2), `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
-| `skills/flow/verify-fix-loop.md` | `flow.document-fix`, `flow.sdd-tdd`, `flow.review-panel`, `flow.verify`, `flow.visual-verify` — re-run through their own files; loaded only when a verify stage's final report carries a fixable defect; begins no mark of its own |
-| `skills/flow/visual-verify.md` | `flow.visual-verify` from step 3 — loaded only when a worktree's diff matched a `ui paths` glob |
-| `skills/flow/visual-verify-tooling-analysis.md` | `flow.visual-verify` — loaded only on a fix run with at least one miss |
-| `skills/flow/integrate.md`, through `flow-guard integrate-change` | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.self-review`, `flow.landing-routes` |
-| `skills/flow/unfinished-work-gate.md` | `flow.unfinished-work-gate` — loaded only when `flow-guard integrate-change` stops on `unfinished-work`; begins no mark |
-| `skills/flow/sync-onto-base.md` | `flow.landing-question` — loaded only when `flow-guard integrate-change` stops on `sync-conflict` or `sync`; begins and closes no mark |
-| `skills/flow/cleanup.md`, through `flow-guard integrate-change` | `flow.verify-merge`, `flow.cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
+`Flow-Key:` commit trailers keep their own names and are not stage marks.

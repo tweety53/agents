@@ -15,13 +15,14 @@ import (
 // The contract below moved here from the header of the deleted
 // scripts/check-frame-list.sh shim (KAN-1058).
 //
-// flow-guard check-frame-list — reconcile the mockup frames design.md declares against
+// The folded check-frame-list guard (no longer a flow-guard subcommand; `close` runs it
+// in-process) — reconcile the mockup frames design.md declares against
 // the capture specs' `.mockups` sidecars and a flow.visual-verify verifier's
 // report, so a declared frame no capture reached is named rather than lost
 // (KAN-549: design.md declared 22 frames, two rounds reported 15/17 composed,
 // and nothing compared the two).
 //
-// Usage: flow-guard check-frame-list <design.md> <mockups dir> <report file> [--frames <frame>[,<frame>…]]
+// Arguments: <design.md> <mockups dir> <report file> [--frames <frame>[,<frame>…]]
 //
 // <design.md> is the change's <changeRoot>/design.md; <mockups dir> the
 // resolved `mockups` root (skills/flow-contracts/project-configuration-visual.md);
@@ -95,12 +96,11 @@ import (
 //
 // Go, in flow-guard (stats/internal/guard/framelist.go).
 
-const frameListUsage = "%s: usage: flow-guard check-frame-list <design.md> <mockups dir> <report file> [--frames <frame>[,<frame>…]]\n"
+const frameListUsage = "%s: usage: frame-list check, run in-process by visual-verify-pass close: <design.md> <mockups dir> <report file> [--frames <frame>[,<frame>…]]\n"
 
-// checkFrameList is `flow-guard check-frame-list`: the comment above is the contract. It derives the frames design.md declares from the mockups
+// checkFrameList is the frame-list check `visual-verify-pass close` runs in-process: the comment above is the contract. It derives the frames design.md declares from the mockups
 // directory and reconciles them against the capture specs' sidecars and the
 // verifier report's per-frame and `- frames:` lines.
-func init() { Registry["check-frame-list"] = checkFrameList }
 
 var (
 	flSpecLine   = regexp.MustCompile(`^\s*- spec:\s*(\S+)\s*$`)

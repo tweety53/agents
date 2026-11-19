@@ -8,8 +8,8 @@ a missing worktree runs its steps 1–4, and every other resume point below runs
 brainstorming and planning through the planner role**. A resume at **B** re-enters the planner loop
 at the round after the last `round-<r>.md` under `<abs-worktree>/.superpowers/sdd/planner/` — its
 relay first when that round has no `answers-<r>.md`, the resumed round reading `findings.md`, that
-latest round file and its answers. Every planner dispatch a resume makes is short or full as
-`<abs-worktree>/.superpowers/sdd/planner/triage.md` says (**Triage the planning**,
+latest round file and its answers. Every planner dispatch a resume makes is full exactly when
+`<abs-worktree>/.superpowers/sdd/planner/triage.md` exists and holds `TRIAGE: full` (a legacy `TRIAGE: short` file reads as short), else short (**Plan short first**,
 `skills/flow/brainstorm.md`).
 
 **Load `skills/flow/seeded-note.md`** only when the change was seeded from a note and the resume
@@ -29,15 +29,14 @@ holds; `<sdd>` is `<abs-worktree>/.superpowers/sdd`:
    always `<project>-worktrees/<name>/spectre/changes/<name>/`, never a main-checkout path.
 2. **Design not approved** — no `<sdd>/planner/answers-<r>.md` records the operator's explicit
    approve of the convergence confirm: resume at **B**, the planner loop's next round.
-3. **Approved, plan not reviewed** — no `<sdd>/plan-review-<n>.md` exists: the final planner had
+3. **Approved, plan not checked** — no `<sdd>/plan-check.md` exists: the final planner had
    not returned `PLAN-WRITTEN`. Dispatch a final planner (step 3 of **Run brainstorming and
    planning through the planner role**, `skills/flow/brainstorm.md`), its prompt naming every
    artifact already under `<changeRoot>` — it keeps what is written and completes what is
-   missing — then run **Plan review**.
-4. **Review not triaged** — the newest `plan-review-<n>.md` holds a finding and no `## Triage`:
-   dispatch the triaging final planner (step 3 of **Plan review**, `skills/flow/brainstorm.md`).
-5. **No recorded decision** — `flow record decisions -change <name>` names none: run **Decide**
-   and **Plan review gate** (`skills/flow/brainstorm-planner.md`).
+   missing — then run **Plan check**.
+4. **Check not triaged** — `<sdd>/plan-check.md` holds a finding and no `## Triage`:
+   dispatch the triaging final planner (step 3 of **Plan check**, `skills/flow/brainstorm.md`).
+5. **No recorded decision** — `flow record decisions -change <name>` names none: run **Plan check gate** (`skills/flow/brainstorm-planner.md`).
 6. **Otherwise** planning is done: go to `skills/flow/implement.md`.
 
 State the resumption point plainly before continuing:
@@ -45,6 +44,6 @@ State the resumption point plainly before continuing:
 
 ### Resuming a recorded decision
 
-A run resumed at `STARTED` rests on **Decide** (`skills/flow/brainstorm-planner.md`): it reads
+A run resumed at `STARTED` rests on **Plan check gate** (`skills/flow/brainstorm-planner.md`): it reads
 `flow record decisions -change <name>` and follows the newest row rather than re-deciding, or
-re-runs the Decide step alone when none exists yet.
+re-runs `plan-check … -decide-only` alone when none exists yet.

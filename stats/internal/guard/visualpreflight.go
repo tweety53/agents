@@ -22,11 +22,11 @@ import (
 // The contract below moved here from the header of the deleted
 // scripts/check-visual-preflight.sh shim (KAN-1058).
 //
-// flow-guard check-visual-preflight — the five workspace checks `flow.visual-verify`
+// The visual-preflight check, run in-process by `visual-verify-pass prepare` — the five workspace checks `flow.visual-verify`
 // step 3 runs before any verifier is dispatched (skills/flow/visual-verify.md).
 //
 // Usage: flow-guard prepare-workspace <worktree> \
-//          | flow-guard check-visual-preflight <worktree> <app-root>=<resolved-url> [...]
+//          | (in-process) visual-preflight <worktree> <app-root>=<resolved-url> [...]
 //
 // stdin is flow-guard prepare-workspace's `KEY=value` lines; one argument per app
 // `ui paths` matched — its package root, relative to <worktree>, and its
@@ -80,7 +80,7 @@ import (
 // line, a declared row with no exported value, an invalid or duplicated
 // section) — the cause on stderr.
 
-// checkVisualPreflight is `flow-guard check-visual-preflight`: the five
+// checkVisualPreflight is the visual-preflight check `visual-verify-pass prepare` runs in-process: the five
 // workspace checks `flow.visual-verify` step 3 runs before any verifier is
 // dispatched (skills/flow/visual-verify.md). The comment above carries the contract; design-verify.md § VV-18 records why checks 2 and 3 are the
 // mechanical rules below.
@@ -88,9 +88,8 @@ import (
 // Nothing read from the tree is executed: `lsof` and `node` are this guard's
 // own commands, resolved on PATH, and the project's `start` command is only
 // searched as text.
-func init() { Registry["check-visual-preflight"] = checkVisualPreflight }
 
-const vpUsage = "Usage: flow-guard check-visual-preflight <worktree> <app-root>=<resolved-url> [...] < KEY=value lines\n"
+const vpUsage = "Usage: visual-preflight (run by visual-verify-pass prepare) <worktree> <app-root>=<resolved-url> [...] < KEY=value lines\n"
 
 // vpProbeTimeout bounds each liveness probe of a held port.
 const vpProbeTimeout = 5 * time.Second
@@ -385,7 +384,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 }
 
 // vpRows is the `## workspace isolation` resource rows, each paired with its
-// exported value, parsed by check-workspace-isolation's own validator. A
+// exported value, parsed by wiValidate. A
 // non-empty message is a reason this guard cannot answer.
 func vpRows(cfg string, body []byte, exported map[string]string) ([]vpRow, string) {
 	recs := lines(body)
@@ -400,16 +399,15 @@ func vpRows(cfg string, body []byte, exported map[string]string) ([]vpRow, strin
 		return nil, ""
 	}
 	if count > 1 {
-		return nil, cfg + " declares more than one `## workspace isolation` section — run flow-guard check-workspace-isolation"
+		return nil, cfg + " declares more than one `## workspace isolation` section — run flow-guard prepare-workspace <worktree>"
 	}
 	p := wiValidate(cfg, recs, wiSpace(false), false, true)
 	if len(p.viol) > 0 {
-		return nil, cfg + "'s `## workspace isolation` section is invalid — run flow-guard check-workspace-isolation"
+		return nil, cfg + "'s `## workspace isolation` section is invalid — run flow-guard prepare-workspace <worktree>"
 	}
 	var rows []vpRow
 	for _, l := range p.rows {
-		f := strings.Split(l, "\t") // #ROW, resource, variable, default, in a workspace
-		r := vpRow{res: strings.ToLower(f[1]), variable: f[2], def: f[3]}
+		r := vpRow{res: strings.ToLower(l.res), variable: l.variable, def: l.def}
 		if r.res == "cache index" {
 			continue // prepare-workspace.sh exports nothing for it
 		}

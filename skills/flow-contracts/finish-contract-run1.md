@@ -144,8 +144,7 @@ or whose `flow-guard check-base-moved` `CLEAR` named `merge base now <sha>`**: e
 back into the index, uncommitted.
 
 **A re-run reshapes from past the work already landed in its fixed form**: `prepare` writes as the
-reshape base the newest commit in the merge base's range that a `fixed` self-review row names (so a
-fix's recorded sha survives), else the newest commit carrying `Flow-Key: flow.commit-two`
+reshape base the newest commit in the merge base's range carrying `Flow-Key: flow.commit-two`
 (run 1's implementation commit), else the merge base.
 
 All three routes then commit the work as the implementation commit, subject
@@ -189,10 +188,22 @@ alone, and the file committed with that fix (kan-1119 self-review, F5).
 A canonical worktree whose only implementation path is the record still commits it:
 `integrate-change prepare` asks for that worktree's implementation subject.
 
+### The routes
+
+Every route runs from the apply worktree; none touches the main checkout or any other worktree.
+
+| Route | Then |
+|-------|------|
+| **Open a pull request** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`); open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl`. The PR carries the code. A `prUrl` the state file already records is that PR: the push updates it, and none is opened |
+| **Merge and push** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`), then `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-resolve the base with `flow-guard resolve-base-branch`, which fetches, re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) and push both once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. The self-review pass then runs, and run 2 continues in the same invocation |
+| **Handle it manually** | push the branch `--force-with-lease` only; say plainly what is left to do |
+
+Run 1 ends at `IN_PROGRESS`, and its handoff ends on `/flow <name>`
+again.
+
 ### Run the self-review pass
 
-Then, still on `spectre/<name>` in the canonical apply worktree, after the implementation commit
-and before any route pushes. The session fetches the bundle with
+After the route has landed, in the canonical apply worktree on `spectre/<name>`. The session fetches the bundle with
 `flow self-review bundle -C <canonical-worktree> -change <name>`: flowd assembles the whole
 bundle — the ledger and the panel record rendered from the store, the change directory's
 `tasks.md`, `design.md`, `narrative.md`, `visual-verification.md` and `live-verification.md`
@@ -213,30 +224,15 @@ has the bundle report it skipped) — it is never committed.
 
 Over that bundle the session runs steps 2–6 of `/flow-self-review`
 (`skills/flow-self-review/SKILL.md`), canonical for the four angles, the fix loop and its
-dispatch pairs, where the fixes land, the filing and the store rows — on every route, before cleanup removes the worktrees.
+dispatch pairs, where the fixes land (always the `self-review-<name>` loop branch, landed by `flow-guard pipeline-fix land`, never onto the change's branch), the filing and the store rows — on every route, before cleanup removes the worktrees.
 No report is written: the findings live in flowd. The session then ends the stage with
-`flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>`; `land` checks that row
+`flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>`; `cleanup` checks that row
 (`flow stage completed -C <main> -stage flow.self-review <name>`) and stops at
-`STOP: self-review-report` until it holds. The route's landing push carries the fix commits'
-shas per item 5 of step 3 of `/flow-self-review`, and the run's final report names the
-branch and shas.
+`STOP: self-review-report` until it holds. The run's final report names the branch and shas.
 
 A completed `flow.self-review` stage skips the pass on a re-run, so no finding is recorded or
 offered twice. So does a completed `self-review-<name>-pass` row while the loop branch `self-review-<name>` exists, the re-run resuming the loop from `<sr-dir>/findings.md` (step 2 of `/flow-self-review`).
 A pass covers what the bundle holds and nothing beyond it.
-
-### The routes
-
-Every route runs from the apply worktree; none touches the main checkout or any other worktree.
-
-| Route | Then |
-|-------|------|
-| **Open a pull request** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`); open a PR via `gh` when usable for the host, else print the forge's create-PR URL and ask whether it was opened; record `prUrl`. The PR carries the code and self-review fix commits. A `prUrl` the state file already records is that PR: the push updates it, and none is opened |
-| **Merge and push** | push `--force-with-lease` (**Branch backup**, `skills/flow-contracts/git-boundaries.md`), then `git -C <apply-worktree> push origin HEAD:<base>`, `HEAD` being `spectre/<name>` there — a fast-forward, since the branch already sits on `origin/<base>`: the base had not moved, or **Sync the branch onto the base** rebased it there. A rejected push means the base moved after the sync: re-resolve the base with `flow-guard resolve-base-branch`, which fetches, re-run **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) — the self-review fixes, already committed, ride the rebase — and push both once more; a second rejection stops and reports, leaving the change at `IN_PROGRESS`. Run 2 then continues in the same invocation |
-| **Handle it manually** | push the branch `--force-with-lease` only; say plainly what is left to do |
-
-Run 1 ends at `IN_PROGRESS`, and its handoff ends on `/flow <name>`
-again.
 
 **Resolve the base branch; never assume it, and never derive it from the current branch.**
 

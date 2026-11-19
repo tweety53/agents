@@ -301,7 +301,7 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 		"sessionId":    session,
 		"sessionToken": "mf-session-token-identity",
 		"command":      "/flow",
-		"stage":        "flow.sdd-tdd",
+		"stage":        "flow.implement",
 		"startedAt":    "2026-08-13T10:00:00Z",
 	}
 	resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", req)
@@ -316,8 +316,8 @@ func TestStageBeginRecordsIdentityAndInstant(t *testing.T) {
 	if run.Command != "/flow" {
 		t.Errorf("Command = %q, want /flow", run.Command)
 	}
-	if run.Stage != "flow.sdd-tdd" {
-		t.Errorf("Stage = %q, want %q", run.Stage, "flow.sdd-tdd")
+	if run.Stage != "flow.implement" {
+		t.Errorf("Stage = %q, want %q", run.Stage, "flow.implement")
 	}
 	if run.Harness != "claude-code" {
 		t.Errorf("Harness = %q, want claude-code", run.Harness)
@@ -408,7 +408,7 @@ func TestStageBeginRejectsInvalidSessionToken(t *testing.T) {
 				"changeName": "chg",
 				"harness":    "claude-code",
 				"command":    "/flow",
-				"stage":      "flow.sdd-tdd",
+				"stage":      "flow.implement",
 				"startedAt":  "2026-08-13T10:00:00Z",
 			}
 			if tc.sessionToken != nil {
@@ -444,7 +444,7 @@ func TestMarkForUnknownChangeIsStored(t *testing.T) {
 		"harness":          "claude-code",
 		"sessionToken":     "mf-session-token-unknown-change",
 		"command":          "/flow",
-		"stage":            "flow.sdd-tdd",
+		"stage":            "flow.implement",
 		"startedAt":        "2026-08-13T10:00:00Z",
 	}
 	resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", req)
@@ -491,7 +491,7 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 		"harness":      "claude-code",
 		"sessionToken": "mf-session-token-end-metrics",
 		"command":      "/flow",
-		"stage":        "flow.sdd-tdd",
+		"stage":        "flow.implement",
 		"startedAt":    "2026-08-13T10:00:00Z",
 	}
 	if resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", beginReq); resp.StatusCode != http.StatusOK {
@@ -510,7 +510,7 @@ func TestStageEndRecordsOutcomeAndMetrics(t *testing.T) {
 		"projectKey": "proj",
 		"changeName": "chg",
 		"command":    "/flow",
-		"stage":      "flow.sdd-tdd",
+		"stage":      "flow.implement",
 		"endedAt":    "2026-08-13T10:05:00Z",
 		"outcome":    "completed",
 		"metrics":    json.RawMessage(`{"fix_rounds":2,"tokens":{"output":50}}`),
@@ -583,7 +583,7 @@ func TestStageEndClosesHighestOpenAttempt(t *testing.T) {
 		"changeName": "chg",
 		"harness":    "claude-code",
 		"command":    "/flow",
-		"stage":      "flow.sdd-tdd",
+		"stage":      "flow.implement",
 	}
 
 	// A normal begin -- attempt 1.
@@ -613,7 +613,7 @@ func TestStageEndClosesHighestOpenAttempt(t *testing.T) {
 		"projectKey": "proj",
 		"changeName": "chg",
 		"command":    "/flow",
-		"stage":      "flow.sdd-tdd",
+		"stage":      "flow.implement",
 		"endedAt":    "2026-08-13T10:05:00Z",
 		"outcome":    "completed",
 	}
@@ -648,7 +648,7 @@ func TestStageEndWithNoOpenRunIsNotFound(t *testing.T) {
 		"projectKey": "proj",
 		"changeName": "chg",
 		"command":    "/flow",
-		"stage":      "flow.sdd-tdd",
+		"stage":      "flow.implement",
 		"outcome":    "completed",
 	}
 	resp, body := postJSON(t, srv.URL+"/api/v1/stages/end", endReq)
@@ -680,7 +680,7 @@ func TestStageEndRaceWithASupersedeIsReportedAsNoOpenRun(t *testing.T) {
 		"changeName":   "chg",
 		"harness":      "claude-code",
 		"command":      "/flow",
-		"stage":        "flow.sdd-tdd",
+		"stage":        "flow.implement",
 		"startedAt":    "2026-08-13T10:00:00Z",
 		"sessionToken": "mf-session-token-race-with-supersede",
 	}
@@ -696,7 +696,7 @@ func TestStageEndRaceWithASupersedeIsReportedAsNoOpenRun(t *testing.T) {
 		"projectKey": "proj",
 		"changeName": "chg",
 		"command":    "/flow",
-		"stage":      "flow.sdd-tdd",
+		"stage":      "flow.implement",
 		"endedAt":    "2026-08-13T10:05:00Z",
 		"outcome":    "completed",
 	}
@@ -723,7 +723,7 @@ func beginThenEnd(t *testing.T, srv *httptest.Server, harness string) {
 		"harness":      harness,
 		"sessionToken": "mf-session-token-" + harness,
 		"command":      "/flow",
-		"stage":        "flow.sdd-tdd",
+		"stage":        "flow.implement",
 		"startedAt":    "2026-08-13T10:00:00Z",
 	}
 	if resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", beginReq); resp.StatusCode != http.StatusOK {
@@ -734,7 +734,7 @@ func beginThenEnd(t *testing.T, srv *httptest.Server, harness string) {
 		"projectKey": "proj",
 		"changeName": "chg",
 		"command":    "/flow",
-		"stage":      "flow.sdd-tdd",
+		"stage":      "flow.implement",
 		"endedAt":    "2026-08-13T10:05:00Z",
 		"outcome":    "completed",
 	}
@@ -876,7 +876,7 @@ func TestApplyEndStageMarkSurvivesLiteralNullMetrics(t *testing.T) {
 			Harness:      "no-transcript-harness",
 			SessionToken: "mf-session-token-null-metrics",
 			Command:      "/flow",
-			Stage:        "flow.sdd-tdd",
+			Stage:        "flow.implement",
 			StartedAt:    time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC),
 		}); err != nil {
 			t.Fatalf("ApplyBeginStageMark: %v", err)
@@ -886,7 +886,7 @@ func TestApplyEndStageMarkSurvivesLiteralNullMetrics(t *testing.T) {
 			ProjectKey: "proj",
 			ChangeName: "chg",
 			Command:    "/flow",
-			Stage:      "flow.sdd-tdd",
+			Stage:      "flow.implement",
 			EndedAt:    time.Date(2026, 8, 13, 10, 5, 0, 0, time.UTC),
 			Outcome:    "completed",
 			Metrics:    json.RawMessage(metrics),
@@ -989,7 +989,7 @@ func TestStageBeginRejectsJiraKeyOutsidePlanSession(t *testing.T) {
 	defer srv.Close()
 	req := map[string]any{
 		"projectKey": "proj", "jiraKey": "KAN-900", "harness": "claude-code",
-		"sessionToken": "mf-x", "command": "/flow", "stage": "flow.kickoff", "startedAt": "2026-09-01T10:00:00Z",
+		"sessionToken": "mf-x", "command": "/flow", "stage": "flow.plan", "startedAt": "2026-09-01T10:00:00Z",
 	}
 	resp, _ := postJSON(t, srv.URL+"/api/v1/stages/begin", req)
 	if resp.StatusCode != http.StatusBadRequest {
@@ -1028,7 +1028,7 @@ func TestStageEndRejectsJiraKeyOutsidePlanSession(t *testing.T) {
 	srv := newStageTestServer(t, fs)
 	defer srv.Close()
 	req := map[string]any{
-		"projectKey": "proj", "jiraKey": "KAN-900", "command": "/flow", "stage": "flow.kickoff",
+		"projectKey": "proj", "jiraKey": "KAN-900", "command": "/flow", "stage": "flow.plan",
 		"endedAt": "2026-09-01T10:30:00Z", "outcome": "completed",
 	}
 	resp, _ := postJSON(t, srv.URL+"/api/v1/stages/end", req)
@@ -1048,7 +1048,7 @@ func TestApplyBeginStageMarkCarriesSupersededRuns(t *testing.T) {
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 	fs.beginStageSuperseded = []store.SupersededRun{
-		{ID: 41, Command: "/flow", Stage: "flow.review-panel", Attempt: 1},
+		{ID: 41, Command: "/flow", Stage: "flow.review", Attempt: 1},
 	}
 
 	var logBuf bytes.Buffer
@@ -1066,17 +1066,17 @@ func TestApplyBeginStageMarkCarriesSupersededRuns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ApplyBeginStageMark: %v", err)
 	}
-	want := store.SupersededRun{ID: 41, Command: "/flow", Stage: "flow.review-panel", Attempt: 1}
+	want := store.SupersededRun{ID: 41, Command: "/flow", Stage: "flow.review", Attempt: 1}
 	if len(result.Superseded) != 1 || result.Superseded[0] != want {
 		t.Errorf("result.Superseded = %+v, want [%+v]", result.Superseded, want)
 	}
-	if logLine := logBuf.String(); !strings.Contains(logLine, "flow.review-panel") || !strings.Contains(logLine, "level=WARN") {
-		t.Errorf("daemon log = %q, want a WARN line naming flow.review-panel", logLine)
+	if logLine := logBuf.String(); !strings.Contains(logLine, "flow.review") || !strings.Contains(logLine, "level=WARN") {
+		t.Errorf("daemon log = %q, want a WARN line naming flow.review", logLine)
 	}
 
 	if _, err := api.ApplyBeginStageMark(context.Background(), fs, nil, api.BeginStageMark{
 		ProjectKey: "proj", ChangeName: "chg", Harness: "claude-code",
-		SessionToken: "ff-session-token-superseded-2", Command: "/flow", Stage: "flow.preflight",
+		SessionToken: "ff-session-token-superseded-2", Command: "/flow", Stage: "flow.plan",
 		StartedAt: time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC),
 	}); err != nil {
 		t.Fatalf("ApplyBeginStageMark (nil logger): %v", err)
@@ -1091,7 +1091,7 @@ func TestStageBeginResponseCarriesSupersededRuns(t *testing.T) {
 	fs := newFakeStore()
 	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
 	fs.beginStageSuperseded = []store.SupersededRun{
-		{ID: 41, Command: "/flow", Stage: "flow.review-panel", Attempt: 1},
+		{ID: 41, Command: "/flow", Stage: "flow.review", Attempt: 1},
 	}
 	srv := newStageTestServer(t, fs)
 	defer srv.Close()
@@ -1122,47 +1122,47 @@ func TestStageBeginResponseCarriesSupersededRuns(t *testing.T) {
 		t.Fatalf("superseded = %+v (%s), want one entry", wire.Superseded, body)
 	}
 	got := wire.Superseded[0]
-	if got.ID != 41 || got.Command != "/flow" || got.Stage != "flow.review-panel" || got.Attempt != 1 {
-		t.Errorf("superseded entry = %+v, want id 41 /flow flow.review-panel attempt 1", got)
+	if got.ID != 41 || got.Command != "/flow" || got.Stage != "flow.review" || got.Attempt != 1 {
+		t.Errorf("superseded entry = %+v, want id 41 /flow flow.review attempt 1", got)
 	}
 }
 
-// TestApplyBeginStageMarkFinishesAFlowFastChange pins that /flow-fast's
-// flow.write-finished mark moves its synthetic change row to FINISHED.
-func TestApplyBeginStageMarkFinishesAFlowFastChange(t *testing.T) {
+// TestChangeFinishedOnCompletedCleanup pins that /flow-fast's and
+// /flow-interactive's completed flow.cleanup mark moves their synthetic
+// change row to FINISHED, and that its begin or a stopped end does not.
+func TestChangeFinishedOnCompletedCleanup(t *testing.T) {
 	t.Parallel()
-	fs := newFakeStore()
-	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
-
-	if _, err := api.ApplyBeginStageMark(context.Background(), fs, nil, api.BeginStageMark{
-		ProjectKey: "proj", ChangeName: "chg", Harness: "claude-code",
-		SessionToken: "ff-session-token-finish", Command: "/flow-fast", Stage: "flow.write-finished",
-		StartedAt: time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC),
-	}); err != nil {
-		t.Fatalf("ApplyBeginStageMark: %v", err)
-	}
-	if got := fs.changes[changeKey("proj", "chg")].State; got != store.StateFinished {
-		t.Errorf("state = %q, want FINISHED", got)
-	}
-}
-
-// TestApplyBeginStageMarkFinishesAFlowInteractiveChange: /flow-interactive
-// keeps no state file either, so its flow.write-finished begin moves the
-// bootstrapped change row to FINISHED as /flow-fast's does.
-func TestApplyBeginStageMarkFinishesAFlowInteractiveChange(t *testing.T) {
-	t.Parallel()
-	fs := newFakeStore()
-	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
-
-	if _, err := api.ApplyBeginStageMark(context.Background(), fs, nil, api.BeginStageMark{
-		ProjectKey: "proj", ChangeName: "chg", Harness: "claude-code",
-		SessionToken: "fi-session-token-finish", Command: "/flow-interactive", Stage: "flow.write-finished",
-		StartedAt: time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC),
-	}); err != nil {
-		t.Fatalf("ApplyBeginStageMark: %v", err)
-	}
-	if got := fs.changes[changeKey("proj", "chg")].State; got != store.StateFinished {
-		t.Errorf("state = %q, want FINISHED", got)
+	for _, command := range []string{"/flow-fast", "/flow-interactive"} {
+		for _, outcome := range []string{"completed", "stopped"} {
+			t.Run(command+" "+outcome, func(t *testing.T) {
+				t.Parallel()
+				fs := newFakeStore()
+				fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
+				if _, err := api.ApplyBeginStageMark(context.Background(), fs, nil, api.BeginStageMark{
+					ProjectKey: "proj", ChangeName: "chg", Harness: "claude-code",
+					SessionToken: "fc-session-token-finish", Command: command, Stage: "flow.cleanup",
+					StartedAt: time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC),
+				}); err != nil {
+					t.Fatalf("ApplyBeginStageMark: %v", err)
+				}
+				if got := fs.changes[changeKey("proj", "chg")].State; got != store.StateStarted {
+					t.Fatalf("state after begin = %q, want STARTED", got)
+				}
+				if _, err := api.ApplyEndStageMark(context.Background(), fs, api.EndStageMark{
+					ProjectKey: "proj", ChangeName: "chg", Command: command, Stage: "flow.cleanup",
+					EndedAt: time.Date(2026, 10, 29, 12, 5, 0, 0, time.UTC), Outcome: outcome,
+				}); err != nil {
+					t.Fatalf("ApplyEndStageMark: %v", err)
+				}
+				want := store.StateStarted
+				if outcome == "completed" {
+					want = store.StateFinished
+				}
+				if got := fs.changes[changeKey("proj", "chg")].State; got != want {
+					t.Errorf("state = %q, want %q", got, want)
+				}
+			})
+		}
 	}
 }
 
@@ -1175,7 +1175,7 @@ func TestApplyBeginStageMarkRefusesRequestOffInteractive(t *testing.T) {
 	mark := func(command string, request int) api.BeginStageMark {
 		return api.BeginStageMark{
 			ProjectKey: "proj", ChangeName: "chg", Harness: "claude-code",
-			SessionToken: "fi-request-tag-20261030T100000Z", Command: command, Stage: "flow.sdd-tdd",
+			SessionToken: "fi-request-tag-20261030T100000Z", Command: command, Stage: "flow.implement",
 			StartedAt: time.Date(2026, 10, 30, 10, 0, 0, 0, time.UTC), Request: &request,
 		}
 	}
@@ -1204,5 +1204,33 @@ func TestApplyBeginStageMarkRefusesRequestOffInteractive(t *testing.T) {
 	}
 	if len(fs.stageRuns) != 1 || fs.stageRuns[0].run.RequestN == nil || *fs.stageRuns[0].run.RequestN != 3 {
 		t.Fatalf("stage runs = %+v, want one carrying request 3", fs.stageRuns)
+	}
+}
+
+// TestFinishedWriteFailureLeavesCleanupOpen: a failed FINISHED write refuses
+// the completed flow.cleanup end and leaves its run open, so the retry works.
+func TestFinishedWriteFailureLeavesCleanupOpen(t *testing.T) {
+	t.Parallel()
+	fs := newFakeStore()
+	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
+	if _, err := api.ApplyBeginStageMark(context.Background(), fs, nil, api.BeginStageMark{
+		ProjectKey: "proj", ChangeName: "chg", Harness: "claude-code",
+		SessionToken: "fc-session-token-finish", Command: "/flow-fast", Stage: "flow.cleanup",
+		StartedAt: time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	end := api.EndStageMark{ProjectKey: "proj", ChangeName: "chg", Command: "/flow-fast", Stage: "flow.cleanup",
+		EndedAt: time.Date(2026, 10, 29, 12, 5, 0, 0, time.UTC), Outcome: "completed"}
+	fs.putErr = errors.New("store down")
+	if _, err := api.ApplyEndStageMark(context.Background(), fs, end); err == nil {
+		t.Fatal("end succeeded with the FINISHED write failing")
+	}
+	fs.putErr = nil
+	if _, err := api.ApplyEndStageMark(context.Background(), fs, end); err != nil {
+		t.Fatalf("retry: %v", err)
+	}
+	if got := fs.changes[changeKey("proj", "chg")].State; got != store.StateFinished {
+		t.Errorf("state = %q, want FINISHED", got)
 	}
 }

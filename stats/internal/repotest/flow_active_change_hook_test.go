@@ -212,7 +212,7 @@ func TestFlowActiveChangeHook(t *testing.T) {
 }
 
 // TestFlowActiveChangeHookInteractive: the hook branches on the command of the
-// session's latest stage run — /flow-interactive before flow.write-finished
+// session's latest stage run — /flow-interactive before flow.cleanup
 // names the session's change and the request protocol, a finished one and a
 // /flow-fast one inject nothing, and /flow keeps its fix-run line.
 // TestFlowActiveChangeHookSkipsALoopRun: a loop's own stage run, newer than the change's, carries
@@ -240,7 +240,7 @@ func TestFlowActiveChangeHookInteractive(t *testing.T) {
 		name, command, stage, want string
 	}{
 		{"interactive mid-session names the change", "/flow-interactive", "flow.sdd-tdd", interactiveLine},
-		{"interactive finished injects nothing", "/flow-interactive", "flow.write-finished", ""},
+		{"interactive finished injects nothing", "/flow-interactive", "flow.cleanup", ""},
 		{"flow-fast injects nothing", "/flow-fast", "flow.sdd-tdd", ""},
 		{"flow keeps its line", "/flow", "flow.kickoff", "marked change kan-9-chat"},
 	} {

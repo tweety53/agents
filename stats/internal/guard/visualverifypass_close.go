@@ -33,7 +33,6 @@ func (v *vvp) close() {
 	if w == "" {
 		v.die("stage-file-has-no-row", "the stage file %s has no row %s — close names a key prepare began", v.stagePath(), v.key)
 	}
-	v.stageOpen = true
 	report := filepath.Join(w, ".superpowers", "sdd", "verify-report-"+v.key+".md")
 	body, err := os.ReadFile(report)
 	if os.IsNotExist(err) {
@@ -47,47 +46,20 @@ func (v *vvp) close() {
 	design := filepath.Join(changeRoot, "design.md")
 
 	// The report guards: an incomplete report is never accepted.
-	var verdicts []string
-	judgeGap := ""
-	// A shard's report owes its slice alone (decision manifest-per-shard).
 	var frames []string
 	if slice := vvpSlice(stage, v.key); slice != "" {
 		frames = []string{"--frames", slice}
 	}
-	rc, out, errs := v.guard("check-verify-report", nil, append([]string{report, strconv.Itoa(v.motions), "--design", design}, frames...)...)
-	switch rc {
-	case 0:
-	case 1:
-		verdicts = append(verdicts, out)
-	default:
-		v.die("check-verify-report-cannot-answer", "check-verify-report cannot answer: %s", errs)
-	}
+	mockups := ""
 	if m := v.cells(w)["mockups"]; m != "" {
-		rc, out, errs := v.guard("check-frame-list", nil, append([]string{design, cellPath(w, m), report}, frames...)...)
-		switch {
-		case rc == 0:
-		case rc == 1 && vvcOnlyNoSidecar(out):
-			judgeGap = out
-		case rc == 1:
-			verdicts = append(verdicts, out)
-		default:
-			v.die("check-frame-list-cannot-answer", "check-frame-list cannot answer: %s", errs)
-		}
+		mockups = cellPath(w, m)
 	}
+	verdicts, judgeGap := v.reportChecks(report, design, mockups, frames)
 	if len(verdicts) > 0 {
 		v.endRow("aborted")
 		for _, l := range verdicts {
 			v.appendStage("verdict " + v.key + " " + l)
 			v.say("%s", l)
-		}
-		// A shard starts no merge-base stack: it names the spec it needs one
-		// for, and the parent takes that capture before the remainder.
-		var owed []string
-		for _, m := range vvcOwed.FindAllStringSubmatch(string(body), -1) {
-			if !slices.Contains(owed, m[1]) {
-				owed = append(owed, m[1])
-				v.say("MERGE-BASE-SPEC: %s", m[1])
-			}
 		}
 		v.next("rest " + v.restKey(w))
 	}
@@ -152,6 +124,84 @@ func (v *vvp) close() {
 		v.say("CLOSES-LOOP: no — %s", why)
 	}
 	v.next("done")
+}
+
+// reportChecks runs the report guards on report: the verdict lines of an
+// incomplete report, and the one gap that is only a missing sidecar, left to
+// the judge. mockups is "" when none is declared.
+func (v *vvp) reportChecks(report, design, mockups string, frames []string) (verdicts []string, judgeGap string) {
+	args := []string{report, strconv.Itoa(v.motions)}
+	if design != "" {
+		args = append(args, "--design", design)
+	}
+	rc, out, errs := v.guard("check-verify-report", nil, append(args, frames...)...)
+	switch rc {
+	case 0:
+	case 1:
+		verdicts = append(verdicts, out)
+	default:
+		v.die("check-verify-report-cannot-answer", "check-verify-report cannot answer: %s", errs)
+	}
+	if mockups != "" {
+		rc, out, errs := v.guard("check-frame-list", nil, append([]string{design, mockups, report}, frames...)...)
+		switch {
+		case rc == 0:
+		case rc == 1 && vvcOnlyNoSidecar(out):
+			judgeGap = out
+		case rc == 1:
+			verdicts = append(verdicts, out)
+		default:
+			v.die("check-frame-list-cannot-answer", "check-frame-list cannot answer: %s", errs)
+		}
+	}
+	return verdicts, judgeGap
+}
+
+// checkOnly is `close --check-only <report> <motions named> ...`: the report
+// guards alone, exit 1 with their messages, 0 on a complete report, and no
+// dispatch row, stage line or verdict written either way.
+func (v *vvp) checkOnly(args []string) {
+	if len(args) < 2 {
+		v.usage("--check-only takes <report> <motions named>")
+	}
+	report := v.abs(args[0])
+	if n, err := fmt.Sscan(args[1], &v.motions); n != 1 || err != nil || v.motions < 0 {
+		v.usage("<motions named> '" + args[1] + "' is not a count")
+	}
+	design, mockups := "", ""
+	var frames []string
+	for i := 2; i < len(args); i += 2 {
+		if i+1 >= len(args) {
+			v.usage(args[i] + " takes a value")
+		}
+		switch args[i] {
+		case "--design":
+			design = v.abs(args[i+1])
+		case "--mockups":
+			mockups = v.abs(args[i+1])
+		case "--frames":
+			frames = []string{"--frames", args[i+1]}
+		default:
+			v.usage("unknown argument '" + args[i] + "'")
+		}
+	}
+	if mockups != "" && design == "" {
+		v.usage("--mockups needs --design")
+	}
+	if _, err := os.Stat(report); err != nil {
+		v.die("cannot-read", "cannot read %s: %v", report, err)
+	}
+	verdicts, gap := v.reportChecks(report, design, mockups, frames)
+	if gap != "" {
+		verdicts = append(verdicts, gap)
+	}
+	for _, l := range verdicts {
+		v.say("%s", l)
+	}
+	if len(verdicts) > 0 {
+		Reason(v.env, "report-incomplete")
+		panic(vvpExit(1))
+	}
 }
 
 // closesLoop derives whether this row closes the visual fix loop (decisions
@@ -284,9 +334,6 @@ func protoSnapshot(changeRoot string) string {
 	}
 	return b.String()
 }
-
-// vvcOwed is a report's `- merge-base capture owed: <spec>` line.
-var vvcOwed = regexp.MustCompile(`(?m)^- merge-base capture owed: (\S+)`)
 
 // vvcOnlyNoSidecar is a FRAME-LIST-GAP line whose every gap is `no sidecar
 // line: <frame id>`.
@@ -529,7 +576,6 @@ func (v *vvp) endStage() {
 			return
 		}
 	}
-	v.markEnd(outcome)
 	if out, rc := v.flow("record", "render", "-change", v.name, "-kind", "ledger", "-repo", v.canon); rc != 0 {
 		fmt.Fprintf(v.stderr, "visual-verify-pass: warning: flow record render failed: %s\n", out)
 	}

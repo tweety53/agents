@@ -11,6 +11,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/selfreview"
+	"github.com/tweety53/agents/stats/internal/stages"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -29,7 +30,7 @@ type selfreviewStore interface {
 	// missing-source case the bundle reports skipped, never a failure.
 	ChangeSummary(ctx context.Context, projectKey, change string) (records.ChangeSummary, error)
 
-	// StageCompleted reports whether a flow.review-panel stage run for
+	// StageCompleted reports whether a flow.review stage run for
 	// the change completed in this store — the fact that separates a
 	// records-source loss from a panel that never ran, which the bundle
 	// names loudly when the run holds no dispatch rows (KAN-621).
@@ -111,13 +112,26 @@ func (h *selfreviewHandler) bundle(w http.ResponseWriter, r *http.Request) {
 
 	// The stage-completed read follows the same failure rule the two
 	// reads above carry: any non-nil error is a 5xx, never a degraded
-	// bundle. The stage name is the key stages.Table documents for the
-	// review panel — the row whose completed end mark proves a panel ran.
-	panelRan, err := h.store.StageCompleted(r.Context(), project, change, "flow.review-panel")
-	if err != nil {
-		status, msg := mapStoreError(h.logger, fmt.Sprintf("read the review-panel stage runs for %s/%s", project, change), err)
-		writeError(w, status, msg)
-		return
+	// bundle. A completed flow.review, or any retired key stages.Retired maps
+	// to it (flow.review-panel included), proves a panel ran.
+	panelKeys := []string{"flow.review"}
+	for old, now := range stages.Retired {
+		if now == "flow.review" {
+			panelKeys = append(panelKeys, old)
+		}
+	}
+	panelRan := false
+	for _, key := range panelKeys {
+		ran, err := h.store.StageCompleted(r.Context(), project, change, key)
+		if err != nil {
+			status, msg := mapStoreError(h.logger, fmt.Sprintf("read the review stage runs for %s/%s", project, change), err)
+			writeError(w, status, msg)
+			return
+		}
+		if ran {
+			panelRan = true
+			break
+		}
 	}
 
 	// The real runner gets the bundle's overall git budget, so a slow

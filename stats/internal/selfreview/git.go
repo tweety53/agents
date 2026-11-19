@@ -403,7 +403,7 @@ var changeFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-veri
 // empty records nobody wrote; repos are the candidate worktree roots the
 // caller supplied, probed in order for the change's directory on disk;
 // panelRan reports whether a
-// flow.review-panel stage run for the change completed in this store —
+// flow.review stage run for the change completed in this store —
 // the one fact separating a records-source loss from a panel that never
 // ran (KAN-621): when it holds while the run carries no dispatch rows,
 // the bundle's notes name the loss loudly, because the plain
@@ -464,7 +464,7 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 	// the rows were lost, not skipped, and every "skipped (absent)" line
 	// below would otherwise read as the panel never having run (KAN-621).
 	if panelRan && len(run.Dispatches) == 0 {
-		notes = append(notes, "note: RECORDS LOSS — a flow.review-panel stage run completed for "+change+", but the store holds no dispatch rows for it: the run's dispatch and finding records never reached this store, most plausibly written to a per-workspace database later removed at cleanup. The ledger and panel sources below are absent or degraded for that reason, not because no panel ran.")
+		notes = append(notes, "note: RECORDS LOSS — a flow.review stage run completed for "+change+", but the store holds no dispatch rows for it: the run's dispatch and finding records never reached this store, most plausibly written to a per-workspace database later removed at cleanup. The ledger and panel sources below are absent or degraded for that reason, not because no panel ran.")
 	}
 	repo := changeRepo(repos, change)
 	if repo == "" {

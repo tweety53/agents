@@ -87,7 +87,7 @@ func TestLoadSets(t *testing.T) {
 				flow++
 			}
 		}
-		if len(lines) != 156 || flow != 8 || strings.Contains(r.err, "SKILL.md") {
+		if len(lines) != 154 || flow != 8 || strings.Contains(r.err, "SKILL.md") {
 			t.Fatalf("lines=%d flow.md=%d stderr=\n%s", len(lines), flow, r.err)
 		}
 	})
@@ -115,4 +115,20 @@ func TestLoadSets(t *testing.T) {
 			}
 		}
 	})
+}
+
+// TestLoadSetsNameFixProcedure pins that the fix-run load set names fix.md,
+// the one fix procedure, and neither retired file.
+func TestLoadSetsNameFixProcedure(t *testing.T) {
+	t.Parallel()
+	repo, global := lsFixture(t)
+	r := runGuard("load-sets", []string{repo, global}, Env{Getenv: func(string) string { return "" }})
+	if !strings.Contains(r.err, "load-sets: MISSING skills/flow/fix.md\n") {
+		t.Errorf("load set does not name fix.md:\n%s", r.err)
+	}
+	for _, gone := range []string{"document-fix.md", "verify-fix-loop.md"} {
+		if strings.Contains(r.err, gone) {
+			t.Errorf("load set still names %s", gone)
+		}
+	}
 }

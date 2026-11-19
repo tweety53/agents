@@ -47,12 +47,12 @@ func TestRecordDispatchOpensAutoStageRun(t *testing.T) {
 	for key, stage := range map[string]string{
 		"self-review-kan-1-review-2": "flow.self-review",
 		"pipeline-fix-3-plan":        "flow.pipeline-fix",
-		"task-6-implementer":         "flow.sdd-tdd",
-		"panel-2-principles":         "flow.review-panel",
-		"full-suite-fix-1":           "flow.review-panel",
-		"visual-verify-1":            "flow.visual-verify",
+		"task-6-implementer":         "flow.implement",
+		"panel-2-principles":         "flow.review",
+		"full-suite-fix-1":           "flow.review",
+		"visual-verify-1":            "flow.verify",
 		"verify-lint":                "flow.verify",
-		"something-else":             "flow.sdd-tdd",
+		"something-else":             "flow.implement",
 	} {
 		projectKey := fmt.Sprintf("proj-auto-open-%s-%d", key, time.Now().UnixNano())
 		seedChange(t, st, projectKey, "kan-1")
@@ -82,7 +82,7 @@ func TestRecordDispatchInsideOpenStageOpensNothing(t *testing.T) {
 	ctx := context.Background()
 	projectKey := fmt.Sprintf("proj-auto-inside-%d", time.Now().UnixNano())
 	seedChange(t, st, projectKey, "kan-1")
-	begin := baseBeginInput(projectKey, "kan-1", "/flow", "flow.sdd-tdd")
+	begin := baseBeginInput(projectKey, "kan-1", "/flow", "flow.implement")
 	begin.SessionToken = ptr("mf-auto-2")
 	run, err := st.BeginStage(ctx, begin)
 	if err != nil {
@@ -329,7 +329,7 @@ func TestRetimeRelinksToTheRunHoldingTheNewBegin(t *testing.T) {
 		SELECT id, 'claude-code', '/flow', $4, 1, $2, $3, '{}'::jsonb, false, 'mf-rt'
 		FROM changes WHERE project_key = $1 AND name = 'kan-1' RETURNING id`
 	var a, b int64
-	if err := pool.QueryRow(ctx, ins, projectKey, at(9, 0), at(10, 0), "flow.sdd-tdd").Scan(&a); err != nil {
+	if err := pool.QueryRow(ctx, ins, projectKey, at(9, 0), at(10, 0), "flow.implement").Scan(&a); err != nil {
 		t.Fatalf("seed a: %v", err)
 	}
 	if err := pool.QueryRow(ctx, ins, projectKey, at(11, 0), at(12, 0), "flow.verify").Scan(&b); err != nil {

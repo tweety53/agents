@@ -62,11 +62,17 @@ nothing records. Two of the line's three alternatives are therefore unreproducib
 lost with it: `/flow-status` surfaces `jiraIssue` in its table's Jira column and as the first entry
 of its detail view, so what the omission drops is the transition, which is the run-only part.
 
+### Why the `IN_PROGRESS` block has no `Running:` section
+
+slim-flow-loop removed the run-instructions step and the review-before-landing hold: a run that
+lands straight away starts no stack, and the operator who tests by hand starts the applications
+from the project's own `## run`.
+
 ### Why `IN_PROGRESS` needs two renderings
 
 Run 1 ends at
 `IN_PROGRESS` but hands off a branch waiting on a merge rather than a diff waiting on review: a
-worktree path, run instructions and a staged-diff command are all wrong for it, and it prints none
+worktree path and a staged-diff command are all wrong for it, and it prints none
 of them. Forcing both into one template would leave the rule at the top of this section
 unsatisfiable rather than merely unsatisfied — no single block is correct for both commands.
 

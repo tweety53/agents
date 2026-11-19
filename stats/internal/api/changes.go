@@ -30,19 +30,18 @@ type changeHandler struct {
 // vocabulary (design.md: "changes carries the current state file field for
 // field, which is what makes the contract rewrite mechanical").
 type changeDTO struct {
-	ProjectKey          string          `json:"projectKey"`
-	Name                string          `json:"name"`
-	State               string          `json:"state"`
-	Withdrawn           bool            `json:"withdrawn,omitempty"`
-	ReviewBeforeLanding bool            `json:"reviewBeforeLanding,omitempty"`
-	Branch              *string         `json:"branch,omitempty"`
-	Worktrees           json.RawMessage `json:"worktrees,omitempty"`
-	ArtifactURL         *string         `json:"artifactUrl,omitempty"`
-	JiraIssue           *string         `json:"jiraIssue,omitempty"`
-	PlanningEffort      *string         `json:"planningEffort,omitempty"`
-	Models              json.RawMessage `json:"models,omitempty"`
-	PRURL               *string         `json:"prUrl,omitempty"`
-	Repos               []repoDTO       `json:"repos,omitempty"`
+	ProjectKey     string          `json:"projectKey"`
+	Name           string          `json:"name"`
+	State          string          `json:"state"`
+	Withdrawn      bool            `json:"withdrawn,omitempty"`
+	Branch         *string         `json:"branch,omitempty"`
+	Worktrees      json.RawMessage `json:"worktrees,omitempty"`
+	ArtifactURL    *string         `json:"artifactUrl,omitempty"`
+	JiraIssue      *string         `json:"jiraIssue,omitempty"`
+	PlanningEffort *string         `json:"planningEffort,omitempty"`
+	Models         json.RawMessage `json:"models,omitempty"`
+	PRURL          *string         `json:"prUrl,omitempty"`
+	Repos          []repoDTO       `json:"repos,omitempty"`
 	// MainCheckoutPath bootstraps the project row when it does not yet
 	// exist (store.Change.MainCheckoutPath); it is ignored by the store
 	// once the project row is present.
@@ -64,20 +63,19 @@ type listChangesResponse struct {
 // toDTO renders a store.Change as its wire shape.
 func toDTO(c store.Change) changeDTO {
 	dto := changeDTO{
-		ProjectKey:          c.ProjectKey,
-		Name:                c.Name,
-		State:               string(c.State),
-		Withdrawn:           c.Withdrawn,
-		ReviewBeforeLanding: c.ReviewBeforeLanding,
-		Branch:              c.Branch,
-		Worktrees:           c.Worktrees,
-		ArtifactURL:         c.ArtifactURL,
-		JiraIssue:           c.JiraIssue,
-		PlanningEffort:      c.PlanningEffort,
-		Models:              c.Models,
-		PRURL:               c.PRURL,
-		UpdatedAt:           c.UpdatedAt.UTC().Format(time.RFC3339Nano),
-		UpdatedBy:           c.UpdatedBy,
+		ProjectKey:     c.ProjectKey,
+		Name:           c.Name,
+		State:          string(c.State),
+		Withdrawn:      c.Withdrawn,
+		Branch:         c.Branch,
+		Worktrees:      c.Worktrees,
+		ArtifactURL:    c.ArtifactURL,
+		JiraIssue:      c.JiraIssue,
+		PlanningEffort: c.PlanningEffort,
+		Models:         c.Models,
+		PRURL:          c.PRURL,
+		UpdatedAt:      c.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		UpdatedBy:      c.UpdatedBy,
 	}
 	for _, r := range c.Repos {
 		dto.Repos = append(dto.Repos, repoDTO{RepoRoot: r.RepoRoot, MergeBase: r.MergeBase})
@@ -102,20 +100,19 @@ func toDTO(c store.Change) changeDTO {
 // never populates repos at all) gets a correct repository set for free.
 func (dto changeDTO) toChange(projectKey, name string) (store.Change, error) {
 	c := store.Change{
-		ProjectKey:          projectKey,
-		MainCheckoutPath:    dto.MainCheckoutPath,
-		Name:                name,
-		State:               store.State(dto.State),
-		Withdrawn:           dto.Withdrawn,
-		ReviewBeforeLanding: dto.ReviewBeforeLanding,
-		Branch:              dto.Branch,
-		Worktrees:           dto.Worktrees,
-		ArtifactURL:         dto.ArtifactURL,
-		JiraIssue:           dto.JiraIssue,
-		PlanningEffort:      dto.PlanningEffort,
-		Models:              dto.Models,
-		PRURL:               dto.PRURL,
-		UpdatedBy:           dto.UpdatedBy,
+		ProjectKey:       projectKey,
+		MainCheckoutPath: dto.MainCheckoutPath,
+		Name:             name,
+		State:            store.State(dto.State),
+		Withdrawn:        dto.Withdrawn,
+		Branch:           dto.Branch,
+		Worktrees:        dto.Worktrees,
+		ArtifactURL:      dto.ArtifactURL,
+		JiraIssue:        dto.JiraIssue,
+		PlanningEffort:   dto.PlanningEffort,
+		Models:           dto.Models,
+		PRURL:            dto.PRURL,
+		UpdatedBy:        dto.UpdatedBy,
 	}
 	if dto.UpdatedAt != "" {
 		t, err := time.Parse(time.RFC3339, dto.UpdatedAt)
@@ -174,12 +171,18 @@ func reposFromWorktrees(worktrees json.RawMessage) ([]store.Repo, error) {
 // well-formed change body -- a body the live PUT handler would accept is
 // exactly a body replay accepts, and vice versa.
 func DecodeChangeBody(project, name string, body []byte) (store.Change, error) {
-	var dto changeDTO
+	var in struct {
+		changeDTO
+		// LegacyReviewBeforeLanding is the key an old journal entry may
+		// still carry; it is accepted and never read.
+		LegacyReviewBeforeLanding json.RawMessage `json:"reviewBeforeLanding,omitempty"`
+	}
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.DisallowUnknownFields()
-	if err := dec.Decode(&dto); err != nil {
+	if err := dec.Decode(&in); err != nil {
 		return store.Change{}, fmt.Errorf("malformed change body: %w", err)
 	}
+	dto := in.changeDTO
 
 	c, err := dto.toChange(project, name)
 	if err != nil {

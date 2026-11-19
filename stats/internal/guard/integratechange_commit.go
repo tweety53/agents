@@ -8,10 +8,12 @@ import (
 )
 
 func (c *ic) commit() {
+	c.openStage = "flow.land"
 	c.loadSet()
 	if !c.findCanonical() {
 		c.die("no-worktree-in-the-set", "no worktree in the set holds %s's tasks.md", c.name)
 	}
+	c.reopenLand()
 	live := c.canon + "/" + c.spec + "/changes/" + c.name
 	c.mergeOrder()
 	reshape := false
@@ -19,7 +21,6 @@ func (c *ic) commit() {
 		reshape = reshape || isFile(c.reshapeFile(c.wt[i]))
 	}
 	if reshape {
-		c.openStage = "flow.preserve-sessions"
 		for _, o := range c.order {
 			f := c.reshapeFile(c.wt[o])
 			if !isFile(f) {
@@ -43,8 +44,6 @@ func (c *ic) commit() {
 		if render.Run() != nil {
 			c.say("LEDGER-RENDER-FAILED: a destination was refused or could not be written — report it")
 		}
-		c.markEnd("flow.preserve-sessions", "completed")
-		c.markBegin("flow.commit-two")
 		for _, o := range c.order {
 			f := c.reshapeFile(c.wt[o])
 			if !isFile(f) {
@@ -72,7 +71,6 @@ func (c *ic) commit() {
 			}
 			os.Remove(f)
 		}
-		c.markEnd("flow.commit-two", "completed")
 	}
 
 	// The rewritten branch reaches the remote now, not at land: a run that
@@ -80,12 +78,7 @@ func (c *ic) commit() {
 	for _, o := range c.order {
 		c.pushBranch(c.wt[o])
 	}
-	if done, _ := c.selfReviewCompleted(); done {
-		c.say("NEXT: flow.self-review has already completed — skip the pass; flow-guard integrate-change land " + c.main + " " + c.name + " " + c.flags())
-	} else {
-		c.markBegin("flow.self-review")
-		c.say("NEXT: run the self-review pass over `flow self-review bundle -C " + c.canon + " -change " + c.name + "` and end flow.self-review completed, then flow-guard integrate-change land " + c.main + " " + c.name + " " + c.flags())
-	}
+	c.say("NEXT: flow-guard integrate-change land " + c.main + " " + c.name + " " + c.flags())
 }
 
 // icReadTrimmed is `"$(cat <f>)"`.

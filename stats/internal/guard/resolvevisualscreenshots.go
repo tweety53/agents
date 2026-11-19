@@ -49,7 +49,7 @@ import (
 // it. This guard does not otherwise validate the section's shape (that a
 // declared `regression checkout`/`regression repo` pair is well formed, or
 // that `regression repo` matches the checkout's real `origin`) —
-// flow-guard check-visual-verification already does, and this guard's job is
+// the in-process visual-verification check (visual-verify-pass prepare) already does, and this guard's job is
 // narrower: resolve one search root or say it cannot.
 //
 // THE FILTER READS THE WHOLE PATH, WITH NO SPECIAL-CASED EXCLUSION OF
@@ -79,7 +79,7 @@ import (
 // what lets both the real `-snapshots` suffix and a literal `.png` extension
 // still match.
 //
-// THE INPUT IS ATTACKER-INFLUENCED, exactly as flow-guard check-visual-verification's
+// THE INPUT IS ATTACKER-INFLUENCED, exactly as the in-process visual-verification check (visual-verify-pass prepare)'s
 // own header states: `.flow/project.md` is tracked and editable in any pull
 // request. Every interpolated cell that reaches an exit-2 message passes
 // through sanitizeDisplay first (stats/internal/guard/visualsection.go), for
@@ -88,7 +88,7 @@ import (
 // real directory, never text lifted out of the config file, so they carry no
 // such risk and are printed unescaped.
 //
-// THE HEADING SCAN AND TABLE PARSER ARE flow-guard check-visual-verification's OWN
+// THE HEADING SCAN AND TABLE PARSER ARE the in-process visual-verification check (visual-verify-pass prepare)'s OWN
 // CONVENTIONS, reused rather than reinvented — the Go twins in
 // stats/internal/guard/visualsection.go that every visual guard shares.
 //

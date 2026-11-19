@@ -215,6 +215,19 @@ func TestNoDocumentedStageNameIsImplausiblyLong(t *testing.T) {
 	}
 }
 
+// TestRetiredStageKeyIsRejected pins that the pre-phase keys take no new
+// mark: the seven phase marks replaced them, and each maps through Retired.
+func TestRetiredStageKeyIsRejected(t *testing.T) {
+	for _, key := range []string{"flow.sdd-tdd", "flow.run-instructions", "flow.write-finished", "flow.document-fix", "flow.visual-verify"} {
+		if err := stages.Validate(stages.Flow, key); err == nil {
+			t.Errorf("Validate(/flow, %s): got nil, want a rejection", key)
+		}
+		if stages.Retired[key] == "" {
+			t.Errorf("Retired[%s] is empty", key)
+		}
+	}
+}
+
 // TestRetiredPushArchiveKeyIsRejected pins that flow.push-archive, renamed to
 // flow.refresh-main-checkout when run 2 became the cleanup run, takes no new
 // mark: a skill copy still citing the old key is refused rather than splitting
@@ -225,8 +238,8 @@ func TestRetiredPushArchiveKeyIsRejected(t *testing.T) {
 		if err := stages.Validate(cmd, "flow.push-archive"); err == nil {
 			t.Errorf("Validate(%s, flow.push-archive): got nil, want a rejection", cmd)
 		}
-		if err := stages.Validate(cmd, "flow.refresh-main-checkout"); err != nil {
-			t.Errorf("Validate(%s, flow.refresh-main-checkout): %v", cmd, err)
+		if err := stages.Validate(cmd, "flow.cleanup"); err != nil {
+			t.Errorf("Validate(%s, flow.cleanup): %v", cmd, err)
 		}
 	}
 }
@@ -321,12 +334,12 @@ func TestFlowStatusHasNoDocumentedStages(t *testing.T) {
 // the zero value and false, rather than panicking or returning a
 // misleadingly-present empty name.
 func TestNameLooksUpDocumentedKey(t *testing.T) {
-	got, ok := stages.Name("flow.review-panel")
+	got, ok := stages.Name("flow.review")
 	if !ok {
-		t.Fatal(`Name("flow.review-panel") ok = false, want true`)
+		t.Fatal(`Name("flow.review") ok = false, want true`)
 	}
-	if got != "The review panel ▸" {
-		t.Errorf(`Name("flow.review-panel") = %q, want "The review panel ▸"`, got)
+	if got != "Review" {
+		t.Errorf(`Name("flow.review") = %q, want "Review"`, got)
 	}
 
 	if _, ok := stages.Name("flow.a-key-nobody-documented"); ok {
@@ -504,14 +517,31 @@ func TestKeysServesTableInOrder(t *testing.T) {
 // to nothing else.
 func TestFlowInteractiveStageKeys(t *testing.T) {
 	want := []string{
-		"flow.kickoff", "flow.brainstorm", "flow.load-context", "flow.sdd-tdd",
-		"flow.verify", "flow.visual-verify", "flow.self-review", "flow.landing-routes",
-		"flow.cleanup", "flow.write-finished", "flow.refresh-main-checkout",
+		"flow.plan", "flow.implement", "flow.verify", "flow.land", "flow.self-review", "flow.cleanup",
 	}
 	if got := stages.ForCommand(stages.FlowInteractive); !reflect.DeepEqual(got, want) {
 		t.Errorf("ForCommand(/flow-interactive) = %v, want %v", got, want)
 	}
-	if stages.Valid(stages.FlowInteractive, "flow.decide") {
-		t.Error("flow.decide must not be valid for /flow-interactive")
+	if stages.Valid(stages.FlowInteractive, "flow.review") {
+		t.Error("flow.review must not be valid for /flow-interactive")
+	}
+}
+
+// TestRetiredKeysMapToTableKeys fails when a retired key names a replacement
+// the Table does not declare.
+func TestRetiredKeysMapToTableKeys(t *testing.T) {
+	for old, now := range stages.Retired {
+		if _, ok := stages.Name(now); !ok {
+			t.Errorf("Retired[%q] = %q, which is not in the Table", old, now)
+		}
+	}
+}
+
+// TestRetiredKeysAreNotInTable fails when a retired key is also a live one.
+func TestRetiredKeysAreNotInTable(t *testing.T) {
+	for old := range stages.Retired {
+		if _, ok := stages.Name(old); ok {
+			t.Errorf("retired key %q is still in the Table", old)
+		}
 	}
 }

@@ -82,12 +82,13 @@ No command takes a flag.
 | Command | What it does |
 |---------|--------------|
 | `/flow <name>` | The whole pipeline, one command, re-entrant — see below |
-| `/flow-fast <name>` | Lighter: worktree, decider-decided implementation and panel, lint + targeted tests, default landing route, cleanup. No spectre artifacts or state file |
+| `/flow-fast <name>` | Lighter: worktree, plan-check-decided implementation and panel, lint + targeted tests, default landing route, cleanup. No spectre artifacts or state file |
 | `/flow-interactive [key or name]` | Conversational session: each request is implemented inline, verified, landed by merge and push (`flow interactive land`); an explicit stop self-reviews, cleans up and finishes |
 | `/flow-plan` | Thinking-partner mode, no implementation; a captured session creates the change at `STARTED` |
 | `/flow-status [name]` | Read-only report of every open change |
 | `/flow-self-review <name>` | Runs the self-review pass an older run deferred |
 | `/flow-prompt-tuning` | Applies saved implementer/reviewer prompt updates after a replay proves each; logs to `docs/prompt-tuning/LEDGER.md` |
+| `/flow-visual-tooling-analysis` | Works out why a visual verification missed a defect and writes the sweeps that close its class |
 | `/flow-experiment-close` | Closes an allowed-pairs experiment from its stored stats with a verdict; a positive one starts the `/flow` change that makes it permanent |
 | `/flow-learn-quiz` | Teacher mode: has you restate a change and quizzes you until you understand it |
 | `/call-efficiency-audit` | Measures a running dev stack's repeated reads, repeated queries and per-item queries |
@@ -110,10 +111,10 @@ flowchart TD
     g1 --> impl
 
     subgraph S2 ["IN_PROGRESS"]
-        impl["<b>Implement</b> in a worktree<br/>SDD + TDD per task → review panel<br/>→ lint + tests → staged diff + run instructions"]
-        g2{{"you: review the diff — the stack is running"}}
+        impl["<b>Implement</b> in a worktree<br/>SDD + TDD per task → review panel<br/>→ lint + tests → staged diff"]
+        g2{{"you: review the diff"}}
         land{"/flow (bare)<br/>how to land?"}
-        pr["implementation commit → push → open PR<br/>issue → In Review"]
+        pr["implementation commit → push → open PR"]
         g3{{"you: merge the PR, then /flow"}}
         impl --> g2
         g2 -- "/flow #lt;what to fix#gt;<br/>or just describe it" --> impl
@@ -137,8 +138,8 @@ flowchart TD
 - **Run 2 runs no tests or linters** and commits nothing: it saves `tasks.md` and the self-review
   bundle to flowd, then removes the worktrees.
 - **The plan is read cold before it is implemented.** On a change that is not trivial, a fresh
-  reviewer reads the artifacts — and nothing of the conversation — once, after the plan is written
-  and before Decide. The planner fixes, contests
+  headless pass reads the artifacts — and nothing of the conversation — once, after the plan is written
+  (`flow-guard plan-check`). The planner fixes, contests
   or escalates each finding; the lenses are `skills/flow/plan-review-rubric.md`.
 - **The design outlives the change.** Run 1 commits the change's `design.md` as
   `docs/designs/<name>.md` inside the implementation commit, a point-in-time record nothing keeps
@@ -147,9 +148,9 @@ flowchart TD
 Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), and
 `skills/flow-contracts/finish-contract-run1.md` / `finish-contract-run2.md` for landing and cleanup.
 
-### Deciding how to implement (Decide)
+### Deciding how to implement (plan check)
 
-**A headless decider (`scripts/flow-guard decide-groups-panel-visual`) decides the implementer groups, the review panel and visual
+**A headless plan check (`scripts/flow-guard plan-check`) decides the implementer groups, the review panel and visual
 verification; every dispatch runs on its role's pair from `scripts/flow-guard pair-judge`; nothing in
 a project configures them.** The run prints a `## Decision` block and proceeds without asking.
 
@@ -163,8 +164,8 @@ a project configures them.** The run prints a `## Decision` block and proceeds w
 - **Visual.** `required`, `skipped` or `not configured`.
 - Saved to `.superpowers/sdd/decision.json` and `flowd`.
 
-Canonical: **Decide** and **Model and effort** (`skills/flow/brainstorm-planner.md`), and
-`skills/flow/decider-prompt.md`.
+Canonical: **Plan check gate** and **Model and effort** (`skills/flow/brainstorm-planner.md`), and
+`skills/flow/plan-check-prompt.md`.
 
 ### Level 1 — the stages of each command
 
@@ -174,34 +175,14 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 
 | Key | Name | Commands |
 |-----|------|----------|
-| `flow.plan` | Plan — kickoff to the plan gate | `/flow`, `/flow-plan` |
-| `flow.kickoff` | Kickoff — write `STARTED` | `/flow-fast`, `/flow-interactive` |
-| `flow.brainstorm` | Brainstorm ▸ | `/flow-fast`, `/flow-interactive` |
-| `flow.create-artifacts` | Create the spectre artifacts | `/flow-fast` |
-| `flow.writing-plans` | Writing-plans ▸ | `/flow-fast` |
-| `flow.decide` | Decide — execution, panel | `/flow-fast` |
-| `flow.load-context` | Load context and validate the plan | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.isolate-workspace` | Isolate the workspace | `/flow`, `/flow-fast` |
-| `flow.document-fix` | Document the fix (re-runs only) | `/flow`, `/flow-fast` |
-| `flow.sdd-tdd` | SDD + TDD per task ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.review-panel` | The review panel ▸ | `/flow`, `/flow-fast` |
+| `flow.plan` | Plan — kickoff to the plan gate | `/flow`, `/flow-fast`, `/flow-interactive`, `/flow-plan` |
+| `flow.implement` | Implement | `/flow`, `/flow-fast`, `/flow-interactive` |
+| `flow.review` | Review | `/flow`, `/flow-fast` |
 | `flow.verify` | Verify: workspace isolation, lint and test | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.visual-verify` | Visual verification | `/flow`, `/flow-interactive` |
-| `flow.stage-diff` | Stage, excluding the planning paths | `/flow`, `/flow-fast` |
-| `flow.run-instructions` | Resolve the run instructions | `/flow`, `/flow-fast` |
-| `flow.write-in-progress` | Write `IN_PROGRESS` | `/flow`, `/flow-fast` |
-| `flow.preflight` | Preflight verdict (decides run 1 vs run 2) ▸ | `/flow`, `/flow-fast` |
-| `flow.unfinished-work-gate` | Unfinished-work gate (run 1) ▸ | `/flow`, `/flow-fast` |
-| `flow.landing-question` | The landing question (run 1) | `/flow`, `/flow-fast` |
-| `flow.preserve-sessions` | Preserve the session records (run 1) | `/flow`, `/flow-fast` |
-| `flow.commit-two` | Two commits, implementation first (run 1) | `/flow`, `/flow-fast` |
+| `flow.land` | Land | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.self-review` | Run the self-review pass (run 1) | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.pipeline-fix` | Pipeline fix — a fix to the flow tooling a run makes | `/flow`, `/flow-fast` |
-| `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.verify-merge` | Verify the merge (run 2) | `/flow`, `/flow-fast` |
 | `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.write-finished` | Write `FINISHED` (run 2) | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.refresh-main-checkout` | Bring the main checkout forward (run 2) | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `plan.session` | Plan session — `/flow-plan` research up to a capture's kickoff | `/flow-plan` |
 
 ▸ marks a stage with substructure; its procedure lives in the phase file under `skills/flow/`.
@@ -229,12 +210,12 @@ them all. `.flow/project.md` `## lint` lists this repository's own.
 - `flow-session-activity.py` — reports each session's working/waiting state to `flowd` for the
   state board.
 
-**Implement:** `check-workspace-isolation` (own database, cache, bucket, ports).
+**Implement:** `prepare-workspace` (validates the isolation table; own database, cache, bucket, ports).
 
-**Verify:** `run-verify-list` (the lint and test lists, the visual `verify` row last; the test list is the default run, and `-full` — every skip off, run only when the operator asks, refused without the operator's `FLOW_OPERATOR_FULL_SUITE=1` — is the full suite; `-only <visual-failing.txt>` re-runs only the failing ones, once with one retry, a retry-pass reported flaky, each round's log kept as `visual-<mode>-r<N>.log`, and one plain run is the gate), `check-verify-green`, `visual-verify-pass` (the parent's side of `flow.visual-verify`; a scoped fix round whose every frame was re-captured and whose every changed frame was judged closes the visual loop with no `-full` run, and an unscoped single-worktree pass over more than 25 frames runs as up to four verifier shards at once), `smoke-keep` (the heavy tests a touched file keeps in the default run), `test-cost` (each test's cost from the test2json it reads on stdin, for re-profiling the heavy marks); `flow suite list -tests <suite>` prints a suite's recorded per-test costs.
+**Verify:** `run-verify-list` (the lint and test lists, the visual `verify` row last; the test list is the default run, and `-full` — every skip off, run only when the operator asks, refused without the operator's `FLOW_OPERATOR_FULL_SUITE=1` — is the full suite; `-only <visual-failing.txt>` re-runs only the failing ones, once with one retry, a retry-pass reported flaky, each round's log kept as `visual-<mode>-r<N>.log`, and one plain run is the gate), `visual-verify-pass` (the parent's side of `flow.visual-verify`; a scoped fix round whose every frame was re-captured and whose every changed frame was judged closes the visual loop with no `-full` run, and an unscoped single-worktree pass over more than 25 frames runs as up to four verifier shards at once), `smoke-keep` (the heavy tests a touched file keeps in the default run), `test-cost` (each test's cost from the test2json it reads on stdin, for re-profiling the heavy marks); `flow suite list -tests <suite>` prints a suite's recorded per-test costs.
 
 **Review panel:** `run-reproducer` (a reviewer's command, run in a capped throwaway copy),
-`mutate-and-verify` + `break-and-prove` (the `mutation` role).
+`break-and-prove` (the `mutation` role).
 
 **Land and clean up:** `integrate-change` (every mechanical step, in four calls),
 `check-finish-preflight` (integrate vs cleanup from merge state), `check-unfinished-work`.

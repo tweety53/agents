@@ -64,7 +64,7 @@ func onlyPath(path string) func(string) string {
 
 func vpRun(t *testing.T, wt string, apps []string, stdin, path string) (int, string, string) {
 	t.Helper()
-	g := Registry["check-visual-preflight"]
+	g := foldedGuards["check-visual-preflight"]
 	if g == nil {
 		t.Fatal("no check-visual-preflight guard in Registry")
 	}
@@ -216,7 +216,7 @@ func TestCheckVisualPreflightPorts(t *testing.T) {
 
 	t.Run("usage", func(t *testing.T) {
 		code, out, errOut := vpRun(t, vpTree(t, nil), nil, "", vpBin(t, nil, ""))
-		vpWant{code: 2, contains: []string{"Usage: flow-guard check-visual-preflight"}}.check(t, code, out, errOut)
+		vpWant{code: 2, contains: []string{"Usage: visual-preflight"}}.check(t, code, out, errOut)
 	})
 
 	t.Run("stdin missing a declared row's value", func(t *testing.T) {
@@ -303,7 +303,7 @@ func TestCheckVisualPreflightBaseURL(t *testing.T) {
 		bad := strings.Replace(vpIsolation, "`+<offset>`", "`9090`", 1)
 		wt := vpTree(t, map[string]string{".flow/project.md": bad})
 		code, out, errOut := vpRun(t, wt, []string{vpApp}, vpStdin, vpBin(t, nil, ""))
-		vpWant{code: 2, contains: []string{"flow-guard check-workspace-isolation"}}.check(t, code, out, errOut)
+		vpWant{code: 2, contains: []string{"flow-guard prepare-workspace"}}.check(t, code, out, errOut)
 	})
 }
 

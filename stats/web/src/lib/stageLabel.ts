@@ -3,6 +3,9 @@
 const LABELS: Record<string, string> = {
   "plan.session": "Planning session",
   "flow.plan": "Planning the change",
+  "flow.implement": "Implementing",
+  "flow.review": "Reviewing",
+  "flow.land": "Landing the change",
   "flow.kickoff": "Starting up",
   "flow.load-context": "Loading context",
   "flow.brainstorm": "Designing the change",

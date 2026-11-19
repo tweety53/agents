@@ -25,9 +25,10 @@ import (
 //     [--worktree <worktree>]... [--since <worktree>=<sha>]... \
 //     [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... \
 //     [--app <worktree>:<app-root>=<url>]... \
-//     [--miss] [--continue [--started] [--merge-base-failed <reason>]]
+//     [--continue [--started]]
 //   flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> \
 //     --session-token mf-<t>
+//   flow-guard visual-verify-pass close --check-only <report> <motions named> [--mockups <dir>] [--design <design.md>] [--frames <frame>[,<frame>…]]
 //   flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype] [--frames <frame>[,<frame>…]]
 //
 // Arguments:
@@ -45,21 +46,13 @@ import (
 //   --round-base          a scoped round's base for a worktree
 //   --defects             a scoped round's defects: frames for a worktree, given with its --round-base
 //   --app                 an app the stage may probe and pre-flight, the
-//                         `<app-root>=<url>` argument flow-guard check-visual-preflight
+//                         `<app-root>=<url>` argument the in-process visual-preflight check (visual-verify-pass prepare)
 //                         takes, prefixed with its worktree (decision
 //                         parent-passes-apps); a worktree none names
 //                         defaults to its project's `preflight apps` row,
 //                         `<name>` and each `${VAR}` replaced from its
 //                         prepare-workspace output, a pair whose root is
 //                         absent dropped (kan-1086 self-review, F10)
-//   --miss                a fix run with a missed defect: stop for the tooling
-//                         analyst once step 3 passes (decision
-//                         analyst-after-preflight)
-//   --merge-base-failed   the merge-base capture a shard's close asked for
-//                         (`MERGE-BASE-SPEC:`) failed, for <reason>: every
-//                         later shard bundle carries `merge-base capture
-//                         failed — <reason>`; given with --continue only, a
-//                         usage error otherwise
 //
 // prepare runs, in order, stopping at the first closing line:
 //   1. the kickoff check — a `regression checkout` `## apps` declares, or,
@@ -67,9 +60,7 @@ import (
 //      repository, that the set holds no worktree in:
 //        STOP: kickoff <repo>[ <repo>…]        exit 1, before any `flow` call
 //      (not run when the decision records `visual.verify` `skipped`)
-//   2. `flow stage begin -C <canonical-worktree> -command /flow -stage
-//      flow.visual-verify -harness <h> -session-token <t> <name>`, then the
-//      stage file (below).
+//   2. the stage file (below); no stage mark is made.
 //   3. steps 1–2: each worktree's `git diff --name-only <since|merge-base>...HEAD`
 //      piped through flow-guard check-visual-trigger <worktree>, in process; every
 //      other worktree's diff also through `flow-guard check-visual-trigger --repo
@@ -86,12 +77,12 @@ import (
 //      stage `completed` with `NEXT: skip — round diff empty`; every changed
 //      path under its worktree's `mockups` root prints `NEXT: compose-only`,
 //      the stage left open. Exit 0.
-//   6. step 3, once per stage: flow-guard check-verify-green <canonical-worktree>
+//   6. step 3, once per stage: the in-process verify-green check (visual-verify-pass close) <canonical-worktree>
 //      <name> <token> <other worktrees…>; its exit 1 ends the stage `stopped`
 //      with `STOP: verify-not-green — <its verdict line>`, exit 1. Then per
-//      survivor flow-guard prepare-workspace piped into flow-guard check-visual-preflight
+//      survivor flow-guard prepare-workspace piped into the in-process visual-preflight check (visual-verify-pass prepare)
 //      with that worktree's --app pairs, or its declared `preflight apps`
-//      (a survivor with neither is a failing check), and with `mockups` declared flow-guard check-sidecar-reach <sidecar>
+//      (a survivor with neither is a failing check), and with `mockups` declared the in-process sidecar-reach check (visual-verify-pass prepare) <sidecar>
 //      <mockups root> on each existing `<spec>.mockups` of the specs the
 //      `specs` row prints (run from the capture root, `<frontend-root>` and
 //      `<merge-base>` substituted; a non-zero exit is a failing `specs`
@@ -100,7 +91,7 @@ import (
 //      too, flow-guard render-frames <worktree> <design.md> <those sidecars…>
 //      first (kan-1096). Every failing check — an exit 1, or an exit 2
 //      carrying its stderr, check-verify-green's exit 2 included — is
-//      collected; then the stage ends `stopped` and one line names them all:
+//      collected; then one line names them all (no stage mark is ended):
 //        STOP: preflight — <guard>: <evidence>[; <guard>: <evidence>…]   exit 1
 //      No verifier row is begun on any STOP.
 //  6a. with no failing check, an unscoped pass (no --round-base) with one
@@ -114,14 +105,13 @@ import (
 //      slice-by-frame-id), and deletes every
 //      <changeRoot>/visual-verification/record-s*.md. Otherwise it writes
 //      nothing and the pass runs unsharded.
-//   7. --miss: NEXT: analyst          exit 0, no row begun
-//   8. step 5 (decision parent-starts-the-stack): a short GET of each
+//   7. step 5 (decision parent-starts-the-stack): a short GET of each
 //      survivor's --app URLs, any answer counting. A survivor nothing answers
 //      for prints `NEXT: start-stack` (exit 0, no row begun): the parent starts
 //      the stack and runs `prepare --continue --started`. Under --started it
 //      ends the stage `stopped` with `STOP: stack — <urls> answers nothing
 //      after the stack was started, for <worktree>`, exit 1.
-//   9. step 6: flow-guard check-dev-stack-fresh <worktree> per survivor, in process.
+//   8. step 6: flow-guard check-dev-stack-fresh <worktree> per survivor, in process.
 //      Exit 1 prints `NEXT: restart-stack` (the parent restarts the stack and
 //      runs `prepare --continue --started`); under --started it ends the stage
 //      `stopped` with `STOP: fingerprint — <the guard's output>`, exit 1.
@@ -136,11 +126,8 @@ import (
 //      run from the capture root, then `captured` is appended; a non-zero
 //      exit prints `SHARDS: none — <command> exit <n>`, drops the `slice`
 //      lines and continues unsharded (decision
-//      capture-failure-falls-back-serial). No merge-base capture is asked
-//      for here (kan-1087 … kan-1102: 2 of 63 verifier rows needed one, each
-//      4–8 minutes of a second stack): a shard that needs one names its spec
-//      in its report and close prints it, step 2 below.
-//  10. per row, the verifier's bundle
+//      capture-failure-falls-back-serial).
+//   9. per row, the verifier's bundle
 //      <worktree>/.superpowers/sdd/verify-prompt-<key>.md: the absolute
 //      worktree; `changeRoot:`; the path of skills/flow/visual-verify-verifier.md
 //      under FLOW_GUARD_REPO_ROOT; the `KEY=value` lines flow-guard prepare-workspace
@@ -177,17 +164,16 @@ import (
 //      report path of the worktree (decision redispatch-bundle-by-path) — of
 //      its own shard index only, on a shard key. Every bundle carries a
 //      `## Measure` section (decision bundle-names-measure-call): on a shard
-//      key `slice: s<i>of<n> <slice>` and, under --merge-base-failed or a
-//      stage `merge-base-failed` line, `merge-base capture failed — <reason>`, then
+//      key `slice: s<i>of<n> <slice>`, then
 //        measure: flow-guard visual-verify-pass measure <worktree> <name> <key less any -rest[-<n>]> <spec path>[ --frames <slice>]
 //      and a `## Report checks` section, the two guard calls close's step 2
 //      runs on the report, for the verifier to run first (kan-1084 … kan-1087:
 //      11 of 12 incomplete first reports carried a frame-list gap the
 //      verifier's own check-verify-report run could not show it):
-//        check: flow-guard check-verify-report <report> <motions named> --design <changeRoot>/design.md[ --frames <slice>]
-//        check: flow-guard check-frame-list <changeRoot>/design.md <mockups root> <report>[ --frames <slice>]
+//        check: the in-process verify-report check (visual-verify-pass close) <report> <motions named> --design <changeRoot>/design.md[ --frames <slice>]
+//        check: the in-process frame-list check (visual-verify-pass close) <changeRoot>/design.md <mockups root> <report>[ --frames <slice>]
 //      the second only with `mockups` declared.
-//  11. one `flow record dispatch begin -C <canonical-worktree> -change <name>
+//  10. one `flow record dispatch begin -C <canonical-worktree> -change <name>
 //      -role verifier -model <model> -effort <effort> -key <key> -session-token <t>
 //      -diff-base <HEAD>[,<sibling HEAD>…] [-round-base <sha>]` per survivor,
 //      the pair the first base pair of the `visual-verifier` allowed-pairs row
@@ -227,20 +213,17 @@ import (
 // row is exit 2), and acts on it once the verifier's turn has ended.
 // <motions named> is the count of motions the dispatch prompt named, 0 for
 // `motions: none`. In order:
-//   1. no report file: the row ends `-outcome aborted`, the stage ends
-//      `stopped`, and `STOP: no report — <path> was never written…`, exit 1.
-//   2. flow-guard check-verify-report <report> <motions named> --design
+//   1. no report file: the row ends `-outcome aborted`, no stage mark is ended,
+//      and `STOP: no report — <path> was never written…`, exit 1.
+//   2. the in-process verify-report check (visual-verify-pass close) <report> <motions named> --design
 //      <changeRoot>/design.md and, with `mockups` declared,
-//      flow-guard check-frame-list <changeRoot>/design.md <mockups root> <report>, in
+//      the in-process frame-list check (visual-verify-pass close) <changeRoot>/design.md <mockups root> <report>, in
 //      process (exit 2 from either is this call's exit 2); on a shard key both
 //      are passed `--frames` with the stage file's `slice` of the key's shard
 //      segment. A check-verify-report exit 1, or a check-frame-list exit 1 naming any gap
 //      other than `no sidecar line`, ends the row `-outcome aborted`, appends
 //      each guard verdict line to the stage file as `verdict <key> <line>`
 //      (the remainder's bundle reads them), prints them, then one
-//        MERGE-BASE-SPEC: <spec>
-//      per distinct `- merge-base capture owed: <spec>` line of the report —
-//      the parent takes that merge-base capture before the remainder — and
 //        NEXT: rest <key>-rest[-<n>][-<repository name>]       exit 0
 //      — `-rest`, then `-rest-<n>` from 2, placed before any
 //      `-<repository name>` suffix, the shard segment kept last
@@ -308,10 +291,8 @@ import (
 //   PUSH: git -C <checkout> push
 // Nothing to commit makes no commit. Then, always:
 //   ROUND-BASE: <worktree>=<git -C <worktree> rev-parse HEAD>
-// The stage ends once the newest row of every surviving worktree and every
-// shard index is closed —
-// `stopped` when any is `blocked`, else `completed` — through `flow stage end
-// -C <canonical-worktree> -command /flow -stage flow.visual-verify`, then
+// The stage verdict is `stopped` when the newest row of any surviving worktree
+// or shard index is `blocked`, else `completed`; no stage mark is made. Then
 // `flow record render -change <name> -kind ledger -repo <canonical-worktree>`
 // and `STAGE: <outcome>`. Rows end through `flow record dispatch end -C
 // <canonical-worktree> -change <name> -key <key> -session-token <t>
@@ -373,7 +354,7 @@ import (
 //      call's; an absent or unparsable manifest is written fresh (kan-1102
 //      self-review, F2).
 //   5. with <worktree>/.superpowers/sdd/visual-round-<key>.txt present
-//      (prepare's step 11), before `MANIFEST:` it prints
+//      (prepare's step 10), before `MANIFEST:` it prints
 //        changed: <frame id> … — round base <sha>
 //      — each frame of this call's pairs whose capture is absent, untracked
 //      or differs from its blob at the round base (decision
@@ -393,8 +374,6 @@ import (
 //   spec <absolute capture spec path>        prepare, on a sharded pass
 //   slice s<i>of<n> <frame>[,<frame>…]       prepare, on a sharded pass
 //   captured                                 prepare, once a sharded pass's capture ran
-//   merge-base-failed <reason>               prepare, under --merge-base-failed; every
-//                                            later shard bundle reads its reason
 //   row <key> <worktree>
 //   verdict <key> <guard verdict line>       close, on a remainder
 //   blocked <key>                            close, on a report with a non-zero exit
@@ -404,7 +383,7 @@ import (
 // unknown subcommand or argument, a token not mf-<t>, no --harness, a
 // --merge-base, --since or --round-base not <worktree>=<sha>, an --app not
 // <worktree>:<app-root>=<url>, a --defects not <worktree>=<frame>[,<frame>…]
-// or with no --round-base for its worktree, --started or --merge-base-failed without --continue, a <motions
+// or with no --round-base for its worktree, --started without --continue, a <motions
 // named> that is not a count) or an unreadable input — the cause on stderr,
 // nothing recorded for a usage error.
 
@@ -415,8 +394,9 @@ import (
 // line; exit 2 is a usage error or an unreadable input.
 func init() { Registry["visual-verify-pass"] = visualVerifyPass }
 
-const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... [--app <worktree>:<app-root>=<url>]... [--miss] [--continue [--started] [--merge-base-failed <reason>]]\n" +
+const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... [--app <worktree>:<app-root>=<url>]... [--continue [--started]]\n" +
 	"       flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> --session-token mf-<t>\n" +
+	"       flow-guard visual-verify-pass close --check-only <report> <motions named> [--mockups <dir>] [--design <design.md>] [--frames <frame>[,<frame>…]]\n" +
 	"       flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype] [--frames <frame>[,<frame>…]]"
 
 // vvpExit unwinds a step to visualVerifyPass with its exit code.
@@ -434,12 +414,9 @@ type vvp struct {
 	mergeBase, since, roundBase      map[string]string // by worktree
 	apps                             map[string][]string
 	defects                          map[string][]string // by worktree, --defects
-	miss, cont, started              bool
-	mbFailed                         string              // --merge-base-failed <reason>
+	cont, started                    bool
 	siblings                         map[string][]string // a worktree's siblings whose diff its `ui paths` matched
 	setSize                          int
-
-	stageOpen bool
 }
 
 func visualVerifyPass(args []string, env Env, stdout, stderr io.Writer) (code int) {
@@ -462,6 +439,10 @@ func visualVerifyPass(args []string, env Env, stdout, stderr io.Writer) (code in
 		v.parse(args[1:], true)
 		v.prepare()
 	case "close":
+		if len(args) > 1 && args[1] == "--check-only" {
+			v.checkOnly(args[2:])
+			return 0
+		}
 		v.parse(args[1:], false)
 		v.close()
 	case "measure":
@@ -478,13 +459,9 @@ func (v *vvp) usage(why string) {
 	panic(vvpExit(2))
 }
 
-// die prints the error and exits 2, first ending a stage markBegin opened so
-// no exit leaves flow.visual-verify running in the store.
+// die prints the error and exits 2.
 func (v *vvp) die(id, format string, a ...any) {
 	fmt.Fprintf(v.stderr, "visual-verify-pass: "+format+"\n", a...)
-	if v.stageOpen {
-		v.markEnd("stopped")
-	}
 	Reason(v.env, id)
 	panic(vvpExit(2))
 }
@@ -497,12 +474,8 @@ func (v *vvp) next(line string) {
 	panic(vvpExit(0))
 }
 
-// stop ends an open stage with outcome, prints the closing `STOP:` line and
-// exits 1.
+// stop prints the closing `STOP:` line and exits 1.
 func (v *vvp) stop(id, outcome, line string) {
-	if v.stageOpen {
-		v.markEnd(outcome)
-	}
 	v.say("STOP: %s", line)
 	Reason(v.env, id)
 	panic(vvpExit(1))
@@ -581,15 +554,10 @@ func (v *vvp) parse(args []string, prepare bool) {
 			}
 			v.apps[v.abs(w)] = append(v.apps[v.abs(w)], root+"="+url)
 			i++
-		case prepare && f == "--miss":
-			v.miss = true
 		case prepare && f == "--continue":
 			v.cont = true
 		case prepare && f == "--started":
 			v.started = true
-		case prepare && f == "--merge-base-failed":
-			v.mbFailed = val(i)
-			i++
 		default:
 			v.usage("unknown argument '" + f + "'")
 		}
@@ -607,9 +575,6 @@ func (v *vvp) parse(args []string, prepare bool) {
 	}
 	if v.started && !v.cont {
 		v.usage("--started is given with --continue only")
-	}
-	if v.mbFailed != "" && !v.cont {
-		v.usage("--merge-base-failed is given with --continue only")
 	}
 	if prepare && !v.cont {
 		for _, w := range v.worktrees {
@@ -631,23 +596,15 @@ func (v *vvp) flow(args ...string) (string, int) {
 	return strings.TrimSpace(string(out)), rc
 }
 
-func (v *vvp) markBegin() {
-	out, rc := v.flow("stage", "begin", "-C", v.canon, "-command", "/flow", "-stage", "flow.visual-verify",
-		"-harness", v.harness, "-session-token", v.token, v.name)
-	if rc != 0 {
-		fmt.Fprintf(v.stderr, "visual-verify-pass: warning: flow stage begin failed: %s\n", out)
-	} else if out != "" {
-		fmt.Fprintln(v.stderr, out)
-	}
-	v.stageOpen = true
-}
-
-func (v *vvp) markEnd(outcome string) {
-	if out, rc := v.flow("stage", "end", "-C", v.canon, "-command", "/flow", "-stage", "flow.visual-verify",
-		"-outcome", outcome, v.name); rc != 0 {
-		fmt.Fprintf(v.stderr, "visual-verify-pass: warning: flow stage end failed: %s\n", out)
-	}
-	v.stageOpen = false
+// foldedGuards are the visual-verify checks run in process by prepare and
+// close alone: none is a flow-guard subcommand (decision guard-checks-in-process).
+var foldedGuards = map[string]Func{
+	"check-frame-list":          checkFrameList,
+	"check-verify-report":       checkVerifyReport,
+	"check-verify-green":        checkVerifyGreen,
+	"check-visual-preflight":    checkVisualPreflight,
+	"check-visual-verification": checkVisualVerification,
+	"check-sidecar-reach":       checkSidecarReach,
 }
 
 // guard runs a registered guard in process: its exit, stdout and stderr.
@@ -655,7 +612,11 @@ func (v *vvp) guard(name string, stdin io.Reader, args ...string) (int, string, 
 	env := quietReasons(v.env)
 	env.Stdin = stdin
 	var out, errb bytes.Buffer
-	rc := Registry[name](args, env, &out, &errb)
+	fn := foldedGuards[name]
+	if fn == nil {
+		fn = Registry[name]
+	}
+	rc := fn(args, env, &out, &errb)
 	return rc, strings.TrimSpace(out.String()), strings.TrimSpace(errb.String())
 }
 

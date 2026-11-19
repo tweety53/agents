@@ -29,8 +29,8 @@ import (
 // pair-pick-file); a failed save is one stderr line and leaves the exit 0.
 //
 // The judged set (decisions judged-set, judged-set-by-function): planner,
-// planner-short, fix-planner, self-review-plan, pipeline-fix-plan, implementer, panel-fix,
-// minor-fix, self-review-fix, pipeline-fix-fix, design-reviewer, gated-reviewer,
+// planner-short, self-review-plan, pipeline-fix-plan, implementer, panel-fix,
+// minor-fix, self-review-fix, pipeline-fix-fix, gated-reviewer,
 // gated-re-reviewer, panel-reviewer, panel-rerun, self-review-pass,
 // self-review-review-1, self-review-review-r, pipeline-fix-review-1,
 // pipeline-fix-review-r, explorer and plan-designer. Every other role keeps
@@ -102,10 +102,10 @@ func init() {
 
 // pjJudged is the judged set.
 var pjJudged = map[string]bool{
-	"planner": true, "planner-short": true, "fix-planner": true, "self-review-plan": true, "pipeline-fix-plan": true,
+	"planner": true, "planner-short": true, "self-review-plan": true, "pipeline-fix-plan": true,
 	"implementer": true,
 	"panel-fix":   true, "minor-fix": true, "self-review-fix": true, "pipeline-fix-fix": true,
-	"design-reviewer": true, "gated-reviewer": true, "gated-re-reviewer": true, "panel-reviewer": true,
+	"gated-reviewer": true, "gated-re-reviewer": true, "panel-reviewer": true,
 	"panel-rerun":      true,
 	"self-review-pass": true, "self-review-review-1": true, "self-review-review-r": true,
 	"pipeline-fix-review-1": true, "pipeline-fix-review-r": true,
@@ -237,7 +237,7 @@ func pjCandidates(rows map[string][]policyRow, role string) []pjCandidate {
 
 // pjAsk runs the judge; a non-empty cause is why its answer cannot be used.
 func pjAsk(env Env, rows map[string][]policyRow, role string, cands []pjCandidate, digest []byte) (pjCandidate, string, string) {
-	result, spend, cause := pjRun(env, rows, "pair-judge", pjSystemPrompt(env, role, cands), digest)
+	result, spend, cause := pjRun(env, rows, "pair-judge", pjSystemPrompt(env, role, cands), digest, "", pjDefaultLimit)
 	if cause != "" {
 		return pjCandidate{}, "", cause
 	}
@@ -255,11 +255,12 @@ func pjAsk(env Env, rows map[string][]policyRow, role string, cands []pjCandidat
 // pjRun runs the judge -- headless `claude -p` (or FLOW_PAIR_JUDGE_CMD) on
 // judgeRole's first base pair, under the deadline, with system as its system
 // prompt and digest on stdin -- for pair-judge (role pair-judge) and
-// fix-slot-judge (role fix-run-judge) alike. result is
+// the other judges alike. tools is the --tools list ("" none) and limit the deadline, which
+// Env.PairJudgeTimeout overrides when set. result is
 // the answer JSON's `result` text; spend the ` (judge <s>s[, $<cost>])`
 // suffix; cause, when non-empty, why there is no usable answer, already
 // carrying spend whenever the command ran.
-func pjRun(env Env, rows map[string][]policyRow, judgeRole, system string, digest []byte) (result, spend, cause string) {
+func pjRun(env Env, rows map[string][]policyRow, judgeRole, system string, digest []byte, tools string, limit time.Duration) (result, spend, cause string) {
 	var judge pjCandidate
 	if rs := rows[judgeRole]; len(rs) > 0 && len(rs[0].Pairs) > 0 {
 		judge, _ = pjParse(rs[0].Pairs[0])
@@ -274,14 +275,13 @@ func pjRun(env Env, rows map[string][]policyRow, judgeRole, system string, diges
 			return "", "", "claude not on PATH"
 		}
 	}
-	limit := env.PairJudgeTimeout
-	if limit == 0 {
-		limit = pjDefaultLimit
+	if env.PairJudgeTimeout != 0 {
+		limit = env.PairJudgeTimeout
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), limit)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, "-p", "--model", judge.model, "--effort", judge.effort,
-		"--tools", "", "--setting-sources", "", "--strict-mcp-config", "--no-session-persistence",
+		"--tools", tools, "--setting-sources", "", "--strict-mcp-config", "--no-session-persistence",
 		"--output-format", "json", "--system-prompt", system)
 	cmd.Dir = env.Dir
 	cmd.Env = append(os.Environ(), "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1")

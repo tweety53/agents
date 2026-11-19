@@ -144,12 +144,8 @@ type ic struct {
 //	`push origin HEAD:<base>` per worktree in merge order, one re-sync
 //	and retry after a rejection; pull request: the branch push and
 //	`gh pr create --fill`, or that worktree's --pr-url when there is
-//	no usable gh; manual: the branch push), the self-review report's
-//	sha re-read before each landing push and its `fixed` rows after,
-//	and the IN_PROGRESS write. Refuses to push anything until the
-//	self-review report is committed in the canonical worktree; only
-//	`commit`'s branch push precedes it. Merge
-//	and push continues into `cleanup`.
+//	no usable gh; manual: the branch push) and the IN_PROGRESS write.
+//	It does not call `cleanup`: the self-review pass runs after land.
 //
 // cleanup  run 2: verify the merge (merged when gh reports the recorded PR
 //
@@ -444,12 +440,28 @@ func (c *ic) markEnd(stage, outcome string, reason ...string) {
 	c.openStage = ""
 }
 
+func (c *ic) landStoppedFile() string { return c.canon + "/.superpowers/sdd/land-stopped" }
+
+// reopenLand begins flow.land again when a stop ended it, so a retried commit
+// or land can end it completed; otherwise prepare's run is still open.
+func (c *ic) reopenLand() {
+	if f := c.landStoppedFile(); isFile(f) {
+		_ = os.Remove(f)
+		c.markBegin("flow.land")
+	}
+}
+
 func (c *ic) stop(kind, text string) { c.stopAs(kind, kind, text) }
 
 // stopAs is stop for a printed STOP kind the skills name that is not itself a
 // reason: id is the reason id recorded, kind the word printed after STOP:.
 func (c *ic) stopAs(id, kind, text string) {
 	if c.openStage != "" {
+		if c.openStage == "flow.land" && c.canon != "" {
+			// A stop ends the run; the retry of commit or land reopens it (reopenLand).
+			_ = os.MkdirAll(c.canon+"/.superpowers/sdd", 0o755)
+			_ = os.WriteFile(c.landStoppedFile(), nil, 0o644)
+		}
 		c.markEnd(c.openStage, c.stopOutcome, "STOP: "+kind)
 	}
 	c.say("STOP: " + kind + " — " + text)
@@ -714,37 +726,16 @@ func (c *ic) baseOf(i int) {
 	}
 }
 
-// reshapeBase: a re-run's reshape base in worktree w — the newest commit
-// in mb..HEAD a `fixed` self-review row names (its fix keeps the sha the
-// row recorded, kan-1021), else the newest `Flow-Key: flow.commit-two`
-// commit (run 1's implementation commit, already reshaped), else mb.
+// reshapeBase: a re-run's reshape base in worktree w — the newest
+// `Flow-Key: flow.commit-two` commit in mb..HEAD (run 1's implementation
+// commit, already reshaped), else mb.
 func (c *ic) reshapeBase(w, mb string) string {
 	log, _ := c.git("-C", w, "log", "--format=%H %(trailers:key=Flow-Key,valueonly,separator=%x20)", mb+"..HEAD")
-	read := c.cmd("/", "flow", "self-review", "findings", "-C", c.main, "-change", c.name)
-	read.Stderr = nil
-	out, _ := c.capture(read)
-	var rows []struct{ Disposition, Ref string }
-	_ = json.Unmarshal([]byte(out), &rows)
-	var fixed []string
-	for _, r := range rows {
-		if r.Disposition == "fixed" && len(r.Ref) >= 7 {
-			fixed = append(fixed, r.Ref)
-		}
-	}
-	split := ""
 	for _, l := range icLines(log) {
 		h, keys, _ := strings.Cut(l, " ")
-		for _, f := range fixed {
-			if strings.HasPrefix(h, f) {
-				return h
-			}
+		if slices.Contains(strings.Fields(keys), "flow.commit-two") {
+			return h
 		}
-		if split == "" && slices.Contains(strings.Fields(keys), "flow.commit-two") {
-			split = h
-		}
-	}
-	if split != "" {
-		return split
 	}
 	return mb
 }

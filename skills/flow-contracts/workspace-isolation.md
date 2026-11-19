@@ -128,8 +128,8 @@ URLs of the worktree that resolved them, never the project's declared defaults.
 **A held port is relayed, never resolved.** A port in the block already held — by another
 workspace, or by an unrelated process that knows nothing about this pipeline — makes the project's
 start command refuse the bind, and that refusal is the collision's only signal. What the contract
-requires is that it stay loud: **Resolve the run instructions** (`skills/flow/verify-and-handoff.md`)
-prints the refusal verbatim and ends the run at `IN_PROGRESS`, never retrying, never picking
+requires is that it stay loud: the stage that starts the stack prints the refusal verbatim and
+ends the run at `IN_PROGRESS`, never retrying, never picking
 another port, and never stopping the holder.
 
 ## The cache index

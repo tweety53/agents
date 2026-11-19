@@ -1,7 +1,7 @@
 # Verify, stage, and hand off
 
 Loaded by `skills/flow/SKILL.md` once `skills/flow/review-panel.md` closes clean. Stage order:
-**verify → visual-verify → stage-diff → run-instructions → write-in-progress**.
+**verify → visual-verify → stage-diff → write-in-progress**.
 
 ## Verify
 
@@ -26,7 +26,7 @@ once per worktree in this run's resolved set — the same set **2. Isolate the w
 file's `worktrees` map. Per **Resolving a change's worktrees**
 (`skills/flow-contracts/worktree-resolution.md`), report an empty resolved set and do not proceed.
 
-`flow-guard prepare-workspace` runs `flow-guard check-workspace-isolation` against the worktree first, then — only
+`flow-guard prepare-workspace` validates the worktree's isolation table first, then — only
 if that passes — derives and exports the variables the project's `## workspace isolation` section
 declares, resolved against the workspace id, and prints one `KEY=value` line per exported variable
 to stdout. Exit 0 means the printed lines are what to carry forward into `## lint` and `## test`
@@ -64,13 +64,13 @@ over the same resolved set; its header is canonical for its lines. Exit 0 → co
 the project's applications, per **Project configuration**
 (`skills/flow-contracts/project-configuration.md`), and this step starts them only for **Live check** below, through the project's own `## run`.
 
-**After the panel closes, the parent edits no source outside the in-run fix loop.** Source
-changes only through **The loop** (`skills/flow/verify-fix-loop.md`) or a fix run the operator
+**After the panel closes, the parent edits no source outside the fix procedure.** Source
+changes only through the fix procedure (`skills/flow/fix.md`) or a fix run the operator
 starts; any other source change from here on makes every slot's result stale (**Panel re-runs**,
 `skills/flow/review-panel.md`).
 
-**Load `skills/flow/verify-fix-loop.md`** only when this stage's or `flow.visual-verify`'s final
-report carries a fixable defect — it carries **The loop** and **No cap**.
+**Load `skills/flow/fix.md`** only when this stage's or `flow.verify`'s final
+report carries a fixable defect — it carries the whole procedure.
 
 ### Inline verify
 
@@ -88,18 +88,18 @@ directory`.
 Resolve the commands `flow-guard project-get <worktree> lint` and `flow-guard project-get <worktree> test` print
 (auto-detect on exit 1).
 Export the `KEY=value` lines `flow-guard prepare-workspace` printed for that worktree, then run the lint
-commands, then the test commands, in the order printed, then `flow-guard check-spec-reach <worktree>` —
-one more command in the same list, whose exit 0 line `Spec reach: not configured` is the ordinary
-case for a project with no `regression checkout` (its header is canonical for its exit codes). Run
+commands, then the test commands, in the order printed — `flow-guard run-verify-list` appends
+the spec-reach check to the lint list itself (`Spec reach: not
+configured` is the ordinary case for a project with no `regression checkout`). Run
 every command in order and do not stop at the first failure.
-The lint commands with `flow-guard check-spec-reach` and the test commands run as two groups at once, each
+The lint commands and the test commands run as two groups at once, each
 in the order printed, in one Bash call launched with `run_in_background: true` as the paragraph below
 runs a `verify` that can outrun the shell tool's time limit; the `## Report` lists every command in the order
 printed. **Nothing runs them later** —
 `/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
 While a stack is up for this run, the test commands start only after `flow-guard check-dev-stack-fresh
-<worktree>` exits 0 or 2; exit 1 restarts the stack first, by the start rule of **Resolve
-the run instructions** below, so no suite runs against a build older than the last commit; a stack
+<worktree>` exits 0 or 2; exit 1 restarts the stack first, from the project's `## stop` when it declares a command, then its
+`## run`, so no suite runs against a build older than the last commit; a stack
 that will not start ends the turn as a failed command's environment cause does.
 
 **A `verify` that can outrun the shell tool's time limit runs whole, in the background** — one Bash call launched with `run_in_background: true`, and the parent waits for its completion notification and reads the exit code and output from it, never a `sleep` poll. Never split its
@@ -141,26 +141,26 @@ never to a whole suite, and no whole-suite command is typed by hand in its place
 
 **Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
 inline re-run of that command — the environmental-flake case. A failing visual `verify` row's one re-run is the narrowed run of **Narrowed visual re-runs**
-(`skills/flow/verify-fix-loop.md`). Output carrying `WARNING: DATA RACE`
-or `race detected during execution of test` is never that case: the command takes **The loop**
+(`skills/flow/fix.md`). Output carrying `WARNING: DATA RACE`
+or `race detected during execution of test` is never that case: the command takes the fix procedure
 whatever its re-run exits, since a race that passes once is still a race
 (`rules/fix-determinism-at-the-source.mdc`), and `flow-guard run-verify-list` marks its block with
-`data race — never environmental`. A failure the run traced to nondeterminism in code or a test — an unwaited kill, a read racing an exit, a zombie read as alive — is never that case either: it takes **The loop** whatever its re-run exits, or, for a test of the flow tooling, an in-run pipeline fix (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). `flow-guard integrate-change commit` refuses a narrative line that leaves a failing or flaky test open. A second non-zero exit from the same
-command is the branch's own defect and takes **The loop** (`skills/flow/verify-fix-loop.md`) once
+`data race — never environmental`. A failure the run traced to nondeterminism in code or a test — an unwaited kill, a read racing an exit, a zombie read as alive — is never that case either: it takes the fix procedure whatever its re-run exits, or, for a test of the flow tooling, an in-run pipeline fix (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). `flow-guard integrate-change commit` refuses a narrative line that leaves a failing or flaky test open. A second non-zero exit from the same
+command is the branch's own defect and takes the fix procedure (`skills/flow/fix.md`) once
 the whole list has run, its first run's `result files:` and `full output:` paths named in the
 fixer's dispatch; where the environment itself failed — a missing build prerequisite — it
 ends the turn with `## Question` naming the command and its output, verbatim. A failing test this
-change did not introduce takes **The loop** as well (**the sweep**, `skills/flow-contracts/known-bugs.md`). Never treat a
+change did not introduce takes the fix procedure as well (**the sweep**, `skills/flow-contracts/known-bugs.md`). Never treat a
 passing re-run as license to skip the rest of the list — every remaining command in the order
 above still runs.
 
 **A test runner's own timeout under outside load is the environment's failure.** A command killed by
 its test runner's own timeout — Go's `panic: test timed out after` — with no failed assertion and no
 data race, while the one-minute load average (`uptime`) exceeds the machine's core count
-(`getconf _NPROCESSORS_ONLN`), takes neither **The loop** nor a `## Question`: it is re-run, and `flow-guard run-verify-list` holds
+(`getconf _NPROCESSORS_ONLN`), takes neither the fix procedure nor a `## Question`: it is re-run, and `flow-guard run-verify-list` holds
 every `test` or `visual` list until that load average is at or under the core count (THE LOAD GATE,
 its header canonical) — its exit 5, the load never having dropped, is re-run the same way. A
-timeout on a run started at or under the core count is the branch's own defect and takes **The loop**. No
+timeout on a run started at or under the core count is the branch's own defect and takes the fix procedure. No
 timeout is raised to absorb the load (`rules/fix-determinism-at-the-source.mdc`).
 
 **Recording.** One `dispatches` row per worktree the list runs for, `-role verifier -key verify -model <parent
@@ -177,7 +177,7 @@ refusal: clear the cause — a tracked modification, most often — and run the 
 last group to finish ends the row: a group that ends green while a sibling group of the same key still runs records no `end`, and a group killed before its end leaves the row open for the parent to end by hand. The next verify run of the same group — a key that folds to the same `verify[-<repository name>]` — ends such a row `-outcome aborted` at its own begin (kan-1099 self-review, F11). A verify re-run after a new code commit passes a key no earlier verify row of the change
 used — `verify-<k>`, `<k>` counting from 2, suffixed as above — because the store keeps a reused
 key's first `startedAt`, and a row started before the commit never covers it. `verify-<k>` keys a re-run with no fix; a re-run after a fix carries the fix round's `-fix-<k>` key
-(**The loop**, `skills/flow/verify-fix-loop.md`). Once the one inline re-run is decided, a passing re-run ends a fresh
+(`skills/flow/fix.md`). Once the one inline re-run is decided, a passing re-run ends a fresh
 row `-outcome completed`, and a command that failed twice for a missing build prerequisite is ended
 `-outcome blocked -cause environment` by the parent.
 
@@ -203,8 +203,7 @@ turn, never a second key.
 (**D. Basic Workflow #3 — Writing plans**, `skills/flow/brainstorm-planner.md`); a one-line
 no-runtime section, or none, skips it. A section is that no-runtime form when its first line opens
 with `None`, `No ` or `Not applicable`, however many lines its justification wraps to. Once both groups of the lint and test list have exited —
-never while either still runs — with the parent's own Bash calls: when the stack's worktree-resolved URLs do not answer, or `flow-guard check-dev-stack-fresh
-<worktree>` exits non-zero, start it as **One stack for the verification tasks**
+never while either still runs — with the parent's own Bash calls: when the stack's worktree-resolved URLs do not answer, start it as **One stack for the verification tasks**
 (`skills/flow/implement.md`) does; then exercise what the section names and write each
 before/after figure, beside the failure look the section states, to `live-verification.md` in
 the change's directory (**A change's directory**, `skills/flow-contracts/pipeline.md`), a
@@ -215,13 +214,13 @@ removed with `git worktree remove` once the figure is written — never by check
 over the change worktree. A before figure already in
 `<abs-worktree>/.superpowers/sdd/live-before.md`, measured while pass 1's panel read
 (`skills/flow/review-panel.md`), is copied into the record only when the merge-base sha it records equals the current `git -C <abs-worktree> merge-base` — a round-boundary rebase moves the base (`skills/flow/review-panel-fix-round.md`) — and is measured again otherwise. The `## Report` gains one line, `live check — <matched | failure look>`. A figure that
-shows the failure look is the branch's own defect and takes **The loop**
-(`skills/flow/verify-fix-loop.md`); a stack that will not start ends the turn as a failed
+shows the failure look is the branch's own defect and takes the fix procedure
+(`skills/flow/fix.md`); a stack that will not start ends the turn as a failed
 command's environment cause does. **A step of the check the operator waives runs on its cheapest safe proxy instead** — a scratch
 database, a throwaway container — never simply dropped, and the `## Report` line names the proxy. The verifier row's `end` (**Recording.**, above) is recorded
 after this check, not before it: `-outcome blocked -cause test-failure` on a failure look,
 `-cause environment` on a stack that will not start. The stack stays up for **Visual
-verification** and **Resolve the run instructions**.
+verification**.
 
 **The check runs at the smallest footprint that proves its claim** — the lowest parallelism, the
 fewest inputs that still prove the claim — and widens only once that run
@@ -251,30 +250,26 @@ rows for <name>` means this run recorded no dispatch at all**, reported plainly 
 discovered later. The outcome words are the table under
 **Rendering the session records** (`skills/flow-contracts/session-records.md`).
 
-```bash
-flow stage end -C <canonical-worktree> -command '/flow' -stage flow.verify -outcome completed <name>
-```
-
 ## Visual verification
 
 Reads the `## visual verification` section, canonical in
 `skills/flow-contracts/project-configuration-visual.md`. This stage owns its procedure — nothing else in
-this pipeline restates it. **`flow-guard visual-verify-pass prepare` runs this stage's `begin` mark and steps 1
-and 2 below in the parent's own Bash call** — never these steps by hand, and never a subagent's:
+this pipeline restates it. **`flow-guard visual-verify-pass prepare` runs steps 1
+and 2 below (it makes no stage mark — `flow.verify` stays open — and begins each dispatch's row) in the parent's own Bash call** — never these steps by hand, and never a subagent's:
 
 ```bash
 flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <harness> --session-token mf-<literal-token> \
   --merge-base <worktree>=<sha> [--worktree <worktree>] [--since <worktree>=<sha>] \
-  [--round-base <worktree>=<sha>] [--defects <worktree>=<frame>[,<frame>…]] [--app <worktree>:<app-root>=<resolved-url>] [--miss]
+  [--round-base <worktree>=<sha>] [--defects <worktree>=<frame>[,<frame>…]] [--app <worktree>:<app-root>=<resolved-url>]
 ```
 
 Its header (`<agents repo>/scripts/flow-guard visual-verify-pass`) is canonical for every argument, each step it
 runs and its closing lines. `<key>` is the stage's first dispatch key — `visual-verify`, or the one
-**The loop** (`skills/flow/verify-fix-loop.md`) gives a round's re-run — and `prepare` suffixes it per
+the fix procedure (`skills/flow/fix.md`) gives a round's re-run — and `prepare` suffixes it per
 **The verifier dispatch** (`skills/flow/visual-verify.md`). `--worktree` names every other worktree of
 this run's resolved set, the same set **Verify** above resolved. `--merge-base` passes each worktree's
 own merge base from this run's working notes. `--app` passes each app the stage may probe, the
-`<app-root>=<resolved-url>` argument `flow-guard check-visual-preflight` takes, prefixed with its worktree.
+`<app-root>=<resolved-url>` argument the pre-flight check takes, prefixed with its worktree.
 A worktree held in a shell variable is written braced, `--app "${W}:<app-root>=<resolved-url>"`
 — zsh reads `$W:s…` as a history modifier.
 
@@ -298,15 +293,15 @@ A worktree held in a shell variable is written braced, `--app "${W}:<app-root>=<
    hand, which matches every path the base gained since the worktree was cut as this change's own.
 
    **On a fix run, both calls read the fix run's own diff.** Each worktree is passed
-   `--since <worktree>=<its fix-start sha>` (`skills/flow/document-fix.md`), so a fix run whose delta touches no `ui paths` skips this
+   `--since <worktree>=<its fix-start sha>` (`skills/flow/fix.md`), so a fix run whose delta touches no `ui paths` skips this
    stage at step 2 as exit 1 does.
    No worktree is passed `--since` when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify`), or on a sharded pass the newest row of any shard index, does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the fix-start sha.
 
 **A `skipped` decision ends the stage at step 2.** When this run's decision
 (`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 6 of
-**Decide**, `skills/flow/brainstorm-planner.md`), `prepare` closes the stage `skipped` and prints
-`NEXT: skip — skipped at Decide — <reason>`, and every worktree surviving step 2 prints
-`Visual: skipped at Decide — <reason>`.
+**Plan check gate**, `skills/flow/brainstorm-planner.md`), `prepare` closes the stage `skipped` and prints
+`NEXT: skip — skipped at plan check — <reason>`, and every worktree surviving step 2 prints
+`Visual: skipped at plan check — <reason>`.
 `required`, `not configured` or no `visual` at all takes the load below, unchanged.
 
 **`NEXT: skip — <why>` closes the stage and dispatches nothing**, and loads nothing.
@@ -315,10 +310,6 @@ there — it carries **The verifier dispatch**, steps 3–13, this stage's `## R
 this stage's `end` mark.
 
 ## Stage, excluding the planning paths
-
-```bash
-flow stage begin -command '/flow' -stage flow.stage-diff -harness <harness> -session-token mf-<literal-token> <name>
-```
 
 Confirm every intended task checkbox is `[x]`, and that `git log <merge-base>..HEAD` shows one
 commit per completed task plus each fix round's fix commits on top — a pushed branch takes a
@@ -361,111 +352,7 @@ commit>`.
 The render overwrites in place. **A non-zero exit means a destination was refused or could not be
 written** — report it, and continue committing the fix.
 
-```bash
-flow stage end -command '/flow' -stage flow.stage-diff -outcome completed <name>
-```
-
-## Resolve the run instructions
-
-```bash
-flow stage begin -command '/flow' -stage flow.run-instructions -harness <harness> -session-token mf-<literal-token> <name>
-```
-
-Resolve the run instructions the start below uses, the handoff's `**Running:**` section prints (**Write `IN_PROGRESS`**, below) and `/flow-status` prints as its `Running:` section. It writes no file.
-
-- **Every start command comes from `<project>/.flow/project.md`'s `## run`**, with every path
-  made absolute. A dev stack is bounded by its own config — worker counts and heap.
-- **Every URL is the one this worktree resolved**, never the project's declared base. Resolve each
-  URL from this worktree's workspace id. A project that declares no isolation resolves nothing.
-  An application whose port is fixed outside that project's own repository keeps its default,
-  named with a short note.
-- Apps in scope come from `## apps` in `<project>/.flow/project.md`, or auto-detection.
-- **Where the project declares no runnable application**, resolve the `## lint` and `## test`
-  commands instead.
-- **Before this stage ends, start the stack.** This runs on every run — first and fix alike, not
-  only a fix run. A fix run's motivation is the sharpest example: it hands the operator a diff and
-  the run instructions this stage resolves, and if the applications those instructions name are
-  still serving pre-fix code, the operator reviews one thing and runs another. But the same
-  applies on a first run: a handoff is meant to hand off a running stack, not a command that starts
-  one, so before this stage ends, rebuild and restart every application the run instructions above
-  name — the ones just resolved, and no others — from the project's `## run` commands. **A stack already serving this
-  worktree's build is left running**: when its URLs answer and `flow-guard check-dev-stack-fresh
-  <worktree>` exits 0 before the start, the start is skipped — the stack the verification tasks
-  or **Live check** started is the one handed off. Exit 1 or 2 starts it as above.
-
-  **A run that will land straight away starts nothing.** When the record's `reviewBeforeLanding`
-  is not `true` and the run leaves no `?` line for its `Decisions:` (**Write `IN_PROGRESS`**,
-  below), no handoff hands a stack to anyone: the start, the stack freshness check and a refused
-  start's stop below are all skipped, so a held port never keeps the change from landing.
-
-  Resolve the start from the two keys the project already declares, in order: its `## stop`, when
-  it declares a command, then its `## run`. **A `## stop` that deliberately declares no command
-  means there is nothing to stop, not that this rule is skipped** — the start is then whatever
-  `## run` does to bring the application up fresh. No new project-configuration key is added for
-  this, and none is needed.
-
-  **Never the flow dev stack.** `flowd` on `127.0.0.1:4173`, its `flow-postgres` container and the
-  `flow` database inside it are never stopped, restarted or dropped by any run —
-  `<project>/CLAUDE.md` states that prohibition and this rule does not weaken it. Where a project's
-  own `## run` names that service, the prohibition wins over this start rule, never the reverse.
-  This is separate from the visual-verification procedure's own start/stop rule (step 13, `skills/flow/visual-verify.md`): that stage
-  stops the stack it started only on a run that lands straight away, and that rule is not restated here. This rule
-  starts whatever the run instructions name, on every run, regardless of whether that stage ran
-  or started anything.
-
-  **Where every application `## apps` names is one this prohibition covers, the start is
-  nothing — stated, not silently skipped.** The handoff then names the application skipped and
-  why:
-
-  ```
-  Not started: <app> (<url>) — protected, see <project>/CLAUDE.md.
-  ```
-
-  **A start that fails blocks this stage**, naming the application and what the command printed —
-  handing over run instructions that cannot be followed is the failure this rule exists to prevent.
-  Where the project declares no runnable application, there is nothing to start and the rule is
-  satisfied by saying so, not by silently skipping it.
-
-- **The stack behind the URLs is checked, not trusted.** When the run instructions carry URLs, run
-  `flow-guard check-dev-stack-fresh <worktree>` first: the project's declared
-  `fingerprint` row (the `## visual verification` section) proves what the stack serves is the
-  worktree's own build. The guard's own header is canonical for what its three exits
-  cover. Exit 0 adds nothing. Exit 1 adds one `Summary:` bullet, naming the application, its
-  resolved URL and the guard's own stderr reason, restart-shaped and never a restatement of the
-  verdict: `Stale: <app> (<url>) — <the guard's reason>; restart the stack before testing.`
-  Exit 2 adds `Freshness: unverified — <the guard's stderr reason>` instead, the same
-  visible-gap rule the visual-verification procedure's own step 6 (`skills/flow/visual-verify.md`) runs on a missing row. A refused start
-  (below) already ends the run, so this check only ever runs on a start that succeeded or was
-  skipped by the protected-service rule, or on the rest of a stack the out-of-worktree exception
-  below hands off.
-
-- **A refused start is relayed, never resolved.** When the start command above exits non-zero
-  because a port it needs is already held, this stage does not retry, does not pick another port,
-  and does not stop the holder. It prints that command's output verbatim, then the holder's own
-  `devStop`-style stop command when the output names the holder's worktree (or, when it does not,
-  a note to stop the holder's stack by hand).
-  This run then ends at `IN_PROGRESS` with the diff still staged, and the handoff names `/flow
-  <name>` as the next command — the same change, re-run once the holder is stopped. It never stops
-  a stack this run did not start.
-
-  **An application outside the change's worktrees is the one exception.** When the refused start
-  is that of an application whose repository the change holds no worktree in — its code is not
-  under review — the rest of the stack is handed off, and the `Running:` section names it in place
-  of a URL bullet:
-
-  ```
-  Not started: <app> (<url>) — port <port> held by <the holder the start's output names>; outside this change's worktrees.
-  ```
-
-```bash
-flow stage end -command '/flow' -stage flow.run-instructions -outcome completed <name>
-```
-
 ## Write `IN_PROGRESS`
-
-```bash
-flow stage begin -command '/flow' -stage flow.write-in-progress -harness <harness> -session-token mf-<literal-token> <name>
-```
 
 **Append this run's own narrative first.** Append to `narrative.md` in the change's directory
 under `<abs-worktree>` (**A change's directory**, `skills/flow-contracts/pipeline.md`) (create it
@@ -505,8 +392,6 @@ file's mtime — never the moment it is closed. An implementer row carries
 
 **Record the `**Summary:**` bullets next**, per **Summary and live-stack line, before every handoff** (`skills/flow-contracts/pipeline.md`).
 
-**A hold a decision set names what it waits on.** When a `design.md` decision, not the operator, set `reviewBeforeLanding`, one `**Summary:**` bullet names what the change waits on and the instruction that ends the wait.
-
 **Every run writing `IN_PROGRESS` then runs the unfinished-work guard on itself**, a creating run
 as well as a fix run, once per worktree of the resolved
 set, with the arguments **Run 1 — the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`) passes it —
@@ -526,40 +411,28 @@ add any entry still missing (a worktree added after the last incremental write) 
 proceeding. Carry `artifactUrl` (always `null` under `/flow`), `jiraIssue`, `planningEffort`
 (never written — `null` unless a legacy record holds a level), `models.default` (a legacy field,
 likewise never written — `/flow` resolves models from the settings
-store per run, never records a value into the per-change state), `reviewBeforeLanding` and `prUrl`
+store per run, never records a value into the per-change state) and `prUrl`
 forward verbatim.
 The state file lives outside the repo — never `git add` it.
 
 ```bash
-flow stage end -command '/flow' -stage flow.write-in-progress -outcome completed <name>
+flow stage end -command '/flow' -stage flow.verify -outcome completed <name>
 ```
 
-**Then land straight away unless review was asked for or a question is open** — a run that lands re-records first any
-`**Summary:**` bullet changed after the guard, since no printed block records it again. Re-read the record:
-
-```bash
-flow state get <name> | jq -r '.reviewBeforeLanding // false'
-```
-
-`true` prints the block below and ends the run. **So does a run that leaves a `?` line for its
-`Decisions:`, whatever the record holds** — an open question the operator must answer is never
-landed past. Anything else prints no block but the block's `**Running:**` section,
-always, and its 🤖 `Decisions:` lines, when it took any, under a `**Decisions:**` heading —
-integrate's handoffs carry no such field — and continues at **Deciding which run this is**
-(`skills/flow/integrate.md`) in the same turn, as if a bare `/flow <name>` had started it; that
-run prints its own handoff or stop. This is the one chain into integrate **Every invocation is
-re-entrant** (`skills/flow-contracts/pipeline.md`) sanctions.
+**Then land straight away unless a question is open** — a run that lands re-records first any
+`**Summary:**` bullet changed after the guard, since no printed block records it again. A run that
+leaves a `?` line for its `Decisions:` prints the block below and ends the run: an open question
+the operator must answer is never landed past. Any other run prints no block but its 🤖
+`Decisions:` lines, when it took any, under a `**Decisions:**` heading — integrate's handoffs carry
+no such field — and continues at **Deciding which run this is** (`skills/flow/integrate.md`) in the
+same turn, as if a bare `/flow <name>` had started it; that run prints its own handoff or stop.
+This is the one chain into integrate **Every invocation is re-entrant**
+(`skills/flow-contracts/pipeline.md`) sanctions.
 
 ````
 **Summary:**
 - <what this round changed for a user of the app, in product terms — a few bullets at most>
 - <a line another contract requires in the handoff — a caveat, a manual check, a push command, an open defect — one bullet each>
-
-**Running:**
-- <app>: <the URL this worktree resolved> — one bullet per started application
-- Login: <app> — <user> / <password> — one bullet per `## credentials` row, when the section declares any
-- Not started: <app> (<url>) — protected, see <project>/CLAUDE.md. | Nothing to start — no runnable application; <the `## lint` and `## test` commands>
-- Not started: <app> (<url>) — port <port> held by <holder>; outside this change's worktrees. — one bullet per application **A refused start is relayed, never resolved** above hands off unstarted
 
 **Decisions:** none | <one line each:>
 - ? <an open question the operator must answer>
@@ -576,13 +449,6 @@ Next:
 — no heading, no other field, and no summary or live-stack line before it (**Summary and
 live-stack line, before every handoff**, `skills/flow-contracts/pipeline.md`); bullets that changed after the guard — a visual-fix task, a re-verify — are recorded again as the block prints. A stop — a failure,
 a blocked step, a refused start, a `## Question` — prints as its own rule states, not this block.
-
-**The `Running:` section is never omitted** — not from this block, and not from the chain into
-integrate above. It carries a URL for every application the run instructions name, the admin panel
-included, and a login for every account the operator needs to reach them. Its URLs are the ones **Resolve the run
-instructions** above resolved for the stack it started or left running, never the project's
-declared default port; its logins are every row `<project>/.flow/project.md`'s `## credentials`
-declares. Where nothing was started, its last line states why in place of the other two.
 
 **The `Decisions:` lines name every prompt this run answered itself** on its recommended
 option (**Auto-resolution**, `skills/flow-contracts/operator-prompts.md`), so the operator can

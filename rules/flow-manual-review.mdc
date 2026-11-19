@@ -11,17 +11,16 @@ When running `/flow`, follow this **fixed three-state pipeline**:
 
 ```text
 /flow  (no state)          → STARTED                  you: /clear, then /flow <name> to implement
-/flow  (STARTED, planned)  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set or a question is open
-/flow  <fix instructions>  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set or a question is open
+/flow  (STARTED, planned)  → IN_PROGRESS or FINISHED  lands straight away unless a question is open
+/flow  <fix instructions>  → IN_PROGRESS or FINISHED  lands straight away unless a question is open
 /flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route
 ```
 
 One invocation carries the run named after wherever it stops. A run that writes `IN_PROGRESS`
-continues into integrate in the same invocation unless the operator asked to review before landing,
-which keeps it at the gate. The human gate is a property of the
+continues into integrate in the same invocation unless its `Decisions:` carries a `?`, which stops
+it with the handoff block. The human gate is a property of the
 state, not a separate step — which is why no command exists whose only job is to record that a
-review happened. A creating or fix run produces both the staged diff and the run instructions, so
-reviewing and testing are one gate. Every invocation is re-entrant, and a fix never moves the state.
+review happened. A creating or fix run produces the staged diff, so reviewing and testing are one gate. Every invocation is re-entrant, and a fix never moves the state.
 
 A bare invocation at `IN_PROGRESS` lands the branch by the project's `## default landing route`, and
 asks only when none is declared: open a PR by default, merge and push, or leave it to you. Choosing merge-and-push continues the same invocation once the branch is

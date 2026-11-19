@@ -45,16 +45,16 @@ them:
 
 | Step | Keys |
 |------|------|
-| **1. Kickoff** | `flow.kickoff` |
-| **2. Brainstorm** | `flow.brainstorm` |
-| **3. Worktree** | `flow.create-artifacts`, `flow.writing-plans`, `flow.decide` |
-| **4. Implement** | `flow.load-context`, `flow.isolate-workspace`, `flow.document-fix`, `flow.sdd-tdd` |
-| **5. Verify** | `flow.review-panel`, `flow.verify`, `flow.pipeline-fix`, `flow.self-review`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
-| **6. Preflight** | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two` |
-| **7. Land** | `flow.landing-routes` |
-| **8. Clean up** | `flow.verify-merge`, `flow.cleanup`, `flow.write-finished`, `flow.refresh-main-checkout` |
+| **1. Kickoff** | `flow.plan` |
+| **2. Brainstorm** | `flow.plan` |
+| **3. Worktree** | `flow.plan` |
+| **4. Implement** | `flow.implement` |
+| **5. Verify** | `flow.review`, `flow.verify`, `flow.pipeline-fix`, `flow.self-review` |
+| **6. Preflight** | `flow.land` |
+| **7. Land** | `flow.land` |
+| **8. Clean up** | `flow.cleanup` |
 
-`flow.visual-verify` is deliberately absent: `/flow-fast` never runs it. `flow.self-review` marks
+`/flow-fast` never runs a visual verification. `flow.self-review` marks
 section 5's in-run self-review pass. `flow.pipeline-fix` is never marked by hand: the store opens it
 on its own when a `pipeline-fix-*` dispatch begins with no stage open, and closes it with that
 dispatch's last sibling.
@@ -91,7 +91,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
 **After:** none
 ```
 
-- **decide**: **Decide** (`skills/flow/brainstorm-planner.md`) as written, `<changeRoot>` the
+- **decide**: `flow-guard plan-check <worktree> <changeRoot> <abs-worktree>/.superpowers/sdd/decision.json -decide-only` (**Plan check gate**, `skills/flow/brainstorm-planner.md`), `<changeRoot>` the
   directory holding this run's `tasks.md` and no `design.md`, writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
   `## Decision` block.
 - **sdd-tdd**: **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as
@@ -110,10 +110,6 @@ Resolve the Jira key and the change name per **Resolution (how `jiraIssue` is de
 **Change naming** (`skills/flow-contracts/jira-integration.md`), exactly — including the slug
 constraints on a summary-derived name. Then transition the issue to **In Progress** per
 **Transitions** there. Then:
-
-```bash
-flow stage mark  -command '/flow-fast' -stages flow.kickoff -harness <harness> <name>
-```
 
 **A re-run is detected, never recorded**: `<project>-worktrees/<name>` already existing means an
 earlier run left the branch unlanded. Reuse it and skip the creation below. With an argument,
@@ -149,7 +145,7 @@ written.
 ## 2. Brainstorm
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.brainstorm -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.plan -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Make every judgment call yourself and name it in the summary, each with its rejected
@@ -165,40 +161,22 @@ genuinely open one still asks. Pick the simplest implementation that meets the a
 that names a practice or a brief resolves it through the lessons home (**Process lessons**,
 `skills/flow-contracts/lessons.md`), never by a repository search.
 
-```bash
-flow stage end   -command '/flow-fast' -stage flow.brainstorm -outcome completed <name>
-```
-
 ## 3. Worktree
-
-```bash
-flow stage begin -command '/flow-fast' -stage flow.create-artifacts -harness <harness> -session-token mf-<literal-token> <name>
-```
 
 The worktree already exists — section 1 created it. This section only marks through.
 
-```bash
-flow stage end   -command '/flow-fast' -stage flow.create-artifacts -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.writing-plans -harness <harness> -session-token mf-<literal-token> <name>
-```
-
 **Dynamic decisions**' `writing-plans` step writes the plan.
-
-```bash
-flow stage end   -command '/flow-fast' -stage flow.writing-plans -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.decide -harness <harness> -session-token mf-<literal-token> <name>
-```
 
 **Dynamic decisions**' `decide` step runs here.
 
 ```bash
-flow stage end   -command '/flow-fast' -stage flow.decide -outcome completed <name>
+flow stage end   -command '/flow-fast' -stage flow.plan -outcome completed <name>
 ```
 
 ## 4. Implement
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.load-context -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.implement -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 The branch is rebased onto its base before task 1 runs, as the base-sync step of **1. Load
@@ -215,22 +193,9 @@ first two read with `flow-guard project-get <project> <key>`, `## handoff` with
 5 and 7 take their commands from the first three, and `## handoff` says whether the run stops
 between them.
 
-```bash
-flow stage end   -command '/flow-fast' -stage flow.load-context -outcome completed <name>
-flow stage mark  -command '/flow-fast' -stages flow.isolate-workspace -harness <harness> <name>
-```
-
 On a re-run only:
 
-```bash
-flow stage mark  -command '/flow-fast' -stages flow.document-fix -harness <harness> <name>
-```
-
 Then:
-
-```bash
-flow stage begin -command '/flow-fast' -stage flow.sdd-tdd -harness <harness> -session-token mf-<literal-token> <name>
-```
 
 Implement per **Dynamic decisions**' `sdd-tdd` step. Test first where a test can express the behaviour
 (**superpowers:test-driven-development**); a defect gets a failing test before its fix. A
@@ -253,19 +218,19 @@ record; section 5's lint and tests are the only close a commit gets. The series 
 raises on the files you touched rather than suppressing it.
 
 ```bash
-flow stage end   -command '/flow-fast' -stage flow.sdd-tdd -outcome completed <name>
+flow stage end   -command '/flow-fast' -stage flow.implement -outcome completed <name>
 ```
 
 ## 5. Verify
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.review-panel -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.review -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 **Dynamic decisions**' `review-panel` step runs here.
 
 ```bash
-flow stage end   -command '/flow-fast' -stage flow.review-panel -outcome completed <name>
+flow stage end   -command '/flow-fast' -stage flow.review -outcome completed <name>
 flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
@@ -315,8 +280,7 @@ A product defect the pass met stops it at the end of step 2 of `/flow-self-revie
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.self-review -outcome completed <name>
-flow stage mark  -command '/flow-fast' -stages flow.stage-diff -harness <harness> <name>
-flow stage begin -command '/flow-fast' -stage flow.run-instructions -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.verify -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 Print the change summary: what changed and why, grouped by area, one or two sentences each;
@@ -331,40 +295,24 @@ to test by hand, reviews the branch before anything is pushed. The remaining mar
 made by that bare re-run, not by this one.
 
 ```bash
-flow stage end   -command '/flow-fast' -stage flow.run-instructions -outcome completed <name>
-flow stage mark  -command '/flow-fast' -stages flow.write-in-progress -harness <harness> <name>
+flow stage end   -command '/flow-fast' -stage flow.verify -outcome completed <name>
 ```
 
 ## 6. Preflight
 
 ```bash
-flow stage mark  -command '/flow-fast' -stages flow.preflight -harness <harness> <name>
-flow stage begin -command '/flow-fast' -stage flow.unfinished-work-gate -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.land -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 `git -C <worktree> status --porcelain` must be empty: every edit is committed. Anything the ask
 covered and this run did not finish is named in the summary above, never silently dropped.
-
-```bash
-flow stage end   -command '/flow-fast' -stage flow.unfinished-work-gate -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.landing-question -harness <harness> -session-token mf-<literal-token> <name>
-```
 
 The route is what section 4's `## default landing route` `--enum` call resolved, taken without
 asking. When it resolved none (exit 1 or 3): with `## handoff` `required`, ask once through
 **AskUserQuestion** with the options `pull request`, `merge and push` and `manual`, `pull request`
 recommended; otherwise take `pull request` without asking.
 
-```bash
-flow stage end   -command '/flow-fast' -stage flow.landing-question -outcome completed <name>
-flow stage mark  -command '/flow-fast' -stages flow.preserve-sessions,flow.commit-two -harness <harness> <name>
-```
-
 ## 7. Land
-
-```bash
-flow stage begin -command '/flow-fast' -stage flow.landing-routes -harness <harness> -session-token mf-<literal-token> <name>
-```
 
 First, on every route, bring the branch up to date so what lands is what was verified:
 
@@ -386,11 +334,8 @@ runs the project's whole `## lint` and `## test` lists instead.
   <base> --head <name>` with the summary from section 5 as the body.
 - **manual**: `git -C <worktree> push --force-with-lease origin <name>`; print the branch name and the worktree path.
 
-Then transition the Jira issue to In Review per **Transitions**
-(`skills/flow-contracts/jira-integration.md`) — on every route that completed, never on one that stopped.
-
 ```bash
-flow stage end   -command '/flow-fast' -stage flow.landing-routes -outcome completed <name>
+flow stage end   -command '/flow-fast' -stage flow.land -outcome completed <name>
 ```
 
 **`pull request` and `manual` stop here**, worktree and branch kept, and the run ends by naming the
@@ -403,7 +348,7 @@ section 8 runs.
 `merge and push` continues here in the same invocation.
 
 ```bash
-flow stage begin -command '/flow-fast' -stage flow.verify-merge -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-fast' -stage flow.cleanup -harness <harness> -session-token mf-<literal-token> <name>
 ```
 
 ```bash
@@ -413,11 +358,6 @@ git -C <worktree> merge-base --is-ancestor <name> origin/<base>
 
 A non-zero exit means the branch is not on the base branch yet — stop and say so, removing
 nothing.
-
-```bash
-flow stage end   -command '/flow-fast' -stage flow.verify-merge -outcome completed <name>
-flow stage begin -command '/flow-fast' -stage flow.cleanup -harness <harness> -session-token mf-<literal-token> <name>
-```
 
 Save the plan and the self-review bundle to flowd first — the worktree holds their only copies;
 a non-zero exit stops the run, removing nothing:
@@ -435,7 +375,6 @@ why.
 
 ```bash
 flow stage end   -command '/flow-fast' -stage flow.cleanup -outcome completed <name>
-flow stage mark  -command '/flow-fast' -stages flow.write-finished,flow.refresh-main-checkout -harness <harness> <name>
 ```
 
 Transition the Jira issue to **Done**, the same way as before. End by naming the landed commit

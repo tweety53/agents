@@ -623,7 +623,7 @@ func TestWeeklyCostsBucketsByWednesdayAndCategory(t *testing.T) {
 		{"kan-1", "flow.decide", time.Date(2026, 6, 10, 0, 50, 0, 0, time.UTC), 1},
 		{"kan-1", "flow.sdd-tdd", time.Date(2026, 6, 10, 1, 0, 0, 0, time.UTC), 20},
 		{"kan-1", "flow.review-panel", time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC), 30},
-		{"kan-1", "flow.verify", time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC), 7}, // overall only
+		{"kan-1", "flow.verify", time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC), 7}, // verify
 		{"self-review-kan-1", "flow.sdd-tdd", time.Date(2026, 6, 13, 0, 0, 0, 0, time.UTC), 20},
 		{"pipeline-fix-kan-1-1", "flow.brainstorm", time.Date(2026, 6, 13, 1, 0, 0, 0, time.UTC), 20},
 		{"kan-1", "flow.self-review", time.Date(2026, 6, 14, 0, 0, 0, 0, time.UTC), 3},
@@ -675,6 +675,7 @@ func TestWeeklyCostsBucketsByWednesdayAndCategory(t *testing.T) {
 	check("points[1].ImplementUSD", points[1].ImplementUSD, ptr(20.0))
 	check("points[1].ReviewUSD", points[1].ReviewUSD, ptr(30.0))
 	check("points[1].SelfReviewUSD", points[1].SelfReviewUSD, ptr(43.0))
+	check("points[1].VisualVerifyUSD", points[1].VisualVerifyUSD, ptr(7.0))
 }
 
 // TestWeeklyCostsHonoursProjectModelAndPeriod checks WeeklyCosts' three
@@ -794,9 +795,9 @@ func TestWeeklyCostsCountsVisualVerify(t *testing.T) {
 	}
 	check("points[0].VisualVerifyUSD", points[0].VisualVerifyUSD, nil)
 	check("points[0].OtherUSD", points[0].OtherUSD, nil)
-	check("points[1].VisualVerifyUSD", points[1].VisualVerifyUSD, ptr(2.0))
+	check("points[1].VisualVerifyUSD", points[1].VisualVerifyUSD, ptr(3.0))
 	check("points[1].SelfReviewUSD", points[1].SelfReviewUSD, ptr(4.0))
-	check("points[1].OtherUSD", points[1].OtherUSD, ptr(1.0))
+	check("points[1].OtherUSD", points[1].OtherUSD, nil)
 	check("points[1].OverallUSD", points[1].OverallUSD, ptr(7.0))
 }
 

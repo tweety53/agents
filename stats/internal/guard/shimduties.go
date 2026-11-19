@@ -13,11 +13,11 @@ import (
 // CannotAnswer is guard name's "could not answer" exit code — the code
 // scripts/flow-guard exits when it cannot derive the binary, and the code
 // cmd/flow-guard exits for a failure of its own past the name: 4 for
-// run-reproducer (whose 2 is "refused"), mutate-and-verify and
+// run-reproducer (whose 2 is "refused") and
 // break-and-prove; 2 for every other guard.
 func CannotAnswer(name string) int {
 	switch name {
-	case "run-reproducer", "mutate-and-verify", "break-and-prove":
+	case "run-reproducer", "break-and-prove":
 		return 4
 	}
 	return 2

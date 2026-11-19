@@ -55,7 +55,6 @@ func (c *ic) onRecordedBase(b string) bool {
 
 func (c *ic) prepare() {
 	c.loadSet()
-	c.markBegin("flow.preflight")
 	if len(c.wt) == 0 {
 		c.stopAs("worktree-set-empty", "preflight", "the resolved worktree set is empty — report it and ask the operator")
 	}
@@ -99,7 +98,6 @@ func (c *ic) prepare() {
 		}
 	}
 	if !run1 {
-		c.markEnd("flow.preflight", "completed")
 		c.say("NEXT: run 2 — flow-guard integrate-change cleanup " + c.main + " " + c.name + " " + c.flags())
 		panic(icExit(0))
 	}
@@ -143,11 +141,13 @@ func (c *ic) prepare() {
 		}
 	}
 
-	c.markEnd("flow.preflight", "completed")
-	c.markBegin("flow.unfinished-work-gate")
+	c.markBegin("flow.land")
 	if !c.findCanonical() {
 		c.stopAs("tasks-md-not-found", "preflight", "no worktree in the set holds "+c.name+"'s tasks.md — ask the operator")
 	}
+	// This prepare's own flow.land run supersedes a stopped earlier one; a stale
+	// marker would make the next commit open a second run (c.canon is known only now).
+	_ = os.Remove(c.landStoppedFile())
 	live := c.canon + "/" + c.spec + "/changes/" + c.name
 
 	ask := false
@@ -172,9 +172,6 @@ func (c *ic) prepare() {
 	if ask {
 		c.stop("unfinished-work", "load skills/flow/unfinished-work-gate.md: finish the unfinished work, asking nothing, then re-run prepare")
 	}
-	c.markEnd("flow.unfinished-work-gate", "completed")
-
-	c.markBegin("flow.landing-question")
 	var moved []int
 	for i := range c.wt {
 		c.run("check-base-moved", c.wt[i], "origin/"+c.bases[i], c.mb[i])
@@ -215,7 +212,6 @@ func (c *ic) prepare() {
 	if c.prURLState != "" {
 		c.say("PR: " + c.prURLState)
 	}
-	c.markEnd("flow.landing-question", "completed")
 
 	subjects := ""
 	for i := range c.wt {
@@ -236,7 +232,6 @@ func (c *ic) prepare() {
 			subjects += " " + c.wt[i] + "=<impl subject>"
 		}
 	}
-	c.markBegin("flow.preserve-sessions")
 	c.say("NEXT: append this run's narrative to " + live + "/narrative.md, then flow-guard integrate-change commit " + c.main + " " + c.name + subjects + " " + c.flags())
 }
 

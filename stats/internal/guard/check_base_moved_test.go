@@ -118,7 +118,10 @@ func (l lockedWriter) Write(p []byte) (int, error) {
 }
 
 func runGuard(name string, args []string, env Env) guardResult {
-	fn := Registry[name]
+	fn := foldedGuards[name]
+	if fn == nil {
+		fn = Registry[name]
+	}
 	if fn == nil {
 		return guardResult{rc: -1, out: name + " is not registered"}
 	}

@@ -67,7 +67,7 @@ self-review-<name>-pass -session-token self-review-<name> -outcome completed`.
 fixable, `big` or not; disproved, it is `noted`, the evidence that disproved it in its line. "Not
 traced", "unverified" or a cause left unknown is never a classification: such a finding goes to
 step 3's planner as a non-`big` finding whose plan opens on the trace, never into the report or
-into the run's final report as an open item. An observed test failure is fixed as **The loop** (`skills/flow/verify-fix-loop.md`) states
+into the run's final report as an open item. An observed test failure is fixed as the fix procedure (`skills/flow/fix.md`) states
 for one that does not reproduce within its bounded runs and goes straight to code, and a plan that allows closing it unreproduced is sent back.
 
 The pass runs the four-angle table over the bundle, every angle explicit —
@@ -204,8 +204,7 @@ worktree — `<agents repo>-worktrees/<name>/docs/prompt-tuning/<case-id>/` on t
 Once a case's folder is copied, run `flow prompt-tuning render <case-dir>`.
 
 The cases are committed as `docs(prompt-tuning): <name> cases` on the branch step 3 names as
-`<fix-branch>`: inside a run whose canonical repository is `<agents repo>`, the change's own branch,
-landed by the run's own route; otherwise, and standalone, `self-review-<name>`. When step 3 has no
+`<fix-branch>`, always `self-review-<name>`. When step 3 has no
 worktree — no non-`big` finding — the worktree this step created carries the cases alone: this session commits them there and lands that
 cases-only branch by step 3 item 5's route.
 
@@ -280,16 +279,11 @@ pipeline defect, fixed in-run per **Pipeline defects found mid-run**
 (`skills/flow-contracts/pipeline.md`) and the loop resumed once the fix lands — never a stop or a
 question to the operator.
 
-`<agents-base>` is the one **Pipeline defects found mid-run** binds. `<fix-branch>` and
-`<fix-base>` are where the fixes go (`design.md`, `fixes-ride-the-change`): inside a run whose
-change's canonical repository is `<agents repo>`, the change's own branch in its own
-worktree — `spectre/<name>` on `/flow`, `<name>` on `/flow-fast` — based at the commit the branch
-holds when the pass starts; standalone, or inside
-any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
+`<agents-base>` is the one **Pipeline defects found mid-run** binds. `<fix-branch>` is always
+`self-review-<name>`, based at `origin/<agents-base>`, landed by `flow-guard pipeline-fix land`; fixes never go onto the change's own branch.
 
-1. **Plan, then fix** — on `self-review-<name>`, this session creates the worktree with
-   `<agents repo>/scripts/flow-guard pipeline-fix start <name>` — never the main checkout; on the change's
-   own branch its worktree is already set up. It then dispatches key `self-review-<name>-plan` on the planner pair, its
+1. **Plan, then fix** — this session creates the worktree with
+   `<agents repo>/scripts/flow-guard pipeline-fix start <name>` — never the main checkout. It then dispatches key `self-review-<name>-plan` on the planner pair, its
    prompt naming `<sr-dir>/findings.md` and the non-`big` finding ids, whose evidence and counted blast radius that file carries. The planner
    plans them all in full as one spectre change, `self-review-<name>`, in that worktree, per
    `skills/flow/brainstorm-planner.md`: brainstorming (section B), the artifacts (section C —
@@ -306,7 +300,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    `<agents repo>-worktrees/<name>/.superpowers/sdd/` on the change's own branch. When it writes
    or changes a prototype, its report names the file's absolute path, and this session publishes it
    and prints its URL in its final report (**The checklist**, `skills/flow/brainstorm-planner.md`). Section D's
-   `spectre validate "self-review-<name>"` passes before it hands back. It runs none of what records or gates a pipeline run: no `flow stage` call, no **Decide** — no `decision.json`, no `## Decision` block — and no **Plan
+   `spectre validate "self-review-<name>"` passes before it hands back. It runs none of what records or gates a pipeline run: no `flow stage` call, no **Plan check gate** — no `decision.json`, no `## Decision` block — and no **Plan
    review gate**. `design.md`'s decisions record instead the first review's pair and the grouping
    of tasks into fixer dispatches. The pair is the entry `**ID:** first-review-effort`,
    its `**Chosen:**` line the `self-review-review-1` role's pair (`pipeline-fix-review-1` in a
@@ -362,21 +356,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    dispatch of step 3, key
    `self-review-<name>-fix-v<v>`, its prompt naming the failing command and `<sr-dir>/verify-<v>.log`; then step 2, then this step's lint lines and tests again, `<v>` plus one. A red branch never lands, and a
    red line is never waived — **Fewest operator actions** governs this loop as it does the review.
-5. **Land once.** On the change's own branch nothing lands here: the fix commits ride the run's
-   own route, whose rebase can rewrite their shas, so step 6 records no `fixed` row for them. The
-   `fixed:` lines of `<sr-dir>/report-draft.md` carry each commit's sha on the branch when written. **The landing push** — the one that puts the commits on `<base>` on
-   merge and push, the branch push on a pull-request or manual route — each attempt of it, a
-   retry after a rejected push included, is preceded, in whichever invocation makes it, by a
-   re-read of each fix commit's sha by its subject, in the worktree of the change's set whose
-   repository holds that sha (`git log --format='%h %s' HEAD --not origin/<base>`); a changed sha
-   rewrites its `fixed:` line in the draft. Once that
-   push succeeds, the same invocation records one `fixed` row per `fixed:` line whose sha a
-   repository of the change's worktree set carries and `flow self-review findings -change <name>`
-   does not list yet, its angle and note
-   read off the line, its `-severity` the grade `<sr-dir>/findings.md` gives that finding, and no blast radius; a rewrite after rows were already recorded adds a
-   second row under the new sha. A pull request merged by squash or rebase rewrites the
-   shas once more, and no commit then carries a fix's own sha. On `self-review-<name>`,
-   land by `<agents repo>`'s `## default landing route`
+5. **Land once.** Land by `<agents repo>`'s `## default landing route`
    (`flow-guard project-get <agents repo> 'default landing route'`), without asking — merge and push as
    step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the
    branch. The pass is not done until every fixed finding's commit is on `origin/<agents-base>`. Each fixed
@@ -429,7 +409,7 @@ First this session fills each `offered: <F-id>` placeholder of `<sr-dir>/report-
 It reads the filled draft once, here, and records the rows from its lines.
 
 One call per finding, every disposition alike, before step 7 — save a `fixed`
-finding on the change's own branch, whose row step 5's landing push records:
+finding:
 
 ```bash
 flow self-review finding -change <name> -angle <label> -disposition fixed|filed|declined|noted [-ref <sha|KEY>] [-blast-radius <N>] [-severity critical|important|minor] [-theme <id>] -note '<the finding, one line>'

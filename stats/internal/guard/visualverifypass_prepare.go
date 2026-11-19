@@ -25,37 +25,35 @@ import (
 func (v *vvp) prepare() {
 	var survivors []string
 	if v.cont {
-		v.stageOpen = true
 		survivors = v.continueSet()
 	} else {
+		// The `## visual verification` section is validated before any capture.
+		var ok bytes.Buffer
+		if rc := checkVisualVerification([]string{v.canon}, v.env, &ok, v.stderr); rc != 0 {
+			v.stdout.Write(ok.Bytes())
+			panic(vvpExit(rc))
+		}
 		// A change decided `skipped` verifies nothing, so it needs no worktree to serve a stack.
 		if _, skip := v.decidedSkip(); !skip {
 			v.kickoff()
 		}
-		v.markBegin()
 		survivors = v.trigger()
 		v.writeStage(survivors)
 		if reason, ok := v.decidedSkip(); ok {
 			for range survivors {
 				v.say("Visual: skipped at Decide — %s", reason)
 			}
-			v.markEnd("skipped")
 			v.next("skip — skipped at Decide — " + reason)
 		}
 		if len(survivors) == 0 {
-			v.markEnd("completed")
 			v.next("skip — no worktree's diff matched `ui paths`")
 		}
 		v.roundDiff(survivors)
 		v.preflight(survivors)
-		if v.miss {
-			v.next("analyst")
-		}
 	}
 	stack := v.probe(survivors)
-	fingerprints := v.fingerprint(survivors)
 	v.captureShards(survivors)
-	v.dispatch(survivors, stack, fingerprints)
+	v.dispatch(survivors, stack)
 }
 
 // realPath is p with symlinks resolved, or cleaned when it cannot be.
@@ -213,7 +211,6 @@ func (v *vvp) roundDiff(survivors []string) {
 	switch {
 	case !some:
 	case empty:
-		v.markEnd("completed")
 		v.next("skip — round diff empty")
 	case onlyMockups:
 		v.next("compose-only")
@@ -445,10 +442,7 @@ func (v *vvp) taskCaptured(w string) []string {
 // prepare-captures-sharded, capture-failure-falls-back-serial): `setup`, then
 // one `capture <spec> --workers=<flow-guard capture-workers> --retries=1 --update-snapshots=all` with every `spec` line's path
 // for `<spec>`, space-joined, once per pass; a
-// non-zero exit drops the slices and the pass runs one verifier. No
-// merge-base capture is asked for here: a shard that needs one says so in its
-// report, and close asks the parent then. --merge-base-failed records its
-// reason for every later bundle of the pass.
+// non-zero exit drops the slices and the pass runs one verifier.
 func (v *vvp) captureShards(survivors []string) {
 	var specs []string
 	sliced, captured := false, false
@@ -461,9 +455,6 @@ func (v *vvp) captureShards(survivors []string) {
 		case "captured":
 			captured = true
 		}
-	}
-	if sliced && v.mbFailed != "" {
-		v.appendStage("merge-base-failed " + v.mbFailed)
 	}
 	if !sliced || captured || vvpShardSeg.MatchString(v.key) {
 		return
@@ -639,35 +630,8 @@ func (v *vvp) probe(survivors []string) string {
 	return "found running"
 }
 
-// fingerprint is step 6 per survivor through check-dev-stack-fresh: exit 1
-// prints `NEXT: restart-stack`, or under --started stops the stage; exit 2
-// reads `not declared — <its stderr reason>`.
-func (v *vvp) fingerprint(survivors []string) map[string]string {
-	got := map[string]string{}
-	for _, w := range survivors {
-		rc, out, errs := v.guard("check-dev-stack-fresh", nil, w)
-		switch rc {
-		case 0:
-			got[w] = "exit 0 — the served bundle is the worktree's build"
-		case 1:
-			if v.started {
-				v.stop("fingerprint-failed", "stopped", "fingerprint — "+vvpOneLine(out+"\n"+errs))
-			}
-			v.next("restart-stack")
-		default:
-			got[w] = "not declared — " + strings.TrimPrefix(vvpLastLine(errs), "check-dev-stack-fresh: ")
-		}
-	}
-	return got
-}
-
 func vvpOneLine(s string) string {
 	return strings.Join(strings.Fields(strings.ReplaceAll(strings.TrimSpace(s), "\n", " | ")), " ")
-}
-
-func vvpLastLine(s string) string {
-	ls := strings.Split(strings.TrimSpace(s), "\n")
-	return ls[len(ls)-1]
 }
 
 // vvpRedispatch is a re-dispatch's key, `visual-verify-<n>[-…]`.
@@ -703,7 +667,7 @@ func (v *vvp) pair() (model, effort string) {
 // more than one worktree suffixes each key `-<repository name>`; a
 // --continue key already ending in a survivor's suffix runs that worktree
 // alone.
-func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string]string) {
+func (v *vvp) dispatch(survivors []string, stack string) {
 	size := v.setSize
 	if !v.cont {
 		size = len(v.worktrees)
@@ -751,7 +715,7 @@ func (v *vvp) dispatch(survivors []string, stack string, fingerprints map[string
 	model, effort := v.pair()
 	begun := []string{}
 	for _, r := range rows {
-		bundle := v.bundle(r.key, r.w, stack, fingerprints[r.w], relay, green, stage)
+		bundle := v.bundle(r.key, r.w, stack, relay, green, stage)
 		heads := []string{}
 		for _, w := range append([]string{r.w}, v.siblings[r.w]...) {
 			h, ok := v.git("-C", w, "rev-parse", "HEAD")
@@ -851,7 +815,7 @@ func (v *vvp) greenRows() []struct{ Key, DiffBase string } {
 // bundle writes <w>/.superpowers/sdd/verify-prompt-<key>.md, every line of
 // the verifier's prompt a script can resolve (skills/flow/visual-verify.md,
 // **Steps 3–13**), and returns its path.
-func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffBase string }, stage [][2]string) string {
+func (v *vvp) bundle(key, w, stack, relay string, green []struct{ Key, DiffBase string }, stage [][2]string) string {
 	sdd := filepath.Join(w, ".superpowers", "sdd")
 	report := filepath.Join(sdd, "verify-report-"+key+".md")
 	changeRoot := filepath.Join(v.canon, specRootLeaf(v.canon, io.Discard), "changes", v.name)
@@ -910,7 +874,6 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 	line("## Stack")
 	line("")
 	line("stack: %s", stack)
-	line("fingerprint: %s", fp)
 	verify := "none recorded"
 	for _, g := range green {
 		if vvpResolves(v, w, g.DiffBase) {
@@ -927,25 +890,17 @@ func (v *vvp) bundle(key, w, stack, fp, relay string, green []struct{ Key, DiffB
 		line("slice: %s %s", strings.TrimPrefix(vvpShardSeg.FindString(key), "-"), slice)
 		frames = " --frames " + slice
 		measure += frames
-		mbFailed := v.mbFailed
-		for _, l := range stage {
-			if l[0] == "merge-base-failed" {
-				mbFailed = l[1]
-			}
-		}
-		if mbFailed != "" {
-			line("merge-base capture failed — %s", mbFailed)
-		}
 	}
 	line("%s", measure)
 	line("")
 	line("## Report checks")
 	line("")
 	design := filepath.Join(changeRoot, "design.md")
-	line("check: flow-guard check-verify-report %s <motions named> --design %s%s", report, design, frames)
+	mockups := ""
 	if m := cells["mockups"]; m != "" {
-		line("check: flow-guard check-frame-list %s %s %s%s", design, cellPath(w, m), report, frames)
+		mockups = " --mockups " + cellPath(w, m)
 	}
+	line("check: flow-guard visual-verify-pass close --check-only %s <motions named>%s --design %s%s", report, mockups, design, frames)
 	line("")
 	line("## Mockup sources")
 	line("")

@@ -104,7 +104,6 @@ func TestVisualVerifyPassCloseDone(t *testing.T) {
 		}
 	}
 	for _, want := range []string{"record dispatch end -C " + f.wt + " -change demo -key visual-verify -session-token mf-tok -outcome completed",
-		"stage end -C " + f.wt + " -command /flow -stage flow.visual-verify -outcome completed demo",
 		"record render -change demo -kind ledger -repo " + f.wt} {
 		if !strings.Contains(calls, want) {
 			t.Errorf("calls lack %q", want)
@@ -186,14 +185,14 @@ func TestVisualVerifyPassCloseBlockedDefaults(t *testing.T) {
 	}
 }
 
-// A die after the stage opened ends the stage rather than leaving it open.
-func TestVisualVerifyPassCloseDieEndsStage(t *testing.T) {
+// A die marks no stage: the guard makes no stage call.
+func TestVisualVerifyPassCloseDieMarksNoStage(t *testing.T) {
 	t.Parallel()
 	f := vvcFixture(t, "")
 	writeExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2 $3\" in \"record dispatch end\") echo store down; exit 1;; esac\n")
 	f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
 	rc, out, calls := f.close("visual-verify")
-	if rc != 2 || !strings.Contains(calls, "stage end -C "+f.wt+" -command /flow -stage flow.visual-verify -outcome stopped demo") {
+	if rc != 2 || strings.Contains(calls, "stage ") {
 		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
 	}
 }
@@ -214,7 +213,7 @@ func TestVisualVerifyPassCloseLaterBlocks(t *testing.T) {
 	f.report("visual-verify-3", f.wt, vvcVerdict("1", vvcBlocked, "missing-fixture"), "- steps: "+vvcBlocked+"\n")
 	rc, out, calls = f.close("visual-verify-3")
 	if rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: loop") || vgHead(t, f.wt) == before ||
-		!strings.Contains(calls, "-outcome blocked -cause missing-fixture") || !strings.Contains(calls, "-stage flow.visual-verify -outcome stopped") || !strings.Contains(out, "STAGE: stopped") {
+		!strings.Contains(calls, "-outcome blocked -cause missing-fixture") || !strings.Contains(out, "STAGE: stopped") {
 		t.Fatalf("missing-fixture: exit %d\n%s\n%s", rc, out, calls)
 	}
 }
@@ -493,7 +492,7 @@ func TestVisualVerifyPassCloseNoReport(t *testing.T) {
 	t.Parallel()
 	f := vvcFixture(t, "")
 	rc, out, calls := f.close("visual-verify")
-	if rc != 1 || !strings.Contains(out, "STOP: no report") || !strings.Contains(calls, "-outcome aborted") || !strings.Contains(calls, "-stage flow.visual-verify -outcome stopped") {
+	if rc != 1 || !strings.Contains(out, "STOP: no report") || !strings.Contains(calls, "-outcome aborted") {
 		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
 	}
 	if rc, _, calls := f.close("visual-verify-9"); rc != 2 || calls != "" {
@@ -559,7 +558,7 @@ func TestVisualVerifyPassCloseCommitsPathspec(t *testing.T) {
 		}
 		h.captures(capture)
 		h.report("visual-verify", capture, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
-		writeFile(t, filepath.Join(h.wt, ".flow/project.md"), "# project\n\n"+vvpSection+"| `regression checkout` | `"+regress+"` |\n| `regression repo` | `x/regress` |\n")
+		writeFile(t, filepath.Join(h.wt, ".flow/project.md"), "# project\n\n"+vvpSect(t, "| `regression checkout` | `"+regress+"` |\n| `regression repo` | `x/regress` |\n"))
 		rc, out, _ := h.close("visual-verify")
 		if rc != 0 || vvcLog(t, capture, "%s") != "test: record the visual-verify visual verification" ||
 			strings.Contains(out, "PUSH:") == inWorktree ||
@@ -652,16 +651,6 @@ func TestVisualVerifyPassCloseShards(t *testing.T) {
 		t.Fatalf("another index's block counted: exit %d\n%s", rc, out)
 	}
 
-	// A shard names the spec it needs a merge-base capture for; close asks
-	// the parent once per spec, before the remainder.
-	o := vvcFixture(t, "")
-	o.appendRow("visual-verify-s1of2", o.wt)
-	owed := "4 done | 8 done | 9 done | 10 blocked — merge-base capture owed | 11 done | motion n/a — no motion named"
-	o.report("visual-verify-s1of2", o.wt, vvcVerdict("0", owed, ""), "- merge-base capture owed: /abs/a.spec.ts\n- merge-base capture owed: /abs/a.spec.ts\n- steps: "+owed+"\n")
-	if rc, out, _ := o.close("visual-verify-s1of2"); rc != 0 || strings.Count(out, "MERGE-BASE-SPEC: /abs/a.spec.ts\n") != 1 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: rest visual-verify-rest-s1of2") {
-		t.Fatalf("an owed merge-base capture: exit %d\n%s", rc, out)
-	}
-
 	// A shard of a set of several worktrees: the repository name, then the
 	// shard segment, on its remainder and its redispatch alike.
 	m := vvcFixture(t, "")
@@ -699,7 +688,7 @@ func TestVisualVerifyPassCloseShards(t *testing.T) {
 	}
 	g.report("visual-verify-s1of2", g.wt, vvcVerdict("0", vvcSteps, ""), "- frames: 1/1\n- f1 note: composed\n- steps: "+vvcSteps+"\n")
 	rc, out, calls = g.close("visual-verify-s1of2")
-	if rc != 0 || !strings.Contains(out, "STAGE: completed") || !strings.Contains(calls, "stage end -C "+g.wt+" -command /flow -stage flow.visual-verify -outcome completed demo") {
+	if rc != 0 || !strings.Contains(out, "STAGE: completed") || strings.Contains(calls, "stage ") {
 		t.Fatalf("every index closed: exit %d\n%s\n%s", rc, out, calls)
 	}
 	if b, _ := os.ReadFile(filepath.Join(filepath.Dir(vv), "visual-verification.md")); string(b) != "# s1\n\n# s2\n" {
@@ -982,5 +971,54 @@ func TestVvcParseVerdictIgnoresParenthesisedCounts(t *testing.T) {
 	}
 	if bad, _, _ := vvcParseVerdict("- exits: setup 0, capture 1 (CF5 test failure)"); !bad {
 		t.Error("a bare non-zero exit was missed")
+	}
+}
+
+func TestCloseOwesNoMergeBaseCapture(t *testing.T) {
+	// A shard report carrying a merge-base capture owed line is asked no capture.
+	o := vvcFixture(t, "")
+	o.appendRow("visual-verify-s1of2", o.wt)
+	owed := "4 done | 8 done | 9 done | 10 blocked — merge-base capture owed | 11 done | motion n/a — no motion named"
+	o.report("visual-verify-s1of2", o.wt, vvcVerdict("0", owed, ""), "- merge-base capture owed: /abs/a.spec.ts\n- steps: "+owed+"\n")
+	if rc, out, _ := o.close("visual-verify-s1of2"); rc != 0 || strings.Contains(out, "MERGE-BASE-SPEC") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: rest visual-verify-rest-s1of2") {
+		t.Fatalf("an owed merge-base capture: exit %d\n%s", rc, out)
+	}
+}
+
+func TestCloseCheckOnlyWritesNothing(t *testing.T) {
+	t.Parallel()
+	f := vvcFixture(t, "")
+	path := f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
+	good, _, calls := f.run("close", "--check-only", path, "0")
+	bad := filepath.Join(f.wt, ".superpowers/sdd/verify-report-bad.md")
+	writeFile(t, bad, "## Verdict\n- Model: opus\n")
+	rc, out, calls2 := f.run("close", "--check-only", bad, "0")
+	if good != 0 || rc != 1 || strings.TrimSpace(out) == "" {
+		t.Fatalf("good exit %d, bad exit %d\n%s", good, rc, out)
+	}
+	if strings.Contains(calls+calls2, "dispatch") || strings.Contains(f.stageFile(), "verdict") {
+		t.Errorf("check-only wrote state:\n%s\n%s", calls+calls2, f.stageFile())
+	}
+}
+
+// TestCloseCheckOnlyFailsOnJudgeGap: a `no sidecar line` frame-list gap is
+// judged in a full close, but check-only has no judge and must exit 1 on it.
+func TestCloseCheckOnlyFailsOnJudgeGap(t *testing.T) {
+	t.Parallel()
+	f := vvcFixture(t, "| `mockups` | `design/mockups` |\n")
+	path := f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- frames: 1/1\n- f1 note: composed\n- steps: "+vvcSteps+"\n")
+	rc, out, _ := f.run("close", "--check-only", path, "0", "--design", filepath.Join(f.wt, "spectre/changes/demo/design.md"), "--mockups", filepath.Join(f.wt, "design/mockups"))
+	if rc != 1 || !strings.Contains(out, "no sidecar line: f1") {
+		t.Fatalf("exit %d, want 1 naming the gap\n%s", rc, out)
+	}
+}
+
+func TestCloseCheckOnlyMockupsNeedsDesign(t *testing.T) {
+	t.Parallel()
+	f := vvcFixture(t, "")
+	path := f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
+	rc, out, _ := f.run("close", "--check-only", path, "0", "--mockups", f.wt)
+	if rc != 2 || !strings.Contains(out, "--mockups needs --design") {
+		t.Fatalf("exit %d, want usage exit 2\n%s", rc, out)
 	}
 }

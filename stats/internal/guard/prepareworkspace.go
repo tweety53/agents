@@ -1,16 +1,13 @@
 package guard
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 )
 
 // The contract below moved here from the header of the deleted
@@ -22,7 +19,7 @@ import (
 // Usage: flow-guard prepare-workspace <worktree>
 //
 // This is exactly what `/flow`'s implement phase used to do by hand, in prose:
-// run flow-guard check-workspace-isolation against the worktree first — fail loudly
+// validate the worktree's isolation table in-process first — fail loudly
 // and stop if it fails — then derive and export the workspace variables the
 // project's `## workspace isolation` section declares, resolved against the
 // workspace id. Every rule this script applies is stated once, and canonical,
@@ -64,14 +61,11 @@ import (
 // existed.
 //
 // Exit 0 when the section is absent (no-op: nothing exported, nothing
-// printed) or when isolation resolved and exported cleanly. When
-// flow-guard check-workspace-isolation itself fails, this script's exit code is the
-// guard's own — 1 (a dropped row) or 2 (the guard could not answer at all) —
-// and the guard's stdout is relayed verbatim before exiting; its stderr is
-// inherited, not captured, so it is already in front of the operator by the
-// time this script's own exit code lands. Exit 2 additionally covers a
-// worktree this script cannot derive a change name from, and one whose
-// flow-guard check-workspace-isolation cannot be found.
+// printed) or when isolation resolved and exported cleanly. When the
+// validation fails, the exit code is its own — 1 (a dropped row) or 2 (it
+// could not answer at all) — and its stdout is relayed verbatim before
+// exiting. Exit 2 additionally covers a worktree this script cannot derive a
+// change name from.
 //
 // A project declaring no `## workspace isolation` section is the ordinary
 // case for a repository with no runnable application, and is never reported
@@ -79,10 +73,7 @@ import (
 // (skills/flow-contracts/workspace-isolation.md).
 //
 // Ported to Go (KAN-873): the body's reasoning for every step is in
-// stats/internal/guard/prepareworkspace.go, beside the code. The guard still
-// execs flow-guard check-workspace-isolation from beside this script, as the bash
-// did: FLOW_GUARD_WORKSPACE_ISOLATION is exported as its path, so a missing or
-// non-executable sibling keeps its exit 2.
+// stats/internal/guard/prepareworkspace.go, beside the code.
 
 func init() { Registry["prepare-workspace"] = prepareWorkspace }
 
@@ -126,43 +117,16 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 
-	// The sibling guard, check-workspace-isolation, runs in this same binary
-	// (runSibling); FLOW_GUARD_WORKSPACE_ISOLATION, when set, names an
-	// executable to run instead. Executable as well as a regular file: a
-	// present-but-non-executable override is not runnable either, and letting
-	// the exec below hit it directly would fail with a raw exit 126
-	// ("Permission denied") — outside this guard's own 0/1/2 exit contract and
-	// undocumented as such. Treated the same as "cannot find it at all", since
-	// neither case leaves this guard able to validate anything.
-	if guard := env.Getenv("FLOW_GUARD_WORKSPACE_ISOLATION"); guard != "" {
-		if st, err := os.Stat(guard); err != nil || !st.Mode().IsRegular() || syscall.Access(guard, 1) != nil {
-			fmt.Fprintf(stderr, "prepare-workspace: cannot find a runnable check-workspace-isolation in %s\n", filepath.Dir(guard))
-			Reason(env, "cannot-find-a-runnable-check")
-			return 2
-		}
-	}
-
-	// Validate first, with the guard, not by eye — and before resolving a
-	// single row. Its stdout is captured so a violation report can be
-	// relayed after this guard's own exit code is decided; its stderr is
-	// inherited, so a refusal it prints is already visible.
-	//
-	// CHECK_WORKSPACE_ISOLATION_PRINT_ROWS=1 asks the guard to append each
-	// validated resource row to its own report, as a `#ROW` line, once it has
-	// finished validating — see workspaceisolation.go's comment on that
-	// variable. This is the ONE parse of `.flow/project.md`'s resource table
-	// this guard needs: the guard already walked the file's cells to validate
-	// them, and the rows below are extracted from that same walk rather than
-	// a second one this guard would otherwise have to run itself.
-	cmd := siblingCmd(env, "FLOW_GUARD_WORKSPACE_ISOLATION", "check-workspace-isolation", worktree)
-	cmd.Stderr = stderr
-	cmd.Env = append(os.Environ(), "CHECK_WORKSPACE_ISOLATION_PRINT_ROWS=1")
-	raw, err := cmd.Output()
-	// $(...) strips every trailing newline; the relay below adds one back.
-	guardOut := strings.TrimRight(string(raw), "\n")
-	if rc := pwExitCode(err); rc != 0 {
-		if guardOut != "" {
-			fmt.Fprintf(stdout, "%s\n", guardOut)
+	// Validate first, in-process, and before resolving a single row. Its
+	// stdout is captured so a violation report can be relayed after this
+	// guard's own exit code is decided; its stderr passes through. The rows
+	// come from the validator's own walk of the resource table, so
+	// `.flow/project.md` is parsed once.
+	var guardOut strings.Builder
+	var rows []pwRow
+	if rc := checkWorkspaceIsolation([]string{worktree}, env, &guardOut, stderr, &rows); rc != 0 {
+		if out := strings.TrimRight(guardOut.String(), "\n"); out != "" {
+			fmt.Fprintf(stdout, "%s\n", out)
 		}
 		Reason(env, "isolation-refused")
 		return rc
@@ -218,28 +182,14 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	digest, _ := strconv.ParseUint(id[len(id)-4:], 16, 64)
 	offset := int64(digest%400+1) * 10
 
-	// The resource table's rows, already parsed and validated — extracted
-	// from the guard's own report rather than re-reading `.flow/project.md`.
-	// Every line of its stdout whose first tab-separated field is `#ROW` is
-	// one resource row the guard walked while validating it; the four cells
-	// after the marker are `Resource`, `Variable`, `Default` and `In a
-	// workspace`. The bash read them with `IFS=$'\t' read`, under which a run
-	// of tabs is one separator, so an empty cell shifts the ones after it —
-	// strings.FieldsFunc splits the same way. A row with no variable is
-	// skipped.
-	var rows []pwRow
-	for _, line := range strings.Split(guardOut, "\n") {
-		f := strings.Split(line, "\t")
-		if f[0] != "#ROW" {
-			continue
+	// A row with no variable is skipped.
+	kept := rows[:0]
+	for _, r := range rows {
+		if r.variable != "" {
+			kept = append(kept, r)
 		}
-		cells := strings.FieldsFunc(strings.Join(f[1:min(5, len(f))], "\t"), func(r rune) bool { return r == '\t' })
-		cells = append(cells, "", "", "", "")
-		if cells[1] == "" {
-			continue
-		}
-		rows = append(rows, pwRow{res: cells[0], variable: cells[1], def: cells[2], cell: cells[3]})
 	}
+	rows = kept
 
 	// substituteID — <id> and <id_underscored>, the two tokens every
 	// `database`, `bucket` and `url` cell may carry, per **What the id
@@ -354,23 +304,5 @@ func pwResolveValueRefs(cell string, rows []pwRow) (string, error) {
 		// validated file — kept anyway rather than looping forever on a token
 		// that never resolves.
 		cell = strings.Replace(cell, token, val, 1)
-	}
-}
-
-// pwExitCode is the `$?` bash saw from `$(guard ...)`: the guard's status,
-// 128+n when signal n killed it, 126 when it could not be executed and 127
-// when it could not be found — the two exec failures racing the runnable
-// check above.
-func pwExitCode(err error) int {
-	var ee *exec.ExitError
-	switch {
-	case err == nil:
-		return 0
-	case errors.As(err, &ee):
-		return rrExitCode(ee.ProcessState)
-	case errors.Is(err, os.ErrNotExist):
-		return 127
-	default:
-		return 126
 	}
 }

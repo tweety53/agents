@@ -29,9 +29,9 @@ flow's pipeline and its contract definitions.
 | [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — every key it defines and the single-line-literal keys. Resolution rules only — see below for authoring guidance |
 | [project-configuration-standards.md](project-configuration-standards.md) | Resolve a `## standards` entry: the three entry forms and containment. **Loaded at the principles dispatch** |
 | [project-configuration-isolation.md](project-configuration-isolation.md) | The `## workspace isolation` tables: the cell forms, row validation and what is left to the agent. **Loaded only when `flow-guard prepare-workspace` cannot be located** |
-| [project-configuration-visual.md](project-configuration-visual.md) | The `## visual verification` tables, the `mockups` sidecar and the full app suite. **Loaded when `flow.visual-verify` begins** |
+| [project-configuration-visual.md](project-configuration-visual.md) | The `## visual verification` tables, the `mockups` sidecar and the full app suite. **Loaded when `flow.verify` begins** |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
-| [jira-integration-finish.md](jira-integration-finish.md) | The In Review timing, the join carve-out and echo, and labels on created issues. **Cited by every command that creates an issue; loaded by `/flow`'s integrate run 1 at the In Review transition** |
+| [jira-integration-finish.md](jira-integration-finish.md) | The join carve-out and echo, and labels on created issues. **Cited by every command that creates an issue** |
 | [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, and the create path. **Loaded by `/flow`'s integrate run** |
 | [jira-followups-join.md](jira-followups-join.md) | Join the follow-up the search found: the confirmation, the append and its per-write guards, and the three ordered writes a join makes. **Loaded by jira-followups.md only when the join search returned a candidate** |
 | [plan-amendment.md](plan-amendment.md) | What an implementer does when a measurement contradicts the plan. **Cited by `/flow`'s implementer dispatch** |

@@ -18,7 +18,7 @@ The five planning rows of the Level 1 table admit `/flow-plan` (decision
 `flow-plan-marks-planning-stages`) at the operator's choice, for per-stage timings of a capture,
 over keeping `plan.session` the one mark. `plan.session` therefore ends at kickoff: a
 `stage begin` closes every open run sharing its session token as `superseded`
-(`<agents repo>/stats/internal/store/stageruns.go`), so a `plan.session` still open at the `flow.brainstorm`
+(`<agents repo>/stats/internal/store/stageruns.go`), so a `plan.session` still open at the `flow.plan`
 begin would be closed `superseded` and the closing `started` end would find nothing open.
 
 ## SKILL.md — Capturing a new change

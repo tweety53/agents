@@ -33,6 +33,31 @@ type vvpFix struct {
 
 const vvpSection = "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `src/ui/**` |\n| `screenshots` | `tests/visual` |\n\n| Command | Runs |\n|---------|------|\n| `verify` | `npm run test:visual <specs>` |\n| `capture` | `npx playwright test <spec>` |\n| `specs` | `<frontend-root>/specs-since <merge-base>` |\n| `setup` | `npm ci` |\n"
 
+// vvpSectionWith is vvpSection with extra's rows placed: a row of the closed
+// command vocabulary joins the commands table, any other table row the
+// settings table, and any other line follows the section.
+func vvpSectionWith(extra string) (section, tail string) {
+	section = vvpSection
+	for _, l := range strings.SplitAfter(extra, "\n") {
+		key, _, _ := strings.Cut(strings.TrimPrefix(l, "| `"), "`")
+		switch {
+		case tail != "" || !strings.HasPrefix(l, "| `"):
+			tail += l
+		case slices.Contains([]string{"setup", "verify", "capture", "fingerprint", "start", "specs"}, key):
+			section += l
+		default:
+			section = strings.Replace(section, "| `screenshots` | `tests/visual` |\n", "| `screenshots` | `tests/visual` |\n"+l, 1)
+		}
+	}
+	return section, tail
+}
+
+func vvpSect(t *testing.T, extra string) string {
+	t.Helper()
+	sec, tl := vvpSectionWith(extra)
+	return sec + tl
+}
+
 func vvpFixture(t *testing.T, extra string) *vvpFix {
 	t.Helper()
 	root, err := filepath.EvalSymlinks(t.TempDir())
@@ -40,7 +65,8 @@ func vvpFixture(t *testing.T, extra string) *vvpFix {
 		t.Fatal(err)
 	}
 	f := &vvpFix{t: t, wt: filepath.Join(root, "demo"), bin: filepath.Join(root, "bin"), log: filepath.Join(root, "flow.log")}
-	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## run\n\n```bash\nnpm run dev\n```\n\n"+vvpSection+extra)
+	section, tail := vvpSectionWith(extra)
+	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## run\n\n```bash\nnpm run dev\n```\n\n"+section+tail)
 	writeFile(t, filepath.Join(f.wt, "src/ui/app.tsx"), "base\n")
 	// The `specs` row's command: it prints no spec until a test rewrites it.
 	writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\n")
@@ -157,7 +183,9 @@ func TestVisualVerifyPassPrepareKickoff(t *testing.T) {
 	fixtureRepo(t, other, repoShape{Branch: "main"})
 	gitRun(t, other, "add", "-A")
 	gitRun(t, other, "commit", "-qm", "r")
-	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## apps\n\n| App | Repo root |\n|-----|-----------|\n| web | `"+other+"` |\n\n"+vvpSection+"| `regression checkout` | `"+other+"` |\n| `regression repo` | `x/regress` |\n")
+	gitRun(t, other, "remote", "add", "origin", "x/regress")
+	sec, tl := vvpSectionWith("| `regression checkout` | `" + other + "` |\n| `regression repo` | `x/regress` |\n")
+	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## apps\n\n| App | Repo root |\n|-----|-----------|\n| web | `"+other+"` |\n\n"+sec+tl)
 	gitRun(t, f.wt, "commit", "-qam", "cfg")
 	f.green()
 	rc, out, calls := f.prepare()
@@ -174,12 +202,14 @@ func TestVisualVerifyPassPrepareSkipNeedsNoKickoff(t *testing.T) {
 	fixtureRepo(t, other, repoShape{Branch: "main"})
 	gitRun(t, other, "add", "-A")
 	gitRun(t, other, "commit", "-qm", "r")
-	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## apps\n\n| App | Repo root |\n|-----|-----------|\n| web | `"+other+"` |\n\n"+vvpSection+"| `regression checkout` | `"+other+"` |\n| `regression repo` | `x/regress` |\n")
+	gitRun(t, other, "remote", "add", "origin", "x/regress")
+	sec, tl := vvpSectionWith("| `regression checkout` | `" + other + "` |\n| `regression repo` | `x/regress` |\n")
+	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## apps\n\n| App | Repo root |\n|-----|-----------|\n| web | `"+other+"` |\n\n"+sec+tl)
 	gitRun(t, f.wt, "commit", "-qam", "cfg")
 	writeFile(t, filepath.Join(f.wt, ".superpowers/sdd/decision.json"), `{"visual":{"verify":"skipped","reason":"backend only"}}`)
 	f.green()
 	rc, out, calls := f.prepare()
-	if rc != 0 || strings.Contains(out, "STOP: kickoff") || !strings.Contains(out, "NEXT: skip — skipped at Decide — backend only") || !strings.Contains(calls, "-outcome skipped") {
+	if rc != 0 || strings.Contains(out, "STOP: kickoff") || !strings.Contains(out, "NEXT: skip — skipped at Decide — backend only") || strings.Contains(calls, "stage ") {
 		t.Fatalf("exit %d, calls %q\n%s", rc, calls, out)
 	}
 }
@@ -189,13 +219,13 @@ func TestVisualVerifyPassPrepareSkips(t *testing.T) {
 	f := vvpFixture(t, "")
 	writeFile(t, filepath.Join(f.wt, ".superpowers/sdd/decision.json"), `{"visual":{"verify":"skipped","reason":"copy only"}}`)
 	rc, out, calls := f.prepare()
-	if rc != 0 || !strings.Contains(out, "NEXT: skip — skipped at Decide — copy only") || !strings.Contains(calls, "stage end") || !strings.Contains(calls, "-outcome skipped") || strings.Contains(calls, "dispatch begin") {
+	if rc != 0 || !strings.Contains(out, "NEXT: skip — skipped at Decide — copy only") || strings.Contains(calls, "stage ") || strings.Contains(calls, "dispatch begin") {
 		t.Fatalf("decided skip: exit %d\n%s\n%s", rc, out, calls)
 	}
 
 	g := vvpFixture(t, "")
 	rc, out, calls = g.prepare("--since", g.wt+"="+vgHead(t, g.wt))
-	if rc != 0 || !strings.Contains(out, "NEXT: skip — ") || !strings.Contains(calls, "-outcome completed") || strings.Contains(calls, "dispatch begin") {
+	if rc != 0 || !strings.Contains(out, "NEXT: skip — ") || strings.Contains(calls, "stage ") || strings.Contains(calls, "dispatch begin") {
 		t.Fatalf("no survivor: exit %d\n%s\n%s", rc, out, calls)
 	}
 }
@@ -220,7 +250,7 @@ func TestVisualVerifyPassPrepareStopsOnVerifyNotGreen(t *testing.T) {
 	f := vvpFixture(t, "")
 	f.commit("src/ui/late.tsx")
 	rc, out, calls := f.prepare()
-	if rc != 1 || !strings.Contains(out, "STOP: verify-not-green") || !strings.Contains(calls, "stage end") || !strings.Contains(calls, "-outcome stopped") {
+	if rc != 1 || !strings.Contains(out, "STOP: verify-not-green") || strings.Contains(calls, "stage ") {
 		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
 	}
 }
@@ -247,17 +277,8 @@ func TestVisualVerifyPassPrepareStopsOnPreflight(t *testing.T) {
 	if rc != 1 || strings.Count(out, "STOP:") != 1 || !strings.Contains(stop, "check-visual-preflight") || !strings.Contains(stop, "missing-app") || !strings.Contains(stop, "check-sidecar-reach") || !strings.Contains(stop, "gone.png") {
 		t.Fatalf("exit %d\n%s", rc, out)
 	}
-	if !strings.Contains(calls, "stage end") || !strings.Contains(calls, "-outcome stopped") || strings.Contains(calls, "dispatch begin") {
+	if strings.Contains(calls, "stage ") || strings.Contains(calls, "dispatch begin") {
 		t.Fatalf("calls:\n%s", calls)
-	}
-}
-
-func TestVisualVerifyPassPrepareMissStopsForAnalyst(t *testing.T) {
-	t.Parallel()
-	f := vvpFixture(t, "")
-	rc, out, calls := f.prepare("--miss")
-	if rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: analyst") || strings.Contains(calls, "dispatch begin") || strings.Contains(calls, "stage end") {
-		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
 	}
 }
 
@@ -265,7 +286,7 @@ func TestVisualVerifyPassPrepareWritesStageFile(t *testing.T) {
 	t.Parallel()
 	f := vvpFixture(t, "")
 	rb := f.mb
-	if rc, out, _ := f.prepare("--miss", "--round-base", f.wt+"="+rb); rc != 0 {
+	if rc, out, _ := f.prepare("--round-base", f.wt+"="+rb); rc != 0 {
 		t.Fatalf("exit %d\n%s", rc, out)
 	}
 	s := f.stageFile()
@@ -314,35 +335,24 @@ func TestVisualVerifyPassPrepareStartStack(t *testing.T) {
 		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
 	}
 	rc, out, calls = f.run("prepare", append(args, "--continue", "--started")...)
-	if rc != 1 || !strings.Contains(out, "STOP: stack — ") || !strings.Contains(calls, "-outcome stopped") || strings.Contains(calls, "dispatch begin") {
+	if rc != 1 || !strings.Contains(out, "STOP: stack — ") || strings.Contains(calls, "stage ") || strings.Contains(calls, "dispatch begin") {
 		t.Fatalf("started yet unanswered: exit %d\n%s\n%s", rc, out, calls)
 	}
 }
 
-func TestVisualVerifyPassPrepareRestartStack(t *testing.T) {
+func TestPrepareDoesNotFingerprintStack(t *testing.T) {
 	t.Parallel()
 	f := vvpFixture(t, "| `fingerprint` | `echo stale bundle; exit 1` |\n")
 	rc, out, calls := f.prepare()
-	if rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: restart-stack") || strings.Contains(calls, "dispatch begin") {
+	if strings.Contains(out, "NEXT: restart-stack") || !strings.Contains(calls, "dispatch begin") {
 		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
-	}
-	rc, out, calls = f.prepare("--continue", "--started")
-	if rc != 1 || !strings.Contains(out, "STOP: fingerprint — ") || !strings.Contains(out, "stale bundle") || !strings.Contains(calls, "-outcome stopped") || strings.Contains(calls, "stage begin") || strings.Contains(calls, "dispatch begin") {
-		t.Fatalf("under --started: exit %d\n%s\n%s", rc, out, calls)
-	}
-
-	g := vvpFixture(t, "")
-	rc, out, _ = g.prepare()
-	b, _ := os.ReadFile(filepath.Join(g.wt, ".superpowers/sdd/verify-prompt-visual-verify.md"))
-	if rc != 0 || !strings.Contains(string(b), "fingerprint: not declared — ") {
-		t.Fatalf("exit %d\n%s\n%s", rc, out, b)
 	}
 }
 
 // smoke: core — the bundle a visual-verify pass prepares
 func TestVisualVerifyPassPrepareBundle(t *testing.T) {
 	t.Parallel()
-	f := vvpFixture(t, "| `mockups` | `design/mockups` |\n| `mockup frame` | `phone` |\n")
+	f := vvpFixture(t, "| `mockups` | `design/mockups` |\n| `mockup frame` | `scale=1 status=0 border=0` |\n")
 	writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
 	writeFile(t, filepath.Join(f.wt, "design/proto.html"), "<html></html>\n")
 	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/design.md"), "See `design/proto.html` and `design/gone.css`.\n")
@@ -365,20 +375,18 @@ func TestVisualVerifyPassPrepareBundle(t *testing.T) {
 		"specs: " + f.wt + "/specs-since " + f.mb,
 		"screenshots: " + filepath.Join(f.wt, "tests/visual"),
 		"mockups: " + filepath.Join(f.wt, "design/mockups"),
-		"mockup frame: phone",
+		"mockup frame: scale=1 status=0 border=0",
 		"app: " + f.app.URL,
 		"npm run dev",
 		"stack: found running",
-		"fingerprint: not declared — ",
 		"verify: verify@" + head[:7],
 		"changeRoot: " + filepath.Join(f.wt, "spectre/changes/demo"),
 		"**The relay contract.**",
 		filepath.Join(f.wt, ".superpowers/sdd/verify-report-visual-verify.md"),
 		filepath.Join(repo, "skills/flow/visual-verify-verifier.md"),
 		"mockup sources: " + filepath.Join(f.wt, "design/proto.html") + "\n",
-		// The two guards close runs on the report, so the verifier runs them first.
-		"check: flow-guard check-verify-report " + filepath.Join(f.wt, ".superpowers/sdd/verify-report-visual-verify.md") + " <motions named> --design " + filepath.Join(f.wt, "spectre/changes/demo/design.md") + "\n",
-		"check: flow-guard check-frame-list " + filepath.Join(f.wt, "spectre/changes/demo/design.md") + " " + filepath.Join(f.wt, "design/mockups") + " " + filepath.Join(f.wt, ".superpowers/sdd/verify-report-visual-verify.md") + "\n",
+		// The one check close runs on the report, so the verifier runs it first.
+		"check: flow-guard visual-verify-pass close --check-only " + filepath.Join(f.wt, ".superpowers/sdd/verify-report-visual-verify.md") + " <motions named> --mockups " + filepath.Join(f.wt, "design/mockups") + " --design " + filepath.Join(f.wt, "spectre/changes/demo/design.md") + "\n",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("bundle lacks %q:\n%s", want, s)
@@ -398,7 +406,7 @@ func TestVisualVerifyPassPrepareBundle(t *testing.T) {
 	if !strings.Contains(string(b), "mockup sources: none") {
 		t.Errorf("no source:\n%s", b)
 	}
-	if !strings.Contains(string(b), "check: flow-guard check-verify-report ") || strings.Contains(string(b), "check-frame-list") {
+	if !strings.Contains(string(b), "check: flow-guard visual-verify-pass close --check-only ") || strings.Contains(string(b), "--mockups") {
 		t.Errorf("no `mockups` declared, so the report check alone:\n%s", b)
 	}
 }
@@ -453,7 +461,7 @@ func TestVisualVerifyPassPrepareReadsThePair(t *testing.T) {
 	g := vvpFixture(t, "")
 	writeFile(t, filepath.Join(filepath.Dir(g.log), "policy.json"), `{"visual-verifier":{"base":[],"optin":[],"marked":[]}}`)
 	rc, out, calls = g.prepare()
-	if rc != 1 || !strings.Contains(out, "STOP: pair — ") || strings.Contains(calls, "record dispatch begin") || !strings.Contains(calls, "-outcome stopped") {
+	if rc != 1 || !strings.Contains(out, "STOP: pair — ") || strings.Contains(calls, "record dispatch begin") || strings.Contains(calls, "stage ") {
 		t.Fatalf("empty row: exit %d\n%s\n%s", rc, out, calls)
 	}
 	h := vvpFixture(t, "")
@@ -540,7 +548,7 @@ func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 	h := vvpFixture(t, "")
 	writeExec(t, filepath.Join(h.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+h.log+"\ncase \"$1 $2 $3\" in \"record dispatches \"*) cat "+filepath.Join(filepath.Dir(h.log), "rows.json")+";; \"record dispatch begin\") echo dirty tree; exit 1;; \"policy get \") PATH=${PATH#*:} exec flow \"$@\";; esac\n")
 	rc, out, calls = h.prepare()
-	if rc != 1 || !strings.Contains(out, "STOP: row — flow record dispatch begin refused for visual-verify: dirty tree") || !strings.Contains(calls, "-outcome stopped") || strings.Contains(out, "DISPATCH:") {
+	if rc != 1 || !strings.Contains(out, "STOP: row — flow record dispatch begin refused for visual-verify: dirty tree") || strings.Contains(calls, "stage ") || strings.Contains(out, "DISPATCH:") {
 		t.Fatalf("a refused begin: exit %d\n%s\n%s", rc, out, calls)
 	}
 
@@ -549,7 +557,7 @@ func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 	w, mb = i.sibling("gymie-frontend")
 	writeExec(t, filepath.Join(i.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+i.log+"\ncase \"$*\" in \"record dispatches \"*) cat "+filepath.Join(filepath.Dir(i.log), "rows.json")+";; *\"-key visual-verify-gymie-frontend \"*) echo dirty tree; exit 1;; \"policy get\") PATH=${PATH#*:} exec flow \"$@\";; esac\n")
 	rc, out, calls = i.prepare("--worktree", w, "--merge-base", w+"="+mb, "--app", w+":.="+i.app.URL)
-	if rc != 1 || !strings.Contains(calls, "record dispatch end -C "+i.wt+" -change demo -key visual-verify-demo -session-token mf-tok -outcome aborted\n") || !strings.Contains(calls, "-outcome stopped") {
+	if rc != 1 || !strings.Contains(calls, "record dispatch end -C "+i.wt+" -change demo -key visual-verify-demo -session-token mf-tok -outcome aborted\n") || strings.Contains(calls, "stage ") {
 		t.Fatalf("a refused second begin: exit %d\n%s\n%s", rc, out, calls)
 	}
 }
@@ -616,20 +624,6 @@ func TestVisualVerifyPassPrepareWritesTheDefects(t *testing.T) {
 	fields := strings.Fields(string(b))
 	if err != nil || len(fields) != 3 || fields[0] != f.mb || fields[2] != "f1,f2" {
 		t.Fatalf("round file %q (%v), want `%s <instant> f1,f2`", b, err, f.mb)
-	}
-}
-
-// TestVisualVerifyPassPrepareForwardsBeginWarning: a stage begin that
-// succeeds with output still reaches the operator.
-func TestVisualVerifyPassPrepareForwardsBeginWarning(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	f := vvpFixture(t, "")
-	const warn = "flow: warning: this stage begin superseded 1 still-open run of the same session"
-	writeExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2\" in \"record dispatches\") cat "+filepath.Join(filepath.Dir(f.log), "rows.json")+";; \"stage begin\") echo '"+warn+"' >&2;; \"policy get\") PATH=${PATH#*:} exec flow \"$@\";; esac\n")
-	rc, out, calls := f.prepare()
-	if rc != 0 || !strings.Contains(calls, "stage begin ") || !strings.Contains(out, warn) {
-		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
 	}
 }
 
@@ -852,7 +846,9 @@ func TestVisualVerifyPassPrepareRendersFrames(t *testing.T) {
 	t.Parallel()
 	setup := func(t *testing.T, frame string) *vvpFix {
 		design, _ := rfFixture(t, "/nowhere")
-		f := vvpFixture(t, "| `mockups` | `design/mockups` |\n| `regression checkout` | `.` |\n| `design repo` | `"+design+" "+design+"` |\n")
+		gitRun(t, design, "remote", "add", "origin", "x/design")
+		f := vvpFixture(t, "| `mockups` | `design/mockups` |\n| `regression checkout` | `.` |\n| `regression repo` | `x/regress` |\n| `design repo` | `"+design+" x/design` |\n")
+		gitRun(t, f.wt, "remote", "add", "origin", "x/regress")
 		b, _ := os.ReadFile(filepath.Join(f.wt, ".flow/project.md"))
 		writeFile(t, filepath.Join(f.wt, ".flow/project.md"), strings.Replace(string(b), "| `specs` | `<frontend-root>/specs-since <merge-base>` |\n", "", 1))
 		writeFile(t, filepath.Join(f.wt, "a.spec.ts"), "shot('a.png')\n")
@@ -1042,9 +1038,8 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, s)
 		}
 		b := bundle(f, "visual-verify-s2of3")
-		report := filepath.Join(f.wt, ".superpowers/sdd/verify-report-visual-verify-s2of3.md")
 		for _, want := range []string{"slice: s2of3 " + slice2 + "\n", "measure: flow-guard visual-verify-pass measure " + f.wt + " demo visual-verify-s2of3 <spec path> --frames " + slice2 + "\n",
-			"design.md --frames " + slice2 + "\n", report + " --frames " + slice2 + "\n"} {
+			"design.md --frames " + slice2 + "\n"} {
 			if !strings.Contains(b, want) {
 				t.Errorf("the s2of3 bundle lacks %q:\n%s", want, b)
 			}
@@ -1085,17 +1080,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		if rc != 0 || strings.Contains(out, "MERGE-BASE-SPEC: ") || len(vvpLines(out, "DISPATCH: ")) != 3 {
 			t.Fatalf("exit %d\n%s", rc, out)
 		}
-		// A shard's remainder after a merge-base capture that failed.
-		args := []string{f.wt, "demo", "visual-verify-rest-s3of3", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", f.wt + ":.=" + f.app.URL, "--merge-base-failed", "stack down"}
-		rc, out, _ = f.run("prepare", args...)
-		if rc != 0 || len(vvpLines(out, "DISPATCH: ")) != 1 || strings.Count(runLog(f), "capture ") != 1 || !strings.Contains(bundle(f, "visual-verify-rest-s3of3"), "merge-base capture failed — stack down\n") {
-			t.Fatalf("--merge-base-failed: exit %d, run log %q\n%s", rc, runLog(f), out)
-		}
-		args = args[:len(args)-2]
-		args[2] = "visual-verify-2-s3of3"
-		if rc, out, _ = f.run("prepare", args...); rc != 0 || !strings.Contains(bundle(f, "visual-verify-2-s3of3"), "merge-base capture failed — stack down\n") {
-			t.Fatalf("a later shard bundle lost the recorded merge-base failure: exit %d\n%s\n%s", rc, out, bundle(f, "visual-verify-2-s3of3"))
-		}
+		args := []string{f.wt, "demo", "visual-verify-2-s3of3", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", f.wt + ":.=" + f.app.URL}
 		args[2] = "visual-verify-2-s2of3"
 		if rc, out, _ = f.run("prepare", args...); rc != 0 {
 			t.Fatalf("s2 redispatch: exit %d\n%s", rc, out)
@@ -1131,7 +1116,8 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		mb := vgHead(t, w)
 		vgCommit(t, w, "notes.md")
 		b, _ := os.ReadFile(filepath.Join(f.wt, ".flow/project.md"))
-		writeFile(t, filepath.Join(f.wt, ".flow/project.md"), string(b)+"| `regression checkout` | `"+w+"` |\n| `regression repo` | `x/regress` |\n")
+		gitRun(t, w, "remote", "add", "origin", "x/regress")
+		writeFile(t, filepath.Join(f.wt, ".flow/project.md"), strings.Replace(string(b), "| `screenshots` | `tests/visual` |\n", "| `screenshots` | `tests/visual` |\n| `regression checkout` | `"+w+"` |\n| `regression repo` | `x/regress` |\n", 1))
 		gitRun(t, f.wt, "add", "-A")
 		gitRun(t, f.wt, "commit", "-qm", "regression checkout")
 		f.green()
@@ -1170,12 +1156,29 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 			t.Fatalf("two worktrees: exit %d\n%s", rc, out)
 		}
 	})
+}
 
-	t.Run("the merge-base flags need --continue", func(t *testing.T) {
-		t.Parallel()
-		f := vvpShardFixture(t, 60, "")
-		if rc, out, _ := f.prepare("--merge-base-failed", "stack down"); rc != 2 || !strings.Contains(out, "--continue") {
-			t.Fatalf("exit %d\n%s", rc, out)
+func TestFoldedVisualGuardsAreUnregistered(t *testing.T) {
+	t.Parallel()
+	for _, n := range []string{"check-frame-list", "check-verify-report", "check-sidecar-reach", "check-verify-green", "check-visual-preflight", "check-visual-verification"} {
+		if _, ok := Registry[n]; ok {
+			t.Errorf("%s is a guard.Registry key", n)
 		}
-	})
+		if foldedGuards[n] == nil {
+			t.Errorf("%s is not run in process", n)
+		}
+	}
+}
+
+func TestPrepareStopsOnInvalidVisualSection(t *testing.T) {
+	t.Parallel()
+	f := vvpFixture(t, "")
+	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## visual verification\n\n| Setting | Value |\n|---|---|\n| `ui paths` | |\n")
+	rc, out, calls := f.prepare()
+	if rc == 0 || strings.Contains(calls, "dispatch begin") || strings.Contains(out, "NEXT:") {
+		t.Fatalf("exit %d, want the validator's refusal before any capture\n%s\n%s", rc, out, calls)
+	}
+	if _, err := os.Stat(f.stagePath()); err == nil {
+		t.Errorf("a stage file was written")
+	}
 }

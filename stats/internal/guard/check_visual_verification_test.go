@@ -97,7 +97,7 @@ func vvGitCheckout(t *testing.T, dir, origin string) {
 // vvGuard runs the registered guard in-process.
 func vvGuard(t *testing.T, env Env, args ...string) (string, int) {
 	t.Helper()
-	fn, ok := Registry["check-visual-verification"]
+	fn, ok := foldedGuards["check-visual-verification"]
 	if !ok {
 		t.Fatal("check-visual-verification is not registered")
 	}
@@ -294,16 +294,15 @@ func vvCases() map[string]vvCase {
 		// a REAL checkout whose REAL `origin` equals the declared `regression
 		// repo`, must not let a `regression checkout` that is not a git
 		// repository at all pass as one. The ambient environment is the
-		// process's, so this case runs the built flow-guard as a real process
-		// with GIT_DIR in its environment rather than the guard in-process.
+		// process's, so this case sets GIT_DIR in the test process's own environment.
 		"case 22": {func(t *testing.T) (string, int) {
 			root := vvRoot(t)
 			vvGitCheckout(t, root+"/ambient", vvRepoURL)
 			mkdir(t, root+"/not-a-git-dir")
 			vvWriteCfg(t, root, vvSection([]string{vvUIRow, vvShotsDot, vvCheckoutRow(root + "/not-a-git-dir"), vvRepoRow},
 				[]string{vvVerifyRow, vvCaptureRow}))
-			cmd := exec.Command(guardBinary(t), "check-visual-verification", root)
-			cmd.Env = append(os.Environ(), "GIT_DIR="+root+"/ambient/.git")
+			cmd := exec.Command(os.Args[0], "-test.run=^TestVVAmbientGitDirHelper$")
+			cmd.Env = append(os.Environ(), "GIT_DIR="+root+"/ambient/.git", "VV_AMBIENT_ROOT="+root)
 			out, err := cmd.CombinedOutput()
 			rc := 0
 			if ee, ok := err.(*exec.ExitError); ok {
@@ -481,4 +480,16 @@ func TestCheckVisualVerification(t *testing.T) {
 			t.Errorf("rc=%d out:\n%s\nwant:\n%s", rc, out, want)
 		}
 	})
+}
+
+// TestVVAmbientGitDirHelper runs the check in a child test process, whose
+// environment carries GIT_DIR; it does nothing in a normal run.
+func TestVVAmbientGitDirHelper(t *testing.T) {
+	root := os.Getenv("VV_AMBIENT_ROOT")
+	if root == "" {
+		t.Skip("helper for case 22")
+	}
+	out, rc := vvGuard(t, Env{Getenv: os.Getenv}, root)
+	fmt.Print(out)
+	os.Exit(rc)
 }

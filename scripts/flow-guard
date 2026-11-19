@@ -61,7 +61,7 @@
 # SHA-256 tool, no cache location, no stats/ beside this file's checkout, no
 # `go` on PATH, a failed build — prints "<name>: <cause>" to stderr and exits
 # the guard's own cannot-answer code: 4 for run-reproducer (whose 2 is
-# "refused"), mutate-and-verify and break-and-prove; 2 for every other guard
+# "refused") and break-and-prove; 2 for every other guard
 # and for a call naming none. Never a verdict. `go build`'s own output
 # goes to stderr too, so a guard's stdout carries only its verdict lines.
 #
@@ -71,7 +71,7 @@ set -uo pipefail
 name="${1:-}"
 [ $# -gt 0 ] && shift
 case "$name" in
-  run-reproducer | mutate-and-verify | break-and-prove) code=4 ;;
+  run-reproducer | break-and-prove) code=4 ;;
   *) code=2 ;;
 esac
 opening="${name:-flow-guard}:"

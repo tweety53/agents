@@ -12,20 +12,12 @@ never an exit code the command did not return.
 is shard i of n of one pass, the others running at once against the same stack
 (`skills/flow/visual-verify.md`). `prepare` has already run step 4's `setup` and step 8's `capture`
 of every spec, so a shard runs neither, edits no capture spec or sidecar, and reports both
-`exit 0 — run by prepare`. Only `-s1of<n>` updates the full app suite, rebuilds its zip and runs
-`flow-guard check-spec-reach`, and it alone owns every view no frame is composed for — the
+`exit 0 — run by prepare`. Only `-s1of<n>` updates the full app suite, rebuilds its zip, and it alone owns every view no frame is composed for — the
 prototype render and `measure --prototype` included — the motions and the `identical` lines; every
-other shard reports `full app suite: not run` and `spec reach: not run`. Step 9 runs the `measure`
+other shard reports `full app suite: not run`. Step 9 runs the `measure`
 call the bundle names, `--frames` included, and reads only the views its slice's frames map,
 `-s1of<n>` also every view no sidecar line maps. Step 10 composes and judges the slice's frames
-alone, and its `- frames:` line counts the slice's declared frames. A shard never captures at the
-merge base: it reads the PNG the parent copied under
-`<changeRoot>/visual-verification/merge-base/` and cites it as `merge-base capture: <its absolute
-path>`, and with a bundle line `merge-base capture failed — <reason>` a departure no baseline PNG
-attributes is this change's, its line naming that failure. Where step 10 calls for a merge-base
-capture and neither is there, the shard writes `- merge-base capture owed: <absolute spec path>`,
-one line per spec, reports step 10 `blocked — merge-base capture owed`, and finishes every other
-frame: the parent takes the capture and the remainder attributes the departure. A step-10 state check that writes to
+alone, and its `- frames:` line counts the slice's declared frames. A step-10 state check that writes to
 the stack — a submitted form, data seeded to reach a comparison branch — runs signed in as an
 account the shard registers fresh for it, as a capture spec that registers fresh does, never the
 seeded account the other shards' captures read; a check that only reads, or types without
@@ -117,7 +109,7 @@ reads every number on it as an exit.
    change did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
    Then rebuild the zip from exactly what the suite just produced with
    `flow-guard rebuild-full-app-suite-zip <worktree> <screenshots root>`, the one script every recapture
-   that moves the suite runs too (`skills/flow/verify-fix-loop.md`, `skills/flow/sync-onto-base.md`).
+   that moves the suite runs too (`skills/flow/fix.md`, `skills/flow/sync-onto-base.md`).
    Both arguments are absolute — the script refuses a relative root — and a project whose `capture`
    row chains this rebuild after Playwright has run it with `capture`, a second run rewriting nothing
    (group-allowed-pairs-roles self-review).
@@ -126,9 +118,6 @@ reads every number on it as an exit.
    resolves it. Every PNG's mtime is pinned before zipping because the zip stores it: a rebuild over
    unchanged images is then byte-identical and commits nothing. A non-zero exit blocks.
 
-   Then run `flow-guard check-spec-reach <worktree>` — the spec
-   `capture` just wrote must be reached by a `package.json` script of the `regression checkout`;
-   exit 1 (an orphan, named) or 2 (cannot answer) blocks.
 9. **Measure in one call, then read in one turn.** Right after step 8's capture — after step 10's
    prototype render and any sidecar this stage writes, which come first — run, with the arguments
    the bundle names:
@@ -156,7 +145,7 @@ reads every number on it as an exit.
    `- <view>: <absolute PNG path> — capture unchanged since <round base>`, with no frame, sweeps,
    spot-check or over-tolerance line for its frame. With no `changed:` line, every view is read.
    Each captured PNG gets its own `- <view>: <absolute PNG path>` line, and each view no frame is
-   composed for its `per view, no frame composed: <view> sweeps:` line — `flow-guard check-verify-report`
+   composed for its `per view, no frame composed: <view> sweeps:` line — the report check (`close --check-only`)
    refuses a report missing either (group-allowed-pairs-roles self-review: two round-1 verifiers
    named only the prototype-framed captures, and a clipped chart label on an unnamed full-page
    capture surfaced a round later).
@@ -211,7 +200,7 @@ reads every number on it as an exit.
    > project declaring no `mockups` root, with no approved prototype to render (above), composes
    > nothing and reports each of them
    > n/a — no frame. The state sweeps run on the captures alone and are the default on every
-   > `flow.visual-verify` run, composed or not. Where a sweep's wording names the frame for something
+   > `flow.verify` run, composed or not. Where a sweep's wording names the frame for something
    > the capture answers without one — sweep 7's last element reached by name, sweep 5's
    > display precision — the run reads that name against the view's own rendered content;
    > sweep 6's order comparison needs the frame's list and is reported n/a — no frame
@@ -260,29 +249,11 @@ reads every number on it as an exit.
    see — a divider in a row with no border or fill, the label of a filled cell, a glyph, a
    corner radius — the per-control sweeps below still measure.
 
-   **Every departure is attributed at the merge base before the round closes — `departure` is
-   never a closing state.** A band, seam, matrix or sweep finding no named cause explains is
-   measured twice more before the report is written: the same element on the frame at 2x, and the
-   same element on the view's own rendering at the merge base — the committed baseline PNG the
-   merge base carries for that spec, read out with `git show <merge-base>:<baseline png path>`
-   into a temporary file and measured like any other image. A recorded decision is a named cause only for the deltas it names, by element and property: any other delta on the same band or element is unexplained until measured. The comparison decides which of the
-   three the departure is, every time: **present at the merge base** — pre-existing, blocking and
-   fixed in this run per **the sweep** (`skills/flow-contracts/known-bugs.md`); **absent at the merge base** — this change's own defect, blocking and taking
-   **The loop** (`skills/flow/verify-fix-loop.md`) per **Steps 3–13**
-   (`skills/flow/visual-verify.md`); **corrected or gone at 2x** — a mis-measurement, the
-   corrected number standing in its place. A
-   view this change creates has no rendering at the merge base: every departure on it is this
-   change's. **A view the merge base already draws but carries no baseline PNG for is captured at
-   the merge base before any departure on it is attributed — never counted as this change's for
-   want of a baseline**. One
-   capture per spec serves every departure on its views, taken as **The merge-base capture**
-   (`skills/flow/visual-verify.md`) states. Measure the same element on the PNG it writes and judge it as above. A merge-base capture that cannot run — the
-   spec reaches a route or control the merge base lacks, the stack does not start — leaves the
-   departure this change's, its line naming `merge-base capture failed — <reason>` beside it.
-   A line attributing a departure as present at the merge base names its evidence beside it —
-   `merge-base baseline: <merge-base sha>:<baseline png path>` or `merge-base capture: <absolute
-   png path>` — and `flow-guard check-verify-report` refuses a `pre-existing` or `present at the merge
-   base` attribution that names neither.
+   **Every departure from the mockup or the approved prototype is blocking.** It takes the fix
+   procedure (`skills/flow/fix.md`) per `skills/flow/visual-verify.md` — `departure` is never a
+   closing state. A band, seam, matrix or sweep finding no named cause explains is measured once more
+   on the frame at 2x before the report is written: **corrected or gone at 2x** — a mis-measurement,
+   the corrected number standing in its place. A recorded decision is a named cause only for the deltas it names, by element and property: any other delta on the same band or element is unexplained until measured.
    Every line that reports the departure names its cause or its attribution
    beside it — never a bare `departure`.
    **A departure's expected value cites the mockup's source wherever the handoff ships one, never a
@@ -325,7 +296,7 @@ reads every number on it as an exit.
    a complete one if nothing forces naming what was skipped. Build the list from
    every frame id `design.md`/`tasks.md` cites for this change, or from the mockups directory
    itself when no such citation exists, plus every frame the prompt names under `moved:` — one a
-   shared fix's recapture moved (**The loop**, `skills/flow/verify-fix-loop.md`); a frame reached only by inference from another (already
+   shared fix's recapture moved (`skills/flow/fix.md`); a frame reached only by inference from another (already
    covered by the composite diff, "shipped" and pre-existing, blocked by a real environment limit)
    still gets named, with the reason. The list also carries every frame the `<spec>.mockups` sidecar of each capture spec this change edits maps, whether or not its baseline has moved yet, and two frame ids are never read as one. **The list is the change's, never the round's**: a fix run
    re-captures the same list, not the views its fix touched, and the specs `capture` runs are
@@ -506,17 +477,17 @@ reads every number on it as an exit.
       frame's `over` rows by their 1-based index — every matrix row `missing`, `extra` or
       `unresolved`, or paired over the length or colour tolerance. The report's `- <frame id>
       over-tolerance: <n> — #<row>: <cause>; …` line names every one, `<n>` the frame's count, each
-      with one cause from a closed list: `departure`, attributed per **Every departure is attributed
-      at the merge base** above; `annotation` — a frame annotation outside the app's own ink;
+      with one cause from a closed list: `departure`, a blocking departure per **Every departure from the
+      mockup or the approved prototype is blocking** above; `annotation` — a frame annotation outside the app's own ink;
       `transcription` or `text width` — a text difference the transcription names; `decision <ID>` —
       a recorded decision whose `**ID:**` `design.md` carries, for the deltas it names;
-      `present at the merge base`, with its merge-base evidence beside it; `mockup source` — an
+      `mockup source` — an
       `unresolved` row's value measured from the mockup's source per the cell rule above. Each item
       also quotes its row's own figures as the manifest's `figures` carry them,
       `#<row>: <cause> — <key> a=<a> b=<b>`, `<key>` one of the row's over keys, so a cause given
       from a neighbouring row names figures its own row does not have.
       A row whose `figures` are empty — `missing`, `extra`, or `unresolved` alone — quotes nothing.
-      `flow-guard check-verify-report` refuses a missing line, a wrong count, an unnamed row or a cause off
+      the report check refuses a missing line, a wrong count, an unnamed row or a cause off
       the list, and reads `over` from this dispatch's manifest, so a pass that skipped `measure`
       never stands on last round's numbers.
 
@@ -687,21 +658,21 @@ steps 8, 9 and 10 read n/a — wire contract, no view drawn — never `done` ove
 never ran.
 
 **No required step is left undone for want of time or context.** The report's `steps:` line gives
-each of steps 4, 8–11 and the motion step a status `flow-guard check-verify-report` admits — its header
-is canonical for them — and the parent runs that guard on the report before reading it.
+each of steps 4, 8–11 and the motion step a status the report check admits — `stats/internal/guard/verifyreport.go`'s header
+is canonical for them — and the parent runs that check on the report before reading it.
 Run it on your own report before handing back: an exit 1 names the steps still owed, so do them
 and run it again, and hand back an incomplete report only for a blocker you cannot cure, named.
-Run the bundle's `flow-guard check-frame-list` line the same way: a `no report line` frame gets its
+Run the bundle's `close --check-only` line again the same way, for its frame-list half: a `no report line` frame gets its
 own per-frame line or is named on the `frames:` line with its reason, and a `no sidecar line` gap
 step 8 could not close stays, which `close` hands the parent.
 **A departure found never shortens the pass:** every step still runs to its end in the same
 dispatch, and a fix round's re-verify finishing what this one left is no reason to leave it.
 **Step 10 is `done` only when every frame's matrix and sweeps are**: every composite read, every
 `over` row given its cause, every element the matrix merges or misses measured by hand, the
-frame's spot-check written, and every sweep on each `sweeps:` and `added sweep` line `done` or
+frame's spot-check written, and every sweep on each `sweeps:` line `done` or
 n/a — `<why it does not apply>` — a sweep or a spot-check left for time, context or a
 measurement the pixels could not give is step 10 undone.
-Each composed frame carries its own `- <frame id> spot-check:` line, never one line for a range of frames: `flow-guard check-verify-report` refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none.
+Each composed frame carries its own `- <frame id> spot-check:` line, never one line for a range of frames: the report check refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none.
 It refuses one the same way for a missing `over-tolerance:` line, a manifest cell left empty or
 n/a in a column that applies to its row's class, a spot-check row short, off the cells or on the
 `over` list, a `script` figure its cell does not carry, and a sweep item reading neither `done`
@@ -721,7 +692,7 @@ attribution beside it — one cause drawn on 34 frames is one line, never one li
 ```text
 ## Verdict
 - Model: <the model named in your own system prompt>
-- exits: setup <n | not declared>, capture <n>, full app suite <n>, spec reach <n>
+- exits: setup <n | not declared>, capture <n>, full app suite <n>
 - steps: <the ## Report's steps: line, after `steps: `>
 - cause: environment | test-failure | missing-fixture
 - departures: <n>
@@ -732,24 +703,21 @@ attribution beside it — one cause drawn on 34 frames is one line, never one li
 ## Report
 - setup: <not declared | exit <n>>
 - stack: <already running | started and stopped | could not be started — <output>>
-- fingerprint: <not declared — <step 6's reason, from the prompt> | exit 0 | mismatch → restarted → exit <n>>
 - verify: green — <the inline verify row the bundle names>
 - capture: exit <n>
   <output, verbatim or last 40 lines>
 - full app suite: <created | updated> — <absolute spec path>, <n> screens, capture exit <n>
 - full app suite zip: <absolute zip path>, <n> PNGs | not written — <reason>
-- spec reach: exit <n>
 - identical: <the PNG names of one byte-identical group> — <why the views draw the same pixels, or the defect> | none
 - spec: <absolute spec path>
 - <view>: <absolute PNG path> — clean | <the defect seen> | capture unchanged since <round base>
 - measure: exit <n> — <absolute manifest path>
 - mockups: <not declared | no map for <spec> | exit <n>>
-- <frame id>: <absolute composite path> diff=<ratio> — <match, or each departure seen — a band, a seam or a spot-check `mismeasure` included — with its named cause, or `departure` attributed per **Every departure is attributed at the merge base** above>
+- <frame id>: <absolute composite path> diff=<ratio> — <match, or each departure seen — a band, a seam or a spot-check `mismeasure` included — with its named cause, or `departure` per **Every departure from the mockup or the approved prototype is blocking** above>
 - <frame id> sweeps: text | order | reach | derived | rows | ink — <each `done`, or `n/a — <why it does not apply>`>
 - per view, no frame composed: <view id> sweeps: text | order | reach | derived | rows |
   ink — the same sweep line at capture scope; `order` carries its containment half's
   outcome beside n/a — no frame; `rows` and `ink` read n/a — no frame
-- added sweep <name> (sweeps-<n>.md): <`done`, or `n/a — <why it does not apply>` — every view and frame it read, and each departure it found>
 - <frame id> spot-check: #<row> <column> script <x> hand <y>; … <at least 3 rows off the `over` list, or every one when fewer, one a `control` or `fill band` row where the frame has one>
 - <frame id> over-tolerance: <n> — #<row>: <cause>; … <every row the manifest's `over` list names for the frame, each with one cause from step 10's closed list>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why

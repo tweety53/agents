@@ -70,8 +70,7 @@ reaches the network.
 }
 ```
 
-This is the whole wire shape `state get` prints and `state set` reads (`reviewBeforeLanding`
-is omitted when `false`) — the same shape the on-disk
+This is the whole wire shape `state get` prints and `state set` reads — the same shape the on-disk
 fallback file and each journal entry's payload carry, unchanged, so replay needs no translation
 step.
 
@@ -139,12 +138,6 @@ field is how it gets erased.
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
   records that a PR was opened, so no separate boolean exists. It is also what tells `/flow`
   that a fix must be committed and pushed rather than merely staged.
-- `reviewBeforeLanding` — `true` keeps a run that writes `IN_PROGRESS` at its review handoff;
-  absent or `false`, the default, lets that run, unless it leaves an open question, continue straight into integrate in the same
-  invocation (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`). Written by any `/flow`
-  run of the change the moment the operator asks to review before landing, or to land without
-  review (**Review-before-landing instruction**, `skills/flow/SKILL.md`); every other write
-  **carries it forward verbatim**. The CLI carries the field byte-transparently.
 - `updatedAt` — the ISO-8601 UTC instant of the last write, and **CLI-owned**: `flow state set`
   stamps it on every write from its own clock, at full precision, overwriting whatever value the
   payload carried. The stamped instant is the one the store row, the on-disk fallback file and the
@@ -198,7 +191,7 @@ keeps its worktrees under `<project>-worktrees/`, the sibling of its main checko
 The **order** those repositories land in is not recorded here at all: it lives in the canonical
 `link.md`'s `## Merge order`, which **Finish contract** (`skills/flow-contracts/finish-contract-run1.md`)
 reads to sequence run 1's routes. The run itself is what keeps that record whole: every
-repository of the resolved set, linked or not, is named in it at `flow.isolate-workspace`
+repository of the resolved set, linked or not, is named in it at `flow.implement`
 (`skills/flow/implement.md`), so a repository no `spectre link` ever touched still has a
 mechanical landing position instead of one reasoned out from prose mid-landing.
 

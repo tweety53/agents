@@ -79,7 +79,7 @@ type RecordStore interface {
 
 	// StageCompleted is the stage-completed read the self-review bundle
 	// handler calls, on RecordStore for the reason ChangeSummary states:
-	// it tells the assembler whether a flow.review-panel stage run
+	// it tells the assembler whether a flow.review stage run
 	// completed for the change, the fact behind the bundle's
 	// records-loss note (KAN-621).
 	StageCompleted(ctx context.Context, projectKey, change, stage string) (bool, error)

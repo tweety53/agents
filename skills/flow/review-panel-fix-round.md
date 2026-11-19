@@ -1,6 +1,6 @@
 # Review panel — fix rounds
 
-Loaded during `flow.review-panel` by the load directive of **Panel re-runs**
+Loaded during `flow.review` by the load directive of **Panel re-runs**
 (`skills/flow/review-panel.md`), only once a round has recorded a Critical or Important finding, or read by section where a citer outside the panel stage names it.
 Every section name below without a path is a section of this file or of
 `skills/flow/review-panel.md`; the fix subagent's dispatch paragraphs and its dispatch record stay
@@ -8,13 +8,12 @@ there.
 
 ## Panel re-runs
 
-**Pass 1 runs the panel **The docs-only reduction** chose — the decided panel, or `primary` alone
-on a docs-only branch — plus every slot the operator named at this stage's start that it did not
-already carry; a fix run's pass 1 runs the panel **The fix-run review** chose.** Only re-runs after a fix are scoped. Record
+**Pass 1 runs the decided panel plus every slot the operator named at this stage's start that it did not
+already carry; a fix's review is one reviewer (`skills/flow/fix.md`, step 4).** Only re-runs after a fix are scoped. Record
 `FIX_BASE` — the branch tip the fix round starts from, per worktree — commit the fix, then write
 `<abs-worktree>/.superpowers/sdd/fix-round-N.diff` and its touched list with
 `flow-guard write-panel-diff fix-round <N> <abs-worktree> <worktree> <fix-base> [<worktree> <fix-base>…]`,
-whose exits read as the pass-1 write's (**The docs-only reduction**, `skills/flow/review-panel.md`).
+whose exits read as the pass-1 write's (`skills/flow/review-panel.md`).
 
 **A branch the remote already holds takes the fix as one new commit on top, never a rewrite.**
 This is the normal case: the branch is pushed with every commit (**Branch backup**,
@@ -87,13 +86,6 @@ round):
 > <path>:<line>` or `verdict: F<n> — not fixed — <path>:<line>`, where `<path>:<line>` is a line
 > inside the hunk of that diff you read for that finding (`none` in its place, on a `not fixed`
 > line, when the diff touched nothing of it).
-
-**The docs-only guard runs again**, `flow-guard check-panel-docs-only <worktree>
-<merge-base>`. A branch that stays docs-only keeps the
-reduced panel, and `primary` re-runs on its delta as above. A branch the fix round made no
-longer docs-only — exit 1 or 2 where pass 1 saw exit 0 — dispatches, in this round, every
-decided slot not yet dispatched this run, each reading the whole `final-review.diff`; Mutation among them takes its pass-1 shape, throwaway
-worktree included. Record which slots joined this way and the path the guard printed.
 
 Union all **open** findings, dedupe by **defect identity — file:line + theme.** *File:line* is the
 finding's own recorded location, taken verbatim from the findings table. *Theme* is the finding's
@@ -207,7 +199,7 @@ round, one above the review round whose findings it fixes: the fix after `panel-
 `panel-fix-1`. A fix commit's
 `Flow-Key:` trailer names that same fix round. The round's first
 chunk's `-key` is exactly `panel-fix-<round>`; each further chunk appends `-<n>`
-(`panel-fix-<round>-2`, `-3`, …), contiguous from 2. A gated reviewer's fix round is no `panel-fix-<round>` key: it records under its own key, `-role panel-fix` (`skills/flow/gated-review-fix.md`), and an in-run verify fix under its appended task's implementer pair (`skills/flow/verify-fix-loop.md`). Where a finding is
+(`panel-fix-<round>-2`, `-3`, …), contiguous from 2. A gated reviewer's fix round is no `panel-fix-<round>` key: it records under its own key, `-role panel-fix` (`skills/flow/gated-review-fix.md`), and a fix's implementer under `fix-<k>-implementer` (`skills/flow/fix.md`). Where a finding is
 confirmed as a real defect, the fix subagent reads and follows **superpowers:systematic-debugging**
 from its file before writing its fix — on Claude Code the newest
 `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`, since a `flow-*` agent

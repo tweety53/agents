@@ -68,7 +68,7 @@ import (
 //     inside one glob — only leading/trailing whitespace around each
 //     comma-separated element is trimmed.
 //
-// THE INPUT IS ATTACKER-INFLUENCED, exactly as flow-guard check-visual-verification's
+// THE INPUT IS ATTACKER-INFLUENCED, exactly as the in-process visual-verification check (visual-verify-pass prepare)'s
 // own header states: `.flow/project.md` is tracked and editable in any pull
 // request. This guard never executes anything it reads — `ui paths` values
 // are matched as glob patterns, never interpolated into a shell command —
@@ -76,7 +76,7 @@ import (
 // passes through sanitizeDisplay (visualsection.go) first — see its comment
 // for the forged-verdict reason.
 //
-// THE HEADING SCAN AND TABLE PARSER ARE flow-guard check-visual-verification's OWN
+// THE HEADING SCAN AND TABLE PARSER ARE the in-process visual-verification check (visual-verify-pass prepare)'s OWN
 // CONVENTIONS, reused rather than reinvented: the same `## visual
 // verification` heading regex, the same "a heading at or above this
 // section's own level ends it, a deeper one is prose" rule, and the same

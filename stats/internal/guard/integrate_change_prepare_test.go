@@ -22,14 +22,14 @@ sut prepare "$WORK/a" demo
 check "staged work in a main checkout stops prepare with exit 1" '[ "$RC" -eq 1 ]'
 check "the stop is STOP: main-checkout" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: main-checkout"'
 check "the guard's own STAGED-FOREIGN line is relayed" 'printf "%s" "$OUT" | grep -q "^STAGED-FOREIGN: $WORK/b"'
-check "the preflight closed stopped" 'grep -q "stage end .*-stage flow.preflight -outcome stopped" "$WORK/stages.log"'`},
+check "the preflight begins no mark" '! grep -q "stage begin" "$WORK/stages.log"'`},
 		{"no_verdict", `# --- no_verdict ---
 fixture
 : >"$WORK/fail-findings"
 sut prepare "$WORK/a" demo
 check "no_verdict: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
 check "no_verdict: the stop is STOP: no-verdict" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: no-verdict — check-unfinished-work"'
-check "no_verdict: the gate mark closes stopped" 'tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.unfinished-work-gate -outcome stopped"'`},
+check "no_verdict: the land mark closes stopped" 'tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.land -outcome stopped"'`},
 		{"sync_conflict", `# --- sync_conflict ---
 fixture
 printf 'base side\n' >"$WORK/b/work-b.txt"
@@ -157,6 +157,22 @@ sut commit "$WORK/a" demo "$WORK/b-worktrees/demo=feat(b): do the work"
 check "link_only_canon: commit with no subject for a exits 0" '[ "$RC" -eq 0 ]'
 check "link_only_canon: a's branch is the base, its change directory uncommitted" \
   '[ -z "$(git -C "$WORK/a-worktrees/demo" log --format=%s main..HEAD)" ] && [ -f "$c/link.md" ]'`},
+		{"commit_stop_closes_land", `# --- commit_stop_closes_land ---
+fixture
+sut prepare "$WORK/a" demo
+sut commit "$WORK/a" demo
+check "commit_stop_closes_land: commit stops with exit 1" '[ "$RC" -eq 1 ]'
+check "commit_stop_closes_land: the land mark closes stopped" 'tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.land -outcome stopped"'
+sut commit "$WORK/a" demo
+check "commit_stop_closes_land: the retry reopens flow.land" '[ "$(grep -c "stage begin .*-stage flow.land" "$WORK/stages.log")" = 2 ]'`},
+		{"stale_land_stopped", `# --- stale_land_stopped: a stopped prepare's marker does not outlive the next prepare ---
+fixture
+: >"$WORK/fail-findings"
+sut prepare "$WORK/a" demo
+rm "$WORK/fail-findings"
+sut prepare "$WORK/a" demo
+sut commit "$WORK/a" demo
+check "stale_land_stopped: no second flow.land run opens after the second prepare" '[ "$(grep -c "stage begin .*-stage flow.land" "$WORK/stages.log")" = 2 ]'`},
 		{"commit_pushes", `# --- commit_pushes ---
 fixture
 for r in a b; do g -C "$WORK/$r-worktrees/demo" push -q -u origin spectre/demo; done
@@ -183,15 +199,15 @@ sut prepare "$WORK/a" demo
 check "base_mismatch: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
 check "base_mismatch: the stop is STOP: base-mismatch naming b's worktree and feature/x" \
   'printf "%s" "$OUT" | tail -1 | grep "^STOP: base-mismatch — " | grep -F "$WORK/b-worktrees/demo" | grep -q feature/x'
-check "base_mismatch: the preflight closed stopped" 'grep -q "stage end .*-stage flow.preflight -outcome stopped" "$WORK/stages.log"'
+check "base_mismatch: the preflight begins no mark" '! grep -q "stage begin" "$WORK/stages.log"'
 g -C "$WORK/b-worktrees/demo" config branch.spectre/demo.flowBase feature/x
 sut prepare "$WORK/a" demo
-check "base_mismatch: b recording feature/x too passes the gate" '! printf "%s" "$OUT" | grep -q "STOP: base-mismatch" && grep -q flow.preflight "$WORK/stages.log"'
+check "base_mismatch: b recording feature/x too passes the gate" '! printf "%s" "$OUT" | grep -q "STOP: base-mismatch" && grep -q "stage begin .*-stage flow.land" "$WORK/stages.log"'
 fixture
 g -C "$WORK/a" push -q origin main:refs/heads/feature/x
 g -C "$WORK/a-worktrees/demo" config branch.spectre/demo.flowBase feature/x
 sut prepare "$WORK/a" demo
-check "base_mismatch: feature/x on a's origin only passes the gate" '! printf "%s" "$OUT" | grep -q "STOP: base-mismatch" && grep -q flow.preflight "$WORK/stages.log"'
+check "base_mismatch: feature/x on a's origin only passes the gate" '! printf "%s" "$OUT" | grep -q "STOP: base-mismatch" && grep -q "stage begin .*-stage flow.land" "$WORK/stages.log"'
 check "base_mismatch: feature/x on a's origin only is created on b's origin from main" \
   'printf "%s" "$OUT" | grep -q "^BASE-CREATED: origin/feature/x from main" && [ "$(git --git-dir="$WORK/b-origin.git" rev-parse feature/x)" = "$(git --git-dir="$WORK/b-origin.git" rev-parse main)" ]'
 check "base_mismatch: b is re-pointed onto feature/x" \
@@ -224,7 +240,7 @@ check "drift_switch: one DRIFT-SWITCHED line names side, its sha and its one com
 check "drift_switch: a's main checkout is on main" '[ "$(git -C "$WORK/a" branch --show-current)" = main ]'
 check "drift_switch: side keeps its commit" '[ "$(git -C "$WORK/a" rev-parse side)" = "$side" ]'
 check "drift_switch: the re-read prints DRIFT-CLEAN" 'printf "%s\n" "$OUT" | grep -qxF "DRIFT-CLEAN: $WORK/a — main"'
-check "drift_switch: no main-checkout stop and the preflight ran" '! printf "%s" "$OUT" | grep -q "STOP: main-checkout" && grep -q flow.preflight "$WORK/stages.log"'`},
+check "drift_switch: no main-checkout stop and the preflight ran" '! printf "%s" "$OUT" | grep -q "STOP: main-checkout" && grep -q "stage begin .*-stage flow.land" "$WORK/stages.log"'`},
 		{"drift_switch_stops", `# --- drift_switch_stops: each repository is judged on its own; a dirty or
 # detached checkout is never switched ---
 fixture
@@ -300,13 +316,7 @@ A="$WORK/a-worktrees/demo"
 to_land "rerun_reshape_base: " no-report
 split="$(git -C "$A" rev-parse HEAD)"
 sut prepare "$WORK/a" demo
-check "rerun_reshape_base: with no fixed row the reshape base is run 1's implementation commit" 'printf "%s" "$OUT" | grep -qF "WORKTREE: $A — base main, reshape base $split"'
-printf 'fix\n' >"$A/sr-fix.txt"
-g -C "$A" add sr-fix.txt && g -C "$A" commit -qm "fix(a): a self-review fix" -m "Flow-Key: self-review-fix-1"
-fix="$(git -C "$A" rev-parse HEAD)"
-printf '[{"angle":"code","disposition":"fixed","ref":"%s"}]' "$(git -C "$A" rev-parse --short=12 HEAD)" >"$WORK/sr-findings.json"
-sut prepare "$WORK/a" demo
-check "rerun_reshape_base: a fixed row's commit is the reshape base" 'printf "%s" "$OUT" | grep -qF "WORKTREE: $A — base main, reshape base $fix"'`},
+check "rerun_reshape_base: the reshape base is run 1's implementation commit" 'printf "%s" "$OUT" | grep -qF "WORKTREE: $A — base main, reshape base $split"'`},
 	})
 }
 

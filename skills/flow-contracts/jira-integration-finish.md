@@ -3,14 +3,6 @@
 The parts of **Jira integration** (`skills/flow-contracts/jira-integration.md`) only a finish run or an
 issue-creating command acts on. Loaded by bare `/flow` run 1 and by every command that creates an issue.
 
-### In Review is not tied to a pull request
-
-bare `/flow`'s In Review transition is **not** conditioned on a pull request existing. It fires
-at the end of a successful run 1 whichever route was taken — pull request, merge and push, or
-handled manually — because conditioning it on a PR is what let a merge-and-push change reach Done
-without ever passing through In Review. A run 1 that stops before its chosen route completes — a
-rejected push, a merge conflict, a failed PR creation — transitions nothing.
-
 ### The join confirmation
 
 **The join confirmation** is the other carve-out from **Never blocking** (`skills/flow-contracts/jira-integration.md`), stated under

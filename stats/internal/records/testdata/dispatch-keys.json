@@ -112,13 +112,6 @@
     "describe": "Planning the change"
   },
   {
-    "key": "plan-review-1",
-    "role": "reviewer",
-    "opener": "",
-    "category": "plan-reviewer",
-    "describe": "plan-review-1"
-  },
-  {
     "key": "design-2",
     "role": "planner",
     "opener": "",
@@ -210,13 +203,6 @@
     "describe": "operator-2"
   },
   {
-    "key": "tooling-analysis-1",
-    "role": "analyst",
-    "opener": "",
-    "category": "other:analyst",
-    "describe": "tooling-analysis-1"
-  },
-  {
     "key": "panel-2-minor-fix",
     "role": "panel-fix",
     "opener": "",
@@ -224,11 +210,18 @@
     "describe": "Code review round 2: minor fix"
   },
   {
-    "key": "fix-plan-1",
-    "role": "planner",
+    "key": "fix-2-implementer",
+    "role": "implementer",
     "opener": "",
-    "category": "fix-planner",
-    "describe": "fix-plan-1"
+    "category": "fix-implementer",
+    "describe": "fix-2-implementer"
+  },
+  {
+    "key": "fix-2-review",
+    "role": "reviewer",
+    "opener": "",
+    "category": "fix-reviewer",
+    "describe": "fix-2-review"
   },
   {
     "key": "plan-short-2",

@@ -11,7 +11,7 @@ stage-begin mark of any command, skipping a loop's own runs -- a change named `p
 or `self-review-...`, whose stage runs a loop dispatch's begins open in the parent's session -- one GET against /api/v1/stage-runs, whose rows carry
 the owning change's name, the command and the stage -- and branches on its command: a
 /flow mark injects the fix-run line naming the change; a /flow-interactive mark, unless
-it is flow.write-finished, injects the line pointing a plain message at the session's
+it is flow.cleanup, injects the line pointing a plain message at the session's
 request protocol (so it survives a compaction); any other command injects nothing.
 
 Fails open, like enforce-agent-baseline.py: any unexpected input, an unreachable store,
@@ -111,7 +111,7 @@ def main() -> int:
             "reporting a problem or asking for a change to it is a fix run of "
             f"{name} — **A plain message at IN_PROGRESS** (skills/flow/SKILL.md)."
         )
-    elif command == "/flow-interactive" and stage != "flow.write-finished":
+    elif command == "/flow-interactive" and stage != "flow.cleanup":
         line = (
             f"flow: this session runs /flow-interactive change `{name}`. A plain message "
             "is its next request — or its stop (**One request**, **Explicit stop**, "

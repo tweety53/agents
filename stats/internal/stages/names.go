@@ -68,39 +68,49 @@ type Stage struct {
 var Table = []Stage{
 	// /flow -- mints its own flow.* namespace rather than reusing start./do./finish.,
 	// per design.md's flow-rename-content-split (see README.md's Level 1 table for why).
-	{Key: "flow.plan", Name: "Plan — kickoff to the plan gate", Commands: []Command{Flow, FlowPlan}},
-	{Key: "flow.kickoff", Name: "Kickoff — write `STARTED`", Commands: []Command{FlowFast, FlowInteractive}},
-	{Key: "flow.brainstorm", Name: "Brainstorm ▸", Commands: []Command{FlowFast, FlowInteractive}},
-	{Key: "flow.create-artifacts", Name: "Create the spectre artifacts", Commands: []Command{FlowFast}},
-	{Key: "flow.writing-plans", Name: "Writing-plans ▸", Commands: []Command{FlowFast}},
-	{Key: "flow.decide", Name: "Decide — execution, panel", Commands: []Command{FlowFast}},
-	{Key: "flow.load-context", Name: "Load context and validate the plan", Commands: []Command{Flow, FlowFast, FlowInteractive}},
-	{Key: "flow.isolate-workspace", Name: "Isolate the workspace", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.document-fix", Name: "Document the fix (re-runs only)", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.sdd-tdd", Name: "SDD + TDD per task ▸", Commands: []Command{Flow, FlowFast, FlowInteractive}},
-	{Key: "flow.review-panel", Name: "The review panel ▸", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.plan", Name: "Plan — kickoff to the plan gate", Commands: []Command{Flow, FlowFast, FlowInteractive, FlowPlan}},
+	{Key: "flow.implement", Name: "Implement", Commands: []Command{Flow, FlowFast, FlowInteractive}},
+	{Key: "flow.review", Name: "Review", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.verify", Name: "Verify: workspace isolation, lint and test", Commands: []Command{Flow, FlowFast, FlowInteractive}},
-	{Key: "flow.visual-verify", Name: "Visual verification", Commands: []Command{Flow, FlowInteractive}},
-	{Key: "flow.stage-diff", Name: "Stage, excluding the planning paths", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.run-instructions", Name: "Resolve the run instructions", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.write-in-progress", Name: "Write `IN_PROGRESS`", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.preflight", Name: "Preflight verdict (decides run 1 vs run 2) ▸", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.unfinished-work-gate", Name: "Unfinished-work gate (run 1) ▸", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.landing-question", Name: "The landing question (run 1)", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.preserve-sessions", Name: "Preserve the session records (run 1)", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.commit-two", Name: "Two commits, implementation first (run 1)", Commands: []Command{Flow, FlowFast}},
+	{Key: "flow.land", Name: "Land", Commands: []Command{Flow, FlowFast, FlowInteractive}},
 	{Key: "flow.self-review", Name: "Run the self-review pass (run 1)", Commands: []Command{Flow, FlowFast, FlowInteractive}},
 	{Key: "flow.pipeline-fix", Name: "Pipeline fix — a fix to the flow tooling a run makes", Commands: []Command{Flow, FlowFast}},
-	{Key: "flow.landing-routes", Name: "The landing routes, including moving the issue to In Review (run 1) ▸", Commands: []Command{Flow, FlowFast, FlowInteractive}},
-	{Key: "flow.verify-merge", Name: "Verify the merge (run 2)", Commands: []Command{Flow, FlowFast}},
 	{Key: "flow.cleanup", Name: "Cleanup (run 2) ▸", Commands: []Command{Flow, FlowFast, FlowInteractive}},
-	{Key: "flow.write-finished", Name: "Write `FINISHED` (run 2)", Commands: []Command{Flow, FlowFast, FlowInteractive}},
-	{Key: "flow.refresh-main-checkout", Name: "Bring the main checkout forward (run 2)", Commands: []Command{Flow, FlowFast, FlowInteractive}},
 	// /flow-plan -- plan.session is its own stage: the research session up to
 	// a capture's kickoff, recorded so its cost joins the change it seeds. A
 	// capture's planning marks flow.plan, which lists FlowPlan for that
 	// reason.
 	{Key: "plan.session", Name: "Plan session — `/flow-plan` research up to a capture's kickoff", Commands: []Command{FlowPlan}},
+}
+
+// Retired maps a stage key only historical rows carry to the Table key that
+// replaced it, so a reader counts old rows with the new stage.
+var Retired = map[string]string{
+	"flow.design-approval":       "flow.plan",
+	"flow.plan-review":           "flow.plan",
+	"flow.kickoff":               "flow.plan",
+	"flow.brainstorm":            "flow.plan",
+	"flow.create-artifacts":      "flow.plan",
+	"flow.writing-plans":         "flow.plan",
+	"flow.decide":                "flow.plan",
+	"flow.load-context":          "flow.implement",
+	"flow.isolate-workspace":     "flow.implement",
+	"flow.document-fix":          "flow.implement",
+	"flow.sdd-tdd":               "flow.implement",
+	"flow.review-panel":          "flow.review",
+	"flow.visual-verify":         "flow.verify",
+	"flow.stage-diff":            "flow.verify",
+	"flow.run-instructions":      "flow.verify",
+	"flow.write-in-progress":     "flow.verify",
+	"flow.preflight":             "flow.land",
+	"flow.unfinished-work-gate":  "flow.land",
+	"flow.landing-question":      "flow.land",
+	"flow.preserve-sessions":     "flow.land",
+	"flow.commit-two":            "flow.land",
+	"flow.landing-routes":        "flow.land",
+	"flow.verify-merge":          "flow.cleanup",
+	"flow.write-finished":        "flow.cleanup",
+	"flow.refresh-main-checkout": "flow.cleanup",
 }
 
 // byKey indexes Table by Key. byCommand indexes Table by every command that

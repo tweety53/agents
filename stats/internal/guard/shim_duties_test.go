@@ -17,7 +17,6 @@ func TestCannotAnswerCodes(t *testing.T) {
 	t.Parallel()
 	for name, want := range map[string]int{
 		"run-reproducer":        4,
-		"mutate-and-verify":     4,
 		"break-and-prove":       4,
 		"close-task":            2,
 		"check-unfinished-work": 2,

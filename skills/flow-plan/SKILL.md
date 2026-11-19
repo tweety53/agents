@@ -161,7 +161,7 @@ When there's no existing change to write into, offer to capture the session as a
 
 **Nothing below runs before that Yes.** The `STARTED` write, the worktree and the artifacts are
 this answer's consequence; **No** is the abandoned path (**Capturing the Outcome**, above). The
-plan review gate in step 5 then gates the plan alone — a change that reached it exists
+plan check gate in step 5 then gates the plan alone — a change that reached it exists
 already, at `STARTED`, and a **No** there revises the plan rather than removing the change.
 
 **The key comes first, because it names the change.** A Jira key is known when it was passed as
@@ -196,7 +196,7 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
    issue when one is linked, then a `## Research session` section — the operator's statements
    verbatim and the session's findings with their file paths, marked as findings, not decisions.
 5. **Run brainstorming and planning through the planner role** (`skills/flow/brainstorm.md`), from
-   its start through the gate. Every `-command '/flow'` those sections show,
+   its start through the gate, its plan check (`flow-guard plan-check`) included. Every `-command '/flow'` those sections show,
    `skills/flow/brainstorm-planner.md`'s included, is `-command '/flow-plan'`. The final planner's prompt also carries the line "`design.md` follows **The Fixed Section
    Structure** and **The Step-by-Step Breakdown** of `skills/flow-plan/SKILL.md`". The gate asks
    **Save the plan?**.

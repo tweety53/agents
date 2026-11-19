@@ -39,9 +39,9 @@ key list, in the order each section below marks them:
 
 | Step | Keys |
 |------|------|
-| **Session start** | `flow.kickoff` |
-| **One request** | `flow.load-context`, `flow.brainstorm`, `flow.sdd-tdd`, `flow.verify`, `flow.landing-routes`, `flow.refresh-main-checkout`, `flow.visual-verify` |
-| **Explicit stop** | `flow.self-review`, `flow.cleanup`, `flow.write-finished` |
+| **Session start** | `flow.plan` |
+| **One request** | `flow.plan`, `flow.implement`, `flow.verify`, `flow.land` |
+| **Explicit stop** | `flow.self-review`, `flow.cleanup` |
 
 Every **One request** stage is a `flow stage begin … -request <n>` / `flow stage end` pair; the
 stop's stages carry no `-request`.
@@ -65,7 +65,7 @@ change — the reused `Interactive session` issue's included — resumes it (**R
 a new session numbering from 1.
 
 ```bash
-flow stage mark  -command '/flow-interactive' -stages flow.kickoff -harness <harness> <name>
+flow stage mark  -command '/flow-interactive' -stages flow.plan -harness <harness> <name>
 ```
 
 **Landing route.** `flow-guard project-get <project> "default landing route" --enum "pull request" "merge
@@ -110,8 +110,8 @@ defect met mid-session is fixed per **Pipeline defects found mid-run**
 itself, the log — then the code. Never answer from code alone.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.load-context -request <n> -harness <harness> -session-token mf-<literal-token> <name>
-flow stage end   -command '/flow-interactive' -stage flow.load-context -outcome completed <name>
+flow stage begin -command '/flow-interactive' -stage flow.plan -request <n> -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow-interactive' -stage flow.plan -outcome completed <name>
 ```
 
 **Big requests.** Once looked at, judge the request's size. It is big when it would not land as
@@ -130,9 +130,9 @@ ask the operator through **AskUserQuestion**, per **Unanswered mid-run asks**
 (`skills/flow-contracts/pipeline.md`):
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.brainstorm -request <n> -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.plan -request <n> -harness <harness> -session-token mf-<literal-token> <name>
 flow record request begin -change <name> -n <n> -brainstorm-reason '<why>'
-flow stage end   -command '/flow-interactive' -stage flow.brainstorm -outcome completed <name>
+flow stage end   -command '/flow-interactive' -stage flow.plan -outcome completed <name>
 ```
 
 **3. Implement.** Rebase the worktree onto `origin/<base>` on a clean tree; a failing test first
@@ -142,8 +142,8 @@ web-dist` runs `npm ci` itself); commit with the module as scope, no trailer; pu
 otherwise as section 4 of `/flow-fast` commits (`skills/flow-fast/SKILL.md`).
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.sdd-tdd -request <n> -harness <harness> -session-token mf-<literal-token> <name>
-flow stage end   -command '/flow-interactive' -stage flow.sdd-tdd -outcome completed <name>
+flow stage begin -command '/flow-interactive' -stage flow.implement -request <n> -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow-interactive' -stage flow.implement -outcome completed <name>
 ```
 
 **4. Verify.** `<agents repo>/scripts/flow-guard run-verify-list <worktree> lint`, the `## test` commands
@@ -158,7 +158,7 @@ flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -h
 flow stage end   -command '/flow-interactive' -stage flow.verify -outcome completed <name>
 ```
 
-**5. Land.** One call lands the request and marks `flow.landing-routes` around its push:
+**5. Land.** One call lands the request and marks `flow.land` around its push:
 
 ```bash
 flow interactive land -C <worktree> -change <name> -n <n> -harness <harness> -session-token fi-<literal-token>
@@ -176,11 +176,6 @@ its own call with its exit code checked; a failed one is re-run once, and a serv
 must answer before anything reads it. A skipped pull is one line; on a request step 7 would
 check, the request stays open (⛔ blocked), since the live page cannot show the landed code.
 
-```bash
-flow stage begin -command '/flow-interactive' -stage flow.refresh-main-checkout -request <n> -harness <harness> -session-token mf-<literal-token> <name>
-flow stage end   -command '/flow-interactive' -stage flow.refresh-main-checkout -outcome completed <name>
-```
-
 **7. UI check**, when `flow-guard check-visual-trigger <worktree>` matches the request's diff (`git diff
 --name-only <base>..HEAD` on its stdin): open the live page — the link the operator gave, else the
 URL `## run` serves, by the app's own run-view route, keyed by the project key and `<name>`, never a display name —
@@ -191,8 +186,8 @@ again inside the same request. The stage's end is its own call, made after the s
 never chained to its begin.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.visual-verify -request <n> -harness <harness> -session-token mf-<literal-token> <name>
-flow stage end   -command '/flow-interactive' -stage flow.visual-verify -outcome completed|failed [-screenshot <path>] [-reason '<the defect, one line>'] <name>
+flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -harness <harness> -session-token mf-<literal-token> <name>
+flow stage end   -command '/flow-interactive' -stage flow.verify -outcome completed|failed [-screenshot <path>] [-reason '<the defect, one line>'] <name>
 ```
 
 **8. End.** Steps 1–7 are not optional and never reported as left undone: a request whose reinstall, UI check or record is outstanding is not ended — run them first, and a report never carries a "Not done" for a step this section requires. One of:
@@ -214,7 +209,7 @@ after the in-flight one ends — never a stop. A turn ends when the queue is emp
 ## Operator-asked subagents
 
 When the operator asks for a subagent in their own words ("run it with an opus xhigh subagent"),
-the request dispatches it and counts it under this run: inside the request's open `flow.sdd-tdd`
+the request dispatches it and counts it under this run: inside the request's open `flow.implement`
 stage, record the row (store role `implementer`, key `operator-<k>`, which flowd serves as the
 `operator-asked` role), dispatch, and end the row when the agent reports — never a fork.
 Each agent gets its own row: `<k>` is one past the highest `operator-` key the change records, so
@@ -250,7 +245,7 @@ flow record dispatch end -change <name> -key operator-<k> -session-token fi-<lit
    `-commit` must be the sha the worktree's `flow-lint-green` holds (step 4).
 3. `git diff --name-only <base>..<commit>` is fed to the `check-visual-trigger` guard against the
    worktree's checkout of `<project>/.flow/project.md`. A `ui paths` match (exit 0) requires the request's latest
-   `/flow-interactive` `flow.visual-verify` stage run, by start, to have ended `completed`. Exit 1,
+   `/flow-interactive` `flow.verify` stage run, by start, to have ended `completed`. Exit 1,
    or exit 2 with `VISUAL-TRIGGER-NOT-CONFIGURED`, requires nothing. Exit 2 with
    `VISUAL-TRIGGER-CANNOT-ANSWER` refuses, quoting its cause. That run's `-screenshot` must name a
    file whose modification time falls between its begin and its end (step 7).
@@ -296,17 +291,13 @@ as a request and the session stays open, saying so in one line. Stop:
 5. Jira: the description gains a `## Session summary` section — one line per request: number,
    title, outcome, commit — per **Description sync** (`skills/flow-contracts/jira-integration.md`);
    the issue moves to **Done**.
-6. Move the change to `FINISHED`:
-
-   ```bash
-   flow stage mark  -command '/flow-interactive' -stages flow.write-finished -harness <harness> <name>
-   ```
+6. Move the change to `FINISHED`.
 
 ## Resume
 
 `/flow-interactive <key or name>` on an open session reuses its worktree — recreated from the
 remote branch, else `origin/<base>`, when gone, with `flow-guard ignore-scratch <worktree>` and
-`mkdir -p <changeRoot>` run in it — marks `flow.kickoff`, generates a new token, continues
+`mkdir -p <changeRoot>` run in it — marks `flow.plan`, generates a new token, continues
 numbering after the highest recorded request,
 and takes an open request from the dead session as the current one: its stages re-run as new
 attempts under the same number.

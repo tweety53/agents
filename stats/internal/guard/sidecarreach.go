@@ -14,11 +14,11 @@ import (
 // The contract below moved here from the header of the deleted
 // scripts/check-sidecar-reach.sh shim (KAN-1058).
 //
-// flow-guard check-sidecar-reach — pre-flight every `.mockups` sidecar line against
+// check-sidecar-reach (run in process by visual-verify-pass, no longer a flow-guard subcommand) — pre-flight every `.mockups` sidecar line against
 // the capture spec beside it, before the capture runs (kan-998: stale sidecar
 // lines surfaced only at flow-guard compose-mockup-frames, after a 13-minute capture).
 //
-// Usage: flow-guard check-sidecar-reach <capture root | sidecar> [<mockups root>]
+// Arguments, as the function takes them: check-sidecar-reach <capture root | sidecar> [<mockups root>]
 //
 // Walks <capture root>, never descending into `node_modules`, `.git` or
 // `.worktrees`. A SIDECAR is a file ending `.mockups`; its spec is that path
@@ -54,9 +54,8 @@ import (
 //
 // Go, in flow-guard (stats/internal/guard/sidecarreach.go).
 
-// checkSidecarReach is `flow-guard check-sidecar-reach`: the comment above is the contract. Every `<spec>.mockups` sidecar line under the root
+// checkSidecarReach is `check-sidecar-reach`: the comment above is the contract. Every `<spec>.mockups` sidecar line under the root
 // must name a screenshot some string literal in <spec> takes.
-func init() { Registry["check-sidecar-reach"] = checkSidecarReach }
 
 var (
 	// Each quote kind is scanned on its own: in one alternation a stray
@@ -99,7 +98,7 @@ func srReached(name string, spec []byte) bool {
 func checkSidecarReach(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-sidecar-reach"
 	if len(args) != 1 && len(args) != 2 {
-		fmt.Fprintf(stderr, "%s: usage: flow-guard check-sidecar-reach <capture root | sidecar> [<mockups root>]\n", prog)
+		fmt.Fprintf(stderr, "%s: usage (in-process, run by visual-verify-pass): <capture root | sidecar> [<mockups root>]\n", prog)
 		Reason(env, "usage")
 		return 2
 	}

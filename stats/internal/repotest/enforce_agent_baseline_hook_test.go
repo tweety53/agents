@@ -113,7 +113,7 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 }
 
 // openRowFixture serves a store answering /api/v1/stage-runs with change c1, session token mf-t1
-// and stage flow.brainstorm -- or the contents of a `stage` file beside the called log, when a
+// and stage flow.plan -- or the contents of a `stage` file beside the called log, when a
 // test writes one -- (status 500 when fail), and a fake `flow` first on PATH that appends its argv, one line
 // per call, to the returned called file. It answers `record dispatches` with rows (exiting 1 when
 // rows is ""), `record dispatch begin` with exit 0, and every other call with exit 1. It returns the env the hook runs
@@ -126,7 +126,7 @@ func openRowFixture(t *testing.T, rows string, fail bool, projectKey ...string) 
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		stage := "flow.brainstorm"
+		stage := "flow.plan"
 		if b, err := os.ReadFile(filepath.Join(bin, "stage")); err == nil {
 			stage = string(b)
 		}
@@ -508,10 +508,10 @@ func TestEnforceAgentBaselineHookBeginsEveryRowRole(t *testing.T) {
 	t.Parallel()
 	for id, role := range map[string]string{
 		"implementer": "implementer", "operator-asked": "implementer",
-		"gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer", "design-reviewer": "reviewer",
+		"gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer",
 		"panel-reviewer": "reviewer", "panel-rerun": "reviewer",
 		"panel-merger": "merger", "panel-fix": "panel-fix", "minor-fix": "panel-fix", "visual-verifier": "verifier",
-		"planner": "planner", "tooling-analyst": "planner", "fix-planner": "planner", "planner-short": "planner",
+		"planner": "planner", "planner-short": "planner",
 	} {
 		t.Run(id, func(t *testing.T) {
 			t.Parallel()
@@ -545,8 +545,10 @@ func TestEnforceAgentBaselineHookBeginKeyFromKeyLine(t *testing.T) {
 		{"implementer group", "Tasks 3+4/9 (x)", "Role: implementer\nKey: task-3+4-implementer\nimplement", "flow-low",
 			map[string]string{"-key": "task-3+4-implementer", "-role": "implementer"}, true},
 		{"no Key line", "Task 3/9 (x)", "Role: implementer\nimplement", "flow-low", nil, false},
-		{"fix planner", "fix-plan-1 (plan the fix)", "Role: fix-planner\nKey: fix-plan-1\nplan", "flow-planner-medium",
-			map[string]string{"-key": "fix-plan-1", "-role": "planner", "-effort": "medium"}, true},
+		{"fix implementer", "fix-2-implementer (fix)", "Role: implementer\nKey: fix-2-implementer\nfix", "flow-low",
+			map[string]string{"-key": "fix-2-implementer", "-role": "implementer", "-effort": "low"}, true},
+		{"fix reviewer", "fix-2-review (review the fix)", "Role: panel-reviewer\nKey: fix-2-review\nreview", "flow-medium",
+			map[string]string{"-key": "fix-2-review", "-role": "reviewer", "-effort": "medium"}, true},
 		{"short planner", "plan-short-2 design round", "Role: planner-short\nplan", "flow-planner-low",
 			map[string]string{"-key": "plan-short-2", "-role": "planner", "-effort": "low"}, true},
 		{"minor fix", "panel-2-minor-fix (Minors)", "Role: minor-fix\nKey: panel-2-minor-fix\nfix", "flow-low",
@@ -602,17 +604,17 @@ func TestEnforceAgentBaselineHookSkipsAnOpenRow(t *testing.T) {
 	}
 }
 
-// TestEnforceAgentBaselineHookBeginsPlanningAgentsInItsWorktree pins decision
+// TestPlannerDispatchAllowedUnderFlowPlan pins decision
 // planning-agents-hook-begun: a /flow planner's Explore and Plan agents, whose prompts name the
 // session change's worktree, are begun; a loop planner's, naming only the loop's worktree, are not,
-// and neither is one naming the run's own worktree outside flow.brainstorm (decision
+// and neither is one naming the run's own worktree outside flow.plan (decision
 // planning-agent-begins-in-brainstorm).
-func TestEnforceAgentBaselineHookBeginsPlanningAgentsInItsWorktree(t *testing.T) {
+func TestPlannerDispatchAllowedUnderFlowPlan(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	for _, c := range []struct {
 		name, typ, description, role, names string // names: the worktree suffix the prompt names
-		stage                               string // the latest stage run's stage; "" serves flow.brainstorm
+		stage                               string // the latest stage run's stage; "" serves flow.plan
 		want                                map[string]string
 	}{
 		{"Explore", "Explore", "explore-3 hooks", "explorer", "c1/hooks", "",

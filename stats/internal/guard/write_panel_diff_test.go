@@ -255,11 +255,11 @@ func TestWritePanelDiffHonoursProjectExcludes(t *testing.T) {
 	}
 }
 
-// The size cap and the docs-only check leave a worktree's `## panel diff
-// exclude` paths out as the panel diff does (kan-1012 self-review): a
-// 40-line vendored handoff_x/screen.html beside a Markdown-only change
-// counts toward neither.
-func TestPanelGuardsHonourProjectExcludes(t *testing.T) {
+// The size cap leaves a worktree's `## panel diff exclude` paths out as the
+// panel diff does (kan-1012 self-review): a 40-line vendored
+// handoff_x/screen.html beside a Markdown-only change counts toward neither
+// the cap nor the .touched list.
+func TestPanelDiffHonoursProjectExcludes(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	var g fxGit
@@ -280,7 +280,11 @@ func TestPanelGuardsHonourProjectExcludes(t *testing.T) {
 		t.Fatal(g.err)
 	}
 	env := Env{Dir: dir, Getenv: os.Getenv, LookupEnv: hermeticGitLookup}
-	if r := runGuard("check-panel-docs-only", []string{wt, mb}, env); r.rc != 0 {
-		t.Errorf("check-panel-docs-only: exit %d, want 0\n%s", r.rc, r.out)
+	r := runGuard("write-panel-diff", []string{"final", wt, wt, mb}, env)
+	if r.rc != 0 {
+		t.Fatalf("write-panel-diff: exit %d, want 0\n%s", r.rc, r.out)
+	}
+	if touched := rbRead(wt + "/.superpowers/sdd/final-review.diff.touched"); strings.Contains(touched, "handoff_x") {
+		t.Errorf(".touched names the excluded path:\n%s", touched)
 	}
 }

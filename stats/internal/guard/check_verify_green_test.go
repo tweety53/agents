@@ -50,7 +50,7 @@ func vgRun(t *testing.T, rows string, args ...string) (int, string) {
 	t.Helper()
 	env := Env{Getenv: os.Getenv, Dir: args[0], Dispatches: func(string) ([]byte, error) { return []byte(rows), nil }}
 	var out, errb bytes.Buffer
-	rc := Registry["check-verify-green"](args, env, &out, &errb)
+	rc := foldedGuards["check-verify-green"](args, env, &out, &errb)
 	return rc, out.String() + errb.String()
 }
 
@@ -145,7 +145,7 @@ func TestCheckVerifyGreen(t *testing.T) {
 			t.Parallel()
 			env := Env{Getenv: os.Getenv, Dir: wt, Dispatches: func(string) ([]byte, error) { return []byte(c.rows), c.err }}
 			var out, errb bytes.Buffer
-			got := Registry["check-verify-green"]([]string{env.Dir, "demo", "mf-tok"}, env, &out, &errb)
+			got := foldedGuards["check-verify-green"]([]string{env.Dir, "demo", "mf-tok"}, env, &out, &errb)
 			if got != c.want || !strings.Contains(out.String()+errb.String(), c.needle) {
 				t.Fatalf("exit %d, want %d naming %q\n%s%s", got, c.want, c.needle, out.String(), errb.String())
 			}

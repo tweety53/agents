@@ -17,11 +17,11 @@ rows below is reported and its row dropped, never silently ignored.
 
 | Setting | Required | Meaning |
 |---------|----------|---------|
-| `ui paths` | yes | Comma-separated globs, relative to each app root in `## apps`. A run whose diff matches none of them skips the `flow.visual-verify` stage. |
+| `ui paths` | yes | Comma-separated globs, relative to each app root in `## apps`. A run whose diff matches none of them skips the `flow.verify` stage. |
 | `screenshots` | yes | The root beneath which `verify` and `capture` write PNGs, **searched recursively rather than joined with a filename** — relative to the regression checkout when one is declared, otherwise to the project root. A per-change `capture` spec lands its PNGs in its own nested snapshot directory, a different one for every spec, so no single leaf path is correct for both the baseline suite and an arbitrary capture; naming the root instead is. |
 | `regression checkout` | no | Absolute path to the repository the per-change spec and its PNGs are committed to. **Absent means they are committed to the change's own branch instead.** When this same repository is also declared in `## apps`, its root follows that table's own rule — **Roots in `## apps` are main checkouts** above — resolving to the change's apply worktree there rather than the main checkout; a `regression checkout` with no matching `## apps` row resolves the same way — to a worktree of that repository on the change's branch when one exists, otherwise the main checkout. Also the root `<agents repo>/scripts/flow-guard check-spec-reach` enumerates `*.spec.ts` under and diffs against what the checkout's `package.json` scripts list — its header is canonical for that gate and its exit codes. |
 | `regression repo` | only with `regression checkout` | The remote URL that checkout's real `origin` must equal — **an identity assertion, never an authorisation.** The visual-verify step pushes nothing; integrate's push carries a worktree commit, see below. |
-| `mockups` | no | Directory holding one `<frame id>.png` per drawn frame, relative to the project root. Declared, it enables the compose step of `flow.visual-verify` for any capture spec carrying a `<spec>.mockups` sidecar; absent, the stage composes nothing and reports `mockups: not declared`. |
+| `mockups` | no | Directory holding one `<frame id>.png` per drawn frame, relative to the project root. Declared, it enables the compose step of `flow.verify` for any capture spec carrying a `<spec>.mockups` sidecar; absent, the stage composes nothing and reports `mockups: not declared`. |
 | `mockup frame` | no | `scale=<int> status=<px> border=<px> [bare]`: the mockup PNGs' scale factor, the status-line height and the border width, the last two in logical px; the optional word `bare` marks a device render with no page around it, cropped by the border on every side and the status line on top, with no bottom search. Declared, the compose step crops each frame to its content area — the sides and the top from these values, the bottom found per frame as the first row below the status line every one of whose pixels between the borders equals the page colour at (0, 0) — and reports a capture whose size differs from the cropped frame as a finding rather than composing it. Absent, frames compose at native size, uncropped, with no size check. A `<spec>.mockups` sidecar's `frame <geometry>` or `frame none` lines override this value, each for the pairs below it until the next, `none` composing them at native size, uncropped. |
 | `design repo` | no | `<clone path> <remote>`: the design repository `flow-guard render-frames` renders tagged frames from. The clone's real `origin` must equal `<remote>` — the same identity assertion as `regression repo`'s. |
 | `preflight apps` | no | Comma-separated `<app-root>=<url>` cells: the apps `flow-guard visual-verify-pass prepare` pre-flights and probes for this worktree when no `--app` names it, `<app-root>` relative to the worktree and `<url>` with each `${VAR}` replaced from `flow-guard prepare-workspace`'s output and `<name>` with the change name; a pair whose root does not exist is dropped. Absent means `--app` is required. |
@@ -34,11 +34,11 @@ the six rows below is reported and its row dropped.
 | Command | Required | Meaning |
 |---------|----------|---------|
 | `setup` | no | Run once before `verify` when the toolchain is missing. |
-| `verify` | yes | Runs the checked-in baseline suite. A `<specs>` in it is where `flow.visual-verify` puts the spec paths `specs` printed, space-separated — so the command must run its whole suite when `<specs>` is empty, which happens only when the operator asks for the whole suite, which `flow-guard run-verify-list -full <worktree> visual` runs. A cell with no `<specs>` can only run whole, so `flow-guard run-verify-list` refuses it outside `-full`. Where no selection fills `<specs>`, `--grep @smoke` does: the suite tags its smoke tests `@smoke`. A freshness prefix the row runs before its specs restarts a stale stack itself — on a non-zero `fingerprint` it runs the stop and start commands and continues — rather than fail on it, since every fix round that touches a `ui paths` file stales a stack that does not reload. |
+| `verify` | yes | Runs the checked-in baseline suite. A `<specs>` in it is where `flow.verify` puts the spec paths `specs` printed, space-separated — so the command must run its whole suite when `<specs>` is empty, which happens only when the operator asks for the whole suite, which `flow-guard run-verify-list -full <worktree> visual` runs. A cell with no `<specs>` can only run whole, so `flow-guard run-verify-list` refuses it outside `-full`. Where no selection fills `<specs>`, `--grep @smoke` does: the suite tags its smoke tests `@smoke`. A freshness prefix the row runs before its specs restarts a stale stack itself — on a non-zero `fingerprint` it runs the stop and start commands and continues — rather than fail on it, since every fix round that touches a `ui paths` file stales a stack that does not reload. |
 | `capture` | yes | Runs the per-change spec and **creates** this change's baseline — it is expected to write PNGs that do not yet exist, and that is success, not failure. `verify` above is the regression gate, guarding an already-committed baseline; `capture` is not, and the project's own command must be the variant that succeeds on a first-run write rather than the one built to fail a comparison against nothing. |
-| `fingerprint` | no | Exits 0 when the app the stage's probe answered from is serving the worktree's own build, non-zero otherwise. What a bundle's identity is differs per stack, so the project owns the comparison; `flow.visual-verify` owns what a non-zero exit does (one restart from `## run`, then block). Absent means the stage reports `fingerprint: not declared` and proves nothing about the served bundle — a supported state for a project with no served bundle, not a misconfiguration. |
+| `fingerprint` | no | Exits 0 when the app the stage's probe answered from is serving the worktree's own build, non-zero otherwise. What a bundle's identity is differs per stack, so the project owns the comparison; `flow.verify` owns what a non-zero exit does (one restart from `## run`, then block). Absent means the stage reports `fingerprint: not declared` and proves nothing about the served bundle — a supported state for a project with no served bundle, not a misconfiguration. |
 | `start` | no | Starts the stack for this stage's own probe, from the worktree; absent means `## run`. This is where a project moves a port the operator's `## run` keeps fixed. |
-| `specs` | no | Prints the specs covering the change's touched ui paths, one per line, run from the regression checkout with `<frontend-root>` and `<merge-base>` substituted — a fix round's re-run substitutes its round base for `<merge-base>` (**The loop**, `skills/flow/verify-fix-loop.md`). Its output reaches `verify` through `verify`'s `<specs>`; an empty output runs the smoke set alone, and a non-zero exit runs it and blocks — neither falls back to the whole suite, which runs only when the operator asks for it, under `flow-guard run-verify-list -full`. Absent means `verify` runs the smoke set alone and `capture` runs as declared. |
+| `specs` | no | Prints the specs covering the change's touched ui paths, one per line, run from the regression checkout with `<frontend-root>` and `<merge-base>` substituted — a fix round's re-run substitutes its round base for `<merge-base>` (`skills/flow/fix.md`). Its output reaches `verify` through `verify`'s `<specs>`; an empty output runs the smoke set alone, and a non-zero exit runs it and blocks — neither falls back to the whole suite, which runs only when the operator asks for it, under `flow-guard run-verify-list -full`. Absent means `verify` runs the smoke set alone and `capture` runs as declared. |
 
 **Frames at a design-repo tag.** With `design repo` declared, a frame drawn at a tag of that
 repository is referenced by the tag and its frame id joined with a slash — cited in a plan as the
@@ -54,7 +54,7 @@ it — one `<screenshot name> <frame id>` line per pair, `#` comments and blank 
 `<screenshot name>` is the name the spec passed to `toHaveScreenshot()`; Playwright's own
 `-<platform>` suffix is tolerated on match.
 
-With `mockup frame` declared, the composite `flow.visual-verify` writes is three panels — the
+With `mockup frame` declared, the composite `flow.verify` writes is three panels — the
 captured frame, the cropped mockup, and a difference panel white wherever any channel differs —
 and the stage prints one `<composite path> diff=<ratio>` line per pair, the ratio being the share
 of differing pixels. **That ratio is a number the verifier reads beside the panels, never a
@@ -67,17 +67,17 @@ diff=n/a
 ```
  `<agents
 repo>/scripts/flow-guard compose-mockup-frames`'s own header is canonical for its exit codes, the way this
-section already cites `flow-guard check-visual-verification` for its shape.
+section already cites its validator, `stats/internal/guard/visualverification.go`, for its shape.
 
 **The full app suite.** One spec, `full-app-suite.spec.ts`, capturing every screen the app has —
 the whole-app regression suite, beside the per-change specs and reached by `verify` like them.
-`flow.visual-verify` updates it on every run and creates it where the checkout has none, then
+`flow.verify` updates it on every run and creates it where the checkout has none, then
 writes every PNG the suite produced into one archive, `full-app-suite.zip`, directly under the
 `screenshots` root, rebuilt from scratch each time. Both names are fixed rather than declared: no
 row of the settings table names them, and the spec, its PNGs and the zip are committed wherever
 the per-change spec is.
 
-**No push to a `regression checkout` is ever automatic** — the change branch's own pushes are **Branch backup** (`skills/flow-contracts/git-boundaries.md`), inside the one repository the run owns. `flow.visual-verify` commits the per-change spec and its PNGs to the
+**No push to a `regression checkout` is ever automatic** — the change branch's own pushes are **Branch backup** (`skills/flow-contracts/git-boundaries.md`), inside the one repository the run owns. `flow.verify` commits the per-change spec and its PNGs to the
 `regression checkout` when one is declared and stops there: a commit in the change's worktree of
 that checkout goes up with integrate's push under **Branch backup**, and only a commit in its main checkout leaves the handoff
 printing the push command for the operator to run by hand. `regression repo` records which repository the checkout is expected to
@@ -85,5 +85,5 @@ be, and a mismatch against its real `origin` is reported — but that is an iden
 authorisation, because `<project>/.flow/project.md` is tracked and editable in any pull request, and
 a file inside a repository cannot authorise a push to another repository.
 
-**Mechanically enforced** by `<agents repo>/scripts/flow-guard check-visual-verification`, canonical for the
+**Mechanically enforced** by `visual-verify-pass prepare`, which validates the section when visual verify starts (no longer a lint step) with `stats/internal/guard/visualverification.go`, canonical for the
 section's exact shape and every violation it reports.

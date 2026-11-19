@@ -24,7 +24,7 @@ export function interactiveWaiting(row: Row): boolean {
 }
 
 /** A request's own stages, in the order a request runs them (design.md's One request); flow.brainstorm joins after the first only when the request ran one. */
-export const REQUEST_STAGES = ["flow.load-context", "flow.sdd-tdd", "flow.verify", "flow.landing-routes", "flow.refresh-main-checkout", "flow.visual-verify"];
+export const REQUEST_STAGES = ["flow.plan", "flow.implement", "flow.verify", "flow.land"];
 
 /** The request the run view follows: the one in progress, else the highest any stage run carries. */
 export function focusRequest(row: Row, runs: StageRunDTO[]): number | undefined {

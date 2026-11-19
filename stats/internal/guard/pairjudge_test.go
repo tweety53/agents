@@ -318,7 +318,7 @@ func TestPairJudgeRefuses(t *testing.T) {
 		"no candidates": {[]string{"implementer", digest}, pjEnv(t,
 			pjPolicy(`"implementer":{"base":[],"optin":["opus/flow-high"],"marked":[]}`), stub)},
 	}
-	for _, role := range []string{"visual-verifier", "operator-asked", "tooling-analyst", "fix-run-judge", "panel-merger"} {
+	for _, role := range []string{"visual-verifier", "operator-asked", "panel-merger"} {
 		cases["role "+role] = struct {
 			args []string
 			env  Env
@@ -412,5 +412,17 @@ func TestPairJudgeRunsWithoutAutoMemory(t *testing.T) {
 	}
 	if got := mustRead(t, stub.dir+"/memory"); got != "1" {
 		t.Errorf("CLAUDE_CODE_DISABLE_AUTO_MEMORY = %q in the judge's environment, want 1", got)
+	}
+}
+
+// TestPairJudgeRunsWithoutTools: the pair judge runs the runner with no tools.
+func TestPairJudgeRunsWithoutTools(t *testing.T) {
+	t.Parallel()
+	stub := newPJStub(t, pjJSON("x", ""))
+	rows := map[string][]policyRow{"pair-judge": {{Pairs: []string{"sonnet/flow-low"}}}}
+	pjAsk(pjEnv(t, "{}", stub), rows, "implementer", []pjCandidate{{pair: "opus/flow-low"}}, []byte("d"))
+	a := stub.argv(t)
+	if i := slices.Index(a, "--tools"); i < 0 || a[i+1] != "" {
+		t.Errorf("argv %q", a)
 	}
 }

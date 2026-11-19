@@ -66,61 +66,6 @@ func TestCheckVerifyReport(t *testing.T) {
 	}
 }
 
-// TestCheckVerifyReportFingerprintReason pins kan-1010's self-review: a
-// verifier wrote a bare `fingerprint: not declared` for a project declaring
-// the row, its parent's step-6 result never named in the prompt. A bare one
-// is an undone item; one carrying step 6's reason, or an exit, is not.
-func TestCheckVerifyReportFingerprintReason(t *testing.T) {
-	t.Parallel()
-	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
-	for _, tc := range []struct {
-		line string
-		rc   int
-		want string
-	}{
-		{"- fingerprint: not declared\n", 1, "fingerprint: `not declared` with no reason"},
-		{"- fingerprint: not declared — no fingerprint row in .flow/project.md\n", 0, "COMPLETE"},
-		{"- fingerprint: exit 0\n", 0, "COMPLETE"},
-	} {
-		path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
-		if err := os.WriteFile(path, []byte("## Report\n"+tc.line+steps), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Fatalf("%q: rc=%d out=%q; want rc=%d containing %q", tc.line, r.rc, r.out, tc.rc, tc.want)
-		}
-	}
-}
-
-// TestCheckVerifyReportPreExistingNeedsMergeBaseEvidence pins kan-1015's
-// self-review: the kan-466 weight-tab button was attributed pre-existing from
-// the code path alone and its baseline re-captured over the defect. A
-// pre-existing attribution must name its merge-base evidence.
-func TestCheckVerifyReportPreExistingNeedsMergeBaseEvidence(t *testing.T) {
-	t.Parallel()
-	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
-	for _, tc := range []struct {
-		line string
-		rc   int
-		want string
-	}{
-		{"  - kan-466 weight-tab: button fill differs. Attributed as pre-existing from the code path only\n", 1, "10 pre-existing attribution with no merge-base evidence"},
-		{"  - kan-466 weight-tab: pre-existing — merge-base baseline: <head>:kan-466-weigh-in-history.spec.ts-snapshots/kan466-weight-tab-darwin.png\n", 0, "COMPLETE"},
-		{"  - kan-466 weight-tab: present at merge base — merge-base capture: /tmp/x.png\n", 0, "COMPLETE"},
-		{"  - templates T2: not pre-existing — this change's fill token\n", 0, "COMPLETE"},
-	} {
-		// A baseline citation must resolve in the report's worktree (F6).
-		wt, head := vrtBaselineRepo(t)
-		path := filepath.Join(wt, ".superpowers/sdd/verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+steps+strings.ReplaceAll(tc.line, "<head>", head))
-		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Fatalf("%q: rc=%d out=%q; want rc=%d containing %q", tc.line, r.rc, r.out, tc.rc, tc.want)
-		}
-	}
-}
-
 // kan-1017 (sr12): every verifier wrote `no mockup source` while design.md
 // cited a handoff page that existed, and left 7 of 11 matrix columns n/a.
 func TestCheckVerifyReportNoMockupSourceWithCitedSource(t *testing.T) {
@@ -343,7 +288,7 @@ func TestCheckVerifyReportAccountsForAnUnchangedView(t *testing.T) {
 // and step 7 is no required step — an item still naming it is ignored.
 func TestCheckVerifyReportTakesNoScopedSpecs(t *testing.T) {
 	t.Parallel()
-	const usage = "flow-guard check-verify-report <report file> <motions named> [--design <design.md>]"
+	const usage = "verify-report check, run in-process by visual-verify-pass close: <report file> <motions named> [--design <design.md>]"
 	path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
 	r := runGuard("check-verify-report", []string{path, "0", "2"}, Env{Getenv: os.Getenv})
 	if r.rc != 2 || !strings.Contains(r.out, usage) {
@@ -470,7 +415,6 @@ func TestCheckVerifyReportOverToleranceCauses(t *testing.T) {
 		{"transcription", "paired", "content.width", true},
 		{"text width", "paired", "content.width", true},
 		{"decision thin-parent-prepare-close", "paired", "box.width", true},
-		{"present at the merge base — merge-base capture: /c/base.png", "paired", "box.width", true},
 		{"mockup source — 8px from the CSS", "paired", "unresolved", true},
 		{"looks fine", "paired", "box.width", false},
 		{"decision no-such-id", "paired", "box.width", false},
@@ -485,9 +429,7 @@ func TestCheckVerifyReportOverToleranceCauses(t *testing.T) {
 		path := filepath.Join(sdd, "verify-report-visual-verify.md")
 		writeFile(t, path, "## Report\n"+vrtDone+vrtFrame("W1")+"- W1 over-tolerance: 1 — #2: "+tc.cause+"\n")
 		r := runGuard("check-verify-report", []string{path, "0", "--design", design}, Env{Getenv: os.Getenv})
-		// An unevidenced merge-base attribution is refused by the line-level
-		// evidence check before the cause list is read.
-		if got := r.rc == 0; got != tc.ok || (!tc.ok && !strings.Contains(r.out, "off step 10's closed list") && !strings.Contains(r.out, "no merge-base evidence")) {
+		if got := r.rc == 0; got != tc.ok || (!tc.ok && !strings.Contains(r.out, "off step 10's closed list")) {
 			t.Errorf("%q: rc=%d out=%q; want admitted=%v", tc.cause, r.rc, r.out, tc.ok)
 		}
 	}
@@ -631,85 +573,6 @@ func vrtMerge(t *testing.T, dir string) {
 	a.Pairs = append(a.Pairs, b.Pairs...)
 	body, _ := json.Marshal(a)
 	writeFile(t, filepath.Join(dir, "visual-manifest-visual-verify.json"), string(body))
-}
-
-// vrtBaselineRepo is a git repository committing tests/visual/a-darwin.png
-// and kan-466-weigh-in-history.spec.ts-snapshots/kan466-weight-tab-darwin.png,
-// and its HEAD sha.
-func vrtBaselineRepo(t *testing.T) (string, string) {
-	t.Helper()
-	wt, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(wt, "tests/visual/a-darwin.png"), "png\n")
-	writeFile(t, filepath.Join(wt, "kan-466-weigh-in-history.spec.ts-snapshots/kan466-weight-tab-darwin.png"), "png\n")
-	fixtureRepo(t, wt, repoShape{})
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-qm", "a")
-	return wt, vgHead(t, wt)
-}
-
-// TestCheckVerifyReportUnresolvedBaselineCitation pins kan-1057's self-review,
-// F6: a mangled `merge-base baseline:` citation stood as merge-base evidence.
-// Every one must resolve with git cat-file -e in the report's worktree.
-func TestCheckVerifyReportUnresolvedBaselineCitation(t *testing.T) {
-	t.Parallel()
-	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 n/a — no mockups declared | 11 done | motion n/a — none\n"
-	for _, tc := range []struct {
-		name, cite, named string
-		rc                int
-	}{
-		{"resolves", "<head>:tests/visual/a-darwin.png", "", 0},
-		{"resolves, sentence end", "<head>:tests/visual/a-darwin.png.", "", 0},
-		{"resolves, closing backtick", "<head>:tests/visual/a-darwin.png`.", "", 0},
-		{"mangled", "7cs/web/fb6353b6c37b37783543ac3b6968845bff3fcests/visual/a-darwin.png", "7cs/web/fb6353b6c37b37783543ac3b6968845bff3fcests/visual/a-darwin.png", 1},
-		{"missing path, trailing ;", "<head>:tests/visual/missing.png;", "<head>:tests/visual/missing.png", 1},
-	} {
-		wt, head := vrtBaselineRepo(t)
-		cite := strings.ReplaceAll(tc.cite, "<head>", head)
-		path := filepath.Join(wt, ".superpowers/sdd/verify-report-k.md")
-		writeFile(t, path, "## Report\n"+steps+"- view: departure present at the merge base, merge-base baseline: "+cite+"\n")
-		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
-		named := strings.ReplaceAll(tc.named, "<head>", head)
-		if r.rc != tc.rc || (named != "" && (strings.Count(r.out, named) != 1 || strings.Contains(r.out, named+";`"))) {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d naming %q once", tc.name, r.rc, r.out, tc.rc, named)
-		}
-	}
-}
-
-// A baseline cited from a sibling repository's worktree of the same change
-// resolves there; one that resolves in no tree still fails.
-func TestCheckVerifyReportBaselineCitationInSiblingWorktree(t *testing.T) {
-	t.Parallel()
-	const steps = "- steps: 4 done | 7 done | 8 done | 9 done | 10 n/a — no mockups declared | 11 done | motion n/a — none\n"
-	root, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	wt := filepath.Join(root, "proj-worktrees", "chg")
-	sib := filepath.Join(root, "pw-worktrees", "chg")
-	writeFile(t, filepath.Join(wt, "README.md"), "x\n")
-	writeFile(t, filepath.Join(sib, "tests/visual/b-darwin.png"), "png\n")
-	for _, d := range []string{wt, sib} {
-		fixtureRepo(t, d, repoShape{})
-		gitRun(t, d, "add", "-A")
-		gitRun(t, d, "commit", "-qm", "a")
-	}
-	head := vgHead(t, sib)
-	for _, tc := range []struct {
-		name, cite string
-		rc         int
-	}{
-		{"resolves in the sibling", head + ":tests/visual/b-darwin.png", 0},
-		{"resolves nowhere", head + ":tests/visual/none.png", 1},
-	} {
-		path := filepath.Join(wt, ".superpowers/sdd/verify-report-k.md")
-		writeFile(t, path, "## Report\n"+steps+"- view: departure present at the merge base, merge-base baseline: "+tc.cite+"\n")
-		if r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv}); r.rc != tc.rc {
-			t.Errorf("%s: rc=%d out=%q, want %d", tc.name, r.rc, r.out, tc.rc)
-		}
-	}
 }
 
 // TestCheckVerifyReportOverItemQuotesRowFigures pins kan-1057's self-review,

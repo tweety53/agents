@@ -5,16 +5,8 @@ package guard
 // paths the harness never exercised. Every fixture is a git repository under
 // t.TempDir() checked out on `spectre/<name>` — the branch every apply
 // worktree is created on, and the one place prepare-workspace reads the
-// change name from — beside a scripts/ directory whose
-// check-workspace-isolation.sh FLOW_GUARD_WORKSPACE_ISOLATION points the guard
-// at, the way the shim's own export does.
-//
-// The sibling check-workspace-isolation.sh is the REAL guard wherever the
-// harness ran the real one: a two-line wrapper exec'ing the flow-guard binary
-// this package's tests already build (guardBinary), so the validation, the
-// `#ROW` lines and the violation text relayed in case 3 are the producer's
-// own, never hand-built. Cases 5 and 6 replace it, as the harness did: a
-// non-executable copy, and a stub reporting rows a real guard refuses.
+// change name from. The isolation validation runs in-process, so the
+// violation text relayed in case 3 is the validator's own.
 //
 // Case 2's change name is kan-15-parallel-flow-task-lanes, the worked example
 // under "The workspace id" (skills/flow-contracts/workspace-isolation.md): id
@@ -68,39 +60,20 @@ func pwRepo(t *testing.T, name, cfg string) string {
 // worktree's — the whole branch is the change name.
 func pwLoopRun(t *testing.T, branch string) pwResult {
 	t.Helper()
-	root := pwRealSibling(t)
-	reference := pwRun(t, root, pwRepo(t, branch, pwPortSection("8080")))
+	reference := pwRun(t, pwRepo(t, branch, pwPortSection("8080")))
 	repo := pwRepo(t, branch, pwPortSection("8080"))
 	gitRun(t, repo, "checkout", "-q", "-b", branch)
-	r := pwRun(t, root, repo)
+	r := pwRun(t, repo)
 	if r.out != reference.out {
 		r.rc = 99
 	}
 	return r
 }
 
-// pwRealSibling is a repository root whose scripts/check-workspace-isolation.sh
-// runs the real guard.
-func pwRealSibling(t *testing.T) string {
-	t.Helper()
-	root := t.TempDir()
-	writeExec(t, filepath.Join(root, "scripts", "check-workspace-isolation.sh"),
-		"#!/bin/sh\nFLOW_GUARD_TELEMETRY=off exec '"+guardBinary(t)+"' check-workspace-isolation \"$@\"\n")
-	return root
-}
-
-func pwRun(t *testing.T, root string, args ...string) pwResult {
+func pwRun(t *testing.T, args ...string) pwResult {
 	t.Helper()
 	var out, errb bytes.Buffer
-	env := Env{Dir: t.TempDir(), Getenv: func(k string) string {
-		if k == "FLOW_GUARD_WORKSPACE_ISOLATION" {
-			if root == "" {
-				return ""
-			}
-			return filepath.Join(root, "scripts", "check-workspace-isolation.sh")
-		}
-		return os.Getenv(k)
-	}}
+	env := Env{Dir: t.TempDir(), Getenv: os.Getenv}
 	rc := prepareWorkspace(args, env, &out, &errb)
 	return pwResult{rc, out.String(), errb.String()}
 }
@@ -141,19 +114,19 @@ func TestPrepareWorkspace(t *testing.T) {
 		checks []check
 	}{
 		{"1a", func(t *testing.T) pwResult {
-			return pwRun(t, pwRealSibling(t), pwRepo(t, "kan-1-no-isolation", "# fixture\n\n## test\n\n```bash\nscripts/test-setup.sh\n```\n"))
+			return pwRun(t, pwRepo(t, "kan-1-no-isolation", "# fixture\n\n## test\n\n```bash\nscripts/test-setup.sh\n```\n"))
 		}, []check{
 			{"1a: no isolation section exits 0", func(r pwResult) bool { return r.rc == 0 }},
 			{"1a: no isolation section prints nothing", func(r pwResult) bool { return r.out == "" }},
 		}},
 		{"1b", func(t *testing.T) pwResult {
-			return pwRun(t, pwRealSibling(t), pwRepo(t, "kan-2-no-config", ""))
+			return pwRun(t, pwRepo(t, "kan-2-no-config", ""))
 		}, []check{
 			{"1b: no .flow/project.md exits 0", func(r pwResult) bool { return r.rc == 0 }},
 			{"1b: no .flow/project.md prints nothing", func(r pwResult) bool { return r.out == "" }},
 		}},
 		{"2", func(t *testing.T) pwResult {
-			return pwRun(t, pwRealSibling(t), pwRepo(t, "kan-15-parallel-flow-task-lanes", pwDeclared))
+			return pwRun(t, pwRepo(t, "kan-15-parallel-flow-task-lanes", pwDeclared))
 		}, []check{
 			{"2: a declared section exits 0", func(r pwResult) bool { return r.rc == 0 }},
 			{"2: database row substitutes <id_underscored>", func(r pwResult) bool {
@@ -178,7 +151,7 @@ func TestPrepareWorkspace(t *testing.T) {
 			}},
 		}},
 		{"3", func(t *testing.T) pwResult {
-			return pwRun(t, pwRealSibling(t), pwRepo(t, "kan-3-malformed", pwPortSection("notanumber")))
+			return pwRun(t, pwRepo(t, "kan-3-malformed", pwPortSection("notanumber")))
 		}, []check{
 			{"3: a malformed row is a non-zero exit", func(r pwResult) bool { return r.rc == 1 }},
 			{"3: the guard's own violation is relayed", func(r pwResult) bool {
@@ -188,79 +161,33 @@ func TestPrepareWorkspace(t *testing.T) {
 			{"3: no KEY=value line reached stdout", func(r pwResult) bool { return !strings.Contains(r.out, "=") }},
 		}},
 		{"4a", func(t *testing.T) pwResult {
-			return pwRun(t, pwRealSibling(t), pwRepo(t, "kan-4-leading-zero-port", pwPortSection("0070")))
+			return pwRun(t, pwRepo(t, "kan-4-leading-zero-port", pwPortSection("0070")))
 		}, []check{
 			{"4a: a leading-zero port default exits 0", func(r pwResult) bool { return r.rc == 0 }},
 			{"4a: API_PORT is exported", func(r pwResult) bool { return strings.Contains(r.out, "API_PORT=") }},
 			{"4a: 0070 is not read as octal", func(r pwResult) bool { return !strings.Contains(r.out, "API_PORT=76") }},
 		}},
 		{"4b", func(t *testing.T) pwResult {
-			return pwRun(t, pwRealSibling(t), pwRepo(t, "kan-5-invalid-octal-port", pwPortSection("0080")))
+			return pwRun(t, pwRepo(t, "kan-5-invalid-octal-port", pwPortSection("0080")))
 		}, []check{
 			{"4b: an invalid-octal port default does not crash", func(r pwResult) bool { return r.rc == 0 }},
 		}},
-		{"5", func(t *testing.T) pwResult {
-			root := t.TempDir()
-			writeFile(t, filepath.Join(root, "scripts", "check-workspace-isolation.sh"), "#!/bin/sh\nexit 0\n")
-			return pwRun(t, root, pwRepo(t, "kan-6-guard-not-executable", pwPortSection("8080")))
-		}, []check{
-			{"5: a non-executable guard exits 2", func(r pwResult) bool { return r.rc == 2 }},
-			{"5: a clear message names the problem", func(r pwResult) bool {
-				return strings.Contains(r.err, "cannot find a runnable check-workspace-isolation")
-			}},
-		}},
-		{"6", func(t *testing.T) pwResult {
-			root := t.TempDir()
-			writeExec(t, filepath.Join(root, "scripts", "check-workspace-isolation.sh"), "#!/bin/sh\n"+
-				"printf 'ISOLATION-OK: stub — 2 resource row(s) and 3 command row(s) validated\\n'\n"+
-				"printf '#ROW\\tcache index\\tCACHE_INDEX\\t0\\tprobed\\n'\n"+
-				"printf '#ROW\\turl\\tWEB_URL\\thttp://localhost/0\\thttp://localhost/<value:CACHE_INDEX>\\n'\n")
-			return pwRun(t, root, pwRepo(t, "kan-7-value-ref-wrong-kind",
-				"## workspace isolation\n\n(fixture only — the stub guard below supplies the rows this script reads)\n"))
-		}, []check{
-			{"6: a url row referencing a cache index row is a non-zero exit", func(r pwResult) bool { return r.rc == 2 }},
-			{"6: no substituted value reached stdout", func(r pwResult) bool { return !strings.Contains(r.out, "CACHE_INDEX") }},
-			{"6: the wrong-kind reference is reported by name on stderr", func(r pwResult) bool {
-				return strings.Contains(r.err, "prepare-workspace: <value:CACHE_INDEX> resolves to `CACHE_INDEX`, a `cache index` row — a reference may only name a `database`, `bucket` or `port` row")
-			}},
-		}},
 		// The refusals the harness never reached, one case each.
-		{"usage", func(t *testing.T) pwResult { return pwRun(t, pwRealSibling(t)) }, []check{
+		{"usage", func(t *testing.T) pwResult { return pwRun(t) }, []check{
 			{"no worktree argument is exit 2 with the usage line", func(r pwResult) bool {
 				return r.rc == 2 && r.err == "Usage: flow-guard prepare-workspace <worktree>\n" && r.out == ""
 			}},
 		}},
 		{"notdir", func(t *testing.T) pwResult {
-			return pwRun(t, pwRealSibling(t), filepath.Join(t.TempDir(), "absent"))
+			return pwRun(t, filepath.Join(t.TempDir(), "absent"))
 		}, []check{
 			{"a worktree that is not a directory is exit 2", func(r pwResult) bool {
 				return r.rc == 2 && strings.HasSuffix(r.err, "/absent is not a directory\n") && strings.HasPrefix(r.err, "prepare-workspace: ")
 			}},
 		}},
-		{"emptyarg", func(t *testing.T) pwResult { return pwRun(t, pwRealSibling(t), "") }, []check{
+		{"emptyarg", func(t *testing.T) pwResult { return pwRun(t, "") }, []check{
 			{"an empty worktree argument is not a directory, exit 2", func(r pwResult) bool {
 				return r.rc == 2 && r.err == "prepare-workspace:  is not a directory\n" && r.out == ""
-			}},
-		}},
-		{"noroot", func(t *testing.T) pwResult { return pwRun(t, "", pwRepo(t, "kan-8-no-root", "")) }, []check{
-			{"FLOW_GUARD_WORKSPACE_ISOLATION unset runs the sibling in this binary", func(r pwResult) bool {
-				return r.rc == 0 && r.err == ""
-			}},
-		}},
-		{"missing", func(t *testing.T) pwResult { return pwRun(t, t.TempDir(), pwRepo(t, "kan-9-missing", "")) }, []check{
-			{"a missing sibling guard is exit 2 naming the directory", func(r pwResult) bool {
-				return r.rc == 2 && strings.HasPrefix(r.err, "prepare-workspace: cannot find a runnable check-workspace-isolation in ") &&
-					strings.HasSuffix(r.err, "/scripts\n")
-			}},
-		}},
-		{"badport", func(t *testing.T) pwResult {
-			root := t.TempDir()
-			writeExec(t, filepath.Join(root, "scripts", "check-workspace-isolation.sh"), "#!/bin/sh\n"+
-				"printf '#ROW\\tport\\tAPI_PORT\\tx80\\t+<offset>\\n'\n")
-			return pwRun(t, root, pwRepo(t, "kan-11-bad-port", "## workspace isolation\n"))
-		}, []check{
-			{"a port default that is not an integer is exit 1 and prints nothing", func(r pwResult) bool {
-				return r.rc == 1 && r.out == "" && r.err == "prepare-workspace: `API_PORT` (port) default \"x80\" is not a base-10 integer\n"
 			}},
 		}},
 		// KAN-997: a self-review or pipeline-fix loop worktree is its own change, named
@@ -284,7 +211,7 @@ func TestPrepareWorkspace(t *testing.T) {
 			repo := pwRepo(t, "kan-12-other", pwPortSection("8080"))
 			// A loop prefix anywhere but the branch's start is no loop branch.
 			gitRun(t, repo, "checkout", "-q", "-b", "feature/self-review-kan-12")
-			return pwRun(t, pwRealSibling(t), repo)
+			return pwRun(t, repo)
 		}, []check{
 			{"other branch still refused", func(r pwResult) bool {
 				return r.rc == 2 && r.out == "" && strings.Contains(r.err, "(got 'feature/self-review-kan-12')")
@@ -293,7 +220,7 @@ func TestPrepareWorkspace(t *testing.T) {
 		{"detached", func(t *testing.T) pwResult {
 			repo := pwRepo(t, "kan-10-detached", pwPortSection("8080"))
 			gitRun(t, repo, "checkout", "-q", "--detach")
-			return pwRun(t, pwRealSibling(t), repo)
+			return pwRun(t, repo)
 		}, []check{
 			{"a detached worktree is exit 2 naming detached HEAD", func(r pwResult) bool {
 				return r.rc == 2 && r.out == "" && strings.Contains(r.err, "is not on a spectre/<name>, self-review-<name> or pipeline-fix-<name>-<k> branch (got 'detached HEAD') — cannot derive a workspace id without the change name\n")

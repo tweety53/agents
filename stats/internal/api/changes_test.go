@@ -171,6 +171,8 @@ type fakeStore struct {
 	// records-loss note.
 	stageCompleted    bool
 	stageCompletedErr error
+	// stageCompletedKeys, when non-nil, answers per key instead of stageCompleted.
+	stageCompletedKeys map[string]bool
 
 	recordDecisionErr error
 	listDecisionsErr  error
@@ -685,10 +687,9 @@ func TestGetChangeServesWithdrawn(t *testing.T) {
 	}
 }
 
-// TestDecodeChangeBodyReviewBeforeLandingRoundTrip asserts the
-// review-before-landing flag survives a PUT and comes back on the GET that
-// follows; a body without the field stores false.
-func TestDecodeChangeBodyReviewBeforeLandingRoundTrip(t *testing.T) {
+// TestDecodeChangeBodyIgnoresLegacyReviewBeforeLanding asserts an old body
+// carrying the dropped key decodes and the served change has no such key.
+func TestDecodeChangeBodyIgnoresLegacyReviewBeforeLanding(t *testing.T) {
 	t.Parallel()
 	fs := newFakeStore()
 	ts := newTestServer(t, fs)
@@ -696,71 +697,14 @@ func TestDecodeChangeBodyReviewBeforeLandingRoundTrip(t *testing.T) {
 	status, resp := doPut(t, ts, "/api/v1/changes/proj/rbl",
 		[]byte(`{"state":"STARTED","reviewBeforeLanding":true,"worktrees":{},"updatedAt":"2026-08-13T00:00:00Z","updatedBy":"tester"}`))
 	if status != http.StatusOK {
-		t.Fatalf("reviewBeforeLanding PUT: got status %d, want 200, body %s", status, resp)
-	}
-	if !fs.changes[changeKey("proj", "rbl")].ReviewBeforeLanding {
-		t.Error("stored Change.ReviewBeforeLanding = false, want true")
+		t.Fatalf("legacy key PUT: got status %d, want 200, body %s", status, resp)
 	}
 	status, body := doGet(t, ts, "/api/v1/changes/proj/rbl")
 	if status != http.StatusOK {
-		t.Fatalf("reviewBeforeLanding GET: got status %d, want 200, body %s", status, body)
+		t.Fatalf("GET: got status %d, want 200, body %s", status, body)
 	}
-	var raw map[string]any
-	if err := json.Unmarshal([]byte(body), &raw); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if v, present := raw["reviewBeforeLanding"]; !present || v != true {
-		t.Errorf("served reviewBeforeLanding = %v (present: %v), want true", v, present)
-	}
-
-	status, resp = doPut(t, ts, "/api/v1/changes/proj/plain",
-		[]byte(`{"state":"STARTED","worktrees":{},"updatedAt":"2026-08-13T00:00:00Z","updatedBy":"tester"}`))
-	if status != http.StatusOK {
-		t.Fatalf("plain PUT: got status %d, want 200, body %s", status, resp)
-	}
-	if fs.changes[changeKey("proj", "plain")].ReviewBeforeLanding {
-		t.Error("stored Change.ReviewBeforeLanding = true, want false for a body without the field")
-	}
-}
-
-// TestGetChangeServesReviewBeforeLanding is the read side over the served
-// endpoint: a stored true record surfaces "reviewBeforeLanding": true, a
-// plain record carries no key at all.
-func TestGetChangeServesReviewBeforeLanding(t *testing.T) {
-	t.Parallel()
-	fs := newFakeStore()
-	ts := newTestServer(t, fs)
-
-	fs.changes[changeKey("proj", "rbl")] = store.Change{
-		ProjectKey: "proj", Name: "rbl", State: store.StateStarted, ReviewBeforeLanding: true,
-		UpdatedAt: time.Now(), UpdatedBy: "tester",
-	}
-	status, body := doGet(t, ts, "/api/v1/changes/proj/rbl")
-	if status != http.StatusOK {
-		t.Fatalf("flagged change: got status %d, want 200, body %s", status, body)
-	}
-	var raw map[string]any
-	if err := json.Unmarshal([]byte(body), &raw); err != nil {
-		t.Fatalf("decode response: %v", err)
-	}
-	if v, present := raw["reviewBeforeLanding"]; !present || v != true {
-		t.Errorf("served reviewBeforeLanding = %v (present: %v), want true", v, present)
-	}
-
-	fs.changes[changeKey("proj", "plain")] = store.Change{
-		ProjectKey: "proj", Name: "plain", State: store.StateStarted,
-		UpdatedAt: time.Now(), UpdatedBy: "tester",
-	}
-	status, body = doGet(t, ts, "/api/v1/changes/proj/plain")
-	if status != http.StatusOK {
-		t.Fatalf("plain change: got status %d, want 200, body %s", status, body)
-	}
-	var raw2 map[string]any
-	if err := json.Unmarshal([]byte(body), &raw2); err != nil {
-		t.Fatalf("decode plain response: %v", err)
-	}
-	if _, present := raw2["reviewBeforeLanding"]; present {
-		t.Fatalf("plain response must omit reviewBeforeLanding, got %q", body)
+	if strings.Contains(body, "reviewBeforeLanding") {
+		t.Fatalf("served change carries reviewBeforeLanding: %q", body)
 	}
 }
 

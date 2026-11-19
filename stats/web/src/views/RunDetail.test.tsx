@@ -883,7 +883,7 @@ describe("the reworked run view (kan-1048)", () => {
     expect(within(main).getByTestId("main-self-review")).toHaveTextContent(/^Self-review: running · plan 1\/2 · findings 1 · fixes round 2$/);
     expect(within(main).getByTestId("main-now")).toHaveTextContent(/^Now: Running the self-review$/);
     expect(within(main).getByTestId("main-progress")).toHaveTextContent(
-      "planning ✓ → decisions → implementation ✓ → review → verification → handoff → integrate → self-review ● → landing → cleanup",
+      "planning ✓ → implementation ✓ → review → verification → landing → self-review ● → cleanup",
     );
     expect(within(main).getByTestId("main-summary")).toHaveTextContent(/^tasks 1\/3$/);
     // The lines add up to the header: the priced dispatch, then the main session's own share.
@@ -1303,7 +1303,7 @@ describe("interactive run view", () => {
     run(1, "flow.load-context", 6, 30, 28), run(2, "flow.sdd-tdd", 6, 28, 21), run(3, "flow.verify", 6, 21, 16),
     run(4, "flow.landing-routes", 6, 16, 15), run(5, "flow.refresh-main-checkout", 6, 15, 13), run(6, "flow.visual-verify", 6, 13, 11),
   ];
-  const r7 = [run(7, "flow.load-context", 7, 4, 3), run(8, "flow.sdd-tdd", 7, 3)];
+  const r7 = [run(7, "flow.plan", 7, 4, 3), run(8, "flow.implement", 7, 3)];
   const board = {
     projectKey: PROJECT, name: CHANGE, state: "STARTED", command: "/flow-interactive", updatedAt: at(1), updatedBy: "flow", nextCommand: "/flow",
     runCount: 8, costUsd: 4.12, wallClockMs: 0, errors: 0, cost24h: 0, cost7d: 0, cost30d: 0,
@@ -1351,12 +1351,10 @@ describe("interactive run view", () => {
     expect(within(main).getByText("Request 7 · 4m")).toBeInTheDocument();
     const steps = within(main).getAllByRole("listitem");
     expect(steps.map((s) => `${s.textContent}:${s.className}`)).toEqual([
-      "Loading context:done",
-      "Implementing tasks:cur",
+      "Planning the change:done",
+      "Implementing:cur",
       "Running lint and tests:",
       "Landing the change:",
-      "Updating the main checkout:",
-      "Checking the UI:",
     ]);
     expect(screen.queryByRole("region", { name: "Self-review" })).toBeNull();
     expect(screen.getByRole("group", { name: "Now running" })).toHaveTextContent("Request 7: Show the stage's model on the Agents row");

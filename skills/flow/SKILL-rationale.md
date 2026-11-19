@@ -48,8 +48,7 @@ records.
 ## integrate.md — preamble
 
 > Run 1, with two folds design.md decides:
-> `move-in-review-fold` (the Jira "move to In Review" step becomes a sub-step of `flow.landing-routes`
-> rather than its own mark) and this task's own resolution of open question `write-in-progress-fold`
+> `move-in-review-fold` (the Jira "move to In Review" step was a sub-step of `flow.landing-routes`; the slim-flow-loop change drops In Review altogether, the self-review now runs after landing) and this task's own resolution of open question `write-in-progress-fold`
 > (below).
 
 ## integrate.md — rebase
@@ -182,19 +181,16 @@ text after it is the passage, verbatim.
 
 - *…up to four shards at once* — (KAN-1121) one verifier worked through every frame of a large change before a serial `-rest` remainder could even start. Only an unscoped pass with one surviving worktree shards — a set whose other worktrees dispatch no verifier included, since its keys, lanes and loop verdict are a single worktree's: sharding every pass and every survivor meant a `CLOSES-LOOP` verdict aggregated across shards and per-(worktree, shard) state in `close`, about 600 lines of Go against 350, and the aggregated verdict was the most error-prone part.
 - *`prepare` runs step 8's `setup` and `capture` itself* — concurrent Playwright runs of one spec race on its PNGs, spec and sidecar, and a serial capture verifier ahead of the shards costs a dispatch of latency on every sharded pass.
-- *The parent takes a merge-base capture only for a shard that asks for one* — one merge-base stack per shard would start up to four stacks beside the change's own; asking for it before any shard started, for every spec with a PNG absent at the merge base, started a second stack on nearly every sharded pass, where 2 of 63 unsharded verifier rows had needed one.
 - *The parent runs each shard's `close` one after another* — the parent never runs two at once, so a stage-file lock in `close` would guard a concurrency that never occurs.
 - *A shard's writing state check signs in as an account it registers fresh* — a write on the seeded account another shard's hand captures read disturbs them, and the disturbed capture reads as a departure that becomes a fix task against a defect that does not exist.
-
-### verify-and-handoff.md — Resolve the run instructions
-
-- ***The stack behind the URLs is checked, not trusted.** … the project's declared `fingerprint` row … proves what the stack serves is the worktree's own build* — the check KAN-334's handoff lacked when it printed a URL backed by a bundle eleven commits stale.
 
 ### visual-verify.md — Visual verification, step 3 (pre-flight)
 
 - *A verifier re-dispatch cannot repair an environment that cannot pass* — gymie KAN-459's visual-verify stage retried three times over roughly five hours on pre-existing workspace-isolation gaps before the operator stopped it.
 
-### visual-verify.md — Visual verification, step 6 (fingerprint)
+### visual-verify.md — Visual verification, step 6 (no fingerprint)
+
+- *The stack freshness check runs once, in verify's test group* — the per-stage fingerprint and its `NEXT: restart-stack` branch were deleted (slim-flow-loop); a stack visual verify starts is built from the current tree, `fix.md`'s step 3 re-runs the lint/test list when a visual fix changed code, and the post-capture `check-spec-reach` is appended by `run-verify-list`. The rows below record why the check existed.
 
 - *…a stack step 5 found already running may be serving a build older than the worktree* — gymie KAN-29's last fix round captured, and nearly accepted, the bug the fix had removed.
 - *Steps 1, 2, 3, 5, 6, 12 and 13 are the parent's* — gymie KAN-845: the verifier's step-6 restart was refused by the auto-mode permission classifier, so the dispatch closed `blocked` on a stale bundle one approved restart fixed, and integrate stopped on `VISUAL-VERIFY-MISSING`; the operator's own `devRestart` then dropped `-PisolateOAuthPorts` and rebound the stack to the shared 3000/8080. Since KAN-1060 those steps run in the parent's own calls to `flow-guard visual-verify-pass prepare` and `close` — the same reason keeps them out of the verifier — and the parent still starts, restarts and stops the stack itself, since `start` carries placeholders and `## run` is prose no script can run.
@@ -210,10 +206,6 @@ text after it is the passage, verbatim.
 ### visual-verify.md — Visual verification, step 12 (commit)
 
 - *…never a bare `git commit`: the index of a main checkout may carry a pre-staged foreign tree* — and gymie kan-469's plain commit swept ~130 such files into a baselines commit
-
-### verify-and-handoff.md — Resolve the run instructions (start the stack)
-
-- *…if the applications those instructions name are still serving pre-fix code, the operator reviews one thing and runs another* — measured, not hypothetical, in this repository's own `<project>/stats/internal/web/embed.go`, whose `//go:embed all:dist` makes a running daemon blind to an SPA source change until it is rebuilt.
 
 ### visual-verify.md — Visual verification (Blocking)
 
@@ -241,7 +233,7 @@ text after it is the passage, verbatim.
 - *…a list row carrying a leading radio, or a quiet row whose only indicator is a trailing filled circle on the selected one; a segmented control of N cells each fitting its own label — a differing kind is a departure before any number is taken* — (gymie KAN-437 final verification, Q1: the WEIGHT field rendered in the weight tab's headline-figure style at about three times the frame's field height; every ACTIVITY row carried a leading outlined radio where the frame draws no indicator on unselected rows and a trailing filled circle on the selected one; the GOAL segments' two-line labels ran into the neighbouring cell — none subtle at 1x, none seen, the frame never on the list below)
 - *…fore starting the sweep, and account for each one by name at handoff — done, or why not.** "Did a screen-by-screen sweep" is unfalsifiable without a fixed list: a partial pass reads exactly like a complete one if nothing forces naming what was skipped* — (gymie KAN-30 fix round 7: two prior rounds each reported partial coverage as if it were the whole set, and the gap was caught only when the operator asked "so is X fully compared and fixed?" of a specific frame)
 - *…gainst that list and names every declared frame absent from the per-frame lines, with its reason; the parent reconciles it against `design.md`'s own frame list before applying **Blocking**, and a declared frame with no line blocks as a departure would* — (gymie KAN-437 final verification: `design.md` declared 22 frames, two `flow.visual-verify` rounds each ran three of five fidelity specs and reported 15/17 composed — Q1–Q3 and M1–M2 never composed, never named as skipped, unnoticed by the parent, and every Q1 defect above surfaced only when the operator opened the screen)
-- *The frame-list half of that reconciliation is a guard* — (KAN-549) the parent's by-hand reconciliation above is what missed 22 declared against 15/17 composed; `flow-guard check-frame-list` derives the declared list from the mockups directory's frames `design.md` names, so no second copy of the list exists to drift.
+- *The frame-list half of that reconciliation is a guard* — (KAN-549) the parent's by-hand reconciliation above is what missed 22 declared against 15/17 composed; `flow-guard visual-verify-pass close --check-only` derives the declared list from the mockups directory's frames `design.md` names, so no second copy of the list exists to drift.
 - *…s below and capture each one; a state nobody drove into is a state nobody verified.** Each is a state a resting capture and a full-page composite cannot show, so each is reached deliberately rather than by whatever the walkthrough happens to pass through* — (gymie KAN-30 fix rounds 7 and 8: a blind click landed on a day's "Repeat that workout" suggestion instead of "Create a group session" because an extra card existed on that day only, and the sweep almost recorded the wrong screen as verified; one dialog's "selected" fill differed between two sub-states, two sibling cards diverged in shadow, and "Add user" carried a border on one code path and none on another because the empty and populated roster states routed to two different shared button components; a time wheel scrolled correctly one way only, a state-derivation bug no resting capture shows; an empty picker shipped in its pre-restyle appearance beneath a restyled populated sibling; a picker offered an option submit always rejected, surfaced only as a post-hoc toast)
 - *…e shows and state, per run, that it is a display value at the precision the frame shows — a raw float, a `NaN`, `null`, `undefined`, an empty string where the frame draws a value, a placeholder is a defect whatever the frame's own numbers are* — (gymie KAN-437: `82.333333333333 kg` on an axis the frame drew as `82.3 kg`, read as a data difference)
 - *A box or a blank where display text should draw a character — a glyph the app's font cannot draw, an emoji or a symbol — is a defect too* — (gymie kan-1085: an emoji in a video title drew a missing-glyph box on the bench info sheet; two verifier rounds read past it on that unchanged capture, and a third named it)
@@ -301,10 +293,6 @@ text after it is the passage, verbatim.
 
 > and the over-cap report names the sum and each
 > worktree's own count (design.md's `cap-sum-across-worktrees`).
-
-### review-panel.md — The docs-only reduction
-
-> Per design.md's `docs-only-reduces-to-primary` (narrowing `roster-from-settings`):
 
 ### review-panel.md — final-review.diff
 
@@ -403,9 +391,6 @@ text after it is the passage, verbatim.
 > round-6 real bugs.
 
 The antecedent of "that change", recovered from the introducing commit (`9c60d2f`): KAN-500, whose fix rounds re-read a growing fix diff at roughly forty-five minutes a round; the sentence naming it was removed in a later edit.
-
-> `flow-guard check-panel-docs-only <worktree>
-> <merge-base>`, per design.md's `fix-rounds-reclassify`.
 
 > **The exit-code contract is checked mechanically before any dispatch decision reads a reproducer by
 > hand** (KAN-554 — gymie kan-468's panel supplied an Important finding's reproducer whose exit-code
@@ -1069,7 +1054,7 @@ verifiers ran on Sonnet — the operator's global instructions put browser-drivi
 and both stopped after the tests and the capture, listing the reading, composing and
 record-writing steps under "Not done". **Rejected — raising the verifier's effort to `medium`.**
 The operator kept it at `low`: completeness is enforced by the report guard, not by effort. **A
-partial report is refused mechanically** (`flow-guard check-verify-report`), not by reading its prose: the
+partial report is refused mechanically** (`flow-guard visual-verify-pass close --check-only`), not by reading its prose: the
 parent had accepted one whose prose named the undone steps.
 
 **Motion is recorded, not inferred from stills.** KAN-870's substance was motion — exits, slides,
@@ -1303,7 +1288,7 @@ attribution; the text after it is the passage, verbatim.
 
 ### visual-verify.md — Steps 3–13
 
-- *`<base>`'s build, never a main checkout on the default branch. `flow-guard check-visual-preflight`* — kan-1022's stack served the `develop` frontend to a change based on feature/templates, and 28 specs failed on it
+- *`<base>`'s build, never a main checkout on the default branch. `flow-guard visual-verify-pass prepare`* — kan-1022's stack served the `develop` frontend to a change based on feature/templates, and 28 specs failed on it
 
 ### visual-verify.md — Steps 3–13
 
@@ -1327,3 +1312,26 @@ attribution; the text after it is the passage, verbatim.
 - *built-in rules over changed lines, no project configuration* — rules widened to the enclosing function, or a boundary-named-receiver rule, fire on nearly every Go and Kotlin change, shrinking the saving the ticket asks for; project-declared globs keep the always-on cost in every project until it writes them (decision `trigger-rules-builtin-changed-lines`).
 - *the judge reuses pair-judge's call* — a new policy row would need a model-policy contract row, an Allowed pairs entry and a migration for one call per change (decision `slot-judge-reuses-pair-judge-call`).
 - *principles drops on the effective `small` class* — the mechanical class would ignore a planner's recorded raise to `regular` (decision `principles-small-effective-class`).
+
+### slim-flow-loop
+
+- *The review-before-landing hold and the run-instructions step were removed* — a hold nobody set was a stop nobody needed, and a landing run never used the stack its instructions started (ticket cut 8).
+
+- The stage marks are seven — `flow.plan`, `flow.implement`, `flow.review`, `flow.verify`, `flow.land`, `flow.self-review`, `flow.cleanup` — because the old keys named steps, not phases, and a phase chart wants one mark per phase (ticket cut 10).
+
+- *The six visual-verify checks run inside `visual-verify-pass`* — `check-frame-list`, `check-verify-report`, `check-verify-green`, `check-visual-preflight`, `check-visual-verification` and `check-sidecar-reach` had one caller each; they are unexported functions now, prepare validates the `## visual verification` section first, and the verifier bundle carries one `close --check-only` line instead of two `check:` lines.
+
+### fix.md — one fix procedure (slim-flow-loop, cuts 2 and 7)
+
+- *`document-fix.md` and `verify-fix-loop.md` retired into `fix.md`* — an in-run fix and a fix run did the same work through two planner-led loops (fix planner, appended task, `-fix-<k>-full` run, loop-close panel escalation, `fix-slot-judge`); one test-first implementer plus one `primary` reviewer over `late-fix.diff` serves both, and the planner and escalation cost more rounds than the defects they handled.
+
+### brainstorm.md — plan short first, one plan check (slim-flow-loop, cut 6)
+
+- *The planning triage, the plan reviewer and the decider merged into `flow-guard plan-check`* — three headless or dispatched steps each read the same three artifacts cold; one read-only pass (`skills/flow/plan-check-prompt.md`) writes the report and the decision together, and every new change plans short first, escalating on the planner's own `ESCALATE`, so no pre-planning model call remains.
+- The merge-base capture was removed: a visual departure is compared against the mockup or approved prototype only, and every departure is blocking — a second stack, 4–8 minutes, to attribute a departure whose fix is the same either way (ticket cut 9).
+
+- The visual tooling analysis left the loop (cut 10): it was a per-miss dispatch whose sweeps the next verifier ran, a recording role and a `prepare --miss` stop. It is now `skills/flow-visual-tooling-analysis/SKILL.md`, which the operator runs inline when a miss shows; the verifier's sweeps change only by the operator's edit.
+
+### review-panel.md — hand-assembled briefs and no docs-only guard (slim-flow-loop, cuts 1 and 4)
+
+- *`render-slot-prompt` and `check-panel-docs-only` deleted* — a brief is a few blockquotes and a template body the parent already holds, so a rendering guard with its own placeholder and block-extraction contract cost more to keep than the copy it saved; the docs-only reduction moved into `plan-check`, which decides a documentation-only change's panel `primary` alone before any round runs, so no round re-classifies the branch.

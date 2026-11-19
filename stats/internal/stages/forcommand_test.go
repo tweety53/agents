@@ -12,11 +12,8 @@ func TestForCommandKeepsTableOrder(t *testing.T) {
 	if len(keys) == 0 || keys[0] != "flow.plan" {
 		t.Fatalf("ForCommand(/flow) = %v, want flow.plan first", keys)
 	}
-	if i, j := slices.Index(keys, "flow.sdd-tdd"), slices.Index(keys, "flow.review-panel"); i < 0 || j < 0 || i > j {
-		t.Errorf("ForCommand(/flow) = %v, want flow.sdd-tdd before flow.review-panel", keys)
-	}
-	if slices.Contains(ForCommand(FlowFast), "flow.visual-verify") {
-		t.Errorf("ForCommand(/flow-fast) carries flow.visual-verify, which /flow-fast never runs")
+	if i, j := slices.Index(keys, "flow.implement"), slices.Index(keys, "flow.review"); i < 0 || j < 0 || i > j {
+		t.Errorf("ForCommand(/flow) = %v, want flow.implement before flow.review", keys)
 	}
 	if ForCommand("nope") == nil || len(ForCommand("nope")) != 0 {
 		t.Errorf("ForCommand(unknown) = %v, want empty", ForCommand("nope"))

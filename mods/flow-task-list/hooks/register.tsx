@@ -245,13 +245,13 @@ export const band = (subs: Row[], pending: Row[], change: string | null = null, 
 // Each flow.* stage key's phase, per skills/flow/stage-keys.md. `flow.decide` is left out: it marks
 // both the brainstorm and a fix run, so it keeps whichever phase is current.
 const PHASE_KEYS: Record<Phase, string[]> = {
-  'flow-plan': ['kickoff', 'brainstorm', 'design-approval', 'create-artifacts', 'writing-plans', 'plan-review'],
+  'flow-plan': ['plan', 'kickoff', 'brainstorm', 'design-approval', 'create-artifacts', 'writing-plans', 'plan-review'],
   'flow-implement': [
-    'load-context', 'isolate-workspace', 'sdd-tdd', 'document-fix', 'review-panel', 'verify',
+    'implement', 'review', 'load-context', 'isolate-workspace', 'sdd-tdd', 'document-fix', 'review-panel', 'verify',
     'visual-verify', 'stage-diff', 'run-instructions', 'write-in-progress',
   ],
   'flow-integrate': [
-    'preflight', 'unfinished-work-gate', 'landing-question', 'preserve-sessions', 'commit-two',
+    'land', 'preflight', 'unfinished-work-gate', 'landing-question', 'preserve-sessions', 'commit-two',
     'landing-routes', 'verify-merge', 'cleanup', 'verify-cleanup',
     'write-finished', 'self-review', 'refresh-main-checkout',
   ],

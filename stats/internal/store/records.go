@@ -556,18 +556,15 @@ func autoStageFor(key string) string {
 		return "flow.self-review"
 	case strings.HasPrefix(key, "pipeline-fix-"):
 		return "flow.pipeline-fix"
-	case strings.HasPrefix(key, "panel-"), strings.HasPrefix(key, "full-suite-fix-"):
-		return "flow.review-panel"
-	case strings.HasPrefix(key, "plan-review-"): // /flow's plan reviewer, ahead of the planner's plan- case
-		return "flow.plan-review"
-	case strings.HasPrefix(key, "plan-"): // /flow's planner, before or between its own stage marks
-		return "flow.brainstorm"
-	case strings.HasPrefix(key, "visual-verify"):
-		return "flow.visual-verify"
-	case strings.HasPrefix(key, "verify"):
+	case strings.HasPrefix(key, "panel-"), strings.HasPrefix(key, "full-suite-fix-"),
+		strings.HasPrefix(key, "fix-") && strings.HasSuffix(key, "-review"):
+		return "flow.review"
+	case strings.HasPrefix(key, "plan-"): // /flow's planner
+		return "flow.plan"
+	case strings.HasPrefix(key, "visual-verify"), strings.HasPrefix(key, "verify"):
 		return "flow.verify"
 	default: // task-* and anything unrecognised
-		return "flow.sdd-tdd"
+		return "flow.implement"
 	}
 }
 

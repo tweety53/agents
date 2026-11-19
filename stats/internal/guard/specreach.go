@@ -70,14 +70,14 @@ import (
 //      contains `playwright test`, `node` or `npm` is absent, or a `--list`
 //      run exits non-zero or prints unparsable JSON (its output is relayed).
 //
-// THE INPUT IS ATTACKER-INFLUENCED, exactly as flow-guard check-visual-verification's
+// THE INPUT IS ATTACKER-INFLUENCED, exactly as the in-process visual-verification check (visual-verify-pass prepare)'s
 // header states: .flow/project.md and the checkout's package.json are tracked
 // and editable in any pull request. This guard runs `npm run` on scripts the
 // project already runs through `verify` and `capture` — the same trust level,
 // no widening — and every interpolated value reaching an error message passes
 // through sanitizeDisplay first.
 //
-// THE HEADING SCAN AND TABLE PARSER ARE flow-guard check-visual-verification's OWN
+// THE HEADING SCAN AND TABLE PARSER ARE the in-process visual-verification check (visual-verify-pass prepare)'s OWN
 // CONVENTIONS, reused rather than reinvented — vvHeadingCount,
 // vvSectionLines and vtSplitCells/vtTrimCell/vtFoldCell, with every
 // interpolated value reaching an error message passed through

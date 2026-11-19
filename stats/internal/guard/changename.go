@@ -9,8 +9,8 @@ import "strings"
 // function's comment is canonical for why each hazard is in it — the `/` that
 // was blocked only by an accident of string concatenation, and the glob
 // metacharacter that once matched and overwrote a DIFFERENT change's
-// preserved record. The bash guard that still carries the rule
-// (check-workspace-isolation.sh) keeps its own copy because it is
+// preserved record. The bash guard that carried the rule
+// (check-workspace-isolation.sh, retired) kept its own copy because it is
 // single-file by design and copied into projects one at a time; its harness
 // asserts the same rejected shapes, which is what keeps the copies from
 // drifting apart silently.

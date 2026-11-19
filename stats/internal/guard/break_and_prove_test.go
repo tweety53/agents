@@ -2,6 +2,7 @@ package guard
 
 import (
 	"bytes"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -532,20 +533,20 @@ func TestBreakAndProveCleanBackgroundChild(t *testing.T) {
 }
 
 // A runner with no directory flag runs through a shell that enters its
-// directory first, as review-panel.md's break-and-prove instruction says: a
+// directory first, as fix.md's break-and-prove instruction says: a
 // cache it writes lands under the subdirectory's own ignore, where a run from
 // the root leaves an untracked root directory the post-restore check refuses
 // (kan-1057 self-review, F1). Each script writes a file into cache/, since an
 // empty directory is invisible to git status.
 func TestBreakAndProveSubdirectoryShellForm(t *testing.T) {
 	t.Parallel()
-	doc, err := os.ReadFile("../../../skills/flow/review-panel.md")
+	doc, err := os.ReadFile("../../../skills/flow/fix.md")
 	if err != nil {
 		t.Fatal(err)
 	}
 	const form = "`-- sh -c 'cd stats/web && exec npx vitest run <file>'`"
 	if !strings.Contains(string(doc), form) {
-		t.Errorf("review-panel.md does not carry the subdirectory shell form %s", form)
+		t.Errorf("fix.md does not carry the subdirectory shell form %s", form)
 	}
 	base := bpBuild(t)
 	sed := []string{"--sed", "s/mode: strict/mode: lax/", "sub/config.yaml"}
@@ -592,4 +593,74 @@ func TestBreakAndProveNamesTheRootOnARestoredFailure(t *testing.T) {
 	mvCheck(t, "names the repository root", named, "%s", r.err)
 	mvCheck(t, "names the go -C form", strings.Contains(r.err, "go -C <dir> test"), "%s", r.err)
 	mvCheck(t, "restores the file", bpConfigOf(repo) == bpConfig, "%q", bpConfigOf(repo))
+}
+
+type mvRes struct {
+	rc       int
+	out, err string
+}
+
+// all is the harness's OUT: stdout and stderr together (2>&1).
+func (r mvRes) all() string { return r.out + r.err }
+
+func mvCheck(t *testing.T, label string, ok bool, format string, a ...any) {
+	t.Helper()
+	t.Run(label, func(t *testing.T) {
+		if !ok {
+			t.Fatalf(format, a...)
+		}
+	})
+}
+
+// mvCopyTree copies src to dst; an executable is linked to its master inode
+// (writeExec), so a copied guard or harness costs no fresh assessment.
+func mvCopyTree(t *testing.T, src, dst string) {
+	t.Helper()
+	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		target := dst + strings.TrimPrefix(p, src)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		b, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		fi, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if fi.Mode()&0o111 != 0 {
+			writeExec(t, target, string(b))
+			return nil
+		}
+		return os.WriteFile(target, b, fi.Mode().Perm())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mvCreate(t *testing.T, path string) *os.File {
+	t.Helper()
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { f.Close() })
+	return f
+}
+
+// bashAtBase writes each scripts/<rel> as it stood at d71a2327 into one
+// temporary directory, keeping rel's layout, and returns that directory.
+func bashAtBase(t *testing.T, rels ...string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, rel := range rels {
+		src := historicalFile(t, "../../..", "d71a2327", "scripts/"+rel)
+		writeFile(t, filepath.Join(dir, rel), string(src))
+	}
+	return dir
 }

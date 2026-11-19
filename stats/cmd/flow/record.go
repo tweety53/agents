@@ -30,11 +30,9 @@ import (
 
 // recordRoles is the closed set of roles a dispatch row may record --
 // design.md's own `implementer · reviewer · panel-fix · red-partner ·
-// planner · conductor · verifier`, planner being the tooling analyst
-// skills/flow/visual-verify-tooling-analysis.md dispatches when a fix run reports a missed
-// defect (KAN-550) -- brainstorm.md's sections B-D and flow.document-fix,
-// which design.md's planner-role once dispatched, are the parent's own
-// inline work now -- conductor being the
+// planner · conductor · verifier`. brainstorm.md's sections B-D and
+// flow.document-fix, which design.md's planner-role once dispatched, are the
+// parent's own inline work now. Conductor is the
 // subagent `/flow` dispatches to run skills/flow/implement.md,
 // review-panel.md and verify-and-handoff.md
 // (design.md's conductor-runs-implementation-half), and verifier being the
@@ -56,7 +54,7 @@ import (
 // place, and the store's rows are the only other copy.
 //
 // explorer is an Explore subagent a /flow planning session dispatches during
-// flow.brainstorm; a Plan subagent there records planner (kan-1033,
+// flow.plan; a Plan subagent there records planner (kan-1033,
 // design.md §1). merger is the one-shot subagent that folds a panel
 // round's reports into one summary (skills/flow/review-panel.md, The
 // findings merger): never reviewer, whose rows the panel guards read as
@@ -393,7 +391,7 @@ neither) and is refused (exit 1), before anything is written, unless the
 change's checkout -- the one carrying .superpowers/sdd/<change>/ -- has
 -commit on origin/<base> and -base an ancestor of -commit, and, when
 check-visual-trigger matches the files of -base..-commit, the request's
-latest flow.visual-verify run carrying it ended completed. With the store
+latest flow.verify run carrying -screenshot ended completed. With the store
 unreachable the git checks still run, the stage-run read is skipped with one
 warning line, and the write is journalled. Exit 0 written or journalled, 1
 refused, 2 usage.
@@ -1232,6 +1230,13 @@ func printLaunchLines(stdout io.Writer, dir, change, role, key string) {
 	}
 }
 
+// fixReviewKeyRE and fixImplementerKeyRE match a fix's own dispatch key, fix-<k>-review or fix-<k>-implementer
+// (skills/flow/fix.md).
+var (
+	fixReviewKeyRE      = regexp.MustCompile(`^fix-[1-9][0-9]*-review$`)
+	fixImplementerKeyRE = regexp.MustCompile(`^fix-[1-9][0-9]*-implementer$`)
+)
+
 // launchRoleID is the policy role a dispatch's -role and -key derive, or ""
 // where they derive none -- a self-review or pipeline-fix key among them. A
 // task's gated-review fixer and its re-commit run on the panel-fix pair.
@@ -1255,14 +1260,14 @@ func launchRoleID(role, key string) string {
 		return "minor-fix"
 	case role == "panel-fix":
 		return "panel-fix"
-	case role == "planner" && strings.HasPrefix(key, "fix-plan-"):
-		return "fix-planner"
+	case role == "reviewer" && fixReviewKeyRE.MatchString(key):
+		return "panel-reviewer"
+	case role == "implementer" && fixImplementerKeyRE.MatchString(key):
+		return "implementer"
 	case role == "planner" && strings.HasPrefix(key, "plan-short-"):
 		return "planner-short"
 	case role == "verifier" && strings.HasPrefix(key, "visual-verify"):
 		return "visual-verifier"
-	case role == "planner" && strings.HasPrefix(key, "tooling-analysis-"):
-		return "tooling-analyst"
 	case role == "implementer" && strings.HasPrefix(key, "operator-"):
 		return "operator-asked"
 	}

@@ -13,13 +13,13 @@ import (
 // The contract below moved here from the header of the deleted
 // scripts/check-verify-green.sh shim (KAN-1058).
 //
-// flow-guard check-verify-green — whether this run's inline verify is green, run by
+// check-verify-green (run in process by visual-verify-pass, no longer a flow-guard subcommand) — whether this run's inline verify is green, run by
 // `flow.visual-verify` step 3 before any verifier is dispatched
 // (skills/flow/visual-verify.md): visual verification starts only after
 // **Verify** (skills/flow/verify-and-handoff.md) has closed green, never
 // beside a verify still running or blocked.
 //
-// Usage: flow-guard check-verify-green <worktree> <change-name> <session-token> [<worktree>...]
+// Arguments, as the function takes them: check-verify-green <worktree> <change-name> <session-token> [<worktree>...]
 //
 // <worktree> is the change's canonical worktree, the one its rows are
 // recorded from; each further <worktree> is another worktree of the set.
@@ -54,9 +54,8 @@ import (
 // returns no row of the change at all — <worktree> is not the canonical
 // worktree its rows are recorded from) — the cause on stderr.
 
-// checkVerifyGreen is `flow-guard check-verify-green`: the comment above is the contract. The dispatch read is Env.Dispatches when set,
+// checkVerifyGreen is `check-verify-green`: the comment above is the contract. The dispatch read is Env.Dispatches when set,
 // else `flow record dispatches`.
-func init() { Registry["check-verify-green"] = checkVerifyGreen }
 
 const vgPrefix = "check-verify-green: "
 
@@ -69,7 +68,7 @@ var vgFixSuffix = regexp.MustCompile(`^verify-(fix-)?[0-9]+(-|$)`)
 
 func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 3 || args[1] == "" || args[2] == "" {
-		fmt.Fprintf(stderr, "%susage: flow-guard check-verify-green <worktree> <change-name> <session-token> [<worktree>...]\n", vgPrefix)
+		fmt.Fprintf(stderr, "%susage (in-process, run by visual-verify-pass): <worktree> <change-name> <session-token> [<worktree>...]\n", vgPrefix)
 		Reason(env, "usage")
 		return 2
 	}

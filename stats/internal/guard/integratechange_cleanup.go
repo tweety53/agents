@@ -35,6 +35,22 @@ func (c *ic) workspaceCommand(m, verb string) string {
 	return ""
 }
 
+// selfReviewCompleted asks flowd whether the change holds a completed
+// flow.self-review stage run -- the self-review pass's land marker, in
+// place of a committed report (KAN-1073). ok false when flowd cannot answer.
+func (c *ic) selfReviewCompleted() (done, ok bool) {
+	cmd := c.cmd("/", "flow", "stage", "completed", "-C", c.main, "-stage", "flow.self-review", c.name)
+	cmd.Stdout = c.stdout
+	switch rcOf(cmd.Run()) {
+	case 0:
+		return true, true
+	case 1:
+		return false, true
+	default:
+		return false, false
+	}
+}
+
 // icWithID: <command> with the workspace id tokens substituted.
 func icWithID(command, id string) string {
 	command = strings.ReplaceAll(command, "<id_underscored>", strings.ReplaceAll(id, "-", "_"))
@@ -48,7 +64,14 @@ var icWorkspaceID = regexp.MustCompile(`^[A-Za-z0-9_.-]*$`)
 func (c *ic) cleanup() {
 	rbase := map[int]string{}
 	c.loadSet()
-	c.markBegin("flow.verify-merge")
+	done, ok := c.selfReviewCompleted()
+	if !ok {
+		c.die("self-review-state-unknown", "flowd cannot say whether flow.self-review completed for %s — nothing was removed", c.name)
+	}
+	if !done {
+		c.stopAs("self-review-not-done", "self-review-report", "flow.self-review has not completed for "+c.name+" — run the self-review pass and end its stage completed, then re-run cleanup; nothing was removed")
+	}
+	c.markBegin("flow.cleanup")
 	for i := range c.wt {
 		if !isDir(c.wt[i]) {
 			continue
@@ -72,9 +95,6 @@ func (c *ic) cleanup() {
 		c.stopOutcome = "not-run-2"
 		c.stop("not-merged", c.wt[i]+" is not merged into origin/"+c.base+" — this is not run 2; remove nothing and run prepare")
 	}
-	c.markEnd("flow.verify-merge", "completed")
-
-	c.markBegin("flow.cleanup")
 	for _, m := range c.mains {
 		c.run("remove-change-worktrees", m, c.name)
 		if c.rc != 0 {
@@ -128,9 +148,6 @@ func (c *ic) cleanup() {
 	} else {
 		c.say("PROPOSAL-ARTIFACT: none to remove")
 	}
-	c.markEnd("flow.cleanup", "completed")
-
-	c.markBegin("flow.write-finished")
 	keep := []string{}
 	for _, w := range c.wt {
 		if isDir(w) {
@@ -140,12 +157,10 @@ func (c *ic) cleanup() {
 	if !c.writeState("FINISHED", keep, "") {
 		c.stopAs("state-write-failed", "state", "the FINISHED write failed — report it")
 	}
-	c.markEnd("flow.write-finished", "completed")
 	if c.jiraKey != "" {
 		c.say("JIRA: transition " + c.jiraKey + " to Done")
 	}
 
-	c.markBegin("flow.refresh-main-checkout")
 	for _, m := range c.mains {
 		base, _ := c.gitQuiet("-C", m, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
 		base = strings.TrimPrefix(base, "origin/")
@@ -170,7 +185,7 @@ func (c *ic) cleanup() {
 		}
 		c.run("refresh-main-checkout", m, base)
 	}
-	c.markEnd("flow.refresh-main-checkout", "completed")
+	c.markEnd("flow.cleanup", "completed")
 	c.say("NEXT: print the Finished handoff (skills/flow/cleanup.md) — its Learning: and Prompt tuning: lines included")
 }
 

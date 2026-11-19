@@ -164,11 +164,11 @@ func runRecordRequestEnd(ctx context.Context, args []string, getenv func(string)
 // checkout's flow-lint-green holds when it declares a `## lint` list (a
 // green lint list stamped it — kan-1081 self-review, F1), the request's
 // latest /flow-interactive flow.verify run ended completed, and -- when
-// check-visual-trigger matches base..commit's files -- its latest
-// flow.visual-verify run ended completed carrying a metrics.screenshot that
+// check-visual-trigger matches base..commit's files -- that same run
+// carrying a metrics.screenshot that
 // names a file modified between the run's begin and end; no duration is
 // evidence. A store that cannot be reached
-// skips both stage-run reads, with one ⚠ line. 0 passes; 1
+// skips the stage-run read, with one ⚠ line. 0 passes; 1
 // refuses with one line naming the failed check.
 func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey string, n int, commit, base string, stderr io.Writer, getenv func(string) string) int {
 	refuse := func(format string, a ...any) int {
@@ -231,7 +231,7 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 
 	verify, err := latestRequestRun(ctx, f, projectKey, n, "flow.verify")
 	if errors.Is(err, client.ErrUnavailable) && !errors.Is(err, client.ErrDaemonAnswered) {
-		fmt.Fprintf(stderr, "⚠ flow: store unreachable — skipped request %d's verify and UI check reads; the git checks passed\n", n)
+		fmt.Fprintf(stderr, "⚠ flow: store unreachable — skipped request %d's verify read; the git checks passed\n", n)
 		return 0
 	}
 	if err != nil {
@@ -256,44 +256,30 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 		return refuse("check-visual-trigger cannot answer: %s", strings.TrimSpace(errBuf.String()))
 	}
 
-	latest, err := latestRequestRun(ctx, f, projectKey, n, "flow.visual-verify")
-	if errors.Is(err, client.ErrUnavailable) && !errors.Is(err, client.ErrDaemonAnswered) {
-		fmt.Fprintf(stderr, "⚠ flow: store unreachable — skipped request %d's UI check read; the git checks and the verify read passed\n", n)
-		return 0
-	}
-	if err != nil {
-		return refuse("read request %d's UI check runs: %v", n, err)
-	}
-	switch {
-	case latest == nil:
-		return refuse("request %d touched `ui paths` and has no UI check (flow.visual-verify run carrying -request %d)", n, n)
-	case latest.Outcome == nil || *latest.Outcome != stages.OutcomeCompleted:
-		return refuse("request %d's latest UI check (flow.visual-verify) is %s, not completed — fix, re-check and end it completed", n, runOutcome(latest))
-	}
 	ended := ""
-	if latest.EndedAt != nil {
-		ended = *latest.EndedAt
+	if verify.EndedAt != nil {
+		ended = *verify.EndedAt
 	}
 	endAt, err := time.Parse(time.RFC3339Nano, ended)
 	if err != nil {
-		return refuse("request %d's latest UI check (flow.visual-verify) carries an unreadable endedAt %q", n, ended)
+		return refuse("request %d's latest verify (flow.verify) carries an unreadable endedAt %q", n, ended)
 	}
-	startAt, _ := time.Parse(time.RFC3339Nano, latest.StartedAt) // parsed by latestRequestRun
+	startAt, _ := time.Parse(time.RFC3339Nano, verify.StartedAt) // parsed by latestRequestRun
 	var metrics struct {
 		Screenshot string `json:"screenshot"`
 	}
-	if len(latest.Metrics) > 0 {
-		_ = json.Unmarshal(latest.Metrics, &metrics) // an unreadable object reads as no screenshot
+	if len(verify.Metrics) > 0 {
+		_ = json.Unmarshal(verify.Metrics, &metrics) // an unreadable object reads as no screenshot
 	}
 	if metrics.Screenshot == "" {
-		return refuse("request %d's latest UI check (flow.visual-verify) carries no -screenshot — end it with -screenshot <the screenshot read> (step 7)", n)
+		return refuse("request %d's latest verify (flow.verify) carries no -screenshot — end it with -screenshot <the screenshot read> (step 7)", n)
 	}
 	fi, err := os.Stat(metrics.Screenshot)
 	if err != nil {
-		return refuse("request %d's UI check screenshot %s: %v", n, metrics.Screenshot, err)
+		return refuse("request %d's verify screenshot %s: %v", n, metrics.Screenshot, err)
 	}
 	if at := fi.ModTime(); at.Before(startAt) || at.After(endAt) {
-		return refuse("request %d's UI check screenshot %s was taken at %s, outside its run %s–%s", n, metrics.Screenshot, at.UTC().Format(time.RFC3339Nano), latest.StartedAt, ended)
+		return refuse("request %d's verify screenshot %s was taken at %s, outside its run %s–%s", n, metrics.Screenshot, at.UTC().Format(time.RFC3339Nano), verify.StartedAt, ended)
 	}
 	return 0
 }

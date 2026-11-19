@@ -73,7 +73,6 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 |---|---|
 | `explorer` | Reads the codebase to answer a planner's question. |
 | `plan-designer` | Proposes a design or plan for the planner to choose from. |
-| `plan-triage` | Judges whether a new change needs full or short planning (headless). |
 | `planner` | Writes the design and the task plan. |
 | `planner-short` | Writes the design and the task plan of a change triaged short, reading the code itself with no Explore or Plan agents. |
 
@@ -82,7 +81,6 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 | Role | Does |
 |---|---|
 | `implementer` | Writes the code for a group of tasks, tests first. |
-| `fix-planner` | Plans a fix run's fix into the change's plan: appends its tasks, or re-plans at 6 or more. |
 | `panel-fix` | Fixes what the review panel found. |
 | `minor-fix` | Fixes a review round's Minors when the round raised nothing worse. |
 | `operator-asked` | Runs a task the operator asked a subagent for, in their own words, inside a /flow-interactive request. |
@@ -91,13 +89,11 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 
 | Role | Does |
 |---|---|
-| `design-reviewer` | Reviews the plan's three artifacts before implementation, from the documents alone. |
-| `decider` | Decides the implementer groups, the review panel's bundles and visual verification from the approved plan (headless). |
+| `decider` | Reviews the approved plan and decides the implementer groups, the review panel's bundles and visual verification (headless, `plan-check`). |
 | `gated-reviewer` | Reviews each implementer group's tasks as they land. |
 | `gated-re-reviewer` | Re-checks a gated review's findings after their fix. |
 | `panel-reviewer` | Reviews the whole branch, first pass. |
 | `panel-rerun` | Re-reviews the branch after a fix round. |
-| `fix-run-judge` | Picks which review slots a fix run's changes need. |
 | `panel-merger` | Merges the reviewers' findings into one list without duplicates. |
 
 ### Visual verification
@@ -105,7 +101,6 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 | Role | Does |
 |---|---|
 | `visual-verifier` | Screenshots the UI and compares it with the mockup. |
-| `tooling-analyst` | Works out why visual verification missed a defect. |
 
 ### Self-review
 

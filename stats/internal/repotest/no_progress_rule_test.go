@@ -54,7 +54,6 @@ func TestNoProgressRule(t *testing.T) {
 		{"skills/flow/cleanup.md", "Three stops in a row of `cleanup` take **Three failed rounds**"},
 		{"skills/flow/integrate.md", "only stops the parent can cure itself. A stop that exists to ask the operator — `STOP: main-checkout`, `STOP: base-mismatch` — is never counted toward it"},
 		{"skills/flow/cleanup.md", "only stops the parent can cure itself. A stop that exists to ask or to hand to the operator — `STOP: worktree-cleanup`, `STOP: not-merged` — is never counted toward it"},
-		{"skills/flow/verify-fix-loop.md", "and for **Three failed rounds** of this loop — a round being one `In-run fix <k>` task"},
 	}
 	if strings.Contains(repoText(t, "skills/flow/review-panel.md"), "a third breach of the same slot is asked") {
 		t.Error("skills/flow/review-panel.md still asks on a slot's third breach")
@@ -120,4 +119,14 @@ func section(t *testing.T, rel, heading string) string {
 		s = s[:j+3]
 	}
 	return s
+}
+
+// TestNoProgressRuleCountsFixRounds pins that pipeline.md's no-progress rule
+// counts three failed rounds of fix.md, a round being one fix.
+func TestNoProgressRuleCountsFixRounds(t *testing.T) {
+	t.Parallel()
+	rule := strings.Join(strings.Fields(section(t, "skills/flow-contracts/pipeline.md", "Fewest operator actions")), " ")
+	if want := "three failed rounds of `skills/flow/fix.md`, a round being one fix"; !strings.Contains(rule, want) {
+		t.Errorf("pipeline.md's Fewest operator actions lacks %q", want)
+	}
 }

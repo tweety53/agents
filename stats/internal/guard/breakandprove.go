@@ -39,8 +39,7 @@ import (
 // made on the same file. The file's bytes are copied to a temp snapshot
 // before anything mutates, and the restore writes those bytes back — so
 // uncommitted edits on <file> itself survive the loop, and the script
-// deliberately does NOT refuse a dirty <file> the way flow-guard mutate-and-verify
-// does. No git checkout call appears in this script, structurally.
+// deliberately does NOT refuse a dirty <file>. No git checkout call appears in this script, structurally.
 //
 // THE CLEAN RE-RUN IS THE SCRIPT'S JOB, not the caller's memory. Gradle
 // silently skips a re-run when only a compose or YAML file changed — those
@@ -63,8 +62,7 @@ import (
 // (the snapshot restore needs no git), while a `--patch` target must not
 // (git apply is repository-bound).
 //
-// Exit codes (the same philosophy as flow-guard mutate-and-verify and
-// flow-guard run-reproducer: the code reports this script's own mechanics and the
+// Exit codes (the same philosophy as flow-guard run-reproducer: the code reports this script's own mechanics and the
 // proof's legs, never a richer verdict):
 //   0  proof held — the mutation was applied, run 1 exited non-zero, the
 //      file was restored byte-exact, and run 2 exited zero. Both runs'
@@ -102,7 +100,7 @@ import (
 // prevent is an agent whose `git checkout --` restore also reverted the
 // uncommitted edits it had made on the same file. So uncommitted edits on
 // <file> survive the loop, the guard deliberately does NOT refuse a dirty
-// <file> the way mutate-and-verify does, and no checkout call appears in this
+// <file>, and no checkout call appears in this
 // file, structurally (break_and_prove_test.go case 5).
 func init() {
 	Registry["break-and-prove"] = breakAndProve
@@ -166,7 +164,7 @@ func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {
 	// relative argument must keep meaning what the caller meant by it.
 	// Joined as bash joined them, "$ORIG_PWD/$1", uncleaned. toAbs and the
 	// usageFail/cannotAnswer/refuse trio deliberately repeat
-	// mutateandverify.go's rather than moving into a shared helper: tiny,
+	// the other guards' rather than moving into a shared helper: tiny,
 	// program-name-parameterized, and an extraction would be the wrong
 	// abstraction for helpers this small.
 	origPwd := env.Dir
@@ -531,7 +529,7 @@ func (r *bpRun) matches() bool {
 // a mutated file is never left behind unreported. Then diff the whole tree
 // against the step 7 snapshot (postmutationcheck.go): any new stash entry or
 // unexpected status line is reported and forces exit 2, unless exit 3
-// already took precedence — the precedence mutate-and-verify applies.
+// already took precedence — the precedence this guard applies.
 func (r *bpRun) exit(rc int) int {
 	r.once.Do(func() {
 		r.mu.Lock()
@@ -676,7 +674,7 @@ func smcANSIC(s string, utf8Locale bool) string {
 // SIGHUP, SIGINT and SIGTERM are re-raised, so the process dies of them.
 // The rest cannot be: the Go runtime drops a SIGPIPE it did not raise
 // itself, and answers a sent SIGABRT, SIGFPE, SIGSYS, SIGTRAP (and, on
-// linux, SIGSEGV, SIGBUS, SIGILL) with a stack dump and exit 2 -- which mutate-and-verify's caller would read as
+// linux, SIGSEGV, SIGBUS, SIGILL) with a stack dump and exit 2 -- which a caller would read as
 // "refused, nothing was mutated". They end in exit 128+n, the status a
 // shell reads for death by that signal. A SIGPIPE arriving on the caller's
 // last write is handled too: the returned function takes a pending signal
@@ -736,4 +734,19 @@ func trapExitSignals(cleanup func()) func() {
 		close(done)
 		<-finished
 	}
+}
+
+// mvHaltOnEPIPE stops the main flow at a write to a closed stdout. The
+// SIGPIPE that came with it is the trap's (trapExitSignals), which restores
+// and exits; bash died at that write, so no later step -- the next harness
+// above all -- may start meanwhile. Only a trapped SIGPIPE returns EPIPE
+// here: untrapped, the runtime ends the process at the write.
+type mvHaltOnEPIPE struct{ w io.Writer }
+
+func (h mvHaltOnEPIPE) Write(p []byte) (int, error) {
+	n, err := h.w.Write(p)
+	if errors.Is(err, syscall.EPIPE) {
+		select {}
+	}
+	return n, err
 }

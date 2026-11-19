@@ -357,7 +357,7 @@ import (
 // skipped when every command of a test list was skipped, and completed
 // otherwise — a lint list always runs flow-guard check-spec-reach, so it never ends
 // skipped. The begin carries `-diff-base <sha>`, the HEAD of <worktree> (the
-// verified worktree, never <canonical-worktree>), which flow-guard check-verify-green
+// verified worktree, never <canonical-worktree>), which the in-process verify-green check (visual-verify-pass close)
 // judges the row by; a <worktree> git cannot resolve a HEAD in records none,
 // and that row is never green (decision verify-row-records-head). Lint and
 // test share the row: each group writes a `flow-verify-running-<key>-<token>-<list>`

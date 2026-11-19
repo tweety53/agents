@@ -73,7 +73,7 @@ first.
 workspace value is a function of the workspace id, so it can be resolved the moment the id is known.
 A `cache index` row's is not: it is **claimed by probing**, which happens once, at the point a run
 exports the declared variables. Anything that needs a workspace value **before** that — a run
-resolving the run instructions, most of all — can resolve every other row and could not
+resolving the stack's URLs, most of all — can resolve every other row and could not
 resolve this one, so a `url` row built on it would be resolvable in one place in a run and not in
 another. Excluding it keeps every `url` row resolvable wherever any workspace value is, which is
 worth more than the one composed value it costs: a project that needs the claimed index inside a
@@ -139,7 +139,7 @@ the pipeline **reads**, validation binds what it **substitutes**, and a command 
 contained. If a key in this section ever named a file the pipeline reads, that path would be
 contained exactly as a `## standards` path is — the rule follows the read, not the section.
 
-**Mechanically enforced** by `<agents repo>/scripts/flow-guard check-workspace-isolation`, which reads
+**Mechanically enforced** when a run sets up a workspace, by `flow-guard prepare-workspace`, which reads
 `<project>/.flow/project.md` and reports each failing row by name with the rule it broke: the closed
 `Resource` vocabulary; the `Variable` shape; the bare-integer `Default` on a `port` and a
 `cache index` row; each of the four `In a workspace` cell forms against the `Resource` that selects

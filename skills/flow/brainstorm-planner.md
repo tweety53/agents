@@ -5,7 +5,7 @@ Sections **B**, **C** and **D** of the brainstorming phase, run by `/flow`'s `pl
 `/flow`'s creating run and in a `/flow-plan` capture alike — no one relays these sections, though
 the session may dispatch the fresh subagents **Explore and design agents** below allows, and
 neither does the self-review planner, which runs B, C and D as item 1 of **3. Fix every finding that is
-not `big`** (`skills/flow-self-review/SKILL.md`) binds them, and the in-run fix planner, which
+not `big`** (`skills/flow-self-review/SKILL.md`) binds them, and the self-review planner, which
 runs them as **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`) binds them. Every "you" below addresses that session, or that planner, directly.
 
 In a `planner` dispatch, every **AskUserQuestion** these sections name is written as a question of
@@ -47,7 +47,7 @@ states.
   answer revising the design. This is a scoped override of every call `brainstorming` makes for
   the user — its **Minor** pile among them — of the single round of questions its builder check
   allows, and of **The checklist**'s display-only-formatting bullet and one-call batching
-  (`skills/spectre-planning/SKILL.md`). The self-review and in-run fix planners never apply it:
+  (`skills/spectre-planning/SKILL.md`). The self-review planner never apply it:
   they take the recommendation (**Auto-resolution**,
   `skills/flow-contracts/operator-prompts-auto-resolution.md`).
 
@@ -85,9 +85,8 @@ states.
   alone is the design's whole state. The section ends with `**Scope:** small|regular|large — <one-line
   reason>`, the planner's estimate after exploring: `small` a change confined to one known area
   with one obvious approach, `large` one that spans repositories or apps, changes a data model or
-  a public contract, or needed competing designs; `regular` otherwise. The planning triage judges
-  by the same criteria before the first round (`skills/flow/plan-triage-prompt.md`), and a short
-  round that estimates `large` returns `ESCALATE` (**Run brainstorming and planning through the
+  a public contract, or needed competing designs; `regular` otherwise. A short round (every new change plans
+  short first) that estimates `large` returns `ESCALATE` (**Run brainstorming and planning through the
   planner role**, `skills/flow/brainstorm.md`).
 
 - Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
@@ -112,7 +111,7 @@ states.
   built on the app's own shell and styles — the real header and nav, the project's theme,
   stylesheet tokens and existing component classes, the content width and chart size of the
   sibling views — never a standalone restyle. The file draws the proposed page
-  alone — no caption, note or screenshot beside it — since `flow.visual-verify` renders the whole
+  alone — no caption, note or screenshot beside it — since `flow.verify` renders the whole
   file as the capture's frame; a note to the operator goes in the message. **The operator sees the prototype
   whenever one exists**: a planner dispatch has no Artifact tool, so it only writes the
   file, and the session that dispatched it publishes it with the Artifact tool after every return
@@ -125,14 +124,14 @@ states.
   Artifact tool at all does that session print the file's absolute path instead, saying plainly
   that it could not be published — never silently. Cite the approved file, with its Artifact URL
   or, where it could not be published, that it was not, from `design.md`'s `## Context` as the
-  spec the implementation and `flow.visual-verify` compare
+  spec the implementation and `flow.verify` compare
   against, and every capture test of a view it draws drives each interactive state it shows —
-  hover, focus, pressed — so `flow.visual-verify` renders and compares that state too. A change with nothing visible builds none. Where the confirm is not asked — the
-  `## decisions: recommended` mode, and the self-review and in-run fix planners, which take the
+  hover, focus, pressed — so `flow.verify` renders and compares that state too. A change with nothing visible builds none. Where the confirm is not asked — the
+  `## decisions: recommended` mode, and the self-review planner, which take the
   recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)
   — the published prototype is the spec without an approval round. **The approved prototype is
   the source of truth**: any departure from it found later in the run — by a reviewer,
-  verify or `flow.visual-verify` — is fixed to match it, auto-resolved and never asked; a UI
+  verify or `flow.verify` — is fixed to match it, auto-resolved and never asked; a UI
   change the operator wants after using it is a later change, not this one.
 
 **Load `skills/flow/seeded-note.md`** only when the ask arrives as a seeded research note — a
@@ -172,7 +171,7 @@ call again at once, doing nothing between calls. Exit 2: a usage error, reported
 `await-own-agents` SubagentStop hook refuses your turn end while one runs.
 
 In `/flow` and `/flow-plan` the recommendation goes to the operator as part of the design, its
-alternatives shown only when they help the operator decide. The self-review and in-run fix planners
+alternatives shown only when they help the operator decide. The self-review planner
 take the recommendation without asking, per **Auto-resolution**
 (`skills/flow-contracts/operator-prompts-auto-resolution.md`).
 
@@ -249,20 +248,20 @@ steps are `  - [ ] **Step N: …**` lines indented two columns beneath it.
 its tasks and the distinct frames `design.md` cites. Above 15 tasks or 25 frames, write
 `## Story split` into `design.md`: two or more slices, each a title, one line of what it delivers
 on its own, and the task ids it takes — every slice shippable alone, the first one the slice the
-others build on. The gate asks whether to split (**Plan review gate** below).
+others build on. The gate asks whether to split (**Plan check gate** below).
 
 Before returning, run `spectre validate "<name>"` and repair any exit-1 finding; its exit 2 is
 reported and stops the plan.
 
 ### Plan review
 
-**Every plan is reviewed** (**Plan review**, `skills/flow/brainstorm.md`); return `PLAN-WRITTEN`
-alone. The self-review and in-run fix planners and a fix run's re-plan are never reviewed.
+**Every plan is checked** (**Plan check**, `skills/flow/brainstorm.md`); return `PLAN-WRITTEN`
+alone. The self-review planner and a fix run's re-plan are never reviewed.
 
-**A dispatch whose prompt names a plan-review report triages it.** It reads the report,
+**A dispatch whose prompt names a `plan-check.md` report triages it.** It reads the report,
 `proposal.md`, `design.md` and `tasks.md`; it opens a file under
 `<abs-worktree>/.superpowers/sdd/planner/` only for a finding whose fix turns on a round's answer.
-Append `## Triage` to the report, one line per finding: `F<k> fixed — <what changed>`, `F<k>
+Append `## Triage` to `plan-check.md`, one line per finding: `F<k> fixed — <what changed>`, `F<k>
 contested — <the repository path:line or artifact line the reviewer could have read>`, `F<k>
 escalated`, or, for an `advisory` only, `F<k> declined — <reason>`. Fix in the artifacts a finding
 with one obvious fix. Escalate a finding whose fix would change a `## Decisions` entry, or that
@@ -271,18 +270,21 @@ you would contest without evidence the reviewer could have read: return `QUESTIO
 into `design.md`'s `## Risks` as `Accepted: <the finding> — <why>`, re-run `spectre validate`, and
 return `PLAN-WRITTEN`.
 
-### Decide
+### Plan check gate
 
-**A headless decider decides how the plan is built and reviewed**, once the plan review has
-closed — the parent never decides itself. One call:
+**One headless pass reviews the plan and decides how it is built and reviewed**, once the final
+planner returned `PLAN-WRITTEN` — the parent never decides itself. One call:
 
 ```bash
-flow-guard decide-groups-panel-visual <worktree> <changeRoot> <abs-worktree>/.superpowers/sdd/decision.json
+flow-guard plan-check <worktree> <changeRoot> <abs-worktree>/.superpowers/sdd/decision.json
 ```
 
 Its header is canonical for the call, its checks, its fallback and its exits;
-`skills/flow/decider-prompt.md` is canonical for the rules and the shape. Exit 2 stops the run with
-its stderr.
+`skills/flow/plan-check-prompt.md` is canonical for the lenses, the rules and the shape. It
+writes `<abs-worktree>/.superpowers/sdd/plan-check.md`, whose last line is `PLAN-CHECK-CLEAN`,
+`PLAN-CHECK-FINDINGS <n>` or `PLAN-CHECK-NOT-RUN`, and the decision. Exit 2 stops the run with its
+stderr. A story split and gate **No** re-run it as `plan-check … -decide-only`, which rewrites
+`decision.json` and leaves `plan-check.md` as it is.
 
 The parent fills `overrides` — session instructions that change a dispatch's pair for this run,
 left empty unless one was given — then renders the file and prints the output verbatim; the `STARTED`
@@ -294,7 +296,46 @@ flow decision render -file <abs-worktree>/.superpowers/sdd/decision.json -sessio
 
 It exits 0 on a printed block and 2 on a usage error or an unreadable file.
 
-#### Model and effort
+**The plan is never acted on unread.** Once the plan-check step has printed its `## Decision` block,
+print the plan summary (**Plan review gate**, `skills/spectre-planning/SKILL.md`) and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The `STARTED` handoff block** (`skills/flow/brainstorm.md`) under it. The
+summary ends on two lines of their own: `**Design:** <absolute path of design.md>` and
+`**Plan check:** <absolute path of the report> — clean | <n> fixed, <n> contested, <n>
+accepted | not run`.
+
+Then the question — `/flow-plan`'s wording is **Save the plan?**, `/flow`'s is **Proceed to
+implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
+updates)**.
+
+**`/flow` never asks its gate question: it takes **Yes** at once** — unless `design.md` carries
+`## Story split`. The summary and the `## Decision` block still print, and the run ends with the
+`STARTED` handoff. An operator who wants the plan changed says so before running the handoff's
+`/flow <name>` — that message re-plans as **No** below. `/flow-plan`'s **Save the plan?** is
+still asked.
+
+**A plan with `## Story split` asks one question first**, in `/flow` and `/flow-plan` alike, the
+slices printed above it: **Split into <n> stories?** — **Split** *(recommended)* / **Build it
+whole**. On **Split**, create one Jira story per slice after the first — its summary the slice
+title; its `## Why` the slice's line, its `## How` the task titles it takes and the absolute path
+of this change's `design.md`, its `## DoD` what the slice delivers on its own — linked to this
+change's issue (**Follow-up issues**,
+`skills/flow-contracts/jira-followups.md`), then dispatch a fresh final planner that narrows
+`tasks.md` to the first slice and removes `## Story split`, and re-run `plan-check … -decide-only`. On **Build it
+whole**, remove `## Story split` and go on. Under the `## decisions: recommended` mode the question
+is not asked and **Split** is taken.
+
+On **No**, take the operator's changes (a follow-up **AskUserQuestion** round when the option
+carried none), write them verbatim to the next `answers-<r>.md`, and dispatch a fresh final planner
+on them as a `QUESTIONS` return is taken (**Run brainstorming and planning through the planner
+role**, `skills/flow/brainstorm.md`) — it revises `tasks.md` and re-runs `spectre validate
+"<name>"`. Then re-run `plan-check … -decide-only` and record the decision again, print the summary and ask
+again. Loop until **Yes**. **Yes** is the only exit. Under the `## decisions: recommended` mode the
+gate takes **Yes** without asking — the summary and the `## Decision` block still print, so the
+record of what was approved stays complete (**Auto-resolution**,
+`skills/flow-contracts/operator-prompts.md`).
+
+`/flow-plan` ends with its own report (**Capturing a new change**, `skills/flow-plan/SKILL.md`).
+
+### Model and effort
 
 **A dispatch's pair is picked by the pair judge**, at dispatch time: write the dispatch's prompt
 to `<abs-worktree>/.superpowers/sdd/pair-judge/<key>.md`, `<key>` the dispatch's key or, for an
@@ -317,44 +358,3 @@ A pair is a model and an agent type joined by `/`: `opus/flow-low` dispatches
 role from **Allowed pairs** (`skills/flow-contracts/model-policy.md`). A plain-language session instruction overrides the pair it names
 for this run only (**Model policy**, `skills/flow-contracts/model-policy.md`), recorded in the
 decision's `overrides`.
-
-### Plan review gate
-
-**The plan is never acted on unread.** Once the Decide step has printed its `## Decision` block,
-print the plan summary (**Plan review gate**, `skills/spectre-planning/SKILL.md`) and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The `STARTED` handoff block** (`skills/flow/brainstorm.md`) under it. The
-summary ends on two lines of their own: `**Design:** <absolute path of design.md>` and
-`**Plan review:** <absolute path of the report> — clean | <n> fixed, <n> contested, <n>
-accepted | not run`.
-
-Then the question — `/flow-plan`'s wording is **Save the plan?**, `/flow`'s is **Proceed to
-implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
-updates)**.
-
-**`/flow` never asks its gate question: it takes **Yes** at once** — unless `design.md` carries
-`## Story split`. The summary and the `## Decision` block still print, and the run ends with the
-`STARTED` handoff. An operator who wants the plan changed says so before running the handoff's
-`/flow <name>` — that message re-plans as **No** below. `/flow-plan`'s **Save the plan?** is
-still asked.
-
-**A plan with `## Story split` asks one question first**, in `/flow` and `/flow-plan` alike, the
-slices printed above it: **Split into <n> stories?** — **Split** *(recommended)* / **Build it
-whole**. On **Split**, create one Jira story per slice after the first — its summary the slice
-title; its `## Why` the slice's line, its `## How` the task titles it takes and the absolute path
-of this change's `design.md`, its `## DoD` what the slice delivers on its own — linked to this
-change's issue (**Follow-up issues**,
-`skills/flow-contracts/jira-followups.md`), then dispatch a fresh final planner that narrows
-`tasks.md` to the first slice and removes `## Story split`, and re-run Decide. On **Build it
-whole**, remove `## Story split` and go on. Under the `## decisions: recommended` mode the question
-is not asked and **Split** is taken.
-
-On **No**, take the operator's changes (a follow-up **AskUserQuestion** round when the option
-carried none), write them verbatim to the next `answers-<r>.md`, and dispatch a fresh final planner
-on them as a `QUESTIONS` return is taken (**Run brainstorming and planning through the planner
-role**, `skills/flow/brainstorm.md`) — it revises `tasks.md` and re-runs `spectre validate
-"<name>"`. Then re-run the Decide step and record the decision again, print the summary and ask
-again. Loop until **Yes**. **Yes** is the only exit. Under the `## decisions: recommended` mode the
-gate takes **Yes** without asking — the summary and the `## Decision` block still print, so the
-record of what was approved stays complete (**Auto-resolution**,
-`skills/flow-contracts/operator-prompts.md`).
-
-`/flow-plan` ends with its own report (**Capturing a new change**, `skills/flow-plan/SKILL.md`).

@@ -100,21 +100,6 @@ to_land() {
   [ "$RC" -eq 0 ] || halt commit
   [ "${2:-}" = no-report ] && return 0
   touch "$WORK/sr-completed"
-}
-peer_fix_case() {
-  to_land "$1" no-report
-  printf 'fix\n' >"$WORK/b-worktrees/demo/fix-b.txt"
-  g -C "$WORK/b-worktrees/demo" add fix-b.txt && g -C "$WORK/b-worktrees/demo" commit -qm "fix(b): the peer fix"
-  old="$(git -C "$WORK/b-worktrees/demo" rev-parse --short HEAD)"
-  printf '[{"angle":"code","disposition":"fixed","ref":"%s","note":"the peer fix"}]' "$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)" >"$WORK/sr-findings.json"
-  touch "$WORK/sr-completed"
-  printf 'moved\n' >"$WORK/b/moved.txt"
-  g -C "$WORK/b" add moved.txt && g -C "$WORK/b" commit -qm "base: moved" && g -C "$WORK/b" push -q origin main
-  sut land "$WORK/a" demo
-  new="$(git --git-dir="$WORK/b-origin.git" log --format=%h --grep="^fix(b): the peer fix$" -1 main)"
-  check "${1}land exits 0" '[ "$RC" -eq 0 ]'
-  check "${1}the re-sync rewrote b's fix sha" '[ -n "$new" ] && [ "$new" != "$old" ]'
-  check "${1}a fixed row names the re-synced sha" 'grep -q -- "-disposition fixed -ref $new" "$WORK/fixed.log"'
 }`
 
 // icFlowStub is the fixture's fake flow CLI; it finds its fixture from its
@@ -333,7 +318,7 @@ check "the fixture's flow stub is the assessed inode" '[ "$WORK/bin/flow" -ef "$
 
 // Cost: 5.88 s — the two-repository prepare, commit and land the test proves, one chain no split can shorten.
 // smoke: core — prepare, commit, land and cleanup over two repositories
-func TestIntegrateChangeHappyPath(t *testing.T) {
+func TestIntegrateChangeMarksLandAndCleanupOnly(t *testing.T) {
 	icRunCases(t, []icCaseDef{
 		{"happy_path", `# --- happy_path ---
 fixture
@@ -347,36 +332,41 @@ check "prepare ends on NEXT: commit" 'printf "%s" "$OUT" | tail -1 | grep -q "^N
 printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
 check "commit exits 0" '[ "$RC" -eq 0 ]'
-check "commit ends on NEXT: self-review" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: run the self-review pass"'
+check "commit ends on NEXT: land" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: flow-guard integrate-change land"'
 [ "$RC" -eq 0 ] || halt commit
 touch "$WORK/sr-completed"
 
 sut land "$WORK/a" demo
 check "land exits 0" '[ "$RC" -eq 0 ]'
 [ "$RC" -eq 0 ] || halt land
+check "land stops at the self-review NEXT" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: run the self-review pass .*then flow-guard integrate-change cleanup"'
+check "prepare, commit and land begin one flow.land and end it completed, then land begins flow.self-review" \
+  '[ "$(grep -c "stage begin" "$WORK/stages.log")" = 2 ] && grep -q "stage begin .*-stage flow.self-review" "$WORK/stages.log" && grep -q "stage begin .*-stage flow.land" "$WORK/stages.log" && grep -q "stage end .*-stage flow.land -outcome completed" "$WORK/stages.log"'
+check "b was pushed before a (merge order)" \
+  'printf "%s\n" "$OUT" | grep "^PUSHED: " | head -1 | grep -q "/b-worktrees/demo"'
+sut cleanup "$WORK/a" demo
+check "cleanup exits 0" '[ "$RC" -eq 0 ]'
 check "a's origin main carries the implementation commit alone" \
   '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -2 | tr "\n" "|")" = "feat(a): do the work|base|" ]'
 check "a's origin main holds no change directory" \
   '[ -z "$(git --git-dir="$WORK/a-origin.git" ls-tree -d main spectre/changes)" ]'
 check "b's origin main carries its implementation commit" \
   '[ "$(git --git-dir="$WORK/b-origin.git" log --format=%s main -1)" = "feat(b): do the work" ]'
-check "b was pushed before a (merge order)" \
-  'printf "%s\n" "$OUT" | grep "^PUSHED: " | head -1 | grep -q "/b-worktrees/demo"'
 check "both worktrees are removed" '[ ! -d "$WORK/a-worktrees/demo" ] && [ ! -d "$WORK/b-worktrees/demo" ]'
 check "the record is FINISHED with an empty worktrees map" \
   '[ "$(jq -c "[.state, .worktrees]" "$WORK/state.json")" = "[\"FINISHED\",{}]" ]'
-check "Jira In Review then Done are handed to the parent" \
-  '[ "$(printf "%s\n" "$OUT" | grep "^JIRA: " | tr "\n" "|")" = "JIRA: transition KAN-1 to In Review|JIRA: transition KAN-1 to Done|" ]'
-check "the stage log runs preflight through refresh-main-checkout" \
-  'head -1 "$WORK/stages.log" | grep -q "stage begin .*-stage flow.preflight" && tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.refresh-main-checkout -outcome completed"'
-check "land ends on NEXT: Finished handoff" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: print the Finished handoff"'
+check "Jira Done is handed to the parent" \
+  '[ "$(printf "%s\n" "$OUT" | grep "^JIRA: " | tr "\n" "|")" = "JIRA: transition KAN-1 to Done|" ]'
+check "cleanup begins one flow.cleanup after land's flow.land and ends it completed" \
+  '[ "$(grep -c "stage begin" "$WORK/stages.log")" = 3 ] && grep -q "stage begin .*-stage flow.cleanup" "$WORK/stages.log" && tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.cleanup -outcome completed"'
+check "cleanup ends on NEXT: Finished handoff" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: print the Finished handoff"'
 check "the NEXT line names the template and its never-omitted lines" 'printf "%s" "$OUT" | tail -1 | grep -qF "(skills/flow/cleanup.md) — its Learning: and Prompt tuning: lines included"'`},
 		{"run2_preflight", `# --- run2_preflight ---
 fixture
 for r in a b; do g -C "$WORK/$r-worktrees/demo" push -q origin HEAD:main; done
 sut prepare "$WORK/a" demo
 check "run2_preflight: a merged branch sends prepare to run 2" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: run 2"'
-check "run2_preflight: the preflight closed completed" 'tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.preflight -outcome completed"'`},
+check "run2_preflight: run 2's prepare begins no mark" '! grep -q "stage begin" "$WORK/stages.log" 2>/dev/null'`},
 	})
 }
 
@@ -391,6 +381,7 @@ for r in a b; do
   g -C "$WORK/$r-worktrees/demo" push -q origin HEAD:main
   g -C "$WORK/$r" fetch -q origin
 done
+touch "$WORK/sr-completed"
 OUT="$(cd "$WORK/a-worktrees/demo" && PATH="$WORK/bin:$PATH" exec "$SUT" integrate-change cleanup ../../a demo --harness test --session-token mf-test 2>"$WORK/stderr")"; RC=$?
 check "shim_caller_cwd: cleanup run from inside a worktree is not HELD by its own cwd" '! printf "%s\n" "$OUT" | grep -q "^HELD:"'
 check "shim_caller_cwd: a relative main checkout resolves against the caller's directory" \

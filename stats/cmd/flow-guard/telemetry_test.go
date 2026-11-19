@@ -32,7 +32,6 @@ func TestOutcomeForUsesTheGuardsOwnCannotAnswerCode(t *testing.T) {
 		{"check-references", 2, "", "cannot-answer"},
 		{"run-reproducer", 2, "", "fired"},
 		{"run-reproducer", 4, "", "cannot-answer"},
-		{"mutate-and-verify", 4, "", "cannot-answer"},
 		// KAN-1110: check-unfinished-work exits 0 on its OUTSTANDING verdict.
 		{"check-unfinished-work", 0, "OUTSTANDING: task 3 has no implementer row", "fired"},
 		{"check-unfinished-work", 0, "CLEAR: nothing outstanding", "clear"},

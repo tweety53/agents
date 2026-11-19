@@ -29,9 +29,7 @@ package guard
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -52,12 +50,8 @@ type wiResult struct {
 // refusal puts its message on stderr and must leave stdout empty.
 func wiRun(t *testing.T, vars map[string]string, args ...string) wiResult {
 	t.Helper()
-	fn := Registry["check-workspace-isolation"]
-	if fn == nil {
-		t.Fatal("check-workspace-isolation is not registered")
-	}
 	var o, e bytes.Buffer
-	rc := fn(args, Env{Dir: "/", Getenv: func(k string) string { return vars[k] }}, &o, &e)
+	rc := checkWorkspaceIsolation(args, Env{Dir: "/", Getenv: func(k string) string { return vars[k] }}, &o, &e, nil)
 	return wiResult{rc, o.String(), e.String()}
 }
 
@@ -218,7 +212,6 @@ func wiRepoAbs(t *testing.T) string {
 func TestCheckWorkspaceIsolation(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
-	t.Run("port: the output matches the bash at c5379c0a byte for byte", wiParity)
 
 	// 1. A project that declares nothing.
 
@@ -760,164 +753,8 @@ Prose that is not a second declaration.
 	wiReports(t, r, "resource row(s) and", "bare through the bootstrap: the root's .flow/project.md was read and validated")
 }
 
-// wiBash runs a bash script with env in dir, its two streams apart.
-func wiBash(t *testing.T, script, dir string, env []string, args ...string) wiResult {
-	t.Helper()
-	var o, e bytes.Buffer
-	cmd := exec.Command("bash", append([]string{script}, args...)...)
-	cmd.Dir, cmd.Env, cmd.Stdout, cmd.Stderr = dir, env, &o, &e
-	err := cmd.Run()
-	var ee *exec.ExitError
-	if err != nil && !errors.As(err, &ee) {
-		t.Fatal(err)
-	}
-	return wiResult{cmd.ProcessState.ExitCode(), o.String(), e.String()}
-}
-
-// wiParity is the end-to-end old-vs-new comparison: the bash guard at
-// c5379c0a and the port run over the same project roots, arguments,
-// locale and CHECK_WORKSPACE_ISOLATION_PRINT_ROWS, their stdout, stderr and
-// exit compared byte for byte. The fixtures reach what the cases above never
-// name: every violation message, awk's [[:space:]] and tolower under each
-// locale, the cell splitter's edges, NUL and CR bytes, the sanitizer, several
-// roots in one run and a refusal after output. Two inputs are left out
-// because the port reads them differently on purpose (workspaceisolation.go
-// names both): a line that is not valid UTF-8 under a UTF-8 locale, and a
-// heading whose space is U+00A0.
-func wiParity(t *testing.T) {
-	t.Parallel()
-	tree := t.TempDir()
-	for _, rel := range []string{"scripts/check-workspace-isolation.sh", "scripts/lib/resolve-file.sh"} {
-		src := historicalFile(t, wiRepoRoot, "c5379c0a", rel)
-		writeFile(t, tree+"/"+rel, string(src))
-	}
-	base := t.TempDir()
-	put := func(name, body string) { writeFile(t, base+"/"+name+"/.flow/project.md", body) }
-	section := "# p\n\n## workspace isolation\n\n"
-	put("valid", wiIsoBody(wiValidRes, wiValidCmd)+"\n")
-	put("every-violation", section+wiQ(`| Resource | Variable | Default | In a workspace |
-|---|:---:|---:|:---|
-| ~queue~ | ~Q~ | ~x~ | ~x~ |
-| ~port~ | ~~ | ~1~ | ~+<offset>~ |
-| ~port~ | ~A-B~ | ~1~ | ~+<offset>~ |
-| ~database~ | ~DB~ | ~d~ | ~d_<id>~ |
-| ~database~ | ~DB2~ | ~d~ | ~d_<workspace>~ |
-| ~bucket~ | ~B~ | ~b~ | ~b-<id>~ |
-| ~bucket~ | ~B2~ | ~b~ | ~b-<id>~ |
-| ~cache index~ | ~C~ | ~0~ | ~probed~ |
-| ~cache index~ | ~C2~ | ~1~ | ~probed~ |
-| ~port~ | ~DB~ | ~1~ | ~+<offset>~ |
-| ~port~ | ~P~ | ~x1~ | ~+<offset>~ |
-| ~port~ | ~P2~ | ~1~ | ~9~ |
-| ~cache index~ | ~C3~ | ~0~ | ~3~ |
-| ~url~ | ~U0~ | ~u~ | ~~ |
-| ~database~ | ~D3~ | ~d~ | ~d_< id>~ |
-| ~bucket~ | ~B3~ | ~b~ | ~b-<value:P>~ |
-| ~url~ | ~U1~ | ~u~ | ~u/<foo>~ |
-| ~url~ | ~U2~ | ~u~ | ~u/<value:NOPE>~ |
-| ~url~ | ~U3~ | ~u~ | ~u/<value:U1>~ |
-| ~url~ | ~U4~ | ~u~ | ~u/<value:C>~ |
-| ~url~ | ~U5~ | ~u~ | ~u/<value:DB>/<value:B>/<value:P>/<value:>~ |
-| ~url~ | ~U6~ | ~u~ | ~u/<value: P><id_ underscored>< offset ><my thing>~ |
-| ~port~ | ~P4~ | ~1~ | ~+<offset>~ | extra |
-|
-| ~Port~ | ~P5~ | ~ 7 ~ | ~ +<offset> ~ |
-
-| Thing | Value |
-|---|---|
-| x | y |
-
-| Command | Runs |
-|---|---|
-| ~create~ | ~c~ |
-| ~Verify~ | ~v~ |
-| ~CREATE~ | ~c2~ |
-| ~remove~ | ~~ |
-| ~remove~ | ~s <container> < id> <value:X>~ |
-| ~x~ |
-
-| Command | Runs |
-|---|---|
-| ~create~ | ~z~ |
-| Resource | Variable | Default | In a workspace |
-| ~port~ | ~ZZ~ | ~1~ | ~+<offset>~ |
-
-### not the section
-| ~bogus~ |
-`))
-	put("unicode", section+"| Resource | Variable | Default | In a workspace | Ünit ẞ \u212a |\n|---|---|---|---|---|\n\n"+
-		"| RESOURCE | VARİABLE | DEFAULT | IN A WORKSPACE |\n|---|---|---|---|\n"+
-		"| \u00a0`port`\u00a0 | `NB` | `1` | `+<offset>` |\n"+
-		"| `cache\u00a0index` | `CI` | `0` | `probed` |\n"+
-		"| `cache\t\tindex` | `CI2` | `0` | `probed` |\n"+
-		"| `database` | `DBU` | `d` | `d_<\u00a0id>` |\n"+
-		"| `BÜCKET` | `BU` | `b` | `b` |\n"+
-		"| `bucket` | `B\u00a0U` | `b` | `b` |\n")
-	put("parser", section+"| Resource | Variable | Default | In a workspace |\n|---|---|---|---|\n"+
-		"| `url` | `T1` | `u` | `u\\` |\n"+
-		"| `url` | `T2` | `u` | `a\\\\|b\\x` |\n"+
-		"|`port`|`T3`|`1`|`+<offset>`|\n"+
-		"\t| `url` | `T4` | `u` | ` a ` b ` |\n"+
-		"| `url` | `T5` | `u\rv` | `w` |   \t\n"+
-		"||\n|\n| `url` | `T6` | `u` | `v` |||\n"+
-		"| `port` | `T7` | `+1` | `+<offset>` |\n"+
-		"| `port` | `T8` | `08` | `+<offset>` |\n")
-	put("nul", section+wiQ("| Resource | Variable | Default | In a workspace |\n|---|---|---|---|\n| ~port~ | ~N1~ | ~1~ | ~+<offset>~ |\x00| junk |\n| ~url~ | ~N2\x00~ | ~u~ | ~v~ |\n## x\x00\n| ~a~ |\n"))
-	put("crlf", "# p\r\n\r\n## Workspace Isolation \t\r\n\r\n| Command | Runs |\r\n|---|---|\r\n| `create` | `c <id>` |\r\n| `remove` | `r <id_underscored>` |\r\n")
-	put("controls", section+"| Resource | Variable | Default | In a workspace |\n|---|---|---|---|\n"+
-		"| `q\x1b[1m\x7f\x01` | `V\\\\` | `x` | `x` |\n| `port` | `P\tQ` | `1` | `+<offset>` |\n")
-	put("dup", "## workspace isolation\n## WORKSPACE ISOLATION\n#### workspace isolation\n##\tworkspace isolation   \n")
-	put("none", "# p\n\n## workspace isolationx\n### workspace isolation\n")
-	put("prose-only", "# p\n\n## lint\n\n## workspace isolation\n\nprose\n\n## run\n| Command | Runs |\n")
-	put("empty-file", "")
-	put("heading-last", "text\n## workspace isolation")
-	mkdir(t, base+"/no-config")
-	put("unterminated", section+"| Command | Runs |\n|---|---|\n| `create` | `c` |")
-	mkdir(t, base+"/cfg-dir/.flow/project.md")
-	put("bad-utf8", section+"| Resource \xff | Variable |\n|---|---|\n\n| Command | Runs |\n|---|---|\n| `cr\xffeate` | `c\xfe` |\n")
-	all := []string{"valid", "every-violation", "unicode", "parser", "nul", "crlf", "controls", "dup", "none",
-		"prose-only", "empty-file", "heading-last", "no-config", "./unterminated/", base + "/valid"}
-	runs := [][]string{all, {"valid", "missing", "valid"}, {"crlf", "cfg-dir"}, {""}, {"valid"}}
-	for _, loc := range []string{"C", "en_US.UTF-8"} {
-		for _, rows := range []string{"", "1", "yes"} {
-			for i, args := range append(runs, []string{"bad-utf8"}) {
-				if loc != "C" && args[0] == "bad-utf8" {
-					continue
-				}
-				// Each run is its own parallel subtest: they share only the
-				// read-only trees above, and run one after another they held
-				// one slot for ~9s, the last test of the package to finish.
-				t.Run(fmt.Sprintf("run %d LC_ALL=%s PRINT_ROWS=%q", i, loc, rows), func(t *testing.T) {
-					t.Parallel()
-					env := []string{"LC_ALL=" + loc}
-					for _, kv := range os.Environ() {
-						if !strings.HasPrefix(kv, "LC_ALL=") && !strings.HasPrefix(kv, "CHECK_WORKSPACE_ISOLATION_PRINT_ROWS=") {
-							env = append(env, kv)
-						}
-					}
-					vars := map[string]string{"LC_ALL": loc}
-					if rows != "" {
-						env = append(env, "CHECK_WORKSPACE_ISOLATION_PRINT_ROWS="+rows)
-						vars["CHECK_WORKSPACE_ISOLATION_PRINT_ROWS"] = rows
-					}
-					want := wiBash(t, tree+"/scripts/check-workspace-isolation.sh", base, env, args...)
-					// The one deliberate divergence from the bash: the port's verbs are
-					// `create`, `remove` and `orphans`, which the unknown-verb report names.
-					want.out = strings.ReplaceAll(want.out,
-						"has three verbs — `create`, `remove` and `survivors` —",
-						"has three verbs — `create`, `remove` and `orphans` —")
-					fn := Registry["check-workspace-isolation"]
-					if fn == nil {
-						t.Fatal("check-workspace-isolation is not registered")
-					}
-					var o, e bytes.Buffer
-					rc := fn(args, Env{Dir: base, Getenv: func(k string) string { return vars[k] }}, &o, &e)
-					if rc != want.rc || o.String() != want.out || e.String() != want.err {
-						t.Errorf("run %d LC_ALL=%s PRINT_ROWS=%q args=%q:\nbash rc=%d\n%s\nstderr:\n%s\nport rc=%d\n%s\nstderr:\n%s",
-							i, loc, rows, args, want.rc, want.out, want.err, rc, o.String(), e.String())
-					}
-				})
-			}
-		}
+func TestWorkspaceIsolationIsUnregistered(t *testing.T) {
+	if _, ok := Registry["check-workspace-isolation"]; ok {
+		t.Fatal("check-workspace-isolation is a guard.Registry key; it runs in-process from prepare-workspace only")
 	}
 }

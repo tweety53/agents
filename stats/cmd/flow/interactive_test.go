@@ -18,7 +18,7 @@ import (
 
 // TestInteractiveLand pins `flow interactive land` (kan-1081 self-review,
 // F4): one call rebases, checks the scratch and the lint stamp on the
-// rebased HEAD, and pushes, marking flow.landing-routes around the push.
+// rebased HEAD, and pushes, marking flow.land around the push.
 func TestInteractiveLand(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
@@ -136,8 +136,8 @@ func TestInteractiveLand(t *testing.T) {
 		if len(p) != 2 || p[0].path != "/api/v1/stages/begin" || p[1].path != "/api/v1/stages/end" {
 			t.Fatalf("posts = %v, want one begin and one end", p)
 		}
-		if p[0].body["stage"] != "flow.landing-routes" || p[0].body["request"] != float64(3) {
-			t.Errorf("begin = %v, want flow.landing-routes carrying request 3", p[0].body)
+		if p[0].body["stage"] != "flow.land" || p[0].body["request"] != float64(3) {
+			t.Errorf("begin = %v, want flow.land carrying request 3", p[0].body)
 		}
 		if p[1].body["outcome"] != "completed" {
 			t.Errorf("end = %v, want completed", p[1].body)

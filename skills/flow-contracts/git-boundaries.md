@@ -84,13 +84,13 @@ A `/flow-fast` branch's commit series is its whole record, and the route reads i
 ## Commits outside every task
 
 **Commits outside every task carry a `Flow-Key:` trailer.** A commit a run makes on a change
-branch outside every task — the parent's full-suite fix, a panel fix or a gated reviewer's fix
-committed on top, the `minor-fix` subagent's review-Minors commit, `flow.visual-verify`'s capture
+branch outside every task — the parent's full-suite fix, a fix's implementer (`fix-<k>-implementer`), a panel fix or a gated reviewer's fix
+committed on top, the `minor-fix` subagent's review-Minors commit, `flow.verify`'s capture
 commit, the brainstorm's handoff-asset commit, integrate's implementation commit —
 carries `-m "Flow-Key: <key>"`, `<key>` the dispatch key its round is recorded under
 (`full-suite-fix-<n>`, `panel-fix-<round>`, `task-<n+n>-implementer-fix-<k>`) or, where the stage
-records no such row, the stage key (`flow.review-panel`, `flow.visual-verify`, `flow.brainstorm`,
-`flow.commit-two`). A task's own commit
+records no such row, the stage key (`flow.review`, `flow.verify`, `flow.plan`,
+`flow.land`). A task's own commit
 carries `Task-Id:` instead.
 
 ## Restoring a path with unstaged edits
@@ -99,7 +99,7 @@ carries `Task-Id:` instead.
 a typed `git checkout … -- <path>` or `git restore <path>` in a linked worktree when a path it names
 carries unstaged edits: the restore reverts the file to its index state, and an uncommitted fix on
 it is lost with the flip a mutation proof made. Restore a flipped file
-with `flow-guard break-and-prove` or `flow-guard mutate-and-verify`, which restore from a pre-mutation byte
+with `flow-guard break-and-prove`, which restores from a pre-mutation byte
 snapshot (**Panel re-runs**, `skills/flow/review-panel.md`); `git restore --staged`, and a path
 with no unstaged edits, are restored as before.
 

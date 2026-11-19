@@ -16,12 +16,13 @@ import (
 // The contract below moved here from the header of the deleted
 // scripts/check-verify-report.sh shim (KAN-1058).
 //
-// flow-guard check-verify-report — answer whether a flow.visual-verify verifier's
+// The folded check-verify-report guard (no longer a flow-guard subcommand; `close` and
+// `close --check-only` run it in-process, visualverifypass_close.go) — answer whether a flow.visual-verify verifier's
 // report is complete, so the parent never accepts a partial one by reading
 // its prose (KAN-870: two verifiers ran the tests and the capture, listed
 // steps 9-11 under "Not done", and both reports were accepted).
 //
-// Usage: flow-guard check-verify-report <report file> <motions named> [--design <design.md>] [--frames <frame>[,<frame>…]]
+// Arguments: <report file> <motions named> [--design <design.md>] [--frames <frame>[,<frame>…]]
 //
 // Given --design, the report, or the `visual-verification.md` beside
 // <design.md>, reading `no mockup source` while <design.md> cites a
@@ -63,14 +64,6 @@ import (
 // is undone too: step 6 reports its exit 2 with the guard's reason, which the
 // prompt carries (kan-1010's self-review).
 //
-// A `## Report` line attributing a departure as `pre-existing` or `present at
-// the merge base` that names neither `merge-base baseline: <sha>:<path>` nor
-// `merge-base capture: <path>` leaves step 10 undone (kan-1015: a re-baseline
-// over a defect attributed from the code path alone).
-// Every merge-base baseline: <sha>:<path> must resolve with git cat-file -e in
-// the report's worktree (<report file>'s third parent directory); one that
-// does not leaves step 10 undone (kan-1057 self-review, F6).
-//
 // With step 10 `done`, every frame id a `- <frame id>: <composite> diff=`
 // line names needs its `- <frame id> over-tolerance: <n> — #<row>: <cause>; …`
 // line (decisions over-tolerance-line, by-hand-check-automated): <n> must
@@ -79,8 +72,7 @@ import (
 // less any `-rest` or `-rest-<n>` segment — never the committed matrix JSON —
 // and every row on that list must be named with one cause from step 10's
 // closed list: `departure`, `annotation`, `transcription`, `text width`,
-// `decision <ID>` with `**ID:** <ID>` in <design.md>, `present at the merge
-// base` beside `merge-base baseline: ` or `merge-base capture: ` evidence,
+// `decision <ID>` with `**ID:** <ID>` in <design.md>,
 // or `mockup source` on a row whose `keys` name `unresolved`. A missing or
 // unreadable manifest, a frame in none of its pairs, a missing line, a wrong
 // count, an unnamed row or a cause off the list is undone.
@@ -136,11 +128,10 @@ import (
 //
 // Go, in flow-guard (stats/internal/guard/verifyreport.go).
 
-// checkVerifyReport is `flow-guard check-verify-report`: the comment above is the contract. It reads a visual-verify verifier's report file
+// checkVerifyReport is the folded check-verify-report guard: the comment above is the contract. It reads a visual-verify verifier's report file
 // and answers whether every required step carries an admissible status on the
 // report's `- steps:` line, so the parent never accepts a partial report by
 // reading its prose.
-func init() { Registry["check-verify-report"] = checkVerifyReport }
 
 var (
 	vrSteps     = []string{"4", "8", "9", "10", "11", "motion"}
@@ -149,19 +140,6 @@ var (
 	vrCitedExit = regexp.MustCompile(`\bexit [1-9][0-9]*\b`)
 	// Step 10's own blocking exit (skills/flow/visual-verify-verifier.md step 10).
 	vrComposeExit = regexp.MustCompile(`\bcompose-mockup-frames(\.sh)? exit [1-9][0-9]*\b`)
-	// A bare `- fingerprint: not declared`: step 6 reports exit 2 as `not
-	// declared — <the guard's stderr reason>`, and the verifier has that
-	// reason only from the prompt (kan-1010's self-review: a verifier wrote
-	// it bare for a project declaring the row, its parent's FRESH=0 unseen).
-	vrBareFingerprint = regexp.MustCompile(`^\s*- fingerprint:\s*not declared\s*$`)
-	// A `## Report` line attributing a departure to the merge base must name
-	// its evidence (kan-1015: the kan-466 weight-tab button was attributed
-	// pre-existing from the code path alone and re-baselined over the defect).
-	vrPreExisting    = regexp.MustCompile(`(?i)(?:^|[^-\w])pre-existing|present at (?:the )?merge base`)
-	vrNotPreExisting = regexp.MustCompile(`(?i)\bnot pre-existing`)
-	// A `merge-base baseline: <sha>:<path>` citation, which must resolve in the
-	// report's worktree (kan-1057 self-review, F6: a mangled one stood as evidence).
-	vrBaselineCite = regexp.MustCompile(`merge-base baseline: (\S+)`)
 	// A `- wire contract:` line naming an endpoint: the dispatch named no
 	// view, so steps 8-10 have nothing to capture (kan-1022's self-review: a
 	// verifier wrote them `done` over a capture it never ran).
@@ -200,7 +178,7 @@ var (
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-verify-report"
-	const usage = "flow-guard check-verify-report <report file> <motions named> [--design <design.md>] [--frames <frame>[,<frame>…]]"
+	const usage = "verify-report check, run in-process by visual-verify-pass close: <report file> <motions named> [--design <design.md>] [--frames <frame>[,<frame>…]]"
 	design := ""
 	var slice []string // --frames: the shard's slice, nil for every frame
 	if i := slices.Index(args, "--frames"); i >= 0 {
@@ -239,14 +217,14 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	status := map[string]string{}
-	motionLine, bareFingerprint := false, false
-	inReport, unevidenced := false, ""
+	motionLine := false
+	inReport := false
 	noView := false
 	var frames, framed []string
 	spec := ""
 	var reportLines []string
 	over, spot := map[string]string{}, map[string]string{}
-	var badSweeps, cites []string
+	var badSweeps []string
 	for _, line := range strings.Split(string(data), "\n") {
 		// Every line is read from `## Report` to the next `## ` heading alone:
 		// the `## Verdict` block above it is the handback, not the record.
@@ -259,18 +237,6 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		reportLines = append(reportLines, line)
 		if m := vrSpecLine.FindStringSubmatch(line); m != nil && spec == "" {
 			spec = m[1]
-		}
-		if unevidenced == "" && vrPreExisting.MatchString(line) && !vrNotPreExisting.MatchString(line) &&
-			!strings.Contains(line, "merge-base baseline: ") && !strings.Contains(line, "merge-base capture: ") {
-			unevidenced = strings.TrimSpace(line)
-			if r := []rune(unevidenced); len(r) > 120 {
-				unevidenced = string(r[:120])
-			}
-		}
-		for _, m := range vrBaselineCite.FindAllStringSubmatch(line, -1) {
-			if c := strings.TrimRight(m[1], ";,).`"); !slices.Contains(cites, c) {
-				cites = append(cites, c)
-			}
 		}
 		if m := vrStepsLine.FindStringSubmatch(line); m != nil {
 			for _, item := range strings.Split(m[1], " | ") {
@@ -301,15 +267,11 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 				}
 			}
 		}
-		bareFingerprint = bareFingerprint || vrBareFingerprint.MatchString(line)
 		if m := vrWireContract.FindStringSubmatch(line); m != nil && !strings.HasPrefix(strings.TrimSpace(m[1]), "n/a") {
 			noView = true
 		}
 	}
 	var undone []string
-	if bareFingerprint {
-		undone = append(undone, "fingerprint: `not declared` with no reason — state step 6's result as the prompt names it")
-	}
 	// sr12 (kan-1017): `no mockup source` while design.md cites an HTML or
 	// CSS source that exists in the worktree, three directories above the
 	// report, leaves step 10 undone.
@@ -348,30 +310,6 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	// Every step-10 defect is named in one run, never only the last.
 	step10 := badSweeps
-	if unevidenced != "" {
-		step10 = append(step10, "pre-existing attribution with no merge-base evidence: "+unevidenced)
-	}
-	wt := filepath.Dir(filepath.Dir(filepath.Dir(args[0])))
-	// A baseline of a cross-repo change lives in a sibling repository's worktree
-	// of the same change (`<repo>-worktrees/<change>` beside this one), so the
-	// citation resolves in the report's worktree or in any such sibling.
-	trees := []string{wt}
-	if sib, _ := filepath.Glob(filepath.Join(filepath.Dir(filepath.Dir(wt)), "*-worktrees", filepath.Base(wt))); len(sib) > 0 {
-		trees = append(trees, sib...)
-	}
-	for _, c := range cites {
-		sha, path, _ := strings.Cut(c, ":")
-		resolved := false
-		for _, tree := range trees {
-			if _, ok := capture(envGit(env)("-C", tree, "cat-file", "-e", c)); ok {
-				resolved = true
-				break
-			}
-		}
-		if sha == "" || path == "" || !resolved {
-			step10 = append(step10, "merge-base baseline `"+c+"` does not resolve in "+wt)
-		}
-	}
 	if len(step10) > 0 {
 		status["10"] = strings.Join(step10, "; ")
 	}
@@ -571,10 +509,6 @@ func vrCauseAdmitted(cause string, row vrOverRow, design string) bool {
 	if id, ok := strings.CutPrefix(cause, "decision "); ok {
 		id = strings.Fields(id + " ")[0]
 		return id != "" && regexp.MustCompile(`(?m)^\*\*ID:\*\*\s*`+regexp.QuoteMeta(id)+`\s*$`).MatchString(design)
-	}
-	// Its merge-base evidence is already required of every pre-existing attribution above.
-	if strings.HasPrefix(cause, "present at the merge base") {
-		return true
 	}
 	if strings.HasPrefix(cause, "mockup source") {
 		return slices.Contains(strings.Split(row.Keys, ", "), "unresolved")

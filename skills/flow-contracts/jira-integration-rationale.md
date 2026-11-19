@@ -9,7 +9,7 @@ This file is the reasoning behind `skills/flow-contracts/jira-integration.md`.
 noise in every repo that has none.
 
 **A scanned key is a guess, and a wrong guess is not recoverable.** `jiraIssue` drives irreversible
-external writes — In Progress → In Review → **Done**, plus description edits — possibly on someone
+external writes — In Progress → **Done**, plus description edits — possibly on someone
 else's ticket, and transitions are forward-only, so nothing walks a wrong one back. Therefore the
 asymmetry decides it: asking costs one prompt, and guessing wrong costs an irreversible write on
 someone else's ticket, so a key the command merely *noticed* must be affirmed before it can drive

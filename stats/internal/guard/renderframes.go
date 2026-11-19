@@ -50,7 +50,7 @@ import (
 // `id="<id>" data-frame` across the tree's top-level `*.html` pages
 // (`_gen/` and other sub-directories hold generator sources that repeat
 // ids). The renderer runs `node` with the program below on the `regression
-// checkout`'s own `@playwright/test` (flow-guard check-visual-preflight's
+// checkout`'s own `@playwright/test` (the in-process visual-preflight check (visual-verify-pass prepare)'s
 // precedent): one page at DPR 2, requests to http://design.local/ fulfilled
 // from the exported tree (no server process), the frame scrolled into view
 // and its lazy panes filled — the data-mig-filled flag set and every

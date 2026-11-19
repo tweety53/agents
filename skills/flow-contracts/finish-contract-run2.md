@@ -1,8 +1,8 @@
 # Finish contract — run 2 (the branch is merged)
 
 **This file is canonical for `/flow`'s cleanup run** — run 2's procedure and worktree cleanup.
-Run 1 already ran its self-review pass on the change branch (**Run the self-review pass**,
-`skills/flow-contracts/finish-contract-run1.md`), so run 2 commits and pushes nothing: it saves the
+Run 1 already ran its self-review pass after landing (**Run the self-review pass**,
+`skills/flow-contracts/finish-contract-run1.md`), and **`cleanup` refuses — `STOP: self-review-report` — without a completed `flow.self-review` run**; run 2 commits and pushes nothing: it saves the
 change's plan and self-review bundle to flowd and cleans up once the branch has merged.
 
 bare `/flow` is the only command that loads this file whole.

@@ -15,10 +15,10 @@ import (
 // The contract below moved here from the header of the deleted
 // scripts/check-workspace-isolation.sh shim (KAN-1058).
 //
-// flow-guard check-workspace-isolation — validate a project's `## workspace isolation`
+// the in-process workspace-isolation check (prepare-workspace) — validate a project's `## workspace isolation`
 // declaration against the contract that defines it.
 //
-// Usage: flow-guard check-workspace-isolation [<project root> ...]
+// Usage: the in-process workspace-isolation check (prepare-workspace) [<project root> ...]
 //
 // With no arguments it checks FLOW_GUARD_REPO_ROOT, the repository scripts/flow-guard exports. Each argument
 // is a PROJECT ROOT — the directory holding `.flow/project.md` — never the
@@ -111,8 +111,6 @@ import (
 // Ported to Go (KAN-842): the body's reasoning for every step is in
 // stats/internal/guard/workspaceisolation.go, beside the code.
 
-func init() { Registry["check-workspace-isolation"] = checkWorkspaceIsolation }
-
 const (
 	wiResourceHeader = "resource|variable|default|in a workspace"
 	wiCommandHeader  = "command|runs"
@@ -126,7 +124,7 @@ var (
 	wiDelim    = regexp.MustCompile(`^:?-+:?$`)
 )
 
-// checkWorkspaceIsolation is `flow-guard check-workspace-isolation`: the comment above carries the contract.
+// checkWorkspaceIsolation is `the in-process workspace-isolation check (prepare-workspace)`: the comment above carries the contract.
 //
 // Divergences from the bash, each on input the bash read by accident of its
 // tools rather than by its contract:
@@ -140,26 +138,16 @@ var (
 //     does not here.
 //   - awk -v processed backslash escapes in the configuration's path before
 //     quoting it in a violation line; the path is quoted here as given.
-func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) int {
+func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer, rows *[]pwRow) int {
 	refuse := func(id, msg string) int {
 		Reason(env, id)
 		fmt.Fprintln(stderr, "check-workspace-isolation: "+msg)
 		return 2
 	}
-	// CHECK_WORKSPACE_ISOLATION_PRINT_ROWS — an internal, undocumented-to-
-	// operators switch that prepare-workspace.sh sets when it invokes this
-	// guard, so it can derive the workspace variables from the SAME parse this
-	// guard already did rather than opening `.flow/project.md` a second time
-	// and re-implementing the cell splitter. Unset (the default), it changes
-	// nothing: no `#ROW` line is emitted, so stdout is byte-for-byte what it
-	// always was. Set to `1`, each validated resource row is appended to this
-	// project's report as a `#ROW\t<resource>\t<variable>\t<default>\t<in a
-	// workspace>` line, after the verdict line, and only for a project whose
-	// report reached its verdict — a project this guard refused on (exit 2)
-	// never reaches the print that emits them. A caller that does not know
-	// this switch exists reads exactly the output documented above; only
-	// prepare-workspace.sh reads the `#ROW` lines.
-	printRows := env.Getenv("CHECK_WORKSPACE_ISOLATION_PRINT_ROWS") == "1"
+	// rows, when non-nil, receives each validated resource row of a project
+	// that reached its verdict — prepare-workspace derives the workspace
+	// variables from the same parse rather than opening `.flow/project.md` again.
+	printRows := rows != nil
 
 	// With no argument the root is FLOW_GUARD_REPO_ROOT, the physical
 	// checkout root scripts/flow-guard exports. Every other caller passes an
@@ -167,7 +155,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 	if len(args) == 0 {
 		root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 		if root == "" {
-			return refuse("repo-root-unset", "FLOW_GUARD_REPO_ROOT is unset — run flow-guard check-workspace-isolation, which sets it")
+			return refuse("repo-root-unset", "FLOW_GUARD_REPO_ROOT is unset — run flow-guard prepare-workspace, which sets it")
 		}
 		args = []string{root}
 	}
@@ -274,10 +262,8 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 		} else {
 			fmt.Fprintf(stdout, "ISOLATION-OK: %s — %d resource row(s) and %d command row(s) validated\n", cfg, p.nres, p.ncmd)
 		}
-		// `#ROW` lines, if any, always come last — after the verdict line, so
-		// a caller not reading them sees only the verdict.
-		for _, row := range p.rows {
-			fmt.Fprintln(stdout, row)
+		if rows != nil {
+			*rows = append(*rows, p.rows...)
 		}
 	}
 	if total != 0 {
@@ -313,7 +299,8 @@ type wiParse struct {
 	space      func(rune) bool // awk's [[:space:]] under the caller's locale
 	utf8       bool
 	printRows  bool
-	viol, rows []string
+	viol       []string
+	rows       []pwRow
 	nres, ncmd int
 	ntable     int
 	resSeen    map[string]int
@@ -595,11 +582,11 @@ func (p *wiParse) spacedTokens(line int, who, cell, ctx string) {
 func (p *wiParse) resourceRow(line int, cells []string) {
 	// Emitted BEFORE any of the checks below run, and for every row already
 	// known to line up with the resource header. A row this function goes on
-	// to reject still gets its `#ROW` line: prepare-workspace.sh never reads
-	// it, because a rejected row means this guard exits non-zero and
-	// prepare-workspace.sh exits on that before it looks at a `#ROW` line.
+	// to reject is still recorded: prepare-workspace never reads it, because a
+	// rejected row means this guard exits non-zero and prepare-workspace exits
+	// on that before it looks at the rows.
 	if p.printRows {
-		p.rows = append(p.rows, "#ROW\t"+p.trim(cells[0])+"\t"+p.trim(cells[1])+"\t"+p.trim(cells[2])+"\t"+p.trim(cells[3]))
+		p.rows = append(p.rows, pwRow{res: p.trim(cells[0]), variable: p.trim(cells[1]), def: p.trim(cells[2]), cell: p.trim(cells[3])})
 	}
 	// The row named the way the operator has to find it: by the variable it
 	// carries, as the contract asks.

@@ -34,13 +34,15 @@ ignored word is indistinguishable from a flag that stopped working.
 
 ### Every command is re-entrant
 
-Integrate's one sanctioned chain — **Write `IN_PROGRESS`** continuing into it when the record's
-`reviewBeforeLanding` is not `true` and no open question is left — exists because most changes had nothing for the operator to
-review at `IN_PROGRESS`, and the stop cost one extra turn per change (KAN-1030). The flag lives on
-the state record, not in session memory, because it has to survive the `/clear` between the plan
-gate and the implementing run. The ban on integrate inferred from mid-turn words stays: a stray
-"merge and push" said mid-run is still conversation, and only the run's own chain point or a fresh
-bare `/flow` starts integrate.
+Integrate's one sanctioned chain — **Write `IN_PROGRESS`** continuing into it when no open
+question is left — exists because most changes had nothing for the operator to review at
+`IN_PROGRESS`, and the stop cost one extra turn per change (KAN-1030). The ban on integrate
+inferred from mid-turn words stays: a stray "merge and push" said mid-run is still conversation,
+and only the run's own chain point or a fresh bare `/flow` starts integrate.
+
+slim-flow-loop removed the per-change review-before-landing hold (`reviewBeforeLanding`) and the
+run-instructions step: a hold nobody set was a stop nobody needed, and the instructions were
+printed for a stack a landing run never used.
 
 ### A fix never moves the state
 
@@ -215,9 +217,8 @@ defined; the two call sites point here rather than each describing them.
 
    **The removal goes after the worktree half, and the order is load-bearing.** Worktree cleanup's
    check 5 runs the project's `## stop` command, and it is the **only** place run 2 stops the stack —
-   which run 2 nearly always has to do, because the implement phase's handoff prints the run instructions
-   and the operator runs the applications against them, so a stack still up when run 2 starts is the
-   common case rather than a rare one. Dropping a database the project's own stack still holds open is a
+   which run 2 nearly always has to do, because the operator may have started the applications against the
+   change, so a stack still up when run 2 starts is the common case rather than a rare one. Dropping a database the project's own stack still holds open is a
    removal that fails on the ordinary path, so the removal waits until that stack is down.
    Nothing pulls the other way: these resources live in the project's shared data services rather
    than in the worktree, so taking the worktree down neither removes them nor puts them out of reach,
@@ -312,3 +313,9 @@ attribution; the text after it is the passage, verbatim.
 
 - *no two runs share one: a name-derived token alone repeats across sessions* — (kan-1028: `mf-k1028b`, reused by a resumed run, collided with the dead session's rows)
 - *the clock then and marks under the stamped token from there on* — (kan-1029: `mf-k1029-PLACEHOLDER` was accepted)
+
+### pipeline.md — Self-review after landing
+
+- *the self-review runs after the route lands and `cleanup` gates on it; In Review is dropped* — (slim-flow-loop: fixes land through `pipeline-fix land` on `self-review-<name>`, never on the change's branch, so nothing waits on a rewritten sha and no status sits between In Progress and Done)
+
+- The stage marks are seven — `flow.plan`, `flow.implement`, `flow.review`, `flow.verify`, `flow.land`, `flow.self-review`, `flow.cleanup` — because the old keys named steps, not phases, and a phase chart wants one mark per phase (ticket cut 10).

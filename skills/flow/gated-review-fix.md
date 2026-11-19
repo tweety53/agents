@@ -1,6 +1,6 @@
 # The gated per-task reviewer — the stage-end fix
 
-Loaded during `flow.sdd-tdd` by the load directive under the gated per-task reviewer of
+Loaded during `flow.implement` by the load directive under the gated per-task reviewer of
 **4. Execute (SDD + TDD)** (`skills/flow/implement.md`), only when, once the last group's guard has
 passed and every gated bundle has returned, a gated pass closed `fix` or left a Minor open.
 
@@ -25,7 +25,7 @@ one clause, or carried to the next fixer. A finding the FRAME DEPARTURES paragra
 green names the run — its command and exit — else the line is carried to the next fixer, and
 `flow record status` refuses a green withdrawal with no exit.
 
-**One re-review bundle**, once the last fixer's return has run, carries every task whose pass was `fix` — save an in-run fix task, which takes none (**The loop**, step 2, `skills/flow/verify-fix-loop.md`) — under
+**One re-review bundle**, once the last fixer's return has run, carries every task whose pass was `fix` — under
 `task-<n+n>-reviewer-fix-<k>`, the same convention as the fixer's key, each pass on its own fix
 diff, its findings file `findings-gated-<n+n>-fix-<k>.jsonl`. The re-dispatched bundle runs on the `gated-re-reviewer` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`),
 its prompt opening with the line `Role: gated-re-reviewer` in place of the original bundle's.

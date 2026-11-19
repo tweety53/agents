@@ -37,21 +37,17 @@ describe("mainNow", () => {
 });
 
 describe("mainProgress", () => {
-  it("marks ran phases done, the open one current, the rest pending; Fixes only when one ran; Self-review between integrate and landing", () => {
+  it("marks ran phases done, the open one current, the rest pending; Self-review between landing and cleanup", () => {
     const p = mainProgress([run("flow.kickoff", 0, 1), run("flow.sdd-tdd", 2, 3), run("flow.review-panel", 4)]);
     expect(p.map((x) => `${x.phase}:${x.state}`)).toEqual([
       "Planning:done",
-      "Decisions:todo",
       "Implementation:done",
       "Review:current",
       "Verification:todo",
-      "Handoff:todo",
-      "Integrate:todo",
-      "Self-review:todo",
       "Landing:todo",
+      "Self-review:todo",
       "Cleanup:todo",
     ]);
-    expect(mainProgress([run("flow.document-fix", 0, 1)]).map((x) => x.phase)).toContain("Fixes");
   });
 });
 

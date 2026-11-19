@@ -2,7 +2,7 @@
 
 **This file is canonical for what a `/flow*` run does with a defect it finds in the project's own
 product code — its change's own, or one the change did not introduce: a pre-existing test failure,
-a visual departure present at the merge base, a finding a verification change's sweep makes on a
+a finding a verification change's sweep makes on a
 surface another change owns.** Skills reference it as **the sweep**; none of them restate it.
 
 ## The sweep
@@ -10,7 +10,7 @@ surface another change owns.** Skills reference it as **the sweep**; none of the
 A product defect a run finds is fixed inside that run, before integrate lands the change — never deferred to self-review.
 
 **A defect the change did not introduce is no exception.** It blocks exactly as the change's own
-does and takes the same course — **The loop** (`skills/flow/verify-fix-loop.md`) in verify and
+does and takes the same course — the fix procedure (`skills/flow/fix.md`) in verify and
 visual verification, an appended task for a verification change's sweep (**D. Basic Workflow #3 —
 Writing plans**, `skills/flow/brainstorm-planner.md`). It is never logged to a `<project>/KNOWN-BUGS.md`
 file, never filed for later, and never skipped, worked around or
@@ -59,7 +59,7 @@ run's UI change never verified — stops the landing exactly as above. It is nev
   disk and, once it writes its state, continues into integrate as a re-run with new work, which
   runs the pass again (**Run 1 — the branch is not merged**,
   `skills/flow-contracts/finish-contract-run1.md`).
-- **`/flow-fast`'s verify** stops before `flow.stage-diff` and continues as
+- **`/flow-fast`'s verify** stops before `flow.verify` and continues as
   `/flow-fast <name> <the defect, one line>` would; the fix re-run lands normally.
 
 Met by a standalone `/flow-self-review` after landing, the pass's closing report names it for the

@@ -15,7 +15,7 @@ question they would answer with the recommended option costs them a stop for not
 It holds for a call site's own prompt and for any question the run frames itself in those phases —
 a finding that seems to need a product decision, a departure from a mockup — one whose root
 cause is a shared style, token or component, whose fix moves other screens' baselines, included
-(**The loop**, `skills/flow/verify-fix-loop.md`, fixes it at that source) — a
+(`skills/flow/fix.md` fixes it at that source) — a
 question an implementer's report carries, a pivot (`skills/flow/implement.md`).
 A pivot is auto-resolved although it alters approved scope: the operator asked that a recommended
 option be taken even when it reopens an earlier choice of theirs. Frame it with the option the
@@ -39,8 +39,8 @@ prompt with no recommended option, a cause out of the run's reach and anything o
 irreversible stop under the mode exactly as off it.
 
 **A blocked verify or visual-verify is never turned into questions.** Each class below has one
-answer the pipeline's own rules already give, so the run takes it and goes on to **The loop**
-(`skills/flow/verify-fix-loop.md`) without asking. A list of "Decisions for you" built from these
+answer the pipeline's own rules already give, so the run takes it and goes on to the fix procedure
+(`skills/flow/fix.md`) without asking. A list of "Decisions for you" built from these
 cases is a stop for nothing:
 
 - **A failure this branch introduced**, such as a capture's seed data crowding another spec's search:
@@ -50,7 +50,7 @@ cases is a stop for nothing:
   run (**The sweep**, `skills/flow-contracts/known-bugs.md`). If the cause is a base branch that has
   fallen behind the branch it tracks (a feature branch that never took in develop or main), the
   recommended option is to sync that base and re-run. The parent checks this at the start of
-  whichever of `flow.verify` and `flow.visual-verify` runs first, before any failure arrives: for
+  whichever visual or lint stage of `flow.verify` runs first, before any failure arrives: for
   each repository whose recorded base is a feature branch, after `git fetch origin`, a
   `git rev-list --count origin/<base>..origin/<the branch it tracks>` above 0 — develop or main
   holding commits the base lacks — syncs the base first. `flow-guard check-base-behind` makes that count for every worktree of the change and prints the sync commands (**Verify**, `skills/flow/verify-and-handoff.md`). Pushing the synced base is not asked (below).
@@ -63,11 +63,11 @@ cases is a stop for nothing:
 - **The ticket or a design decision conflicts with a project rule** — a requested entrance motion
   against a no-blank-first-frame rule, for example: take the reading that satisfies both (the row
   drawn from its first frame and sliding into place, never starting invisible), record it as a
-  decision superseding the plan's, and go on to **The loop**. A conflict is never a reason to stop.
+  decision superseding the plan's, and go on to the fix procedure. A conflict is never a reason to stop.
 - **A verify or visual-verify loop that keeps finding departures** — round after round, the same
   frames again or new ones: run another fix round. There is no round count, no usage or time
   threshold, and no "land with leftovers or keep going?" question: the departures are fixed until a
-  round reports none (`skills/flow/verify-fix-loop.md`). **The run never lands, and never writes
+  round reports none (`skills/flow/fix.md`). **The run never lands, and never writes
   its handoff, with a departure open** — no "leftovers", no "known departures" list. Two frames that
   contradict each other are settled by taking the frame of the screen's own section (the one the
   ticket names for that screen), recording that as a decision superseding the other frame's reading,
@@ -82,7 +82,7 @@ cases is a stop for nothing:
   stays forbidden.
 
 **A blocked verify never ends the turn.** The report of a blocked `flow.verify` or
-`flow.visual-verify` is the input to **The loop**, dispatched in the same turn; a handoff that
+`flow.verify` is the input to the fix procedure, dispatched in the same turn; a handoff that
 lists the failures and stops, or ends on a "Decision for you" whose recommended option the run
 could have taken, is the stop this file exists to prevent.
 
@@ -117,10 +117,10 @@ past planning is (**Work end to end — stop only to plan or to test by hand**,
   review gate, every `/flow-plan` prompt. The operator scoped
   auto-resolution to implementation and fix options, not planning. The `## decisions: recommended` mode lifts the planning asks in this bullet and lifts no
   other bullet here.
-- **Manual testing the operator asked for.** A `/flow` record whose `reviewBeforeLanding` is `true`
-  stops at its `IN_PROGRESS` handoff (**Review-before-landing instruction**, `skills/flow/SKILL.md`),
-  and `/flow-fast` with `## handoff` `required` stops after its change summary; the fixes that
-  testing finds are the operator's fix runs. Neither stops unless the operator set it.
+- **Manual testing the operator asked for.** `/flow-fast` with `## handoff` `required` stops after
+  its change summary; the fixes that testing finds are the operator's fix runs. It stops only when
+  the operator set it. A `/flow` run that leaves a `?` in its `Decisions:` stops at its `IN_PROGRESS`
+  handoff (**What still stops**).
 - **No recommended option.** A multiple-match pick, a finding
   recorded unverifiable, and a question the run cannot honestly give one recommended option.
 - **Out of the run's reach.** A failure whose cure lies outside the run — production, a credential

@@ -3,7 +3,7 @@
 Loaded by `skills/flow/SKILL.md` on a **bare** invocation at `IN_PROGRESS` — no argument, or the change's name alone (**Change
 name resolution (all `/flow*` commands)**, `skills/flow-contracts/pipeline.md`) — and by **Write
 `IN_PROGRESS`** (`skills/flow/verify-and-handoff.md`), which continues here in the same invocation
-when the record's `reviewBeforeLanding` is not `true` and no open question is left.
+when no open question is left.
 
 ## Deciding which run this is
 
@@ -12,7 +12,7 @@ base-branch resolution, the preflight checks, the removal sequence and their rat
 that file. This file carries only what is specific to *executing* it under `/flow`.
 
 **`flow-guard integrate-change` runs every mechanical step of run 1 and run 2, in that file's order**
-(`skills/flow-contracts/finish-contract-run1.md`), with its stage marks; the parent writes the
+(`skills/flow-contracts/finish-contract-run1.md`), with its `flow.land` mark (run 1) and `flow.cleanup` mark (run 2); the parent writes the
 commit subjects and the narrative, runs the self-review pass and the Jira calls, and handles each
 stop below. **Load `skills/flow-contracts/finish-contract-run1.md` only when** a stop below cites
 one of its sections.
@@ -105,10 +105,10 @@ when one is usable — say so, open or closed-unmerged, before the operator answ
 
 **Load `skills/flow-contracts/git-boundaries-commit-chain.md`** before writing the subjects below.
 
-**Append this run's own narrative first**, the same append `flow.write-in-progress` <!-- refs-guard:allow -->
+**Append this run's own narrative first**, the same append `flow.verify` <!-- refs-guard:allow -->
 (`skills/flow/verify-and-handoff.md`) makes, heading `## <YYYY-MM-DD> — integrate run`, covering
 this run's preflight, the unfinished-work gate and the rebase — into the `narrative.md` the
-`NEXT:` line names. An invocation that already appended its section at `flow.write-in-progress`
+`NEXT:` line names. An invocation that already appended its section at `flow.verify`
 extends it instead: ` — integrate run` is appended to that section's heading and the preflight,
 gate and rebase lines go under it.
 
@@ -127,21 +127,7 @@ and pushes each reshaped branch `--force-with-lease` — per **Run 1 — the bra
 `push` — is reported with the script's lines and leaves the change at
 `IN_PROGRESS`.
 
-## 4. Run the self-review pass
-
-Per **Run the self-review pass** (`skills/flow-contracts/finish-contract-run1.md`), canonical for it.
-Write the bundle's stdout, then `## Session narrative`, to `<sr-dir>/bundle.md`, never printing it,
-and run the pass over it. No report is written or committed.
-
-A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes that mark
-`-outcome stopped` instead, and the run continues straight into the fix run **the sweep**
-(`skills/flow-contracts/known-bugs.md`) names, in the same invocation, before step 5:
-
-```bash
-flow stage end -command '/flow' -stage flow.self-review -outcome stopped <name>
-```
-
-## 5. Take the chosen route, write the state, and transition Jira
+## 4. Take the chosen route and write the state
 
 Call it with the parent's own shell outside every worktree in the set.
 
@@ -150,24 +136,15 @@ flow-guard integrate-change land <main-checkout> <name> [--route "<route>"] --ha
 ```
 
 `--route` carries the operator's answer to the landing question; without it `land` takes the
-configured default. Before `land`, the session ends the
-self-review stage itself — `land` no longer ends it:
-
-```bash
-flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>
-```
-
-`land` checks that row with `flow stage completed -C <main-checkout> -stage flow.self-review <name>`
-and stops at `STOP: self-review-report` until it holds; it then runs the route of **The routes**
-(`skills/flow-contracts/finish-contract-run1.md`) per worktree in `## Merge order` — the
-self-review's `fixed` rows re-read after each landing push, per step 5
-of `/flow-self-review` (`skills/flow-self-review/SKILL.md`) — and writes `IN_PROGRESS`.
+configured default. `land` runs the route of **The routes**
+(`skills/flow-contracts/finish-contract-run1.md`) per worktree in `## Merge order` and writes
+`IN_PROGRESS`. It neither needs a completed self-review nor calls `cleanup`: step 5 runs after it.
 
 `STOP: landing-route` — no route given or configured — asks the landing question of step 2, then
 re-runs `land` with `--route`.
 
 **Every git step here can fail, and none of them may fail silently.** `STOP: push`, `STOP: sync`,
-`STOP: sync-conflict`, `STOP: rebase-lint`, `STOP: self-review-report` and `STOP: state` are
+`STOP: sync-conflict`, `STOP: rebase-lint` and `STOP: state` are
 reported with the command's own output, leaving the change at `IN_PROGRESS`; `STOP: base` and
 `STOP: no-remote` are handled as in **Deciding which run this is** above; a conflict on the merge-and-push route's one re-sync is resolved per
 **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) and `land` re-run as the one
@@ -179,11 +156,37 @@ the answer is No, leave `prUrl` null and say what to do next. Either answer re-r
 `--pr-url <worktree>=<url>` or `--pr-url <worktree>=none` for the worktree the stop names, every
 earlier `--pr-url` kept.
 
-**`JIRA: transition <KEY> to In Review`** → **Load `skills/flow-contracts/jira-integration.md`** and
-**`skills/flow-contracts/jira-integration-finish.md`** — its **In Review is not tied to a pull
-request** governs the transition — and transition the issue per **Transitions**
-(`skills/flow-contracts/jira-integration.md`): after the state write, never before, never
-blocking.
+## 5. Run the self-review pass
+
+Per **Run the self-review pass** (`skills/flow-contracts/finish-contract-run1.md`), canonical for it.
+Write the bundle's stdout, then `## Session narrative`, to `<sr-dir>/bundle.md`, never printing it,
+and run the pass over it. No report is written or committed. The pass runs after `land`, on the
+branch it landed; its fixes go on `self-review-<name>` and land by `flow-guard pipeline-fix land`
+(`skills/flow-self-review/SKILL.md`), never back onto the change's branch.
+
+A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes that mark
+`-outcome stopped` instead, and the run continues straight into the fix run **the sweep**
+(`skills/flow-contracts/known-bugs.md`) names, in the same invocation:
+
+```bash
+flow stage end -command '/flow' -stage flow.self-review -outcome stopped <name>
+```
+
+Otherwise the session ends the stage itself, before `cleanup` or the handoff:
+
+```bash
+flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>
+```
+
+When the stage was ended `stopped` first, `land`'s begin no longer holds it open: begin it again before the
+pass whose `completed` end follows, with the run's own harness and token:
+
+```bash
+flow stage begin -C <main-checkout> -command '/flow' -stage flow.self-review -harness <harness> -session-token mf-<literal-token> <name>
+```
+
+On merge and push, `cleanup` (`skills/flow/cleanup.md`) then refuses with `STOP: self-review-report`
+until that row holds.
 
 ## Handoff
 
@@ -216,12 +219,12 @@ merge-status test in **The block each state renders**
 
 ## After merge-and-push specifically
 
-`land` continues, within the same invocation and without a further command from the operator,
-into run 2; handle its output by `skills/flow/cleanup.md` exactly as written. Nothing external
-blocks this route.
+After step 5, the same invocation runs `flow-guard integrate-change cleanup` without a further
+command from the operator; handle its output by `skills/flow/cleanup.md` exactly as written.
+Nothing external blocks this route.
 
 ## After open PR or manual specifically
 
-Stop after the route completes, printing the handoff above. Each of these two routes needs an
+Run step 5, then stop, printing the handoff above. Each of these two routes needs an
 action outside this command's control before the branch merges. The next bare `/flow <name>`
 call, once the branch is integrated, runs run 2's cleanup (`skills/flow/cleanup.md`).

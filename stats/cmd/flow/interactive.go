@@ -20,7 +20,7 @@ package main
 //   5. a declared `## lint` list whose flow-lint-green does not hold HEAD —
 //      refused: a rebase that moved HEAD needs the list run again;
 //   6. `flow stage begin -command /flow-interactive -stage
-//      flow.landing-routes -request <n>`, then `git push origin
+//      flow.land -request <n>`, then `git push origin
 //      <branch>:<base>`, `git fetch origin` and `git merge-base
 //      --is-ancestor HEAD origin/<base>` — a failure of any ends the stage
 //      `failed` with a one-line -reason, exit 1;
@@ -135,10 +135,10 @@ func runInteractiveLand(ctx context.Context, args []string, getenv func(string) 
 		return refuse("HEAD %s is not the commit a green lint list stamped (flow-lint-green holds %q) — run flow-guard run-verify-list %s lint (step 4), then land again", head, lintGreenAt(*wt), *wt)
 	}
 
-	conn := []string{"-addr", addr, "-timeout", timeout.String(), "-C", *wt, "-command", "/flow-interactive", "-stage", "flow.landing-routes"}
+	conn := []string{"-addr", addr, "-timeout", timeout.String(), "-C", *wt, "-command", "/flow-interactive", "-stage", "flow.land"}
 	begin := append(append([]string{}, conn...), "-request", strconv.Itoa(*n), "-harness", *harness, "-session-token", *token, *change)
 	if code := runStageBegin(ctx, begin, getenv, stderr); code != 0 {
-		return refuse("flow stage begin flow.landing-routes exited %d", code)
+		return refuse("flow stage begin flow.land exited %d", code)
 	}
 	end := func(outcome string, extra ...string) int {
 		return runStageEnd(ctx, append(append(append([]string{}, conn...), "-outcome", outcome), append(extra, *change)...), getenv, stderr)
@@ -159,7 +159,7 @@ func runInteractiveLand(ctx context.Context, args []string, getenv func(string) 
 		return refuse("%s", reason)
 	}
 	if code := end("completed"); code != 0 {
-		return refuse("flow stage end flow.landing-routes exited %d after the push", code)
+		return refuse("flow stage end flow.land exited %d after the push", code)
 	}
 	fmt.Fprintf(stdout, "commit: %s\nbase: %s\n", head, base)
 	return 0

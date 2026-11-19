@@ -36,10 +36,10 @@ with no session token, an absent or failing `flow` CLI, or an unparseable answer
 through with no begin. Nothing is begun once the session's change is FINISHED in the store.
 
 A planning agent (PLANNING_AGENT_TYPES: Explore, Plan) is begun under its `explore-<n>` or
-`design-<n>` key only while the session's latest stage run is `flow.brainstorm` and its prompt
+`design-<n>` key only while the session's latest stage run is `flow.plan` and its prompt
 names the session change's worktree, <main-checkout>-worktrees/<change> (decisions
 planning-agents-hook-begun, planning-agent-begins-in-brainstorm); a loop planner's agents -- naming
-the loop's worktree, or the run's own outside `flow.brainstorm` -- keep the planner's explicit begin.
+the loop's worktree, or the run's own outside `flow.plan` -- keep the planner's explicit begin.
 
 Each deny, once written, also records one `flow record incident` row, with the session's change
 where the store names one; that write fails open, leaving the deny as it stands.
@@ -105,18 +105,16 @@ DENY_REASON = (
 
 # A key the hook begins a row under, by a Key shape the closed list names (**Dispatch sites -- the
 # parent's closed list**, skills/flow/implement.md) -- `panel-4-primary`, `visual-verify-fix-11-gymie`,
-# `full-suite-fix-2`, a fix run's planner `fix-plan-1`, a planner's `plan-2` or `plan-short-3`, the plan reviewer's `plan-review-1`, a /flow-interactive
+# `full-suite-fix-2`, a fix's implementer `fix-2-implementer` or reviewer `fix-2-review`, a planner's `plan-2` or `plan-short-3`, a /flow-interactive
 # request's operator-asked `operator-58`.
 ROW_KEY = (
     r"task-\d+(?:\+\d+)*-(?:implementer|reviewer)(?:-[a-z0-9-]+)?"
     r"|panel-\d+-[a-z][a-z0-9+-]*"
     r"|panel-fix-\d+(?:-\d+)?(?:-retry)?"
-    r"|fix-plan-\d+"
+    r"|fix-\d+-(?:implementer|review)"
     r"|full-suite-fix-\d+"
     r"|visual-verify(?:-[a-z0-9][a-z0-9-]*)?"
-    r"|tooling-analysis-\d+(?:-[a-z0-9][a-z0-9-]*)?"
     r"|pipeline-fix-[a-z0-9][a-z0-9-]*"
-    r"|plan-review-\d+"
     r"|plan-\d+"
     r"|plan-short-\d+"
     r"|operator-\d+(?:-[a-z0-9][a-z0-9-]*)?"
@@ -162,12 +160,12 @@ FLOW_EFFORT = re.compile(r"flow-(?:planner-)?([a-z]+)")
 # launchRoleID (stats/cmd/flow/record.go).
 ROW_ROLE = {
     "implementer": "implementer", "operator-asked": "implementer",
-    "gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer", "design-reviewer": "reviewer",
+    "gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer",
     "panel-reviewer": "reviewer", "panel-rerun": "reviewer",
     "panel-merger": "merger",
     "panel-fix": "panel-fix", "minor-fix": "panel-fix",
     "visual-verifier": "verifier",
-    "planner": "planner", "plan-designer": "planner", "tooling-analyst": "planner", "fix-planner": "planner",
+    "planner": "planner", "plan-designer": "planner",
     "planner-short": "planner",
     "explorer": "explorer",
 }
@@ -260,7 +258,7 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | None":
         worktree = f"{main}-worktrees/{change}" if main else None
         if not token or not worktree:
             return None
-        if planning and not (stage == "flow.brainstorm" and names_worktree(prompt, worktree)):
+        if planning and not (stage == "flow.plan" and names_worktree(prompt, worktree)):
             return None
         done = subprocess.run(
             ["flow", "record", "dispatches", "-change", change, "-C", cwd],

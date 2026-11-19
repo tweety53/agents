@@ -569,10 +569,13 @@ func (f *fakeStore) ChangeSummary(_ context.Context, projectKey, change string) 
 	return records.ChangeSummary{ID: 1, Summary: f.recordedSummary, RecordedAt: time.Now()}, nil
 }
 
-func (f *fakeStore) StageCompleted(_ context.Context, _, _, _ string) (bool, error) {
+func (f *fakeStore) StageCompleted(_ context.Context, _, _, key string) (bool, error) {
 	f.recordCalls++
 	if f.stageCompletedErr != nil {
 		return false, f.stageCompletedErr
+	}
+	if f.stageCompletedKeys != nil {
+		return f.stageCompletedKeys[key], nil
 	}
 	return f.stageCompleted, nil
 }

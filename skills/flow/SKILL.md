@@ -31,13 +31,13 @@ it back for every later phase, so it is never passed again.
 A recorded base gone from origin — merged and deleted — is refused by name by `flow-guard resolve-base-branch` (`<agents repo>/scripts/flow-guard resolve-base-branch`): re-point every worktree of the change at the branch that absorbed it with the three commands integrate's `STOP: base-mismatch` answer names (`skills/flow/integrate.md`), then re-run.
 
 **A second exception: the word `full` after the change name or key on a creating run** —
-`/flow <key|name> full` — forces full planning: the run skips the planning triage (**Triage the
-planning**, `skills/flow/brainstorm.md`). It is no part of the name.
+`/flow <key|name> full` — forces full planning: the run skips planning short first (**Plan short first**,
+`skills/flow/brainstorm.md`). It is no part of the name.
 
 ## Model resolution
 
 **The implementer groups, the review panel and visual verification are decided per change, never
-configured** — by a headless decider at **Decide** (`skills/flow/brainstorm-planner.md`) — and the
+configured** — by the headless plan check at **Plan check gate** (`skills/flow/brainstorm-planner.md`) — and the
 run reads them from the recorded `decision.json`.
 
 **Every dispatch runs on its role's pair, picked by `flow-guard pair-judge` at dispatch time** —
@@ -67,8 +67,7 @@ to report, never a creating run.
   **Resuming at `STARTED`** (`skills/flow/resume.md`).
 - **Exit 0, `"state": "IN_PROGRESS"`, an argument other than the change's name** — a fix run — or a plain message, per
   **A plain message at IN_PROGRESS** below. See
-  **3. Documenting a fix, before implementing it** and then **The parent orchestrates directly**
-  (`skills/flow/implement.md`); unless `reviewBeforeLanding` is `true` or the run leaves an open question, the run continues into
+  `skills/flow/fix.md`; unless the run leaves an open question, the run continues into
   integrate once it writes the state (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
 - **Exit 0, `"state": "IN_PROGRESS"`, no argument or the change's name alone** (**Change name
   resolution (all `/flow*` commands)**, `skills/flow-contracts/pipeline.md`) — an integrate run. See
@@ -92,8 +91,7 @@ store, makes the message an ordinary turn, never a wrong-state handoff, since no
 fix, and one that reads as a question is answered as an ordinary turn.
 
 **The run.** Announce `Using flow for change <name> — fix run from a plain message`, generate this
-run's own session token per **Generate this run's session token once** below, and continue at **3.
-Documenting a fix, before implementing it** (`skills/flow/implement.md`) with the verbatim message
+run's own session token per **Generate this run's session token once** below, and continue at `skills/flow/fix.md` with the verbatim message
 as the fix instructions — nothing else about the fix run changes.
 
 **Not a trigger.** A question, a discussion, an unrelated task, a session that never ran `/flow`,
@@ -113,23 +111,6 @@ a guess or the best available name, which is legal for a read; it is never legal
 (`skills/flow-contracts/pipeline.md`) states — and reuse that exact value in every `flow record` command this run makes, including inside every
 phase file it dispatches into; a later `/flow` invocation generates its own. `<literal-token>` is
 that string written in place of the placeholder. A `stage begin` carries it too.
-
-## Review-before-landing instruction
-
-**A change lands without review by default** — no run asks whether to stop for review or testing.
-**Only the operator's own plain-language instruction to review or test before landing** — or to
-land without review again — given at any point of any `/flow` run of the change, the creating run's
-planning included, is written to the record at once:
-
-```bash
-flow state get <name> | jq '.reviewBeforeLanding = <true|false>' | flow state set <name>
-```
-
-The latest instruction wins. It is one line in the run's narrative and one `Decisions:` bullet. It
-is never itself an integrate trigger: integrate still starts only at the run's own chain point or
-on a fresh bare `/flow` (**Every invocation is re-entrant**, `skills/flow-contracts/pipeline.md`).
-An instruction given before **A. Resolve the change and write `STARTED`**
-(`skills/flow/brainstorm.md`) has produced the record is written right after that write.
 
 ## Full-suite instruction
 

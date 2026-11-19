@@ -1,6 +1,6 @@
 # Plan review rubric
 
-The lenses the plan reviewer (`skills/flow/plan-reviewer-prompt.md`) applies to a change's
+The lenses the plan reviewer (`skills/flow/plan-check-prompt.md`) applies to a change's
 `proposal.md`, `design.md` and `tasks.md` before implementation. The reader is the dispatched
 reviewer. Adapted from the review standards and reviewer personas of the Elephant-Goldfish Model,
 <https://github.com/google/elephant-goldfish-model> (Apache-2.0) — adapted, not vendored: where

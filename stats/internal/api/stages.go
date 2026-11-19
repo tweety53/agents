@@ -507,23 +507,6 @@ func ApplyBeginStageMark(ctx context.Context, ss StageStore, logger *slog.Logger
 	if err != nil {
 		return StageMarkResult{}, err
 	}
-	// /flow-fast and /flow-interactive keep no state file, so their change
-	// row is the synthetic STARTED one bootstrapped above; their
-	// flow.write-finished mark is the only signal that the change landed,
-	// and moves that row to FINISHED.
-	if (mark.Command == string(stages.FlowFast) || mark.Command == string(stages.FlowInteractive)) && mark.Stage == "flow.write-finished" && mark.ChangeName != "" {
-		finished := store.Change{
-			ProjectKey:       mark.ProjectKey,
-			MainCheckoutPath: mark.MainCheckoutPath,
-			Name:             mark.ChangeName,
-			State:            store.StateFinished,
-			UpdatedAt:        time.Now().UTC(),
-			UpdatedBy:        stages.SyntheticChangeUpdatedBy,
-		}
-		if err := ss.PutChange(ctx, finished); err != nil && !errors.Is(err, store.ErrMonotonicViolation) {
-			return StageMarkResult{}, err
-		}
-	}
 	if len(run.SupersededRuns) > 0 && logger != nil {
 		// KAN-618: a supersession is a marking slip -- this session opened
 		// a stage while an earlier one of its own was still open. Warn at
@@ -680,6 +663,23 @@ func ApplyEndStageMark(ctx context.Context, ss StageStore, mark EndStageMark) (S
 		return StageMarkResult{}, noOpenStageRunErr(mark)
 	}
 
+	// /flow-fast and /flow-interactive keep no state file, so their change
+	// row is the synthetic STARTED one bootstrapped at begin; their
+	// completed flow.cleanup mark is the only signal that the change landed,
+	// and moves that row to FINISHED -- before the run is ended, so a failed
+	// write leaves the run open for the retry.
+	if (mark.Command == string(stages.FlowFast) || mark.Command == string(stages.FlowInteractive)) && mark.Stage == "flow.cleanup" && mark.Outcome == stages.OutcomeCompleted && mark.ChangeName != "" {
+		finished := store.Change{
+			ProjectKey: mark.ProjectKey,
+			Name:       mark.ChangeName,
+			State:      store.StateFinished,
+			UpdatedAt:  time.Now().UTC(),
+			UpdatedBy:  stages.SyntheticChangeUpdatedBy,
+		}
+		if err := ss.PutChange(ctx, finished); err != nil && !errors.Is(err, store.ErrMonotonicViolation) {
+			return StageMarkResult{}, err
+		}
+	}
 	if err := ss.EndStage(ctx, openRun.ID, mark.EndedAt, mark.Outcome); err != nil {
 		if errors.Is(err, store.ErrStageRunAlreadyClosed) {
 			return StageMarkResult{}, noOpenStageRunErr(mark)

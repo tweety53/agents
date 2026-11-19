@@ -37,10 +37,6 @@ type Env struct {
 	// SurvivorsExpire, when non-nil, replaces the survivors bound's timer:
 	// the bound fires when it receives, so a test decides when (or never).
 	SurvivorsExpire <-chan time.Time
-	// MutateExpire, when non-nil, replaces mutate-and-verify's per-run
-	// timer: the running pass is killed as timed out when it receives, so a
-	// test decides which pass hits the bound and the baseline never races it.
-	MutateExpire <-chan time.Time
 	// Findings returns `flow record findings -change <name>`'s JSON; nil
 	// means exec the `flow` CLI on PATH, as the bash guard does.
 	Findings func(change string) ([]byte, error)

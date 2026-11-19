@@ -100,7 +100,6 @@ placeholder.
 | Command | When | Target status |
 |---------|------|---------------|
 | `/flow`'s creating run | start of the run, immediately after the key resolves | **In Progress** |
-| bare `/flow` | run 1, after the chosen route completes — every route | **In Review** |
 | bare `/flow` | run 2, after the `FINISHED` state write | **Done** |
 | `/flow-interactive` | session start, immediately after the key resolves | **In Progress** |
 | `/flow-interactive` | the explicit stop, after cleanup | **Done** |
@@ -181,7 +180,7 @@ Then the command continues normally and writes the state exactly as it would hav
 a loop, do not roll back, do not abort the run, and do not emit more than that one line. When `jiraIssue` is `null`, no Jira call is attempted at all.
 
 On success, report it just as briefly, e.g. `Jira: KAN-7 → In Progress` or
-`Jira: KAN-7 already In Review (no transition)`.
+`Jira: KAN-7 already In Progress (no transition)`.
 
 ### Description sync
 

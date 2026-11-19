@@ -27,23 +27,22 @@ A change is always in exactly one of three states, recorded in its state file.
 
 ```text
 /flow  (no state)          → STARTED                  you: /clear, then /flow <name> to implement
-/flow  (STARTED, planned)  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set or a question is open
-/flow  <fix instructions>  → IN_PROGRESS or FINISHED  lands straight away unless review-before-landing is set or a question is open
+/flow  (STARTED, planned)  → IN_PROGRESS or FINISHED  lands straight away unless a question is open
+/flow  <fix instructions>  → IN_PROGRESS or FINISHED  lands straight away unless a question is open
 /flow  (bare, IN_PROGRESS) → IN_PROGRESS or FINISHED  terminal only on the merge-and-push route — see the finish contract
 ```
 
 **The human gate is a property of the state, not a separate stage.** `IN_PROGRESS` *means* a
-staged diff is waiting for the human to review, alongside a stack the handoff already started.
-**The gate is opt-in per change:** a run that writes `IN_PROGRESS` stops there only when the
-record's `reviewBeforeLanding` is `true` (`state-file.md`) or the run leaves an open question; otherwise it continues into integrate
-in the same invocation (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
+staged diff is waiting for the human to review.
+A run that writes `IN_PROGRESS` continues into integrate in the same invocation unless its
+`Decisions:` carries a `?`, which stops it with the handoff block (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
 Nothing records that the review or the testing happened; the operator running the next
 command is what carries the change forward.
 
 | State | Means | Waiting on |
 |-------|-------|-----------|
 | `STARTED` | The change exists; planning is under way or the plan awaits implementation | you — `/clear`, then `/flow <name>` |
-| `IN_PROGRESS` | The implementation is staged and the stack is running | you — review the diff — the stack is running |
+| `IN_PROGRESS` | The implementation is staged | you — review the diff |
 | `FINISHED` | Dropped, pushed, worktrees removed | — |
 
 **Reviewing and testing are one gate.** A creating or fix run of `/flow` produces both surfaces in
@@ -71,9 +70,9 @@ An argument that is none of those is **reported**, not silently ignored.
 | Command | Accepts | Ends at |
 |---------|---------|---------|
 | `/flow` | *(no state — creates the change)* | `STARTED` — the run ends at the plan gate with a `/clear` handoff (see **Resuming at `STARTED`** in `skills/flow/resume.md`) |
-| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or, the plan already ready, as the implementation run ends — at `IN_PROGRESS` when `reviewBeforeLanding` is `true` or an open question is left, otherwise continuing into integrate and ending as an integrate run ends |
-| `/flow` | `IN_PROGRESS`, with an argument other than the change's name | fix run; state unchanged — then, unless `reviewBeforeLanding` is `true` or an open question is left, integrate in the same invocation |
-| *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) — then, unless `reviewBeforeLanding` is `true` or an open question is left, integrate in the same invocation |
+| `/flow` | `STARTED` | resumes the creating run from wherever it stopped; ends at `STARTED` (still planning, or planning just finished — `/clear` handoff) or, the plan already ready, as the implementation run ends — at `IN_PROGRESS` when an open question is left, otherwise continuing into integrate and ending as an integrate run ends |
+| `/flow` | `IN_PROGRESS`, with an argument other than the change's name | fix run; state unchanged — then, unless an open question is left, integrate in the same invocation |
+| *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) — then, unless an open question is left, integrate in the same invocation |
 | `/flow` | `IN_PROGRESS`, bare — or the change's name alone (**Change name resolution (all `/flow*` commands)**) | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
 | `/flow` | `FINISHED` | wrong-state handoff — the change is dropped |
 | `/flow-status` | any — read-only, never block | unchanged |
@@ -86,7 +85,7 @@ Which phase file marks each `flow.*` key is **Stage keys** (`skills/flow/stage-k
 
 **Integrate starts at exactly two points: an actual new bare `/flow` (or `/flow <name>`) command
 from the operator, or the continuation **Write `IN_PROGRESS`** (`skills/flow/verify-and-handoff.md`)
-makes when the record's `reviewBeforeLanding` is not `true` and no open question is left — never inferred from anything said
+makes when no open question is left — never inferred from anything said
 inside a still-running turn.** A
 running `/flow` turn is mid fix run, mid a question the run itself asked, or simply still executing
 — and an instruction the operator gives during that turn, however explicit ("merge and push", "go
@@ -97,9 +96,7 @@ conversation, not a re-invocation. This is what the human gate at `IN_PROGRESS`
 mid-turn question, or a dispatched-agent report into integrate's unfinished-work gate, its landing
 question, or any git action the chosen route performs — even when the operator's own words include
 "merge and push" — without the turn first ending and a fresh bare invocation starting it**, save
-that sanctioned continuation. An operator instruction to review before landing, or to land without
-review, sets `reviewBeforeLanding` and is never itself an integrate trigger
-(**Review-before-landing instruction**, `skills/flow/SKILL.md`). On a
+that sanctioned continuation. On a
 mismatch, treat it exactly as **Wrong state for this command** below already requires: report what
 was said, name the bare re-invocation as what actually starts integrate, and stop rather than
 inferring consent.
@@ -116,9 +113,7 @@ after a fix is their decision.
 Brainstorming and the plan gate are the operator's (`skills/flow/brainstorm-planner.md`), and the
 plan gate's `/clear` handoff is the boundary. From the `/flow <name>` that resumes the planned
 change, implementation, review, verify, integrate and cleanup follow in one invocation until the
-landing route ends the run (`skills/flow-contracts/finish-contract-run1.md`). The one stop the
-operator chooses is review-before-landing (`reviewBeforeLanding`, `state-file.md`), for manual
-testing after implementation; beyond it only **What still stops** ends a turn early. No rule in
+landing route ends the run (`skills/flow-contracts/finish-contract-run1.md`). Only **What still stops** ends a turn early. No rule in
 another file licenses asking a question that carries a recommended option.
 
 **The operator's actions and the run's stops are minimised: a run resolves everything it can
@@ -132,7 +127,7 @@ rounds or tasks still ahead, a natural-looking checkpoint, the length of a phase
 read or the lines already loaded, and a list of open items that each carry
 a recommended option are never reasons to end a turn or to hand a status report to the operator
 mid-run (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). A
-shared-source fix (`skills/flow/verify-fix-loop.md`) is never offered as "a separate change". A phase file too long for one read is read in
+shared-source fix (`skills/flow/fix.md`) is never offered as "a separate change". A phase file too long for one read is read in
 offset chunks and the run continues, and, with no explicit operator stop, is never handed to the
 operator as 're-run /flow to continue'.
 
@@ -175,13 +170,13 @@ round without progress changes the approach again; none of them stops the run.
 without progress too.** When two narrowed visual re-runs in a row fail only in specs outside the
 `specs` row's output, the next round takes one
 batched fixer whose prompt opens with `No-progress escalation` and carries every earlier round's
-report (`skills/flow/verify-fix-loop.md`). When the diff touches shared rendering code every spec is
+report (`skills/flow/fix.md`). When the diff touches shared rendering code every spec is
 in that output, so only the same-defect rule above applies.
 
 ### Three failed rounds
 
 **Three failed rounds of one loop are a round without progress too, whatever their defects.** A
-failed round is one that ends without the loop's own clean close. The fourth round, and each
+failed round is one that ends without the loop's own clean close. The fix procedure counts three failed rounds of `skills/flow/fix.md`, a round being one fix. The fourth round, and each
 later one, is the fresh dispatch above — the loop's planner where it has one, else its fixer —
 its prompt opening with the line `No-progress escalation`, carrying every earlier round's report
 verbatim and naming the approach that failed; a role with no marked pair runs it on its base
@@ -520,7 +515,7 @@ Next:
 - **Only what the operator must act on.** Do not restate the plan, enumerate completed internal
   steps, or repeat content available at a path you just gave.
 - **Link, never paste.** Diffs and plans are given as absolute paths.
-- **Every path is absolute** — in handoffs, in IntelliJ commands, in run instructions. Never a
+- **Every path is absolute** — in handoffs, in IntelliJ commands. Never a
   relative path, never `../<other-app>`, and never a main-checkout path while an apply worktree
   holds the work — and no `/flow` step checks out, stages or commits in the main checkout. Resolve
   app roots from `git worktree list` or the state file's `worktrees` keys.
@@ -566,8 +561,7 @@ still running without having to ask.
 **Every summary a run prints is recorded as it prints** — `flow record summary -change <name> -C <canonical-worktree> -file -`, the summary's Markdown on stdin, the `IN_PROGRESS` handoff's `**Summary:**` bullets included; one row per change, the last write wins — so the self-review bundle's first source is the run's own statement, as **Write `IN_PROGRESS`** prints it (`skills/flow/verify-and-handoff.md`).
 
 **The `IN_PROGRESS` handoff of a creating, resuming or fix run prints neither before its block.**
-Its own `**Summary:**` carries the first bullet above alone, its `**Running:**` section is its
-live-stack line, and its block is the whole handoff (**Write `IN_PROGRESS`**,
+Its own `**Summary:**` carries the first bullet above alone, and its block is the whole handoff (**Write `IN_PROGRESS`**,
 `skills/flow/verify-and-handoff.md`).
 
 ### The block each state renders

@@ -69,11 +69,11 @@ func roleMetrics(role string) []string {
 	switch role {
 	case "main":
 		return mainMetrics
-	case "planner", "planner-short", "plan-designer", "explorer", "fix-planner", "self-review-plan", "pipeline-fix-plan":
+	case "planner", "planner-short", "plan-designer", "explorer", "self-review-plan", "pipeline-fix-plan":
 		return plannerMetrics
-	case "implementer", "panel-fix", "minor-fix", "operator-asked", "self-review-fix", "pipeline-fix-fix", "late-fix":
+	case "implementer", "panel-fix", "minor-fix", "operator-asked", "self-review-fix", "pipeline-fix-fix":
 		return fixerMetrics
-	case "design-reviewer", "panel-reviewer", "panel-sanity-efficiency", "panel-mutation-failure", "panel-rerun", "gated-reviewer", "gated-re-reviewer",
+	case "panel-reviewer", "panel-sanity-efficiency", "panel-mutation-failure", "panel-rerun", "gated-reviewer", "gated-re-reviewer",
 		"self-review-review-1", "self-review-review-r", "pipeline-fix-review-1", "pipeline-fix-review-r":
 		return reviewerMetrics
 	case "visual-verifier":
@@ -87,8 +87,7 @@ func roleMetrics(role string) []string {
 // table role, so each is derived from the dispatch-site table in
 // skills/flow/implement.md and the key shapes the skills record.
 // ponytail: derived from key shapes; record the table role on dispatch rows
-// if a shape ever stops telling two roles apart. late-fix and
-// self-review-pass have no key shape of their own and select nothing. A
+// if a shape ever stops telling two roles apart. self-review-pass has no key shape of its own and selects nothing. A
 // task's gated fix, re-commit and wave pick are fixer dispatches, not the
 // implementer cell's.
 var roleDispatchSQL = map[string]string{
@@ -96,13 +95,9 @@ var roleDispatchSQL = map[string]string{
 	"planner-short":           `d.role = 'planner' AND d.dispatch_key ~ '^plan-short-[0-9]+$'`,
 	"plan-designer":           `d.role = 'planner' AND d.dispatch_key ~ '^design-[0-9]+'`,
 	"explorer":                `d.role = 'explorer'`,
-	"tooling-analyst":         `d.role = 'planner' AND d.dispatch_key LIKE 'tooling-analysis-%'`,
-	"fix-planner":             `d.role = 'planner' AND d.dispatch_key ~ '^fix-plan-[0-9]+$'`,
-	"fix-run-judge":           `d.role = 'planner' AND d.dispatch_key LIKE 'fix-run-judge-%'`,
 	"implementer":             `d.role = 'implementer' AND d.dispatch_key LIKE 'task-%' AND d.dispatch_key !~ '-implementer-(fix|recommit|pick)-'`,
 	"panel-fix":               `d.role = 'panel-fix' AND d.dispatch_key !~ '^panel-[0-9]+-minor-fix$'`,
 	"minor-fix":               `d.role = 'panel-fix' AND d.dispatch_key ~ '^panel-[0-9]+-minor-fix$'`,
-	"design-reviewer":         `d.role = 'reviewer' AND d.dispatch_key ~ '^plan-review-[0-9]+$'`,
 	"operator-asked":          `d.role = 'implementer' AND d.dispatch_key LIKE 'operator-%'`,
 	"panel-reviewer":          `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-0-' AND d.dispatch_key !~ '^panel-0-(test-sanity\+call-efficiency|mutation\+failure-modes)'`,
 	"panel-sanity-efficiency": `d.role = 'reviewer' AND d.dispatch_key ~ '^panel-0-test-sanity\+call-efficiency'`,

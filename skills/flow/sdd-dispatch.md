@@ -1,11 +1,11 @@
 # Execute — `sdd` dispatch
 
-Loaded during `flow.sdd-tdd` by the load directive of **4. Execute (SDD + TDD)**
+Loaded during `flow.implement` by the load directive of **4. Execute (SDD + TDD)**
 (`skills/flow/implement.md`). `<changeRoot>` and `<canonical-worktree>` are the values that file
 defines (`skills/flow/implement.md`).
 
 **Dispatch one implementer per group.** The unit is the recorded decision's
-`groups` entry — its `tasks` (`skills/flow/decider-prompt.md` is canonical for how they are
+`groups` entry — its `tasks` (`skills/flow/plan-check-prompt.md` is canonical for how they are
 grouped), its implementer on the `implementer` role's pair. A group's implementer works
 its tasks in plan order, one commit per task, carrying that task's own `Task-Id:` trailer.
 
@@ -25,7 +25,7 @@ running the project's resolved `## worktree setup` command once before its imple
 dispatches. Every printed group launches in one message, whatever its repository. Exit 1 —
 no group can launch while one is unlanded — is a plan defect, reported with the lines it
 printed; exit 2 stops the run. `flow-guard throwaway-worktree create` exit 2 means a step failed, named on stderr, and
-nothing is dispatched into that copy. A group never spans two repositories (`skills/flow/decider-prompt.md`), so each group's worktree is its repository's.
+nothing is dispatched into that copy. A group never spans two repositories (`skills/flow/plan-check-prompt.md`), so each group's worktree is its repository's.
 
 **As wave members return**, each is cherry-picked onto the change branch in plan order — a member
 is picked once every plan-earlier member of its repository's wave is picked. The same

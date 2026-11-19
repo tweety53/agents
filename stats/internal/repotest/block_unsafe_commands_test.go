@@ -354,7 +354,6 @@ func TestBlockUnsafeCommands(t *testing.T) {
 	f.bash("163 a python heredoc body comparing d>0, cwd = main", "allow", "{MAIN}", "python3 -I - x.png <<'EOF'\nif v<230 or d>0: print(y)\nEOF")
 	f.bash("164 a python heredoc body running git commit in main", "deny", "{ROOT}", "python3 - <<'EOF'\nsubprocess.run([\"git\", \"-C\", \"{MAIN}\", \"commit\", \"-m\", \"x\"])\nEOF")
 	f.bash("165 a report heredoc then echo of an unassigned name, cwd = main", "allow", "{MAIN}", "D={SIB}; cat > $D/r.md <<'EOF'\ncrop from `x-<n>.png` here\nEOF\necho $N")
-	f.bash("166 a report heredoc then render-slot-prompt.sh -fix-report it, cwd = main", "allow", "{MAIN}", "D={SIB}; SK=$(readlink -f ~/.claude/skills/flow); cat > $D/r.md <<'EOF'\nfrom `x-<n>.png`\nEOF\nfor s in a b; do render-slot-prompt.sh $SK 4 -fix-report $D/r.md; done")
 	f.bash("167 a python file written then run by python3, cwd = main", "allow", "{MAIN}", "O={SIB}; cat > $O/t.py <<'EOF'\nif a > 0: open(p, 'w')\nEOF\npython3 $O/t.py {SIB}")
 	f.bash("168 a spec written then run by npx playwright test, cwd = main", "allow", "{MAIN}", "cat > {SIB}/a.spec.ts <<'EOF'\nconst k = (x) => x > 0\nEOF\ncd {SIB} && U=http://x npx playwright test a.spec.ts")
 	f.bash("169 a python file written then run by bash keeps its body scanned", "deny", "{ROOT}", "cat > {SIB}/t.py <<'EOF'\nrm {MAIN}/f.txt\nEOF\nbash {SIB}/t.py")

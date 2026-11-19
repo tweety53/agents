@@ -5,6 +5,7 @@ import (
 	"io"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -242,14 +243,14 @@ func defaultBase(git func(...string) *exec.Cmd, root string) (sha, label string,
 }
 
 // rbbRemote runs a git call that reaches origin, its process group killed
-// once rbbRemoteTimeout elapses (mvRunBounded), and returns its stdout as
+// once rbbRemoteTimeout elapses (rbbRunBounded), and returns its stdout as
 // capture does, whether it succeeded, and its exit code. A call that timed
 // out or never started reports failure and exit -1, as an unreachable
 // remote does (kan-1132 self-review, F2).
 func rbbRemote(cmd *exec.Cmd) (string, bool, int) {
 	var out strings.Builder
 	cmd.Stdout = &out
-	if mvRunBounded(cmd, rbbRemoteTimeout, nil) || cmd.ProcessState == nil {
+	if rbbRunBounded(cmd, rbbRemoteTimeout, nil) || cmd.ProcessState == nil {
 		return "", false, -1
 	}
 	return strings.TrimRight(out.String(), "\n"), cmd.ProcessState.Success(), cmd.ProcessState.ExitCode()
@@ -280,4 +281,42 @@ func rbbSed(out string, edit func(string) (string, bool)) string {
 		}
 	}
 	return strings.TrimRight(strings.ReplaceAll(strings.Join(kept, "\n"), "\x00", ""), "\n")
+}
+
+// rbbRunBounded runs cmd, killing its whole process group (SIGTERM, then
+// SIGKILL after 2s) once timeout elapses. The group kill is what reaches
+// a test executor the harness forked; WaitDelay keeps an escaped
+// descendant holding the capture pipe from hanging the wait.
+func rbbRunBounded(cmd *exec.Cmd, timeout time.Duration, expire <-chan time.Time) (timedOut bool) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.WaitDelay = 2 * time.Second
+	if err := cmd.Start(); err != nil {
+		return false
+	}
+	done := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(done) }()
+	if expire == nil {
+		bound := time.NewTimer(timeout)
+		defer bound.Stop()
+		expire = bound.C
+	}
+	select {
+	case <-done:
+		return false
+	case <-expire:
+	}
+	pid := cmd.Process.Pid
+	if syscall.Kill(-pid, syscall.SIGTERM) != nil {
+		_ = cmd.Process.Signal(syscall.SIGTERM)
+	}
+	select {
+	case <-done:
+		return true
+	case <-time.After(2 * time.Second):
+	}
+	if syscall.Kill(-pid, syscall.SIGKILL) != nil {
+		_ = cmd.Process.Kill()
+	}
+	<-done
+	return true
 }

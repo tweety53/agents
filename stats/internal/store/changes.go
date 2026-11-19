@@ -103,11 +103,6 @@ type Change struct {
 	// PutChange's invariant beside ErrInvalidState.
 	Withdrawn bool
 
-	// ReviewBeforeLanding keeps /flow at the IN_PROGRESS review handoff for
-	// this change. False — the default — lets the run that writes IN_PROGRESS
-	// continue straight into integrate unless it leaves an open question.
-	ReviewBeforeLanding bool
-
 	Branch            *string
 	Worktrees         json.RawMessage
 	ArtifactURL       *string
@@ -237,16 +232,15 @@ func (s *Store) PutChange(ctx context.Context, c Change) error {
 	var id int64
 	err = tx.QueryRow(ctx, `
 		INSERT INTO changes (
-			project_key, name, state, withdrawn, review_before_landing, branch, worktrees, artifact_url,
+			project_key, name, state, withdrawn, branch, worktrees, artifact_url,
 			jira_issue, planning_effort, models, review_panel_roster,
 			pr_url, updated_at, updated_by
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 		)
 		ON CONFLICT (project_key, name) DO UPDATE SET
 			state               = EXCLUDED.state,
 			withdrawn           = EXCLUDED.withdrawn,
-			review_before_landing = EXCLUDED.review_before_landing,
 			branch              = EXCLUDED.branch,
 			worktrees           = EXCLUDED.worktrees,
 			artifact_url        = EXCLUDED.artifact_url,
@@ -262,7 +256,7 @@ func (s *Store) PutChange(ctx context.Context, c Change) error {
 		       AND EXCLUDED.updated_at > changes.updated_at)
 		RETURNING id
 	`,
-		c.ProjectKey, c.Name, string(c.State), c.Withdrawn, c.ReviewBeforeLanding, c.Branch, worktrees, c.ArtifactURL,
+		c.ProjectKey, c.Name, string(c.State), c.Withdrawn, c.Branch, worktrees, c.ArtifactURL,
 		c.JiraIssue, c.PlanningEffort, c.Models, c.ReviewPanelRoster,
 		c.PRURL, c.UpdatedAt, c.UpdatedBy,
 	).Scan(&id)
@@ -305,7 +299,7 @@ func (s *Store) PutChange(ctx context.Context, c Change) error {
 // populated from change_repos exactly as PutChange wrote it.
 func (s *Store) GetChange(ctx context.Context, projectKey, name string) (Change, error) {
 	c, err := scanChange(s.pool.QueryRow(ctx, `
-		SELECT project_key, name, state, withdrawn, review_before_landing, branch, worktrees, artifact_url,
+		SELECT project_key, name, state, withdrawn, branch, worktrees, artifact_url,
 		       jira_issue, planning_effort, models, review_panel_roster,
 		       pr_url, updated_at, updated_by
 		FROM changes
@@ -526,7 +520,7 @@ func (s *Store) QueryChanges(ctx context.Context, q Query) ([]Change, int, error
 	}
 
 	sqlText := fmt.Sprintf(`
-		SELECT c.project_key, c.name, c.state, c.withdrawn, c.review_before_landing, c.branch, c.worktrees, c.artifact_url,
+		SELECT c.project_key, c.name, c.state, c.withdrawn, c.branch, c.worktrees, c.artifact_url,
 		       c.jira_issue, c.planning_effort, c.models, c.review_panel_roster,
 		       c.pr_url, c.updated_at, c.updated_by
 		FROM changes c
@@ -590,7 +584,7 @@ func scanChange(row rowScanner) (Change, error) {
 		models    []byte
 	)
 	if err := row.Scan(
-		&c.ProjectKey, &c.Name, &state, &c.Withdrawn, &c.ReviewBeforeLanding, &c.Branch, &worktrees, &c.ArtifactURL,
+		&c.ProjectKey, &c.Name, &state, &c.Withdrawn, &c.Branch, &worktrees, &c.ArtifactURL,
 		&c.JiraIssue, &c.PlanningEffort, &models, &c.ReviewPanelRoster,
 		&c.PRURL, &c.UpdatedAt, &c.UpdatedBy,
 	); err != nil {

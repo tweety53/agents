@@ -1,6 +1,6 @@
 # Isolate the workspace — additional worktrees
 
-Loaded during `flow.isolate-workspace` by the load directive of **2. Isolate the workspace**
+Loaded during `flow.implement` by the load directive of **2. Isolate the workspace**
 (`skills/flow/implement.md`), only when the change links a peer, an `## apps` entry names a
 repository holding no worktree for this change, `## visual verification` names a
 `regression checkout`, or the resolved worktree set spans more than one repository.

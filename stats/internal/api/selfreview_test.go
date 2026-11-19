@@ -286,6 +286,23 @@ func TestSelfReviewBundleHandlerPassesPanelRan(t *testing.T) {
 	}
 }
 
+// TestSelfReviewBundleHandlerPanelKeys pins which stage keys prove a panel
+// ran: flow.review and its retired alias flow.review-panel, nothing else.
+func TestSelfReviewBundleHandlerPanelKeys(t *testing.T) {
+	t.Parallel()
+	for key, want := range map[string]bool{"flow.review": true, "flow.review-panel": true, "flow.plan": false} {
+		ts, fs := recordTestServer(t, "proj", "kan-1")
+		fs.stageCompletedKeys = map[string]bool{key: true}
+		code, body := doGet(t, ts, selfReviewPath("proj", "kan-1", t.TempDir()))
+		if code != http.StatusOK {
+			t.Fatalf("%s: GET bundle = %d (%s)", key, code, body)
+		}
+		if got := strings.Contains(body, "note: RECORDS LOSS"); got != want {
+			t.Errorf("%s: records-loss note = %v, want %v", key, got, want)
+		}
+	}
+}
+
 // TestSelfReviewBundleHandlerStageReadFailureIs5xx pins the stage-completed
 // read's own failure branch: a store read that fails for a real reason is a
 // 5xx, never a bundle a caller could mistake for the change's own — the

@@ -86,34 +86,17 @@ Exit 0 prints `worktree: <abs-worktree>` and `merge-base: <sha>`. Exit 1 or 2 st
 the script's own lines: **a command's non-zero exit ends your turn** naming the command and its
 output.
 
-## Triage the planning
+## Plan short first
 
-**A headless triage decides whether this change gets full or short planning; nothing is asked.**
-It runs on a creating `/flow` run only, once the worktree exists and before the first planner
-dispatch. A `/flow-plan` capture, a fix run and `/flow-fast` never triage, and their planning
-runs full. A resumed run never triages either: it reads the saved verdict (below).
+**Every new change plans short first; nothing is triaged and nothing is asked.** Each planner
+dispatch runs on the `planner-short` role, key `plan-short-<n>` in place of `plan-<n>`, each
+design round a short round (step 1 below), until a planner returns `ESCALATE` — or the run's
+argument carries the word `full` (`skills/flow/SKILL.md`), when the parent writes
+`<abs-worktree>/.superpowers/sdd/planner/triage.md` holding `TRIAGE: full — operator asked` before
+the first dispatch. A `/flow-plan` capture, a fix run and `/flow-fast` plan full.
 
-The parent first writes the planner's ticket, `<abs-worktree>/.superpowers/sdd/planner/ticket.md`:
-the linked Jira issue's summary and description, else the operator's request verbatim. Then:
-
-```bash
-flow-guard plan-triage <abs-worktree> <abs-worktree>/.superpowers/sdd/planner/ticket.md
-```
-
-Its header is canonical for the call, its fallback and its exits;
-`skills/flow/plan-triage-prompt.md` is canonical for the criteria and the answer's shape. It
-prints one line, `TRIAGE: full|short — <reason>`, and saves it as
-`<abs-worktree>/.superpowers/sdd/planner/triage.md`: print it as the run's narrative line and go
-on. Its exit 2 stops the run with its stderr. When the run's argument carries the word `full`
-(`skills/flow/SKILL.md`), the call is skipped, nothing is saved and the line is
-`TRIAGE: full — operator asked`.
-
-**`triage.md` is the verdict a resumed run plans by**: a line opening `TRIAGE: short` keeps the
-run short; any other line, or no file, runs it full.
-
-**`short` runs the planning below on the `planner-short` role** — every planner dispatch, key
-`plan-short-<n>` in place of `plan-<n>`, each design round a short round (step 1 below) — until a
-planner returns `ESCALATE`. **`full` runs it on `planner`**, as written.
+**`triage.md` is the verdict a resumed run plans by**: it exists exactly when the run plans full;
+no file keeps it short. Full runs on `planner`, as written below.
 
 ## Run brainstorming and planning through the planner role
 
@@ -123,7 +106,7 @@ planner returns `ESCALATE`. **`full` runs it on `planner`**, as written.
 
 **Every planner dispatch is fresh and one-shot**, on `subagent_type: flow-planner-<effort>` with
 the planner role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`) — `planner`,
-or `planner-short` on a run triaged short (**Triage the planning**, above). Its prompt carries its
+or `planner-short` on a run planning short (**Plan short first**, above). Its prompt carries its
 Role line, `Role: planner` or `Role: planner-short`, the two agent-baseline sentences, the
 report-tersely line, the PLANNING DELEGATION
 paragraph (`skills/flow-self-review/SKILL.md`) — its auto-resolution sentence replaced by "every
@@ -159,7 +142,7 @@ token spend.
    competing-designs step; its prompt carries no PLANNING DELEGATION paragraph and says so. When it finds the change `large` by the
    `**Scope:**` criteria (**The checklist**, `skills/flow/brainstorm-planner.md`), it says so in
    its round file and returns `ESCALATE: <reason>`: the parent prints one line,
-   `escalated to full planning — <reason>`, overwrites `triage.md` with
+   `escalated to full planning — <reason>`, writes `triage.md` holding
    `TRIAGE: full — escalated: <reason>`, relays nothing from that round, and dispatches the next
    round as a full round on `planner`, as is every later dispatch of the run.
 2. **Relay.** The parent first publishes the prototype
@@ -186,22 +169,22 @@ token spend.
    paths of `proposal.md`, `design.md` and `tasks.md`; a second failure stops the run with both
    returns.
 
-The parent then runs **Plan review** below, then **Decide** (`skills/flow/brainstorm-planner.md`)
-and the gate.
+The parent then runs **Plan check** below, then the gate (**Plan check gate**,
+`skills/flow/brainstorm-planner.md`).
 
 **Prose preceding a question is shown too, not dropped.** When the checklist carries a summary
 before a question — most concretely the convergence confirm's "state what you believe settled"
 paragraph — show that prose to the operator as ordinary text before the **AskUserQuestion** call,
 not only the bare question and options.
 
-Once the Decide step finishes, print the `## Decision` block verbatim — the output of `flow
-decision render` (**Decide**, `skills/flow/brainstorm-planner.md`) — then record it:
+Once the plan check finishes, print the `## Decision` block verbatim — the output of `flow
+decision render` (**Plan check gate**, `skills/flow/brainstorm-planner.md`) — then record it:
 
 ```bash
 flow record decision -change <name> -session-token mf-<literal-token> -file <abs-worktree>/.superpowers/sdd/decision.json
 ```
 
-**The gate comes next**: **Plan review gate** (`skills/flow/brainstorm-planner.md`), recording each
+**The gate comes next**: **Plan check gate** (`skills/flow/brainstorm-planner.md`), recording each
 re-decision the same way. On **Yes**, end the planning mark and **end the run** with the `STARTED`
 handoff (**The `STARTED` handoff block**, below), `/clear` above `/flow <name>`, on a creating and
 a resumed run alike; the next run finds the plan ready (**Resuming at `STARTED`**,
@@ -211,31 +194,29 @@ a resumed run alike; the next run finds the plan ready (**Resuming at `STARTED`*
 flow stage end -command '/flow' -stage flow.plan -outcome completed <name>
 ```
 
-### Plan review
+### Plan check
 
-**A fresh reviewer that has seen nothing but the documents reads every plan once**, after the
-final planner returned `PLAN-WRITTEN`, in `/flow`'s creating run and a `/flow-plan` capture. A fix
-run's re-plan, the self-review and in-run fix planners and `/flow-fast` never run it.
+**One headless pass reads every plan once and decides how it is built**, after the final planner
+returned `PLAN-WRITTEN`, in `/flow`'s creating run and a `/flow-plan` capture. A fix run's re-plan
+and the self-review planner never run it.
 
-1. **Dispatch.** One Agent call on the design-reviewer role's pair (**Model and effort**,
-   `skills/flow/brainstorm-planner.md`), its `description` opening with `plan-review-1`. The
-   prompt is the two agent-baseline sentences, the report-tersely line, the paragraph below, and
-   six absolute paths: `<skill-dir>/plan-reviewer-prompt.md` as the file to read in full first,
-   `<skill-dir>/plan-review-rubric.md`, the change's `proposal.md`, `design.md` and `tasks.md`
-   under `<changeRoot>`, the repository root `<abs-worktree>`, and the report
-   `<abs-worktree>/.superpowers/sdd/plan-review-1.md` — `<skill-dir>` the directory this file
-   was read from. It carries no ticket text, no Jira key, no round or answers file and no
-   summary of the conversation. Once it returns, end its row as a planner's is ended, under key
-   `plan-review-1`.
-2. **`PLAN-REVIEW-CLEAN`** — go on.
-3. **`PLAN-REVIEW-FINDINGS`** — dispatch a fresh final planner, its prompt naming the report's
+1. **Run it.**
+
+   ```bash
+   flow-guard plan-check <worktree> <changeRoot> <abs-worktree>/.superpowers/sdd/decision.json
+   ```
+
+   Its header is canonical for the call, its fallback and its exits. It writes
+   `<abs-worktree>/.superpowers/sdd/plan-check.md` and the decision; exit 2 stops the run with its
+   stderr.
+2. **`PLAN-CHECK-CLEAN`** — go on.
+3. **`PLAN-CHECK-FINDINGS`** — dispatch a fresh final planner, its prompt naming the report's
    absolute path; it triages the report per **Plan review** (`skills/flow/brainstorm-planner.md`).
    Its `QUESTIONS` return is relayed as step 2 of the section above relays a round, and a fresh
-   final dispatch takes the answers. Its `PLAN-WRITTEN` return closes the review; nothing is
-   reviewed a second time.
-4. **A failed reviewer.** A dispatch that errors, or returns neither verdict line, is
-   redispatched once as `plan-review-2`. Failing again, the plan review is `not run`, never
-   clean: say so in the gate summary and go on.
+   final dispatch takes the answers. Its `PLAN-WRITTEN` return closes the check; nothing is
+   checked a second time, but when that triage changed `tasks.md`, re-run `plan-check … -decide-only`.
+4. **`PLAN-CHECK-NOT-RUN`** — the check could not run: say so in the gate summary and go on, never
+   as clean.
 
 ### The `STARTED` handoff block
 

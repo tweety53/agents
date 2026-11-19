@@ -263,7 +263,7 @@ func TestFlowGuardBootstrap(t *testing.T) {
 	})
 	t.Run("case 14: ./flow-guard run from scripts/ answers every real guard from the cache", func(t *testing.T) {
 		for _, name := range []string{"check-base-moved",
-			"close-task", "render-slot-prompt", "run-reproducer"} {
+			"close-task", "run-reproducer"} {
 			r := runBootstrap(t, filepath.Join(realTree, "scripts"), withPath(realEnv, noGoPath), "./flow-guard", name)
 			out := r.out()
 			if !(strings.HasPrefix(out, name+": ") || strings.HasPrefix(out, "usage:")) || strings.Contains(out, "cannot build flow-guard") {

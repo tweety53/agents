@@ -16,13 +16,14 @@ import (
 // The contract below moved here from the header of the deleted
 // scripts/check-visual-verification.sh shim (KAN-1058).
 //
-// flow-guard check-visual-verification — validate a project's `## visual
+// The folded check-visual-verification guard (no longer a flow-guard subcommand; prepare
+// runs it in-process) — validate a project's `## visual
 // verification` declaration against the contract that defines it.
 //
-// Usage: flow-guard check-visual-verification <project root>
+// Argument: <project root>
 //
 // ONE ARGUMENT, THE PROJECT ROOT — never the configuration file itself,
-// matching flow-guard check-workspace-isolation's own convention: every caller
+// matching the workspace-isolation check's own convention: every caller
 // already has the root, not the path underneath it.
 //
 // A project with no `.flow/project.md`, or one that carries it but declares
@@ -52,7 +53,7 @@ import (
 // established from two other places instead: task 8 of tasks.md's worked
 // example for Gymie writes the settings table as `| Setting | Value |`, and
 // `## workspace isolation` (skills/flow-contracts/project-configuration-isolation.md,
-// `flow-guard check-workspace-isolation`) already establishes `| Command | Runs |` as
+// the workspace-isolation check) already establishes `| Command | Runs |` as
 // this repository's one convention for a table of commands a project
 // declares — reused here rather than invented a second time, so a project
 // author who has already written one `## workspace isolation` section is not
@@ -63,7 +64,7 @@ import (
 // rather than silently.
 //
 // WHAT IS CANONICAL, AND WHAT THIS FILE IS, for both checks below — matching
-// flow-guard check-workspace-isolation's own citation of the identical shape for its
+// the workspace-isolation check's own citation of the identical shape for its
 // `Resource` word. **Project configuration**
 // (`skills/flow-contracts/project-configuration-visual.md`), under its "## visual
 // verification" heading, states the `Setting` and `Command` vocabularies as
@@ -88,7 +89,7 @@ import (
 // the whole run to exit 2, matching this guard's own "never fail open" rule
 // for every other unreadable input below.
 //
-// THE INPUT IS ATTACKER-INFLUENCED, the same fact flow-guard check-workspace-isolation
+// THE INPUT IS ATTACKER-INFLUENCED, the same fact the in-process workspace-isolation check (prepare-workspace)
 // is written against: `.flow/project.md` is tracked and editable in any pull
 // request. NOTHING read here is executed — this guard never runs `setup`,
 // `verify`, `capture`, `fingerprint`, `start` or `specs`, and never interpolates a
@@ -116,9 +117,7 @@ import (
 // heading-parse convention, and stayed a single guard's own logic for one
 // commit before moving into a shared helper.
 
-func init() { Registry["check-visual-verification"] = checkVisualVerification }
-
-// checkVisualVerification is `flow-guard check-visual-verification`: validate a
+// checkVisualVerification is the check-visual-verification guard: validate a
 // project's `## visual verification` declaration against the contract that
 // defines it. The script's header is the contract — arguments, verdict lines
 // and exit codes. What follows are the body's reasons, beside the code they
@@ -137,7 +136,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 		return 2
 	}
 	if len(args) != 1 {
-		return refuse("usage", "usage: flow-guard check-visual-verification <project root>")
+		return refuse("usage", "usage: visual-verification check, run in-process: <project root>")
 	}
 	root := args[0]
 	if !isDir(wiAbs(env, root)) {
