@@ -57,13 +57,21 @@ func Category(key, role, opener string) (id, label string) {
 	return "other:" + role, "other: " + role
 }
 
-var firstTaskID = regexp.MustCompile(`^tasks?-(\d+)`)
+var taskIDs = regexp.MustCompile(`^tasks?-([\d+]+)-`)
 
-// FirstTaskID is the first task id a task key names -- "13" for
-// task-13+14-implementer -- or "" for a key naming no task.
+// TaskIDs is every task id a task key names -- 13, 14 for
+// task-13+14-implementer -- or nil for a key naming no task.
+func TaskIDs(key string) []string {
+	if m := taskIDs.FindStringSubmatch(key); m != nil {
+		return strings.Split(m[1], "+")
+	}
+	return nil
+}
+
+// FirstTaskID is the first of TaskIDs, or "" for a key naming no task.
 func FirstTaskID(key string) string {
-	if m := firstTaskID.FindStringSubmatch(key); m != nil {
-		return m[1]
+	if ids := TaskIDs(key); ids != nil {
+		return ids[0]
 	}
 	return ""
 }

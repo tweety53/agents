@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"maps"
 	"os"
+	"slices"
 	"testing"
 )
 
@@ -42,6 +43,9 @@ func TestCategoryReadsTheFirstTaskOpener(t *testing.T) {
 	t.Parallel()
 	openers := map[string]string{"13": "verify-gymie", "14": "visual-verify-fix-1-rest-gymie"}
 	key := "task-13+14-implementer"
+	if got := TaskIDs(key); !slices.Equal(got, []string{"13", "14"}) {
+		t.Fatalf("TaskIDs(%q) = %q, want [13 14]", key, got)
+	}
 	if got := FirstTaskID(key); got != "13" {
 		t.Fatalf("FirstTaskID(%q) = %q, want 13", key, got)
 	}
