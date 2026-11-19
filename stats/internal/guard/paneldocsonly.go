@@ -3,6 +3,7 @@ package guard
 import (
 	"fmt"
 	"io"
+	"strings"
 )
 
 // The contract below moved here from the header of the deleted
@@ -65,7 +66,7 @@ func checkPanelDocsOnly(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	for _, p := range paths {
-		// isDocPath is the one path classifier, shared with plan-class,
+		// isDocPath is the one path classifier, shared with
 		// check-panel-citation-trigger and fix-run-floor.
 		if !isDocPath(p) {
 			fmt.Fprintln(stdout, p)
@@ -78,4 +79,12 @@ func checkPanelDocsOnly(args []string, env Env, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+// isDocPath reports a documentation path: `\.mdc?$` anywhere, or an .html
+// under docs/ -- a rendered brief or design page, which no build, test or
+// served page reads. An .html anywhere else (stats/web/index.html) is source.
+func isDocPath(p string) bool {
+	return strings.HasSuffix(p, ".md") || strings.HasSuffix(p, ".mdc") ||
+		(strings.HasPrefix(p, "docs/") && strings.HasSuffix(p, ".html"))
 }

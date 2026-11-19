@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 )
+
+// rpbBacktick is one backticked span of a **Files:** line.
+var rpbBacktick = regexp.MustCompile("`[^`]+`")
 
 // The contract below moved here from the header of the deleted
 // scripts/refresh-plan-base.sh shim (KAN-1058).
@@ -133,7 +137,7 @@ func rpbFiles(plan []byte) []string {
 		if !in {
 			continue
 		}
-		for _, m := range pcBacktick.FindAllString(l, -1) {
+		for _, m := range rpbBacktick.FindAllString(l, -1) {
 			files = append(files, strings.Trim(m, "`"))
 		}
 	}

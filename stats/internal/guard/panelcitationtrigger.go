@@ -29,8 +29,7 @@ import "io"
 // on a usage error or a git invocation that failed. The change's own paths
 // include the index and the working tree (design.md:
 // touched-paths-include-index-and-worktree); resolving git, validating the
-// arguments and collecting the paths are paneltouchedpaths.go's, shared with
-// plan-class.
+// arguments and collecting the paths are paneltouchedpaths.go's.
 func init() {
 	Registry["check-panel-citation-trigger"] = checkPanelCitationTrigger
 }

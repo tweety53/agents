@@ -69,39 +69,3 @@ func TestDocsOnlyReductionDropsSanityEfficiency(t *testing.T) {
 		t.Errorf("The extra dispatches lacks %q", want)
 	}
 }
-
-// TestSlotTriggersSkipOnlyWhenBothSay pins KAN-1126: a gated role is skipped
-// only when the diff guard and the plan-time slot judge both say skip,
-// mutation is never gated, a fix round re-runs the guard alone, and Decide
-// records the judge's verdicts as step 7.
-func TestSlotTriggersSkipOnlyWhenBothSay(t *testing.T) {
-	t.Parallel()
-	section := func(rel, heading string) string {
-		t.Helper()
-		b, err := os.ReadFile(filepath.Join(repoRoot(t), rel))
-		if err != nil {
-			t.Fatal(err)
-		}
-		s := string(b)
-		i := strings.Index(s, heading)
-		if i < 0 {
-			t.Fatalf("%s: no %q", rel, heading)
-		}
-		s = s[i:]
-		if j := strings.Index(s[len(heading):], "\n#"); j >= 0 {
-			s = s[:len(heading)+j]
-		}
-		return strings.Join(strings.Fields(s), " ")
-	}
-	for _, c := range []struct{ rel, heading, want string }{
-		{"skills/flow/review-panel.md", "### The slot triggers", "a role is skipped only when both sources say `skip`"},
-		{"skills/flow/review-panel.md", "### The slot triggers", "`mutation` is never gated"},
-		{"skills/flow/review-panel.md", "### The slot triggers", "an unanswered question never reduces a panel"},
-		{"skills/flow/review-panel-fix-round.md", "**The slot triggers run again beside it**", "The decision's `slot_triggers` is never asked again"},
-		{"skills/flow/brainstorm-planner.md", "### Decide", "5. **slot judge** — write the plan's tasks to"},
-	} {
-		if got := section(c.rel, c.heading); !strings.Contains(got, c.want) {
-			t.Errorf("%s, %s, lacks %q", c.rel, c.heading, c.want)
-		}
-	}
-}

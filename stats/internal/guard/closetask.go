@@ -96,25 +96,15 @@ import (
 //   4. Any guard exit 2 → exit 2; else any exit 1 → exit 1; else an
 //      appended task step 1 found no row naming → exit 1. Nothing is ticked
 //      or pushed either way, so a refused commit is never pushed.
-//   5. flow-guard check-review-gate <canonical> <id> <sha|map> <canonical> <name>
-//      for every task; its FIRE:/QUIET:
-//      line is printed. A gate exit 2 → exit 2, nothing ticked or pushed.
-//   6. `flow tasks tick -C <canonical> <name> <id>` for every task the gate
-//      left QUIET — and, when a gate fired, for every task once `flow record
-//      decisions -change <name> -C <canonical>` names the newest class micro,
-//      small or regular: no gated reviewer runs there, the whole-branch panel
-//      reviews a fired task. On big the tick waits; on an unreadable class it
-//      waits too and prints `close-task: task <id> tick waits — decision
-//      class unreadable` per fired task.
-//   7. `git -C <worktree> push origin spectre/<name>` once per distinct
+//   5. `flow tasks tick -C <canonical> <name> <id>` for every task.
+//   6. `git -C <worktree> push origin spectre/<name>` once per distinct
 //      worktree: the canonical one for a bare sha, each map pair's otherwise.
 //   A failed tick or push → exit 2; every tick and push is still attempted.
 //
 // The guards run in-process in flow-guard; their own lines are printed as
 // they print them.
 //
-// Exit 0 closed (read each FIRE: line: on big that task's tick waits for its
-// reviewer; elsewhere it is the panel's review focus); 1 a commit guard refused — re-commit, then re-run without the
+// Exit 0 closed; 1 a commit guard refused — re-commit, then re-run without the
 // -end-* flags — or an appended task has no dispatch row — record it, then
 // re-run without the -end-* flags; 2 stop: a guard could not judge, a tick or push failed, or
 // a usage error; 3 closed as exit 0 — every tick and push done — but step 1's
@@ -285,37 +275,9 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) (exit int) {
 		return 1
 	}
 
-	var quiet, all, fired []string
-	for _, t := range tasks {
-		var verdict bytes.Buffer
-		rc := Registry["check-review-gate"]([]string{canonical, t.id, t.commit, canonical, name}, env, io.MultiWriter(stdout, &verdict), stderr)
-		if rc != 0 {
-			fmt.Fprintln(stderr, "close-task: STOP — the review gate could not judge; nothing was ticked or pushed")
-			Reason(env, "review-gate-cannot-judge")
-			return 2
-		}
-		if strings.HasPrefix(verdict.String(), "QUIET:") {
-			quiet = append(quiet, t.id)
-		} else {
-			fired = append(fired, t.id)
-		}
-		all = append(all, t.id)
-	}
-	ticks := quiet
-	if len(fired) > 0 {
-		switch ctNewestClass(env, name, canonical) {
-		case "micro", "small", "regular":
-			ticks = all
-		case "big":
-		default:
-			for _, id := range fired {
-				fmt.Fprintf(stdout, "close-task: task %s tick waits — decision class unreadable\n", id)
-			}
-		}
-	}
-
 	rc := 0
-	for _, id := range ticks {
+	for _, t := range tasks {
+		id := t.id
 		if ctFlow(env, stdout, stderr, "tasks", "tick", "-C", canonical, name, id) != 0 {
 			fmt.Fprintf(stderr, "close-task: STOP — flow tasks tick failed for task %s\n", id)
 			Reason(env, "tick-failed")
@@ -409,24 +371,6 @@ func ctTrailerCommit(git func(...string) *exec.Cmd, wt, base, id string) string 
 		}
 	}
 	return ""
-}
-
-// ctNewestClass is the change's newest decision class, "" when it cannot be
-// read. Below big no gated reviewer runs and a fired task is the panel's
-// review focus, so it ticks here as a quiet one does (implement.md, **The
-// guard's pass ticks an ungated task.**); on big its tick waits for its
-// reviewer; unreadable, the tick waits and says so, since a big fallback
-// would strand a fired task on a class no reviewer runs on.
-func ctNewestClass(env Env, name, canonical string) string {
-	out, _, rc := pcFlow(env, false, "record", "decisions", "-change", name, "-C", canonical)
-	if rc != 0 {
-		return ""
-	}
-	c, ok := trsdNewestClass(out)
-	if !ok {
-		return ""
-	}
-	return c
 }
 
 // ctFlow runs the flow CLI from env's PATH, its output relayed; non-zero

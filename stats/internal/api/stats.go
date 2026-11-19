@@ -177,8 +177,8 @@ var statsQueryParams = map[string]bool{
 	"projects": true,
 }
 
-// planClasses are the values the "class" parameter accepts: flow-guard plan-class's
-// classes, smallest first.
+// planClasses are the values the "class" parameter accepts: the plan classes a
+// decision recorded before the decider carried, smallest first.
 var planClasses = map[string]bool{"micro": true, "small": true, "regular": true, "big": true}
 
 // acceptedStatsQueryParamNames is statsQueryParams' keys, named in the

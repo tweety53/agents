@@ -822,7 +822,6 @@ var GuardHelpers = []string{
 	"pair-judge",
 	"panel-round-begins",
 	"pipeline-fix",
-	"plan-class",
 	"plan-dispatch-bundles",
 	"plan-dispatch-groups",
 	"plan-group-tasks",

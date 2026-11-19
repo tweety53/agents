@@ -312,21 +312,6 @@ func TestPanelGuardsHonourProjectExcludes(t *testing.T) {
 	if r := runGuard("check-panel-docs-only", []string{wt, mb}, env); r.rc != 0 {
 		t.Errorf("check-panel-docs-only: exit %d, want 0\n%s", r.rc, r.out)
 	}
-	tasks := dir + "/tasks.md"
-	g.write(tasks, "- [ ] 1. Docs\n**Files:** `README.md`\n")
-	table, err := os.ReadFile("../../../" + mpFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, dir+"/"+mpFile, string(table))
-	if r := runGuard("plan-class", []string{tasks, "1", wt, mb}, Env{Dir: dir, Getenv: func(k string) string {
-		if k == "FLOW_GUARD_REPO_ROOT" {
-			return dir
-		}
-		return os.Getenv(k)
-	}, LookupEnv: hermeticGitLookup}); r.rc != 0 || !strings.Contains(r.stdout, "class: micro\n") {
-		t.Errorf("plan-class: exit %d, stdout %q; want class micro\n%s", r.rc, r.stdout, r.out)
-	}
 }
 
 // TestWritePanelDiffWritesParts pins `parts` (kan-1090 self-review, F9): an
