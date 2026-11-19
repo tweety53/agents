@@ -26,8 +26,7 @@ import (
 // dependency as an interface at the consumer package (go-interface-design)
 // rather than depending on *store.Store directly.
 type fakeStore struct {
-	openDispatches map[string]records.OpenDispatch // session+"/"+key -> open row
-	changes        map[string]store.Change
+	changes map[string]store.Change
 
 	getErr   error
 	putErr   error

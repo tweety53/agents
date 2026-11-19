@@ -903,13 +903,3 @@ func PanelFindings(fs []Finding) []Finding {
 	}
 	return out
 }
-
-// OpenDispatch is the open dispatch row a harness session holds under one
-// key, as GET /api/v1/dispatches/open answers it: the id `flow record
-// dispatch handback` keys its plan-check marker by, and the change the row
-// belongs to (decision gated-bracket-handback).
-type OpenDispatch struct {
-	ID         int64  `json:"id"`
-	ProjectKey string `json:"projectKey"`
-	Change     string `json:"change"`
-}

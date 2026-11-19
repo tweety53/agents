@@ -1521,11 +1521,3 @@ func (nopRecordStore) SelfReviewThemeCounts(context.Context, time.Time) ([]recor
 func (*fakeRecordStore) SelfReviewThemeCounts(context.Context, time.Time) ([]records.SelfReviewTheme, error) {
 	return nil, nil
 }
-
-func (nopRecordStore) OpenDispatchBySessionKey(context.Context, string, string) (int64, string, string, bool, error) {
-	return 0, "", "", false, nil
-}
-
-func (f *fakeRecordStore) OpenDispatchBySessionKey(context.Context, string, string) (int64, string, string, bool, error) {
-	return 0, "", "", false, nil
-}

@@ -6538,54 +6538,6 @@ func TestLinkedOpenDispatchKeepsItsNextBeginCap(t *testing.T) {
 	}
 }
 
-// TestOpenDispatchBySessionKey: the hand-back's lookup answers the open row
-// under the session and key -- never an ended row under the same pair, nor
-// the same key open under another session (decision gated-bracket-handback).
-func TestOpenDispatchBySessionKey(t *testing.T) {
-	t.Parallel()
-	st, _ := newRecordStore(t)
-	ctx := context.Background()
-	const projectKey = "proj-open-dispatch"
-	seedChange(t, st, projectKey, "kan-1")
-	seedChange(t, st, projectKey, "kan-2")
-
-	ended := time.Date(2026, 8, 22, 9, 30, 0, 0, time.UTC)
-	done := baseDispatch("reviewer", "sonnet")
-	done.Key, done.SessionID, done.SessionToken, done.EndedAt = "task-3-reviewer", "s1", "mf-open-a", &ended
-	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", done); err != nil {
-		t.Fatalf("RecordDispatch (ended): %v", err)
-	}
-	open := baseDispatch("reviewer", "sonnet")
-	open.Key, open.SessionID, open.SessionToken = "task-3-reviewer", "s1", "mf-open-b"
-	open.StartedAt = ended
-	want, err := st.RecordDispatch(ctx, projectKey, "kan-2", open)
-	if err != nil {
-		t.Fatalf("RecordDispatch (open s1): %v", err)
-	}
-	other := baseDispatch("reviewer", "sonnet")
-	other.Key, other.SessionID, other.SessionToken = "task-3-reviewer", "s2", "mf-open-c"
-	other.StartedAt = ended.Add(time.Minute)
-	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", other); err != nil {
-		t.Fatalf("RecordDispatch (open s2): %v", err)
-	}
-
-	id, pk, change, found, err := st.OpenDispatchBySessionKey(ctx, "s1", "task-3-reviewer")
-	if err != nil || !found || id != want.ID || pk != projectKey || change != "kan-2" {
-		t.Fatalf("OpenDispatchBySessionKey = (%d, %q, %q, %v, %v), want (%d, %q, kan-2, true, nil)", id, pk, change, found, err, want.ID, projectKey)
-	}
-	if _, _, _, found, err := st.OpenDispatchBySessionKey(ctx, "s1", "task-9-reviewer"); err != nil || found {
-		t.Fatalf("unknown key: found %v, err %v, want false, nil", found, err)
-	}
-	only := baseDispatch("reviewer", "sonnet")
-	only.Key, only.SessionID, only.SessionToken, only.EndedAt = "task-4-reviewer", "s1", "mf-open-d", &ended
-	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", only); err != nil {
-		t.Fatalf("RecordDispatch (only ended): %v", err)
-	}
-	if _, _, _, found, err := st.OpenDispatchBySessionKey(ctx, "s1", "task-4-reviewer"); err != nil || found {
-		t.Fatalf("only an ended row under the key: found %v, err %v, want false, nil", found, err)
-	}
-}
-
 // TestMarkDispatchUnattributedStampsOneRow pins the per-row twin of
 // MarkDispatchesUnattributed: the named row gets the reason, a sibling under
 // the same token is untouched, and a row carrying tokens is never stamped.

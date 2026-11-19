@@ -171,11 +171,6 @@ type RecordStore interface {
 	// and the projects table is the store's one answer to where this
 	// machine's repositories live.
 	ProjectRoots(ctx context.Context) ([]store.ProjectRoot, error)
-
-	// OpenDispatchBySessionKey is the open-row read the hand-back route
-	// serves (decision gated-bracket-handback): the newest open dispatch
-	// a harness session holds under one key.
-	OpenDispatchBySessionKey(ctx context.Context, sessionID, key string) (id int64, projectKey, change string, found bool, err error)
 }
 
 // var _ RecordStore = (*store.Store)(nil) verifies at compile time that the
@@ -858,29 +853,6 @@ func (h *recordHandler) runRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, rec)
-}
-
-// openDispatch serves GET /api/v1/dispatches/open?session=&key=: the open
-// dispatch row the harness session holds under key, with its change --
-// what `flow record dispatch handback` keys its plan-check marker by. Both
-// parameters are required (400); no such open row is a 404.
-func (h *recordHandler) openDispatch(w http.ResponseWriter, r *http.Request) {
-	session, key := r.URL.Query().Get("session"), r.URL.Query().Get("key")
-	if session == "" || key == "" {
-		writeError(w, http.StatusBadRequest, "session and key are both required")
-		return
-	}
-	id, project, change, found, err := h.store.OpenDispatchBySessionKey(r.Context(), session, key)
-	if err != nil {
-		status, msg := mapStoreError(h.logger, fmt.Sprintf("read the open dispatch for session %s key %s", session, key), err)
-		writeError(w, status, msg)
-		return
-	}
-	if !found {
-		writeError(w, http.StatusNotFound, fmt.Sprintf("no open dispatch for session %s key %s", session, key))
-		return
-	}
-	writeJSON(w, http.StatusOK, records.OpenDispatch{ID: id, ProjectKey: project, Change: change})
 }
 
 // renderRecord serves GET /api/v1/records/{project}/{change}/render/{kind}:
