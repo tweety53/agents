@@ -279,12 +279,11 @@ const (
 )
 
 // Source is one transcript source: a root to walk for *.jsonl files and the
-// read and parse functions for those files' own line shape. The Claude
-// transcript format and ZCode's rollout format share the offset, attribution
-// and commit machinery but not their line shapes, so the parser rides with
-// the root instead of being hardcoded in the read path -- one Watcher runs
-// both, and a third harness with a machine-readable transcript is one new
-// constructor, not a fork of this file.
+// read and parse functions for those files' own line shape. Every source
+// shares the offset, attribution and commit machinery but not its line
+// shape, so the parser rides with the root instead of being hardcoded in
+// the read path -- another harness with a machine-readable transcript is
+// one new constructor, not a fork of this file.
 type Source struct {
 	Root string
 	// ReadNew reads path from offset to EOF, exactly ReadNewRecords'
@@ -305,12 +304,6 @@ type Source struct {
 // (~/.claude/projects, or FLOW_TRANSCRIPTS_DIR's override).
 func NewClaudeSource(root string) Source {
 	return Source{Root: root, ReadNew: ReadNewRecords, ReadAllCmds: ReadAllCommands, Parse: ParseTranscriptRecords}
-}
-
-// NewRolloutSource builds the source over a ZCode rollout root
-// (~/.zcode/cli/rollout, or FLOW_ZCODE_ROLLOUTS_DIR's override).
-func NewRolloutSource(root string) Source {
-	return Source{Root: root, ReadNew: ReadRolloutNewRecords, ReadAllCmds: ReadRolloutAllCommands, Parse: ParseRolloutRecords}
 }
 
 // transcriptSet is one source's discovered file list for a single RunOnce
@@ -809,8 +802,7 @@ func (w *Watcher) RunOnce(ctx context.Context) (int, error) {
 				// Watcher from looking, not just stop it from logging.
 				// Gated on IsAgentTranscriptPath because ReadDispatchMeta
 				// looks for its sidecar only beside a subagents/ directory:
-				// any other path -- a ZCode rollout file, main-session or
-				// subagent alike (KAN-506) -- can never grow one, so
+				// any other path can never grow one, so
 				// remembering it here would buy maxDispatchMetaBackfillCycles
 				// of futile re-reads and a give-up warning per dispatch for
 				// descriptors no retry could ever produce.
@@ -949,19 +941,6 @@ func (w *Watcher) scanRetriedTokens(sets []transcriptSet, pending map[int64]stri
 	w.retriedScanDone = done
 }
 
-// dispatchAgentIDForPath names the dispatch a transcript path belongs to --
-// a Claude per-agent transcript by its subagents/ directory and file name
-// (AgentIDFromTranscriptPath), a ZCode subagent dispatch's rollout file by
-// its own file name (AgentIDFromRolloutPath) -- and reports false for a
-// path that names none. Those two shapes are the only files that ARE one
-// dispatch's usage; every other batch routes to window inference.
-func dispatchAgentIDForPath(path string) (string, bool) {
-	if id, ok := AgentIDFromTranscriptPath(path); ok {
-		return id, true
-	}
-	return AgentIDFromRolloutPath(path)
-}
-
 // attributeDispatches runs the second attribution pass over one batch's
 // records and merges each touched dispatch's delta into deps. Every
 // Watcher runs this pass unconditionally (KAN-173): dispatchAttributor is
@@ -978,11 +957,6 @@ func dispatchAgentIDForPath(path string) (string, bool) {
 // to do -- the inference pass is what stamped every resumed agent's rows
 // unattributed, because its identity pass matches several rows carrying
 // the same agentId and its interval pass refuses to guess between them.
-// A ZCode subagent dispatch's rollout file
-// (model-io-sess_subagent_agent_<id>.jsonl, AgentIDFromRolloutPath) is the
-// same shape of fact and routes the same way (KAN-506): one file IS one
-// dispatch's usage, keyed on that dispatch's own per-dispatch session id,
-// so concurrent dispatches neither lose nor blend their cost figures.
 // Only batches from top-level session transcripts -- embedded sidechains,
 // the shape pre-agent-file Claude transcripts
 // produce -- still go through DispatchAttributor.
@@ -1012,7 +986,7 @@ func dispatchAgentIDForPath(path string) (string, bool) {
 // work left to do: nothing is stamped, so nothing attributed can be
 // contradicted by a stamp.
 func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, path string) {
-	if agentID, ok := dispatchAgentIDForPath(path); ok {
+	if agentID, ok := AgentIDFromTranscriptPath(path); ok {
 		w.attributeAgentFile(ctx, records, path, agentID)
 		return
 	}
@@ -1057,7 +1031,7 @@ func (w *Watcher) attributeDispatches(ctx context.Context, records []Record, pat
 // attributeAgentFile credits one agent-file batch's records to the
 // dispatch rows agentID resolves to -- kan-357's "record each dispatch's
 // own usage at the source", routed here by attributeDispatches for every
-// batch dispatchAgentIDForPath names. The windows come from deps'
+// batch AgentIDFromTranscriptPath names. The windows come from deps'
 // DispatchWindowsForAgent, ordered by (started_at, id), and the per-row
 // sums merge through MergeDispatchMetrics exactly as the inference
 // path's do: additive batch deltas, keyed by the dispatch row's own id.

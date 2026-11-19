@@ -2956,24 +2956,20 @@ func TestWatcherMergesApportionedDispatchMetrics(t *testing.T) {
 
 // TestRunOnceIteratesAllSources pins the kan-479 watcher-shape change: a
 // Watcher holds a list of transcript sources, and one RunOnce pass scans
-// every source's root -- a Claude-shape transcript under one root and a
-// zcode rollout file under another are both read and committed in the same
-// pass, each through its own source's parser.
+// every source's root -- a transcript under each of two roots is read and
+// committed in the same pass.
 func TestRunOnceIteratesAllSources(t *testing.T) {
 	t.Parallel()
 	dirA := t.TempDir()
 	dirB := t.TempDir()
 
+	line := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-a","message":{"model":"claude-opus-5","usage":{"input_tokens":3,"output_tokens":1}}}` + "\n"
 	claudePath := filepath.Join(dirA, "session.jsonl")
-	claudeLine := `{"type":"assistant","timestamp":"2025-12-01T00:00:01Z","sessionId":"session-a","message":{"model":"claude-opus-5","usage":{"input_tokens":3,"output_tokens":1}}}` + "\n"
-	if err := os.WriteFile(claudePath, []byte(claudeLine), 0o644); err != nil {
-		t.Fatalf("write %s: %v", claudePath, err)
-	}
-
-	rolloutPath := filepath.Join(dirB, "model-io-sess_b.jsonl")
-	rolloutLine := `{"type":"model_io","sessionId":"sess-b","completedAt":"2025-12-01T00:00:01Z","model":{"modelId":"GLM-5.3-Flash"},"response":{"usage":{"inputTokens":4,"outputTokens":2,"totalTokens":6,"cacheReadTokens":0,"cacheWriteTokens":0}}}` + "\n"
-	if err := os.WriteFile(rolloutPath, []byte(rolloutLine), 0o644); err != nil {
-		t.Fatalf("write %s: %v", rolloutPath, err)
+	otherPath := filepath.Join(dirB, "session.jsonl")
+	for _, p := range []string{claudePath, otherPath} {
+		if err := os.WriteFile(p, []byte(line), 0o644); err != nil {
+			t.Fatalf("write %s: %v", p, err)
+		}
 	}
 
 	sink := newFakeHarvestSink()
@@ -2982,7 +2978,7 @@ func TestRunOnceIteratesAllSources(t *testing.T) {
 	// attribution -- so the windows source answers empty for every session.
 	w := harvest.NewWatcher([]harvest.Source{
 		harvest.NewClaudeSource(dirA),
-		harvest.NewRolloutSource(dirB),
+		harvest.NewClaudeSource(dirB),
 	}, sink, harvest.NewAttributor(&fakeWindowSource{bySession: map[string][]harvest.Window{}}), harvest.NoDeps{}, nil)
 
 	touched, err := w.RunOnce(context.Background())
@@ -2992,62 +2988,11 @@ func TestRunOnceIteratesAllSources(t *testing.T) {
 	if touched != 2 {
 		t.Fatalf("RunOnce touched %d files, want 2 (one per source)", touched)
 	}
-	for _, p := range []string{claudePath, rolloutPath} {
+	for _, p := range []string{claudePath, otherPath} {
 		offset, found, err := sink.GetHarvestOffset(context.Background(), p)
 		if err != nil || !found || offset == 0 {
 			t.Errorf("harvest offset for %s = (%d, %v, %v), want a committed non-zero offset", p, offset, found, err)
 		}
-	}
-}
-
-// TestScanRetriedTokensReadsRolloutCommands extends the persisted-give-up
-// recovery scan (task 6.2's mechanism) to the rollout source: a token whose
-// only mark sits in a rollout file's request-history tool-call text, behind
-// an offset already at that file's EOF, binds on the retry scan -- and the
-// scan still attributes nothing and moves no offset (property 1).
-func TestScanRetriedTokensReadsRolloutCommands(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	const token = "mf-rollout-retry"
-	const stageRunID = int64(911)
-	binder := &countingSessionTokenBinder{sessionToken: token, stageRunID: stageRunID}
-	binder.seededGiveUps = []harvest.GiveUp{{Token: token, Reason: "session never bound", Retries: 1}}
-
-	path := filepath.Join(dir, "model-io-sess_retry.jsonl")
-	line := `{"type":"model_io","sessionId":"sess-retry","completedAt":"2025-12-01T00:00:01Z","model":{"modelId":"GLM-5.3-Flash"},` +
-		`"request":{"messages":[{"role":"assistant","toolCalls":[{"id":"c1","name":"Bash","input":{"command":"flow stage begin -session-token ` + token + `"}}]}]},` +
-		`"response":{"usage":{"inputTokens":10,"outputTokens":2,"totalTokens":12,"cacheReadTokens":0,"cacheWriteTokens":0}}}` + "\n"
-	if err := os.WriteFile(path, []byte(line), 0o644); err != nil {
-		t.Fatalf("write %s: %v", path, err)
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatalf("stat %s: %v", path, err)
-	}
-
-	windows := &fakeWindowSource{bySession: map[string][]harvest.Window{
-		"sess-retry": {{
-			StageRunID: stageRunID,
-			SessionID:  "sess-retry",
-			StartedAt:  time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC),
-		}},
-	}}
-	sink := newFakeHarvestSink()
-	sink.offsets[path] = info.Size() // already fully harvested by a prior process
-
-	w := harvest.NewWatcher([]harvest.Source{harvest.NewRolloutSource(dir)}, sink, harvest.NewAttributor(windows), sessionBinderDeps{binder: binder}, nil)
-
-	if _, err := w.RunOnce(context.Background()); err != nil {
-		t.Fatalf("RunOnce: %v", err)
-	}
-	if binder.bindCalls != 1 {
-		t.Fatalf("bindCalls = %d, want 1: a persisted give-up whose mark sits in a rollout file must still bind", binder.bindCalls)
-	}
-	if binder.bound[stageRunID] != "sess-retry" {
-		t.Fatalf("bound session for stage run %d = %q, want sess-retry", stageRunID, binder.bound[stageRunID])
-	}
-	if sink.commitCount != 0 {
-		t.Fatalf("commitCount = %d, want 0: the retry scan must never re-attribute the file's usage", sink.commitCount)
 	}
 }
 

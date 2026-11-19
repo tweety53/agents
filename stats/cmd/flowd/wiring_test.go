@@ -202,7 +202,7 @@ func TestAcquireStartupRefusesNonLoopbackHostBeforeListening(t *testing.T) {
 // smoke: core — the daemon wired to the real store
 func TestDaemonWiresTheRealStore(t *testing.T) {
 	var st *store.Store // never dereferenced: newTranscriptWatcher only stores it behind Deps and HarvestSink.
-	w := newTranscriptWatcher(t.TempDir(), t.TempDir(), st, harvest.NewAttributor(nil), nil)
+	w := newTranscriptWatcher(t.TempDir(), st, harvest.NewAttributor(nil), nil)
 
 	f := reflect.ValueOf(w).Elem().FieldByName("deps")
 	if !f.IsValid() {

@@ -372,10 +372,6 @@ func run(logger *slog.Logger) error {
 	// see watcher.go's own doc comment on HarvestSink for why a purely
 	// local, separately-committed offset was unsafe (task 9's post-commit
 	// review, findings F1 and its follow-up).
-	rolloutRoot, err := harvest.DefaultZcodeRolloutRoot()
-	if err != nil {
-		return err
-	}
 	attributor := harvest.NewAttributor(storeWindowSource{st})
 	// Task 23: price every stage run a batch touches, once
 	// CommitHarvestBatch has reported it applied (harvest.Pricer's own
@@ -383,7 +379,7 @@ func run(logger *slog.Logger) error {
 	// satisfies harvest.Pricer directly -- Price's signature already
 	// matches it (compile-time check below) -- so, like HarvestSink, no
 	// adapter is needed here.
-	watcher := newTranscriptWatcher(transcriptsRoot, rolloutRoot, st, attributor, logger)
+	watcher := newTranscriptWatcher(transcriptsRoot, st, attributor, logger)
 	// The one-shot stage-gap back-fill runs before the watcher's first
 	// cycle, in the watcher's own goroutine so the listener below is not
 	// held while it reads every transcript on disk: it reads only bytes
@@ -498,9 +494,8 @@ func acquireStartup(cfg config.Config, logger *slog.Logger) (*pidfile.Lock, net.
 	return lock, ln, nil
 }
 
-// newTranscriptWatcher builds the harvest.Watcher the daemon runs, over
-// both transcript sources this daemon harvests: the Claude Code transcripts
-// root and the ZCode rollout root (kan-479).
+// newTranscriptWatcher builds the harvest.Watcher the daemon runs, over the
+// Claude Code transcripts root.
 // Extracted out of run (KAN-172, task 7) so wiring_test.go can call it
 // directly and assert on the *constructed* Watcher -- originally through
 // Watcher.HasPricer and Watcher.HasSessionTokenBinder, now (KAN-173)
@@ -520,11 +515,8 @@ func acquireStartup(cfg config.Config, logger *slog.Logger) (*pidfile.Lock, net.
 // DispatchWindowsForSession returns harvest.DispatchWindow and
 // MergeDispatchMetrics matches harvest.DispatchMetricsSink, exactly like
 // HarvestSink and Pricer already did (compile-time checks below).
-func newTranscriptWatcher(transcriptsRoot, rolloutRoot string, st *store.Store, attributor *harvest.Attributor, logger *slog.Logger) *harvest.Watcher {
-	return harvest.NewWatcher([]harvest.Source{
-		harvest.NewClaudeSource(transcriptsRoot),
-		harvest.NewRolloutSource(rolloutRoot),
-	}, st, attributor, st, logger)
+func newTranscriptWatcher(transcriptsRoot string, st *store.Store, attributor *harvest.Attributor, logger *slog.Logger) *harvest.Watcher {
+	return harvest.NewWatcher([]harvest.Source{harvest.NewClaudeSource(transcriptsRoot)}, st, attributor, st, logger)
 }
 
 // storeWindowSource adapts *store.Store to harvest.WindowSource: the one

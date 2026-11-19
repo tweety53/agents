@@ -658,9 +658,8 @@ type Batch struct {
 }
 
 // agentToolNames are the tool names whose tool_use dispatches a subagent,
-// confirmed against real transcripts for both harnesses this package
-// reads ("Agent" on Claude Code and ZCode; "Task" is Claude Code's
-// historical name). Extend only with a transcript sample.
+// confirmed against real Claude Code transcripts ("Agent", and "Task",
+// its historical name). Extend only with a transcript sample.
 var agentToolNames = []string{"Agent", "Task"}
 
 // ParseDispatchEvents decodes the dispatch-attempt facts from complete:
