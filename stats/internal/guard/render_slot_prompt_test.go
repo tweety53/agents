@@ -18,8 +18,7 @@ func rspSkillDir(t *testing.T) string {
 	return dir
 }
 
-// rspFx is a canonical worktree and a peer, each with every diff's touched
-// list written as write-panel-diff.sh writes it, and a plan directory.
+// rspFx is a canonical worktree and a peer, and a plan directory.
 type rspFx struct{ canon, peer, plan string }
 
 func rspNewFx(t *testing.T) rspFx {
@@ -28,10 +27,6 @@ func rspNewFx(t *testing.T) rspFx {
 	fx := rspFx{canon: dir + "/canon", peer: dir + "/peer", plan: dir + "/plan"}
 	for _, wt := range []string{fx.canon, fx.peer} {
 		mkdir(t, wt+"/.superpowers/sdd")
-	}
-	for _, f := range []string{"final-review.diff", "late-fix.diff", "fix-round-2.diff",
-		"slot-delta-2-primary.diff", "slot-delta-2-principles.diff"} {
-		writeFile(t, fx.canon+"/.superpowers/sdd/"+f+".touched", "# worktree: "+fx.canon+" — merge base abc\nM\t"+f+"-touched.go\n")
 	}
 	mkdir(t, fx.plan)
 	for _, f := range []string{"proposal.md", "design.md", "tasks.md"} {
@@ -79,7 +74,7 @@ func rspTablePlaceholders(t *testing.T, skill string) []string {
 	for _, m := range re.FindAllStringSubmatch(rbRead(skill+"/review-panel.md"), -1) {
 		out = append(out, m[1])
 	}
-	if len(out) < 7 {
+	if len(out) < 6 {
 		t.Fatalf("review-panel.md's placeholder table yielded %v", out)
 	}
 	return out
@@ -100,18 +95,16 @@ func TestRenderSlotPrompt(t *testing.T) {
 		if want := sdd + "slot-prompt-0-primary.md"; strings.Split(r.stdout, "\n")[0] != want {
 			t.Errorf("stdout %q, want %q", r.stdout, want)
 		}
-		for _, label := range []string{"TOOLS", "FOREGROUND BUILDS", "NO DELEGATION", "REPRODUCE, DON'T READ"} {
+		for _, label := range []string{"TOOLS", "FOREGROUND BUILDS", "NO DELEGATION"} {
 			if b := rspTestBlock(t, panel, label); strings.Count(got, b) != 1 {
 				t.Errorf("the %s block is not carried exactly once, verbatim", label)
 			}
 		}
 		for _, want := range []string{
 			"`" + fx.canon + "`; `final-review.diff`", // WORKTREES, the set filled in
-			rspTestBlock(t, panel, "ENTRY CONTEXT") + "\n\n" + rbRead(sdd+"final-review.diff.touched"),
 			"## PASS primary",
 			"**Diff file:** " + sdd + "final-review.diff",
 			"**Change artifacts:** " + fx.plan + "/proposal.md, " + fx.plan + "/design.md, " + fx.plan + "/tasks.md",
-			"**Context bundle:** " + sdd + "dispatch-context.md",
 			skill + "/reviewer-calibration.md",
 			"`" + sdd + "panel-report-0-primary.md`",
 		} {
@@ -119,7 +112,7 @@ func TestRenderSlotPrompt(t *testing.T) {
 				t.Errorf("render lacks %q", want)
 			}
 		}
-		for _, absent := range []string{"INDEPENDENT PASSES", "FIX-ROUND SCOPE", "CITATION CHECK", "<abs-worktree", "\n    You are"} {
+		for _, absent := range []string{"INDEPENDENT PASSES", "FIX-ROUND SCOPE", "<abs-worktree", "\n    You are"} {
 			if strings.Contains(got, absent) {
 				t.Errorf("render carries %q", absent)
 			}
@@ -127,7 +120,6 @@ func TestRenderSlotPrompt(t *testing.T) {
 	})
 
 	t.Run("a bundle over two worktrees fills every table placeholder", func(t *testing.T) {
-		writeFile(t, fx.peer+"/.superpowers/sdd/citation-check.md", "scan")
 		std := fx.plan + "/standards.md"
 		writeFile(t, std, "standards")
 		r, got := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "primary+principles+failure-modes",
@@ -143,17 +135,12 @@ func TestRenderSlotPrompt(t *testing.T) {
 				t.Errorf("%s left unfilled", p)
 			}
 		}
-		citation := strings.Replace(rspTestBlock(t, panel, "CITATION CHECK"), "<abs-worktree>", fx.peer, 1)
-		if strings.Count(got, "CITATION CHECK") != 1 || !strings.Contains(got, citation) {
-			t.Errorf("want one CITATION CHECK, for the one worktree whose scan exists")
-		}
 		for _, want := range []string{
 			rspTestBlock(t, panel, "INDEPENDENT PASSES"),
 			"`" + fx.canon + "`, `" + fx.peer + "`; `final-review.diff`",
-			sdd + "dispatch-context.md, " + fx.peer + "/.superpowers/sdd/dispatch-context.md",
 			"**Principles:** " + skill + "/engineering-principles.md",
 			"**Project standards:** " + std,
-			"**Global constraints:** the design.md section of your context bundle",
+			"**Global constraints:** " + fx.plan + "/design.md",
 			"panel-report-0-principles.md", "panel-report-0-failure-modes.md",
 		} {
 			if !strings.Contains(got, want) {
@@ -169,7 +156,6 @@ func TestRenderSlotPrompt(t *testing.T) {
 	for _, tc := range []struct{ kind, file string }{
 		{"final", "final-review.diff"},
 		{"late-fix", "late-fix.diff"},
-		{"delta", "slot-delta-2-primary.diff"},
 		{"fix-round", "fix-round-2.diff"},
 	} {
 		t.Run("-diff "+tc.kind, func(t *testing.T) {
@@ -177,10 +163,10 @@ func TestRenderSlotPrompt(t *testing.T) {
 			if r.rc != 0 {
 				t.Fatalf("exit %d\n%s", r.rc, r.out)
 			}
-			if !strings.Contains(got, "**Diff file:** "+sdd+tc.file+"\n") || !strings.Contains(got, tc.file+"-touched.go") {
-				t.Errorf("want %s and its touched list", tc.file)
+			if !strings.Contains(got, "**Diff file:** "+sdd+tc.file+"\n") {
+				t.Errorf("want %s", tc.file)
 			}
-			// The shared ENTRY CONTEXT and INDEPENDENT PASSES blocks name
+			// The shared WORKTREES and INDEPENDENT PASSES blocks name
 			// final-review.diff; a pass reading another diff must not be
 			// pointed back at the whole branch.
 			if tc.kind != "final" && strings.Contains(got, "`final-review.diff`") {
@@ -234,17 +220,21 @@ func TestRenderSlotPrompt(t *testing.T) {
 		}
 	})
 
-	t.Run("-no-bundle", func(t *testing.T) {
-		r, got := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "primary+principles", "-diff", "final", "-no-bundle", "--", fx.canon)
+	t.Run("a plan with no design.md constrains with none", func(t *testing.T) {
+		plan := t.TempDir()
+		r, got := fx.run(t, skill, skill, "0", fx.canon, plan, "principles", "-diff", "final", "--", fx.canon)
 		if r.rc != 0 {
 			t.Fatalf("exit %d\n%s", r.rc, r.out)
 		}
-		for _, want := range []string{
-			"**Context bundle:** none — the bundle was not built",
-			"**Global constraints:** " + fx.plan + "/design.md",
-		} {
-			if !strings.Contains(got, want) {
-				t.Errorf("render lacks %q", want)
+		if !strings.Contains(got, "**Global constraints:** none") {
+			t.Errorf("render lacks **Global constraints:** none")
+		}
+	})
+	t.Run("-diff delta, -part and -no-bundle are gone", func(t *testing.T) {
+		for _, bad := range [][]string{{"-diff", "delta"}, {"-diff", "final", "-part", "2"}, {"-diff", "final", "-no-bundle"}} {
+			args := append([]string{skill, "0", fx.canon, fx.plan, "primary"}, bad...)
+			if r, _ := fx.run(t, skill, append(args, "--", fx.canon)...); r.rc != 2 {
+				t.Errorf("%v: exit %d, want 2", bad, r.rc)
 			}
 		}
 	})
@@ -282,11 +272,10 @@ func TestRenderSlotPromptRendersMutationPass(t *testing.T) {
 	real := rspSkillDir(t)
 	fx := rspNewFx(t)
 	// A mutation-alone dispatch renders the shared paragraphs and its PASS
-	// section — the mutation-testing brief and its throwaway copies — with no
-	// ENTRY CONTEXT, mutation reading no diff file (kan-1029's self-review).
+	// section — the mutation-testing brief and its throwaway copies.
 	r, _ := fx.run(t, real, real, "0", fx.canon, fx.plan, "mutation", "-diff", "final", "--", fx.canon)
 	wantMutation := fx.canon + "/.superpowers/sdd/slot-prompt-0-mutation.md"
-	if r.rc != 0 || strings.Split(r.stdout, "\n")[0] != wantMutation || !strings.Contains(r.stdout, `"Role: panel-mutation-failure"`) {
+	if r.rc != 0 || strings.Split(r.stdout, "\n")[0] != wantMutation || !strings.Contains(r.stdout, `"Role: panel-reviewer"`) {
 		t.Fatalf("mutation alone: exit %d stdout %q stderr %q; want 0 and %s", r.rc, r.stdout, r.err, wantMutation)
 	}
 	mb, err := os.ReadFile(wantMutation)
@@ -299,9 +288,6 @@ func TestRenderSlotPromptRendersMutationPass(t *testing.T) {
 		if !strings.Contains(string(mb), s) {
 			t.Errorf("mutation-alone render lacks %q", s)
 		}
-	}
-	if strings.Contains(string(mb), "**ENTRY CONTEXT:**") {
-		t.Errorf("mutation-alone render carries **ENTRY CONTEXT:**")
 	}
 	// A bundle carrying mutation renders every role's PASS section, mutation's
 	// last whatever the slot argument's order (the pipeline sends
@@ -399,43 +385,6 @@ func TestRenderSlotPromptSlotFromTemplate(t *testing.T) {
 	}
 }
 
-// TestRenderSlotPromptCarriesReproducer pins kan-1006's self-review: every
-// rendered slot prompt carries review-panel.md's REPRODUCER paragraph
-// verbatim, so a slot authors its reproducer's declarations and exit
-// convention from its own prompt.
-func TestRenderSlotPromptCarriesReproducer(t *testing.T) {
-	t.Parallel()
-	skill := rspSkillDir(t)
-	fx := rspNewFx(t)
-	r, got := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "primary", "-diff", "final", "--", fx.canon)
-	if r.rc != 0 {
-		t.Fatalf("exit %d\n%s", r.rc, r.out)
-	}
-	b := strings.Replace(rspTestBlock(t, skill+"/review-panel.md", "REPRODUCER"), "`<round>` this round's number", "`<round>` this round's number — `0` here", 1)
-	if strings.Count(got, b) != 1 {
-		t.Errorf("the REPRODUCER block is not carried exactly once, verbatim save the round")
-	}
-}
-
-func TestRenderSlotPromptStatesTheRound(t *testing.T) {
-	t.Parallel()
-	skill := rspSkillDir(t)
-	fx := rspNewFx(t)
-	r, got := fx.run(t, skill, skill, "3", fx.canon, fx.plan, "primary", "-diff", "final", "--", fx.canon)
-	if r.rc != 0 {
-		t.Fatalf("exit %d\n%s", r.rc, r.out)
-	}
-	if !strings.Contains(got, "`<round>` this round's number — `3` here") {
-		t.Errorf("the REPRODUCER paragraph does not state round 3:\n%s", got)
-	}
-	if !strings.Contains(got, "`<round>-<id>-<n>.sh`") {
-		t.Errorf("the REPRODUCER paragraph does not name `<round>-<id>-<n>.sh`:\n%s", got)
-	}
-	if strings.Contains(got, "R-ID-N") {
-		t.Errorf("the REPRODUCER paragraph still carries R-ID-N:\n%s", got)
-	}
-}
-
 // TestRenderSlotPromptPrintsTheDispatchHead pins kan-1086's self-review, F9:
 // the Agent call's description and Role line were hand-typed around the
 // rendered path and one went wrong; the guard now prints both after it.
@@ -445,12 +394,11 @@ func TestRenderSlotPromptPrintsTheDispatchHead(t *testing.T) {
 	for _, c := range []struct {
 		name, slots, diff, decision, want string
 	}{
-		{"mutation pass", "mutation+failure-modes", "final", "", `DISPATCH: description "panel-2-mutation+failure-modes" — prompt opens "Role: panel-mutation-failure"`},
-		{"sanity pass", "test-sanity+call-efficiency", "final", "", `DISPATCH: description "panel-2-test-sanity+call-efficiency" — prompt opens "Role: panel-sanity-efficiency"`},
+		{"mutation pass", "mutation+failure-modes", "final", "", `DISPATCH: description "panel-2-mutation+failure-modes" — prompt opens "Role: panel-reviewer"`},
+		{"sanity pass", "test-sanity+call-efficiency", "final", "", `DISPATCH: description "panel-2-test-sanity+call-efficiency" — prompt opens "Role: panel-reviewer"`},
 		{"main pass", "primary+principles", "final", "", `DISPATCH: description "panel-2-primary+principles" — prompt opens "Role: panel-reviewer"`},
-		{"delta re-run", "primary", "delta", "", `DISPATCH: description "panel-2-primary" — prompt opens "Role: panel-rerun"`},
+		{"fix-round re-run", "primary", "fix-round", "", `DISPATCH: description "panel-2-primary" — prompt opens "Role: panel-rerun"`},
 		{"fix run, main bundle", "primary+principles", "late-fix", "", `DISPATCH: description "panel-2-primary+principles" — prompt opens "Role: panel-reviewer"`},
-		{"fix run, mutation bundle", "mutation", "late-fix", "", `DISPATCH: description "panel-2-mutation" — prompt opens "Role: panel-mutation-failure"`},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			fx := rspNewFx(t)
@@ -466,33 +414,7 @@ func TestRenderSlotPromptPrintsTheDispatchHead(t *testing.T) {
 	}
 }
 
-// A sanity-efficiency bundle the slot triggers shrank to one role is still
-// judged on that bundle's pair row: a final dispatch of test-sanity or
-// call-efficiency alone opens Role: panel-sanity-efficiency, while any other
-// non-mutation final dispatch stays panel-reviewer (kan-1126).
-func TestRenderSlotPromptLoneSanityEfficiencyRole(t *testing.T) {
-	t.Parallel()
-	skill := rspSkillDir(t)
-	for _, c := range []struct{ slots, role string }{
-		{"test-sanity", "panel-sanity-efficiency"},
-		{"call-efficiency", "panel-sanity-efficiency"},
-		{"test-sanity+call-efficiency", "panel-sanity-efficiency"},
-		{"primary", "panel-reviewer"},
-	} {
-		t.Run(c.slots, func(t *testing.T) {
-			fx := rspNewFx(t)
-			r, _ := fx.run(t, skill, skill, "2", fx.canon, fx.plan, c.slots, "-diff", "final", "--", fx.canon)
-			want := `DISPATCH: description "panel-2-` + c.slots + `" — prompt opens "Role: ` + c.role + `"`
-			lines := strings.Split(strings.TrimSuffix(r.stdout, "\n"), "\n")
-			if r.rc != 0 || len(lines) != 2 || lines[1] != want {
-				t.Errorf("exit %d stdout %q stderr %q; want the path, then %q", r.rc, r.stdout, r.err, want)
-			}
-		})
-	}
-}
-
-// Over the cap, a multi-repository pass is dispatched once per repository
-// section: -repo renders its SECTION block, per-repository report files, its
+// A multi-repository pass may be dispatched once per repository section: -repo renders its SECTION block, per-repository report files, its
 // own prompt file and DISPATCH description (kan-1096 self-review, F2).
 func TestRenderSlotPromptSplitsByRepository(t *testing.T) {
 	t.Parallel()
@@ -532,7 +454,6 @@ func TestRenderSlotPromptSplitsByRepository(t *testing.T) {
 		f := rspNewFx(t)
 		f.canon = dir + "/canon"
 		mkdir(t, f.canon+"/.superpowers/sdd")
-		writeFile(t, f.canon+"/.superpowers/sdd/final-review.diff.touched", "M\tx.go\n")
 		args := append([]string{skill, "0", f.canon, f.plan, "primary", "-diff", "final"}, bad...)
 		args = append(args, "--", f.canon)
 		r, _ := f.run(t, skill, args...)
@@ -541,66 +462,6 @@ func TestRenderSlotPromptSplitsByRepository(t *testing.T) {
 		}
 		if _, err := os.Stat(f.canon + "/.superpowers/sdd/slot-prompt-0-primary.md"); err == nil {
 			t.Errorf("%v: a prompt was written", bad)
-		}
-		if m, _ := filepath.Glob(f.canon + "/.superpowers/sdd/slot-prompt-*"); len(m) > 0 {
-			t.Errorf("%v: wrote %v", bad, m)
-		}
-	}
-}
-
-// Over the cap, a single-worktree pass is dispatched once per part of
-// final-review.diff: -part renders the PART block, the part's diff and
-// touched list, per-part report files, its own prompt file and DISPATCH
-// description (kan-1090 self-review, F9).
-func TestRenderSlotPromptRendersAPart(t *testing.T) {
-	t.Parallel()
-	skill := rspSkillDir(t)
-	fx := rspNewFx(t)
-	sdd := fx.canon + "/.superpowers/sdd/"
-	partDiff := sdd + "final-review-part-2.diff"
-	writeFile(t, partDiff, "# final-review.diff\n")
-	writeFile(t, partDiff+".touched", "# worktree: "+fx.canon+" — merge base abc\nA\tpart-two-only.go\n")
-
-	r, got := fx.run(t, skill, skill, "0", fx.canon, fx.plan, "primary+principles", "-diff", "final", "-part", "2", "--", fx.canon)
-	if r.rc != 0 {
-		t.Fatalf("exit %d\n%s", r.rc, r.out)
-	}
-	lines := strings.Split(r.stdout, "\n")
-	if want := sdd + "slot-prompt-0-primary+principles-part2.md"; lines[0] != want {
-		t.Errorf("stdout %q, want %q", r.stdout, want)
-	}
-	if len(lines) < 2 || !strings.Contains(lines[1], `description "panel-0-primary+principles-part2"`) {
-		t.Errorf("DISPATCH line %q", r.stdout)
-	}
-	for _, want := range []string{
-		"`" + sdd + "panel-report-0-primary-part2.md`", "`" + sdd + "panel-report-0-principles-part2.md`",
-		"part-two-only.go", "named `<round>-<id>-part2-<n>.sh`",
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("render lacks %q", want)
-		}
-	}
-	if n := strings.Count(got, "**Diff file:** "+partDiff); n != 2 {
-		t.Errorf("%d PASS sections name %s, want 2", n, partDiff)
-	}
-	if strings.Contains(got, "final-review.diff-touched.go") || strings.Contains(got, "`final-review.diff`") {
-		t.Errorf("render names the whole diff or its touched list:\n%s", got)
-	}
-	partBlock := rspTestBlock(t, skill+"/review-panel.md", "PART")
-	wi, pi := strings.Index(got, "**WORKTREES:**"), strings.Index(got, partBlock)
-	if wi < 0 || pi < wi {
-		t.Errorf("the PART block does not follow WORKTREES (at %d, %d)", wi, pi)
-	}
-
-	for _, bad := range [][]string{
-		{"-diff", "delta", "-part", "2"}, {"-diff", "final", "-part", "2", "-repo", "gymie"},
-		{"-diff", "final", "-part", "0"}, {"-diff", "final", "-part", "x"},
-	} {
-		f := rspNewFx(t)
-		args := append([]string{skill, "0", f.canon, f.plan, "primary"}, bad...)
-		r, _ := f.run(t, skill, append(args, "--", f.canon)...)
-		if r.rc != 2 {
-			t.Errorf("%v: exit %d, want 2", bad, r.rc)
 		}
 		if m, _ := filepath.Glob(f.canon + "/.superpowers/sdd/slot-prompt-*"); len(m) > 0 {
 			t.Errorf("%v: wrote %v", bad, m)

@@ -142,7 +142,6 @@ import (
 //   the store and never committed with the change, so nothing removes them and
 //   there is nothing for this guard to find gone
 // registry-row-not-checked: Brainstorm design document — removed with the worktree
-// registry-row-not-checked: Dispatch context bundle — removed with the worktree
 // registry-row-not-checked: Mutation's throwaway worktree copy — created and removed
 //   entirely within the review panel stage, immediately after that slot's dispatch
 //   closes; it never survives to run 2, so there is nothing here for this guard to
@@ -705,11 +704,7 @@ func ccWorkspaceRow(env Env, repo, name string, stderr io.Writer) ([]string, str
 // indistinguishable from this on every name whose normalised prefix ends in
 // exactly one separator — and differs on the first one that ends in two,
 // `Trailing.__` deriving `trailing---…` instead of `trailing-…`. The digest
-// comes from the repository's one sha256 helper (sha256.go), shared with
-// gather-dispatch-context — the bash guard sourced lib/sha256-hex.sh for the
-// same reason (F1, kan-288's own review panel): a second caller is exactly
-// when rules/build-the-simplest-thing.mdc's "no abstraction until a second
-// caller exists" calls for extracting the shared helper.
+// comes from the repository's one sha256 helper (sha256.go).
 func ccWorkspaceID(name string) string {
 	b := []byte(ccASCIILower(name))
 	for i, c := range b {

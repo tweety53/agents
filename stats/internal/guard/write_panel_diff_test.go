@@ -306,9 +306,6 @@ func TestPanelGuardsHonourProjectExcludes(t *testing.T) {
 		t.Fatal(g.err)
 	}
 	env := Env{Dir: dir, Getenv: os.Getenv, LookupEnv: hermeticGitLookup}
-	if r := runGuard("check-panel-diff-size", []string{wt, mb, "10"}, env); r.rc != 0 || r.stdout != "8\nunder cap\n" {
-		t.Errorf("check-panel-diff-size: exit %d, stdout %q; want 0, 8 under cap\n%s", r.rc, r.stdout, r.out)
-	}
 	if r := runGuard("check-panel-docs-only", []string{wt, mb}, env); r.rc != 0 {
 		t.Errorf("check-panel-docs-only: exit %d, want 0\n%s", r.rc, r.out)
 	}
