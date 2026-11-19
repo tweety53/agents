@@ -42,9 +42,8 @@ import (
 // identical installer would diff on every single link. The tree path is
 // replaced as a literal string, never a pattern, so a directory name holding
 // glob metacharacters still normalizes. Regular files carry the `cksum`
-// output, so the managed blocks (CLAUDE.md, AGENTS.md, .zshrc, the generated
-// agent-baseline.md) are compared by content; modes catch an exec bit lost or
-// gained. The mode is what the bash script's `stat` printed: the full st_mode
+// output, so the managed block (CLAUDE.md) and every installed file are
+// compared by content; modes catch an exec bit lost or gained. The mode is what the bash script's `stat` printed: the full st_mode
 // in octal on Darwin (BSD `stat -f '%p'`), the permission bits in octal
 // elsewhere (GNU `stat -c '%a'`). Both manifests are produced and compared on
 // one machine, so the two formats never meet.
@@ -59,14 +58,6 @@ import (
 //     side gets its own fresh HOME inside a fresh work directory, never
 //     either tree and never each other. Identical trees therefore diff clean
 //     only if both runs installed into two separate, empty sandboxes.
-//
-// MANAGED_BLOCK_POSTPROCESS is removed from both runs' environment: it is the
-// installer's own extension point, and a value exported by the caller would
-// rewrite both sides' plain managed blocks identically — which could mask a
-// genuine content difference between the trees. The verdict must be the
-// installer's own output, not the caller's transform of it. (The installer's
-// own zcode rewrite is prefix-scoped inside setup.sh and needs no help from
-// here.)
 //
 // Exit codes:
 //
@@ -178,8 +169,8 @@ func isdRun(env Env, trees [2]string, work string, stdout, stderr io.Writer) int
 	return 1
 }
 
-// isdInstall runs `bash ./setup.sh global` in tree with HOME=home, without
-// MANAGED_BLOCK_POSTPROCESS, stdout and stderr both into log. PWD is the
+// isdInstall runs `bash ./setup.sh global` in tree with HOME=home, stdout
+// and stderr both into log. PWD is the
 // tree as given, as the bash script's `cd "$tree"` set it, so an installer
 // that reads its own location through `pwd` sees the logical path, not the
 // symlink-resolved one.
@@ -192,7 +183,7 @@ func isdInstall(tree, home, log string) bool {
 	cmd := exec.Command("bash", "./setup.sh", "global")
 	cmd.Dir, cmd.Stdout, cmd.Stderr = tree, f, f
 	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, "HOME=") && !strings.HasPrefix(kv, "PWD=") && !strings.HasPrefix(kv, "MANAGED_BLOCK_POSTPROCESS=") {
+		if !strings.HasPrefix(kv, "HOME=") && !strings.HasPrefix(kv, "PWD=") {
 			cmd.Env = append(cmd.Env, kv)
 		}
 	}

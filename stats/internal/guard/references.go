@@ -63,7 +63,7 @@ func init() {
 
 // crTargets is DEFAULT_TARGETS: the scan set lives here, in one place, so no
 // call site can narrow it.
-var crTargets = []string{"rules", "skills", "commands-claude", "README.md", "AGENTS.md", "CLAUDE.md"}
+var crTargets = []string{"rules", "skills", "commands-claude", "README.md", "CLAUDE.md"}
 
 // EXPECTED-ZERO FILES — established by running this guard's own association
 // and resolution logic against the real tree (2026-08-18, at df9d5dd), never

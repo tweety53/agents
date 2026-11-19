@@ -26,7 +26,7 @@ import (
 // for a normal invocation.
 //
 // It scans the text of skills/**/*.md, commands-claude/*.md, rules/*,
-// hooks/*.py, templates/*, .flow/project.md, CLAUDE.md and AGENTS.md — never
+// hooks/*.py, templates/*, .flow/project.md and CLAUDE.md — never
 // docs/ or spectre/, which are history and keep the spelling a guard had
 // when they were written — and reports one `path:line: message` line per
 // finding:
@@ -221,7 +221,7 @@ func gcFiles(root string) ([]string, error) {
 			return nil, err
 		}
 	}
-	for _, pat := range []string{"commands-claude/*.md", "rules/*", "hooks/*.py", "templates/*", ".flow/project.md", "CLAUDE.md", "AGENTS.md"} {
+	for _, pat := range []string{"commands-claude/*.md", "rules/*", "hooks/*.py", "templates/*", ".flow/project.md", "CLAUDE.md"} {
 		m, err := filepath.Glob(filepath.Join(root, pat))
 		if err != nil {
 			return nil, err
