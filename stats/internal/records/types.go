@@ -752,9 +752,10 @@ func CostStatusOf(r Run) CostStatus {
 
 // CostReason is why d carries no cost figure: "" when its bag has a real
 // "tokens" figure (a stale "unattributed" stamp beside it loses), else the
-// stamped "unattributed.reason", else reasonNotMeasured -- an empty or
-// unreadable bag included. The one precedence CostStatusOf, the ledger's
-// tokenLine (render.go) and the dashboard all read.
+// stamped "unattributed.reason", else reasonNotMeasured. The one precedence
+// CostStatusOf, the ledger's tokenLine (render.go) and the dashboard all
+// read; CostStatusOf skips an empty or unreadable bag before asking, which
+// the store never holds (metrics is NOT NULL DEFAULT '{}').
 func CostReason(d Dispatch) string {
 	var m dispatchMetrics
 	if err := json.Unmarshal(d.Metrics, &m); err != nil {
