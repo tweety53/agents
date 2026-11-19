@@ -37,39 +37,6 @@ a path with unstaged edits: the restore reverts it to its index state and an unc
 with it. The reason points at flow-guard break-and-prove and flow-guard mutate-and-verify, which restore from a
 byte snapshot.
 
-It also denies a landing push of a `pipeline-fix-*` or `self-review-*` branch unless
-flow-guard check-loop-landing, in the agents checkout this hook is installed from, admits it — flowd holding the loop's completed plan, fix and clean last review. That one
-check fails closed: a checker that cannot answer or cannot run denies the push.
-
-It also denies a push of a `/flow` change branch (`spectre/<name>`) whose unpushed commits —
-`origin/spectre/<name>..HEAD` — hold one outside every task, as flow-guard check-untasked-commits judges them (**Commits outside every
-task**, skills/flow-contracts/git-boundaries.md; kan-941 pushed four such commits). It checks only a
-push of HEAD's commit to a branch origin already holds, and fails open: a checker that cannot
-answer, cannot run or times out lets the push through, and run 1's gate still lists the commit.
-
-It also denies a command that commits and then pushes the same repository to a `spectre/` branch
-when that commit's message, as the command states it (`-m`, `-qm`, `--message`), carries neither
-trailer, its subject is no `chore`, and its pathspec is not limited to `<spec-root>/changes/` — the
-push check above runs before the command does and cannot see a commit the command makes first
-(kan-1003: 0497d943). A message the command does not state (`-F`, `-C`, `--amend`, a shell
-expansion) is not judged.
-
-It also denies a commit, as the command states it, into a worktree whose current branch is a
-`spectre/` change branch when its message carries neither trailer, its subject is no `chore`, and its
-pathspec is not limited to `<spec-root>/changes/` — the same judgement as above, made at the commit
-rather than at a push the command may never make. A commit on any other branch, a branch git cannot
-read, or a message the command does not state (`-F`, `--amend`) is not judged.
-
-Both landing checks read the push from the command text, so a push the hook cannot read is denied
-rather than let through: one whose repository (`-C <path>`, a `cd`), remote or refspec goes through
-a shell expansion the hook cannot resolve — `$W`, `"${B}:main"`, `$(git branch --show-current)`, a
-backtick — and whose destination is the default branch or cannot be told (0b055e56 landed a
-`pipeline-fix-*` branch with no flowd records through `git -C $W push origin $B:main`). The reason
-asks for literal names. A push whose destination is a literal other branch (`git -C $W push origin
-spectre/<name>`) passes; an assignment the command itself makes (`B=x; git push origin $B:main`) is
-expanded first, so only names from outside the command count. Scripts are untouched — the hook only
-sees the typed Bash command, never what a script it calls runs.
-
 Allowed everywhere: reads, `git pull --ff-only`, `git fetch`, `git checkout -b`, `git switch -c`,
 `git worktree add`, `git push`, and the landing script `flow-guard refresh-main-checkout` — it is not a
 `git` verb in the command text, and owns its own main-checkout rules.
@@ -94,7 +61,6 @@ import re
 import shlex
 import subprocess
 import sys
-import time
 
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 
@@ -108,8 +74,6 @@ DENIED_GIT_VERBS = {
 
 FALLBACK_DEFAULT_BRANCHES = {"main", "master", "develop"}
 
-# A fix loop's branch, or a change's own branch a self-review loop may have run on
-# (flow-guard check-loop-landing answers LOOP-LANDING-NA for one with no loop rows).
 # A bare `cat > <file>` with no input of its own: it reads stdin, which a Bash call
 # never has, so it waits until the call times out.
 # ponytail: a line scan — a heredoc body line opening with `cat > <file>` is denied
@@ -142,25 +106,6 @@ def full_go_test(command):
             return True
     return False
 
-
-LOOP_BRANCH_RE = re.compile(r"^(pipeline-fix-.+-[0-9]+|self-review-.+|spectre/.+)$")
-
-# The whole budget for flow-guard check-loop-landing calls in one command (every push it makes), well under the
-# 300s setup.sh registers: a hook the harness times out fails open.
-LOOP_CHECK_TIMEOUT = 240
-LOOP_DEADLINE = None
-
-# The untasked-commits checker and its budget; overridable for the hook's own harness only.
-FLOW_GUARD = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "flow-guard")
-UNTASKED_CHECK = [os.environ["UNTASKED_COMMITS_CHECK"]] if os.environ.get("UNTASKED_COMMITS_CHECK") else [
-    FLOW_GUARD, "check-untasked-commits"
-]
-UNTASKED_CHECK_TIMEOUT = 60
-
-# The loop-landing checker; overridable for the hook's own harness only.
-LOOP_CHECK = [os.environ["LOOP_LANDING_CHECK"]] if os.environ.get("LOOP_LANDING_CHECK") else [
-    FLOW_GUARD, "check-loop-landing"
-]
 
 _git_cache = {}
 
@@ -788,221 +733,6 @@ def default_branch(cwd):
 
 
 SEPARATORS = ("&&", "||", ";", "|")
-# Push flags that push every branch, the default branch among them.
-ALL_BRANCH_FLAGS = ("--all", "--mirror", "--branches")
-
-
-def push_refspecs(args, target):
-    """(src, dst) for each refspec of `git push <args>`, dst a bare branch name:
-    `<src>:<dst>`, a colon-less `<b>` as `<b>:<b>`, HEAD and no refspec at all as
-    the current branch."""
-    pos = [a for a in args if not a.startswith("-")]
-    specs = pos[1:] or ["HEAD"]
-    out = []
-    if any(a in ALL_BRANCH_FLAGS for a in args):
-        default = default_branch(target)
-        out += [(d, d) for d in ({default} if default else FALLBACK_DEFAULT_BRANCHES)]
-    for a in specs:
-        src, colon, dst = a.lstrip("+").partition(":")
-        if not colon:
-            dst = src
-        if dst == "HEAD":
-            dst = git(target, "branch", "--show-current") or ""
-        out.append((src, dst.removeprefix("refs/heads/")))
-    return out
-
-
-def unreadable_landing(args, target):
-    """The deny reason when the push may land on the default branch and the hook cannot read it:
-    its repository is unknown (target None, a `-C $W` or `cd $W`), or any of its words holds a
-    shell expansion left unexpanded, and some refspec's destination is the default branch, an
-    expansion, or unknown. Else None."""
-    if target is not None and not any("$" in a or "`" in a for a in args):
-        return None
-    default = default_branch(target) if target else None
-    defaults = {default} if default else FALLBACK_DEFAULT_BRANCHES
-    unknown = any((a.startswith("-") and ("$" in a or "`" in a)) or a in ALL_BRANCH_FLAGS for a in args)
-    pos = [a for a in args if not a.startswith("-")]
-    for a in pos[1:] or ["HEAD"]:
-        src, colon, dst = a.lstrip("+").partition(":")
-        dst = (dst if colon else src).removeprefix("refs/heads/")
-        if dst == "HEAD":
-            dst = git(target, "branch", "--show-current") if target else None
-        if not dst or "$" in dst or "`" in dst or dst in defaults:
-            unknown = True
-    if not unknown:
-        return None
-    return (
-        "Blocked: this push may land on the default branch, and part of it — the repository "
-        "(`-C`, `cd`), the remote or a refspec — goes through a shell expansion (`$VAR`, "
-        "`${VAR}`, `$(...)`, a backtick) the hook cannot resolve, so its landing checks (an open "
-        "spectre change, a fix loop's records) cannot see what it lands. Write the push with "
-        "literal names:\n\n"
-        "  git -C /abs/path/to/worktree push origin <branch>:<default-branch>\n\n"
-        "A fix loop lands with flow-guard pipeline-fix land <worktree> <important|minor> "
-        "(no grade on a self-review-* branch)."
-    )
-
-
-def loop_landing(args, target):
-    """The deny reason when the push lands, on the default branch, a commit that
-    contains the tip of a loop branch (or a change branch) not yet on
-    origin/<default> which flow-guard check-loop-landing refuses, else None. The pushed
-    <src> is resolved and every such branch it contains is checked, so a
-    landing under another spelling -- `@:main`, `<sha>:main`, a temporary
-    branch, `pull . <loop>` then `push origin main` -- is checked too."""
-    if target is None:
-        return None
-    global LOOP_DEADLINE
-    default = default_branch(target)
-    # One budget per command, not per push: the hook is one process per command.
-    if LOOP_DEADLINE is None:
-        # LOOP_LANDING_TIMEOUT: the hook's own harness only.
-        LOOP_DEADLINE = time.monotonic() + float(os.environ.get("LOOP_LANDING_TIMEOUT") or LOOP_CHECK_TIMEOUT)
-    deadline = LOOP_DEADLINE
-    for src, dst in push_refspecs(args, target):
-        if not src or dst not in ({default} if default else FALLBACK_DEFAULT_BRANCHES):
-            continue
-        # ponytail: a <src> this same command creates (`git branch tmp && git push origin
-        # tmp:main`) is not there yet -- HEAD stands in for it, the commit it is made from.
-        sha = git(target, "rev-parse", "--verify", "-q", f"{src}^{{commit}}") or git(
-            target, "rev-parse", "--verify", "-q", "HEAD"
-        )
-        if not sha:
-            continue
-        cmd = ["for-each-ref", "--format=%(refname:short)", "--merged", sha]
-        if git(target, "rev-parse", "--verify", "-q", f"refs/remotes/origin/{dst}"):
-            cmd += ["--no-merged", f"refs/remotes/origin/{dst}"]
-        cmd += ["refs/heads/pipeline-fix-*", "refs/heads/self-review-*", "refs/heads/spectre/"]
-        for branch in (git(target, *cmd) or "").split():
-            if not LOOP_BRANCH_RE.match(branch):
-                continue
-            try:
-                r = subprocess.run(
-                    [*LOOP_CHECK, target, branch], capture_output=True, text=True,
-                    timeout=max(1, deadline - time.monotonic()),
-                )
-            except (OSError, subprocess.SubprocessError) as e:
-                return f"Blocked: landing {branch} needs flow-guard check-loop-landing, which could not run ({e})."
-            if r.returncode != 0:
-                grade = " <important|minor>" if branch.startswith("pipeline-fix-") else ""
-                return (
-                    f"Blocked: {branch} is a fix loop, and its records do not cover this landing "
-                    f"(flow-guard check-loop-landing exit {r.returncode}):\n{r.stdout}{r.stderr}\n"
-                    f"Land it with flow-guard pipeline-fix land <worktree>{grade} once they do."
-                )
-    return None
-
-
-def untasked_push(args, target):
-    """The deny reason when the push sends HEAD's commit to a `spectre/` branch origin holds and
-    flow-guard check-untasked-commits lists an unpushed commit carrying neither trailer, else None."""
-    if target is None:
-        return None
-    head = git(target, "rev-parse", "--verify", "-q", "HEAD")
-    for src, dst in push_refspecs(args, target):
-        remote = f"refs/remotes/origin/{dst}"
-        if not dst.startswith("spectre/") or not git(target, "rev-parse", "--verify", "-q", remote):
-            continue
-        if not head or git(target, "rev-parse", "--verify", "-q", f"{src}^{{commit}}") != head:
-            continue
-        try:
-            r = subprocess.run(
-                [*UNTASKED_CHECK, target, remote, "--not-remotes"], capture_output=True, text=True, timeout=UNTASKED_CHECK_TIMEOUT
-            )
-        except (OSError, subprocess.SubprocessError):
-            return None
-        if r.returncode == 1:
-            return (
-                f"Blocked: a commit this push sends to {dst} sits outside every task — each listed line "
-                f"names why:\n{r.stdout}\n"
-                "Each listed commit is on no origin ref. Give it a `Flow-Key: <key>` it may carry — `git commit "
-                "--amend` for HEAD, a reword for an earlier listed one, never a commit outside this list — `<key>` its round's dispatch key or stage key (**Commits outside every "
-                "task**, skills/flow-contracts/git-boundaries.md), then push again."
-            )
-    return None
-
-
-# A Conventional Commits `chore` subject: the pipeline's planning, link and drop commits.
-CHORE_SUBJECT_RE = re.compile(r"^chore(\([^)]*\))?!?:")
-TRAILER_RE = re.compile(r"^(Task-Id|Flow-Key):[ \t]*\S", re.M)
-# Options that take the message from somewhere the command text does not show.
-UNREAD_MESSAGE_OPTS = ("-F", "--file", "-C", "-c", "--reuse-message", "--reedit-message", "--fixup", "--squash", "--amend")
-
-
-def commit_message_unread(args):
-    """True when `git commit <args>` does not state its message in the command text: none given,
-    -F, -C, --amend, a shell expansion left in it, or a raw word opening with a quote."""
-    msgs, i = [], 0
-    while i < len(args):
-        a = args[i]
-        if a == "--":
-            break
-        if a.startswith(UNREAD_MESSAGE_OPTS):
-            return True
-        if a == "--message" and i + 1 < len(args):
-            msgs.append(args[i + 1])
-            i += 2
-            continue
-        if a.startswith("--message="):
-            msgs.append(a.partition("=")[2])
-        elif a.startswith("-") and not a.startswith("--") and "m" in a[1:]:
-            rest = a[a.index("m", 1) + 1 :]
-            if rest:
-                msgs.append(rest)
-            elif i + 1 < len(args):
-                msgs.append(args[i + 1])
-                i += 2
-                continue
-        i += 1
-    return not msgs or any("$" in m or "`" in m or m[:1] in ("'", '"') for m in msgs)
-
-
-def commit_lacks_trailer(args, target):
-    """True when `git commit <args>` states its message with -m/--message, that message carries
-    neither a `Task-Id:` nor a `Flow-Key:` trailer — in a -m paragraph or a `--trailer` flag (kan-1053
-    self-review, F2) — its subject is no `chore`, and its pathspec is not limited to `<spec-root>/changes/`. A message the command text does not state — none
-    given, -F, -C, --amend, a shell expansion left in it, or a raw word opening with a quote that
-    tokenize's unbalanced-quote fallback split (kan-1032's self-review: an apostrophe in a heredoc
-    body kept the quote on `"chore(...):`) — is never judged."""
-    if commit_message_unread(args):
-        return False
-    msgs, trailers, paths, i = [], [], [], 0
-    while i < len(args):
-        a = args[i]
-        if a == "--":
-            paths += args[i + 1 :]
-            break
-        if a == "--message" and i + 1 < len(args):
-            msgs.append(args[i + 1])
-            i += 2
-            continue
-        if a == "--trailer" and i + 1 < len(args):
-            trailers.append(args[i + 1])
-            i += 2
-            continue
-        if a.startswith("--trailer="):
-            trailers.append(a.partition("=")[2])
-        elif a.startswith("--message="):
-            msgs.append(a.partition("=")[2])
-        elif a.startswith("-") and not a.startswith("--") and "m" in a[1:]:
-            rest = a[a.index("m", 1) + 1 :]
-            if rest:
-                msgs.append(rest)
-            elif i + 1 < len(args):
-                msgs.append(args[i + 1])
-                i += 2
-                continue
-        elif not a.startswith("-"):
-            # no `--`: the words left after the message values are the pathspec
-            paths.append(a)
-        i += 1
-    if TRAILER_RE.search("\n".join(msgs + trailers)) or CHORE_SUBJECT_RE.match(msgs[0]):
-        return False
-    planning = ("/spectre/changes/", "/openspec/changes/")
-    return not (paths and all(any(s in resolve(p, target) + "/" for s in planning) for p in paths))
-
-
 def discards_unstaged(verb, args, target):
     """The deny reason when `git checkout … -- <path>` or `git restore <path>` in a linked worktree
     names a path carrying unstaged edits, else None. Either restore reverts the file to its index
@@ -1088,7 +818,6 @@ def bash_hits(command, cwd, landings=None):
     if target:
         return [target]
     hits = []
-    commits = []
     cur = cwd
     saved = []  # the `cur` each open `(` will restore at its `)`
     env = {}
@@ -1141,48 +870,6 @@ def bash_hits(command, cwd, landings=None):
                     discard = discards_unstaged(tokens[j], rargs, target)
                     if discard:
                         landings.append(discard)
-                if j < n and tokens[j] == "commit" and target is not None:
-                    cargs = git_args(tokens, j + 1)
-                    commits.append((target, cargs))
-                    branch = git(target, "symbolic-ref", "--short", "-q", "HEAD") if landings is not None else None
-                    if branch and branch.startswith("spectre/") and commit_lacks_trailer(cargs, target):
-                        landings.append(
-                            f"Blocked: this commit lands on {branch} with neither a `Task-Id:` nor a `Flow-Key:` "
-                            "trailer and no `chore` subject (**Commits outside every task**, "
-                            "skills/flow-contracts/git-boundaries.md). Add `-m \"Flow-Key: <key>\"`, or "
-                            "`-m \"Task-Id: <n>\"` on a task's own commit, then run it again."
-                        )
-                if j < n and tokens[j] == "push" and landings is not None:
-                    args = git_args(tokens, j + 1)
-                    unreadable = unreadable_landing(args, target)
-                    if unreadable:
-                        landings.append(unreadable)
-                    loop = None if unreadable else loop_landing(args, target)
-                    if loop:
-                        landings.append(loop)
-                    untasked = None if unreadable else untasked_push(args, target)
-                    if untasked:
-                        landings.append(untasked)
-                    dsts = [d for _, d in push_refspecs(args, target) if d.startswith("spectre/")] if target else []
-                    for ct, cargs in commits:
-                        if dsts and os.path.realpath(ct) == os.path.realpath(target) and commit_lacks_trailer(cargs, ct):
-                            landings.append(
-                                f"Blocked: this command commits and then pushes to {dsts[0]}, and that commit's "
-                                "message carries neither a `Task-Id:` nor a `Flow-Key:` trailer — the push check runs "
-                                "before the command does and cannot see the commit. Add `-m \"Flow-Key: <key>\"` "
-                                "(**Commits outside every task**, skills/flow-contracts/git-boundaries.md), or "
-                                "`-m \"Task-Id: <n>\"` on a task's own commit, then run it again."
-                            )
-                            break
-                        if dsts and os.path.realpath(ct) == os.path.realpath(target) and commit_message_unread(cargs):
-                            landings.append(
-                                f"Blocked: this command commits and then pushes to {dsts[0]}, and the hook cannot read "
-                                "that commit's message (-F, -C, --amend, or a shell expansion), so it cannot tell whether "
-                                "it carries a `Task-Id:` or `Flow-Key:` trailer. Commit and push in two calls — the push "
-                                "check then reads the commit (**Commits outside every task**, "
-                                "skills/flow-contracts/git-boundaries.md)."
-                            )
-                            break
                 i = j + 1
                 continue
             if tok == "sed" and any(t.startswith("-i") for t in tokens[i + 1 : i + 4]):
