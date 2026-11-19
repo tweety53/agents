@@ -9,8 +9,8 @@ import (
 // rewritten in unless it is a linked worktree on spectre/<name>:
 // WORKTREE-LOCATION-MAIN-CHECKOUT and/or WORKTREE-LOCATION-WRONG-BRANCH at exit
 // 1, or WORKTREE-LOCATION-OK at exit 0; exit 2 with nothing on stdout
-// when it cannot answer. reshape-branch and integrate-change's commit call it in-process
-// before they move HEAD: a rewrite in the main checkout, or on another
+// when it cannot answer. integrate-change's commit calls it in-process
+// before it commits: a rewrite in the main checkout, or on another
 // change's branch, lands where no step of this change ever sees it.
 func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int {
 	die := func(id, format string, a ...any) int {

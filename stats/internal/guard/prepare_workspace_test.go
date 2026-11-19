@@ -110,7 +110,6 @@ const pwCommands = `
 |---------|------|
 | ` + "`create`" + ` | ` + "`./scripts/workspace create`" + ` |
 | ` + "`remove`" + ` | ` + "`./scripts/workspace remove`" + ` |
-| ` + "`survivors`" + ` | ` + "`./scripts/workspace survivors`" + ` |
 `
 
 func pwPortSection(def string) string {

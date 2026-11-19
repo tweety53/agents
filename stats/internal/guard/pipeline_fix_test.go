@@ -141,7 +141,7 @@ func TestPipelineFixStartRefusesANonUniqueK(t *testing.T) {
 	}
 }
 
-func TestPipelineFixEndAndEscalate(t *testing.T) {
+func TestPipelineFixEnd(t *testing.T) {
 	pfIdentity(t)
 	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed"))
 	gitRun(t, fx.repo, "branch", lpBranch)
@@ -164,14 +164,8 @@ func TestPipelineFixEndAndEscalate(t *testing.T) {
 		!strings.Contains(fx.calls(t), "record dispatch end -C "+fx.repo+" -change "+lpBranch+" -key pipeline-fix-6-review-1 -session-token "+lpBranch+" -outcome clean") {
 		t.Fatalf("rc %d: %s\n%s", rc, out, fx.calls(t))
 	}
-	if rc, out := fx.pf(t, "escalate", "pipeline-fix-6-fix-1"); rc != 1 || !strings.Contains(out, "no completed earlier round") {
-		t.Fatalf("a first-round escalation: rc %d: %s", rc, out)
-	}
-	if rc, out := fx.pf(t, "escalate", "pipeline-fix-6-review-2"); rc != 1 || !strings.Contains(out, "admits no escalation") {
-		t.Fatalf("a review escalation: rc %d: %s", rc, out)
-	}
-	if rc, out := fx.pf(t, "escalate", "pipeline-fix-6-plan-2"); rc != 1 || !strings.Contains(out, "admits no escalation") {
-		t.Fatalf("a re-plan escalation: rc %d: %s", rc, out)
+	if rc, _ := fx.pf(t, "escalate", "pipeline-fix-6-fix-1"); rc != 2 {
+		t.Fatalf("escalate is gone: rc %d, want usage 2", rc)
 	}
 }
 
@@ -266,7 +260,7 @@ func TestPipelineFixLand(t *testing.T) {
 	}{
 		{name: "a reviewed loop lands", rows: reviewed},
 		{name: "a moved base is rebased and verified first", rows: reviewed, moved: true},
-		{name: "an unreviewed loop is refused", rows: lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed"), rc: 1, refusal: "LOOP-LANDING-REFUSED: REVIEW"},
+		{name: "an unreviewed loop lands: its rows refuse nothing", rows: lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed")},
 		{name: "a red branch is refused with no base move", rows: reviewed, red: true, rc: 1, refusal: "red: scripts/test-foo.sh"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -282,7 +276,6 @@ func TestPipelineFixLand(t *testing.T) {
 				writeExec(t, wt+"/scripts/foo.sh", "#!/usr/bin/env bash\necho bar\n")
 				gitRun(t, wt, "commit", "-q", "-am", "fix: break foo")
 			}
-			gitRun(t, fx.repo, "config", "--add", "flow.escalation", lpBranch+":pipeline-fix-6-fix-1")
 			if tc.moved {
 				writeFile(t, fx.other+"/docs/other.md", "other\n")
 				gitRun(t, fx.other, "add", "docs/other.md")
@@ -308,9 +301,6 @@ func TestPipelineFixLand(t *testing.T) {
 			}
 			if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, fixtureGit, fx.repo, lpBranch) {
 				t.Fatalf("worktree or branch left behind: %s", out)
-			}
-			if _, out := kwRun(fx.env, "", fixtureGit, "-C", fx.repo, "config", "--get-all", "flow.escalation"); strings.Contains(out, lpBranch) {
-				t.Fatalf("the loop's escalation marker outlived its landing: %s", out)
 			}
 			if !strings.Contains(fx.calls(t), `"state":"FINISHED"`) {
 				t.Fatalf("no FINISHED record: %s", fx.calls(t))
@@ -373,59 +363,6 @@ func TestPipelineFixLandRecordsTheFixedRow(t *testing.T) {
 				strings.TrimSpace(first) + " -blast-radius 2 -severity important -note docs: fix\n"
 			if !strings.Contains(log, "docs: fix") || strings.Count(fx.calls(t), "self-review finding") != 1 || !strings.Contains(fx.calls(t), want) {
 				t.Fatalf("no fixed row %q: %s\n%s", want, o.String(), fx.calls(t))
-			}
-		})
-	}
-}
-
-// TestPipelineFixLandRefusesAnUnfoldedFix pins that once a fix round ran,
-// land refuses a commit whose subject is no task's **Commit:** subject of
-// the loop's tasks.md (kan-1104 self-review, F6: a post-review fix landed as
-// a separate commit no task declared).
-func TestPipelineFixLandRefusesAnUnfoldedFix(t *testing.T) {
-	smoke.Heavy(t)
-	pfIdentity(t)
-	for _, tc := range []struct {
-		name         string
-		folded, plan bool
-		rc           int
-	}{
-		{name: "unfolded", plan: true, rc: 1},
-		{name: "folded", folded: true, plan: true},
-		{name: "no plan", rc: 2},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed", "fix completed", "review-1 fix", "fix-1 completed", "review-2 clean"))
-			if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
-				t.Fatal(out)
-			}
-			wt := fx.wt(lpBranch)
-			if tc.plan {
-				writeFile(t, wt+"/spectre/changes/"+lpBranch+"/tasks.md", "# "+lpBranch+"\n\n- [x] 1. Fix\n**Files:** `docs/fix.md`\n**Commit:** docs: fix\n")
-			}
-			writeFile(t, wt+"/docs/fix.md", "fix\n")
-			gitRun(t, wt, "add", "docs/fix.md")
-			gitRun(t, wt, "commit", "-q", "-m", "docs: fix")
-			writeFile(t, wt+"/docs/fix.md", "fix, reviewed\n")
-			if tc.folded {
-				gitRun(t, wt, "commit", "-q", "--amend", "--no-edit", "-a")
-			} else {
-				gitRun(t, wt, "commit", "-q", "-am", "docs: follow-up")
-			}
-			rc, out := fx.pf(t, "land", wt, "important")
-			_, log := kwRun(fx.env, "", fixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
-			if rc != tc.rc {
-				t.Fatalf("rc %d, want %d: %s", rc, tc.rc, out)
-			}
-			if tc.rc != 0 {
-				if strings.Contains(log, "docs: fix") || (tc.rc == 1 && !strings.Contains(out, "LOOP-LANDING-REFUSED: UNFOLDED")) ||
-					(tc.rc == 1 && !strings.Contains(out, "docs: follow-up")) {
-					t.Fatalf("an unfolded fix pushed or was not named: %s\n%s", out, log)
-				}
-				return
-			}
-			if !strings.Contains(out, "landed: ") || !strings.Contains(log, "docs: fix") {
-				t.Fatalf("a folded fix did not land: %s\n%s", out, log)
 			}
 		})
 	}
@@ -518,21 +455,6 @@ func TestPipelineFixDrop(t *testing.T) {
 	}
 }
 
-func TestPipelineFixEndClearsOwnBranchEscalation(t *testing.T) {
-	pfIdentity(t)
-	const token = "self-review-kan-1-demo"
-	fx := pfNew(t, lpRowsJSON(token+"-", "kan-1-demo", "plan completed"))
-	gitRun(t, fx.repo, "config", "--add", "flow.escalation", token+":"+token+"-plan-2")
-	p := filepath.Join(t.TempDir(), "report.md")
-	writeFile(t, p, "Critical: 0\nImportant: 0\n")
-	if rc, out := fx.pf(t, "end", token+"-review-1", p); rc != 0 {
-		t.Fatalf("rc %d: %s", rc, out)
-	}
-	if _, out := kwRun(fx.env, "", fixtureGit, "-C", fx.repo, "config", "--get-all", "flow.escalation"); strings.Contains(out, token) {
-		t.Fatalf("the own-branch escalation marker outlived its final clean review: %s", out)
-	}
-}
-
 // end of the pass closes the row check-loop-dispatch began, under the
 // change <name> its begin used; it takes completed or aborted only.
 func TestPipelineFixEndClosesThePass(t *testing.T) {
@@ -549,7 +471,7 @@ func TestPipelineFixEndClosesThePass(t *testing.T) {
 	}
 }
 
-// end and escalate of an own-branch self-review in another project run in
+// end of an own-branch self-review in another project runs in
 // that project -- the caller's working directory -- and verify diffs a
 // worktree against its own origin/HEAD, not <agents repo>'s.
 func TestPipelineFixOwnBranchInAnotherProject(t *testing.T) {
@@ -574,9 +496,6 @@ func TestPipelineFixOwnBranchInAnotherProject(t *testing.T) {
 		!strings.Contains(fx.calls(t), "record dispatch end -C "+proj+" -change kan-1-demo -key "+token+"-fix-1") {
 		t.Fatalf("end left the caller's project: rc %d: %s\n%s", rc, out, fx.calls(t))
 	}
-	if rc, out := fx.pf(t, "escalate", token+"-fix-2"); rc != 1 || !strings.Contains(out, "admits no escalation") {
-		t.Fatalf("escalate of a self-review fix: rc %d, want 1 naming no escalation: %s", rc, out)
-	}
 	if rc, out := fx.pf(t, "verify", proj); rc != 0 || !strings.Contains(out, "green: true") {
 		t.Fatalf("verify against the worktree's own origin/HEAD: rc %d: %s", rc, out)
 	}
@@ -584,9 +503,6 @@ func TestPipelineFixOwnBranchInAnotherProject(t *testing.T) {
 	writeFile(t, p, "Critical: 0\nImportant: 0\n")
 	if rc, out := fx.pf(t, "end", token+"-review-1", p); rc != 0 {
 		t.Fatalf("end review clean: rc %d: %s", rc, out)
-	}
-	if _, out := kwRun(fx.env, "", fixtureGit, "-C", proj, "config", "--get-all", "flow.escalation"); strings.Contains(out, token) {
-		t.Fatalf("the escalation outlived its final clean review in the caller's project: %q", out)
 	}
 }
 
@@ -615,7 +531,6 @@ func TestPipelineFixLandRestartsFlowdWhenStatsMoved(t *testing.T) {
 			}
 			gitRun(t, wt, "add", "-A")
 			gitRun(t, wt, "commit", "-q", "-m", "fix: "+tc.paths[0])
-			gitRun(t, fx.repo, "config", "--add", "flow.escalation", lpBranch+":pipeline-fix-6-fix-1")
 			rc, out := fx.pf(t, "land", wt, "important")
 			if rc != 0 {
 				t.Fatalf("rc %d: %s", rc, out)
@@ -661,7 +576,6 @@ func TestPipelineFixVerifyRunsVisualOnUIPath(t *testing.T) {
 	if rc, out := fx.pf(t, "verify", wt); rc != 1 || !strings.Contains(out, "red: "+vis+" (exit 1)") {
 		t.Fatalf("(c) rc %d: %s", rc, out)
 	}
-	gitRun(t, fx.repo, "config", "--add", "flow.escalation", lpBranch+":pipeline-fix-6-fix-1")
 	rc, out := fx.pf(t, "land", wt, "important")
 	_, log := kwRun(fx.env, "", fixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
 	if rc != 1 || !strings.Contains(out, "red: "+vis) || strings.Contains(log, "fix: ui") {

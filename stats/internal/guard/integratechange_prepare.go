@@ -11,7 +11,7 @@ import (
 // HEAD, whose commits sit on no branch, and never a branch the change
 // records as its base (KAN-911), which run 2 refreshes. The branch left
 // behind keeps every commit; a refused switch changes nothing and leaves
-// the drift for the question.
+// the drift for STOP: main-checkout.
 func (c *ic) switchBack(m string) {
 	b, ok := c.gitQuiet("-C", m, "branch", "--show-current")
 	if !ok || b == "" {
@@ -51,7 +51,9 @@ func (c *ic) prepare() {
 		c.stopAs("worktree-set-empty", "preflight", "the resolved worktree set is empty — report it and ask the operator")
 	}
 
-	ask := false
+	// A main checkout holds no staged or dirty work — everything is done in
+	// worktrees — so anything but a clean checkout on its default branch stops.
+	dirty := false
 	for _, m := range c.mains {
 		c.run("check-foreign-staged", m)
 		fs := c.rc == 0 && c.verdict("STAGED-CLEAN") != ""
@@ -61,18 +63,12 @@ func (c *ic) prepare() {
 			c.run("check-main-checkout-drift", m)
 		}
 		if !fs || !(c.rc == 0 && c.verdict("DRIFT-CLEAN") != "") {
-			ask = true
+			dirty = true
 		}
 	}
-	if ask && !c.acceptForeign {
-		c.stop("foreign-staged", "ask the operator the foreign-staged-work question; Continue re-runs prepare with --accept-foreign")
+	if dirty {
+		c.stopAs("main-checkout-dirty", "main-checkout", "a main checkout holds staged or dirty work, or is off its default branch — report the lines above; the operator cleans it, then re-run prepare")
 	}
-
-	c.run("migrate-worktrees", c.mains...)
-	if c.rc != 0 {
-		c.stopAs("migrate-failed", "migrate", fmt.Sprintf("migrate-worktrees exit %d — report its lines", c.rc))
-	}
-	c.loadSet()
 
 	run1 := false
 	for i := range c.wt {
@@ -141,22 +137,16 @@ func (c *ic) prepare() {
 		c.stopAs("tasks-md-not-found", "preflight", "no worktree in the set holds "+c.name+"'s tasks.md — ask the operator")
 	}
 	live := c.canon + "/" + c.spec + "/changes/" + c.name
-	c.liveCheckGate(live)
 
-	ask = false
-	// Every worktree's commit range, for signal four's Task-Id search: from
-	// the merge base, since run 1's implementation commit carries the
-	// Task-Id trailer of every commit it squashed.
-	rangeBase := func(i int) string {
-		rb, _ := c.git("-C", c.wt[i], "merge-base", "HEAD", "origin/"+c.bases[i])
-		return rb
-	}
+	ask := false
+	// Every worktree's commit range, from the merge base, for signal seven's
+	// newest code commit.
 	var ranges []string
 	for i := range c.wt {
-		ranges = append(ranges, c.wt[i]+"="+rangeBase(i))
+		rb, _ := c.git("-C", c.wt[i], "merge-base", "HEAD", "origin/"+c.bases[i])
+		ranges = append(ranges, c.wt[i]+"="+rb)
 	}
-	// A guard that reached no verdict is not OUTSTANDING: its own stop,
-	// which --accept-outstanding never passes.
+	// A guard that reached no verdict is not OUTSTANDING: its own stop.
 	for i := range c.wt {
 		c.run("check-unfinished-work", append([]string{c.wt[i], c.name, c.canon}, ranges...)...)
 		switch v := fmt.Sprintf("%d:%s", c.rc, c.verdict("CLEAR", "OUTSTANDING")); {
@@ -164,22 +154,10 @@ func (c *ic) prepare() {
 		case strings.HasPrefix(v, "0:OUTSTANDING:"):
 			ask = true
 		default:
-			c.stop("no-verdict", fmt.Sprintf("check-unfinished-work reached no verdict for %s (exit %d) — report its output and ask the operator; --accept-outstanding does not pass this", c.wt[i], c.rc))
-		}
-		c.run("check-untasked-commits", c.wt[i], rangeBase(i))
-		switch v := fmt.Sprintf("%d:%s", c.rc, c.verdict("UNTASKED-OK", "UNTASKED")); {
-		case strings.HasPrefix(v, "0:UNTASKED-OK:"):
-		case strings.HasPrefix(v, "1:UNTASKED:"):
-			ask = true
-		default:
-			c.stop("no-verdict", fmt.Sprintf("check-untasked-commits reached no verdict for %s (exit %d) — report its output and ask the operator; --accept-outstanding does not pass this", c.wt[i], c.rc))
+			c.stop("no-verdict", fmt.Sprintf("check-unfinished-work reached no verdict for %s (exit %d) — report its output and ask the operator", c.wt[i], c.rc))
 		}
 	}
-	// A UI no verifier saw at this HEAD is a hard stop (kan-939), never an
-	// OUTSTANDING item: --accept-outstanding does not pass it, only an
-	// operator's false-positive flag on that worktree's row for that HEAD.
-	c.visualGate()
-	if ask && !c.acceptOutstanding {
+	if ask {
 		c.stop("unfinished-work", "load skills/flow/unfinished-work-gate.md: finish the unfinished work, asking nothing, then re-run prepare")
 	}
 	c.markEnd("flow.unfinished-work-gate", "completed")
@@ -215,10 +193,6 @@ func (c *ic) prepare() {
 		}
 		c.rb[i] = vline
 		c.rebaseLint(c.wt[i], "")
-		// The rebase made a HEAD no verifier saw: the gate again.
-		if !c.visualOK(c.wt[i], c.bases[i]) {
-			c.stopAs("visual-verify-missing", "visual-verify", "rebased onto origin/"+c.bases[i]+" after the gate: "+visualStopText(c.wt[i], "prepare"))
-		}
 	}
 
 	if route := c.defaultRoute(); route != "" {
@@ -261,50 +235,4 @@ func (c *ic) defaultRoute() string {
 		return ""
 	}
 	return r
-}
-
-// icLiveCheckNamed: design's `## Live check` section names something to
-// exercise — its first non-blank line opens with none of None, No ,
-// Not applicable. False when the file cannot be read or has no section.
-func icLiveCheckNamed(design string) bool {
-	b, err := os.ReadFile(design)
-	if err != nil {
-		return false
-	}
-	in := false
-	for _, l := range strings.Split(string(b), "\n") {
-		l = strings.TrimRight(l, " \t\r")
-		if !in {
-			in = l == "## Live check"
-			continue
-		}
-		if strings.HasPrefix(l, "# ") || strings.HasPrefix(l, "## ") {
-			return false
-		}
-		if l == "" {
-			continue
-		}
-		return !strings.HasPrefix(l, "None") && !strings.HasPrefix(l, "No ") && !strings.HasPrefix(l, "Not applicable")
-	}
-	return false
-}
-
-// liveCheckGate: a design naming a live check needs live-verification.md
-// beside it passing check-live-verification, else STOP: live-check, which
-// --accept-outstanding never passes.
-func (c *ic) liveCheckGate(dir string) {
-	if !icLiveCheckNamed(dir + "/design.md") {
-		return
-	}
-	rec := dir + "/live-verification.md"
-	if !isFile(rec) {
-		c.stopAs("live-record-missing", "live-check", dir+"/design.md names a live check and "+rec+" is missing — run Live check (skills/flow/verify-and-handoff.md), through the stand-in its section states wherever a step would write this change's integrate state, then re-run prepare; --accept-outstanding does not pass this")
-	}
-	c.run("check-live-verification", rec)
-	if c.rc == 2 {
-		c.stopAs("live-check-cannot-answer", "live-check", fmt.Sprintf("check-live-verification could not answer on %s (exit 2) — correct the input it names, then re-run prepare; --accept-outstanding does not pass this", rec))
-	}
-	if c.rc != 0 {
-		c.stopAs("live-check-failed", "live-check", fmt.Sprintf("check-live-verification exit %d on %s — measure what it names, rewrite the record, then re-run prepare; --accept-outstanding does not pass this", c.rc, rec))
-	}
 }

@@ -6,15 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
-	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
-
-	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // The contract below moved here from the header of the deleted
@@ -36,21 +31,13 @@ import (
 // separates them. Finish runs this once per worktree, so each verdict names the
 // worktree it judged; a bare CLEAR would be unattributable across several.
 //
-// WHY THE VERDICT WORDS DIFFER FROM flow-guard check-cleanup-complete's. That guard says
-// COMPLETE/LEFTOVER, this one says CLEAR/OUTSTANDING, and the two vocabularies
-// are deliberately not shared. They answer OPPOSITE questions about absence:
-// here a file that is missing counts AGAINST the change, because a missing
-// record proves nothing about the work; there a missing artifact IS the answer,
-// because the question is "is it gone?". A reader who carried the meaning of
-// CLEAR across to COMPLETE would carry that inversion with it. Distinct words
-// are what stop the two verdicts reading as one. flow-guard check-finish-preflight's
-// third vocabulary (RUN1/RUN2/REFUSE) differs for a further reason again: it
-// selects a procedure rather than reporting a state.
-//
 // A MISSING FILE COUNTS AS OUTSTANDING, NOT CLEAR. Treating an absent plan or
 // an absent finding record as clearance is the failure this guard exists to
 // prevent: a branch merged over unfinished work because nothing was written
 // down.
+//
+// SIGNAL TWO: AN OPEN FINDING OF SEVERITY CRITICAL OR IMPORTANT IS
+// UNFINISHED; an open Minor is not counted.
 //
 // SIGNAL TWO READS THE STORE, NOT A RENDERED FILE. A change's findings are
 // rows in the store, keyed by change name, and `flow record findings -change
@@ -64,64 +51,6 @@ import (
 // check-panel-findings-closed's duplicate of this predicate draws: the word
 // with no reason after it is the reasonless drop the finding-status contract
 // forbids, so only `withdrawn <reason>` counts as closed on this signal.
-//
-// SIGNAL TWO ALSO COUNTS THE PANEL REPORTS (kan-1015), only in the worktree
-// holding the plan: <n> panel report(s) count findings the store does not
-// hold (<list>) — record each with `flow record finding -change <name> -C
-// <anchor>` before landing. Each `.superpowers/sdd/panel-report-<round>-<slot>.md`
-// whose `Critical:` plus `Important:` exceeds the store's rows of that round
-// and slot is listed as `<file> (report <n>, recorded <m>)`, the count
-// flow-guard check-panel-findings-closed makes. It adds a reason of its own
-// for the store-side direction (kan-1096 self-review, F3): <n> slot(s) whose
-// store rows outnumber their reports (<list>) — restore or write each
-// missing panel report before landing; the list is the same count's second
-// half, `panel-report-<round>-<role>.md (report <n>, recorded <m>)`.
-//
-// SIGNAL THREE: A DISPATCH ROW WITH NO OUTCOME IS OPEN (kan-929). `flow record
-// dispatches -change <name> -C <anchor>` is read the way signal two reads
-// findings — a failed or unreadable read is exit 2 — and every row whose
-// `outcome` is empty (never ended, or ended without -outcome) is named by key
-// in the breakdown, so the run closes it with `flow record dispatch end`
-// before the change lands with "Outcome: not recorded" in its ledger. The rows
-// are the change's, so only the worktree holding the plan reads them — a
-// multi-repo change lists each open row once, not once per worktree.
-//
-// SIGNAL FOUR: A TICKED APPENDED TASK NO DISPATCH ROW NAMES IS UNFINISHED
-// (kan-979). Only the last <n> tasks of the plan are judged, <n> from its
-// `**Tasks appended:** <n>` header line (absent: 0), and every task titled
-// `In-run fix <k> — …` wherever it sits — verify-fix-loop.md's loop appends
-// those without raising the count (kan-941: tasks 12-16 went unjudged);
-// a row names a task by its `taskId` or by the `+`-joined ids of a
-// `task-<ids>[-…]` key. Plan-time tasks run grouped or inline and carry no row
-// of their own, so they are never judged.
-// A named appended task also needs a panel reviewer row — role `reviewer`, key
-// `panel-<round>-<slot>` — whose seq is greater than the earliest non-reviewer
-// row naming it: the fix run's panel reviews it under keys that name no task,
-// so any panel reviewer row of the change counts, and a reviewer row under any
-// other key does not.
-// A ticked appended task also needs a commit carrying `Task-Id: <n>` in one of
-// the `<worktree>=<merge-base>` ranges passed — one per worktree of the
-// change's resolved set, since a cross-repo fix task may commit in a peer
-// repository: a dispatch row back-filled after the fact is not a commit. A
-// plan with a ticked appended task and no range passed is exit 2, and a range
-// git cannot read is exit 2.
-//
-// SIGNAL FIVE: A PANEL ROUND DISPATCHED WITH NO PASS ROW IS UNFINISHED
-// (kan-939 self-review). Every round a reviewer row keyed
-// `panel-<round>-<slot>` ran in needs a pass row of that round, read with
-// `flow record passes -change <name> -C <anchor>` — every panel run and
-// fix-round pass records one (skills/flow/review-panel.md). The pass rows are
-// read only when such a round exists; a failed or unreadable read is exit 2,
-// like the dispatch read. Like signal three, only the worktree holding the
-// plan reads them.
-//
-// SIGNAL SIX: A CHANGE WITH NO RECORDED SUMMARY IS UNFINISHED (kan-957
-// self-review: 35 of 36 gymie changes landed with no summary row). The
-// summary is read through `flow self-review bundle -change <name> -C
-// <anchor>`, whose header — the lines above its first `## ` section — names
-// it `skipped: change summary (absent)` when the store holds none. A failed
-// read, or a header with no `found:` line, is exit 2, like the dispatch read.
-// Like signal three, only the worktree holding the plan reads it.
 //
 // A CALL PASSING NO RANGE GETS ITS OWN WORKTREE'S RANGE DERIVED (kan-989
 // self-review): the base flow-guard resolve-base-branch names, then `git -C <worktree>
@@ -143,53 +72,7 @@ import (
 // (skills/flow-contracts/git-boundaries.md, **Commits outside every task**;
 // kan-1102 self-review, F5). A `visual-verify-fix-…` key belongs to an
 // implementer or panel-fix row, so a fix round's code is still asked for a
-// fresh verify row. Like signal three, only
-// the worktree holding the plan reads it.
-//
-// SIGNAL EIGHT: A CODE COMMIT WITH NO REVIEW-PANEL PASS IS UNFINISHED (kan-970
-// self-review: four implementer groups and the panel ran unrecorded, and the
-// gate cleared the change). When signal seven's walk finds a commit outside
-// `<spec root>/changes/` and no `panel-<round>-…` reviewer row exists — signal
-// five judges a change that has one — `flow record passes -change <name> -C
-// <anchor>` must hold at least one pass row; a failed or unreadable read is
-// exit 2, like signal five's. Asked exactly where signal seven is.
-//
-// SIGNAL NINE: A VERIFY-REPORT FAILURE NO LATER COMMIT ADDRESSED IS UNFINISHED
-// (kan-994 self-review, decision verify-failure-signal). Read in the worktree
-// holding the plan whenever a range exists: in each
-// `.superpowers/sdd/verify-report-*.md`, a `- verify: exit <n>` item with <n>
-// not 0 and its whitespace-indented continuation lines, up to the next `- `
-// item, name failures — every `<spec>.spec.ts:<line>`, its capture the first
-// `<name>.png` after it before the next spec. A failure is addressed when a
-// range commit committed at or after the report's mtime touches
-// `<name>.png` or `<name>-<anything>.png` (the spec's base name for a failure
-// naming no capture), or when the change's narrative.md holds
-// `Verify failure addressed: <spec>:<line> — <sha>` with <sha> a range
-// commit, or when an earlier false-positive verdict of this change names
-// `<spec>:<line>` in its reason, no path character before it and no digit
-// after (kan-1010's self-review) — a store that cannot answer clears
-// nothing — or when the report next after it by mtime opens its `- verify:`
-// item `exit 0 — rerun of`, a rerun of exactly those failed specs that passed
-// (kan-1022's self-review). Each other failure is one reason, `verify failure not addressed:
-// <spec>:<line>[ <name>.png] (<report>)`; an unreadable report is exit 2.
-//
-// SIGNAL TEN: A MULTI-REPOSITORY CHANGE WHOSE MERGE ORDER MISSES A REPOSITORY
-// IS UNFINISHED (kan-995 self-review, decision merge-order-signal). Read in
-// the worktree holding the plan when more than one range is passed: every
-// range whose worktree's main checkout differs from the plan worktree's must
-// be named by a numbered line of the plan directory's link.md under
-// `## Merge order` (up to the next `## `), its backticked name a peer the
-// spectre/peers file resolves to that main checkout. Each repository not
-// covered is one reason, `merge order does not name <main checkout>:
-// <planDir>/link.md`; an absent link.md holds no entries, an unreadable one
-// is exit 2. A `## Part of` section is never the merge-order record.
-//
-// THE VISUAL VERDICT IS FOLDED IN (kan-989 self-review): over this worktree's
-// own range, flow-guard check-visual-verify-dispatched's VISUAL-VERIFY-MISSING line
-// is one more reason, and its exit 2 is this guard's exit 2 — unless an
-// operator flagged that line a false positive (a check-visual-verify-dispatched
-// verdict row of this change on this worktree ending with its "HEAD <sha>"),
-// the flag flow-guard integrate-change's visual gate already honours.
+// fresh verify row. Only the worktree holding the plan reads it.
 //
 // All signals are counted independently and reported together on the one
 // line, so the operator sees the whole picture in one prompt rather than being
@@ -262,18 +145,11 @@ import (
 // the prior-false-positive read are always the `flow` CLI on Env's PATH. The
 // reasoning for each branch, moved here from the bash body it replaced
 // (3e48ecac), sits beside the code it explains.
-//
-// Signal eleven (kan-1044 self-review, F1-c) flags a range commit whose
-// `Flow-Key: panel-fix-<r>[-<n>]` trailer no dispatch row carries by key or
-// by commit, reading HEAD and the pre-reshape pin when it resolves.
 func init() {
 	Registry["check-unfinished-work"] = checkUnfinishedWork
 }
 
 const uwPrefix = "check-unfinished-work: "
-
-// uwPanelFixKey is a panel-fix dispatch key, panel-fix-<r>[-<n>] (signal eleven).
-var uwPanelFixKey = regexp.MustCompile(`^panel-fix-[0-9]+(-[0-9]+)?$`)
 
 // unsplitListHint names the cause of an argument that cannot hold
 // whitespace and does (kan-970 self-review): a list built in a variable and
@@ -294,8 +170,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	// The change's commit ranges, one per worktree of its resolved set:
-	// signal four's commit half searches them for each ticked appended
-	// task's `Task-Id:` trailer.
+	// signal seven walks them for the newest code commit.
 	var ranges [][2]string
 	for _, a := range args[min(3, len(args)):] {
 		wt, base, ok := strings.Cut(a, "=")
@@ -330,8 +205,8 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	// (stats/internal/records/render.go), character for character, and that
 	// function's comment is canonical for why each hazard is in it. This is
 	// plainChangeName (changename.go) itself now, where the bash guard
-	// kept its own `case` copy: TestCheckUnfinishedWork's 8e cases and
-	// TestCheckCleanupComplete/12 still assert the same rejected shapes.
+	// kept its own `case` copy: TestCheckUnfinishedWork's 8e cases still
+	// assert the same rejected shapes.
 	//
 	// The bash guard exported LC_ALL=C because `case`'s ranges are
 	// collating ranges -- `démo` was rejected under C and accepted under
@@ -541,7 +416,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	// bare `withdrawn` (the word with no reason after it) is open too: a
 	// reasonless withdrawal is the silent drop the contract forbids, so it
 	// can no longer read as a closed state. A `deferred <reason>` row is
-	// open: nothing is deferred (KAN-862).
+	// open: nothing is deferred (KAN-862). A Minor is never counted.
 	open, ok := uwOpenFindings(findingsJSON)
 	if !ok {
 		fmt.Fprintln(stderr, uwPrefix+"jq failed — cannot determine anything")
@@ -550,17 +425,13 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if open > 0 {
 		Reason(env, "open-findings")
-		reasons = append(reasons, strconv.Itoa(open)+" open finding(s) in the review panel record")
+		reasons = append(reasons, strconv.Itoa(open)+" open Critical or Important finding(s) in the review panel record")
 	}
-	// Signal three — dispatch rows never closed with an outcome (kan-929: a
-	// `dispatch end` run without -C in a second repo's worktree journalled
-	// against the wrong project, another dropped -outcome, a third was
-	// never sent, and the ledger read "Outcome: not recorded" with nothing
-	// stopping integrate). Read and refused exactly like signal two. The
-	// rows are the change's, not a worktree's, and the gate runs once per
-	// worktree: only the worktree holding the plan (anchor == worktree)
-	// reads them, so a multi-repo change lists each open row once.
-	if anchor == worktree {
+	// Signal seven reads the change's dispatch rows, not a worktree's, and
+	// the gate runs once per worktree: only the worktree holding the plan
+	// (anchor == worktree) reads them. A failed or unreadable read is exit 2,
+	// like signal two's.
+	if anchor == worktree && len(ranges) > 0 {
 		dispOut, dispErr, dispRC := pcFlow(env, false, "record", "dispatches", "-change", name, "-C", anchor)
 		if dispRC != 0 {
 			fmt.Fprintf(stderr, "%scannot read dispatches for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(dispErr), "\n"))
@@ -568,119 +439,15 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 		var dispatches []struct {
-			Seq          int       `json:"seq"`
-			Key          string    `json:"key"`
-			TaskID       string    `json:"taskId"`
-			Role         string    `json:"role"`
-			Outcome      string    `json:"outcome"`
-			SessionToken string    `json:"sessionToken"`
-			CommitSha    string    `json:"commitSha"`
-			StartedAt    time.Time `json:"startedAt"`
+			Key       string    `json:"key"`
+			Role      string    `json:"role"`
+			Outcome   string    `json:"outcome"`
+			StartedAt time.Time `json:"startedAt"`
 		}
 		if json.Unmarshal(dispOut, &dispatches) != nil || dispatches == nil {
 			fmt.Fprintf(stderr, "%sdispatches for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
 			Reason(env, "dispatches-unparseable")
 			return 2
-		}
-		// Each row is closed under the token of the run that BEGAN it, not
-		// the closing run's own (kan-931: a token filled in by the integrate
-		// run answered 404), so every command carries the row's own token.
-		var unclosed, closeCmds []string
-		for _, d := range dispatches {
-			if strings.TrimSpace(d.Outcome) == "" {
-				unclosed = append(unclosed, d.Key)
-				// A legacy row with no key or no token cannot be matched by
-				// dispatch end at all: say so rather than print a command
-				// whose next flag the shell would read as the missing value.
-				if d.Key == "" || d.SessionToken == "" {
-					closeCmds = append(closeCmds, "row seq "+strconv.Itoa(d.Seq)+" has no key or session token and cannot be closed by `flow record dispatch end`")
-					continue
-				}
-				cmd := "flow record dispatch end -change " + name + " -key " + d.Key + " -session-token " + d.SessionToken + " -outcome <outcome> -C " + anchor + " -ended-at <when its work ended>"
-				if d.Role == "implementer" {
-					cmd += " -commit <its task commit>"
-				}
-				closeCmds = append(closeCmds, "`"+cmd+"`")
-			}
-		}
-		if len(unclosed) > 0 {
-			Reason(env, "unclosed-dispatches")
-			reasons = append(reasons, strconv.Itoa(len(unclosed))+" dispatch row(s) with no outcome ("+strings.Join(unclosed, ", ")+") — close each with "+strings.Join(closeCmds, ", "))
-		}
-		// SIGNAL FIVE — a panel round dispatched with no pass row (kan-939
-		// self-review: round 1 ran panel-1-primary+principles and recorded
-		// nothing, and the gate cleared it). Every panel run and fix-round
-		// pass records pass rows (review-panel.md), so a round some
-		// `panel-<round>-…` reviewer row ran in and no pass row carries is
-		// unfinished. Pass rows are read only when such a round exists, and
-		// a failed read is refused like the dispatch read above.
-		rounds := map[int][]string{}
-		for _, d := range dispatches {
-			if n, ok := records.PanelDispatchRound(records.Dispatch{Key: d.Key, Role: d.Role}); ok {
-				rounds[n] = append(rounds[n], d.Key)
-			}
-		}
-		if len(rounds) > 0 {
-			passOut, passErr, passRC := pcFlow(env, false, "record", "passes", "-change", name, "-C", anchor)
-			if passRC != 0 {
-				fmt.Fprintf(stderr, "%scannot read pass rows for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(passErr), "\n"))
-				Reason(env, "cannot-read-pass-rows")
-				return 2
-			}
-			var passes []struct {
-				Round int `json:"round"`
-			}
-			if json.Unmarshal(passOut, &passes) != nil || passes == nil {
-				fmt.Fprintf(stderr, "%spass rows for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
-				Reason(env, "pass-rows-not-json")
-				return 2
-			}
-			for _, p := range passes {
-				delete(rounds, p.Round)
-			}
-			if len(rounds) > 0 {
-				var nums []int
-				for n := range rounds {
-					nums = append(nums, n)
-				}
-				slices.Sort(nums)
-				var named []string
-				for _, n := range nums {
-					named = append(named, "round "+strconv.Itoa(n)+": "+strings.Join(rounds[n], ", "))
-				}
-				Reason(env, "rounds-without-pass-rows")
-				reasons = append(reasons, strconv.Itoa(len(nums))+" panel round(s) dispatched with no pass row ("+strings.Join(named, "; ")+") — record each round's pass rows with `flow record pass -change "+name+" -round <round>` before landing")
-			}
-		}
-		// SIGNAL SIX — no change summary recorded (kan-957 self-review: 35 of
-		// 36 gymie changes landed with no summary row although pipeline.md
-		// prescribes one per run). The summary is read through the
-		// self-review bundle, the one read of it the CLI has: its header —
-		// the lines above its first `## ` source section — carries a `found:`
-		// line and names the summary `skipped: change summary (absent)` when the
-		// store holds none. A failed read, or a payload whose header carries
-		// no `found:` line, is refused like the dispatch read above.
-		bundleOut, bundleErr, bundleRC := pcFlow(env, false, "self-review", "bundle", "-change", name, "-C", anchor)
-		if bundleRC != 0 {
-			fmt.Fprintf(stderr, "%scannot read the self-review bundle for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(bundleErr), "\n"))
-			Reason(env, "cannot-read-bundle")
-			return 2
-		}
-		var headerLines []string
-		for _, l := range strings.Split(string(bundleOut), "\n") {
-			if strings.HasPrefix(l, "## ") {
-				break
-			}
-			headerLines = append(headerLines, l)
-		}
-		if !slices.ContainsFunc(headerLines, func(l string) bool { return strings.HasPrefix(l, "found: ") }) {
-			fmt.Fprintf(stderr, "%sthe self-review bundle for '%s' carries no found: line — cannot determine anything\n", uwPrefix, name)
-			Reason(env, "bundle-missing-found-line")
-			return 2
-		}
-		if slices.Contains(headerLines, "skipped: change summary (absent)") {
-			Reason(env, "no-change-summary")
-			reasons = append(reasons, "no change summary recorded — record the run's summary with `flow record summary -change "+name+" -C "+anchor+" -file -` before landing")
 		}
 		// SIGNAL SEVEN — a code commit no completed inline verify row covers
 		// (decision uw-verify-row-after-code): the newest commit outside
@@ -693,7 +460,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		// range runs from the merge base. A `skipped` row counts as completed: it only ends a test
 		// group whose every command was unchanged since a green clean run
 		// (decision f1-skipped-is-verified, kan-1037).
-		if len(ranges) > 0 {
+		{
 			var lastVerify int64 = -1
 			for _, d := range dispatches {
 				if d.Role == "verifier" && (d.Outcome == "completed" || d.Outcome == "skipped") && (d.Key == "verify" || strings.HasPrefix(d.Key, "verify-")) {
@@ -733,339 +500,6 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			if newest != "" && newestAt > lastVerify {
 				Reason(env, "no-inline-verify")
 				reasons = append(reasons, "no completed inline verify row since "+newest+" — run Inline verify (skills/flow/verify-and-handoff.md) and record its row before landing — a re-run after a new commit takes a fresh `verify-<k>` key (the store keeps a reused key's first start)")
-			}
-			// SIGNAL EIGHT — a code commit and no review-panel pass at all
-			// (kan-970 self-review: four implementer groups and the panel ran
-			// unrecorded, and the gate cleared the change). Every panel run
-			// records pass rows (review-panel.md), so a change with a commit
-			// outside `<spec root>/changes/` and none was never reviewed as far
-			// as the store can tell. A change with a panel reviewer row is
-			// signal five's to judge; the pass rows are read only otherwise,
-			// and a failed read is refused like signal five's.
-			if newest != "" && len(rounds) == 0 {
-				passOut, passErr, passRC := pcFlow(env, false, "record", "passes", "-change", name, "-C", anchor)
-				if passRC != 0 {
-					fmt.Fprintf(stderr, "%scannot read pass rows for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(passErr), "\n"))
-					Reason(env, "cannot-read-pass-rows")
-					return 2
-				}
-				var passes []json.RawMessage
-				if json.Unmarshal(passOut, &passes) != nil || passes == nil {
-					fmt.Fprintf(stderr, "%spass rows for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
-					Reason(env, "pass-rows-not-json")
-					return 2
-				}
-				if len(passes) == 0 {
-					Reason(env, "no-review-pass")
-					reasons = append(reasons, "no review-panel pass recorded for code commit "+newest+" — run the review panel (skills/flow/review-panel.md) and record its pass rows with `flow record pass -change "+name+" -round <round>` before landing")
-				}
-			}
-		}
-		// SIGNAL ELEVEN — a panel-fix commit with no dispatch row (kan-1044
-		// self-review, F1-c: three panel fixes landed under trailers keyed a
-		// round low, and no row carried them). Each `Flow-Key: panel-fix-<r>[-<n>]`
-		// trailer in a range needs a row of the same key or one carrying its
-		// commit -- a trailer one round low is carried by the row its repair
-		// back-fills under the real round's key on that commit. HEAD and the
-		// pre-reshape pin are both read, since after the reshape the change's
-		// earlier commits are reachable from the pin alone.
-		if len(ranges) > 0 {
-			keys := map[string]bool{}
-			for _, d := range dispatches {
-				keys[d.Key] = true
-				if d.CommitSha != "" {
-					keys[d.CommitSha] = true
-				}
-			}
-			var missing []string
-			for _, r := range ranges {
-				tips := []string{"HEAD"}
-				if _, ok := capture(envGit(env)("-C", r[0], "rev-parse", "-q", "--verify", "refs/flow/pre-reshape/"+name)); ok {
-					tips = append(tips, "refs/flow/pre-reshape/"+name)
-				}
-				out, ok := capture(envGit(env)(append([]string{"-C", r[0], "log", "--no-merges", "--format=%H %h %(trailers:key=Flow-Key,valueonly,separator=%x20)", "^" + r[1]}, tips...)...))
-				if !ok {
-					fmt.Fprintf(stderr, "%scannot read the commits of %s..%s in %s — cannot determine anything\n", uwPrefix, r[1], strings.Join(tips, " "), r[0])
-					Reason(env, "cannot-read-the-commits")
-					return 2
-				}
-				for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
-					full, rest, _ := strings.Cut(l, " ")
-					sha, rest, _ := strings.Cut(rest, " ")
-					for _, k := range strings.Fields(rest) {
-						if uwPanelFixKey.MatchString(k) && !keys[k] && !keys[full] {
-							missing = append(missing, sha+" ("+k+")")
-						}
-					}
-				}
-			}
-			if len(missing) > 0 {
-				Reason(env, "unrecorded-panel-fix-commits")
-				reasons = append(reasons, strconv.Itoa(len(missing))+" panel-fix commit(s) whose Flow-Key no dispatch row carries ("+strings.Join(missing, ", ")+") — record each with `flow record dispatch backfill -change "+name+" -role panel-fix -agent-id inline -commit <sha>` under its real round's key before landing")
-			}
-		}
-		// SIGNAL NINE — a verify-report failure no later commit addressed
-		// (decision verify-failure-signal, kan-994 self-review: a failed
-		// capture a later green run hid reached landing untouched). Every
-		// `<spec>.spec.ts:<line>` in a `.superpowers/sdd/verify-report-*.md`
-		// `- verify: exit <n≠0>` item is a failure, its capture the first
-		// `<name>.png` after it; it is addressed by a range commit at or after
-		// the report's mtime touching that capture (or, naming none, the
-		// spec), or by a narrative line citing a range commit. Archived plans
-		// are read too.
-		if len(ranges) > 0 {
-			reports, _ := filepath.Glob(worktree + "/.superpowers/sdd/verify-report-*.md")
-			type uwCommit struct {
-				sha   string
-				at    int64
-				bases []string
-			}
-			var commits []uwCommit
-			if len(reports) > 0 {
-				for _, r := range ranges {
-					out, ok := capture(envGit(env)("-C", r[0], "log", "--no-merges", "--format=%x00%H %ct", "--name-only", r[1]+"..HEAD"))
-					if !ok {
-						fmt.Fprintf(stderr, "%scannot read the commits of %s..HEAD in %s — cannot determine anything\n", uwPrefix, r[1], r[0])
-						Reason(env, "cannot-read-the-commits")
-						return 2
-					}
-					for _, chunk := range strings.Split(out, "\x00")[1:] {
-						lines := strings.Split(strings.TrimSpace(chunk), "\n")
-						sha, at, _ := strings.Cut(lines[0], " ")
-						n, _ := strconv.ParseInt(at, 10, 64)
-						c := uwCommit{sha: sha, at: n}
-						for _, l := range lines[1:] {
-							if l = strings.TrimSpace(l); l != "" {
-								c.bases = append(c.bases, uwBasename(l))
-							}
-						}
-						commits = append(commits, c)
-					}
-				}
-			}
-			narrative, _ := os.ReadFile(filepath.Dir(primary) + "/narrative.md")
-			var flagged []string
-			flaggedRead := false
-			// The reports in mtime order: a report whose next one passed a
-			// rerun of its failed specs is addressed (kan-1022's self-review).
-			bodies, infos := make([]string, len(reports)), make([]os.FileInfo, len(reports))
-			for i, rp := range reports {
-				b, err := os.ReadFile(rp)
-				if err != nil {
-					return unreadable(rp)
-				}
-				st, err := os.Stat(rp)
-				if err != nil {
-					return unreadable(rp)
-				}
-				bodies[i], infos[i] = string(b), st
-			}
-			order := make([]int, len(reports))
-			for i := range order {
-				order[i] = i
-			}
-			slices.SortStableFunc(order, func(a, b int) int { return infos[a].ModTime().Compare(infos[b].ModTime()) })
-			for k, i := range order {
-				rp, st := reports[i], infos[i]
-				rerunPassed := k+1 < len(order) && uwRerunPassed.MatchString(bodies[order[k+1]])
-				for _, fl := range uwVerifyFailures(bodies[i]) {
-					addressed := rerunPassed
-					for _, c := range commits {
-						if c.at < st.ModTime().Unix() {
-							continue
-						}
-						for _, base := range c.bases {
-							if (fl.png != "" && (base == fl.png+".png" || strings.HasPrefix(base, fl.png+"-") && strings.HasSuffix(base, ".png"))) ||
-								(fl.png == "" && base == uwBasename(fl.spec)) {
-								addressed = true
-							}
-						}
-					}
-					for _, l := range strings.Split(string(narrative), "\n") {
-						_, cited, ok := strings.Cut(l, "Verify failure addressed: "+fl.spec+":"+fl.line+" — ")
-						cited = strings.TrimSpace(strings.Trim(strings.TrimSpace(cited), "`"))
-						if !ok || len(cited) < 7 {
-							continue
-						}
-						for _, c := range commits {
-							if strings.HasPrefix(c.sha, cited) {
-								addressed = true
-							}
-						}
-					}
-					// A failure an earlier false-positive verdict of this
-					// change names by its `<spec>:<line>` is cleared: the
-					// flag lands on that run's newest row only, so without
-					// this every later run re-flags it (kan-1010's
-					// self-review: screenshots.spec.ts:52, three times).
-					if !addressed {
-						if !flaggedRead {
-							flagged, flaggedRead = uwFlaggedReasons(env, name, anchor), true
-						}
-						for _, r := range flagged {
-							if uwNamesFailure(r, fl.spec+":"+fl.line) {
-								addressed = true
-							}
-						}
-					}
-					if !addressed {
-						what := fl.spec + ":" + fl.line
-						if fl.png != "" {
-							what += " " + fl.png + ".png"
-						}
-						Reason(env, "verify-failure-unaddressed")
-						reasons = append(reasons, "verify failure not addressed: "+what+" ("+uwBasename(rp)+") — fix it in this run, or cite its fixing commit as a narrative line \"Verify failure addressed: "+fl.spec+":"+fl.line+" — <sha>\"")
-					}
-				}
-			}
-		}
-		// SIGNAL TEN — a multi-repository change whose merge-order record
-		// misses a repository (decision merge-order-signal, kan-995
-		// self-review). Every range whose worktree's main checkout differs
-		// from the plan worktree's must be named, in backticks, by a numbered
-		// line of link.md's `## Merge order` section whose peer name the
-		// spectre/peers file resolves to that main checkout. A single-range
-		// or single-repository call reads nothing; an absent link.md holds
-		// no entries.
-		if planRC == 0 && len(ranges) > 1 {
-			if own, ok := changePlanMainCheckout(env, worktree); ok {
-				own = filepath.Clean(own)
-				link := planDir + "/link.md"
-				var named []string
-				if b, err := os.ReadFile(link); err == nil {
-					in := false
-					for _, l := range strings.Split(string(b), "\n") {
-						if strings.HasPrefix(l, "## ") {
-							in = strings.TrimSpace(l) == "## Merge order"
-							continue
-						}
-						if m := uwMergeOrderEntryRE.FindStringSubmatch(l); in && m != nil {
-							if root, ok := changePlanPeerRoot(env, worktree, specRootLeaf(worktree, io.Discard), m[1]); ok {
-								named = append(named, filepath.Clean(root))
-							}
-						}
-					}
-				} else if !os.IsNotExist(err) {
-					return unreadable(link)
-				}
-				seen := map[string]bool{}
-				for _, r := range ranges {
-					mc, ok := changePlanMainCheckout(env, r[0])
-					if !ok {
-						continue
-					}
-					mc = filepath.Clean(mc)
-					if mc == own || seen[mc] || slices.Contains(named, mc) {
-						continue
-					}
-					seen[mc] = true
-					Reason(env, "merge-order-incomplete")
-					reasons = append(reasons, "merge order does not name "+mc+": "+link+" — write the change's ## Merge order per skills/flow/cross-repo-worktrees.md (\"Then make the merge-order record cover the whole set\") before landing")
-				}
-			}
-		}
-		// THE VISUAL VERDICT IS FOLDED IN (decision uw-fold-visual-verdict):
-		// check-visual-verify-dispatched over this guard's own worktree's
-		// range, its MISSING line a reason here and its refusal this guard's.
-		for _, r := range ranges {
-			if r[0] != worktree {
-				continue
-			}
-			var vOut, vErr bytes.Buffer
-			switch checkVisualVerifyDispatched([]string{worktree, name, r[1], canonical}, env, &vOut, &vErr) {
-			case 1:
-				if line := strings.TrimSpace(vOut.String()); !uwVisualFlagged(env, name, worktree, anchor, line) {
-					Reason(env, "visual-verify-outstanding")
-					reasons = append(reasons, line)
-				}
-			case 2:
-				fmt.Fprintf(stderr, "%s%s\n", uwPrefix, strings.TrimRight(vErr.String(), "\n"))
-				Reason(env, "visual-check-failed")
-				return 2
-			}
-		}
-		// SIGNAL FOUR — a ticked appended task no dispatch row names: a fix
-		// round that recorded nothing (kan-979's fix-round Task 7 reached
-		// integrate with no dispatch row at all). A row names a task by its
-		// taskId or by the `+`-joined ids of a task-<ids>[-…] key. Only the tasks a
-		// fix run appended — the last `**Tasks appended:** <n>` of the plan,
-		// and every `In-run fix <k> — …` task (uwAppendedIn) — are judged: each is implemented alone, so it carries a row of its
-		// own, while plan-time tasks run grouped under one task-<n> key or
-		// inline with one row per bundle and most have none. It needs the
-		// plan read above. An appended task also needs a `reviewer` row whose
-		// seq is greater than its earliest non-reviewer row's — the fix run's
-		// panel names no task, so any panel reviewer row (key `panel-…`) of the change counts, and
-		// the earliest row is the anchor so a Minor-only round's inline
-		// `panel-fix` row never demands a re-review.
-		if planRC == 0 {
-			first := map[string]int{}
-			lastReview := -1
-			for _, d := range dispatches {
-				if d.Role == "reviewer" {
-					if strings.HasPrefix(d.Key, "panel-") {
-						lastReview = max(lastReview, d.Seq)
-					}
-					continue
-				}
-				for _, id := range uwRowTasks(d.Key, d.TaskID) {
-					if s, seen := first[id]; id != "" && (!seen || d.Seq < s) {
-						first[id] = d.Seq
-					}
-				}
-			}
-			appended, ok := uwAppended(primary, true)
-			if !ok {
-				return unreadable(primary)
-			}
-			var missing, unreviewed []string
-			for _, id := range appended {
-				if s, seen := first[id]; !seen {
-					missing = append(missing, id)
-				} else if lastReview <= s {
-					unreviewed = append(unreviewed, id)
-				}
-			}
-			if len(missing) > 0 {
-				Reason(env, "appended-tasks-without-dispatch")
-				reasons = append(reasons, strconv.Itoa(len(missing))+" ticked appended task(s) with no dispatch row (Task "+strings.Join(missing, ", ")+") — record each task's dispatch, and its fix round's pass rows and findings, before landing")
-			}
-			if len(unreviewed) > 0 {
-				Reason(env, "appended-tasks-unreviewed")
-				reasons = append(reasons, strconv.Itoa(len(unreviewed))+" ticked appended task(s) with no panel reviewer row (key `panel-<round>-<slot>`) begun after its implementer row (Task "+strings.Join(unreviewed, ", ")+") — run its fix round's panel and record its pass rows and findings, before landing")
-			}
-			// A dispatch row is not a commit: a row back-filled after the
-			// fact names a task whose work never landed. Each ticked
-			// appended task also needs a commit carrying `Task-Id: <n>` in
-			// one of the change's ranges -- all of them, since a cross-repo
-			// change's fix task may commit in a peer repository.
-			if len(appended) > 0 {
-				if len(ranges) == 0 {
-					fmt.Fprintf(stderr, "%sticked appended task(s) (Task %s) and no <worktree>=<merge-base> range was passed — cannot judge their commits\n", uwPrefix, strings.Join(appended, ", "))
-					Reason(env, "ticked-appended-task")
-					return 2
-				}
-				committed := map[string]bool{}
-				for _, r := range ranges {
-					out, ok := capture(envGit(env)("-C", r[0], "log", "--no-merges", "--format=%(trailers:key=Task-Id,valueonly)", r[1]+"..HEAD"))
-					if !ok {
-						fmt.Fprintf(stderr, "%scannot read the commits of %s..HEAD in %s — cannot determine anything\n", uwPrefix, r[1], r[0])
-						Reason(env, "cannot-read-the-commits")
-						return 2
-					}
-					for _, id := range uwTaskNumberRE.FindAllString(out, -1) {
-						committed[id] = true
-					}
-				}
-				var uncommitted []string
-				for _, id := range appended {
-					if !committed[id] {
-						uncommitted = append(uncommitted, id)
-					}
-				}
-				if len(uncommitted) > 0 {
-					Reason(env, "appended-tasks-uncommitted")
-					reasons = append(reasons, strconv.Itoa(len(uncommitted))+" ticked appended task(s) with no commit carrying its `Task-Id:` trailer on the branch (Task "+strings.Join(uncommitted, ", ")+") — commit each task's work with `Task-Id: <n>` before landing")
-				}
 			}
 		}
 	}
@@ -1112,63 +546,6 @@ func uwDerivedRange(env Env, worktree string) ([2]string, bool) {
 		return [2]string{}, false
 	}
 	return [2]string{worktree, strings.TrimSpace(base)}, true
-}
-
-var (
-	uwTask          = regexp.MustCompile(`^- \[([ xX])\] ([0-9]+)\. `)
-	uwTasksAppended = regexp.MustCompile(`^(?:> )?\*\*Tasks appended:\*\* ([0-9]+)`)
-	// uwInRunFix is verify-fix-loop.md's in-run fix task title, appended
-	// without raising **Tasks appended:** (kan-941: tasks 12-16 unjudged).
-	uwInRunFix = regexp.MustCompile(`^- \[[ xX]\] [0-9]+\. In-run fix [0-9]+ — `)
-	uwTaskKey  = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)(?:-|$)`)
-)
-
-// uwRowTasks is the task ids a dispatch row names: its taskId, and the
-// `+`-joined ids of a task-<ids>[-…] key. Signal four and close-task's
-// close-time warning share it, so the two cannot drift.
-func uwRowTasks(key, taskID string) []string {
-	ids := []string{taskID}
-	if m := uwTaskKey.FindStringSubmatch(key); m != nil {
-		ids = append(ids, strings.Split(m[1], "+")...)
-	}
-	return ids
-}
-
-// uwAppended returns the ids of plan's appended tasks — the last n
-// column-0 tasks, n from the `**Tasks appended:** <n>` header line
-// (blockquoted or not), 0 when absent — in plan order, only the ticked ones
-// when tickedOnly, whatever rows name them: the caller judges coverage.
-// False when the plan cannot be read.
-func uwAppended(plan string, tickedOnly bool) ([]string, bool) {
-	b, err := os.ReadFile(plan)
-	if err != nil {
-		return nil, false
-	}
-	return uwAppendedIn(string(b), tickedOnly), true
-}
-
-// uwAppendedIn is uwAppended over a plan's text. A task titled
-// `In-run fix <k> — …` (verify-fix-loop.md step 1) counts as appended
-// wherever it sits, since that loop never raises **Tasks appended:**.
-func uwAppendedIn(plan string, tickedOnly bool) []string {
-	appended := 0
-	var tasks [][]string
-	var inRun []bool
-	for l := range strings.Lines(plan) {
-		if m := uwTasksAppended.FindStringSubmatch(l); m != nil {
-			appended, _ = strconv.Atoi(m[1])
-		} else if m := uwTask.FindStringSubmatch(l); m != nil {
-			tasks = append(tasks, m)
-			inRun = append(inRun, uwInRunFix.MatchString(l))
-		}
-	}
-	var ids []string
-	for i, m := range tasks {
-		if (i >= len(tasks)-appended || inRun[i]) && (!tickedOnly || m[1] != " ") {
-			ids = append(ids, m[2])
-		}
-	}
-	return ids
 }
 
 // uwCountUnticked is count_unticked: column-0 `- [ ]` lines (the script
@@ -1246,7 +623,7 @@ func uwFindTasks(dir string, visit func(string) bool) bool {
 // gdcDirname.
 func uwBasename(p string) string { return p[strings.LastIndexByte(p, '/')+1:] }
 
-// uwOpenFindings is the bash guard's jq count of open findings over one
+// uwOpenFindings is the count of open Critical and Important findings over one
 // array of objects each carrying a string status. Anything else -- empty
 // output, an object, a null element, two values -- is refused as jq failing,
 // though jq itself read some of these as zero findings (CLEAR) or iterated an
@@ -1267,7 +644,12 @@ func uwOpenFindings(b []byte) (int, bool) {
 		// word -- no reason after it -- is open, the same line the store's
 		// withdrawnWithoutReason and check-panel-findings-closed's own copy
 		// draw. A `deferred <reason>` row is open: nothing is deferred
-		// (KAN-862).
+		// (KAN-862). Only a Critical or Important finding counts.
+		var severity string
+		_ = json.Unmarshal(f["severity"], &severity)
+		if sev := strings.ToLower(severity); sev != "critical" && sev != "important" {
+			continue
+		}
 		if status != "fixed" {
 			rest, withdrawn := strings.CutPrefix(status, "withdrawn")
 			if !withdrawn || strings.TrimSpace(rest) == "" {
@@ -1276,47 +658,6 @@ func uwOpenFindings(b []byte) (int, bool) {
 		}
 	}
 	return n, true
-}
-
-// uwFlaggedReasons is the reason of every false-positive verdict the store
-// holds for change under check-unfinished-work. A failed or unparseable
-// read is none: the read can only clear an item, so a store outage leaves
-// every item outstanding, never refused (script-reads-are-advisory).
-func uwFlaggedReasons(env Env, change, anchor string) []string {
-	out, _, rc := pcFlow(env, false, "record", "verdicts", "-guard", "check-unfinished-work", "-false-positive", "-C", anchor)
-	var rows []struct {
-		Change string `json:"change"`
-		Reason string `json:"falsePositiveReason"`
-	}
-	if rc != 0 || json.Unmarshal(out, &rows) != nil {
-		return nil
-	}
-	var reasons []string
-	for _, r := range rows {
-		if r.Change == change {
-			reasons = append(reasons, r.Reason)
-		}
-	}
-	return reasons
-}
-
-// uwNamesFailure reports whether reason names spec:line as a whole token:
-// no path character before it and no digit after, so `a.spec.ts:5` names
-// neither `ba.spec.ts:5` nor `a.spec.ts:52`.
-func uwNamesFailure(reason, specLine string) bool {
-	for i := 0; ; {
-		j := strings.Index(reason[i:], specLine)
-		if j < 0 {
-			return false
-		}
-		start, end := i+j, i+j+len(specLine)
-		before := start == 0 || !strings.ContainsRune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_./-", rune(reason[start-1]))
-		after := end == len(reason) || reason[end] < '0' || reason[end] > '9'
-		if before && after {
-			return true
-		}
-		i = start + 1
-	}
 }
 
 // uwPriorFalsePositives is the advisory's two jq reads of `flow record
@@ -1355,92 +696,3 @@ func uwPriorFalsePositives(b []byte) (int, string, bool) {
 	last := pcRaw(first["falsePositiveReason"]) + " (" + pcRaw(first["change"]) + ", " + flagged + ")"
 	return len(all), strings.TrimRight(last, "\n"), true
 }
-
-// uwVisualFlagged reports whether an operator flagged the folded
-// VISUAL-VERIFY-MISSING line a false positive: a check-visual-verify-dispatched
-// verdict row of this change on this worktree whose verdict ends with the
-// line's own " — HEAD <sha>" — integrate-change.sh's visual_false_positive, so a
-// flag that passes integrate's visual gate does not stop this one. Any read
-// failure is not flagged.
-func uwVisualFlagged(env Env, name, worktree, anchor, line string) bool {
-	i := strings.LastIndex(line, " — HEAD ")
-	if i < 0 {
-		return false
-	}
-	head := line[i:]
-	out, _, rc := pcFlow(env, false, "record", "verdicts", "-guard", "check-visual-verify-dispatched", "-false-positive", "-C", anchor)
-	if rc != 0 {
-		return false
-	}
-	var rows []struct {
-		Change, Worktree, Verdict string
-		FalsePositive             bool
-	}
-	if json.Unmarshal(out, &rows) != nil {
-		return false
-	}
-	wt := worktree
-	if p, err := filepath.EvalSymlinks(worktree); err == nil {
-		wt = p
-	}
-	for _, r := range rows {
-		if r.Change == name && r.FalsePositive && r.Worktree == wt && strings.HasSuffix(r.Verdict, head) {
-			return true
-		}
-	}
-	return false
-}
-
-// uwMergeOrderEntryRE is one numbered `## Merge order` entry of link.md,
-// its backticked peer name captured (signal ten).
-var uwMergeOrderEntryRE = regexp.MustCompile("^\\s*\\d+\\.\\s+`([^`]+)`")
-
-// uwVerifyFailure is one failure signal nine reads: a spec, its line, and
-// the capture base name (no `.png`) it names, if any.
-type uwVerifyFailure struct{ spec, line, png string }
-
-var (
-	// A report's `- verify:` item passing a rerun of the failed specs.
-	uwRerunPassed = regexp.MustCompile(`(?m)^- verify: exit 0 — rerun of\b`)
-	uwSpecRE      = regexp.MustCompile("([^\\s:(\\[`'\"]+\\.spec\\.ts):(\\d+)")
-	uwPngRE       = regexp.MustCompile(`([A-Za-z0-9_.-]+)\.png`)
-)
-
-// uwVerifyFailures reads a verify report's failed `- verify: exit <n>` item
-// (n not 0) and its whitespace-indented continuation lines, up to the next
-// `- ` item: every `<spec>.spec.ts:<line>` there, with the first `<name>.png`
-// after it and before the next spec.
-func uwVerifyFailures(report string) []uwVerifyFailure {
-	var out []uwVerifyFailure
-	lines := strings.Split(report, "\n")
-	for i, l := range lines {
-		code, ok := strings.CutPrefix(strings.TrimSpace(l), "- verify: exit ")
-		if !ok || !strings.HasPrefix(l, "- ") || strings.TrimSpace(code) == "0" {
-			continue
-		}
-		var body []string
-		for _, c := range lines[i+1:] {
-			if c == "" || (c[0] != ' ' && c[0] != '\t') {
-				break
-			}
-			body = append(body, c)
-		}
-		text := strings.Join(body, "\n")
-		ms := uwSpecRE.FindAllStringSubmatchIndex(text, -1)
-		for k, m := range ms {
-			end := len(text)
-			if k+1 < len(ms) {
-				end = ms[k+1][0]
-			}
-			fl := uwVerifyFailure{spec: text[m[2]:m[3]], line: text[m[4]:m[5]]}
-			if p := uwPngRE.FindStringSubmatch(text[m[1]:end]); p != nil {
-				fl.png = p[1]
-			}
-			out = append(out, fl)
-		}
-	}
-	return out
-}
-
-// uwTaskNumberRE finds the task numbers a Task-Id: trailer names.
-var uwTaskNumberRE = regexp.MustCompile(`[0-9]+`)

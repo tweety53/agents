@@ -30,7 +30,7 @@ func TestWorkspace(t *testing.T) {
 		{"create refuses a missing id", []string{"create"}, "ERROR: a workspace id is required"},
 		{"remove refuses an empty id", []string{"remove", ""}, "ERROR: a workspace id is required"},
 		{"remove refuses a missing id", []string{"remove"}, "ERROR: a workspace id is required"},
-		{"no command prints usage", nil, "usage: flow-guard workspace {create|remove|survivors} <id> [--force]\n       --force is accepted only by remove"},
+		{"no command prints usage", nil, "usage: flow-guard workspace {create|remove} <id> [--force]\n       --force is accepted only by remove"},
 		{"an id outside [a-z0-9-] is refused", []string{"create", "Bad"}, "ERROR: workspace id 'Bad' is not [a-z0-9-]; refusing to build a database name from it"},
 		{"an unknown flag is refused", []string{"remove", "x", "--nope"}, "ERROR: unrecognized argument '--nope'\nusage: flow-guard workspace"},
 		{"--force on create is refused", []string{"create", "x", "--force"}, "ERROR: unrecognized argument '--force'"},
@@ -56,18 +56,14 @@ func TestWorkspace(t *testing.T) {
 			}
 			return os.Getenv(k)
 		}}
-		r := runGuard("workspace", []string{"survivors", "x"}, fenv)
-		if r.rc != 3 || r.stdout != "" {
-			t.Fatalf("survivors: rc=%d stdout=%q", r.rc, r.stdout)
-		}
-		r = runGuard("workspace", []string{"create", "x"}, fenv)
+		r := runGuard("workspace", []string{"create", "x"}, fenv)
 		if r.rc != 3 || r.err != "docker: daemon down\nERROR: could not reach flow-postgres to check for flow_x\n" {
 			t.Fatalf("create: rc=%d stderr=%q", r.rc, r.err)
 		}
 		if err := os.WriteFile(bin+"/docker", []byte("#!/bin/sh\nkill -TERM $$\n"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if r = runGuard("workspace", []string{"survivors", "x"}, fenv); r.rc != 128+15 {
+		if r = runGuard("workspace", []string{"remove", "x"}, fenv); r.rc != 128+15 {
 			t.Fatalf("signal-killed docker: rc=%d, want bash's 128+15", r.rc)
 		}
 	})
@@ -103,15 +99,9 @@ func TestWorkspace(t *testing.T) {
 		check("create makes "+db, exists(db), r)
 		r = ws("create", id)
 		check("create is a no-op on an existing database", r.rc == 0, r)
-		r = ws("survivors", id)
-		check("survivors exits 0 while the database survives", r.rc == 0, r)
-		check("survivors prints "+db, r.stdout == db+"\n", r)
 		r = ws("remove", id)
 		check("remove exits 0", r.rc == 0, r)
 		check("remove drops "+db, !exists(db), r)
-		r = ws("survivors", id)
-		check("survivors exits 0 with nothing surviving", r.rc == 0, r)
-		check("survivors prints nothing after remove", r.stdout == "", r)
 		check("the shared flow database is untouched", exists("flow"), r)
 
 		ws("create", id2)

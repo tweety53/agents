@@ -22,10 +22,10 @@ import (
 // skills/flow-self-review/SKILL.md step 3), run by the parent, so no step is
 // retyped or skipped. The loop is its own change in this repository's flowd
 // project, named after its branch — pipeline-fix-<name>-<k> or
-// self-review-<name> — and flow-guard check-loop-dispatch files every loop dispatch
+// self-review-<name> — and flow-guard check-loop-dispatch records every loop dispatch
 // under it (a self-review on the change's own branch files under <name>, in
-// the flowd project of the caller's working directory: end and escalate of
-// such a key run from the run's own project).
+// the flowd project of the caller's working directory: end of
+// such a key runs from the run's own project).
 //
 // Usage:
 //   flow-guard pipeline-fix start <name> [<k>]
@@ -44,13 +44,6 @@ import (
 //       `clean` when its `Critical: <n>` and `Important: <n>` lines are both 0,
 //       `fix` otherwise; a report missing either line exits 2. An `aborted`
 //       key may be dispatched again.
-//   flow-guard pipeline-fix escalate <key>
-//       records <key>'s no-progress escalation (git config flow.escalation,
-//       value `<loop branch>:<key>`; land and drop clear the loop's), which
-//       flow-guard check-loop-dispatch requires before admitting <key> on its role's
-//       `No-progress escalation` marked pairs (`flow policy get`); refused
-//       unless <key>'s role has such pairs and an earlier round of its kind
-//       completed.
 //   flow-guard pipeline-fix verify <worktree>
 //       runs the ## lint lines and tests the branch's touched paths need,
 //       against <worktree>'s own origin/HEAD: every guard line, the `cd stats` lines for
@@ -70,10 +63,7 @@ import (
 //       the merge-and-push route: refuses any other `## default landing
 //       route`; git fetch origin; a branch whose base moved is rebased onto
 //       origin/<default> (a stopped rebase is aborted); verify, always, before
-//       anything is pushed; check-loop-landing's refusals and, once a
-//       fix-<r> or fix-v<v> round ran, `LOOP-LANDING-REFUSED: UNFOLDED` for
-//       each commit whose subject is no **Commit:** subject of the loop's
-//       tasks.md (a tasks.md that does not read, exit 2); `git push
+//       anything is pushed; `git push
 //       origin <branch>:<default>`; on a pipeline-fix-<name>-<k> branch,
 //       which requires the grade (and any other branch refuses one), the
 //       change's flow-fix `fixed` row for <name> (`flow self-review finding`,
@@ -105,7 +95,6 @@ func init() {
 const pfUsage = `usage: flow-guard pipeline-fix start <name> [<k>]
        flow-guard pipeline-fix end <key> <outcome>
        flow-guard pipeline-fix end <review-key> <report-file>|aborted
-       flow-guard pipeline-fix escalate <key>
        flow-guard pipeline-fix verify <worktree>
        flow-guard pipeline-fix land <worktree> [important|minor]
        flow-guard pipeline-fix drop <worktree>
@@ -147,8 +136,6 @@ func pipelineFix(args []string, env Env, stdout, stderr io.Writer) int {
 		return pfStart(env, pe, rest, stdout, stderr)
 	case sub == "end" && len(rest) == 2:
 		return pfEnd(env, pe, rest[0], rest[1], stdout, stderr)
-	case sub == "escalate" && len(rest) == 1:
-		return pfEscalate(env, pe, rest[0], stdout, stderr)
 	case sub == "verify" && len(rest) == 1:
 		return pfVerify(env, pe, smcAbs(env, rest[0]), stdout, stderr)
 	case sub == "land" && (len(rest) == 1 || len(rest) == 2):
@@ -316,26 +303,18 @@ func pfHighestK(env Env, pe pfEnv) (int, bool) {
 	return highest, true
 }
 
-// pfLoop resolves key's loop for end and escalate.
-// role is the suffix's allowed-pairs role id, and escalatable whether the
-// table gives that role a marked escalation row.
-func pfLoop(env Env, pe pfEnv, key string, stderr io.Writer) (lp lpLoop, suffix string, escalatable bool, rc int) {
-	rows, err := policyTable(env)
-	if err != nil {
-		fmt.Fprintf(stderr, "pipeline-fix: %v\n", err)
-		Reason(env, "policy-unreadable")
-		return lpLoop{}, "", false, 2
-	}
-	lp, suffix, role, msg, ok := lpFromKey(env, pe.git, pe.main, key)
+// pfLoop resolves key's loop for end.
+func pfLoop(env Env, pe pfEnv, key string, stderr io.Writer) (lp lpLoop, suffix string, rc int) {
+	lp, suffix, _, msg, ok := lpFromKey(env, pe.git, pe.main, key)
 	if !ok {
 		if msg == "" {
 			msg = key + " is no loop key"
 		}
 		fmt.Fprintf(stderr, "pipeline-fix: %s\n", msg)
 		Reason(env, "not-a-loop-key")
-		return lpLoop{}, "", false, 1
+		return lpLoop{}, "", 1
 	}
-	return lp, suffix, lpEscalatable(rows, role), 0
+	return lp, suffix, 0
 }
 
 var (
@@ -361,7 +340,7 @@ func pfReviewOutcome(report string) (string, error) {
 }
 
 func pfEnd(env Env, pe pfEnv, key, outcome string, stdout, stderr io.Writer) int {
-	lp, suffix, _, rc := pfLoop(env, pe, key, stderr)
+	lp, suffix, rc := pfLoop(env, pe, key, stderr)
 	if rc != 0 {
 		return rc
 	}
@@ -390,42 +369,6 @@ func pfEnd(env Env, pe pfEnv, key, outcome string, stdout, stderr io.Writer) int
 		Reason(env, "dispatch-end-failed")
 		return 1
 	}
-	// An own-branch self-review has no loop worktree for pfRemove to clear
-	// its escalation markers with; its final clean review clears them.
-	if outcome == "clean" && lp.change != lp.token {
-		kwRun(env, "", pe.git, "-C", lp.main, "config", "--unset-all", "flow.escalation", "^"+regexp.QuoteMeta(lp.token)+":")
-	}
-	return 0
-}
-
-func pfEscalate(env Env, pe pfEnv, key string, stdout, stderr io.Writer) int {
-	lp, suffix, escalatable, rc := pfLoop(env, pe, key, stderr)
-	if rc != 0 {
-		return rc
-	}
-	if !escalatable {
-		fmt.Fprintf(stderr, "pipeline-fix escalate: the allowed-pairs table admits no escalation for %s\n", key)
-		Reason(env, "escalation-not-admitted")
-		return 1
-	}
-	rows, ok := lpRows(env, lp.main, lp)
-	if !ok {
-		fmt.Fprintf(stderr, "pipeline-fix escalate: flow record dispatches -change %s failed -- cannot answer\n", lp.change)
-		Reason(env, "dispatches-unreadable")
-		return 2
-	}
-	// No progress needs an earlier round of the same kind to have made none.
-	if !lpEarlierRound(lp, suffix, rows) {
-		fmt.Fprintf(stderr, "pipeline-fix escalate: %s has no completed earlier round to escalate from\n", key)
-		Reason(env, "earlier-round-missing")
-		return 1
-	}
-	if rc, out := kwRun(env, "", pe.git, "-C", lp.main, "config", "--add", "flow.escalation", lp.token+":"+key); rc != 0 {
-		fmt.Fprint(stderr, out)
-		Reason(env, "config-write-failed")
-		return 1
-	}
-	fmt.Fprintf(stdout, "escalated: %s\n", key)
 	return 0
 }
 
@@ -615,10 +558,8 @@ func pfLoopWorktree(env Env, pe pfEnv, wt, self string, stderr io.Writer) (strin
 	return branch, lp, true
 }
 
-// pfRemove removes wt and its branch from the main checkout, and clears the
-// loop's escalation markers.
+// pfRemove removes wt and its branch from the main checkout.
 func pfRemove(env Env, pe pfEnv, wt, branch string, force bool, stderr io.Writer) int {
-	kwRun(env, "", pe.git, "-C", pe.main, "config", "--unset-all", "flow.escalation", "^"+regexp.QuoteMeta(branch)+":")
 	rm := []string{"-C", pe.main, "worktree", "remove", wt}
 	if force {
 		rm = append(rm, "--force")
@@ -689,22 +630,6 @@ func pfLand(env Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) int {
 		Reason(env, "checks-red")
 		return 1
 	}
-	rows, ok := lpRows(env, pe.main, lp)
-	if !ok {
-		fmt.Fprintf(stderr, "%s: flow record dispatches -change %s failed -- cannot answer\n", self, lp.change)
-		Reason(env, "flow-record-dispatches-change-failed")
-		return 2
-	}
-	if refusals := lpLandingRefusals(lp, rows); len(refusals) > 0 {
-		for _, r := range refusals {
-			fmt.Fprintf(stdout, "LOOP-LANDING-REFUSED: %s\n", r)
-		}
-		Reason(env, "loop-landing-refused")
-		return 1
-	}
-	if rc := pfUnfolded(env, pe, lp, rows, wt, base, stdout, stderr); rc != 0 {
-		return rc
-	}
 	// The fixed row's fields, read before the push moves base.
 	_, revs := kwRun(env, "", pe.git, "-C", wt, "rev-list", "--reverse", base+"..HEAD")
 	firstSHA, _, _ := strings.Cut(strings.TrimSpace(revs), "\n")
@@ -752,44 +677,6 @@ func pfLand(env Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
-}
-
-var pfFixRound = regexp.MustCompile(`^fix-([0-9]+|v[0-9]+)$`)
-
-// pfUnfolded refuses, once a fix-<r> or fix-v<v> round ran, every commit of
-// base..HEAD whose subject is no **Commit:** subject of the loop's tasks.md:
-// a post-review fix is folded into the task commit it fixes (kan-1104
-// self-review, F6). 0 none, 1 refused, 2 the plan cannot be read.
-func pfUnfolded(env Env, pe pfEnv, lp lpLoop, rows []lpDispatch, wt, base string, stdout, stderr io.Writer) int {
-	if !slices.ContainsFunc(rows, func(d lpDispatch) bool { return pfFixRound.MatchString(strings.TrimPrefix(d.Key, lp.prefix)) }) {
-		return 0
-	}
-	tasksMD, _ := tcfResolveTasksMD(env, io.Discard, "pipeline-fix land", wt, lp.change, wt)
-	raw, err := os.ReadFile(tasksMD)
-	var plan []string
-	if err == nil {
-		plan, err = tcfPlanLines(raw)
-	}
-	if err != nil {
-		fmt.Fprintf(stderr, "pipeline-fix land: cannot read tasks.md for %s -- cannot answer\n", lp.change)
-		Reason(env, "tasks-md-unreadable")
-		return 2
-	}
-	subjects := map[string]bool{}
-	for _, id := range tcfTaskIDs(plan) {
-		if t, ok := tcfParseTask(plan, id); ok && t.commit != nil {
-			subjects[*t.commit] = true
-		}
-	}
-	_, log := kwRun(env, "", pe.git, "-C", wt, "log", "--format=%h %s", base+"..HEAD")
-	rc := 0
-	for _, line := range strings.Split(strings.TrimSpace(log), "\n") {
-		if _, subject, _ := strings.Cut(line, " "); line != "" && !subjects[subject] {
-			fmt.Fprintf(stdout, "LOOP-LANDING-REFUSED: UNFOLDED %s — fold it into the commit of the task it fixes (git commit --fixup <that commit>, git rebase --autosquash %s)\n", line, base)
-			rc = 1
-		}
-	}
-	return rc
 }
 
 // restartFlowdIfStatsMoved restarts the live flowd -- `make -C <main>/stats

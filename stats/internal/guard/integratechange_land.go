@@ -142,20 +142,12 @@ func (c *ic) land() {
 	for _, o := range c.order {
 		w := c.wt[o]
 		c.baseOf(o)
-		if !c.visualOK(w, c.base) {
-			c.stopAs("visual-verify-missing", "visual-verify", "spectre/"+c.name+" not pushed from "+w+"; already pushed: "+alreadyPushed()+". "+visualStopText(w, "land"))
-		}
 		c.pushBranch(w)
 		if w == c.canon {
 			c.canonBase = c.base
 		}
 		switch c.route {
 		case "merge and push":
-			// An own-branch self-review loop lands only once its rows admit it (NA passes).
-			c.run("check-loop-landing", c.canon, "spectre/"+c.name)
-			if c.rc != 0 {
-				c.stopAs("loop-landing-refused", "loop-landing", fmt.Sprintf("flow-guard check-loop-landing exit %d — finish the self-review loop its LOOP-LANDING-REFUSED lines name, then re-run land; nothing landed from %s", c.rc, w))
-			}
 			if !c.gitPass("-C", w, "push", "origin", "HEAD:"+c.base) {
 				c.say("PUSH-REJECTED: " + w + " — re-syncing onto origin/" + c.base + " once")
 				c.baseOf(o)
@@ -169,9 +161,6 @@ func (c *ic) land() {
 					c.stopAs("sync-failed", "sync", fmt.Sprintf("sync-onto-base exit %d — report its output", c.rc))
 				}
 				c.rebaseLint(w, "already pushed: "+alreadyPushed()+"; ")
-				if !c.visualOK(w, c.base) {
-					c.stopAs("visual-verify-missing", "visual-verify", "re-synced onto origin/"+c.base+" after its push was rejected, so it was not pushed there; already pushed: "+alreadyPushed()+". "+visualStopText(w, "land"))
-				}
 				c.refreshFixedRefs(w)
 				c.pushBranch(w)
 				if !c.gitPass("-C", w, "push", "origin", "HEAD:"+c.base) {

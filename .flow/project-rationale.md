@@ -45,9 +45,9 @@ so a declaration is validated where it is read, in whichever repository holds it
 stays because this repository's own configuration is one more configuration worth checking, and
 because it keeps the guard runnable from a bare tree.
 
-**`flow-guard check-foreign-staged`, `flow-guard check-finish-preflight`, `flow-guard check-unfinished-work`,
-`flow-guard check-cleanup-complete` and `flow-guard check-worktree-processes` are deliberately not lint steps.**
-All five are `/flow` integrate/cleanup helpers that need a change in flight and a real worktree, a
+**`flow-guard check-foreign-staged`, `flow-guard check-finish-preflight` and `flow-guard check-unfinished-work`
+are deliberately not lint steps.**
+All three are `/flow` integrate/cleanup helpers that need a change in flight and a real worktree, a
 main checkout, a repository or a state directory passed in as arguments; they answer a question
 about one change, not about the state of the repository's text. A lint step that cannot run against
 a bare tree would fail on every unrelated invocation, so

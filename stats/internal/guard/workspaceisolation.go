@@ -46,13 +46,6 @@ import (
 // are on stdout and the refusals on stderr, so a caller reading stdout is
 // reading findings and never an excuse for their absence.
 //
-// WHY THE VERDICT WORDS DIFFER FROM flow-guard check-cleanup-complete's. That guard says
-// COMPLETE/LEFTOVER about the same section of the same file, and the two
-// vocabularies are deliberately not shared. It asks whether the removal
-// HAPPENED; this one asks whether the declaration is WELL FORMED. A reader who
-// carried COMPLETE across to OK would be carrying an answer about resources into
-// an answer about text.
-//
 // NEVER FAIL OPEN — the rule every branch below is written to. A project that
 // declares no section passes SILENTLY, and that is the overwhelmingly common
 // case, so every OTHER way of ending up with nothing to check has to be told
@@ -93,27 +86,23 @@ import (
 //
 // THE INPUT IS ATTACKER-INFLUENCED. `.flow/project.md` is tracked in the
 // repository and editable in any pull request. NOTHING read here is executed:
-// this guard never runs a project's `create`, `remove` or `survivors` command,
+// this guard never runs a project's `create`, `remove` or `orphans` command,
 // never resolves a path out of the file, and never interpolates a cell into a
 // shell. The whole of the parsing happens inside one function (wiValidate in
 // stats/internal/guard/workspaceisolation.go) whose only input is the file's
 // text — which is also why its cell splitter is a character walk rather than a
 // field split.
 //
-// THE PARSER IS THE CLEANUP GUARD'S, WIDENED FROM TWO COLUMNS TO FOUR. Its
-// hazards are the same because its input is: a `|` inside a cell, written `\|`,
-// must not split the row; a row may omit its trailing `|`; a file may arrive
-// with CRLF line endings; and a row may be indented. THE PARSER ITSELF stays a
-// copy of its own (wiParse.splitCells, not the cleanup guard's ccWorkspaceRow);
-// the heading rule, the token shape and the display escaping are the cleanup
-// guard's own Go values (ccHeading, ccUnknownToken in
-// stats/internal/guard/cleanupcomplete.go, ccSanitize in
-// stats/internal/guard/text.go), in the one flow-guard binary both
-// guards run in.
+// THE PARSER'S HAZARDS: a `|` inside a cell, written `\|`, must not split the
+// row; a row may omit its trailing `|`; a file may arrive with CRLF line
+// endings; and a row may be indented (wiParse.splitCells). The heading rule,
+// the token shape and the display escaping are shared Go values (ccHeading,
+// ccUnknownToken in stats/internal/guard/worktreecleanup.go, ccSanitize in
+// stats/internal/guard/text.go).
 //
 // A FENCED EXAMPLE INSIDE THE SECTION IS PARSED AS A REAL TABLE, and that is a
 // known limitation rather than an oversight. This guard carries no fence
-// tracker, exactly as the cleanup guard's parser carries none, so a project that
+// tracker, so a project that
 // writes a specimen table inside the section will have it validated. The failure
 // direction is the safe one — a specimen is reported rather than silently
 // skipped — and the remedy is to put the example outside the section, where
@@ -145,12 +134,10 @@ var (
 //     failure") on a line that is not valid UTF-8, so the bash refused the
 //     whole file as "the validator did not run to completion"; this port
 //     reads such bytes as bytes.
-//   - The heading rule is ccHeading over ASCII-lowercased text, the cleanup
-//     guard's own — the rule the bash named as the one it shares with that
-//     guard. The bash's grep and awk also took U+00A0 for the space in a
-//     heading under a UTF-8 locale, so a `#<U+00A0>other` line also ended the
-//     section there and does not here; a section the cleanup guard does not
-//     read is not one this guard validates either.
+//   - The heading rule is ccHeading over ASCII-lowercased text. The bash's
+//     grep and awk also took U+00A0 for the space in a heading under a UTF-8
+//     locale, so a `#<U+00A0>other` line also ended the section there and
+//     does not here.
 //   - awk -v processed backslash escapes in the configuration's path before
 //     quoting it in a violation line; the path is quoted here as given.
 func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) int {
@@ -238,8 +225,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 		// The heading rule, written once (ccHeading) and used by the presence
 		// test, the duplicate count and the extraction alike. Two spellings of
 		// it would be two answers to "is this project isolated?", and the
-		// extraction's would win silently. It is check-cleanup-complete's
-		// rule, so a section that guard reads is a section this one validates.
+		// extraction's would win silently.
 		count := 0
 		for _, l := range recs {
 			if ccHeading.MatchString(ccASCIILower(l)) {
@@ -253,10 +239,8 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer) i
 		// TWO DECLARATIONS ARE NOT A DECLARATION. The file is hand-written, so
 		// a heading duplicated by a bad merge or a copied block is a realistic
 		// mistake, and the two sections can name two different commands
-		// against two different services. check-cleanup-complete reports the
-		// same shape as a SKIP, because its question is whether it may run one
-		// of them; the question here is whether the declaration is well
-		// formed, and an ambiguous one is not. The count is reported because
+		// against two different services. The declaration is not well formed:
+		// an ambiguous one never is. The count is reported because
 		// "you have two" is what the operator has to fix. Neither section is
 		// validated: validating both would report each row twice, and
 		// validating the first would be this guard picking the winner the
@@ -321,7 +305,7 @@ type wiRef struct {
 // program, whose only input was the file's text. THE INPUT IS
 // ATTACKER-INFLUENCED — `.flow/project.md` is tracked in the repository and
 // editable in any pull request — and NOTHING read here is executed: this
-// guard never runs a project's `create`, `remove` or `survivors` command,
+// guard never runs a project's `create`, `remove` or `orphans` command,
 // never resolves a path out of the file, and never interpolates a cell into a
 // shell.
 type wiParse struct {
@@ -352,9 +336,8 @@ func wiValidate(cfg string, recs []string, space func(rune) bool, utf8Locale, pr
 		}
 	}
 	for i, line := range recs {
-		// A heading of any level ends the section, which is the same shape
-		// the cleanup guard scans with: a project configuration is a
-		// human-written Markdown file of sections, not a nested document.
+		// A heading of any level ends the section: a project configuration
+		// is a human-written Markdown file of sections, not a nested document.
 		if ccAnyHeading.MatchString(line) {
 			flush()
 			inSec = ccHeading.MatchString(ccASCIILower(line))
@@ -730,8 +713,8 @@ func (p *wiParse) resourceRow(line int, cells []string) {
 // reports the wrong thing about all of them.
 func (p *wiParse) commandRow(line int, cells []string) {
 	verb := p.fold(cells[0])
-	if verb != "create" && verb != "remove" && verb != "survivors" && verb != "orphans" {
-		p.violation(line, "command row `"+p.trim(cells[0])+"`: the command table has four verbs — `create`, `remove`, `survivors` and `orphans` — and nothing calls anything else, so the row is dropped and never runs")
+	if verb != "create" && verb != "remove" && verb != "orphans" {
+		p.violation(line, "command row `"+p.trim(cells[0])+"`: the command table has three verbs — `create`, `remove` and `orphans` — and nothing calls anything else, so the row is dropped and never runs")
 		return
 	}
 	if first, ok := p.cmdSeen[verb]; ok {

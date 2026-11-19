@@ -5,13 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
@@ -122,18 +119,24 @@ func (f *uwFix) setFile(t *testing.T, name, body string) {
 	writeFile(t, f.bin+"/"+name, body)
 }
 
-// setFindings is set_findings: refs F1..Fn, one per status, written both as
-// Env.Findings' answer and as the stub's findings.json.
+// setFindings is set_findings: refs F1..Fn, one per status, each of
+// severity Important, written both as Env.Findings' answer and as the stub's
+// findings.json. A status written `<status>|<severity>` sets the severity.
 func (f *uwFix) setFindings(t *testing.T, statuses ...string) {
 	t.Helper()
 	type finding struct {
 		Ref        string `json:"ref"`
+		Severity   string `json:"severity"`
 		Status     string `json:"status"`
 		Reproducer string `json:"reproducer"`
 	}
 	all := []finding{}
 	for i, s := range statuses {
-		all = append(all, finding{"F" + strconv.Itoa(i+1), s, "scripts/x.sh"})
+		st, sev, ok := strings.Cut(s, "|")
+		if !ok {
+			sev = "Important"
+		}
+		all = append(all, finding{"F" + strconv.Itoa(i+1), sev, st, "scripts/x.sh"})
 	}
 	b, err := json.Marshal(all)
 	if err != nil {
@@ -283,158 +286,13 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	each(demo(file("docs/manual-test/guide.md", "a leftover guide\n")),
 		uwVerdict("a leftover docs/manual-test/ present at invocation time is not a signal", "CLEAR:"))
 
-	// 2b. Signal three — a dispatch row never closed with an outcome
-	//     (kan-929's three "Outcome: not recorded" rows reached integrate).
-	dispatches := func(body string) func(t *testing.T, f *uwFix) {
-		return func(t *testing.T, f *uwFix) { f.setFile(t, "dispatches.json", body+"\n") }
-	}
-	each(demo(dispatches(`[{"key":"task-1-implementer","outcome":"completed","sessionToken":"mf-run1"},{"key":"task-14-reviewer","sessionToken":"mf-run2"}]`)),
-		uwVerdict("a dispatch row with no outcome is OUTSTANDING", "OUTSTANDING:"),
-		uwReason("the breakdown names the unclosed row's key", "1 dispatch row(s) with no outcome (task-14-reviewer)"),
-		uwReason("the close command carries the row's own key and session token", "flow record dispatch end -change demo -key task-14-reviewer -session-token mf-run2 -outcome <outcome> -C "))
-	each(demo(dispatches(`[{"seq":7,"key":"task-9-implementer"}]`)),
-		uwVerdict("a tokenless open row is still OUTSTANDING", "OUTSTANDING:"),
-		uwReason("a tokenless row is named as not closable instead of a broken command", "row seq 7 has no key or session token and cannot be closed by `flow record dispatch end`"))
-	each(demo(dispatches("not json")), uwRC("unreadable dispatch rows cannot answer", 2))
-	each(demo(file("bin/dispatches.fail", "")), uwRC("a failed dispatches read cannot answer", 2))
-	// 2c. Signal four — a ticked appended task no dispatch row names
-	//     (kan-979's fix-round task reached integrate with no rows at all).
-	planned := func(body, rows string) func(t *testing.T, f *uwFix) {
-		return func(t *testing.T, f *uwFix) {
-			f.plan(t, body)
-			f.setFile(t, "dispatches.json", rows+"\n")
-			f.ranges = []string{uwCommits(t, f.wt, "base", "fix: the appended task\n\nTask-Id: 7")}
-		}
-	}
-	// covered is a ticked appended task 7 with its implementer row and a
-	// later panel reviewer row: only its commit is left to judge.
-	covered := `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"panel-2-primary","role":"reviewer","outcome":"clean"}]`
-	committedAs := func(baseMsg, msg string, peer bool) func(t *testing.T, f *uwFix) {
-		return func(t *testing.T, f *uwFix) {
-			f.plan(t, "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 7. appended by a fix run\n")
-			f.setFile(t, "dispatches.json", covered+"\n")
-			if peer {
-				// A peer the merge-order record names, so signal ten is satisfied.
-				writeFile(t, f.wt+"/spectre/peers", "peer ../peer\n")
-				writeFile(t, f.wt+"/spectre/changes/demo/link.md", "## Merge order\n\n1. `.`\n2. `peer`\n")
-				f.ranges = []string{uwCommits(t, f.wt, "base", "fix: no trailer"), uwCommits(t, filepath.Dir(f.wt)+"/peer", "base", msg)}
-				return
-			}
-			f.ranges = []string{uwCommits(t, f.wt, baseMsg, msg)}
-		}
-	}
-	appended := "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 2. grouped\n- [x] 7. appended by a fix run\n"
-	each(demo(planned(appended, `[{"key":"task-1-implementer","outcome":"completed"}]`)),
-		uwVerdict("an appended task with no implementer dispatch row is OUTSTANDING", "OUTSTANDING:"),
-		uwReason("the breakdown names the undispatched appended task", "1 ticked appended task(s) with no dispatch row (Task 7)"))
-	each(demo(planned(appended, `[{"seq":1,"key":"task-1-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":3,"key":"panel-2-primary","role":"reviewer","outcome":"clean"}]`)),
-		uwVerdict("an appended task with its implementer row and a later reviewer row is CLEAR", "CLEAR:"))
-	each(demo(planned(appended, `[{"seq":1,"key":"impl-7","taskId":"7","role":"implementer","outcome":"completed"},{"seq":2,"key":"panel-2-primary","role":"reviewer","outcome":"clean"}]`)),
-		uwVerdict("a row whose taskId names the appended task covers it", "CLEAR:"))
-	each(demo(planned(appended, `[{"seq":1,"key":"task-6+7-implementer-fix-1","role":"implementer","outcome":"completed"},{"seq":2,"key":"panel-2-primary","role":"reviewer","outcome":"clean"}]`)),
-		uwVerdict("a +-joined key covers the appended task it names", "CLEAR:"))
-	each(demo(planned(appended, `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"}]`)),
-		uwVerdict("an appended task with an implementer row and no reviewer row is OUTSTANDING", "OUTSTANDING:"),
-		uwReason("the breakdown names the unreviewed appended task", "1 ticked appended task(s) with no panel reviewer row (key `panel-<round>-<slot>`) begun after its implementer row (Task 7)"))
-	each(demo(planned(appended, `[{"seq":1,"key":"panel-1-primary","role":"reviewer","outcome":"clean"},{"seq":2,"key":"task-7-implementer","role":"implementer","outcome":"completed"}]`)),
-		uwVerdict("a reviewer row begun before the implementer row does not review the appended task", "OUTSTANDING:"))
-	each(demo(planned(appended, `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"pipeline-fix-1-review-1","role":"reviewer","outcome":"clean"}]`)),
-		uwVerdict("a non-panel reviewer row does not review the appended task", "OUTSTANDING:"))
-	// An in-run fix task (verify-fix-loop.md step 1) never raises
-	// **Tasks appended:**, and is judged all the same (kan-941's tasks 12-16).
-	inRun := "- [x] 1. done\n- [x] 7. In-run fix 1 — flow.visual-verify: the menu shadow\n"
-	each(demo(planned(inRun, `[{"seq":1,"key":"task-1-implementer","role":"implementer","outcome":"completed"}]`)),
-		uwVerdict("an in-run fix task with no dispatch row is OUTSTANDING", "OUTSTANDING:"),
-		uwReason("the breakdown names the undispatched in-run fix task", "1 ticked appended task(s) with no dispatch row (Task 7)"))
-	each(demo(planned(inRun, `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"panel-2-primary","role":"reviewer","outcome":"clean"}]`)),
-		uwVerdict("an in-run fix task with its implementer row and a later reviewer row is CLEAR", "CLEAR:"))
-	each(demo(planned("- [x] 1. done\n- [x] 2. grouped\n- [x] 3. grouped\n", `[{"key":"task-2-implementer","outcome":"completed"}]`)),
-		uwVerdict("plan-time tasks grouped under one key, with no Tasks appended line, are CLEAR", "CLEAR:"))
-	// 2e. Signal five — a panel round dispatched with no pass row (kan-939:
-	//     round 1 ran panel-1-primary+principles and recorded nothing).
-	withPasses := func(rows, passes string) func(t *testing.T, f *uwFix) {
-		return func(t *testing.T, f *uwFix) {
-			f.setFile(t, "dispatches.json", rows+"\n")
-			f.setFile(t, "passes.json", passes+"\n")
-		}
-	}
-	panelRows := `[{"seq":1,"key":"panel-0-primary+principles","role":"reviewer","outcome":"clean"},{"seq":2,"key":"panel-fix-1","role":"panel-fix","outcome":"completed"},{"seq":3,"key":"panel-1-primary+principles","role":"reviewer","outcome":"clean"},{"seq":4,"key":"task-1-reviewer","role":"reviewer","outcome":"clean"}]`
-	each(demo(withPasses(panelRows, `[{"id":1,"round":0,"note":"roster: full"}]`)),
-		uwVerdict("a panel round dispatched with no pass row is OUTSTANDING", "OUTSTANDING:"),
-		uwReason("the breakdown names the round and its keys", "1 panel round(s) dispatched with no pass row (round 1: panel-1-primary+principles)"))
-	each(demo(withPasses(panelRows, `[{"id":1,"round":0,"note":"roster: full"},{"id":2,"round":1,"note":"n"}]`)),
-		uwVerdict("every dispatched panel round with a pass row is CLEAR", "CLEAR:"))
-	each(demo(withPasses(`[{"seq":1,"key":"task-1-reviewer","role":"reviewer","outcome":"clean"},{"seq":2,"key":"panel-fix-3","role":"panel-fix","outcome":"completed"}]`, "not json")),
-		uwVerdict("no panel reviewer row reads no pass rows", "CLEAR:"))
-	each(demo(withPasses(panelRows, "not json")), uwRC("unreadable pass rows cannot answer", 2))
-	each(demo(func(t *testing.T, f *uwFix) {
-		withPasses(panelRows, "[]")(t, f)
-		f.setFile(t, "passes.fail", "")
-	}), uwRC("a failed pass-row read cannot answer", 2))
-
-	// 2f. Signal six — no change summary recorded (kan-957: 35 of 36 gymie
-	//     changes landed with none).
-	bundle := func(body string) func(t *testing.T, f *uwFix) {
-		return func(t *testing.T, f *uwFix) { f.setFile(t, "bundle.json", body) }
-	}
-	each(demo(bundle("# Self-review context bundle for demo\n\nfound: 0 of 1 sources; skipped: 1 of 1 sources\nskipped: change summary (absent)\n\n")),
-		uwVerdict("a change with no recorded summary is OUTSTANDING", "OUTSTANDING:"),
-		uwReason("the breakdown names the summary and its record command", "no change summary recorded — record the run's summary with `flow record summary -change demo -C "))
-	each(demo(bundle("# Self-review context bundle for demo\n\nfound: 1 of 1 sources; skipped: 0 of 1 sources\n\n## change summary\n\nskipped: change summary (absent)\n")),
-		uwVerdict("the skipped line inside a recorded summary's text is not the header's", "CLEAR:"))
-	each(demo(bundle("not a bundle\n")), uwRC("a bundle with no found: line cannot answer", 2))
-	each(demo(func(t *testing.T, f *uwFix) { f.setFile(t, "bundle.fail", "") }),
-		uwRC("a failed bundle read cannot answer", 2))
-
-	// 2d. Signal four's commit half — a dispatch row is not a commit (a
-	//     back-filled row named a task whose work never landed).
-	each(demo(committedAs("base", "fix: the appended task\n\nFlow-Key: panel-fix-2", false)),
-		uwVerdict("an appended task with its rows but no Task-Id commit is OUTSTANDING", "OUTSTANDING:"),
-		uwReason("the breakdown names the uncommitted appended task", "1 ticked appended task(s) with no commit carrying its `Task-Id:` trailer on the branch (Task 7)"))
-	each(demo(committedAs("fix: before the branch\n\nTask-Id: 7", "fix: no trailer", false)),
-		uwVerdict("a Task-Id commit at or before the merge base does not count", "OUTSTANDING:"))
-	each(demo(committedAs("base", "fix: the appended task\n\nTask-Id: 7", true)),
-		uwVerdict("a Task-Id commit in a peer worktree's range covers the appended task", "CLEAR:"))
-	each(func(t *testing.T) uwResult {
-		f := newUW(t)
-		f.plan(t, "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 7. appended by a fix run\n")
-		f.setFile(t, "dispatches.json", covered+"\n")
-		fixtureRepo(t, f.wt, repoShape{})
-		gitRun(t, f.wt, "add", "spectre/changes/demo/tasks.md")
-		gitRun(t, f.wt, "commit", "-q", "-m", "chore(spectre): drop demo")
-		base := tcfGit(t, f.wt, "rev-parse", "HEAD")
-		gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "fix: no trailer")
-		return f.run(t, f.wt, "demo", "", f.wt+"="+base)
-	}, uwVerdict("an appended task ticked in the plan at the range's base still needs its own commit: the plan is read from disk, never from history", "OUTSTANDING:"))
-	each(func(t *testing.T) uwResult {
-		f := newUW(t)
-		f.plan(t, "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 7. appended by a fix run\n")
-		f.setFile(t, "dispatches.json", covered+"\n")
-		fixtureRepo(t, f.wt, repoShape{})
-		gitRun(t, f.wt, "add", "spectre/changes/demo/tasks.md")
-		gitRun(t, f.wt, "commit", "-q", "-m", "fix: the appended task, squashed")
-		gitRun(t, f.wt, "rm", "-q", "--cached", "spectre/changes/demo/tasks.md")
-		gitRun(t, f.wt, "commit", "-q", "-m", "chore(spectre): drop demo")
-		base := tcfGit(t, f.wt, "rev-parse", "HEAD")
-		gitRun(t, f.wt, "commit", "-q", "--allow-empty", "-m", "fix: no trailer")
-		return f.run(t, f.wt, "demo", "", f.wt+"="+base)
-	}, uwVerdict("an appended task ticked in the plan at the parent of a drop commit still needs its own commit: the plan is read from disk, never from history", "OUTSTANDING:"))
-	each(func(t *testing.T) uwResult {
-		f := newUW(t)
-		f.plan(t, "> **Tasks appended:** 1\n\n- [x] 7. appended by a fix run\n")
-		f.setFile(t, "dispatches.json", covered+"\n")
-		return f.run(t, f.wt, "demo")
-	}, uwRC("ticked appended tasks with no range passed cannot answer", 2))
-	each(demo(nil), uwVerdict("a plan with no appended task needs no range", "CLEAR:"))
 	each(func(t *testing.T) uwResult {
 		f := newUW(t)
 		return f.run(t, f.wt, "demo", "", "no-equals-sign")
 	}, uwRC("a range argument not shaped <worktree>=<merge-base> is refused", 2))
 
-	// 2d. Signal seven and the folded visual verdict (kan-989 self-review):
-	//     a missing range is derived, a code commit after the last completed
-	//     verify row is unfinished, and a ui-path commit no visual verifier
-	//     saw is too.
+	// 2d. Signal seven (kan-989 self-review): a missing range is derived,
+	//     and a code commit after the last completed verify row is unfinished.
 	const (
 		before = "2026-01-01T10:00:00Z"
 		after  = "2026-01-01T12:00:00Z"
@@ -462,8 +320,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	}
 	each(func(t *testing.T) uwResult {
 		f := newUW(t)
-		f.plan(t, "> **Tasks appended:** 1\n\n- [x] 1. done\n- [x] 7. appended by a fix run\n")
-		f.setFile(t, "dispatches.json", `[{"seq":1,"key":"task-7-implementer","role":"implementer","outcome":"completed"},{"seq":2,"key":"panel-1-primary","role":"reviewer","outcome":"clean"},`+verifyRow(after)+"]\n")
+		f.setFile(t, "dispatches.json", "["+verifyRow(before)+"]\n")
 		origin := t.TempDir() + "/origin.git"
 		fixtureRepoWithOrigin(t, f.wt, origin, repoShape{Branch: "main", Commit: "base"})
 		gitRun(t, f.wt, "checkout", "-q", "-b", "feature")
@@ -471,7 +328,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		gitRun(t, f.wt, "add", "src/a.go")
 		gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: the appended task\n\nTask-Id: 7")
 		return f.run(t, f.wt, "demo")
-	}, uwVerdict("a call with no range derives the worktree's own merge base", "CLEAR:"))
+	}, uwVerdict("a call with no range derives the worktree's own merge base", "OUTSTANDING:"))
 	each(demo(verified("src/a.go", before)),
 		uwVerdict("a code commit after the last completed verify row is OUTSTANDING", "OUTSTANDING:"),
 		uwReason("the breakdown names the code commit no verify row covers", "no completed inline verify row since"))
@@ -493,31 +350,6 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		uwVerdict("the pipeline's flow.visual-verify record commit after the verify row is CLEAR", "CLEAR:"))
 	each(demo(verified("spectre/changes/demo/tasks.md", before)),
 		uwVerdict("planning-only commits after the verify row are CLEAR", "CLEAR:"))
-	uiCommit := func(t *testing.T, f *uwFix) {
-		writeFile(t, f.wt+"/.flow/project.md", "# project\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `src/web/**` |\n")
-		f.setFile(t, "decisions.json", "[]\n")
-		verified("src/web/App.tsx", after)(t, f)
-	}
-	each(demo(uiCommit),
-		uwVerdict("a ui-path commit no visual verifier saw is OUTSTANDING", "OUTSTANDING:"),
-		uwReason("the breakdown carries the visual guard's VISUAL-VERIFY-MISSING line", "VISUAL-VERIFY-MISSING"))
-	each(demo(func(t *testing.T, f *uwFix) {
-		uiCommit(t, f)
-		wt, _ := filepath.EvalSymlinks(f.wt)
-		out, _ := exec.Command(fixtureGit, "-C", f.wt, "rev-parse", "HEAD").Output()
-		head := strings.TrimSpace(string(out))
-		f.setFile(t, "verdicts.json", `[{"change":"demo","guard":"check-visual-verify-dispatched","worktree":"`+wt+`","verdict":"VISUAL-VERIFY-MISSING: x — HEAD `+head+`","falsePositive":true}]`+"\n")
-	}),
-		uwVerdict("a ui-path commit whose MISSING verdict an operator flagged a false positive for this HEAD is CLEAR", "CLEAR:"))
-	each(demo(func(t *testing.T, f *uwFix) {
-		uiCommit(t, f)
-		wt, _ := filepath.EvalSymlinks(f.wt)
-		out, _ := exec.Command(fixtureGit, "-C", f.wt, "rev-parse", "HEAD").Output()
-		head := strings.TrimSpace(string(out))
-		f.setFile(t, "verdicts.json", `[{"change":"demo","guard":"check-visual-verify-dispatched","worktree":"`+wt+`","verdict":"VISUAL-VERIFY-MISSING: x HEAD `+head+`","falsePositive":true}]`+"\n")
-	}),
-		uwVerdict("a flagged verdict ending HEAD <sha> without the \" — \" separator integrate requires is still OUTSTANDING", "OUTSTANDING:"))
-
 	// 3. Signal one — the plan.
 	each(demo(unticked),
 		uwVerdict("an unchecked plan item is OUTSTANDING", "OUTSTANDING:"),
@@ -554,22 +386,24 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	// 4. Signal two — findings whose recorded status is not closed.
 	each(demo(findings("open")),
 		uwVerdict("an open finding is OUTSTANDING", "OUTSTANDING:"),
-		uwReason("an open finding names its signal, with its count", "1 open finding(s)"))
+		uwReason("an open finding names its signal, with its count", "1 open Critical or Important finding(s)"))
 	each(demo(findings("open", "fixed", "open", "open")),
 		uwVerdict("several open findings are OUTSTANDING", "OUTSTANDING:"),
-		uwReason("every open finding is counted, not just the first", "3 open finding(s)"))
+		uwReason("every open finding is counted, not just the first", "3 open Critical or Important finding(s)"))
 	each(demo(findings("withdrawn the operator retracted it: the guard already covers this")),
 		uwVerdict("a withdrawal with a reason is closed", "CLEAR:"))
 	each(demo(findings("withdrawn")),
 		uwVerdict("a bare withdrawn finding is open (KAN-791)", "OUTSTANDING:"),
-		uwReason("a bare withdrawn finding is counted open", "1 open finding(s)"))
+		uwReason("a bare withdrawn finding is counted open", "1 open Critical or Important finding(s)"))
 	each(demo(findings("withdrawn   ")),
 		uwVerdict("a whitespace-only withdrawal reason is open", "OUTSTANDING:"),
-		uwReason("a whitespace-only withdrawal reason is counted open", "1 open finding(s)"))
+		uwReason("a whitespace-only withdrawal reason is counted open", "1 open Critical or Important finding(s)"))
 	each(demo(findings("deferred cosmetic, not worth a fix round")),
 		uwVerdict("a deferred finding is open", "OUTSTANDING:"),
-		uwReason("a deferred finding is counted open", "1 open finding(s)"))
+		uwReason("a deferred finding is counted open", "1 open Critical or Important finding(s)"))
 	each(demo(findings()), uwVerdict("a store with no findings for this run is CLEAR", "CLEAR:"))
+	each(demo(findings("open|Minor", "open|minor")), uwVerdict("an open Minor finding is not counted", "CLEAR:"))
+	each(demo(findings("open|critical")), uwReason("an open Critical finding is counted", "1 open Critical or Important finding(s)"))
 	// 4e. The store is unreachable: exit 2, never 0 or 1.
 	each(demo(func(t *testing.T, f *uwFix) {
 		f.findings, f.fErr = []byte("flow: connect: connection refused"), errors.New("exit status 1")
@@ -613,7 +447,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	each(demo(func(t *testing.T, f *uwFix) { unticked(t, f); f.setFindings(t, "open") }),
 		uwVerdict("both signals firing at once is OUTSTANDING", "OUTSTANDING:"),
 		uwReason("the combined line names the plan signal", "unchecked plan item"),
-		uwReason("the combined line also names the findings signal", "1 open finding(s)"))
+		uwReason("the combined line also names the findings signal", "1 open Critical or Important finding(s)"))
 
 	// 5b. A plan that exists but cannot be read is a refusal, never zero
 	//     matches. Skipped as root, where chmod 000 does not block reads.
@@ -934,53 +768,6 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		}))
 }
 
-func TestCheckUnfinishedWorkCloseCommandCarriesEndedAt(t *testing.T) {
-	f := newUW(t)
-	f.setFile(t, "dispatches.json", `[{"key":"task-2-reviewer","role":"reviewer","sessionToken":"mf-r"},`+
-		`{"key":"task-3-implementer","role":"implementer","sessionToken":"mf-i"}]`+"\n")
-	r := f.run(t, f.wt, "demo")
-	for _, want := range []string{
-		"-key task-2-reviewer -session-token mf-r -outcome <outcome> -C " + f.wt + " -ended-at <when its work ended>`",
-		"-key task-3-implementer -session-token mf-i -outcome <outcome> -C " + f.wt + " -ended-at <when its work ended> -commit <its task commit>`",
-	} {
-		if !strings.Contains(r.out, want) {
-			t.Errorf("close command missing %q:\n%s", want, r.out)
-		}
-	}
-}
-
-// TestCheckUnfinishedWorkNoPanelPassRecorded pins signal eight (kan-970
-// self-review): a change whose range carries a code commit and whose store
-// holds no pass row at all is OUTSTANDING; a recorded pass, or only
-// planning commits, clears it.
-func TestCheckUnfinishedWorkNoPanelPassRecorded(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	for _, c := range []struct {
-		name, path, passes, want string
-	}{
-		{"a code commit with no pass row is OUTSTANDING", "src/a.go", "[]", "no review-panel pass recorded for code commit "},
-		{"a code commit with a pass row is CLEAR", "src/a.go", `[{"id":1,"round":0,"note":"roster: full"}]`, "CLEAR:"},
-		{"a planning-only commit with no pass row is CLEAR", "spectre/changes/demo/notes.md", "[]", "CLEAR:"},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			f := newUW(t)
-			fixtureRepo(t, f.wt, repoShape{Commit: "base"})
-			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
-			writeFile(t, f.wt+"/"+c.path, "x\n")
-			gitRun(t, f.wt, "add", c.path)
-			gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")
-			f.setFile(t, "dispatches.json", `[{"seq":9,"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-01T12:00:00Z"}]`+"\n")
-			f.setFile(t, "passes.json", c.passes+"\n")
-			r := f.run(t, f.wt, "demo", "", f.wt+"="+base)
-			if r.rc != 0 || !strings.Contains(r.out, c.want) {
-				t.Fatalf("exit %d stdout %q stderr %q, want exit 0 and %q", r.rc, r.out, r.err, c.want)
-			}
-		})
-	}
-}
-
 // TestCheckUnfinishedWorkRefusesAnUnsplitRangeList pins the kan-970
 // self-review fix: two ranges passed as one zsh-unsplit argument are refused
 // at the argument, naming the cause, not later as an unreadable git range.
@@ -992,254 +779,6 @@ func TestCheckUnfinishedWorkRefusesAnUnsplitRangeList(t *testing.T) {
 	r := f.run(t, f.wt, "demo", "", a+" "+b)
 	if r.rc != 2 || !strings.Contains(r.err, "zsh does not word-split an unquoted $VAR") {
 		t.Fatalf("exit %d stderr %q, want exit 2 naming the unsplit list", r.rc, r.err)
-	}
-}
-
-// TestCheckUnfinishedWorkVerifyFailureNotAddressed pins signal nine
-// (decision verify-failure-signal, kan-994 self-review): a verify report's
-// failed capture that no commit after the report touched, and no narrative
-// line cites a range commit for, is OUTSTANDING.
-func TestCheckUnfinishedWorkVerifyFailureNotAddressed(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	const capture = "  1 failed — fidelity/full-app-suite.spec.ts:110 register-from-invite.png, 24px differ\n"
-	const reason = "verify failure not addressed: fidelity/full-app-suite.spec.ts:110 register-from-invite.png (verify-report-visual-verify.md)"
-	before, after := "2026-01-01T11:00:00Z", "2026-01-01T13:00:00Z"
-	reportAt := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
-	commitAt := func(t *testing.T, dir, date, path string) string {
-		t.Helper()
-		if path != "" {
-			writeFile(t, dir+"/"+path, date+"\n")
-			gitRun(t, dir, "add", path)
-		}
-		cmd := exec.Command(fixtureGit, "-C", dir, "commit", "-q", "--allow-empty", "-m", "fix: "+path)
-		cmd.Env = append(append(os.Environ(), fixtureGitEnv...),
-			"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
-			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com",
-			"GIT_AUTHOR_DATE="+date, "GIT_COMMITTER_DATE="+date)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("commit: %v\n%s", err, out)
-		}
-		return tcfGit(t, dir, "rev-parse", "HEAD")
-	}
-	for _, c := range []struct {
-		name   string
-		report string
-		// setup makes the range's commits and returns the narrative body.
-		setup  func(t *testing.T, wt, base string) string
-		want   string
-		wantIn bool
-	}{
-		{"no commit touches the capture", "- verify: exit 1\n" + capture,
-			func(t *testing.T, wt, base string) string { return "" }, reason, true},
-		{"a later commit touching the capture addresses it", "- verify: exit 1\n" + capture,
-			func(t *testing.T, wt, base string) string {
-				commitAt(t, wt, after, "fidelity/full-app-suite.spec.ts-snapshots/register-from-invite-darwin.png")
-				return ""
-			}, "verify failure not addressed", false},
-		{"a commit before the report does not", "- verify: exit 1\n" + capture,
-			func(t *testing.T, wt, base string) string {
-				commitAt(t, wt, before, "fidelity/full-app-suite.spec.ts-snapshots/register-from-invite-darwin.png")
-				return ""
-			}, reason, true},
-		{"a narrative line citing a range commit addresses it", "- verify: exit 1\n" + capture,
-			func(t *testing.T, wt, base string) string {
-				sha := commitAt(t, wt, after, "src/other.go")
-				return "Verify failure addressed: fidelity/full-app-suite.spec.ts:110 — " + sha + "\n"
-			}, "verify failure not addressed", false},
-		{"a narrative line citing a sha outside the range does not", "- verify: exit 1\n" + capture,
-			func(t *testing.T, wt, base string) string {
-				return "Verify failure addressed: fidelity/full-app-suite.spec.ts:110 — " + base + "\n"
-			}, reason, true},
-		{"a failure naming no capture is addressed by a later touch of its spec", "- verify: exit 1\n  1 failed — tests/auth.spec.ts:42 times out\n",
-			func(t *testing.T, wt, base string) string {
-				commitAt(t, wt, after, "tests/auth.spec.ts")
-				return ""
-			}, "verify failure not addressed", false},
-		{"a passing report contributes nothing", "- verify: exit 0\n" + capture,
-			func(t *testing.T, wt, base string) string { return "" }, "verify failure not addressed", false},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			f := newUW(t)
-			fixtureRepo(t, f.wt, repoShape{})
-			base := commitAt(t, f.wt, before, "")
-			if body := c.setup(t, f.wt, base); body != "" {
-				writeFile(t, f.wt+"/spectre/changes/demo/narrative.md", body)
-			}
-			rp := f.wt + "/.superpowers/sdd/verify-report-visual-verify.md"
-			writeFile(t, rp, "# Verify\n\n- build: exit 0\n"+c.report+"- lint: exit 0\n")
-			if err := os.Chtimes(rp, reportAt, reportAt); err != nil {
-				t.Fatal(err)
-			}
-			r := f.run(t, f.wt, "demo", "", f.wt+"="+base)
-			if r.rc != 0 || strings.Contains(r.out, c.want) != c.wantIn {
-				t.Fatalf("exit %d stdout %q stderr %q; want exit 0 and %q present=%v", r.rc, r.out, r.err, c.want, c.wantIn)
-			}
-		})
-	}
-}
-
-// TestCheckUnfinishedWorkVerifyFailureRerunPassed pins kan-1022's
-// self-review: a failed report whose next report, by mtime, passed a rerun
-// of the failed specs is addressed; a passing rerun before the failure, or a
-// failing next report, addresses nothing.
-func TestCheckUnfinishedWorkVerifyFailureRerunPassed(t *testing.T) {
-	t.Parallel()
-	const failed = "- verify: exit 1\n  1) fidelity/templates.spec.ts:80 opens the template — timeout\n"
-	const reason = "verify failure not addressed: fidelity/templates.spec.ts:80"
-	first, second := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC), time.Date(2026, 1, 1, 13, 0, 0, 0, time.UTC)
-	for _, c := range []struct {
-		name           string
-		failAt, nextAt time.Time
-		next           string
-		wantIn         bool
-	}{
-		{"a later passing rerun addresses it", first, second, "- verify: exit 0 — rerun of 19 failed specs at unchanged HEAD\n", false},
-		{"an earlier passing rerun does not", second, first, "- verify: exit 0 — rerun of 19 failed specs at unchanged HEAD\n", true},
-		{"a later failing rerun does not", first, second, "- verify: exit 1 — rerun of 19 failed specs at unchanged HEAD\n", true},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			f := newUW(t)
-			fixtureRepo(t, f.wt, repoShape{Commit: "base"})
-			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
-			for _, r := range []struct {
-				name, body string
-				at         time.Time
-			}{{"visual-verify", failed, c.failAt}, {"visual-verify-2", c.next, c.nextAt}} {
-				rp := f.wt + "/.superpowers/sdd/verify-report-" + r.name + ".md"
-				writeFile(t, rp, "## Report\n"+r.body)
-				if err := os.Chtimes(rp, r.at, r.at); err != nil {
-					t.Fatal(err)
-				}
-			}
-			r := f.run(t, f.wt, "demo", "", f.wt+"="+base)
-			if r.rc != 0 || strings.Contains(r.out, reason) != c.wantIn {
-				t.Fatalf("exit %d stdout %q stderr %q; want exit 0 and %q present=%v", r.rc, r.out, r.err, reason, c.wantIn)
-			}
-		})
-	}
-}
-
-// TestCheckUnfinishedWorkVerifyFailureFlaggedEarlier pins kan-1010's
-// self-review: screenshots.spec.ts:52 was flagged a false positive three
-// times, each flag landing on that run's newest row only. An earlier
-// false-positive verdict of this change naming the failure's `<spec>:<line>`
-// clears it; another change's verdict, another line's, a longer line
-// number's and a store that cannot answer do not.
-func TestCheckUnfinishedWorkVerifyFailureFlaggedEarlier(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	const reason = "verify failure not addressed: screenshots.spec.ts:52"
-	row := func(change, why string) string {
-		return `{"id":1,"change":"` + change + `","guard":"check-unfinished-work","falsePositive":true,"falsePositiveReason":"` + why + `","flaggedAt":"2026-10-22T02:09:55Z"}`
-	}
-	for _, c := range []struct {
-		name     string
-		verdicts string
-		fail     bool
-		wantIn   bool
-	}{
-		{"no verdict leaves it outstanding", "[]", false, true},
-		{"this change's verdict naming it clears it", "[" + row("demo", "screenshots.spec.ts:52 does not recur: 5/5 passed") + "]", false, false},
-		{"another change's verdict does not", "[" + row("other", "screenshots.spec.ts:52 does not recur") + "]", false, true},
-		{"a verdict naming another line does not", "[" + row("demo", "screenshots.spec.ts:520 does not recur") + "]", false, true},
-		{"a verdict naming another spec does not", "[" + row("demo", "fidelity/screenshots.spec.ts:52 does not recur") + "]", false, true},
-		{"a store that cannot answer leaves it outstanding", "", true, true},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			f := newUW(t)
-			fixtureRepo(t, f.wt, repoShape{Commit: "base"})
-			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
-			writeFile(t, f.wt+"/.superpowers/sdd/verify-report-visual-verify.md",
-				"# Verify\n\n- verify: exit 1\n  1) [functional] screenshots.spec.ts:52 sweep every reachable screen — test timeout\n")
-			f.setFile(t, "verdicts.json", c.verdicts+"\n")
-			if c.fail {
-				f.setFile(t, "verdicts.fail", "")
-			}
-			r := f.run(t, f.wt, "demo", "", f.wt+"="+base)
-			if r.rc != 0 || strings.Contains(r.out, reason) != c.wantIn {
-				t.Fatalf("exit %d stdout %q stderr %q; want exit 0 and %q present=%v", r.rc, r.out, r.err, reason, c.wantIn)
-			}
-		})
-	}
-}
-
-// TestCheckUnfinishedWorkMergeOrderRecord pins signal ten (decision
-// merge-order-signal, kan-995 self-review): a change whose ranges span a
-// second repository is OUTSTANDING until link.md's `## Merge order` names
-// that repository by a peer the spectre/peers file resolves to it.
-func TestCheckUnfinishedWorkMergeOrderRecord(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	const reason = "merge order does not name "
-	for _, c := range []struct {
-		name   string
-		link   string // "" writes no link.md
-		peers  string
-		ranges string // "both", "plan" or "same-repo"
-		wantIn bool
-	}{
-		{"no link.md", "", "peer ../peer\n", "both", true},
-		{"merge order names only the plan repository", "## Merge order\n\n1. `.`\n", "peer ../peer\n", "both", true},
-		{"merge order names the peer", "## Merge order\n\n1. `.`\n2. `peer`\n", "peer ../peer\n", "both", false},
-		{"a Part of section is not the merge order", "## Part of\n\n1. `.`\n2. `peer`\n", "peer ../peer\n", "both", true},
-		{"one range reads nothing", "", "peer ../peer\n", "plan", false},
-		{"two worktrees of one repository read nothing", "", "peer ../peer\n", "same-repo", false},
-		{"a peer the peers file does not declare", "## Merge order\n\n1. `.`\n2. `peer`\n", "other ../other\n", "both", true},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			f := newUW(t)
-			planRange := uwCommits(t, f.wt, "base", "fix: plan")
-			writeFile(t, f.wt+"/spectre/peers", c.peers)
-			if c.link != "" {
-				writeFile(t, f.wt+"/spectre/changes/demo/link.md", c.link)
-			}
-			args := []string{f.wt, "demo", "", planRange}
-			switch c.ranges {
-			case "both":
-				args = append(args, uwCommits(t, filepath.Dir(f.wt)+"/peer", "base", "fix: peer"))
-			case "same-repo":
-				linked := filepath.Dir(f.wt) + "/linked"
-				gitRun(t, f.wt, "worktree", "add", "-q", linked)
-				args = append(args, linked+"="+tcfGit(t, linked, "rev-parse", "HEAD~1"))
-			}
-			r := f.run(t, args...)
-			if r.rc != 0 || strings.Contains(r.out, reason) != c.wantIn {
-				t.Fatalf("exit %d stdout %q stderr %q; want exit 0 and %q present=%v", r.rc, r.out, r.err, reason, c.wantIn)
-			}
-			peer, err := filepath.EvalSymlinks(filepath.Dir(f.wt) + "/peer")
-			if err != nil {
-				peer = filepath.Dir(f.wt) + "/peer"
-			}
-			if c.wantIn && !strings.Contains(r.out, reason+peer+":") {
-				t.Fatalf("the reason does not name the peer's main checkout: %s", r.out)
-			}
-		})
-	}
-}
-
-// TestUWVerifyFailuresSpecExcludesOpeningPunctuation pins kan-1023's
-// self-review: a Playwright location wrapped in `(`, `[`, a backtick or a
-// quote names the spec alone, so the citation the guard demands carries no
-// stray character and a clean citation clears it.
-func TestUWVerifyFailuresSpecExcludesOpeningPunctuation(t *testing.T) {
-	t.Parallel()
-	report := "- verify: exit 1\n" +
-		"  1 failed (kan-341-route-b.spec.ts:224:5) and `fidelity/a.spec.ts:3` a.png\n" +
-		"  [x/b.spec.ts:9] 'c.spec.ts:1' \"d.spec.ts:2\"\n"
-	want := []uwVerifyFailure{
-		{spec: "kan-341-route-b.spec.ts", line: "224"},
-		{spec: "fidelity/a.spec.ts", line: "3", png: "a"},
-		{spec: "x/b.spec.ts", line: "9"},
-		{spec: "c.spec.ts", line: "1"},
-		{spec: "d.spec.ts", line: "2"},
-	}
-	if got := uwVerifyFailures(report); !slices.Equal(got, want) {
-		t.Fatalf("uwVerifyFailures = %+v, want %+v", got, want)
 	}
 }
 
@@ -1279,87 +818,6 @@ func TestCheckUnfinishedWorkReasonNamesFreshVerifyKey(t *testing.T) {
 	r := uwVerifyCase(t, "completed", "2026-01-01T10:00:00Z")
 	if want := "a re-run after a new commit takes a fresh `verify-<k>` key"; !strings.Contains(r.out+r.err, want) {
 		t.Fatalf("exit %d stdout %q stderr %q, want %q", r.rc, r.out, r.err, want)
-	}
-}
-
-// TestUnfinishedWorkFlagsAPanelFixCommitWithNoRow pins decision
-// gate-panel-fix-trailer-row (kan-1044 self-review, F1-c): a range commit
-// whose Flow-Key trailer names a panel-fix key no dispatch row carries is
-// OUTSTANDING, whether HEAD or only the pre-reshape pin reaches it.
-func TestUnfinishedWorkFlagsAPanelFixCommitWithNoRow(t *testing.T) {
-	t.Parallel()
-	for _, c := range []struct {
-		name, rows string
-		pinOnly    bool
-		flagged    bool
-	}{
-		{"a trailer with no row on HEAD", `{"key":"panel-fix-1","role":"panel-fix","outcome":"completed"}`, false, true},
-		{"a trailer with no row behind the pin", `{"key":"panel-fix-1","role":"panel-fix","outcome":"completed"}`, true, true},
-		{"a trailer with its row", `{"key":"panel-fix-3","role":"panel-fix","outcome":"completed"}`, false, false},
-		{"a round-low trailer with a row on its commit", `{"key":"panel-fix-4","role":"panel-fix","outcome":"completed","commitSha":"FULL"}`, false, false},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			f := newUW(t)
-			fixtureRepo(t, f.wt, repoShape{Commit: "base"})
-			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
-			writeFile(t, f.wt+"/src/a.go", "x\n")
-			gitRun(t, f.wt, "add", "src/a.go")
-			gitRun(t, f.wt, "commit", "-q", "-m", "fix: round 3\n\nFlow-Key: panel-fix-3")
-			sha := tcfGit(t, f.wt, "rev-parse", "--short", "HEAD")
-			full := tcfGit(t, f.wt, "rev-parse", "HEAD")
-			if c.pinOnly {
-				gitRun(t, f.wt, "update-ref", "refs/flow/pre-reshape/demo", "HEAD")
-				gitRun(t, f.wt, "reset", "-q", "--hard", base)
-			}
-			f.setFile(t, "dispatches.json", `[{"seq":9,"key":"verify","role":"verifier","outcome":"completed","startedAt":"2099-01-01T12:00:00Z"},`+strings.ReplaceAll(c.rows, "FULL", full)+`]`+"\n")
-			r := f.run(t, f.wt, "demo", "", f.wt+"="+base)
-			got := strings.Contains(r.out, sha) && strings.Contains(r.out, "panel-fix-3")
-			if got != c.flagged {
-				t.Fatalf("flagged = %v, want %v; exit %d stdout %q stderr %q", got, c.flagged, r.rc, r.out, r.err)
-			}
-		})
-	}
-}
-
-// TestUnfinishedWorkReadsHeadBesideThePin pins signal eleven reading HEAD and
-// the pre-reshape pin together: a trailer committed on HEAD after the pin is
-// still flagged.
-func TestUnfinishedWorkReadsHeadBesideThePin(t *testing.T) {
-	t.Parallel()
-	f := newUW(t)
-	fixtureRepo(t, f.wt, repoShape{Commit: "base"})
-	base := tcfGit(t, f.wt, "rev-parse", "HEAD")
-	gitRun(t, f.wt, "update-ref", "refs/flow/pre-reshape/demo", "HEAD")
-	writeFile(t, f.wt+"/src/a.go", "x\n")
-	gitRun(t, f.wt, "add", "src/a.go")
-	gitRun(t, f.wt, "commit", "-q", "-m", "fix: round 5\n\nFlow-Key: panel-fix-5")
-	sha := tcfGit(t, f.wt, "rev-parse", "--short", "HEAD")
-	f.setFile(t, "dispatches.json", `[{"seq":9,"key":"verify","role":"verifier","outcome":"completed","startedAt":"2099-01-01T12:00:00Z"}]`+"\n")
-	r := f.run(t, f.wt, "demo", "", f.wt+"="+base)
-	if !strings.Contains(r.out, sha) || !strings.Contains(r.out, "panel-fix-5") {
-		t.Fatalf("HEAD commit not flagged; exit %d stdout %q stderr %q", r.rc, r.out, r.err)
-	}
-}
-
-// A gated reviewer's fixed Important needs no fix-mutation row, yet an open
-// gated row still stops the gate.
-func TestUnfinishedWorkIgnoresGatedRowsForFixRoundProof(t *testing.T) {
-	t.Parallel()
-	for _, c := range []struct{ name, findings, want string }{
-		{"a fixed gated Important is CLEAR", `[{"ref":"F1","round":0,"slot":"gated-reviewer","status":"fixed","severity":"Important"}]`, "CLEAR:"},
-		{"an open gated row is OUTSTANDING", `[{"ref":"F1","round":0,"slot":"gated-reviewer","status":"open","severity":"Important"}]`, "1 open finding(s)"},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			f := newUW(t)
-			f.findings = []byte(c.findings)
-			f.setFile(t, "findings.json", c.findings+"\n")
-			r := f.run(t, f.wt, "demo")
-			if r.rc != 0 || !strings.Contains(r.out, c.want) {
-				t.Fatalf("exit %d stdout %q stderr %q, want exit 0 and %q", r.rc, r.out, r.err, c.want)
-			}
-		})
 	}
 }
 

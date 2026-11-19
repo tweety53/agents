@@ -75,34 +75,11 @@ func (c *ic) cleanup() {
 	c.markEnd("flow.verify-merge", "completed")
 
 	c.markBegin("flow.cleanup")
-	var disclose []string
 	for _, m := range c.mains {
-		mb := "-"
-		for i := range c.wt {
-			if c.repo[i] == m {
-				mb = c.mb[i]
-				break
-			}
+		c.run("remove-change-worktrees", m, c.name)
+		if c.rc != 0 {
+			c.stopAs("worktree-removal-failed", "worktree-cleanup", fmt.Sprintf("remove-change-worktrees exit %d for %s — report its lines; every worktree it refused is left alone", c.rc, m))
 		}
-		args := []string{m, c.name, mb}
-		if icHas(c.proceed, m) {
-			args = append(args, "--proceed")
-		}
-		c.run("remove-change-worktrees", args...)
-		switch c.rc {
-		case 0:
-		case 3:
-			disclose = append(disclose, m)
-		default:
-			pending := ""
-			if len(disclose) > 0 {
-				pending = "; also pending disclosure for " + strings.Join(disclose, ", ") + " — relay its UNCLASSIFIED and DISCLOSE lines and ask only what they ask"
-			}
-			c.stopAs("worktree-removal-failed", "worktree-cleanup", fmt.Sprintf("remove-change-worktrees exit %d for %s — report its lines; every worktree it refused is left alone%s", c.rc, m, pending))
-		}
-	}
-	if len(disclose) > 0 {
-		c.stopAs("disclosure-pending", "disclose", "relay the UNCLASSIFIED and DISCLOSE lines of "+strings.Join(disclose, ", ")+", ask only what they ask, then re-run flow-guard integrate-change cleanup "+c.main+" "+c.name+" adding --proceed "+strings.Join(disclose, " --proceed ")+" to every --proceed already given "+c.flags())
 	}
 	id, rc := c.capture(c.cmd("/", "flow", "workspace-id", c.name))
 	if rc != 0 {
@@ -117,7 +94,7 @@ func (c *ic) cleanup() {
 		if rc := c.bashIn(m, icWithID(row, id)); rc == 0 {
 			c.say("WORKSPACE-REMOVED: " + m)
 		} else {
-			c.say(fmt.Sprintf("WORKSPACE-REMOVE-FAILED: %s — exit %d; the cleanup check decides", m, rc))
+			c.say(fmt.Sprintf("WORKSPACE-REMOVE-FAILED: %s — exit %d", m, rc))
 		}
 		orow := c.workspaceCommand(m, "orphans")
 		if orow == "" {
@@ -152,29 +129,6 @@ func (c *ic) cleanup() {
 		c.say("PROPOSAL-ARTIFACT: none to remove")
 	}
 	c.markEnd("flow.cleanup", "completed")
-
-	c.markBegin("flow.verify-cleanup")
-	leftover := false
-	for _, m := range c.mains {
-		// flow state dir resolves the path and never creates it; a store-only
-		// project has none on disk, which the guard would read as a typo.
-		sd, rc := c.capture(c.cmd("/", "flow", "state", "dir", "-C", m))
-		if rc == 0 {
-			if err := os.MkdirAll(sd, 0o755); err != nil {
-				fmt.Fprintf(c.stderr, "integrate-change: %v\n", err)
-			}
-		}
-		c.run("check-cleanup-complete", m, c.name, sd)
-		if c.rc != 0 || c.verdict("COMPLETE") == "" {
-			leftover = true
-		}
-	}
-	c.stopOutcome = "leftover"
-	if leftover {
-		c.stopAs("worktree-leftover", "leftover", "name what remains; FINISHED is not written — re-run cleanup once the operator clears it")
-	}
-	c.stopOutcome = "stopped"
-	c.markEnd("flow.verify-cleanup", "completed")
 
 	c.markBegin("flow.write-finished")
 	keep := []string{}

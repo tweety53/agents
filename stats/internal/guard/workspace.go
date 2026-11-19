@@ -15,19 +15,16 @@ import (
 // Usage:
 //   flow-guard workspace create <id>
 //   flow-guard workspace remove <id> [--force]
-//   flow-guard workspace survivors <id>
 
-// workspace creates, removes and reports this repository's per-workspace
-// database, the `create`/`remove`/`survivors` triple named in
-// .flow/project.md's `## workspace isolation` section per
-// skills/flow-contracts/project-configuration.md (canonical for what each
-// command runs, what `survivors` prints, and what its exit code means).
+// workspace creates and removes this repository's per-workspace database,
+// the `create`/`remove` pair named in .flow/project.md's `## workspace
+// isolation` section per skills/flow-contracts/project-configuration.md
+// (canonical for what each command runs).
 //
 // Usage:
 //
 //	flow-guard workspace create <id>
 //	flow-guard workspace remove <id> [--force]
-//	flow-guard workspace survivors <id>
 //
 // `remove`'s `--force` is opt-in and additive: omitted, `remove` runs exactly
 // as it always has (`dropdb --if-exists`, no --force). Passed, it adds
@@ -48,7 +45,7 @@ import (
 // The database service is the flow-postgres container (superuser flow,
 // database flow, host port 5433). Every subcommand reaches it through
 // `docker exec`, since this machine has no host-installed psql/createdb/
-// dropdb client -- one mechanism for all three commands.
+// dropdb client -- one mechanism for both commands.
 //
 // A workspace database is named flow_<id_underscored> (every "-" in the id
 // replaced by "_"), per skills/flow-contracts/workspace-isolation.md's
@@ -60,31 +57,12 @@ import (
 // pipeline in an existing worktree is not an error. `create` and `remove`
 // both refuse an empty or missing id rather than operating on the shared
 // "flow" database.
-//
-// `survivors` is read by check-cleanup-complete under the rules in
-// project-configuration.md's "What `survivors` prints, and what its exit
-// code means":
-//   - exit 0, empty stdout  -> nothing survived (the only verifying result)
-//   - exit 0, non-empty     -> one surviving database name per line
-//   - any non-zero exit     -> the check could not run; reported as a skip
-//
-// A failing `docker exec` therefore exits with its own non-zero code, never
-// an empty-and-therefore-verified report, and every non-blank line psql
-// printed is reported, never a truncated list.
-//
-// `survivors` also carries its own timeout INSIDE the container: the
-// caller's 60-second bound (project-configuration.md's "The one-minute
-// bound") terminates a process group on the machine running the guard, and
-// `docker exec`'s real work happens inside the container, outside that
-// group -- so a hung query there would outlive the bound undetected. A
-// 5-second connect timeout and a 5-second statement timeout on the client
-// running inside the container end it instead.
 func init() { Registry["workspace"] = workspace }
 
 const (
 	wsContainer = "flow-postgres"
 	wsSuperuser = "flow"
-	wsUsage     = "usage: flow-guard workspace {create|remove|survivors} <id> [--force]\n" +
+	wsUsage     = "usage: flow-guard workspace {create|remove} <id> [--force]\n" +
 		"       --force is accepted only by remove\n"
 )
 
@@ -157,20 +135,6 @@ func workspace(args []string, env Env, stdout, stderr io.Writer) int {
 		} else if rc := run(stdout, wsContainer, "dropdb", "-U", wsSuperuser, "--if-exists", db); rc != 0 {
 			return fail("dropdb-failed", "ERROR: dropdb failed for "+db, rc)
 		}
-	case "survivors":
-		var out bytes.Buffer
-		rc := run(&out, "-e", "PGCONNECT_TIMEOUT=5", "-e", "PGOPTIONS=-c statement_timeout=5000",
-			wsContainer, "psql", "-U", wsSuperuser, "-d", wsSuperuser, "-tAc",
-			"select datname from pg_database where datname = '"+db+"'")
-		for line := range strings.Lines(out.String()) {
-			if strings.TrimSpace(line) != "" {
-				fmt.Fprintln(stdout, strings.TrimRight(line, "\n"))
-			}
-		}
-		if rc != 0 {
-			Reason(env, "survivors-query-failed")
-		}
-		return rc
 	default:
 		fmt.Fprint(stderr, wsUsage)
 		Reason(env, "usage")

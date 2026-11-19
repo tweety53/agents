@@ -16,13 +16,13 @@ import (
 func TestCannotAnswerCodes(t *testing.T) {
 	t.Parallel()
 	for name, want := range map[string]int{
-		"run-reproducer":         4,
-		"mutate-and-verify":      4,
-		"break-and-prove":        4,
-		"close-task":             2,
-		"check-cleanup-complete": 2,
-		"no-such-guard":          2,
-		"":                       2,
+		"run-reproducer":        4,
+		"mutate-and-verify":     4,
+		"break-and-prove":       4,
+		"close-task":            2,
+		"check-unfinished-work": 2,
+		"no-such-guard":         2,
+		"":                      2,
 	} {
 		if got := CannotAnswer(name); got != want {
 			t.Errorf("CannotAnswer(%q) = %d, want %d", name, got, want)
@@ -137,7 +137,7 @@ func TestCwdCheckoutGuardSet(t *testing.T) {
 		t.Fatalf("selfJudging = %q, want %q", got, want)
 	}
 	main, wt, _ := cwdFixture(t)
-	for _, name := range []string{"check-cleanup-complete", "run-reproducer", "integrate-change"} {
+	for _, name := range []string{"check-unfinished-work", "run-reproducer", "integrate-change"} {
 		if got, ok := CwdCheckout(cwdEnv(main, wt), name); ok {
 			t.Errorf("%s is not self-judging but re-exec'd %q", name, got)
 		}

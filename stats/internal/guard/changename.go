@@ -12,8 +12,8 @@ import "strings"
 // preserved record. The bash guard that still carries the rule
 // (check-workspace-isolation.sh) keeps its own copy because it is
 // single-file by design and copied into projects one at a time; its harness
-// and TestCheckCleanupComplete/12 assert the same rejected shapes, which is what keeps the copies from drifting apart
-// silently.
+// asserts the same rejected shapes, which is what keeps the copies from
+// drifting apart silently.
 //
 // It also closes the symlink question at these paths: the file and directory
 // tests follow symlinks, so a name that cannot leave the repository is what
@@ -43,10 +43,7 @@ import "strings"
 // THIS COMMENT IS CANONICAL for that measurement and that reasoning, and the
 // other copies of the rule cite it. It was Protection 1 of the record-copying
 // script this repository has since retired, along with the session records it
-// copied; of the copies that survive, the bash check-cleanup-complete.sh was
-// the one where the enumeration was the fix rather than belt and braces, so
-// the reasoning moved there rather than going with the script, and moved here
-// with the port (KAN-760).
+// copied; the reasoning moved here with the port (KAN-760).
 //
 // It is also the change-plan resolver's allowlist (changeplan.go), which it,
 // gather-dispatch-context and

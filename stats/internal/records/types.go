@@ -116,8 +116,7 @@ type Dispatch struct {
 	// ClosesLoop says this scoped visual-verify verifier row closed the fix
 	// loop with no -fix-<k>-full run behind it; set by `flow record dispatch
 	// end -closes-loop`, which flow-guard visual-verify-pass close passes,
-	// and read by inRunFixRefusal (stats/cmd/flow/record.go) and
-	// flow-guard check-visual-verify-dispatched (KAN-1122).
+	// and read by inRunFixRefusal (stats/cmd/flow/record.go) (KAN-1122).
 	ClosesLoop bool `json:"closesLoop,omitempty"`
 	// Request is the /flow-interactive request an operator-asked dispatch
 	// ran for (-request); nil on every other row (kan-1081 self-review, F5).
@@ -525,7 +524,7 @@ var SelfReviewUncountedThemes = []string{"accounting", "fixed-in-run", "other"}
 
 // SelfReviewThemedAngles are the angles whose noted findings must carry a
 // theme.
-var SelfReviewThemedAngles = []string{"flow-cost", "flow-speed"}
+var SelfReviewThemedAngles = []string{"flow-cost"}
 
 // SelfReviewThemeDueAt is how many changes must note a theme within
 // SelfReviewThemeWindow before it is due, and SelfReviewThemeWindow that
@@ -816,7 +815,6 @@ var GuardHelpers = []string{
 	"live-store-copy",
 	"load-sets",
 	"measure-visual-properties",
-	"migrate-worktrees",
 	"pair-judge",
 	"pipeline-fix",
 	"prepare-workspace",
@@ -826,7 +824,6 @@ var GuardHelpers = []string{
 	"refresh-main-checkout",
 	"remove-change-worktrees",
 	"render-slot-prompt",
-	"reshape-branch",
 	"resolve-base-branch",
 	"resolve-visual-screenshots",
 	"run-reproducer",

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -103,6 +104,9 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 	return rc
 }
 
+// ctTaskNumberRE finds the task numbers a Task-Id: trailer names.
+var ctTaskNumberRE = regexp.MustCompile(`[0-9]+`)
+
 // ctTrailerCommit is the newest commit in wt's base..HEAD whose Task-Id:
 // trailer names id, "" when none does or git cannot read the range.
 func ctTrailerCommit(git func(...string) *exec.Cmd, wt, base, id string) string {
@@ -112,7 +116,7 @@ func ctTrailerCommit(git func(...string) *exec.Cmd, wt, base, id string) string 
 	}
 	for _, line := range strings.Split(out, "\n") {
 		sha, ids, _ := strings.Cut(strings.TrimSpace(line), " ")
-		if sha != "" && slices.Contains(uwTaskNumberRE.FindAllString(ids, -1), id) {
+		if sha != "" && slices.Contains(ctTaskNumberRE.FindAllString(ids, -1), id) {
 			return sha
 		}
 	}

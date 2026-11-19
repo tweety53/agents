@@ -113,8 +113,8 @@ func TestRemoveChangeWorktreesRefusesAnUnsavedBundle(t *testing.T) {
 }
 
 // TestRemoveChangeWorktreesTreatsTheIgnoredPlanAsExpected: once flowd holds
-// the save, the ignored change directory and .superpowers/ are counted as
-// regeneratable, never listed as unclassified, and the worktree is removed.
+// the save, the ignored change directory and .superpowers/ go with the
+// worktree.
 func TestRemoveChangeWorktreesTreatsTheIgnoredPlanAsExpected(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
@@ -126,12 +126,6 @@ func TestRemoveChangeWorktreesTreatsTheIgnoredPlanAsExpected(t *testing.T) {
 	code, out, errb := fx.run(t, rcwFlowStub(t, fx, "0"))
 	if code != 0 {
 		t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-	}
-	if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 0 {
-		t.Errorf("UNCLASSIFIED lines %q, want none", l)
-	}
-	if l := rcwLines(out, "REGENERATABLE: "); len(l) != 1 || !strings.HasSuffix(l[0], " — 3") {
-		t.Errorf("REGENERATABLE lines %q, want one counting 3", l)
 	}
 	if rcwExists(fx.wt) {
 		t.Error("the worktree survived")

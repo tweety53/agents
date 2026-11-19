@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -64,8 +62,7 @@ func (fx *rcwFx) stop(t *testing.T, body string) {
 	writeFile(t, fx.repo+"/.flow/project.md", "# project\n\n## stop\n\n"+body+"\n\n## run\n\nnothing\n")
 }
 
-// run runs remove-change-worktrees in-process, its check-worktree-processes
-// sibling the real one in this binary.
+// run runs remove-change-worktrees in-process.
 func (fx *rcwFx) run(t *testing.T, tweak func(*Env), args ...string) (int, string, string) {
 	t.Helper()
 	if fx.g.err != nil {
@@ -76,7 +73,7 @@ func (fx *rcwFx) run(t *testing.T, tweak func(*Env), args ...string) (int, strin
 		tweak(&env)
 	}
 	var out, errb bytes.Buffer
-	code := removeChangeWorktrees(append([]string{fx.repo, "demo", fx.mergeBase}, args...), env, &out, &errb)
+	code := removeChangeWorktrees(append([]string{fx.repo, "demo"}, args...), env, &out, &errb)
 	return code, out.String(), errb.String()
 }
 
@@ -129,18 +126,12 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		fx.g.write(fx.wt+"/__pycache__/mod.pyc", "pyc")
 		fx.g.write(fx.wt+"/loose.pyc", "pyc")
 		fx.g.write(fx.wt+"/tsconfig.tsbuildinfo", "tsbuildinfo")
-		// An image under a regeneratable directory is that directory's, not a
-		// loose capture (KAN-860 F3).
 		fx.g.write(fx.wt+"/build/icon.png", "png")
+		// Ignored files go with --force, never asked about.
+		fx.g.write(fx.wt+"/.env", "SECRET=1")
 		code, out, errb := fx.run(t, nil)
 		if code != 0 {
 			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-		}
-		if l := rcwLines(out, "REGENERATABLE: "); len(l) != 1 || !strings.HasSuffix(l[0], " — 6") {
-			t.Errorf("REGENERATABLE lines %q, want one counting 6", l)
-		}
-		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 0 {
-			t.Errorf("UNCLASSIFIED lines %q, want none", l)
 		}
 		if l := rcwLines(out, "SKIPPED: "); len(l) != 0 {
 			t.Errorf("SKIPPED lines %q, want none for an absent ## stop", l)
@@ -265,25 +256,6 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		fx.assertUntouched(t)
 	})
 
-	t.Run("check 6 — a live process holds the worktree", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		held := exec.Command("sleep", "60")
-		held.Dir = fx.wt
-		if err := held.Start(); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = held.Process.Kill(); _ = held.Wait() })
-		code, out, _ := fx.run(t, nil)
-		if code != 1 || len(rcwLines(out, "HELD: ")) != 1 {
-			t.Fatalf("exit %d, stdout %q; want 1 and one HELD line", code, out)
-		}
-		if len(rcwLines(out, "REMOVED: "))+len(rcwLines(out, "REMOTE-")) != 0 {
-			t.Errorf("a held worktree still removed something:\n%s", out)
-		}
-		fx.assertUntouched(t)
-	})
-
 	t.Run("a worktree already gone", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)
@@ -305,7 +277,7 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 	t.Run("cannot answer", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)
-		for _, args := range [][]string{{fx.repo, "demo"}, {fx.repo, "../demo", "-"}, {fx.dir, "demo", "-"}, {fx.repo, "demo", "-", "--force"}} {
+		for _, args := range [][]string{{fx.repo}, {fx.repo, "../demo"}, {fx.dir, "demo"}, {fx.repo, "demo", "--force"}} {
 			var out, errb bytes.Buffer
 			env := Env{Dir: fx.dir, Getenv: os.Getenv}
 			if code := removeChangeWorktrees(args, env, &out, &errb); code != 2 || out.String() != "" {
@@ -322,276 +294,12 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		if fx.g.err != nil {
 			t.Fatal(fx.g.err)
 		}
-		cmd := exec.Command(guardShim(t, "remove-change-worktrees"), fx.repo, "demo", "-")
+		cmd := exec.Command(guardShim(t, "remove-change-worktrees"), fx.repo, "demo")
 		cmd.Dir = fx.dir
 		cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
 		out, err := cmd.Output()
 		if err != nil || !strings.Contains(string(out), "REMOVED: spectre/demo\n") {
 			t.Fatalf("shim: %v, stdout %q", err, out)
-		}
-	})
-}
-
-func TestRemoveChangeWorktreesDisclose(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-
-	t.Run("an unclassified entry", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		fx.g.write(fx.wt+"/.env", "SECRET=1")
-		code, out, _ := fx.run(t, nil)
-		if code != 3 || len(rcwLines(out, "DISCLOSE: ")) == 0 {
-			t.Fatalf("exit %d, stdout %q; want 3 and DISCLOSE lines", code, out)
-		}
-		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.HasSuffix(l[0], " — .env") {
-			t.Errorf("UNCLASSIFIED lines %q, want .env", l)
-		}
-		fx.assertUntouched(t)
-
-		code, out, errb := fx.run(t, nil, "--proceed")
-		if code != 0 || rcwExists(fx.wt) || len(rcwLines(out, "DISCLOSE: ")) != 0 {
-			t.Fatalf("--proceed: exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-		}
-	})
-
-	// kan-924: a .env byte-identical to the main checkout's is preserved —
-	// shown, and the removal proceeds in the same call.
-	t.Run("an entry identical in the main checkout proceeds", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		fx.g.write(fx.wt+"/.env", "SECRET=1")
-		fx.g.write(fx.repo+"/.env", "SECRET=1")
-		code, out, errb := fx.run(t, nil)
-		if code != 0 || rcwExists(fx.wt) || len(rcwLines(out, "DISCLOSE: ")) != 0 {
-			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-		}
-		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.Contains(l[0], " — .env — preserved: identical in ") {
-			t.Errorf("UNCLASSIFIED lines %q, want .env shown as preserved", l)
-		}
-	})
-
-	// kan-1026: a .env the project's dev tooling symlinks to the main
-	// checkout's is preserved — shown, the removal proceeds in the same call,
-	// and the main checkout's file survives it.
-	t.Run("an entry linked to the main checkout's proceeds", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		fx.g.write(fx.repo+"/.env", "SECRET=1")
-		if err := os.Symlink(fx.repo+"/.env", fx.wt+"/.env"); err != nil {
-			t.Fatal(err)
-		}
-		code, out, errb := fx.run(t, nil)
-		if code != 0 || rcwExists(fx.wt) || len(rcwLines(out, "DISCLOSE: ")) != 0 {
-			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-		}
-		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.Contains(l[0], " — .env — preserved: linked to ") {
-			t.Errorf("UNCLASSIFIED lines %q, want .env shown as preserved, linked", l)
-		}
-		if !rcwExists(fx.repo + "/.env") {
-			t.Errorf("the main checkout's .env is gone")
-		}
-	})
-
-	// kan-1026: a link is preserved only when it resolves to the main
-	// checkout's counterpart — a link elsewhere, a dangling link, or a link
-	// into the worktree itself still stops.
-	for _, tc := range []struct {
-		name   string
-		target func(fx *rcwFx) string
-	}{
-		{"a link outside the main checkout stops", func(fx *rcwFx) string {
-			p := t.TempDir() + "/.env"
-			fx.g.write(p, "SECRET=1")
-			return p
-		}},
-		{"a dangling link stops", func(fx *rcwFx) string { return fx.dir + "/missing.env" }},
-		{"a link into the worktree stops", func(fx *rcwFx) string { return fx.wt + "/work.txt" }},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			fx := rcwNewFx(t)
-			fx.g.write(fx.repo+"/.env", "SECRET=1")
-			if err := os.Symlink(tc.target(fx), fx.wt+"/.env"); err != nil {
-				t.Fatal(err)
-			}
-			code, out, _ := fx.run(t, nil)
-			if code != 3 || len(rcwLines(out, "DISCLOSE: ")) == 0 {
-				t.Fatalf("exit %d, stdout %q; want 3 and DISCLOSE lines", code, out)
-			}
-			fx.assertUntouched(t)
-		})
-	}
-
-	// pipeline-fix-19: a Finder .DS_Store anywhere and a Playwright
-	// checkout's root screenshot-spec output are regeneratable — counted, never
-	// a disclosure stop; the same root .png outside a Playwright checkout, or
-	// in a kept subdirectory, still stops.
-	t.Run("a .DS_Store and a Playwright checkout's root capture proceed", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		fx.g.write(fx.repo+"/.git/info/exclude", ".DS_Store\n*.png\nplaywright.config.ts\n")
-		for _, d := range []string{fx.wt, fx.repo} {
-			fx.g.write(d+"/playwright.config.ts", "export default {}")
-		}
-		fx.g.write(fx.wt+"/.DS_Store", "finder")
-		mkdir(t, fx.wt+"/sub")
-		fx.g.write(fx.wt+"/sub/.DS_Store", "finder")
-		fx.g.write(fx.wt+"/01-signin.png", "capture")
-		code, out, errb := fx.run(t, nil)
-		if code != 0 || rcwExists(fx.wt) || len(rcwLines(out, "DISCLOSE: ")) != 0 {
-			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-		}
-		if l := rcwLines(out, "REGENERATABLE: "); len(l) != 1 || !strings.HasSuffix(l[0], " — 3") {
-			t.Errorf("REGENERATABLE lines %q, want 3", l)
-		}
-	})
-
-	for _, tc := range []struct {
-		label, png string
-		config     bool
-	}{
-		{"a root capture outside a Playwright checkout stops", "01-signin.png", false},
-		{"a Playwright checkout's kept capture in a subdirectory stops", "screenshots/run-1/01-signin.png", true},
-	} {
-		t.Run(tc.label, func(t *testing.T) {
-			t.Parallel()
-			fx := rcwNewFx(t)
-			fx.g.write(fx.repo+"/.git/info/exclude", "*.png\nplaywright.config.ts\n")
-			if tc.config {
-				for _, d := range []string{fx.wt, fx.repo} {
-					fx.g.write(d+"/playwright.config.ts", "export default {}")
-				}
-			}
-			mkdir(t, filepath.Dir(fx.wt+"/"+tc.png))
-			fx.g.write(fx.wt+"/"+tc.png, "capture")
-			code, out, _ := fx.run(t, nil)
-			if code != 3 {
-				t.Fatalf("exit %d, stdout %q; want 3", code, out)
-			}
-			l := slices.DeleteFunc(rcwLines(out, "UNCLASSIFIED: "), func(s string) bool { return strings.Contains(s, " — preserved: ") })
-			if len(l) != 1 || !strings.HasSuffix(l[0], " — "+tc.png) {
-				t.Errorf("UNCLASSIFIED lines %q, want %s unpreserved", l, tc.png)
-			}
-			fx.assertUntouched(t)
-		})
-	}
-
-	// kan-999: a worktree's own copy of a main-checkout local config — a .env
-	// carrying the worktree's isolated ports — is preserved too: shown, and
-	// the removal proceeds in the same call.
-	t.Run("an entry that differs from the main checkout's proceeds", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		fx.g.write(fx.wt+"/.env", "PORT=3100")
-		fx.g.write(fx.repo+"/.env", "PORT=3000")
-		code, out, errb := fx.run(t, nil)
-		if code != 0 || rcwExists(fx.wt) || len(rcwLines(out, "DISCLOSE: ")) != 0 {
-			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-		}
-		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.Contains(l[0], " — .env — preserved: differs from ") {
-			t.Errorf("UNCLASSIFIED lines %q, want .env shown as preserved, differing", l)
-		}
-	})
-
-	// KAN-1110: a nested ignored file byte-identical to the main checkout's
-	// file at that path (a regenerated build copy) is preserved at any depth.
-	t.Run("a nested entry identical in the main checkout proceeds", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		for _, d := range []string{fx.wt + "/data", fx.repo + "/data"} {
-			if err := os.Mkdir(d, 0o755); err != nil {
-				t.Fatal(err)
-			}
-		}
-		fx.g.write(fx.wt+"/data/.env", "same")
-		fx.g.write(fx.repo+"/data/.env", "same")
-		code, out, errb := fx.run(t, nil)
-		if code != 0 || rcwExists(fx.wt) || len(rcwLines(out, "DISCLOSE: ")) != 0 {
-			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-		}
-		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.Contains(l[0], " — data/.env — preserved: identical in ") {
-			t.Errorf("UNCLASSIFIED lines %q, want data/.env shown as preserved", l)
-		}
-	})
-
-	// A nested file that differs from the main checkout's (a local DB, IDE
-	// state) still stops.
-	t.Run("a nested entry that differs from the main checkout's stops", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		for _, d := range []string{fx.wt + "/data", fx.repo + "/data"} {
-			if err := os.Mkdir(d, 0o755); err != nil {
-				t.Fatal(err)
-			}
-		}
-		fx.g.write(fx.wt+"/data/.env", "worktree")
-		fx.g.write(fx.repo+"/data/.env", "main")
-		code, out, _ := fx.run(t, nil)
-		if code != 3 {
-			t.Fatalf("exit %d, stdout %q; want 3", code, out)
-		}
-		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.HasSuffix(l[0], " — data/.env") {
-			t.Errorf("UNCLASSIFIED lines %q, want data/.env unpreserved", l)
-		}
-		fx.assertUntouched(t)
-	})
-
-	// A main-checkout directory symlinked into the worktree reaches the
-	// worktree's own file: identical bytes, but no copy survives the removal.
-	t.Run("an entry the main checkout reaches through a symlink stops", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		if err := os.Mkdir(fx.wt+"/.env", 0o755); err != nil {
-			t.Fatal(err)
-		}
-		fx.g.write(fx.wt+"/.env/secret", "SECRET=1")
-		if err := os.Symlink(fx.wt+"/.env", fx.repo+"/.env"); err != nil {
-			t.Fatal(err)
-		}
-		code, out, _ := fx.run(t, nil)
-		if code != 3 {
-			t.Fatalf("exit %d, stdout %q; want 3", code, out)
-		}
-		if l := rcwLines(out, "UNCLASSIFIED: "); len(l) != 1 || !strings.HasSuffix(l[0], " — .env/secret") {
-			t.Errorf("UNCLASSIFIED lines %q, want .env/secret unpreserved", l)
-		}
-		fx.assertUntouched(t)
-	})
-
-	t.Run("--proceed before the positionals", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		fx.g.write(fx.wt+"/.env", "SECRET=1")
-		var out, errb bytes.Buffer
-		env := Env{Dir: fx.dir, Getenv: os.Getenv}
-		code := removeChangeWorktrees([]string{"--proceed", fx.repo, "demo", fx.mergeBase}, env, &out, &errb)
-		if code != 0 || rcwExists(fx.wt) {
-			t.Fatalf("leading --proceed: exit %d\nstdout:\n%s\nstderr:\n%s", code, out.String(), errb.String())
-		}
-	})
-
-	t.Run("a wave-group copy", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		copyWT := fx.copy()
-		fx.g.write(copyWT+"/scratch.txt", "scratch")
-		code, out, _ := fx.run(t, nil)
-		if code != 3 {
-			t.Fatalf("exit %d, stdout %q; want 3", code, out)
-		}
-		d := strings.Join(rcwLines(out, "DISCLOSE: "), "\n")
-		if !strings.Contains(d, "-wave-group-2") || !strings.Contains(d, "scratch.txt") || !strings.Contains(d, "work") {
-			t.Errorf("DISCLOSE lines do not carry the copy's status and log:\n%s", d)
-		}
-		fx.assertUntouched(t, copyWT)
-
-		code, out, errb := fx.run(t, nil, "--proceed")
-		if code != 0 || rcwExists(fx.wt) || rcwExists(copyWT) {
-			t.Fatalf("--proceed: exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-		}
-		if l := rcwLines(out, "REMOVED: "); len(l) != 3 || !strings.HasSuffix(l[0], "-wave-group-2") {
-			t.Errorf("REMOVED lines %q, want the copy first, then the worktree and the branch", l)
 		}
 	})
 }
@@ -682,35 +390,6 @@ func TestRemoveChangeWorktreesStopCommand(t *testing.T) {
 	})
 }
 
-// TestRcwRegeneratable pins check 4's bucket boundary per path (KAN-768):
-// Python and TypeScript compiler output is regeneratable, while ignored but
-// irreplaceable paths stay unclassified.
-func TestRcwRegeneratable(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		path string
-		want bool
-	}{
-		{"__pycache__/mod.pyc", true},
-		{"pkg/__pycache__/mod.pyc", true},
-		{"loose.pyc", true},
-		{"tsconfig.tsbuildinfo", true},
-		{"stats/web/tsconfig.tsbuildinfo", true},
-		{"build/out.o", true},
-		{"run.log", true},
-		{".DS_Store", true},
-		{"sub/.DS_Store", true},
-		{".env", false},
-		{".env/secret", false},
-		{"icon.png", false},
-		{"pycache/notes.txt", false},
-	} {
-		if got := rcwRegeneratable(tc.path); got != tc.want {
-			t.Errorf("rcwRegeneratable(%q) = %v, want %v", tc.path, got, tc.want)
-		}
-	}
-}
-
 // TestRemoveChangeWorktreesDeletesACopyBranch pins that a copy made by
 // throwaway-worktree create, on its own flow-copy branch, is found, removed
 // and its branch deleted (kan-1090 self-review, F14).
@@ -722,11 +401,27 @@ func TestRemoveChangeWorktreesDeletesACopyBranch(t *testing.T) {
 	if rc := throwawayWorktree([]string{"create", fx.wt, c}, Env{Getenv: os.Getenv}, &o, &e); rc != 0 {
 		t.Fatalf("create: exit %d: %s", rc, e.String())
 	}
-	code, out, errb := fx.run(t, nil, "--proceed")
+	code, out, errb := fx.run(t, nil)
 	if code != 0 || rcwExists(c) {
-		t.Fatalf("--proceed: exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
+		t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
 	}
 	if fx.hasRef("refs/heads/flow-copy/demo-wave-group-2") {
 		t.Error("the copy's flow-copy branch survived")
+	}
+}
+
+// TestRemoveChangeWorktreesRemovesACopyUnasked pins that a wave-group copy is
+// removed without asking, before the worktree it was copied from.
+func TestRemoveChangeWorktreesRemovesACopyUnasked(t *testing.T) {
+	t.Parallel()
+	fx := rcwNewFx(t)
+	copyWT := fx.copy()
+	fx.g.write(copyWT+"/scratch.txt", "scratch")
+	code, out, errb := fx.run(t, nil)
+	if code != 0 || rcwExists(fx.wt) || rcwExists(copyWT) {
+		t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
+	}
+	if l := rcwLines(out, "REMOVED: "); len(l) != 3 || !strings.HasSuffix(l[0], "-wave-group-2") {
+		t.Errorf("REMOVED lines %q, want the copy first, then the worktree and the branch", l)
 	}
 }

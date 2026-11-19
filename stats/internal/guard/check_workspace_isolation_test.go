@@ -25,15 +25,6 @@ package guard
 // assertion while leaving the operator nothing to act on. The needles below
 // are short and behavioural — evidence that the named row, cell and rule
 // reached the report, not a transcript of its prose.
-//
-// WHY THIS DUPLICATES the cleanup guard's test helpers (ccNew, ccVerdict and
-// their siblings in check_cleanup_complete_test.go) instead of sharing them.
-// The two guards read the same section of the same file and are deliberately
-// kept independent: that guard asks whether the removal happened, this one
-// asks whether the declaration is well formed, and shared helpers would
-// couple their suites so that a change to one guard's contract could only be
-// made by editing code the other one also runs. The duplication is the
-// cheaper of the two, and it is recorded here rather than left unexplained.
 
 import (
 	"bytes"
@@ -96,8 +87,7 @@ var wiValidRes = wiQ(`| ~database~ | ~DB_URL~ | ~jdbc:postgresql://localhost:543
 | ~url~ | ~STATIC_URL~ | ~http://localhost:9000~ | ~http://localhost:9000~ |`)
 
 var wiValidCmd = wiQ(`| ~create~ | ~./scripts/workspace create~ |
-| ~remove~ | ~./scripts/workspace remove <id>~ |
-| ~survivors~ | ~./scripts/workspace survivors <id>~ |`)
+| ~remove~ | ~./scripts/workspace remove <id>~ |`)
 
 // wiIsoBody is write_iso's file: a `## workspace isolation` section carrying
 // the two tables with those rows, and prose around them, because prose
@@ -535,15 +525,15 @@ func TestCheckWorkspaceIsolation(t *testing.T) {
 
 	wiOK(t, wiIso(t, wiValidRes, "| ~orphans~ | ~./scripts/workspace orphans~ |"), "an orphans row is legal")
 
-	// 10f. `create` and `remove` with no `survivors` is a supported state.
-	wiOK(t, wiIso(t, wiValidRes, `| ~create~ | ~./scripts/workspace create~ |
-| ~remove~ | ~./scripts/workspace remove~ |`), "a command table with no survivors row is legal")
+	r = wiIso(t, wiValidRes, "| ~survivors~ | ~./scripts/workspace survivors <id>~ |")
+	wiInvalid(t, r, "a survivors row is a violation: nothing calls it")
+	wiReports(t, r, "survivors", "the unknown-verb report names the row")
 
-	wiOK(t, wiIso(t, wiValidRes, "| ~survivors~ | ~./scripts/workspace survivors < /dev/null > /tmp/out.txt~ |"),
+	wiOK(t, wiIso(t, wiValidRes, "| ~remove~ | ~./scripts/workspace remove < /dev/null > /tmp/out.txt~ |"),
 		"a shell redirection in a command is not read as a token")
 
 	// 10h. A `|` inside a command cell, written `\|`, is part of the command.
-	wiOK(t, wiIso(t, wiValidRes, `| ~survivors~ | ~./gradlew -q survivors \| awk "/appdb/"~ |`),
+	wiOK(t, wiIso(t, wiValidRes, `| ~remove~ | ~./gradlew -q remove \| awk "/appdb/"~ |`),
 		"an escaped pipe inside a command cell does not split the row")
 
 	r = wiIso(t, wiValidRes, "| ~remove~ | ~./scripts/workspace remove < id>~ |")
@@ -553,7 +543,7 @@ func TestCheckWorkspaceIsolation(t *testing.T) {
 	// 10j. A bracketed run holding only token characters and a space is a
 	//      redirection, not a near miss — the case that actually pins the
 	//      rule, since 10g's slashes fall outside the token characters.
-	wiOK(t, wiIso(t, wiValidRes, "| ~survivors~ | ~./scripts/workspace survivors < in.txt > out.txt~ |"),
+	wiOK(t, wiIso(t, wiValidRes, "| ~remove~ | ~./scripts/workspace remove < in.txt > out.txt~ |"),
 		"a redirection whose filename is token-shaped is still not a token")
 
 	// 11. Declare the section at most once. The two sections carry DIFFERENT
@@ -570,7 +560,7 @@ func TestCheckWorkspaceIsolation(t *testing.T) {
 
 | Command | Runs |
 |---------|------|
-| ~survivors~ | ~./two survivors~ |
+| ~remove~ | ~./two remove~ |
 `)
 	wiInvalid(t, r, "a duplicated heading is a violation")
 	wiReports(t, r, "2", "the duplicate-heading report names the count")
@@ -587,7 +577,7 @@ func TestCheckWorkspaceIsolation(t *testing.T) {
 
 | Command | Runs |
 |---------|------|
-| ~survivors~ | ~./one survivors~ |
+| ~remove~ | ~./one remove~ |
 
 ### workspace isolation notes
 
@@ -657,7 +647,6 @@ Prose that is not a second declaration.
 |---------|------|
 | ~create~ | ~./scripts/workspace create~ |
 | ~remove~ | ~./scripts/workspace remove <id>~ |
-| ~survivors~ | ~./scripts/workspace survivors <id>~ |
 `)
 	wiInvalid(t, r, "two tables with no blank line between them is a violation")
 	wiReports(t, r, "a second table header", "the merged-tables report names the real cause")
@@ -844,7 +833,7 @@ func wiParity(t *testing.T) {
 | ~Verify~ | ~v~ |
 | ~CREATE~ | ~c2~ |
 | ~remove~ | ~~ |
-| ~survivors~ | ~s <container> < id> <value:X>~ |
+| ~remove~ | ~s <container> < id> <value:X>~ |
 | ~x~ |
 
 | Command | Runs |
@@ -912,11 +901,11 @@ func wiParity(t *testing.T) {
 						vars["CHECK_WORKSPACE_ISOLATION_PRINT_ROWS"] = rows
 					}
 					want := wiBash(t, tree+"/scripts/check-workspace-isolation.sh", base, env, args...)
-					// The one deliberate divergence from the bash: the port accepts a
-					// fourth verb, `orphans`, which the unknown-verb report names.
+					// The one deliberate divergence from the bash: the port's verbs are
+					// `create`, `remove` and `orphans`, which the unknown-verb report names.
 					want.out = strings.ReplaceAll(want.out,
 						"has three verbs — `create`, `remove` and `survivors` —",
-						"has four verbs — `create`, `remove`, `survivors` and `orphans` —")
+						"has three verbs — `create`, `remove` and `orphans` —")
 					fn := Registry["check-workspace-isolation"]
 					if fn == nil {
 						t.Fatal("check-workspace-isolation is not registered")

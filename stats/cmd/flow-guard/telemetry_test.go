@@ -176,7 +176,7 @@ func TestDispatchedOnlyNamesRegisteredGuards(t *testing.T) {
 	if _, ok := dispatched([]string{"no-such-guard"}); ok {
 		t.Error("an unknown guard dispatched")
 	}
-	if name, ok := dispatched([]string{"check-cleanup-complete", "x"}); !ok || name != "check-cleanup-complete" {
+	if name, ok := dispatched([]string{"check-unfinished-work", "x"}); !ok || name != "check-unfinished-work" {
 		t.Errorf("dispatched = %q, %v", name, ok)
 	}
 }

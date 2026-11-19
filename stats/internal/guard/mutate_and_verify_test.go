@@ -930,3 +930,19 @@ var mvPins = map[string]string{
 	"TestMutateAndVerify/unreadable_patch":                    "--- stderr\nmutate-and-verify: cannot answer — cannot read patch file: no-such.patch\n--- exit 4\n",
 	"TestMutateAndVerify/usage":                               "--- stderr\nmutate-and-verify: usage: flow-guard mutate-and-verify <patch-file> <harness>... [-- <command> <args>...]\n--- exit 4\n",
 }
+
+// ccExpireWhen fires once every path exists (30s at most): a bound that
+// expires when the command under test has reached a known point.
+func ccExpireWhen(paths ...string) <-chan time.Time {
+	ch := make(chan time.Time, 1)
+	go func() {
+		deadline := time.Now().Add(30 * time.Second)
+		for _, p := range paths {
+			for !isFile(p) && time.Now().Before(deadline) {
+				time.Sleep(5 * time.Millisecond)
+			}
+		}
+		ch <- time.Now()
+	}()
+	return ch
+}

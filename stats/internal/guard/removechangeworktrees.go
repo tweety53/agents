@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -20,14 +18,13 @@ import (
 // check on every worktree before anything is removed, then the removals, the
 // local branch and the remote branch.
 //
-// Usage: flow-guard remove-change-worktrees <repo> <name> <merge-base|-> [--proceed]
+// Usage: flow-guard remove-change-worktrees <repo> <name>
 //
 // The worktrees are the ones `git -C <repo> worktree list --porcelain` lists on
 // refs/heads/spectre/<name>, plus every wave-group copy of one, detached or on
 // its own flow-copy/ branch
 // (`<worktree>-wave-group-<g>`). A listed worktree whose directory is gone is
-// already removed: success, its registration pruned. <merge-base> scopes the
-// wave-group copies' disclosed log; `-` discloses their status alone.
+// already removed: success, its registration pruned.
 //
 // First the save gate: an apply worktree holding a file `flow change save`
 // keeps — the plan, spectre/changes/<name>/tasks.md or
@@ -35,38 +32,21 @@ import (
 // each gitignored and so the only copy — is refused, exit 1, with
 // "flow change save <name> has not run" when flowd holds no saved copy of that
 // file for that worktree's project (`flow change file`); flowd unreachable is
-// exit 2. With the gate passed, check 4 counts spectre/changes/ and
-// .superpowers/ as regeneratable.
+// exit 2.
 //
 // In order, never removing anything before every check has passed:
-//   checks 1-4 on each apply worktree — no uncommitted tracked change; no
+//   checks 1-3 on each apply worktree — no uncommitted tracked change; no
 //     untracked, unignored file; no commit that exists only here (the base
 //     resolved fresh for THIS worktree, in-process as flow-guard resolve-base-branch
-//     does); and the ignored files `--force` will destroy, split by path into
-//     regeneratable (counted) and unclassified (listed). Regeneratable takes
-//     in a `.DS_Store` anywhere and, in a worktree whose root holds a
-//     `playwright.config.*`, a `.png` at that root — a screenshot spec's
-//     output; a `.png` in any subdirectory stays unclassified.
-//     An unclassified entry at the worktree root that is a regular file
-//     with a distinct regular file at the same path in the repository's
-//     main checkout (the first entry of its worktree list) is preserved —
-//     a per-worktree copy of a main-checkout local config, identical or
-//     not — and so is a symlink there resolving to that regular file
-//     (a link the project's dev tooling made; removal drops the link
-//     alone). Below the root, an entry is preserved only when its bytes
-//     equal the main checkout's regular file at that path; an entry with
-//     no such counterpart, or a nested one that differs, stays unpreserved.
-//   the disclosure stop — without --proceed, an unpreserved unclassified
-//     entry or any wave-group copy stops here, before check 5 runs anything;
-//     preserved entries alone are shown and the removal proceeds.
-//   checks 5-6 on each copy, then each apply worktree — the fenced command
+//     does). Ignored files go with `--force`, never asked about: everything
+//     the run needs was committed earlier in it.
+//   check 5 on each copy, then each apply worktree — the fenced command
 //     lines of <repo>/.flow/project.md's `## stop` body (the key's shape is
 //     project-configuration.md's), run as one script with the
 //     worktree as its directory under `bash -o pipefail -c`, bounded at 60
 //     seconds (own process group, SIGTERM, a 2-second grace, SIGKILL); a file,
 //     key or fence that is absent means no command is declared, the check is
-//     skipped, and nothing outside the fence is ever run. Then the sibling
-//     flow-guard check-worktree-processes.
+//     skipped, and nothing outside the fence is ever run.
 //   `worktree remove --force` for each copy, then `branch -D
 //     flow-copy/<its last path element>` when that branch exists, then each
 //     apply worktree;
@@ -84,16 +64,8 @@ import (
 //
 // Prints to stdout, one line each:
 //   REFUSED: <worktree> — check <n>: <reason>   a check failed (gate)
-//   HELD: <worktree> — <pid> <cwd>[; ...]        check 6 found a live process
-//   UNCLASSIFIED: <worktree> — <path>            check 4, one per entry
-//   UNCLASSIFIED: <worktree> — <path> — preserved: identical in <main-checkout>
-//   UNCLASSIFIED: <worktree> — <path> — preserved: differs from <main-checkout>
-//   UNCLASSIFIED: <worktree> — <path> — preserved: linked to <main-checkout>
-//   REGENERATABLE: <worktree> — <count>          check 4
 //   SKIPPED: check 5 — ## stop declares no fenced command   a declared `## stop`
 //     whose body carries no fence; check 5 is skipped, never silently
-//   DISCLOSE: <copy> — status: <line> / commit: <line>, and a final
-//   DISCLOSE: stopped before removal — …          the disclosure stop
 //   REMOVED: <worktree> | <worktree> — already gone | spectre/<name>
 //   REFUSED: <worktree> — git worktree remove: <git's message>
 //   REFUSED: spectre/<name> — git branch -d: <git's message>
@@ -102,29 +74,19 @@ import (
 //   REMOTE-REFUSED: origin/spectre/<name> — <git's message>
 //
 // Exit 0 every check passed and every removal succeeded (whatever the REMOTE-*
-// line says — it is reported, and flow-guard check-cleanup-complete verifies it);
-// 1 the save gate or a check failed — nothing removed — or a removal failed — its entry stays
-// in the state file's `worktrees`; 2 cannot answer, with NOTHING on stdout: a
-// usage error, a name that is not a plain change name, a <repo> that is not a
-// git repository, its worktree list unreadable, or flowd unreachable at the
-// save gate; 3 the disclosure stop —
-// nothing removed, nothing run: relay, judge each unpreserved entry, ask the
-// one ask, then call again with --proceed.
-//
-// Run it from outside every worktree it removes: check 6 counts the caller's
-// own shell.
+// line says — it is reported); 1 the save gate or a check failed — nothing
+// removed — or a removal failed — its entry stays in the state file's
+// `worktrees`; 2 cannot answer, with NOTHING on stdout: a usage error, a name
+// that is not a plain change name, a <repo> that is not a git repository, its
+// worktree list unreadable, or flowd unreachable at the save gate.
 
 // removeChangeWorktrees is `flow-guard remove-change-worktrees`: the comment above is the contract. It runs Worktree cleanup
-// (skills/flow-contracts/finish-contract-run2.md) for one repository: the
-// six checks on every apply worktree of spectre/<name> and checks 5-6 on
-// every wave-group copy, all before anything is removed; then the removals,
-// the local branch and the remote branch. Check 5 reads the `## stop` key in
+// (skills/flow-contracts/finish-contract-run2.md) for one repository: checks
+// 1-3 and 5 on every apply worktree of spectre/<name> and check 5 on every
+// wave-group copy, all before anything is removed; then the removals, the
+// local branch and the remote branch. Check 5 reads the `## stop` key in
 // project-configuration.md's shape, through kwFenced as `## worktree setup` is.
 func init() { Registry["remove-change-worktrees"] = removeChangeWorktrees }
-
-// rcwRegenDirs are the path components check 4 counts as regeneratable — an
-// image under one included, since it is that directory's, not a loose capture.
-var rcwRegenDirs = []string{"build", ".gradle", ".kotlin", "node_modules", "dist", ".next", "target", "out", "coverage", "test-results", "__pycache__"}
 
 func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
 	refuse := func(id, format string, a ...any) int {
@@ -132,17 +94,12 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		fmt.Fprintf(stderr, "remove-change-worktrees: "+format+"\n", a...)
 		return 2
 	}
-	proceed := slices.Contains(args, "--proceed")
-	args = slices.DeleteFunc(slices.Clone(args), func(a string) bool { return a == "--proceed" })
-	if len(args) != 3 {
-		return refuse("usage", "usage: flow-guard remove-change-worktrees <repo> <name> <merge-base|-> [--proceed]")
+	if len(args) != 2 {
+		return refuse("usage", "usage: flow-guard remove-change-worktrees <repo> <name>")
 	}
-	repo, name, mergeBase := pcAbs(env, args[0]), args[1], args[2]
+	repo, name := pcAbs(env, args[0]), args[1]
 	if !plainChangeName(name) {
 		return refuse("bad-change-name", "change name %q is not a plain change name", name)
-	}
-	if mergeBase != "-" && strings.HasPrefix(mergeBase, "-") {
-		return refuse("bad-merge-base", "merge base %q is not a revision", mergeBase)
 	}
 	// LC_ALL=C keeps the remote delete's "remote ref does not exist" in
 	// English, the one git message this guard reads.
@@ -155,11 +112,6 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		return refuse("cannot-list-the-worktrees", "cannot list the worktrees of %s", repo)
 	}
 	listed, copies := changeWorktrees(porcelain, name)
-	// The main checkout is the porcelain's first entry, whatever <repo> named:
-	// an unclassified entry with a counterpart at the same path there — a
-	// per-worktree copy of a main-checkout local config, or a symlink to
-	// it — is preserved.
-	mainCheckout, _ := strings.CutPrefix(strings.SplitN(string(porcelain), "\n", 2)[0], "worktree ")
 	// An already-removed worktree is success: only its registration is left,
 	// which the prune below clears.
 	var wts, gone []string
@@ -204,7 +156,6 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		failed = true
 		fmt.Fprintf(stdout, "REFUSED: %s — check %d: %s\n", wt, check, rcwFlat(fmt.Sprintf(format, a...)))
 	}
-	unpreserved := false
 	upstream := "" // origin/<base>, as check 3 resolved it for the first live worktree
 	for _, wt := range wts {
 		// 1. no uncommitted tracked changes.
@@ -227,58 +178,13 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		} else if upstream == "" {
 			upstream = "origin/" + base
 		}
-		// 4. what --force will destroy, split by path.
-		out, err := git("-C", wt, "ls-files", "-z", "--others", "--ignored", "--exclude-standard").Output()
-		if err != nil {
-			fail(wt, 4, "git ls-files failed")
-			continue
-		}
-		regen := 0
-		playwright := rcwPlaywrightCheckout(wt)
-		for _, p := range strings.Split(string(out), "\x00") {
-			switch {
-			case p == "":
-			case rcwRegeneratable(p), rcwCaptureOutput(playwright, p):
-				regen++
-			case wt != mainCheckout && !strings.Contains(p, "/") && rcwCounterpart(wt+"/"+p, mainCheckout+"/"+p):
-				how := "differs from"
-				if rcwSameBytes(wt+"/"+p, mainCheckout+"/"+p) {
-					how = "identical in"
-				}
-				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s — preserved: %s %s\n", wt, rcwFlat(p), how, rcwFlat(mainCheckout))
-			case wt != mainCheckout && rcwCounterpart(wt+"/"+p, mainCheckout+"/"+p) && rcwSameBytes(wt+"/"+p, mainCheckout+"/"+p):
-				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s — preserved: identical in %s\n", wt, rcwFlat(p), rcwFlat(mainCheckout))
-			case wt != mainCheckout && !strings.Contains(p, "/") && rcwLinkToCounterpart(wt+"/"+p, mainCheckout+"/"+p):
-				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s — preserved: linked to %s\n", wt, rcwFlat(p), rcwFlat(mainCheckout))
-			default:
-				unpreserved = true
-				fmt.Fprintf(stdout, "UNCLASSIFIED: %s — %s\n", wt, rcwFlat(p))
-			}
-		}
-		fmt.Fprintf(stdout, "REGENERATABLE: %s — %d\n", wt, regen)
 	}
 	if failed {
 		Reason(env, "removal-failed")
 		return 1
 	}
 
-	// The disclosure stop: the run relays, judges each unpreserved
-	// unclassified entry, asks its one ask, and calls again with --proceed.
-	// A preserved entry is shown and never stops the removal.
-	if !proceed && (unpreserved || len(copies) > 0) {
-		for _, c := range copies {
-			fmt.Fprintf(stdout, "DISCLOSE: %s — wave-group copy, removed with --force on --proceed\n", c)
-			rcwDisclose(stdout, c, "status", git("-C", c, "status", "--short"))
-			if mergeBase != "-" {
-				rcwDisclose(stdout, c, "commit", git("-C", c, "log", "--oneline", mergeBase+"..HEAD"))
-			}
-		}
-		fmt.Fprintln(stdout, "DISCLOSE: stopped before removal — relay the entries above, then re-run with --proceed")
-		Reason(env, "disclosure-pending")
-		return 3
-	}
-
-	// 5 and 6 run on every worktree and every copy, and stay gates.
+	// 5 runs on every worktree and every copy, and stays a gate.
 	stopBody := projectSection(repo+"/.flow/project.md", "stop")
 	stopCmd := strings.Join(kwFenced(stopBody), "\n")
 	if stopBody != "" && stopCmd == "" {
@@ -304,19 +210,6 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 			case rc != 0:
 				fail(wt, 5, "the ## stop command exited %d", rc)
 			}
-		}
-	}
-	for _, wt := range all {
-		procs := siblingCmd(env, "FLOW_GUARD_CHECK_WORKTREE_PROCESSES", "check-worktree-processes", wt)
-		procs.Stderr = stderr
-		verdict, err := procs.Output()
-		switch v := string(verdict); {
-		case err == nil && strings.HasPrefix(v, "CLEAR:"):
-		case err == nil && strings.HasPrefix(v, "HELD:"):
-			failed = true
-			_, _ = io.WriteString(stdout, v)
-		default:
-			fail(wt, 6, "flow-guard check-worktree-processes could not answer")
 		}
 	}
 	if failed {
@@ -381,8 +274,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 	case err == nil:
 		fmt.Fprintf(stdout, "REMOTE-DELETED: origin/%s\n", branch)
 	case bytes.Contains(out, []byte("remote ref does not exist")):
-		// The forge deleted it on merge. Prune the ref it left behind:
-		// check-cleanup-complete reads a surviving tracking ref as a leftover.
+		// The forge deleted it on merge. Prune the ref it left behind.
 		if git("-C", repo, "fetch", "--prune", "--quiet", "origin").Run() != nil {
 			fmt.Fprintf(stderr, "remove-change-worktrees: fetch --prune failed in %s — the stale refs/remotes/origin/%s may survive\n", repo, branch)
 		}
@@ -433,90 +325,6 @@ func rcwRestoreUpstream(git func(...string) *exec.Cmd, repo, branch, remote, mer
 	}
 	_ = git("-C", repo, "config", "branch."+branch+".remote", remote).Run()
 	_ = git("-C", repo, "config", "branch."+branch+".merge", merge).Run()
-}
-
-// rcwRegeneratable is check 4's regeneratable bucket, decided by path alone
-// (Worktree cleanup, finish-hand-fallbacks.md). A .png/.jpg capture counts
-// only under a regeneratable location, test-results among them — a capture
-// loose anywhere else matches no rule below. Python (__pycache__, *.pyc) and
-// TypeScript (*.tsbuildinfo) compiler output is regeneratable wherever it
-// sits, and so is a Finder .DS_Store. The ignored change directory
-// (spectre/changes/) and .superpowers/ are expected content: the save gate
-// above has already kept what of them outlives the worktree. Everything the
-// list does not name stays unclassified.
-func rcwRegeneratable(p string) bool {
-	parts := strings.Split(p, "/")
-	if parts[len(parts)-1] == ".DS_Store" || strings.HasPrefix(p, ".superpowers/") || strings.HasPrefix(p, "spectre/changes/") || strings.HasPrefix(p, ".dev-stack/") || strings.HasSuffix(p, ".log") || strings.HasSuffix(p, ".pyc") || strings.HasSuffix(p, ".tsbuildinfo") {
-		return true
-	}
-	for _, c := range parts {
-		if slices.Contains(rcwRegenDirs, c) {
-			return true
-		}
-	}
-	return false
-}
-
-// rcwCaptureOutput is check 4's one worktree-aware regeneratable rule: an
-// ignored .png at the root of a Playwright checkout (a playwright.config.* at
-// the worktree root) is a screenshot spec's output, which a re-run of the
-// spec writes again; a tracked baseline never reaches check 4, and a .png in
-// any subdirectory (a kept screenshots/run-* folder) stays unclassified.
-func rcwCaptureOutput(playwright bool, p string) bool {
-	return playwright && !strings.Contains(p, "/") && strings.EqualFold(filepath.Ext(p), ".png")
-}
-
-// rcwPlaywrightCheckout reports whether wt has a playwright.config.* at its
-// root — looked up once per worktree, not once per entry.
-func rcwPlaywrightCheckout(wt string) bool {
-	configs, _ := filepath.Glob(wt + "/playwright.config.*")
-	return len(configs) > 0
-}
-
-// rcwCounterpart reports whether a and b are two distinct regular files —
-// check 4's "preserved", for an entry at the worktree root (below it, with
-// rcwSameBytes as well): the entry has a
-// counterpart in the main checkout, a per-worktree copy of a main-checkout
-// local config (kan-999: a worktree's .env with its own ports). One file reached by both paths (a symlinked
-// directory in the main checkout pointing into the worktree) is not a
-// counterpart: removing the worktree destroys it.
-func rcwCounterpart(a, b string) bool {
-	fa, errA := os.Lstat(a)
-	fb, errB := os.Lstat(b)
-	return errA == nil && errB == nil && fa.Mode().IsRegular() && fb.Mode().IsRegular() && !os.SameFile(fa, fb)
-}
-
-// rcwLinkToCounterpart reports whether a is a symlink resolving to b, a
-// regular file — check 4's "preserved" for a main-checkout local config a
-// project's dev tooling links into the worktree (kan-1026: gymie's
-// linkEnvFile .env). Removing the worktree removes the link alone.
-func rcwLinkToCounterpart(a, b string) bool {
-	la, errL := os.Lstat(a)
-	fa, errA := os.Stat(a)
-	fb, errB := os.Lstat(b)
-	return errL == nil && errA == nil && errB == nil && la.Mode()&os.ModeSymlink != 0 && fb.Mode().IsRegular() && os.SameFile(fa, fb)
-}
-
-// rcwSameBytes reports whether a and b hold the same bytes — which of the
-// two preserved labels check 4 prints.
-func rcwSameBytes(a, b string) bool {
-	da, errA := os.ReadFile(a)
-	db, errB := os.ReadFile(b)
-	return errA == nil && errB == nil && bytes.Equal(da, db)
-}
-
-// rcwDisclose prints one DISCLOSE line per line cmd prints.
-func rcwDisclose(stdout io.Writer, wt, what string, cmd *exec.Cmd) {
-	out, err := cmd.Output()
-	if err != nil {
-		fmt.Fprintf(stdout, "DISCLOSE: %s — %s unreadable\n", wt, what)
-		return
-	}
-	for _, l := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
-		if l != "" {
-			fmt.Fprintf(stdout, "DISCLOSE: %s — %s: %s\n", wt, what, rcwFlat(l))
-		}
-	}
 }
 
 // rcwFlat keeps a multi-line message on its verdict line, its control bytes

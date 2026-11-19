@@ -14,89 +14,21 @@ import (
 func TestIntegrateChangePrepareCommit(t *testing.T) {
 	smoke.Heavy(t)
 	icRunCases(t, []icCaseDef{
-		{"narrative_format", `# --- narrative_format ---
-fixture
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-nar="$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-printf '\n## integrate run\n\n- In-run pipeline fix: the renderer could not render an exp- slot\n' >>"$nar"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "narrative_format: an off-format in-run fix line stops commit with exit 1" '[ "$RC" -eq 1 ]'
-check "narrative_format: the stop names the off-format line" \
-  'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — .*the renderer could not render an exp- slot"'`},
-		{"narrative_format_in_format", icNarrativePasses + `# --- narrative_format_in_format ---
-narrative_passes "a line in the format" '- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)'`},
-		{"narrative_format_prose_mention", icNarrativePasses + `# --- narrative_format_prose_mention ---
-narrative_passes "a prose mention of the token" 'The ` + "`" + `In-run pipeline fix:` + "`" + ` line was missing a sha.'`},
-		{"narrative_format_trailing_space", icNarrativePasses + `# --- narrative_format_trailing_space ---
-narrative_passes "a well-formed line with trailing whitespace" '- In-run pipeline fix: 1a2b3c4 — the defect (blast radius 2 files)   '`},
-		{"narrative_format_deferred", icNarrativePasses + `# --- narrative_format_deferred ---
-narrative_passes "a deferred big line" '- In-run pipeline fix: deferred — the defect (blast radius 60 files)'`},
-		{"narrative_format_deferred_small", `# --- narrative_format_deferred_small ---
-fixture
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-printf '\n## integrate run\n\n- In-run pipeline fix: deferred — the hook denied a planner (blast radius 3 files)\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "narrative_format_deferred_small: a deferred fix under 60 files stops commit" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — .*defers an in-run fix of blast radius 3"'`},
-		{"narrative_format_backticked_sha", icNarrativePasses + `# --- narrative_format_backticked_sha ---
-narrative_passes "a backticked sha" '- In-run pipeline fix: ` + "`" + `1a2b3c4` + "`" + ` — the defect (blast radius 3 files).'`},
-		{"narrative_runs", `# --- narrative_runs ---
-fixture
-echo 1 >"$WORK/fix-sessions"
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "narrative_runs: a fix run with no section stops commit at STOP: narrative" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — NARRATIVE-RUNS-MISSING"'
-printf '\n## 2026-10-19 — fix run\n\nfixed\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "narrative_runs: with the fix run's section commit no longer stops at narrative" \
-  '! printf "%s" "$OUT" | grep -q "^STOP: narrative"'
-rm -f "$WORK/fix-sessions"
-fixture
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-touch "$WORK/fail-sessions"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "narrative_runs: a failed stage-sessions read names the failure in the stop" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — check-narrative-runs: flow stage sessions"'
-rm -f "$WORK/fail-sessions"`},
 		{"foreign_staged", `# --- foreign_staged ---
 fixture
 printf 'stray\n' >"$WORK/b/stray.txt"
 g -C "$WORK/b" add stray.txt
 sut prepare "$WORK/a" demo
 check "staged work in a main checkout stops prepare with exit 1" '[ "$RC" -eq 1 ]'
-check "the stop is STOP: foreign-staged" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: foreign-staged"'
+check "the stop is STOP: main-checkout" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: main-checkout"'
 check "the guard's own STAGED-FOREIGN line is relayed" 'printf "%s" "$OUT" | grep -q "^STAGED-FOREIGN: $WORK/b"'
 check "the preflight closed stopped" 'grep -q "stage end .*-stage flow.preflight -outcome stopped" "$WORK/stages.log"'`},
-		{"untasked", `# --- untasked ---
-fixture
-printf 'stray\n' >"$WORK/b-worktrees/demo/stray.txt"
-g -C "$WORK/b-worktrees/demo" add stray.txt && g -C "$WORK/b-worktrees/demo" commit -qm "test(b): a stray edit"
-sut prepare "$WORK/a" demo
-check "untasked: prepare stops at STOP: unfinished-work" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: unfinished-work"'
-check "untasked: the stop says to finish the work, asking nothing" 'printf "%s" "$OUT" | tail -1 | grep -qF "finish the unfinished work, asking nothing, then re-run prepare"'
-check "untasked: the stray commit is listed" 'printf "%s" "$OUT" | grep -q "^  [0-9a-f]\{12\} test(b): a stray edit$"'
-sut prepare "$WORK/a" demo --accept-outstanding
-check "untasked: --accept-outstanding passes the gate" '[ "$RC" -eq 0 ]'`},
-		{"archived_rerun", `# --- archived_rerun ---
-fixture
-to_land "archived_rerun: "
-A="$WORK/a-worktrees/demo"
-printf 'more\n' >"$WORK/a-worktrees/demo/more.txt"
-g -C "$WORK/a-worktrees/demo" add more.txt && g -C "$WORK/a-worktrees/demo" commit -qm "feat(a): more" -m "Task-Id: 2"
-sut prepare "$WORK/a" demo
-check "archived_rerun: prepare passes the gate" '[ "$RC" -eq 0 ]'
-check "archived_rerun: b's reshaped commit is not listed" '! printf "%s" "$OUT" | grep -q "feat(b): do the work"'`},
 		{"no_verdict", `# --- no_verdict ---
 fixture
 : >"$WORK/fail-findings"
-sut prepare "$WORK/a" demo --accept-outstanding
+sut prepare "$WORK/a" demo
 check "no_verdict: prepare stops with exit 1" '[ "$RC" -eq 1 ]'
-check "no_verdict: the stop is STOP: no-verdict, not passed by --accept-outstanding" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: no-verdict — check-unfinished-work"'
+check "no_verdict: the stop is STOP: no-verdict" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: no-verdict — check-unfinished-work"'
 check "no_verdict: the gate mark closes stopped" 'tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.unfinished-work-gate -outcome stopped"'`},
 		{"sync_conflict", `# --- sync_conflict ---
 fixture
@@ -231,37 +163,18 @@ for r in a b; do g -C "$WORK/$r-worktrees/demo" push -q -u origin spectre/demo; 
 to_land "commit_pushes: " no-report
 check "commit_pushes: each remote branch is the reshaped HEAD" \
   '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse spectre/demo)" = "$(git -C "$WORK/a-worktrees/demo" rev-parse HEAD)" ] && [ "$(git --git-dir="$WORK/b-origin.git" rev-parse spectre/demo)" = "$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)" ]'`},
-		{"pre_reshape_pin", `# --- pre_reshape_pin ---
+		{"reshape_rerun", `# --- reshape_rerun ---
 fixture
-pa="$(git -C "$WORK/a-worktrees/demo" rev-parse HEAD)"; pb="$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)"
 sut prepare "$WORK/a" demo
 [ "$RC" -eq 0 ] || halt prepare
 printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work"
-check "pre_reshape_pin: commit with no subject for b stops after the reshape" \
+check "reshape_rerun: commit with no subject for b stops after the reshape" \
   'printf "%s" "$OUT" | grep -q "^STOP: commit-two" && [ "$(git -C "$WORK/b-worktrees/demo" rev-parse HEAD)" = "$(git -C "$WORK/b" rev-parse main)" ]'
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "pre_reshape_pin: the re-run commit exits 0" '[ "$RC" -eq 0 ]'
-check "pre_reshape_pin: each pin is the pre-reshape HEAD, not the reshaped one" \
-  '[ "$(git -C "$WORK/a" rev-parse refs/flow/pre-reshape/demo)" = "$pa" ] && [ "$(git -C "$WORK/b" rev-parse refs/flow/pre-reshape/demo)" = "$pb" ]'
-check "pre_reshape_pin: b's Task-Id: 1 commit is found through its pin" \
-  '[ "$(git -C "$WORK/b" log --format=%s --grep="^Task-Id: 1$" main..refs/flow/pre-reshape/demo)" = "feat(b): task 1" ]'
-check "pre_reshape_pin: each origin holds its pin" \
-  '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$pa" ] && [ "$(git --git-dir="$WORK/b-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$pb" ]'
-fixture
-stray="$(g -C "$WORK/b" commit-tree "main^{tree}" -m stray)"
-g -C "$WORK/b" push -q origin "$stray:refs/flow/pre-reshape/demo"
-g -C "$WORK/b" update-ref refs/flow/pre-reshape/demo "$(g -C "$WORK/b-worktrees/demo" rev-parse HEAD)"
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "pre_reshape_pin: a differing pin on origin stops commit, untouched" \
-  'printf "%s" "$OUT" | grep -q "^STOP: pre-reshape" && [ "$(git --git-dir="$WORK/b-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$stray" ]'`},
-		{"rerun_pin", icRerunPinCase + `# --- rerun_pin ---
-rerun_pin_case "rerun_pin: "`},
-		{"rerun_pin_reclone", icRerunPinCase + `# --- rerun_pin_reclone ---
-rerun_pin_case "rerun_pin reclone: " reclone`},
+check "reshape_rerun: the re-run commit exits 0" '[ "$RC" -eq 0 ]'
+check "reshape_rerun: no pre-reshape pin is made" \
+  '! git -C "$WORK/a" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null && ! git --git-dir="$WORK/b-origin.git" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null'`},
 		{"base_mismatch", `# --- base_mismatch ---
 fixture
 for r in a b; do g -C "$WORK/$r" push -q origin main:refs/heads/feature/x; done
@@ -293,13 +206,10 @@ check "base_mismatch: b recording another base stops" 'printf "%s" "$OUT" | tail
 fixture
 sut prepare "$WORK/a" demo
 [ "$RC" -eq 0 ] || halt prepare
-printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work" --plan-message "Task 3 is unticked"
-check "outstanding: --plan-message is refused" '[ "$RC" -ne 0 ] && grep -q "unknown argument .--plan-message." "$WORK/stderr"'
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work" --outstanding "Task 3 is unticked"
-check "outstanding: commit exits 0" '[ "$RC" -eq 0 ]'
-check "outstanding: the implementation commit keeps its own subject and carries the text in its body" \
-  '[ "$(g -C "$WORK/a-worktrees/demo" log --format=%s --grep="^Outstanding: " -1)" = "feat(a): do the work" ] && g -C "$WORK/a-worktrees/demo" log --format=%b --grep="^Outstanding: " -1 | grep -qx "Outstanding: Task 3 is unticked"'`},
+for flag in --plan-message --outstanding; do
+  sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work" "$flag" "Task 3 is unticked"
+  check "outstanding: $flag is refused" '[ "$RC" -ne 0 ] && grep -q "unknown argument .$flag." "$WORK/stderr"'
+done`},
 		{"drift_switch", `# --- drift_switch: a clean main checkout left on another branch is switched
 # back to its default branch, the branch keeping its commits ---
 fixture
@@ -314,7 +224,7 @@ check "drift_switch: one DRIFT-SWITCHED line names side, its sha and its one com
 check "drift_switch: a's main checkout is on main" '[ "$(git -C "$WORK/a" branch --show-current)" = main ]'
 check "drift_switch: side keeps its commit" '[ "$(git -C "$WORK/a" rev-parse side)" = "$side" ]'
 check "drift_switch: the re-read prints DRIFT-CLEAN" 'printf "%s\n" "$OUT" | grep -qxF "DRIFT-CLEAN: $WORK/a — main"'
-check "drift_switch: no foreign-staged stop and the preflight ran" '! printf "%s" "$OUT" | grep -q "STOP: foreign-staged" && grep -q flow.preflight "$WORK/stages.log"'`},
+check "drift_switch: no main-checkout stop and the preflight ran" '! printf "%s" "$OUT" | grep -q "STOP: main-checkout" && grep -q flow.preflight "$WORK/stages.log"'`},
 		{"drift_switch_stops", `# --- drift_switch_stops: each repository is judged on its own; a dirty or
 # detached checkout is never switched ---
 fixture
@@ -322,8 +232,8 @@ g -C "$WORK/a" checkout -q -b side
 g -C "$WORK/b" checkout -q -b other
 printf 'dirty\n' >"$WORK/b/base.txt"
 sut prepare "$WORK/a" demo
-check "drift_switch_stops: a dirty b stops prepare at STOP: foreign-staged" \
-  '[ "$RC" -eq 1 ] && printf "%s\n" "$OUT" | tail -1 | grep -q "^STOP: foreign-staged"'
+check "drift_switch_stops: a dirty b stops prepare at STOP: main-checkout" \
+  '[ "$RC" -eq 1 ] && printf "%s\n" "$OUT" | tail -1 | grep -q "^STOP: main-checkout"'
 check "drift_switch_stops: a is switched though b stops the run" \
   '[ "$(git -C "$WORK/a" branch --show-current)" = main ] && printf "%s\n" "$OUT" | grep -qF "DRIFT-SWITCHED: $WORK/a "'
 check "drift_switch_stops: dirty b is not switched" \
@@ -332,14 +242,14 @@ fixture
 g -C "$WORK/a" checkout -q --detach
 sut prepare "$WORK/a" demo
 check "drift_switch_stops: a detached HEAD stops and stays detached" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | grep -q "STOP: foreign-staged" && [ -z "$(git -C "$WORK/a" branch --show-current)" ] && ! printf "%s" "$OUT" | grep -q "DRIFT-SWITCHED"'`},
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | grep -q "STOP: main-checkout" && [ -z "$(git -C "$WORK/a" branch --show-current)" ] && ! printf "%s" "$OUT" | grep -q "DRIFT-SWITCHED"'`},
 		{"drift_switch_refused", `# --- drift_switch_refused: a switch git refuses changes nothing and stops ---
 fixture
 g -C "$WORK/a" checkout -q -b side
 g -C "$WORK/a" worktree add -q "$WORK/a-main" main
 sut prepare "$WORK/a" demo
 check "drift_switch_refused: a switch git refuses stops and leaves a on side" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | grep -q "STOP: foreign-staged" && printf "%s\n" "$OUT" | grep -qxF "DRIFT-SWITCH-REFUSED: $WORK/a — git switch main failed; left on side" && [ "$(git -C "$WORK/a" branch --show-current)" = side ]'
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | grep -q "STOP: main-checkout" && printf "%s\n" "$OUT" | grep -qxF "DRIFT-SWITCH-REFUSED: $WORK/a — git switch main failed; left on side" && [ "$(git -C "$WORK/a" branch --show-current)" = side ]'
 fixture
 printf 'tracked\n' >"$WORK/a/.env"
 g -C "$WORK/a" add .env && g -C "$WORK/a" commit -qm "track .env" && g -C "$WORK/a" push -q origin main
@@ -350,90 +260,8 @@ printf 'SECRET local\n' >"$WORK/a/.env"
 sut prepare "$WORK/a" demo
 check "drift_switch_refused: an ignored file main tracks is never overwritten" \
   '[ "$RC" -eq 1 ] && printf "%s\n" "$OUT" | grep -qF "DRIFT-SWITCH-REFUSED: $WORK/a " && [ "$(git -C "$WORK/a" branch --show-current)" = side ] && [ "$(cat "$WORK/a/.env")" = "SECRET local" ]'`},
-		{"live_check", `# --- live_check ---
-fixture
-d="$WORK/a-worktrees/demo/spectre/changes/demo"
-printf '# demo\n\n## Live check\n\nRun prepare twice and compare the two runs.\n\n## Decisions\n' >"$d/design.md"
-sut prepare "$WORK/a" demo
-check "live_check: a named live check with no record stops prepare at STOP: live-check" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: live-check — "'
-printf 'Before figure: not measured\n' >"$d/live-verification.md"
-sut prepare "$WORK/a" demo --accept-outstanding
-check "live_check: a refused record stops prepare, --accept-outstanding or not" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: live-check — "'
-chmod 000 "$d/live-verification.md"
-sut prepare "$WORK/a" demo
-chmod 644 "$d/live-verification.md"
-check "live_check: an unreadable record stops prepare with the guard's could-not-answer text" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: live-check — check-live-verification could not answer "'
-printf 'Before: two lines. After: two lines.\n' >"$d/live-verification.md"
-sut prepare "$WORK/a" demo
-check "live_check: a passing record lets prepare through" '[ "$RC" -eq 0 ]'`},
-		{"live_check_none", `# --- live_check_none ---
-fixture
-printf '# demo\n\n## Live check\n\nNone — the change runs per invocation;\nno service holds its state.\n\n## Decisions\n' >"$WORK/a-worktrees/demo/spectre/changes/demo/design.md"
-sut prepare "$WORK/a" demo
-check "live_check_none: a wrapped no-runtime section needs no record" '[ "$RC" -eq 0 ]'`},
 	})
 }
-
-// TestIntegrateChangeCommitRefusesAnOpenTestFailure: a narrative line that
-// leaves a failing or flaky test open stops commit; one that says it was fixed,
-// or records an operator's decision, or names no test, passes (kan-1103
-// self-review, F2).
-func TestIntegrateChangeCommitRefusesAnOpenTestFailure(t *testing.T) {
-	smoke.Heavy(t)
-	icRunCases(t, []icCaseDef{
-		{"narrative_open_test", `# --- narrative_open_test ---
-fixture
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-printf '\n## integrate run\n\n%s\n' '- Open, not mine: ` + "`" + `TestX` + "`" + ` failed once under load; it passes on re-run. Not fixed here.' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "narrative_open_test: a line leaving a failing test open stops commit" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — .*leaves a failing or flaky test open"'`},
-		{"narrative_open_test_fixed", icNarrativePasses + `# --- narrative_open_test_fixed ---
-narrative_passes "a failing test the run fixed" '- ` + "`" + `TestX` + "`" + ` failed once under load; fixed by the self-review (F1).'`},
-		{"narrative_open_test_preexisting_fixed", icNarrativePasses + `# --- narrative_open_test_preexisting_fixed ---
-narrative_passes "a pre-existing flaky test the run fixed" '- Pre-existing flaky test ` + "`" + `TestX` + "`" + ` fixed at its source in abc1234 (F1).'`},
-		{"narrative_open_test_operator", icNarrativePasses + `# --- narrative_open_test_operator ---
-narrative_passes "a flake the operator chose to proceed past" '- Pre-existing flake in the visual spec: the operator chose to proceed past it.'`},
-		{"narrative_open_test_no_test", icNarrativePasses + `# --- narrative_open_test_no_test ---
-narrative_passes "a pre-existing failure naming no test" '- admin-frontend failed to start — a pre-existing port conflict.'`},
-	})
-}
-
-// icNarrativePasses is narrative_format's pass case, one call per case.
-const icNarrativePasses = `# narrative_passes <label> <line>: a fresh prepare, <line> as the narrative's
-# in-run fix entry, and commit must pass.
-narrative_passes() {
-  fixture
-  sut prepare "$WORK/a" demo
-  [ "$RC" -eq 0 ] || halt prepare
-  printf '\n## integrate run\n\n%s\n' "$2" >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-  sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-  check "narrative_format: $1 passes commit" '[ "$RC" -eq 0 ]'
-}
-`
-
-// icRerunPinCase is rerun_pin's case, one call per case.
-const icRerunPinCase = `rerun_pin_case() {
-  fixture
-  to_land "${1}"
-  [ "${2:-}" = reclone ] && git -C "$WORK/a" update-ref -d refs/flow/pre-reshape/demo
-  A="$WORK/a-worktrees/demo"
-  printf 'more\n' >"$WORK/a-worktrees/demo/more.txt"
-  g -C "$WORK/a-worktrees/demo" add more.txt && g -C "$WORK/a-worktrees/demo" commit -qm "feat(a): more" -m "Task-Id: 2"
-  sut prepare "$WORK/a" demo
-  [ "$RC" -eq 0 ] || halt prepare
-  sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): more work" "$WORK/b=feat(b): do the work"
-  check "${1}the re-run commit exits 0" '[ "$RC" -eq 0 ]'
-  check "${1}a's pin reaches both Task-Id commits" \
-    '[ "$(git -C "$WORK/a" log --format=%s --grep="^Task-Id: [12]$" main..refs/flow/pre-reshape/demo | sort | tr "\n" ,)" = "feat(a): do the work,feat(a): more,feat(a): task 1," ]'
-  check "${1}origin holds the advanced pin" \
-    '[ "$(git --git-dir="$WORK/a-origin.git" rev-parse refs/flow/pre-reshape/demo)" = "$(git -C "$WORK/a" rev-parse refs/flow/pre-reshape/demo)" ]'
-}
-`
 
 // TestIntegrateChangePrepareRerunReadsThePlanOnDisk: a re-run of prepare
 // after run 1's commit finds the plan in the worktree, never in a commit --
@@ -479,70 +307,6 @@ fix="$(git -C "$A" rev-parse HEAD)"
 printf '[{"angle":"code","disposition":"fixed","ref":"%s"}]' "$(git -C "$A" rev-parse --short=12 HEAD)" >"$WORK/sr-findings.json"
 sut prepare "$WORK/a" demo
 check "rerun_reshape_base: a fixed row's commit is the reshape base" 'printf "%s" "$OUT" | grep -qF "WORKTREE: $A — base main, reshape base $fix"'`},
-	})
-}
-
-// TestIntegrateChangeRequiresInRunFixLine pins kan-1032's self-review: a
-// fixed flow-fix row the store lists needs an in-run fix line naming its sha.
-func TestIntegrateChangeDerivesInRunFixLine(t *testing.T) {
-	smoke.Heavy(t)
-	icRunCases(t, []icCaseDef{
-		{"fix_line_derived", `# --- fix_line_derived ---
-fixture
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-echo '[{"angle":"flow-fix","disposition":"fixed","ref":"1a2b3c4d5e6f","note":"the renderer could not render an exp- slot","blastRadius":2}]' >"$WORK/sr-findings.json"
-printf '\n## integrate run\n\nnarrative' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "fix_line_derived: a row with its note and blast radius passes commit" '[ "$RC" -eq 0 ]'
-check "fix_line_derived: the line is appended to the narrative" \
-  'grep -qxF -- "- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)" "$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"'
-check "fix_line_derived: the append is reported" \
-  'printf "%s" "$OUT" | grep -q "^narrative: appended "'
-rm -f "$WORK/sr-findings.json"`},
-		{"fix_line_multiline_note", `# --- fix_line_multiline_note ---
-fixture
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-printf '%s\n' '[{"angle":"flow-fix","disposition":"fixed","ref":"1a2b3c4d5e6f","note":"two\nlines","blastRadius":2}]' >"$WORK/sr-findings.json"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "fix_line_multiline_note: a multi-line note stops commit with exit 1" '[ "$RC" -eq 1 ]'
-check "fix_line_multiline_note: the stop names the sha" \
-  'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — .*1a2b3c4"'
-rm -f "$WORK/sr-findings.json"`},
-	})
-}
-
-func TestIntegrateChangeRequiresInRunFixLine(t *testing.T) {
-	smoke.Heavy(t)
-	icRunCases(t, []icCaseDef{
-		{"fix_line_missing", `# --- fix_line_missing ---
-fixture
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-echo '[{"angle":"flow-fix","disposition":"fixed","ref":"1a2b3c4d5e6f"}]' >"$WORK/sr-findings.json"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "fix_line_missing: a fixed flow-fix row with no line stops commit with exit 1" '[ "$RC" -eq 1 ]'
-check "fix_line_missing: the stop names the sha" \
-  'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: narrative — .*1a2b3c4"'
-rm -f "$WORK/sr-findings.json"`},
-		{"fix_line_present", `# --- fix_line_present ---
-fixture
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-echo '[{"angle":"flow-fix","disposition":"fixed","ref":"1a2b3c4d5e6f"}]' >"$WORK/sr-findings.json"
-printf '\n## integrate run\n\n%s\n' '- In-run pipeline fix: 1a2b3c4 — the renderer could not render an exp- slot (blast radius 2 files)' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "fix_line_present: a fixed row with its line passes commit" '[ "$RC" -eq 0 ]'
-rm -f "$WORK/sr-findings.json"`},
-		{"fix_line_other_rows", `# --- fix_line_other_rows ---
-fixture
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-echo '[{"angle":"flow-cost","disposition":"fixed","ref":"1a2b3c4d5e6f"},{"angle":"flow-fix","disposition":"noted","ref":"2b3c4d5e6f7a"}]' >"$WORK/sr-findings.json"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "fix_line_other_rows: a flow-cost fixed row and a flow-fix noted row pass commit" '[ "$RC" -eq 0 ]'
-rm -f "$WORK/sr-findings.json"`},
 	})
 }
 

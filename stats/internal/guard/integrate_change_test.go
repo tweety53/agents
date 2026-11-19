@@ -16,8 +16,8 @@ import (
 )
 
 // The integrate-change cases are its former bash harness's cases, each run
-// as its own bash session over that harness's own fixture, `g`, `to_land`,
-// `peer_fix_case`, `ui_a` and `flag`, kept verbatim so every case's setup
+// as its own bash session over that harness's own fixture, `g`, `to_land`
+// and `peer_fix_case`, kept verbatim so every case's setup
 // and every `check` expression is the harness's own. Only `sut` changes: it
 // hands its argv and environment back to this test, which runs
 // Registry["integrate-change"] in process and returns OUT, RC and the
@@ -108,15 +108,6 @@ peer_fix_case() {
   check "${1}land exits 0" '[ "$RC" -eq 0 ]'
   check "${1}the re-sync rewrote b's fix sha" '[ -n "$new" ] && [ "$new" != "$old" ]'
   check "${1}a fixed row names the re-synced sha" 'grep -q -- "-disposition fixed -ref $new" "$WORK/fixed.log"'
-}
-ui_a() {
-  printf '\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| ` + "`" + `ui paths` + "`" + ` | ` + "`" + `work-a.txt` + "`" + ` |\n' >>"$WORK/a-worktrees/demo/.flow/project.md"
-  printf '# Visual verification — demo\n' >"$WORK/a-worktrees/demo/spectre/changes/demo/visual-verification.md"
-  g -C "$WORK/a-worktrees/demo" commit -qa --amend --no-edit
-}
-flag() {
-  printf '[{"change":"%s","guard":"check-visual-verify-dispatched","worktree":"%s","verdict":"VISUAL-VERIFY-MISSING: no verifier — HEAD %s","falsePositive":true,"falsePositiveReason":"hand-verified","flaggedAt":"2026-01-01T00:00:00Z"}]' \
-    "${3:-demo}" "$(cd "$1" && pwd -P)" "$2" >"$WORK/verdicts.json"
 }`
 
 // icFlowStub is the fixture's fake flow CLI; it finds its fixture from its
@@ -131,15 +122,13 @@ case "$1 $2" in
   "state list") echo '{"source":"store","complete":true,"records":[{"name":"demo"}]}' ;;
   "stage begin"|"stage end") echo "$*" >>"$W/stages.log" ;;
   "stage completed") [ -f "$W/sr-unreachable" ] && exit 2; [ -f "$W/sr-completed" ] ;;
-  "stage sessions") [ -f "$W/fail-sessions" ] && exit 1; if [ "$6" = flow.document-fix ]; then cat "$W/fix-sessions" 2>/dev/null || echo 0; else echo 0; fi ;;
   "record findings") [ -f "$W/fail-findings" ] && exit 1; echo '[]' ;;
   "self-review findings") cat "$W/sr-findings.json" 2>/dev/null || echo '[]' ;;
   "self-review bundle") printf 'found: 1 of 1 sources; skipped: 0 of 1 sources\n' ;;
   "self-review finding") echo "$*" >>"$W/fixed.log" ;;
-  "record dispatches") [ -f "$W/loop-rows" ] && exec cat "$W/loop-rows"; cat "$W/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-02T00:00:00Z"}]' ;;
+  "record dispatches") cat "$W/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-02T00:00:00Z"}]' ;;
   "record decisions") echo '[]' ;;
   "record passes") echo '[{"id":1,"round":0,"note":"roster: full"}]' ;;
-  "record verdicts") cat "$W/verdicts.json" 2>/dev/null || echo '[]' ;;
   "workspace-id "*) echo demo-id ;;
   *) : ;;
 esac
@@ -302,8 +291,6 @@ check "Jira In Review then Done are handed to the parent" \
   '[ "$(printf "%s\n" "$OUT" | grep "^JIRA: " | tr "\n" "|")" = "JIRA: transition KAN-1 to In Review|JIRA: transition KAN-1 to Done|" ]'
 check "the stage log runs preflight through refresh-main-checkout" \
   'head -1 "$WORK/stages.log" | grep -q "stage begin .*-stage flow.preflight" && tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.refresh-main-checkout -outcome completed"'
-check "run 2 keeps a's pre-reshape pin, locally and on origin" \
-  'git -C "$WORK/a" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null && git --git-dir="$WORK/a-origin.git" rev-parse -q --verify refs/flow/pre-reshape/demo >/dev/null'
 check "land ends on NEXT: Finished handoff" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: print the Finished handoff"'
 check "the NEXT line names the template and its never-omitted lines" 'printf "%s" "$OUT" | tail -1 | grep -qF "(skills/flow/cleanup.md) — its Learning: and Prompt tuning: lines included"'`},
 		{"run2_preflight", `# --- run2_preflight ---

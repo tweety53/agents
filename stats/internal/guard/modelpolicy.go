@@ -10,8 +10,8 @@ import (
 )
 
 // The allowed pairs as mechanics: policyTable reads them, every one with
-// open experiment overrides applied, for pair-judge, pipeline-fix,
-// visual-verify-pass and check-loop-dispatch's first-review-effort check;
+// open experiment overrides applied, for pair-judge and
+// visual-verify-pass;
 // policyAllows judges one pair against them.
 
 // mpFile names the roles and their prose; the pairs are flowd's.

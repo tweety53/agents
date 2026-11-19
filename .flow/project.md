@@ -14,7 +14,7 @@ halves live in the one repo and are covered below.
 | flow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Go + Markdown | — | The skills/commands/rules half. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
 | flow stats daemon | `/Users/tweety53/Projects/agents/stats` | Go + React/Vite | `http://127.0.0.1:4173` | `flowd`, loopback-only. Backed by a dedicated `flow-postgres` container on host port 5433, independent of any other Postgres stack on this machine. Also the one application `## apps` names that a fix run's reload rule (`skills/flow/verify-and-handoff.md`) never reloads — the same protection, not a separate one. |
 
-**This repository is Go + Python, with two bash files.** The `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-references`, `check-unfinished-work`, `check-guard-calls`, `mutate-and-verify`, `check-base-moved`, `check-finish-preflight`, `check-workspace-isolation`, `recover-guard-incident`, `resolve-base-branch`, `check-visual-verify-dispatched`, `check-visual-trigger`, `check-visual-verification`, `check-verify-report`, `check-frame-list`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `reshape-branch`, `check-foreign-staged`, `check-main-checkout-drift`, `refresh-main-checkout`, `break-and-prove`, `prepare-workspace`, `check-panel-docs-only`, `check-worktree-processes` and `check-python-suppressions` — are Go (`stats/internal/guard/`), every one called as `flow-guard <name>` through `scripts/flow-guard`, the one bash bootstrap, which runs the binary built from this checkout; `setup.sh` is the only other bash file and stays bash.
+**This repository is Go + Python, with two bash files.** The `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-references`, `check-unfinished-work`, `check-guard-calls`, `mutate-and-verify`, `check-base-moved`, `check-finish-preflight`, `check-workspace-isolation`, `recover-guard-incident`, `resolve-base-branch`, `check-visual-trigger`, `check-visual-verification`, `check-verify-report`, `check-frame-list`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `check-foreign-staged`, `check-main-checkout-drift`, `refresh-main-checkout`, `break-and-prove`, `prepare-workspace`, `check-panel-docs-only` and `check-python-suppressions` — are Go (`stats/internal/guard/`), every one called as `flow-guard <name>` through `scripts/flow-guard`, the one bash bootstrap, which runs the binary built from this checkout; `setup.sh` is the only other bash file and stays bash.
 
 **Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, called as `flow-guard <name>`; there is no per-guard script. A new `check-*` guard lands with its Go test, `stats/internal/guard/<name, - replaced by _>_test.go`, in the same change — `check_spec_reach_test.go` for `flow-guard check-spec-reach` — and `flow-guard check-guard-calls`'s rule C fails lint while it is missing.
 
@@ -201,11 +201,9 @@ rule's "run the auto-fix command first" step. There is no equivalent for the SPA
 carries no lint or format script, only `tsc -b`'s type check, so a TypeScript violation is fixed by
 hand like a guard-script one.
 
-**`flow-guard check-workspace-isolation` is a lint step where the other `## workspace isolation` guard is
-not.** It takes a project root, defaults to this repository when given none, and answers a question
-about the text of `.flow/project.md` — so it runs against a bare tree like every other guard here.
-`flow-guard check-cleanup-complete` reads the same section and is excluded below for the opposite reason: it
-needs a change in flight.
+**`flow-guard check-workspace-isolation` is a lint step.** It takes a project root, defaults to this
+repository when given none, and answers a question about the text of `.flow/project.md` — so it runs
+against a bare tree like every other guard here.
 
 **Every guard in the list is currently expected to exit 0.** `flow-guard check-workspace-isolation` reports
 `ISOLATION-OK` and validates this repository's own declared section; its own header carries its
@@ -247,8 +245,7 @@ resource, never the service that holds it. This section protects the service and
 own logical resources; it says nothing about anyone else's.
 
 **Nothing worktree-local exists for check 5 to stop.** A worktree gets its own database and port, and
-no `/flow` step starts a daemon against them. Check 6, `flow-guard check-worktree-processes`, is what proves
-no process holds a worktree, and it remains a gate.
+no `/flow` step starts a daemon against them.
 
 Stopping the dev stack is an **operator** action, deliberately. The commands live where the operator
 starts it: `## run` above, and `stats/README.md`'s "Running the daemon at login" section for the
@@ -309,7 +306,6 @@ taken, and cleanup removes what it names — the persistent store must never be 
 |---------|------|
 | `create` | `scripts/flow-guard workspace create <id>` |
 | `remove` | `scripts/flow-guard workspace remove <id>` |
-| `survivors` | `scripts/flow-guard workspace survivors <id>` |
 
 **`FLOW_STATE_DIR` and `FLOW_TRANSCRIPTS_DIR` are deliberately not isolated.** The `Resource`
 column above is a closed vocabulary — `database`, `bucket`, `cache index`, `port`, `url`, and no

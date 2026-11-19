@@ -371,8 +371,7 @@ func tcfEntries(dir string) []string {
 
 // tcfIsFixSiblingOf is is_fix_sibling_of_set: true when name is
 // "<stem>-fix-<digits>" AND <stem> is itself one of the matched change names.
-// The digit test is the same one check-cleanup-complete's sub-change row uses,
-// and for the same reason: a change merely named like a neighbour
+// The digit test is there because a change merely named like a neighbour
 // (`demo-fix-the-parser`) is a change of its own, not this change's
 // sub-change, and must still count as ambiguity.
 func tcfIsFixSiblingOf(name string, names []string) bool {

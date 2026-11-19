@@ -1,666 +1,37 @@
 package guard
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"regexp"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 )
 
-// The contract below moved here from the header of the deleted
-// scripts/check-cleanup-complete.sh shim (KAN-1058).
-//
-// flow-guard check-cleanup-complete — verify that everything the cleanup registry says
-// should be gone after /flow's cleanup run actually is.
-//
-// Usage: flow-guard check-cleanup-complete <repo> <change-name> <state-dir>
-//        (<state-dir> is the path `flow state dir` prints — resolve it with
-//        that command, never by guessing the location)
-//
-// Prints ONE verdict line to stdout:
-//   COMPLETE: <reason>    every registry row whose lifetime ends at run 2 is gone
-//   LEFTOVER: <breakdown> one or more are still present
-//
-// EITHER VERDICT MAY CARRY NOTES, appended after ` — `, and a `SKIPPED:` note
-// says a row was NOT verified. It rides a COMPLETE line because a skip does not
-// block — see the asymmetry paragraph below — so a caller that reads the token
-// and discards the rest reports "cleanup verified" over a row nothing looked at,
-// which is this guard's whole argument inverted one layer up. The rule that the
-// clause is relayed word for word therefore lives with the consumer, in step 4
-// of **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`),
-// and is named here so a future editor of this line knows where it is kept.
-//
-// Exit 0 whenever a verdict was reached; exit 2 when it cannot answer at all —
-// an unreadable repository or state directory, or a change name outside the
-// allowlist. The VERDICT carries the answer, not the exit status
-// — see flow-guard check-finish-preflight's header for why this repository separates
-// them. Finish runs this once per repository, so each verdict names the
-// repository it judged; a bare COMPLETE would be unattributable across several.
-//
-// WHY THE VERDICT WORDS DIFFER FROM flow-guard check-unfinished-work's. That guard says
-// CLEAR/OUTSTANDING, this one says COMPLETE/LEFTOVER, and the two vocabularies
-// are deliberately not shared. They answer OPPOSITE questions about absence, as
-// the paragraph below spells out: there a missing file counts AGAINST the
-// change, here a missing artifact IS the answer. A reader who carried the
-// meaning of CLEAR across to COMPLETE would carry that inversion with it.
-// flow-guard check-finish-preflight's third vocabulary (RUN1/RUN2/REFUSE) differs for a
-// further reason again: it selects a procedure rather than reporting a state.
-//
-// Reporting a leftover is the whole point: run 2 previously assumed its own
-// removals succeeded.
-//
-// THE SIX ROWS, AND WHY THEY ARE THESE SIX. The registry in
-// skills/flow-contracts/artifacts-registry.md owns the list; the rows whose
-// lifetime ends at run 2 are the worktree, the local branch, the remote branch,
-// the proposal artifact source and the workspace database
-// and bucket — plus the wave-group throwaway worktree copy, whose lifetime is
-// meant to end inside the implement phase but which a run that died mid-wave
-// leaves for run 2. It is detached or on its own flow-copy/ branch, so the
-// spectre/ branch match that finds the worktree row never sees it; it is
-// matched instead on git's own worktree list as such an entry whose last path element is `<name>-wave-group-<digits>`. The per-task diffs, the panel record and the session ledger are not
-// checked separately because the registry removes them WITH the worktree — a
-// surviving one of those is a surviving worktree, already reported. The state
-// file is not checked at all: its row says it is never removed, so its presence
-// is correct and reporting it would train the operator to ignore this guard's
-// output. The claimed cache index is not checked for a different reason again,
-// and it is the only row whose reason is an inability rather than a decision:
-// its row says nothing in this pipeline removes it and nothing can, because the
-// index is claimed by probing rather than derived from the change name and is
-// never recorded, so by the time this guard runs there is nothing that could say
-// which index to look at. A row this guard invented a check for would be
-// checking an index it guessed.
-//
-// THE WORKSPACE ROW IS ANSWERED BY ASKING, NOT BY LOOKING, and it is the only one
-// that is. The other six live in this repository's own git bookkeeping and
-// filesystem, which this guard can read directly. A workspace's database and
-// bucket live inside services this guard knows nothing about, and it must stay
-// project-agnostic — it can hold neither `psql -l` nor any project's
-// object-store client. So the project answers for them: it declares a
-// `survivors` command in its .flow/project.md, this guard runs it, and its
-// output and exit code are the row's verdict. Both are specified under "What
-// `survivors` prints, and what its exit code means" in
-// skills/flow-contracts/project-configuration-isolation.md, which is canonical; the
-// reasoning for a third verb beside `create` and `remove` is under "Creation and
-// cleanup" in skills/flow-contracts/workspace-isolation.md.
-//
-// "RAN THE REMOVAL" IS NOT "VERIFIED GONE", which is the whole reason that row
-// is not settled from the removal command's exit code. A removal that reported
-// success against a stale connection, and a bucket a policy refused to delete,
-// both leave the row's promise broken with nothing having failed. This guard
-// therefore never runs `remove` and never reads its result — it asks.
-//
-// THE TWO NON-EMPTY ANSWERS ARE NOT SYMMETRIC. A reported survivor BLOCKS the
-// terminal state; a `survivors` command that could not reach its service is
-// reported by name and with its exit code, and the run continues. Blocking an
-// already-merged change over a service that happens to be stopped trades a
-// stranded change for a few megabytes of stale storage, which is the wrong
-// trade — the argument is under "Creation and cleanup" in
-// skills/flow-contracts/workspace-isolation.md, together with why one non-zero
-// exit is enough where a reader might expect two. A project that declares no
-// `survivors` command, one whose configuration this guard cannot read — absent
-// permission, but also a path that is not a regular file, and any scan of it that
-// FAILED rather than found nothing — and one that declares the
-// `## workspace isolation` section more than once, are all reported as SKIPPED
-// for the same reason and with the same effect: skipped is never passed, and a
-// skip does not block. An input this guard cannot resolve is reported rather than
-// resolved to one of its readings, and a command whose failure would otherwise be
-// indistinguishable from its negative answer is read by its exit status rather
-// than by its empty output. A project that
-// declares no `## workspace isolation` section at all is silent here, because a
-// step whose artifact is already absent is a success.
-//
-// THAT DERIVATION IS DECLARED BELOW RATHER THAN LEFT IN PROSE, because a prose
-// restatement of a table in another file is exactly what goes stale: a registry
-// row added later whose lifetime ends at run 2 would not be checked here, and
-// this guard would then report COMPLETE over a real leftover — the failure it
-// exists to prevent, one layer up. Every registry row is named in exactly one of
-// the two lists below, and TestCheckCleanupComplete/14 (ccRegistryCoupling,
-// stats/internal/guard/check_cleanup_complete_test.go) reads BOTH the
-// registry and these markers and fails when they disagree in either direction:
-// a registry row with no line here, or a line here naming a row the registry no
-// longer has. Adding a registry row therefore fails this guard's suite until
-// someone decides, in writing, which list it belongs in.
-//
-// registry-row-checked: Worktree
-// registry-row-checked: Local branch
-// registry-row-checked: Remote branch
-// registry-row-checked: Change directory
-// registry-row-checked: Proposal artifact source
-// registry-row-checked: Workspace database and bucket
-// registry-row-checked: Wave-group throwaway worktree copy
-// registry-row-not-checked: Per-task and review diffs — removed with the worktree
-// registry-row-not-checked: Panel slot verbatim reports — removed with the worktree
-// registry-row-not-checked: Panel record — lives in the store; nothing removes it
-// registry-row-not-checked: SDD ledger — lives in the store; nothing removes it
-// registry-row-not-checked: Rendered ledger and panel record — rendered from
-//   the store and never committed with the change, so nothing removes them and
-//   there is nothing for this guard to find gone
-// registry-row-not-checked: Brainstorm design document — removed with the worktree
-// registry-row-not-checked: Mutation's throwaway worktree copy — created and removed
-//   entirely within the review panel stage, immediately after that slot's dispatch
-//   closes; it never survives to run 2, so there is nothing here for this guard to
-//   find gone
-// registry-row-not-checked: State file — never removed; it is the terminal record
-// registry-row-not-checked: Claimed cache index — this pipeline removes nothing and this guard checks nothing; the index is probed rather than derived, so run 2 has no derivation to repeat. A project that writes its claim where a probe can see it may release it in its own `remove` command and report it through `survivors`; that is the project's tooling and this marker does not claim it
-// registry-row-not-checked: Self-review context bundle — saved to flowd at
-//   cleanup and removed with the worktree
-//
-// ABSENCE IS THE ANSWER HERE, not a gap in the evidence. The run-1 gate treats
-// a file it cannot find as outstanding, because a missing record proves nothing
-// about the work. This guard asks the opposite question — "is it gone?" — so a
-// row it cannot find is that row answered. What must never be inferred is
-// absence from a path that was never readable, which is why an unreadable
-// repository and an unreadable state directory both refuse to answer instead.
-//
-// ONE RESIDUAL EXCEPTION TO THAT SENTENCE, NAMED RATHER THAN CLAIMED AWAY. The
-// local-branch and remote-tracking-ref rows are the only two answered out of
-// git's ref store rather than out of the filesystem, and for them the sentence
-// above holds for every shape but one. A ref whose LOOSE FILE is unreadable or
-// corrupt is now told apart from a ref that does not exist, and reported SKIPPED
-// — see refState in stats/internal/guard/cleanupcomplete.go for the two
-// commands that takes and why one will not do.
-// A ref whose ANCESTOR DIRECTORY is unreadable is not: git enumerates the refs
-// it can reach and reports nothing at all about the ones it cannot, in
-// `show-ref`, in `rev-parse`, in `for-each-ref` and in `ls-remote` alike, with
-// and without --quiet, so `refs/heads/spectre/` at mode 000 is indistinguishable
-// from an empty `refs/heads/spectre/`. There is no channel to read, so there is
-// nothing this guard can do but say so here.
-//
-// WHAT AN OPERATOR SHOULD KNOW. In that one shape a COMPLETE verdict does not
-// prove the two branch rows are gone; it proves nothing was found where this
-// guard was able to look. It is silent — no skip note, because the condition is
-// unobservable from here — so it is the one leftover this guard cannot promise
-// to report. If a run 2 that verified COMPLETE is followed by `git branch` still
-// listing `spectre/<name>`, check the modes on `.git/refs/heads/` and its
-// subdirectories before suspecting anything else. Every OTHER unreadable input
-// in this guard — the repository, the state directory, packed-refs, the project
-// configuration, the survivors command — refuses or reports SKIPPED.
-//
-// THE SURVIVORS COMMAND IS RUN UNDER A BOUNDED WAIT, and a timeout is a third
-// skip reason rather than a fourth verdict. Run 2 is unattended, so a command
-// that never returns strands an already-merged change short of FINISHED with
-// nobody watching — and closing stdin, which this guard also does, only covers a
-// command blocking on an interactive prompt. An unreachable host with no connect
-// timeout, a lock wait, a frozen container and an infinite loop are all untouched
-// by it. The bound is the 60 seconds **Worktree cleanup**
-// (`skills/flow-contracts/finish-contract-run2.md`) already gives the project-supplied
-// `## stop` command, and the OUTCOME deliberately differs: there a timeout is a
-// failed check, because an un-stopped stack is a reason not to remove a worktree
-// and there is no other answer to fall back on; here the contract already defines
-// one for "the command said nothing about survivors" — the reported skip — and
-// blocking an already-merged change over a slow command is what
-// **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`)
-// forbids. The skip names the timeout distinctly from a non-zero exit, because
-// "your command is slow" and "your command is broken" have different remedies.
-//
-// HOW TO HAND-VERIFY A LEFTOVER VERDICT (KAN-446). Check each row the
-// breakdown names against the filesystem yourself. A worktree kept
-// legitimately — the state file retains an entry whose removal failed, per
-// state-file.md's `worktrees` contract — is the known structural shape; any
-// other row still on the list is really there.
-
-// check-cleanup-complete: the comment above is the contract; the reasoning for each branch, moved here from the bash body it
-// replaced (0747740), sits beside the code it explains, updated where the port
-// changed the mechanism. Two scans the bash ran as separate grep/awk
-// processes over .flow/project.md -- the heading count and the survivors-row
-// extraction -- read the one buffer here, so their "could not look" branches
-// collapse into the single read's failure, reported as the bash reports a
-// grep that could not look.
-func init() { Registry["check-cleanup-complete"] = checkCleanupComplete }
+// The helpers run 2's worktree cleanup (remove-change-worktrees), the
+// workspace guards and prepare-workspace share: the bound on a
+// project-supplied command, the workspace id, and the change's worktrees.
 
 const (
-	// ccDefaultTimeout is the bound on the project's `survivors` command — the
-	// same 60 seconds the `## stop` command gets under **Worktree cleanup**
-	// (`skills/flow-contracts/pipeline.md`). One number for every
-	// project-supplied command run unattended is one number an operator has
-	// to know; a second one would be a second rule to keep from drifting, and
-	// the case for tightening it here is weaker than it looks. A bound that is
-	// too generous costs wall clock only in the rare hang. A bound that is too
-	// tight turns a slow-but-working report into a skip, and a skip leaves the
-	// row UNVERIFIED — the worst outcome this guard can reach short of a false
-	// COMPLETE.
+	// ccDefaultTimeout is the bound on the project's `## stop` command under
+	// **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
 	//
 	// ccDefaultGrace is the grace between the SIGTERM and the SIGKILL
-	// ccRunSurvivors sends. Named beside the bound and justified to the same
-	// depth, because a second unexplained number in a function whose every
-	// other number is argued for is the one a later reader changes without
-	// knowing what it was holding.
-	//
-	// IT IS NOT A SECOND BOUND, and that is why it is short. It is spent AFTER
-	// the bound has already fired, so every second of it is a second past the
-	// promise the bound made to a run nobody is watching — the effective
-	// ceiling is the bound plus the grace, and a grace generous enough for a
-	// JVM shutdown hook would make the second term a meaningful fraction of
-	// the first.
-	//
-	// IT BUYS NOTHING FOR THE VERDICT, WHICH IS ALREADY DECIDED. By the time
-	// the SIGTERM goes out, timedOut is true and the row is a skip: a
-	// terminated command has said nothing about survivors, and nothing it does
-	// during the grace can change that. What the grace is for is the COMMAND's
-	// own housekeeping — closing a connection rather than leaving the service
-	// to reap it — a courtesy whose cost when it is not finished in time is
-	// real but bounded: a server-side connection left to its own idle timeout.
-	// Two seconds is enough for a client that closes a socket on SIGTERM and
-	// not enough for a `./gradlew` target running a shutdown hook, and that
-	// asymmetry is accepted rather than papered over. The remedy for a command
-	// that needs longer is a command that answers faster, which is the same
-	// remedy the bound itself points a project author at under "What
-	// `survivors` prints, and what its exit code means" in
-	// skills/flow-contracts/project-configuration-isolation.md — and a command reaching
-	// a service through a container runtime is not helped by ANY grace here,
-	// for the reason ccRunSurvivors gives.
-	//
-	// THERE IS NO ENVIRONMENT OVERRIDE, and the absence is a decision rather
-	// than an omission. CHECK_CLEANUP_SURVIVORS_TIMEOUT exists because a
-	// harness would otherwise spend a minute of wall clock per timeout case;
-	// the grace costs two seconds, so that argument buys nothing here — and a
-	// knob on the interface every /flow integrate and cleanup run reads has to
-	// be paid for by more than symmetry. (The Go tests shorten it in-process,
-	// through Env.SurvivorsKillGrace, which no caller of flow-guard can reach.)
+	// ccRunSurvivors sends, spent AFTER the bound has fired: two seconds is
+	// enough for a client that closes a socket on SIGTERM.
 	ccDefaultTimeout = 60 * time.Second
 	ccDefaultGrace   = 2 * time.Second
 )
 
-// ccHeading is the heading rule, written once and used by both the presence
-// count and the survivors-row extraction in ccWorkspaceRow. Two spellings of
-// it would be two answers to "is this project isolated?", and the
-// extraction's would win silently.
+// ccHeading is the `## workspace isolation` heading rule, written once.
 var (
 	ccUnknownToken = regexp.MustCompile(`<[A-Za-z0-9_:.-]+>`)
 	ccHeading      = regexp.MustCompile(`^##[ \t\n\v\f\r]+workspace isolation[ \t\n\v\f\r]*$`)
 	ccAnyHeading   = regexp.MustCompile(`^#+[ \t\n\v\f\r]`)
 )
-
-func checkCleanupComplete(args []string, env Env, stdout, stderr io.Writer) int {
-	arg := func(i int) string {
-		if i < len(args) {
-			return args[i]
-		}
-		return ""
-	}
-	repo, name, stateDir := arg(0), arg(1), arg(2)
-	if repo == "" || name == "" || stateDir == "" {
-		fmt.Fprintln(stderr, "usage: flow-guard check-cleanup-complete <repo> <change-name> <state-dir>")
-		Reason(env, "usage")
-		return 2
-	}
-	// CONTAINMENT: the change name arrives from a pull-request-editable state
-	// file and is concatenated into a path, a ref name and a directory test
-	// below. Without this check `../../nonexistent-decoy` makes every row answer
-	// "already gone" and the guard reports COMPLETE while the real change
-	// directory and artifact source are still sitting there — a confirmed
-	// cleanup that removed nothing. plainChangeName carries the rule and its
-	// reasoning. The refusal is sanitized for the same reason the verdict below
-	// is: the name arrives from a pull-request-editable state file, and this is
-	// the one message that quotes it back before the allowlist has vouched for
-	// anything.
-	if !plainChangeName(name) {
-		fmt.Fprint(stderr, ccSanitize(fmt.Sprintf("check-cleanup-complete: change name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", name)))
-		Reason(env, "change-name-not-plain")
-		return 2
-	}
-	git := "git"
-	if p, ok := lookPath(env, "git"); ok {
-		git = p
-	}
-	gitCmd := func(a ...string) *exec.Cmd { return exec.Command(git, append([]string{"-C", repo}, a...)...) }
-	if !isDir(repo) || gitCmd("rev-parse", "--git-dir").Run() != nil {
-		fmt.Fprintf(stderr, "check-cleanup-complete: %s is not a git repository — cannot determine anything\n", repo)
-		Reason(env, "not-a-git-repository")
-		return 2
-	}
-	// A state directory that is not there cannot answer whether the artifact
-	// source is gone. A mistyped path would otherwise read as "the artifact is
-	// absent" and contribute to a COMPLETE verdict nobody checked.
-	if !isDir(stateDir) {
-		fmt.Fprintf(stderr, "check-cleanup-complete: %s is not a directory — cannot tell whether the proposal artifact source remains\n", stateDir)
-		Reason(env, "not-a-directory")
-		return 2
-	}
-
-	var left, notes []string
-	add := func(s string) { left = append(left, s) }
-	// notes carries what the verdict line must say ABOUT a row without that being
-	// a leftover: the workspace row verified clean, or its verification skipped.
-	// It is separate from left because the two are read differently — a leftover
-	// stops run 2 and a note does not — and a skip written into the breakdown
-	// would be acted on as something to go and remove.
-	note := func(s string) { notes = append(notes, s) }
-
-	// Row one — the worktree, found by BRANCH rather than by path, exactly as
-	// the Worktree cleanup contract finds worktrees when the state file's map
-	// is absent or empty: a path is never guessed from a conventional layout.
-	//
-	// Read into memory, never through a scratch file: a verifier that writes
-	// into the tree it is verifying can leave behind exactly the class of
-	// leftover it exists to report.
-	//
-	// git's failure is not read as an empty list. Doing so would turn an
-	// unreadable repository into a COMPLETE verdict — the reassuring one —
-	// which is the same silence this guard was added to break.
-	porcelain, err := gitCmd("worktree", "list", "--porcelain").Output()
-	if err != nil {
-		fmt.Fprintf(stderr, "check-cleanup-complete: cannot list the worktrees of %s — cannot determine anything\n", repo)
-		Reason(env, "cannot-list-the-worktrees")
-		return 2
-	}
-	// A worktree still listed after `git worktree prune` should have run is a
-	// leftover whether or not its directory survives: the registration is what
-	// run 2 is required to remove.
-	wts, copies := changeWorktrees(porcelain, name)
-	if len(wts) > 0 {
-		add(fmt.Sprintf("worktree(s) still registered for spectre/%s at %s", name, strings.Join(wts, ", ")))
-	}
-	// The wave-group throwaway copies (KAN-854) are detached or on a flow-copy/
-	// branch, so the spectre/ branch match above never sees one; a run that died mid-wave leaves them for run 2.
-	if len(copies) > 0 {
-		add(fmt.Sprintf("wave-group worktree copy(ies) of spectre/%s still registered at %s", name, strings.Join(copies, ", ")))
-	}
-
-	// Rows two and three — the local branch and the remote branch. The remote
-	// one is read through its tracking ref, which is what this repository can
-	// see without a network call; run 2 deletes the remote branch and prunes
-	// the ref together, so a surviving ref is the observable half of that step
-	// failing.
-	//
-	// refState <ref> — `present`, `absent` or `unreadable`, and never collapses
-	// the last two. This is the invariant above applied to git's ref store,
-	// and it takes two commands because ONE cannot say it:
-	//
-	//   `show-ref --verify --quiet` exits 1 both for a ref that is not there
-	//   and for a ref whose loose file cannot be read or does not parse.
-	//   Dropping --quiet does not help — both become the same
-	//   `fatal: '<ref>' - not a valid ref` and the same exit 128. So the
-	//   positive answer is taken from show-ref, which matches the FULL ref
-	//   name and never a prefix, and only its exit 1 is sent on to be
-	//   disambiguated.
-	//
-	//   `for-each-ref` is the command that distinguishes them, and it does so
-	//   on stderr rather than in its exit status: a ref that is absent
-	//   produces nothing at all, while one that exists and cannot be resolved
-	//   produces `warning: ignoring broken ref <ref>` and exit 0. Measured on
-	//   git 2.50.1 against a mode-000 loose ref and against a loose ref
-	//   holding garbage.
-	//
-	// ANY stderr counts, and the message text is never matched. Matching it
-	// would tie this guard to one git version's wording and to one locale, and
-	// the failure mode of a wording change would be the silent one — back to a
-	// false COMPLETE. Treating every byte of stderr as "could not look" fails
-	// the other way, toward a skip. `LC_ALL=C` is set on that one command's
-	// environment and nowhere else, so it never reaches the project's own
-	// `survivors` command. The pattern is the exact ref name, so a broken ref
-	// elsewhere in the store does not reach this question: measured, a broken
-	// `refs/heads/unrelated` produces no warning under this pattern.
-	//
-	// THE ONE SHAPE THIS STILL CANNOT SEE is an unreadable ref DIRECTORY — an
-	// ancestor of the ref with its execute bit removed. git enumerates what it
-	// can reach and says nothing whatever about what it cannot, in every
-	// command tried, so `refs/heads/spectre/` at mode 000 is reported exactly
-	// as an empty one. The header carries that carve-out; it is not closed
-	// here because there is nothing to read it from.
-	refState := func(ref string) string {
-		show := gitCmd("show-ref", "--verify", "--quiet", ref)
-		show.Stderr = stderr
-		if err := show.Run(); err == nil {
-			return "present"
-		} else if ee, ok := err.(*exec.ExitError); !ok || ee.ExitCode() != 1 {
-			// Anything other than the documented "no such ref" status is a
-			// failure to look — an unreadable packed-refs exits 128 here — and
-			// is never absence.
-			return "unreadable"
-		}
-		each := gitCmd("for-each-ref", "--format=%(refname)", ref)
-		each.Env = append(os.Environ(), "LC_ALL=C")
-		var msg bytes.Buffer
-		each.Stderr = &msg
-		if err := each.Run(); err != nil || msg.Len() > 0 {
-			return "unreadable"
-		}
-		return "absent"
-	}
-	// A row that could not be read is SKIPPED, not LEFTOVER: it is unanswered
-	// rather than answered "still there". A LEFTOVER would send the operator to
-	// delete a branch that may already be gone, and would strand an
-	// already-merged change over a condition nothing in that session can
-	// correct — the trade **Creation and cleanup**
-	// (`skills/flow-contracts/workspace-isolation.md`) rejects. Skipped is never
-	// passed, and the clause is relayed word for word by step 4 of **Run 2 — the
-	// branch is merged** (`skills/flow-contracts/finish-contract-run2.md`).
-	localRef := "refs/heads/spectre/" + name
-	switch refState(localRef) {
-	case "present":
-		add(fmt.Sprintf("the local branch spectre/%s still exists", name))
-	case "unreadable":
-		note(fmt.Sprintf("SKIPPED: the local branch row — git could not read %s in %s, so whether it survives was not established; a failure to look is not an absence", localRef, repo))
-	}
-	remoteRef := "refs/remotes/origin/spectre/" + name
-	switch refState(remoteRef) {
-	case "present":
-		add(fmt.Sprintf("the remote-tracking ref origin/spectre/%s still exists", name))
-	case "unreadable":
-		note(fmt.Sprintf("SKIPPED: the remote-tracking ref row — git could not read %s in %s, so whether it survives was not established; a failure to look is not an absence", remoteRef, repo))
-	}
-
-	// Row four — the proposal artifact source, whose removal at run 2 is
-	// conditional on a preserved copy existing. This guard reports it as
-	// remaining; it does not decide whether keeping it was right, which is the
-	// run's judgment and not a fact about the tree.
-	if isFile(stateDir + "/" + name + "-proposal-artifact.html") {
-		add("the proposal artifact source is still in the state directory")
-	}
-
-	// Row five — the workspace database and bucket, the one row this guard
-	// cannot look at and must ask about. Everything in ccWorkspaceRow is a
-	// no-op for a project that declares no `## workspace isolation` section,
-	// which is the overwhelmingly common case and includes this repository:
-	// nothing is read, nothing is run, and the verdict line is byte-for-byte
-	// what it was before this row existed.
-	survivors, rowNote := ccWorkspaceRow(env, repo, name, stderr)
-	for _, s := range survivors {
-		add("the project's survivor report still names " + s)
-	}
-	if rowNote != "" {
-		note(rowNote)
-	}
-
-	verdict := fmt.Sprintf("COMPLETE: %s — no worktree, local branch, remote-tracking ref or proposal artifact source remains for spectre/%s", repo, name)
-	if len(left) > 0 {
-		verdict = fmt.Sprintf("LEFTOVER: %s — %s", repo, strings.Join(left, "; "))
-	}
-	if len(notes) > 0 {
-		verdict += " — " + strings.Join(notes, "; ")
-	}
-	// Sanitized at the ONE point the verdict reaches stdout, rather than at each
-	// of the places project-supplied text is interpolated into it. A chokepoint
-	// covers the next add or note somebody writes; six call sites are six
-	// chances to forget one, and the one forgotten is the whole hole. It cannot
-	// change the verdict token either — `COMPLETE:`/`LEFTOVER:` is written here,
-	// downstream of every interpolation, so nothing a project prints can move
-	// it.
-	fmt.Fprint(stdout, ccSanitize(verdict+"\n"))
-	return 0
-}
-
-const ccSpace = " \t\n\v\f\r"
-
-// ccWorkspaceRow answers row five: the survivor lines to report as leftovers,
-// and the one note the row contributes (verified empty, or why skipped).
-func ccWorkspaceRow(env Env, repo, name string, stderr io.Writer) ([]string, string) {
-	cfg := repo + "/.flow/project.md"
-	const skip = "SKIPPED: the workspace survivor verification — "
-	if _, err := os.Lstat(cfg); err != nil {
-		return nil, "" // no configuration at all
-	}
-	if !isFile(cfg) {
-		return nil, skip + cfg + " is not a regular file, so what it declares cannot be read"
-	}
-	// THE FILE TYPE IS TESTED BEFORE ITS READABILITY. Readability is true of
-	// a DIRECTORY, and the bash guard's `grep -q` then failed with "Is a
-	// directory" while its exit status was indistinguishable from "no match" —
-	// so `ln -s somedir .flow/project.md` read as "declared no isolation":
-	// nothing derived, nothing run, and not even a SKIPPED note, which is
-	// silence where this guard promises a report. The file test follows
-	// symlinks, so a configuration that IS a symlink to a real file is still
-	// read; what it excludes is a directory, a fifo (which a read would block
-	// on) and a dangling link — and the Lstat in the absent test is what stops
-	// a link to nowhere answering "there is no configuration here".
-	//
-	// A file that exists but cannot be read is NOT "declares no isolation".
-	// Reading absence out of a path that was never readable is the false
-	// COMPLETE this guard exists to prevent, so it is reported instead of
-	// assumed.
-	if syscall.Access(cfg, 4) != nil {
-		return nil, skip + cfg + " exists but is not readable"
-	}
-	// A read that fails is a failure to look, never "no section declared" — the
-	// bash guard read each grep's status as three outcomes (matched, did not
-	// match, could not look) for this reason. A failure to look is an input this
-	// guard cannot resolve, and the answer to those is the one it gives every
-	// other one — SKIPPED, reported by name and never passed.
-	body, err := os.ReadFile(cfg)
-	if err != nil {
-		return nil, skip + "grep exited 2 looking for the '## workspace isolation' heading in " + cfg + ", which is a failure to look rather than an absence"
-	}
-	lines := strings.Split(strings.TrimSuffix(string(body), "\n"), "\n")
-	count := 0
-	for _, l := range lines {
-		if ccHeading.MatchString(ccASCIILower(l)) {
-			count++
-		}
-	}
-	if count == 0 {
-		return nil, ""
-	}
-	// TWO DECLARATIONS ARE NOT A DECLARATION. This file is hand-written, so a
-	// heading duplicated by a bad merge or a copied block is a realistic
-	// mistake, and the two sections can name two different `survivors`
-	// commands against two different services. Resolving that to whichever the
-	// scan below reaches first runs a command the author may not have meant
-	// and then reports the row VERIFIED on its answer — the false COMPLETE
-	// this guard exists to prevent, reached from a readable file rather than
-	// from an unreadable one.
-	//
-	// SKIPPED IS THE ANSWER THIS GUARD ALREADY GIVES EVERY INPUT IT CANNOT
-	// RESOLVE: an unreadable configuration, a `survivors` cell that is empty,
-	// a command naming a token this pipeline does not substitute. Each is
-	// reported by name, none is passed, and none blocks an already-merged
-	// change. Preferring the first section would be the only quiet answer in
-	// the file.
-	//
-	// The count is reported because "you have two" is what the operator has to
-	// fix, and a message naming the heading without saying it appears more
-	// than once reads as the heading being wrong rather than repeated.
-	if count > 1 {
-		return nil, fmt.Sprintf("%s%s declares %d '## workspace isolation' sections, so which one's survivors command applies is ambiguous and none of them was run", skip, cfg, count)
-	}
-
-	// The survivors row: everything between the row's first and last `|`
-	// after the key cell, trimmed of whitespace and backticks, `\|` unescaped.
-	// The scan is line-based and stops at the next `##`+ heading, which is the
-	// same shape the registry parser in this guard's test
-	// (ccRegistryCoupling) uses; a project's configuration is a human-written
-	// Markdown file of sections, not a nested document.
-	//
-	// The command is taken as EVERYTHING between the row's first and last `|`,
-	// rather than as a field of a split. A realistic command contains a pipe —
-	// `... | grep …` is how a project filters its own tooling's output — and a
-	// field split truncates it there, leaving a different command that still
-	// runs and still answers.
-	survivorsCmd, inSec := "", false
-	for _, l := range lines {
-		if ccAnyHeading.MatchString(l) {
-			inSec = ccHeading.MatchString(ccASCIILower(l))
-			continue
-		}
-		if !inSec || !strings.HasPrefix(strings.TrimLeft(l, ccSpace), "|") {
-			continue
-		}
-		row := strings.TrimLeft(l, ccSpace)[1:]
-		if t := strings.TrimRight(row, ccSpace); strings.HasSuffix(t, "|") {
-			row = t[:len(t)-1]
-		}
-		key, val, ok := strings.Cut(row, "|")
-		if !ok || ccASCIILower(strings.Trim(key, ccSpace+"`")) != "survivors" {
-			continue
-		}
-		survivorsCmd = strings.ReplaceAll(strings.Trim(val, ccSpace+"`"), `\|`, "|")
-		break
-	}
-	// `create` and `remove` without `survivors` leaves nothing to verify the
-	// removal WITH. Reported as skipped rather than passed, and never settled
-	// by running `remove` and reading its exit code.
-	if survivorsCmd == "" {
-		return nil, skip + "the project declares no survivors command"
-	}
-
-	id := ccWorkspaceID(name)
-	// The two tokens the contract names, and no others. Order is not
-	// load-bearing: `<id>` requires the `>` immediately after `id`, so it
-	// cannot match inside `<id_underscored>`.
-	cmdText := strings.ReplaceAll(survivorsCmd, "<id_underscored>", strings.ReplaceAll(id, "-", "_"))
-	cmdText = strings.ReplaceAll(cmdText, "<id>", id)
-	// A token this contract does not name is reported and the command
-	// DROPPED, never handed to a shell: `<container>` reaching sh is a
-	// redirection, which can truncate a file nobody named. The shape is
-	// narrow on purpose — `>` is excluded from it, so ordinary redirection
-	// (`cmd < in.txt > out.txt`) carries no match.
-	if tok := ccUnknownToken.FindString(cmdText); tok != "" {
-		return nil, fmt.Sprintf("%s'%s' names the token %s, which is not one this pipeline substitutes", skip, survivorsCmd, tok)
-	}
-
-	timeout, label := ccSurvivorsTimeout(env)
-	grace := env.SurvivorsKillGrace
-	if grace <= 0 {
-		grace = ccDefaultGrace
-	}
-	// Run from the repository, so a declared `./scripts/…` resolves the way
-	// the project wrote it, and under the bounded wait ccRunSurvivors
-	// documents.
-	//
-	// THE THREE SKIPS BELOW ARE ORDERED BY WHAT THEY KNOW. A command that
-	// never started has no exit code to report; a command that was killed has
-	// one, but it is the signal's and not the project's, so reporting it would
-	// describe this guard's own kill as the project's answer. Only the last
-	// branch is holding a number the project chose. A command that never
-	// answered said nothing about survivors, exactly as a failed one did not —
-	// so whatever it printed before it was killed is not read as a survivor
-	// list either; and any non-zero exit says NOTHING about survivors, so
-	// whatever it printed is not a survivor list and is not read as one.
-	out, rc, timedOut, started := ccRunSurvivors(env, repo, cmdText, timeout, grace, stderr)
-	switch {
-	case !started:
-		return nil, fmt.Sprintf("%sno writable temporary directory, so '%s' could not be run at all", skip, cmdText)
-	case timedOut:
-		return nil, fmt.Sprintf("%s'%s' timed out after %ss and was terminated, so it reported nothing about survivors", skip, cmdText, label)
-	case rc != 0:
-		return nil, fmt.Sprintf("%s'%s' exited %d, so the service could not be reached", skip, cmdText, rc)
-	}
-	// $(cat), then tr -d '\r' inside a second $(...): NULs dropped, \r
-	// removed, trailing newlines stripped; a line of whitespace is no survivor.
-	report := strings.TrimRight(strings.ReplaceAll(strings.ReplaceAll(string(out), "\x00", ""), "\r", ""), "\n")
-	var found []string
-	for _, l := range strings.Split(report, "\n") {
-		// A blank line is not a survivor. A trailing newline is what every
-		// well-behaved command emits, and a leftover named nothing at all
-		// would block the terminal state with nothing to remove. The line is
-		// DATA, not instruction — reported exactly as the project's tooling
-		// printed it and never parsed further, the same rule a resolved
-		// standards file is read under.
-		if strings.Trim(l, ccSpace) != "" {
-			found = append(found, l)
-		}
-	}
-	if len(found) == 0 {
-		return nil, "the workspace survivor report for " + id + " is empty"
-	}
-	return found, ""
-}
 
 // ccWorkspaceID is the derivation skills/flow-contracts/workspace-isolation.md
 // carries as a runnable block, which is canonical: ASCII-lowercase, every
@@ -669,16 +40,9 @@ func ccWorkspaceRow(env Env, repo, name string, stderr io.Writer) ([]string, str
 // first four hex digits of the SHA-256 of the original name.
 //
 // Derived from the change name exactly as workspace-isolation.md derives it,
-// and from nothing else. This is a second implementation of that block, and
-// the two are held together by TestCheckCleanupComplete's canonical-id cases
-// (ccCanonicalIDCases), which extract that block, DRIVE it with a set of
-// change names, and compare its id with the one this code substitutes, for
-// each of them. A copy nothing checks is a copy that drifts, and two ids that
-// differ by one byte each look correct on their own while naming two
-// different databases. That is not a hypothetical here: the bash copy DID
-// drift, in the three ways the three paragraphs below each name, and the pin
-// missed it because it drove one ASCII-clean name through which all three
-// orderings agree.
+// and from nothing else. This is a second implementation of that block; the
+// bash copy DID drift, in the three ways the three paragraphs below each
+// name.
 //
 // THE NORMALISATION RUNS FIRST, and the order is the whole of step 2 and step
 // 3 being separate steps. From there on the string is pure ASCII, so its
@@ -720,167 +84,25 @@ func ccWorkspaceID(name string) string {
 	return prefix + "-" + sha256Hex(name)[:4]
 }
 
-// ccSurvivorsTimeout is the bound: an injected duration wins; otherwise
-// CHECK_CLEANUP_SURVIVORS_TIMEOUT when it is 1-4 digits, no leading zero and
-// at most 3600, else the shipped 60s. The label is the number the verdict
-// prints before "s".
+// ccRunSurvivors runs a project-supplied command: `bash -o pipefail -c <cmd>`
+// from dir, stdin /dev/null, stdout into an unlinked-after-read scratch file
+// under TMPDIR, stderr inherited, in a process group of its own. On the bound,
+// SIGTERM to the group, the grace, then SIGKILL to the group. started is false
+// only when the scratch file could not be created.
 //
-// CHECK_CLEANUP_SURVIVORS_TIMEOUT is an explicit, opt-in override, the same
-// idiom check-references.sh's CHECK_REFERENCES_ROOT exists for: it let the
-// bash harness exercise the timeout path in seconds rather than costing a
-// minute of wall clock per case (the Go tests inject Env.SurvivorsTimeout or
-// Env.SurvivorsExpire instead — Decision: inject-deadlines-in-process — and
-// TestCCSurvivorsTimeoutParsesEnvKnob pins the variable's parsing). Never set
-// it for a normal invocation. Anything that is not a plain whole number of
-// seconds between 1 and an hour leaves the shipped bound in place, so the
-// variable can only ever shorten the wait — it cannot remove the bound, and
-// no value of it lets this guard report a workspace as verified that it did
-// not verify, because a shorter bound produces MORE skips and a skip is
-// reported rather than passed.
-//
-// IT IS A RUNTIME OVERRIDE RATHER THAN A TEST-ONLY SEAM, AND THAT WAS WEIGHED.
-// The objection is fair on its face: this is test economics sitting on an
-// interface every /flow integrate and cleanup run reads, and the ordinary
-// answer to that is a seam only the harness can reach. It was not the answer
-// for the bash guard, for four reasons recorded so the question is not
-// re-opened from scratch; the first three still hold for the port.
-//
-//  1. A gate would not gate anything. Making it test-only means requiring a
-//     second variable — CHECK_CLEANUP_SELFTEST=1 or the like — and whoever can
-//     set one variable in this guard's environment can set two. The gate buys
-//     no safety, and costs a second thing to document and a second thing to
-//     get wrong.
-//  2. The variable is monotone in the SAFE direction, which is what actually
-//     makes it harmless. The validation admits only a shorter wait, a shorter
-//     wait produces more timeouts, and a timeout is a reported skip. There is
-//     no value of it — valid, invalid, hostile — that turns an unverified row
-//     into a verified one, which is the only thing this guard must never do.
-//  3. What it CAN do is turn a working survivor report into a skip, and that
-//     is no longer a quiet outcome. Step 4 of **Run 2 — the branch is merged**
-//     (`skills/flow-contracts/finish-contract-run2.md`) requires the skip clause to be
-//     relayed to the operator word for word, so the residual risk is closed at
-//     the consumer — which is where a verdict's meaning belongs.
-//  4. Every alternative broke the single-file rule the bash guard was copied
-//     into projects under: a build flag, a separate test build or a sourced
-//     test helper each turned one file into two. The Go port is not
-//     single-file, and its tests do use in-process seams; the variable stays
-//     because reasons 1-3 answer the objection and callers of flow-guard may still set it.
-//
-// THE SHAPES REJECTED, AND WHY EACH ONE IS. Empty and non-digit are the
-// obvious ones. A leading zero is rejected because the bash's `test` read
-// `010` as ten and its arithmetic read it as eight, and a bound that means two
-// different numbers in two lines of the same function is worse than no
-// override. More than four digits is rejected before any arithmetic touches
-// the value: in the bash a seconds count that overflowed the shell's integer
-// wrapped NEGATIVE, and a deadline in the past fires the timeout instantly —
-// turning every survivors command into a false skip, which is the failure
-// mode this bound exists to avoid rather than to create. An hour is the
-// ceiling because a bound longer than that is not a bound for a run nobody is
-// watching. The port keeps every one of these rules, so the accepted set is
-// the bash's.
-func ccSurvivorsTimeout(env Env) (time.Duration, string) {
-	if env.SurvivorsTimeout > 0 {
-		return env.SurvivorsTimeout, strconv.FormatFloat(env.SurvivorsTimeout.Seconds(), 'f', -1, 64)
-	}
-	raw := env.Getenv("CHECK_CLEANUP_SURVIVORS_TIMEOUT")
-	if raw != "" && len(raw) <= 4 && raw[0] != '0' && strings.Trim(raw, "0123456789") == "" {
-		if n, _ := strconv.Atoi(raw); n <= 3600 {
-			return time.Duration(n) * time.Second, raw
-		}
-	}
-	return ccDefaultTimeout, "60"
-}
-
-// ccRunSurvivors is run_survivors: `bash -o pipefail -c <cmd>` from the
-// repository, stdin /dev/null, stdout into an unlinked-after-read scratch
-// file under TMPDIR, stderr inherited, in a process group of its own (the
-// bash's `set -m`). A timer replaces the poll: on the bound, SIGTERM to the
-// group, the grace, then SIGKILL to the group. started is false only when
-// the scratch file could not be created, which is neither an answer nor a
-// timeout.
-//
-// NO `timeout(1)`. It is absent from stock macOS, this repository runs on
-// Darwin, and `gtimeout` exists only where someone installed GNU coreutils — a
-// guard that reached for either would be unbounded again on the machine it
-// most needs the bound on, and silently so. The bash built its wait from a
-// background job, `kill -0` and `sleep`; the port's is an in-process timer.
-//
-// THE KILL GOES TO THE PROCESS GROUP, not to the one pid. `bash -c 'cmd'` execs
-// into a simple command and forks for a pipeline, and a declared command
-// containing a pipe is the shape the contract's own worked example takes — so
-// signalling the pid this function holds would reap a wrapper and leave the
-// real work running, for as long as it wanted, on a machine nobody is
-// watching. Setpgid at the launch is what puts the command in a group of its
-// own; the negative pid then reaches every process in it.
-//
-// AND IT REACHES NOTHING THAT HAS LEFT THAT GROUP, which is a real limitation
-// and is written down rather than left to be discovered. A command that
-// starts its work under its own job control, and — the shape a project
-// actually writes — one that reaches its service through `docker exec`, both
-// put the work outside the group: with a container runtime the process this
-// function signals is a proxy and the query runs in another PID namespace,
-// which no signal sent from this host can name. Measured on Darwin 25.5.0: a
-// group kill reaped the in-group child and left a sibling holding a group of
-// its own still running. It cannot be closed HERE — a guard that stays
-// project-agnostic can no more hold one container runtime's `kill` than it can
-// hold `psql -l` — so it is closed where the command is written, and stated
-// for the author who writes it under "What `survivors` prints, and what its
-// exit code means" in skills/flow-contracts/project-configuration-isolation.md. What the
-// bound still guarantees is all three things run 2 depends on, and they hold
-// for the escaped shape too: this function returns, because Wait names the
-// direct child alone and WaitDelay stops it waiting on a stderr pipe an
-// escaped descendant still holds; the row is reported as a skip rather than
-// as a verification; and nothing the escaped process prints afterwards is
-// read as a survivor report, because the capture is a scratch file read once
-// after the wait rather than a pipe, so a descendant still holding that
-// descriptor writes into a file nothing will read again.
-// TestCheckCleanupComplete/28d drives that shape and fails if the behaviour
-// and this paragraph ever stop agreeing, in either direction.
-//
-// SIGTERM FIRST, SIGKILL AFTER A GRACE, because a command holding a
-// connection should be allowed to close it, and a command that ignores
-// SIGTERM must not be allowed to outlive the bound anyway. The grace is
-// ccDefaultGrace, named and argued for beside ccDefaultTimeout rather than
-// written as a literal here — including why it is short, and why it has no
-// override where the bound does.
-//
-// `-o pipefail` IS WHAT MAKES A FAILING STAGE VISIBLE, and without it this
-// guard's central promise does not hold for the shape the contract invites. A
-// shell reports a pipeline's status from its LAST stage alone, so
-// `./gradlew survivors | grep …` with no gradlew exits 0 with empty stdout —
-// and exit 0 with empty output is the ONE result that verifies the row. The
-// row would then be reported verified by a command that never ran, and
-// FINISHED written over resources nothing looked at. A pipe is not an exotic
-// shape here: **Project configuration — workspace isolation**
-// (`skills/flow-contracts/project-configuration-isolation.md`) names filtering the
-// project's own tooling as the reason a command contains one.
-//
-// IT CANNOT BE SET BY PREPENDING `set -o pipefail;` TO THE COMMAND TEXT. That
-// makes the declared command the tail of a list rather than the whole of it,
-// which loses the exec into a simple command — and with it the guarantee that
-// the pid this function holds IS the project's process. The flag on the
-// interpreter changes the status a pipeline reports and nothing else: the
-// process structure, the exec, the process group and the kill are all as they
-// were, so the bounded wait is untouched.
-//
-// IT ONLY EVER PRODUCES MORE SKIPS, WHICH IS THE SAFE DIRECTION — the same
-// argument the timeout override is admitted on. A pipeline whose last stage
-// already exits non-zero (`… | grep <pattern>` finding nothing) was a skip
-// before this flag and is one after it; what changes is that a failing
-// EARLIER stage now joins them instead of passing for a verification. The one
-// shape it turns from an answer into a skip is a pipeline that closes its own
-// input early, `… | head -n 1` leaving the left stage killed by SIGPIPE, and
-// that shape is called out in the contract rather than special-cased here:
-// reading 141 as success would restore exactly the silence this flag removes.
+// NO `timeout(1)`: it is absent from stock macOS. THE KILL GOES TO THE PROCESS
+// GROUP, not to the one pid, since `bash -c` forks for a pipeline; it reaches
+// nothing that left the group (a `docker exec` runs in another PID namespace),
+// but this function still returns, because Wait names the direct child alone
+// and WaitDelay stops it waiting on a stderr pipe an escaped descendant holds.
+// `-o pipefail` makes a failing earlier stage of a pipeline visible.
 func ccRunSurvivors(env Env, repo, cmdText string, timeout, grace time.Duration, stderr io.Writer) (out []byte, rc int, timedOut, started bool) {
 	tmpdir := env.Getenv("TMPDIR")
 	if tmpdir == "" {
 		tmpdir = "/tmp"
 	}
 	// The scratch file the command's stdout is captured in, removed on every
-	// return. It lives under TMPDIR and NEVER inside the repository: a
-	// verifier that writes into the tree it is verifying can leave behind
-	// exactly the class of leftover it exists to report. An in-memory capture
+	// return. It lives under TMPDIR and NEVER inside the worktree. An in-memory capture
 	// through a pipe cannot be used here, though — reading it to EOF blocks
 	// until every holder of the write end exits, which is precisely the wait
 	// that has to be bounded.
@@ -902,8 +124,8 @@ func ccRunSurvivors(env Env, repo, cmdText string, timeout, grace time.Duration,
 	// non-interactive: a client that prompts for a password fails immediately
 	// instead of waiting on a terminal nobody is watching. That is a NARROWER
 	// guarantee than the bound and not a substitute for it. stderr is
-	// deliberately NOT swallowed: a skip reports the exit code, and the
-	// command's own message is the only thing that says why.
+	// deliberately NOT swallowed: the command's own message is the only thing
+	// that says why it failed.
 	cmd.Stdout, cmd.Stderr = scratch, stderr
 	// A non-file stderr is a pipe Go drains; a descendant that escaped the
 	// group still holds it, so Wait stops waiting for it after the grace.
@@ -911,7 +133,7 @@ func ccRunSurvivors(env Env, repo, cmdText string, timeout, grace time.Duration,
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := cmd.Start(); err != nil {
 		// The bash subshell's exec failing: exit 127, its message on stderr.
-		fmt.Fprintf(stderr, "check-cleanup-complete: %v\n", err)
+		fmt.Fprintf(stderr, "flow-guard: %v\n", err)
 		return nil, 127, false, true
 	}
 	pid := cmd.Process.Pid
@@ -947,8 +169,7 @@ func ccRunSurvivors(env Env, repo, cmdText string, timeout, grace time.Duration,
 // changeWorktrees reads `git worktree list --porcelain` output: the
 // worktrees checked out on refs/heads/spectre/<name>, and the detached or
 // flow-copy/-branched wave-group copies of that change's apply worktree (ccWaveGroupCopy), each
-// in git's listed order. check-cleanup-complete reports them as leftovers;
-// remove-change-worktrees removes them.
+// in git's listed order. remove-change-worktrees removes them.
 //
 // The path is the whole rest of the `worktree ` line, never a
 // whitespace-split field: `worktree list --porcelain` emits the path raw, so

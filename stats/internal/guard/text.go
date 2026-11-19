@@ -30,31 +30,11 @@ func crSort(env Env, lines []string, unique bool) ([]string, error) {
 // ccSanitize is sanitize_display: every C0 byte but the newline that ends a
 // line, DEL and backslash rendered visibly; bytes 0x80-0xFF pass through.
 //
-// THE VERDICT LINE IS THE ONE THING AN OPERATOR READS AND ACTS ON, and most of
-// what it can carry comes from outside this guard: a survivor line is whatever
-// the project tooling printed, and the `survivors` command quoted in a SKIPPED
-// clause comes straight out of `.flow/project.md`. Both are already this
-// guard's documented trust boundary — anyone who can land a pull request can
-// set them — and both were spliced into the verdict with only `\r` removed.
-//
-// THAT IS ENOUGH TO FORGE THE VERDICT, and the forgery is not subtle. A
-// survivors command emitting
-//
-//	printf "X\r\033[2K\033[1;32mCOMPLETE: nothing to see here, proceed\033[0m\n"
-//
-// produced a line whose BYTES still read `LEFTOVER: … still names X…` and whose
-// RENDERING erased that line and showed a bold green `COMPLETE:`. `\033[2K`
-// clears the line the cursor is on; `\033[1;32m` sets bold green. The bytes
-// being correct is no defence, because nobody reads the bytes.
-//
-// ESCAPED, NOT STRIPPED AND NOT REFUSED, and each alternative loses something
-// specific. Stripping silently rewrites the NAME of a surviving resource, so
-// the operator is sent to delete something whose name does not exist.
-// Refusing — a skip or a hard error on a line carrying a control byte — hands
-// whoever writes the survivors command a way to make a real leftover
-// unreportable, which is the false COMPLETE this guard exists to prevent,
-// reached by the shorter road. Escaping keeps the survivor counted, keeps the
-// verdict LEFTOVER, and shows the operator exactly what their tooling emitted.
+// A line an operator reads and acts on can carry text from outside the
+// guard printing it — git output, a path, a `.flow/project.md` cell — and a
+// control byte in it can rewrite what the terminal shows (`\r\033[2K` clears
+// the line). ESCAPED, NOT STRIPPED: stripping silently rewrites a name, so
+// the operator is sent to something that does not exist.
 //
 // THE ENCODING IS INJECTIVE, which is why `\` is escaped alongside the
 // controls: otherwise a name containing the four literal characters `\x1b`

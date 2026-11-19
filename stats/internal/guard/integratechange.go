@@ -23,11 +23,11 @@ import (
 // guards.
 //
 // Usage:
-//   flow-guard integrate-change prepare <main-checkout> <name> [--accept-foreign] [--accept-outstanding]
-//   flow-guard integrate-change commit  <main-checkout> <name> [<worktree>=<impl subject>]... [--outstanding <text>]
+//   flow-guard integrate-change prepare <main-checkout> <name>
+//   flow-guard integrate-change commit  <main-checkout> <name> [<worktree>=<impl subject>]...
 //   flow-guard integrate-change design-record <main-checkout> <name>
 //   flow-guard integrate-change land    <main-checkout> <name> [--route <route>] [--pr-url <worktree>=<url|none>]...
-//   flow-guard integrate-change cleanup <main-checkout> <name> [--proceed <main-checkout>]...
+//   flow-guard integrate-change cleanup <main-checkout> <name>
 //
 // Go, in flow-guard: integrateChange's doc comment in
 // stats/internal/guard/integratechange.go is the contract — every
@@ -48,11 +48,10 @@ type ic struct {
 	stdout, stderr io.Writer
 	childEnv       []string
 
-	main, name, harness, token       string
-	acceptForeign, acceptOutstanding bool
-	planMsg, route, outstanding      string
-	squashed                         map[int][]string // by order index: the Task-Id trailers each reshape folds
-	prArgs, proceed, subjects        []string
+	main, name, harness, token string
+	planMsg, route             string
+	squashed                   map[int][]string // by order index: the Task-Id trailers each reshape folds
+	prArgs, subjects           []string
 
 	openStage, stopOutcome string
 	out                    string
@@ -81,10 +80,10 @@ type ic struct {
 //
 // Usage:
 //
-//	integrate-change.sh prepare <main-checkout> <name> [--accept-foreign] [--accept-outstanding]
-//	integrate-change.sh commit  <main-checkout> <name> [<worktree>=<impl subject>]... [--outstanding <text>]
+//	integrate-change.sh prepare <main-checkout> <name>
+//	integrate-change.sh commit  <main-checkout> <name> [<worktree>=<impl subject>]...
 //	integrate-change.sh land    <main-checkout> <name> [--route <route>] [--pr-url <worktree>=<url|none>]...
-//	integrate-change.sh cleanup <main-checkout> <name> [--proceed <main-checkout>]...
+//	integrate-change.sh cleanup <main-checkout> <name>
 //
 // Every subcommand also takes --harness <harness> and --session-token
 // <literal token> (else $FLOW_HARNESS and $FLOW_SESSION_TOKEN) for its stage
@@ -95,18 +94,14 @@ type ic struct {
 //	the porcelain scan of <main-checkout>), runs check-foreign-staged
 //	and check-main-checkout-drift per distinct main checkout,
 //	switching a checkout whose only drift is DRIFT-BRANCH back to its
-//	default branch (switch_back below) and re-reading its drift,
-//	migrate-worktrees, then check-finish-preflight per worktree. Every
+//	default branch (switch_back below) and re-reading its drift; any
+//	STAGED-FOREIGN, DRIFT-DIRTY, unswitched DRIFT-BRANCH or exit 2 is
+//	STOP: main-checkout. Then check-finish-preflight per worktree. Every
 //	worktree RUN2 -> NEXT is `cleanup`. Otherwise run 1, which first
 //	stops at STOP: base-mismatch when one worktree records a flowBase
-//	another resolves away from while that one's origin carries it: the
-//	the dropped decision, a design naming
-//	a live check needs live-verification.md passing
-//	check-live-verification, else STOP: live-check, which
-//	--accept-outstanding never passes, the unfinished-work
-//	gate (check-unfinished-work, check-visual-verify-dispatched against
-//	`git merge-base HEAD origin/$BASE`, check-untasked-commits from that
-//	base), check-base-moved and
+//	another resolves away from while that one's origin carries it, then
+//	the unfinished-work gate (check-unfinished-work, each worktree's
+//	range from `git merge-base HEAD origin/$BASE`), check-base-moved and
 //	sync-onto-base on MOVED (then
 //	the rebased worktree's ## lint list — rebase_lint below), and the
 //	default landing route (project-get.sh). Prints per worktree its
@@ -118,23 +113,11 @@ type ic struct {
 //	is not the canonical worktree's link.md alone (link_only below),
 //	and always for the canonical worktree when its change directory
 //	holds a design.md, whose design record commit writes.
-//	--accept-foreign / --accept-outstanding: the operator chose
-//	Continue at that stop; its lines still print. A
-//	VISUAL-VERIFY-MISSING is STOP: visual-verify, which
-//	--accept-outstanding never passes — only an operator's
-//	false-positive flag on that worktree's verdict row naming its
-//	current HEAD. The gate runs again on each worktree a base move
-//	rebased here.
-//	commit and land run the same gate before every push they make,
-//	on every route, and again after land's re-sync.
 //
-// commit   the pre-reshape pin per worktree (refs/flow/pre-reshape/<name>
+// commit   the reshape per worktree (`git reset --soft <reshape base>`,
 //
-//	at its HEAD; kept when it already reaches HEAD, so a re-run
-//	after a stop keeps the first, else advanced to a merge of the
-//	old pin and HEAD; fetched from origin when absent locally; run 2
-//	never deletes it), reshape-branch per
-//	worktree, the ledger render, the design record (the canonical
+//	the Task-Id trailers it folds carried into the implementation
+//	commit), the ledger render, the design record (the canonical
 //	change directory's design.md written to docs/designs/<name>.md
 //	under a two-line header, else STOP: design-record), commitTwo per
 //	worktree in `## Merge order`, then the push of each reshaped
@@ -143,25 +126,9 @@ type ic struct {
 //	subject; the canonical one whose only implementation path is a
 //	link.md takes `chore(spectre): merge order`; any other without
 //	one stops `commit-two`.
-//	Before any of it, a narrative lacking the section of a fix or
-//	integrate run the store marked stops `narrative`
-//	(check-narrative-runs.sh). A `flow-fix` row `flow self-review
-//	findings` lists as `fixed` whose sha no in-format `In-run pipeline
-//	fix:` line names and the self-review report does not carry has that
-//	line appended from its ref, note and blast radius; such a row lacking
-//	its note or blast radius stops `narrative`; an unreadable findings
-//	read is a warning and skips it.
-//	Then, each behind the visual-verify gate, the --force-with-lease
-//	branch push per worktree, in merge
-//	order — the reshape's push (Branch backup, git-boundaries.md) —
-//	each followed by a plain push of that worktree's pin, refused
-//	(STOP: pre-reshape) when origin holds one the local pin does
-//	not descend from.
-//	--outstanding <text> puts `Outstanding: <text>` in each
-//	implementation commit's body, under the subject it was given.
-//	The parent appends its narrative before calling this; an
-//	`In-run pipeline fix:` line in it off the format pipeline.md's
-//	Pipeline defects found mid-run fixes stops first, STOP: narrative.
+//	Then the --force-with-lease branch push per worktree, in merge
+//	order — the reshape's push (Branch backup, git-boundaries.md).
+//	The parent appends its narrative before calling this.
 //
 // design-record  loads the worktree set, finds the canonical worktree,
 //
@@ -179,9 +146,7 @@ type ic struct {
 //	`gh pr create --fill`, or that worktree's --pr-url when there is
 //	no usable gh; manual: the branch push), the self-review report's
 //	sha re-read before each landing push and its `fixed` rows after,
-//	and the IN_PROGRESS write. Every push, on every route (the
-//	canonical re-push after a report rewrite too), runs the
-//	visual-verify gate on that worktree's HEAD first. Refuses to push anything until the
+//	and the IN_PROGRESS write. Refuses to push anything until the
 //	self-review report is committed in the canonical worktree; only
 //	`commit`'s branch push precedes it. Merge
 //	and push continues into `cleanup`.
@@ -189,10 +154,8 @@ type ic struct {
 // cleanup  run 2: verify the merge (merged when gh reports the recorded PR
 //
 //	MERGED or `merge-base --is-ancestor` holds), remove-change-worktrees
-//	per repository (--proceed passed only to each repository named by
-//	one), the workspace `remove` row, the
-//	proposal artifact, check-cleanup-complete per repository, the
-//	FINISHED write (clearing every worktree no longer on disk) and
+//	per repository, the workspace `remove` row, the
+//	proposal artifact, the FINISHED write (clearing every worktree no longer on disk) and
 //	refresh-main-checkout per repository (onto origin/HEAD's branch,
 //	or onto a worktree's resolved base when the main checkout has that
 //	base checked out).
@@ -206,17 +169,16 @@ type ic struct {
 //
 // Exit 0 the subcommand ran to its end; 1 a stop — a guard verdict, a
 // refusal or a failed git step needs the parent or the operator, and the
-// stage mark open at that point is closed `stopped` (`not-run-2` and
-// `leftover` where run 2's contract names those), its end carrying
+// stage mark open at that point is closed `stopped` (`not-run-2` where
+// run 2's contract names it), its end carrying
 // `-reason "STOP: <kind>"`; 2 usage, a guard it
 // sequences missing beside it (named on stderr, nothing run), or the state
 // record cannot be read.
 //
 // Every sibling guard below runs in this same binary (runSibling). The
 // process moves to `/` once its arguments are resolved, so it never holds a
-// worktree remove-change-worktrees' check 6 counts; every child runs in `/`
-// too, save the calls the bash ran in a subshell `cd`, which keep their own
-// directory.
+// worktree it removes; every child runs in `/` too, save the calls the bash
+// ran in a subshell `cd`, which keep their own directory.
 func integrateChange(args []string, env Env, stdout, stderr io.Writer) (code int) {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
@@ -310,19 +272,6 @@ func (c *ic) parse(args []string) {
 		case "--session-token":
 			c.token = next()
 			i++
-		case "--accept-foreign":
-			c.acceptForeign = true
-		case "--accept-outstanding":
-			c.acceptOutstanding = true
-		case "--outstanding":
-			// The outstanding work rides in the implementation commit's body,
-			// never its subject, so a text with no Conventional Commits subject
-			// never reaches a commit-msg hook as one.
-			if next() == "" {
-				c.die("outstanding-text-missing", "--outstanding takes the outstanding work's text")
-			}
-			c.outstanding = next()
-			i++
 		case "--route":
 			c.route = next()
 			i++
@@ -331,13 +280,6 @@ func (c *ic) parse(args []string) {
 				c.die("bad-pr-url", "--pr-url takes <worktree>=<url|none>")
 			}
 			c.prArgs = append(c.prArgs, next())
-			i++
-		case "--proceed":
-			p, ok := icPhys(c.env.Dir, next())
-			if !ok {
-				c.die("bad-proceed", "--proceed takes the main checkout its disclosure stop named")
-			}
-			c.proceed = append(c.proceed, p)
 			i++
 		default:
 			if !strings.Contains(a, "=") {
@@ -516,72 +458,6 @@ func (c *ic) stopAs(id, kind, text string) {
 }
 
 func (c *ic) flags() string { return "--harness " + c.harness + " --session-token " + c.token }
-
-// visualFalsePositive: an operator flagged a false positive on <worktree>'s
-// own check-visual-verify-dispatched verdict row for this change, the row
-// naming its current HEAD (the verdict line ends "— HEAD <sha>") — so a
-// flag never covers a later commit, or another worktree. A failed or
-// unreadable read is no flag.
-func (c *ic) visualFalsePositive(w string) bool {
-	pw, ok := icPhys("/", w)
-	if !ok {
-		return false
-	}
-	h, ok := c.git("-C", w, "rev-parse", "HEAD")
-	if !ok {
-		return false
-	}
-	cmd := c.cmd("/", "flow", "record", "verdicts", "-guard", "check-visual-verify-dispatched", "-false-positive", "-C", c.canon)
-	cmd.Stderr = nil
-	out, _ := c.capture(cmd)
-	var rows []struct {
-		Change        string `json:"change"`
-		FalsePositive any    `json:"falsePositive"`
-		Worktree      string `json:"worktree"`
-		Verdict       string `json:"verdict"`
-	}
-	if json.Unmarshal([]byte(out), &rows) != nil {
-		return false
-	}
-	for _, r := range rows {
-		if r.Change == c.name && r.FalsePositive == true && r.Worktree == pw && strings.HasSuffix(r.Verdict, " — HEAD "+h) {
-			return true
-		}
-	}
-	return false
-}
-
-// visualOK: check-visual-verify-dispatched passes <worktree>'s current
-// HEAD, or its MISSING verdict for that HEAD is flagged a false positive.
-// No verdict is its own stop.
-func (c *ic) visualOK(w, base string) bool {
-	mb, _ := c.git("-C", w, "merge-base", "HEAD", "origin/"+base)
-	c.run("check-visual-verify-dispatched", w, c.name, mb, c.canon)
-	v := fmt.Sprintf("%d:%s", c.rc, c.verdict("VISUAL-VERIFY-OK", "VISUAL-VERIFY-MISSING"))
-	switch {
-	case strings.HasPrefix(v, "0:VISUAL-VERIFY-OK:"):
-		return true
-	case strings.HasPrefix(v, "1:VISUAL-VERIFY-MISSING:"):
-		return c.visualFalsePositive(w)
-	}
-	c.stop("no-verdict", fmt.Sprintf("check-visual-verify-dispatched reached no verdict for %s (exit %d) — report its output and ask the operator; --accept-outstanding does not pass this", w, c.rc))
-	return false
-}
-
-// visualGate: visualOK on each worktree, stopping at the first MISSING —
-// so that MISSING row is the newest verdict, the one
-// `flow record verdict false-positive` flags.
-func (c *ic) visualGate() {
-	for i := range c.wt {
-		if !c.visualOK(c.wt[i], c.bases[i]) {
-			c.stopAs("visual-verify-missing", "visual-verify", visualStopText(c.wt[i], "prepare"))
-		}
-	}
-}
-
-func visualStopText(w, step string) string {
-	return w + ": no verifier saw its current HEAD — dispatch flow.visual-verify on it, fix every departure in-run, commit, then re-run " + step + "; --accept-outstanding does not pass this. A false-positive flag is recorded now, while this worktree's verdict is the newest"
-}
 
 func (c *ic) mainOf(w string) (string, bool) {
 	d, ok := c.gitQuiet("-C", w, "rev-parse", "--path-format=absolute", "--git-common-dir")
@@ -1005,62 +881,6 @@ func (c *ic) rebaseLint(w, prefix string) {
 	default:
 		fmt.Fprintln(c.stdout, strings.TrimRight(b.String(), "\n"))
 		c.stopAs("rebase-lint-failed", "rebase-lint", fmt.Sprintf("%sthe ## lint list failed on %s after its rebase (run-verify-list exit %d) — report its output above; the change stays IN_PROGRESS", prefix, w, rc))
-	}
-}
-
-// pinPreReshape: refs/flow/pre-reshape/<name> at the worktree's HEAD before
-// the reshape folds its per-task commits — the one ref that still reaches
-// each `Task-Id:` commit and the pre-task tasks.md afterwards. Absent
-// locally, origin's is fetched first (a re-clone). Kept when it already
-// reaches HEAD (a re-run after a stop already reshaped); otherwise advanced
-// to a merge of the old pin and HEAD, so a re-run's new tasks
-// stay reachable beside the earlier ones.
-func (c *ic) pinPreReshape(w string) {
-	r := "refs/flow/pre-reshape/" + c.name
-	if _, ok := c.git("-C", w, "rev-parse", "-q", "--verify", r); !ok {
-		c.gitQuiet("-C", w, "fetch", "-q", "origin", r+":"+r)
-	}
-	if p, ok := c.git("-C", w, "rev-parse", "-q", "--verify", r); ok {
-		if _, ok := c.git("-C", w, "merge-base", "--is-ancestor", "HEAD", p); ok {
-			return
-		}
-		if p, ok = c.git("-C", w, "commit-tree", "HEAD^{tree}", "-p", p, "-p", "HEAD", "-m", "pre-reshape "+c.name); ok {
-			if _, ok := c.git("-C", w, "update-ref", r, p); ok {
-				return
-			}
-		}
-	} else if _, ok := c.git("-C", w, "update-ref", r, "HEAD"); ok {
-		return
-	}
-	c.stopAs("pin-failed", "pre-reshape", "pinning "+w+"'s HEAD as "+r+" failed — report git's output; this worktree was not reshaped")
-}
-
-// pushPin: the pin to origin, plain, when the worktree has one; origin's is
-// replaced only when the local pin descends from it — any other differing
-// pin is refused, never overwritten.
-func (c *ic) pushPin(w string) {
-	r := "refs/flow/pre-reshape/" + c.name
-	l, ok := c.git("-C", w, "rev-parse", "-q", "--verify", r)
-	if !ok {
-		return
-	}
-	rem, ok := c.git("-C", w, "ls-remote", "origin", r)
-	if !ok {
-		c.stopAs("remote-unreadable", "push", "reading origin's "+r+" from "+w+" failed — report git's output; the change stays IN_PROGRESS")
-	}
-	if k := strings.IndexAny(rem, " \t\n"); k >= 0 {
-		rem = rem[:k]
-	}
-	if rem == l {
-		return
-	}
-	if rem != "" {
-		if _, ok := c.gitQuiet("-C", w, "merge-base", "--is-ancestor", rem, l); !ok {
-			c.stopAs("remote-not-ancestor", "pre-reshape", "origin's "+r+" is "+rem+", not an ancestor of "+w+"'s pin "+l+" — report it; neither was overwritten")
-		}
-	}
-	if !c.gitPass("-C", w, "push", "-q", "origin", r+":"+r) {
-		c.stopAs("push-rejected", "push", "the push of "+r+" from "+w+" was rejected — report git's output; the change stays IN_PROGRESS")
 	}
 }
 

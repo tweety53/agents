@@ -212,8 +212,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 
 	// The workspace id — prefix and digest joined by '-' — derived exactly
 	// as **The workspace id** (skills/flow-contracts/workspace-isolation.md)
-	// states: ccWorkspaceID, the derivation check-cleanup-complete already
-	// carries, locale-independent by construction.
+	// states: ccWorkspaceID, locale-independent by construction.
 	id := ccWorkspaceID(name)
 	idUnderscored := strings.ReplaceAll(id, "-", "_")
 	digest, _ := strconv.ParseUint(id[len(id)-4:], 16, 64)
