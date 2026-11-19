@@ -10414,3 +10414,37 @@ func TestRecordRunPassesTheFlakyFlag(t *testing.T) {
 		}
 	})
 }
+
+// TestDispatchBeginDropsItsRowsHandbackMarker: a re-begun aborted row keeps
+// its id, so begin removes that row's hand-back marker -- the earlier
+// attempt's "pass" never vouches for the new attempt's end.
+func TestDispatchBeginDropsItsRowsHandbackMarker(t *testing.T) {
+	t.Parallel()
+	const change = "kan-1132"
+	repo := planTreeRepo(t, change)
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/dispatches") {
+			w.WriteHeader(http.StatusCreated)
+		}
+		_, _ = w.Write([]byte(`{"id":77,"seq":1,"role":"reviewer","model":"sonnet","startedAt":"2026-11-15T10:00:00Z"}`))
+	}))
+	t.Cleanup(srv.Close)
+	snapshotPlan(t, repo, change, "plan-snapshot-task-3-reviewer.txt")
+	marker := filepath.Join(repo, ".superpowers", "sdd", "plan-snapshot-task-3-reviewer.txt.handback-77")
+	if err := os.WriteFile(marker, []byte("pass\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	env := newTestEnv(t)
+	env["FLOW_STATE_DIR"] = t.TempDir()
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(), []string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none",
+		"-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", change, "-key", "task-3-reviewer", "-role", "reviewer",
+		"-model", "sonnet", "-session-token", "mf-plan-verify-end", "-started-at", "2026-11-15T10:00:00Z"},
+		env.get, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("begin: exit %d; stderr:\n%s", code, stderr.String())
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Errorf("row 77's hand-back marker survived its re-begin (stat err %v)", err)
+	}
+}

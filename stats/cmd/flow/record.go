@@ -1602,6 +1602,11 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		// allocated -- which is exactly why `end` closes the row by -key
 		// and not by seq.
 		fmt.Fprintf(stdout, "recorded: dispatch %d\n", out.Seq)
+		// A re-begin of an aborted row keeps its id, so the earlier
+		// attempt's hand-back marker would vouch for this one: drop it.
+		if name := planSnapshotName(*key); name != "" {
+			_ = os.Remove(handbackMarker(filepath.Join(planWorktree(f.dir, f.change), ".superpowers", "sdd", name), out.ID))
+		}
 	}
 	code := classifyRecordWrite(callErr, projectKey, f.change, "dispatch", in, stderr, getenv)
 	// A panel slot's begin writes that slot's `dispatched:` pass row from
@@ -1687,7 +1692,8 @@ func planWorktree(dir, change string) string {
 // handbackMarker is the file `flow record dispatch handback` writes beside
 // snap for open row id: "pass", or "fail <exit>" (decision
 // gated-bracket-handback). The row id keeps a marker of an earlier row
-// under the same key from vouching for this one.
+// under the same key from vouching for this one; a begin removes its own
+// row's marker, since a re-begun aborted row keeps its id.
 func handbackMarker(snap string, id int64) string {
 	return fmt.Sprintf("%s.handback-%d", snap, id)
 }
