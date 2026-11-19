@@ -53,18 +53,10 @@ says so. The deletion is disclosed the same way the worktree removal is.
 
 **The workspace row belongs only to a project that declares isolation, and for every other project
 it is a row about nothing — which is why it names no database, no bucket and no service.** A project
-declares the commands that create these resources, that remove them, and that report which of them
-survived, in
+declares the commands that create these resources and that remove them, in
 **Project configuration** (`skills/flow-contracts/project-configuration.md`).
 Which resources there are, and how each derived value is derived, is stated under
 **What the id derives** (`skills/flow-contracts/workspace-isolation.md`).
-
-**This is the one row whose removal is verified by asking rather than by looking: a survivor is
-established from the project's own survivor report, never inferred from the removal's exit code**
-— stated once under **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`), with
-the report's output and exit-code contract under **Project configuration — workspace isolation**
-(`skills/flow-contracts/project-configuration-isolation.md`). A report that could not reach its service is
-skipped rather than failed.
 
 **Nothing removes the claimed cache index, and nothing in this pipeline can.** It is not written
 into the state file, and the project's `remove` command does not touch it either — stated as a

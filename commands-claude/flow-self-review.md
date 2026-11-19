@@ -1,5 +1,5 @@
 ---
-description: Run a change's self-review pass, a one-shot dispatch, from the context bundle an older /flow or /flow-fast run saved; plan in full, fix and land every non-big finding, file the big ones
+description: Run a change's self-review pass, a one-shot dispatch, from the context bundle an older /flow or /flow-fast run saved; plan in full, fix and land every non-big flow-fix finding, file the big ones and each other angle's findings
 ---
 
 Use the **flow-self-review** skill — installed globally, so let your harness resolve it by name
@@ -7,8 +7,8 @@ rather than assuming a project-local path.
 
 Follow that skill exactly. **Standalone, not a pipeline stage** — it takes one change name, writes
 no per-change state file, and marks no `flow stage` call. It reads the context bundle an
-older `/flow` or `/flow-fast` run saved — newer runs run the same pass in-run — dispatches the eight-angle reasoning pass, plans, fixes and
-lands every finding that is not big, files the big ones, mines the flow-eval cases the operator approves, rates, records each finding in the flow
+older `/flow` or `/flow-fast` run saved — newer runs run the same pass in-run — dispatches the four-angle reasoning pass, plans, fixes and
+lands every flow-fix finding that is not big, files the big ones and each other angle's findings, rates, records each finding in the flow
 store, writes the report, deletes the bundle, and lands both on the default branch.
 
 The pass, the planning, the fixes and the reviews each run as a one-shot dispatch on the pair the

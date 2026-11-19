@@ -33,8 +33,8 @@ An issue any `/flow*` command creates carries **every label on the change's link
 created issue carries `AI-generated` alone. Link the created issue to the change's issue whenever
 one exists.
 
-**A self-review finding adds one more label.** An issue filed from a self-review finding carries,
-on top of the set above, the label naming the angle that produced it. The angle-to-label table is
+**A self-review finding adds one more label.** An issue filed from self-review findings carries,
+on top of the set above, the label naming each angle that produced them. The angle-to-label table is
 canonical in `skills/flow-self-review/SKILL.md`'s step 2, cited here rather than copied, so the
 two cannot drift.
 

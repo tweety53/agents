@@ -20,7 +20,7 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 | `/flow`'s implement phase | at `IN_PROGRESS`, no `prUrl` | Resume **existing** worktree + **commits fixups** the same way, pushing after each — no merge or PR |
 | `/flow`'s implement phase | at `IN_PROGRESS`, `prUrl` recorded | **Commits the implementation and pushes `--force-with-lease`** to the PR branch |
 | bare `/flow` | run 1 | **Reshapes** — folds every commit since the merge base — then **commits** the implementation, then each self-review fix, each its own commit, all on `spectre/<name>` in the apply worktree; pushes `--force-with-lease` and opens a PR, or fast-forwards `<base>` to it with one push, by the operator's choice (**The routes**, `skills/flow-contracts/finish-contract-run1.md`) |
-| bare `/flow` | run 2 | **Commits nothing and pushes no commit**: removes worktrees and the local and remote branch, then fast-forwards the main checkout (step 6 of **Run 2 — the branch is merged**, `skills/flow-contracts/finish-contract-run2.md`) |
+| bare `/flow` | run 2 | **Commits nothing and pushes no commit**: removes worktrees and the local and remote branch, then fast-forwards the main checkout (step 5 of **Run 2 — the branch is merged**, `skills/flow-contracts/finish-contract-run2.md`) |
 | `/flow-status` | — | None — read-only |
 | `/flow-plan` | change captured | **Creates the change worktree and pushes its empty branch** through the kickoff (**Capturing a new change**, `skills/flow-plan/SKILL.md`); commits nothing, ever |
 
@@ -44,7 +44,7 @@ followed by `git push -u origin <branch>`, and every commit a run makes on the b
 commit, a fixup, a panel fix — is followed by `git push origin <branch>` from the same parent
 call that made or verified it. The one deferred push is a visual-verify commit in a `regression checkout` worktree
 (`skills/flow/visual-verify.md`): integrate's push below carries it. A lost worktree is then rebuilt with `git worktree add <path>
-origin/<branch>`. The one rewrite is integrate's reshape (`flow-guard reshape-branch`, then
+origin/<branch>`. The one rewrite is integrate's reshape (`git reset --soft`, then
 the implementation commit), so that run's push is `git push --force-with-lease origin <branch>`, made
 before the self-review pass, so a run that stops before its route still
 leaves the remote on the rewritten branch; every other push is plain, save a branch a base-sync
@@ -91,31 +91,7 @@ carries `-m "Flow-Key: <key>"`, `<key>` the dispatch key its round is recorded u
 (`full-suite-fix-<n>`, `panel-fix-<round>`, `task-<n+n>-implementer-fix-<k>`) or, where the stage
 records no such row, the stage key (`flow.review-panel`, `flow.visual-verify`, `flow.brainstorm`,
 `flow.commit-two`). A task's own commit
-carries `Task-Id:` instead. A `Flow-Key: pipeline-fix-…` commit
-never passes: an in-run pipeline fix runs its own loop on its own branch,
-never on a change branch (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`).
-Nor does an implementer's own key, `Flow-Key: task-<ids>-implementer`, on a commit with no
-`Task-Id:`: an implementer's commits are task commits, so such a commit is an inline fix outside
-every task.
-Nor does a `flow.<stage>` key outside the stage keys above, `flow.kickoff`, which `flow-guard
-ignore-scratch` writes, and `flow.self-review`, which the self-review pass writes on its prompt-tuning
-cases commit (`skills/flow-self-review/SKILL.md`), on a commit with no `Task-Id:`: a fix at any other stage is a task's commit
-— at `flow.verify` an `In-run fix <k>` task's (`skills/flow/verify-fix-loop.md`).
-Run 1's unfinished-work gate lists
-every other non-`chore` commit with `flow-guard check-untasked-commits`
-(`skills/flow-contracts/finish-contract-run1.md`).
-**Before such a commit is pushed, `flow-guard check-untasked-commits` judges every commit the push sends**,
-mechanically: `hooks/block-unsafe-commands.py`
-denies a typed push of HEAD to `spectre/<name>` while it lists a commit origin's copy of that branch lacks.
-A listed HEAD takes the trailer through `git commit --amend`, an earlier commit
-through a reword; the push is then made again. A commit already on origin is not
-judged there — run 1's unfinished-work gate lists it and handles `UNTASKED`.
-
-**A commit and its push in one command are judged together.** The push check above runs before
-the command does, so it cannot see a commit the same command makes first:
-`hooks/block-unsafe-commands.py` therefore denies a command that commits and pushes a `spectre/`
-branch when that commit's own `-m` text carries neither trailer and no `chore` subject, and its
-pathspec is not limited to `<project>/<spec-root>/changes/`.
+carries `Task-Id:` instead.
 
 ## Restoring a path with unstaged edits
 

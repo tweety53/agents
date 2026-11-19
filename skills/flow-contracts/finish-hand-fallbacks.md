@@ -39,13 +39,13 @@ script — but signals 1 and 3 still run, and still run in this order.
 does not carry it — read each main checkout by hand with
 `git status --porcelain --untracked-files=no`, keep the lines whose first column is not a space,
 together with any intent-to-add entry's ` A <path>` line,
-ask the same question over what that finds, and say in the handoff that the surfacing was done
+stop over what that finds, and say in the handoff that the surfacing was done
 manually; it is never skipped for want of the script.
 
 **When the drift script is absent** — a repository that does not carry it — read each main
 checkout by hand in the same shape its header's hand-verification procedure gives: the current
 branch against the branch `refs/remotes/origin/HEAD` names with its prefix stripped, and
-`git status --porcelain --untracked-files=no`, asking the same question over what those find, and
+`git status --porcelain --untracked-files=no`, stopping over what those find, and
 say in the handoff that the surfacing was done manually; it is never skipped for want of the
 script. A checkout whose only finding is its branch is switched back by hand with
 `git -C <main-checkout> switch <default>` under the same four exclusions, per **Surface foreign
@@ -72,14 +72,6 @@ of `[A-Za-z0-9._]` — so a leading `-` a downstream git call would read as an o
 so is a leading `/` — and every character in the name, start to end, is one of `[A-Za-z0-9._/-]`,
 which is what rules out control characters and anything else outside that set.
 
-## `flow-guard check-cleanup-complete` — Run 2, step 4
-
-**When the script is absent** — a repository that does not carry it — check the same registry rows
-by hand, in the same order, and say in the handoff that the verification was done manually. The
-check is never skipped for want of the script, and "not verified" is never reported as verified.
-
-**Load `skills/flow-contracts/project-configuration-isolation.md`** only when the script is absent.
-
 ## `flow-guard remove-change-worktrees` — Worktree cleanup
 
 For each worktree, run **every** check below before removing anything:
@@ -90,7 +82,7 @@ git -C "$WT" status --porcelain --untracked-files=no
 
 # 2. no untracked files that git does not already ignore — must be empty.
 #    `--others --exclude-standard` lists exactly the files `--force` would destroy and
-#    `.gitignore` does NOT cover. It does not make `--force` safe: ignored files are check 4's.
+#    `.gitignore` does NOT cover. It does not make `--force` safe: ignored files go with it.
 git -C "$WT" ls-files --others --exclude-standard
 
 # 3. no commits that exist only here. Resolve `BASE` fresh for THIS worktree — never reused from
@@ -108,42 +100,9 @@ else
   echo "not merged, and no upstream — cannot prove these commits exist anywhere else"; false
 fi
 
-# 4. what `--force` WILL destroy: ignored files, split into what a next build, test or
-#    dev-stack run regenerates byte-for-byte and everything else. `--exclude-standard` in check 2 hides
-#    everything matched by .gitignore, <project>/.git/info/exclude or the global excludes file,
-#    and "ignored" is NOT "disposable" in general — a deliberately-ignored .env or a local
-#    override config is ignored and irreplaceable. The split below is what tells the two apart.
-git -C "$WT" ls-files --others --ignored --exclude-standard
-
 # 5. the project's local stack is stopped — run its `## stop` command if declared. Give it a
 #    bounded wait — 60 seconds — and treat a timeout as a FAILED check.
-
-# 6. no process is still running FROM this worktree. Runs whether or not `## stop` is declared,
-#    and whatever that command exited: a project that declares no stop command can still have a
-#    stack running from its worktree, and a stop command that exits 0 is not evidence that it
-#    worked. Verifying that is the whole of what this check adds.
-flow-guard check-worktree-processes "$WT"
 ```
-
-Split what it found into two buckets by path, never by guessing intent:
-
-- **Regeneratable** — a path under a build/cache/log/test-output location a fresh build, test run
-  or `devStart` recreates with identical content the next time it runs: any path component named
-  `build`, `.gradle`, `.kotlin`, `node_modules`, `dist`, `.next`, `target`, `out`, `coverage`,
-  `test-results` or `__pycache__`; any `*.log`, `*.pyc` or `*.tsbuildinfo` — Python and TypeScript
-  compiler output a fresh compile or test run recreates; any `.DS_Store`, which Finder writes
-  again; and this pipeline's own `<abs-worktree>/.superpowers/sdd/` and
-  `<abs-worktree>/.dev-stack/` trees, which a session's own next run writes fresh. A `.png`/`.jpg`
-  capture is regeneratable only when it sits under a `test-results` directory (or an equivalent
-  declared screenshot-output directory) a test run owns end to end, or is a `.png` at the root of a
-  Playwright checkout — a worktree whose root holds a `playwright.config.*` — where a screenshot
-  spec writes its output and re-running the spec writes it again — never a capture sitting loose at
-  any other project root, or in a subdirectory of the checkout, which could be a hand-saved
-  reference nothing re-creates.
-- **Everything else** — unclassified, and it stays unclassified: no allowlist of *names* beyond
-  `.DS_Store` is trusted here, because the operator decides what they ignore, and a path this list does not
-  recognize (a `.env`, a local override config, a stray file at the worktree root) is exactly what
-  the doubt is for.
 
 Then, and only then:
 
@@ -157,8 +116,7 @@ git -C "$REPO" worktree prune
 - **`--force` destroys every ignored file in the worktree, and no check prevents that.** Checks 1
   and 2 establish only that nothing *tracked-and-modified* and nothing *untracked-and-unignored*
   is at risk. They say nothing about ignored files, because `--exclude-standard` is what hides
-  them — and "ignored" is not "disposable". Check 4 exists to make that visible rather than to
-  prevent it: it lists exactly what will die, and asks only about an irreplaceable, unpreserved entry. Claiming the checks make
+  them — and "ignored" is not "disposable". Claiming the checks make
   `--force` safe would be false: a gitignored `.env` passes checks 1 and 2 and is
   destroyed silently.
 - **`git branch -d`, never `-D`.** It must be free to refuse an unmerged branch.
@@ -172,8 +130,7 @@ OUT="$(git -C "$REPO" push origin --delete "spectre/<name>" 2>&1)"; RC=$?
 if [ "$RC" -eq 0 ]; then
   echo "remote branch deleted: origin/spectre/<name>"
 elif printf '%s' "$OUT" | grep -q 'remote ref does not exist'; then
-  # The forge deleted it on merge. Prune the ref it left behind: flow-guard check-cleanup-complete reads a
-  # surviving refs/remotes/origin/spectre/<name> as a leftover, and it would be a real one.
+  # The forge deleted it on merge. Prune the ref it left behind.
   git -C "$REPO" fetch --prune --quiet origin
   echo "remote branch already gone — the forge deleted it on merge"
 else

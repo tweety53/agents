@@ -289,7 +289,7 @@ flow stage begin -command '/flow-fast' -stage flow.self-review -harness <harness
 **Self-review runs here, in this run — this section is canonical for `/flow-fast`'s self-review.**
 A `flow.self-review` stage already completed for `<name>` skips the pass: a fix re-run never
 records its findings twice.
-Assemble the bundle in `<sr-dir>/bundle.md` (**2. Read the bundle and run the eight angles**, `skills/flow-self-review/SKILL.md`), never printed, never committed, as, in
+Assemble the bundle in `<sr-dir>/bundle.md` (**2. Read the bundle and run the four angles**, `skills/flow-self-review/SKILL.md`), never printed, never committed, as, in
 order: the stdout of `flow self-review
 bundle -change <name>` run from the worktree — of the sources `/flow`'s bundle judges a change
 by, a `/flow-fast` run can never have tasks.md, design.md, narrative.md, visual-verification.md and live-verification.md (no spectre
@@ -303,8 +303,8 @@ process lesson the run paid for is promoted to the
 lessons home (**Process lessons**, `skills/flow-contracts/lessons.md`).
 
 Over that bundle run steps 2–6 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`),
-canonical for the eight angles, the fix loop, where the fixes land — on `<name>` itself
-when `<worktree>` is `<agents repo>`'s — the filing prompt and the store rows. No report is written: the findings live in flowd.
+canonical for the four angles, the fix loop, where the fixes land — on `<name>` itself
+when `<worktree>` is `<agents repo>`'s — the filing and the store rows. No report is written: the findings live in flowd.
 
 The fixes land with the change on every route. **7. Land**'s landing push carries the fix
 commits' shas per item 5 of step 3 of `/flow-self-review`, in whichever invocation makes it.

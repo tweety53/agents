@@ -1,6 +1,6 @@
 ---
 name: flow-self-review
-description: Run a change's self-review pass, a one-shot dispatch — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle flowd saved at cleanup; plan in full, fix and land every finding that is not big, file the big ones, mine the flow-eval cases the operator approves, record each in the flow store. Standalone, not a pipeline stage. Use for /flow-self-review.
+description: Run a change's self-review pass, a one-shot dispatch — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle flowd saved at cleanup; plan in full, fix and land every flow-fix finding that is not big, file the big ones and each other angle's findings, record each in the flow store. Standalone, not a pipeline stage. Use for /flow-self-review.
 allowed-tools: Bash(git:*), Bash(flow:*), Bash(go:*)
 license: MIT
 compatibility: Standalone, requires the change's default branch, or its `--base` branch, to be checked out and a context bundle saved in flowd.
@@ -10,8 +10,7 @@ Run a change's self-review reasoning pass — the only one the pipeline has — 
 `/flow`'s run 1 (**Run the self-review pass**,
 `skills/flow-contracts/finish-contract-run1.md`, canonical for that bundle's shape) or **5. Verify**
 (`skills/flow-fast/SKILL.md`) assembles: inside that run, or, as this standalone command, from the
-bundle run 2's cleanup saved in flowd (`flow change save`). This file is canonical for the eight angles, what is fixed, what may be filed and what may be mined, the
-filing prompt and the store record. **Neither the pass nor its fixes run
+bundle run 2's cleanup saved in flowd (`flow change save`). This file is canonical for the four angles, what is fixed, what is filed and the store record. **Neither the pass nor its fixes run
 in this session**: step 2 dispatches the pass, and step 3 plans, fixes and reviews, each a one-shot
 dispatch on the pair this file names — never the model this session runs on.
 
@@ -38,29 +37,29 @@ checkout on any other branch: print the branch and stop.
 **Both refusals bind the standalone command only.** A pass run inside `/flow`'s integrate or
 `/flow-fast`'s verify has its bundle at `<sr-dir>/bundle.md`, runs on the change branch, and starts at step 2.
 
-### 2. Read the bundle and run the eight angles
+### 2. Read the bundle and run the four angles
 
 **This session passes file paths, never file contents.** Every handoff between this file's steps
 is a file in `<sr-dir>`, `<state-dir>/self-review/<name>/`, `<state-dir>` being the path `flow
 state dir` prints — outside every checkout, never committed. The one exception is the pass's own output: the harness refuses a subagent's Write under `<sr-dir>`, so the pass hands back its files' full contents and this session writes them. This session reads each dispatch's
 hand-back, never the files it names, save where a step below says it reads one; every judgement —
 `big`, filing, landing, and when a step runs again — stays this session's.
-Before the pass is dispatched, this session empties `<sr-dir>` of every file but `bundle.md`, so a re-run never fills an earlier run's draft or copies its cases. A pass already run is never run again: while the change holds a completed `self-review-<name>-pass` row (`flow record dispatches -change <name>`) and the loop branch `self-review-<name>` exists in `<agents repo>`, this session keeps `<sr-dir>` whole, dispatches no pass and resumes at step 3 from `<sr-dir>/findings.md`, and `flow-guard check-loop-dispatch` refuses a second pass row.
+Before the pass is dispatched, this session empties `<sr-dir>` of every file but `bundle.md`, so a re-run never fills an earlier run's draft or copies its cases. A pass already run is never run again: while the change holds a completed `self-review-<name>-pass` row (`flow record dispatches -change <name>`) and the loop branch `self-review-<name>` exists in `<agents repo>`, this session keeps `<sr-dir>` whole, dispatches no pass and resumes at step 3 from `<sr-dir>/findings.md`.
 
 **Cost and speed observations are counted across changes by theme.** Before the pass is dispatched, this session runs `flow self-review themes` and carries its lines in the pass's prompt; a failed call carries none.
-Every `flow-cost` and `flow-speed` observation the pass returns names the one listed theme it is about, `other` when none fits.
-An observation whose theme the listing marks `due` is a finding, never `noted`, however its own change reads: its line states the listing's count, and step 3 classifies it as it classifies any fixable finding.
+Every `flow-cost` observation the pass returns names the one listed theme it is about, `other` when none fits.
+An observation whose theme the listing marks `due` is a finding, never `noted`, however its own change reads: its line states the listing's count.
 
 Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, on the `pass` row
 of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), its prompt naming the bundle's path — `<bundle>`
 standalone, `<sr-dir>/bundle.md` in-run — and `<sr-dir>`, and carrying this step's rules and step 3's classification, the
 dispatch paragraphs step 3 names and READ-ONLY REVIEW. It hands back the full content of `<sr-dir>/findings.md`: every finding under an `F<n>` id, with its angle, its
 evidence, its severity and its classification — `noted` or fixable, in or out of scope, and for a fixable one its
-counted blast radius and whether it is `big` — and a `## Offered` section laying out every `big` finding and every angle-7 candidate in step 4's explanation layout.
-It hands back the full content of `<sr-dir>/report-draft.md`, step 6's input, each disposition step 3 decides written as a placeholder: `fixed: <F-id>` for a non-`big` finding, `offered: <F-id>` for a `big` one.
-It hands back every case file under `<sr-dir>/cases/<case-id>/` and every file for `<state-dir>/flow-eval/<name>/` the same way, each under its target path, and writes no file itself.
-Beside those contents it hands back its per-angle counts, the non-`big` finding ids, one line per `big` finding, its case ids, and whether it met a product defect. Before step 2a, this session writes each returned file to its target path, byte for byte. This session keeps the filing prompt, the
-store rows. The pass's dispatch row is opened under `<name>` by the hook that admits it;
+counted blast radius and whether it is `big` — and a `## Offered` section laying out every `big` finding and every `flow-cost`, `flow-improvement` and `flow-prompt-tuning` finding in step 4's explanation layout.
+It hands back the full content of `<sr-dir>/report-draft.md`, step 6's input, each disposition step 3 decides written as a placeholder: `fixed: <F-id>` for a non-`big` finding, `offered: <F-id>` for a `big` one or one of those three angles'.
+It hands back every case file under `<sr-dir>/cases/<case-id>/` the same way, each under its target path, and writes no file itself.
+Beside those contents it hands back its per-angle counts, the non-`big` finding ids, one line per `big` finding, its case ids, and whether it met a product defect. Before step 2a, this session writes each returned file to its target path, byte for byte. This session keeps the filing and the
+store rows. The pass's dispatch row is opened under `<name>` by the hook;
 when the pass hands back, this session closes it, `flow record dispatch end -change <name> -key
 self-review-<name>-pass -session-token self-review-<name> -outcome completed`.
 
@@ -71,46 +70,20 @@ step 3's planner as a non-`big` finding whose plan opens on the trace, never int
 into the run's final report as an open item. An observed test failure is fixed as **The loop** (`skills/flow/verify-fix-loop.md`) states
 for one that does not reproduce within its bounded runs and goes straight to code, and a plan that allows closing it unreproduced is sent back.
 
-The pass runs the eight-angle table over the bundle, every angle explicit —
+The pass runs the four-angle table over the bundle, every angle explicit —
 present-but-empty for an angle with no findings, never omitted:
 
 | # | Angle | Label |
 |---|-------|-------|
 | 1 | Problems encountered, and what pipeline change would avoid them | `flow-fix` |
-| 2 | Token/time cost, and what would reduce it without quality loss | `flow-cost` |
+| 2 | Token/time cost and wall-clock time the run spent waiting or working, and what pipeline change would reduce it without quality loss | `flow-cost` |
 | 3 | What went well, and how to reproduce it | `flow-improvement` |
-| 4 | What could be automated or moved to a script | `flow-automation` |
-| 5 | What could move to the Go app or its persistent storage | `flow-stats-app` |
-| 6 | What can be sped up — wall-clock time the run spent waiting or working that a pipeline change would cut | `flow-speed` |
-| 7 | What would make a good flow-eval case — a task, a review finding or a visual pair from this run | `flow-eval` |
-| 8 | Instruction gaps that cost review-panel or visual-verify fix rounds, and the generic implementer or reviewer prompt update that would have avoided them | `flow-prompt-tuning` |
+| 4 | Instruction gaps that cost review-panel or visual-verify fix rounds, and the generic implementer or reviewer prompt update that would have avoided them | `flow-prompt-tuning` |
 
-Angle 5's remit covers the records the pipeline writes to files today and the derivation work
-now done in Bash or by the agent — **not** what the SPA should display. Angle 6 is elapsed time, where angle 2 is what a step spends: serial steps that could run in parallel, slow guards, builds or test runs, waits, and redundant re-runs. A silent angle and a
+Angle 2 covers both what a step spends and elapsed time: serial steps that could run in parallel, slow guards, builds or test runs, waits, and redundant re-runs. A silent angle and a
 skipped angle are indistinguishable to a reader, which is why an empty angle says so.
 
-Angle 7 lists the run's tasks, review findings and visual-verification pairs that would make good
-flow-eval cases — what `case add impl|review|visual` mines, per `<agents repo>/../flow-eval/README.md`,
-the `flow-eval` checkout beside `<agents repo>` — one candidate per case, in its kind's template,
-every field present:
-
-- **impl** — the task, as `tasks.md` records it; the resulting code, an excerpt under its
-  worktree-resolved `path:line`; why it is a good candidate.
-- **review** — a Critical or Important finding only, never a Minor one, a Critical preferred
-  over an Important; each finding with its severity, its location and the reviewer's own sentence; the
-  bad code; the fixed code, with the fixing commit's sha; why it is a good candidate.
-- **visual** — the actual app screenshot and the mockup screenshot, each by absolute path; the
-  findings; why it is a good candidate.
-
-Every path is absolute. A file that exists only in git history, or only inside a worktree that
-cleanup removes, is extracted by the pass — `git -C <repo> show <sha>:<path>`
-into `<state-dir>/flow-eval/<name>/`, `<state-dir>` being the path `flow state dir` prints for
-that repository — and cited there. A candidate names no defect: it is recorded `noted`, never fixed or filed — the one `noted`
-item offered, for mining in step 4. Angle 7 reads its candidates from the run's own work in any repository the
-run touched, product code included, and reads beyond the bundle only for the commits and files
-the bundle names.
-
-Angle 8 reads the run's review-panel findings and its visual-verify findings, each judged alone on its own severity — no severity
+Angle 4 reads the run's review-panel findings and its visual-verify findings, each judged alone on its own severity — no severity
 needs another alongside it. A Critical finding qualifies; an Important finding qualifies; a Minor
 finding qualifies only when the pass judges it genuinely useful, meaning it is in a class the
 prompts should handle and would recur. The verifier grades no severity: a visual-verify departure blocks the handoff
@@ -134,7 +107,7 @@ whatever its severity: the pass compares that slot's earlier dispatches with the
 it — the slot's reviewer prompt file at the change's merge base, the diff each was given, the
 findings it returned. A generic instruction gap is a `reviewer` miss case whose `why_picked` names
 the rounds that missed it; any other cause — a re-run shown only the delta, or reviewer variance the
-bundle cannot explain — is an angle-8 finding naming that cause, classified by step 3's
+bundle cannot explain — is an angle-4 finding naming that cause, classified by step 3's
 classification.
 
 The visual-verify step is analysed on both of its halves, because its fix rounds are where a run
@@ -142,7 +115,7 @@ most often spends repeated rounds: its prompts, by the cases above, and its tool
 the mockup comparison, the scripts and browser setup `skills/flow/visual-verify.md` drives. A
 tooling gap that cost a visual-verify fix round — a capture that missed the state the defect was in,
 a comparison that could not see it, a setup step that failed and was redone — is reported under
-angle 8 as a finding, never as a case, and is fixed in step 3 unless it is `big`.
+angle 4 as a finding, never as a case, and is filed with its angle's task in step 5.
 
 Every case carries a `scope` along two independent axes, language and layer (`frontend` or
 `backend`), each pinned or left open:
@@ -173,9 +146,8 @@ A case is picked only when its `why_picked` states all four:
 
 **Zero cases is a normal result** — the section then carries the none-marker like any empty angle.
 The pass never lowers the bar to produce a case; a finding that fails any of the four is not
-picked and not mentioned. Every case is recorded `noted` — never fixed in step 3, never offered
-for filing in step 4 and never asked about, in a run or standalone — its report line naming its
-folder:
+picked and not mentioned. Every case is recorded `noted` — never fixed in step 3 — its report
+line naming its folder, and step 5's `flow-prompt-tuning` task names each case folder:
 
 ```
 - **[flow-prompt-tuning]** <defect class> — <type> — docs/prompt-tuning/<case-id>/ — noted
@@ -187,10 +159,11 @@ An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**
 `skills/flow-contracts/pipeline.md`) that names a sha is reported under angle 1 as fixed and
 is never offered for filing; one that reads `deferred` is an angle-1 finding like any other.
 
-**A finding is fixed or filed only from the eight angles.** A finding about the pipeline itself is
-fixed in step 3 unless it is `big`, and offered under its angle when it is. A finding that names no defect — what
-went well, under angle 3, or an observation with nothing to fix — is reported and recorded `noted`, never offered: **only a `big`
-finding, or one whose fix step 3 dropped, is ever offered for filing**. **An observation that names
+**A finding is fixed or filed only from the four angles.** A `flow-fix` finding is
+fixed in step 3 unless it is `big`, and offered under its angle when it is. A `flow-cost`,
+`flow-improvement` or `flow-prompt-tuning` finding is never fixed in the run: it is offered, for its
+angle's task in step 5. An observation with nothing to fix is reported and recorded `noted`, never
+offered. **An observation that names
 an action the run can take is a fixable finding, never `noted`**, unless the action is `big`, reaches production
 (`rules/never-touch-production.mdc`) or deletes what cannot be restored. **The pass covers
 the pipeline and the project's own dev tooling — build scripts, dev-stack and test-harness
@@ -198,10 +171,9 @@ config, guards — and nothing else.** A finding about the project's own product
 scope: it is never offered or filed, and goes to a fix run instead — a pass inside a run stops
 here, at the end of this step (**the sweep**, `skills/flow-contracts/known-bugs.md`). A landing HEAD
 whose UI no visual verifier saw is such a finding, never a risk line. The draft carries no
-section beyond the eight angles. The filing prompt is never waived: a pass with
-no operator to answer it files and mines nothing and records every offered finding `declined`.
+section beyond the four angles.
 
-**One combined pass** — never eight separate reads. The pass covers what the bundle holds and
+**One combined pass** — never four separate reads. The pass covers what the bundle holds and
 nothing beyond it.
 
 ### 2a. Write the prompt-tuning cases
@@ -209,7 +181,7 @@ nothing beyond it.
 **Every case the pass returns is a deliverable, landed on `<agents repo>` `main` before step 8
 reports it.**
 
-A pass with no angle-8 case writes nothing here. Otherwise this session, after the pass and before
+A pass with no angle-4 case writes nothing here. Otherwise this session, after the pass and before
 step 3, first resolves the worktree of `<fix-branch>` — the branch named at the end of this step —
 creating it with `<agents repo>/scripts/flow-guard pipeline-fix start <name>` when it is
 `self-review-<name>` and absent; it never writes the agents main checkout. It copies each `<sr-dir>/cases/<case-id>/` folder the pass wrote into that
@@ -219,15 +191,14 @@ worktree — `<agents repo>-worktrees/<name>/docs/prompt-tuning/<case-id>/` on t
 
 | File | Content |
 |---|---|
-| `case.json` | `id`, `type` (`implementer`/`reviewer`), `reviewer_kind` (`miss`/`false-positive`, reviewer only), `scope` (one of the four forms of angle 8's scope table), `source` {`project`, `change`, `jira`, `repo`, `fix_sha`, `finding_ref`, `round`, `slot`, `severity`}, `target` (agents-repo-relative prompt path), `target_sha` (the agents commit the `before` text was read at), `defect_class`, `why_picked`, `before`, `after` |
+| `case.json` | `id`, `type` (`implementer`/`reviewer`), `reviewer_kind` (`miss`/`false-positive`, reviewer only), `scope` (one of the four forms of angle 4's scope table), `source` {`project`, `change`, `jira`, `repo`, `fix_sha`, `finding_ref`, `round`, `slot`, `severity`}, `target` (agents-repo-relative prompt path), `target_sha` (the agents commit the `before` text was read at), `defect_class`, `why_picked`, `before`, `after` |
 | `finding.md` | the reviewer's own sentence, severity, location |
 | `bad.diff` | the code as the implementer first wrote it: the hunk(s) the finding names, from the commit before the fix |
 | `good.diff` | the fix-round commit's diff for those hunks (`git show <fix_sha>`) |
 | `task.md` | the task text as `tasks.md` recorded it (implementer cases; `none` for reviewer cases) |
 | `index.html` | rendered by `flow prompt-tuning render <case-dir>` from the files above, never written by hand |
 
-`bad.diff`, `good.diff` and `task.md` are extracted with `git -C <repo> show` exactly as angle 7's
-extraction does. A `reviewer` case whose `target` is `skills/flow/visual-verify-verifier.md` or
+`bad.diff`, `good.diff` and `task.md` are extracted with `git -C <repo> show <sha>:<path>`. A `reviewer` case whose `target` is `skills/flow/visual-verify-verifier.md` or
 `skills/flow/visual-verify.md` also carries `capture.png`, the capture the verifier judged, and
 `mockup.png`, the mockup frame it judged that capture against, both copied into the case folder.
 Once a case's folder is copied, run `flow prompt-tuning render <case-dir>`.
@@ -236,10 +207,9 @@ The cases are committed as `docs(prompt-tuning): <name> cases` on the branch ste
 `<fix-branch>`: inside a run whose canonical repository is `<agents repo>`, the change's own branch,
 landed by the run's own route; otherwise, and standalone, `self-review-<name>`. When step 3 has no
 worktree — no non-`big` finding — the worktree this step created carries the cases alone: this session commits them there and lands that
-cases-only branch by step 3 item 5's route; `flow-guard check-loop-landing` admits a `self-review-*` branch
-whose diff touches only `<agents repo>/docs/prompt-tuning/` without loop rows.
+cases-only branch by step 3 item 5's route.
 
-### 3. Fix every finding that is not `big`
+### 3. Fix every `flow-fix` finding that is not `big`
 
 **Every finding is classified before any work**, by the pass, per the blast-radius rule of **Pipeline defects found
 mid-run** (`skills/flow-contracts/pipeline.md`): `big` when its fix touches 60 or more files — a
@@ -248,15 +218,15 @@ reach outside `<agents repo>`, whose fix goes where that section places it. An
 `In-run pipeline fix:` line naming a sha is already fixed and is not classified again.
 
 **A finding whose fix adds a guard or an automation is never built by the pass.** Any finding
-whose fix would add or extend a guard, check, hook, refusal, lint rule, script or other automation —
-every angle-4 (`flow-automation`) finding included — is filed instead, all of them together as
+whose fix would add or extend a guard, check, hook, refusal, lint rule, script or other automation
+is filed instead, all of them together as
 **one** Jira task per pass: its summary `Self-review <name>: guard and automation proposals`, its
 description one `## Why` / `## How` / `## DoD` block per finding (**Labels and body of issues the
 pipeline creates**, `skills/flow-contracts/jira-integration-finish.md`), each finding a `###`
 heading inside each section. The operator reviews it by hand and decides; the pass records each
 such finding `filed` under that issue's key and never asks about it.
 
-**Every other finding that is not `big` is fixed and landed without asking**, on one branch for the
+**Every other `flow-fix` finding that is not `big` is fixed and landed without asking**, on one branch for the
 whole pass. A pass with none creates no worktree and dispatches nothing. No scope or cost question
 with a recommended option is put to the operator anywhere in this pass, as a prompt or as prose in
 a message (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`).
@@ -267,7 +237,7 @@ constraint: the planner designs within it, measures the result against the histo
 plans the fix. A finding leaves step 3 unfixed only when it is `big`, or disproved — the planner
 shows, with evidence, that the defect it names does not exist. A planner report that drops a
 finding on any other ground is sent back to a fresh planner dispatch carrying the objection as a
-constraint, never offered for filing in step 4.
+constraint, never filed in step 5.
 **A fix repairs what its defect already wrote wrong** — a store row, a record or a file the defect
 left corrupted is repaired in the same plan, a small command added where none exists, never left
 as a forward-only fix with the repair an operator's option.
@@ -284,11 +254,10 @@ ticks and **The base sync** below: each numbered step below that does is a fresh
 NO DELEGATION paragraphs of `skills/flow/implementer-brief.md` verbatim — a review's READ-ONLY REVIEW
 (`skills/flow/gated-reviewer-brief.md`) too, and the plan's
 PLANNING DELEGATION below in place of NO DELEGATION. Every dispatch is one-shot: no `SendMessage` to it once
-it returns. The `self-review-fix` row carries no no-progress escalation: a self-review fix that makes no progress is answered by the fresh re-plan above, never by `flow-high`. The `pipeline-fix-fix` row keeps it: a pipeline-fix round that made no progress is dispatched again on that row's `opus/flow-high` escalation, admitted only after `<agents repo>/scripts/flow-guard pipeline-fix escalate <key>` (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`).
+it returns. The `self-review-fix` row carries no no-progress escalation: a self-review fix that makes no progress is answered by the fresh re-plan above, never by `flow-high`. The `pipeline-fix-fix` row keeps it: a pipeline-fix round that made no progress is dispatched again on that row's `opus/flow-high` escalation (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`).
 
 **The pairs are the `self-review-*` and `pipeline-fix-*` rows** of **Allowed pairs**
-(`skills/flow-contracts/model-policy.md`), which `flow-guard check-loop-dispatch` reads and refuses a loop
-dispatch off, a key's suffix naming its row — `pass`, `plan`, `fix`, `review-1` and `review-r` for
+(`skills/flow-contracts/model-policy.md`), a key's suffix naming its row — `pass`, `plan`, `fix`, `review-1` and `review-r` for
 every re-review.
 
 **Each loop dispatch runs on its row's role's pair**, per **Model and effort**
@@ -297,21 +266,16 @@ every re-review.
 `planner-carries-agent`); **the fixer pair** on the `fix` row; and **the review pair** on the two
 `review` rows.
 
-**Every loop dispatch is admitted and recorded mechanically.**
+**Every loop dispatch is recorded mechanically.**
 `<agents repo>/hooks/enforce-loop-dispatch.py` hands each Agent call whose prompt carries a
 `Key: pipeline-fix-<k>-…` or `Key: self-review-<name>-…` line to
-`<agents repo>/scripts/flow-guard check-loop-dispatch`, which refuses it off its row of **Allowed pairs**,
-while an earlier dispatch of the loop is still open, or — any dispatch but the plan and the pass —
-before a completed plan, and records the admitted one in flowd. The parent closes each dispatch
+`<agents repo>/scripts/flow-guard check-loop-dispatch`, which records it in flowd. The parent closes each dispatch
 once it returns with `<agents repo>/scripts/flow-guard pipeline-fix end <key> <outcome>`: `completed`, or
 `aborted` for one that did not finish or never ran — a dispatch denied after it was recorded is
 closed `aborted` and may be dispatched again under the same key. A review is closed with
 `<agents repo>/scripts/flow-guard pipeline-fix end <key> <report-file>`, its reviewer's report, whose `Critical: <n>` and
-`Important: <n>` lines decide the outcome: `clean` when both are 0, `fix` otherwise. A dispatch on its row's escalation column is admitted only after
-`<agents repo>/scripts/flow-guard pipeline-fix escalate <key>`, and every loop branch's landing push only
-once `<agents repo>/scripts/flow-guard check-loop-landing` finds its plan, its fix and a last review
-closed `clean`. For an own-branch loop in another project, `flow-guard pipeline-fix end` and `escalate`
-run from that project's working directory, never from `<agents repo>`. A refusal or failure of any of these tools on a step this file prescribes is a
+`Important: <n>` lines decide the outcome: `clean` when both are 0, `fix` otherwise. For an own-branch loop in another project, `flow-guard pipeline-fix end`
+runs from that project's working directory, never from `<agents repo>`. A refusal or failure of any of these tools on a step this file prescribes is a
 pipeline defect, fixed in-run per **Pipeline defects found mid-run**
 (`skills/flow-contracts/pipeline.md`) and the loop resumed once the fix lands — never a stop or a
 question to the operator.
@@ -346,8 +310,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    review gate**. `design.md`'s decisions record instead the first review's pair and the grouping
    of tasks into fixer dispatches. The pair is the entry `**ID:** first-review-effort`,
    its `**Chosen:**` line the `self-review-review-1` role's pair (`pipeline-fix-review-1` in a
-   pipeline-fix loop), written `` `flow-<effort>` on `<model>` `` — the ID `flow-guard check-loop-dispatch` parses;
-   under any other ID the guard sees no decision and wants `flow-medium`. It commits
+   pipeline-fix loop), written `` `flow-<effort>` on `<model>` ``. It commits
    none of the artifacts — `<agents repo>/spectre/changes/` is gitignored — and never merges or pushes.
    A run-1 re-run never folds the loop's fix commits: the newest commit a `fixed` row names is its
    reshape base (`skills/flow-contracts/finish-contract-run1.md`).
@@ -386,7 +349,7 @@ any other project's run, `self-review-<name>` based at `origin/<agents-base>`.
    (`skills/flow/review-panel.md`) — and step 4 is its verification. After a review that raised a
    Critical or Important, step 2 runs again, `<r>` plus one, until a review comes back clean or
    raises only Minors, under **Fewest operator actions** (`skills/flow-contracts/pipeline.md`). A
-   dropped commit's finding is offered in step 4 as a `big` one is; so is a fix found `big` once
+   dropped commit's finding is filed in step 5 as a `big` one is; so is a fix found `big` once
    under way.
 4. **Verify** — once a review comes back clean, or a Minor-only review's fix is committed, this session ticks each task whose commit is on `<fix-branch>`
    (`flow tasks tick -C <fix worktree> self-review-<name> <n>`), then runs
@@ -431,106 +394,34 @@ and `## test` command has no green run; on a clean merge and a green run it
 pushes the merge to `<base>` on `origin` without asking, removes the worktree, and records the
 finding `fixed` with the merge commit's sha. A merge that conflicts, a red or absent run, or a
 rejected push pushes nothing,
-removes the worktree, and is offered in step 4 as a `big` finding is.
+removes the worktree, and is filed in step 5 as a `big` finding is.
 
-### 4. Explain, then ask
+### 4. Explain
 
-Every finding is explained in the message body first, before any prompt fires — what was
+Every finding is explained in the message body first, before anything is filed — what was
 observed, what breaks, and what the fix would be. Every fixed finding is one line in the same
-body, naming its landed sha; it is not offered. A prompt's option text cannot carry that
-explanation, so the prompt records the decision only: a filed issue is durable, and an
-explanation arriving afterward describes something the operator did not agree to.
+body, naming its landed sha; it is not offered.
 This session first fills each `fixed: <F-id>` placeholder of `<sr-dir>/report-draft.md` with the sha `git log --format='%h %s'` shows for its task's commit subject, rewriting one whose finding step 3 left unfixed as `offered: <F-id>`.
 It then prints that body from `<sr-dir>/findings.md`'s `## Offered` section and the draft's `fixed:` lines, never composing either.
 
-When an angle-7 candidate is offered, the ask is two calls: the filing questions
-in one call that follows the explanation in the same turn, and the mining questions in their own
-call in a later turn, after a turn that ends on the candidates' template; the
-operator may instead answer the mining ask in chat directly. Why: a harness focus mode shows
-only a turn's final message, so a flow-eval candidate's template written before a call in the same
-turn is never seen. Carrying the explanation inside the prompt instead was rejected by the operator
-on 2026-10-16: the explanation belongs in chat, in the agreed format, not in the prompt. Splitting
-every ask across two turns was rejected by the operator the same day: the split is for flow-eval
-candidates alone. An unanswered call of this shape follows **Unanswered mid-run asks**
-(`skills/flow-contracts/pipeline.md`).
+The explanation message renders in Markdown, in one table, every finding a row: `#`, observed, what breaks, fix (sha).
 
-With no candidate offered, the filing ask is **one `AskUserQuestion` call**
-that follows the explanation in the same turn. Every call has the shape per **Operator prompts**
-(`skills/flow-contracts/operator-prompts.md`): up to three multi-select questions of
-three offered items each — findings to file or angle-7 candidates to mine, never both in one
-question — every option prefixed with its angle's label, plus **None — file nothing** or
-**None — mine nothing** as the default. More than nine offered items roll the overflow into one
-further call of the same shape. With nothing to offer, no call
-is made. A candidate is mined only when the operator selects it: silence, a
-stalled prompt and **Auto-resolution** (`skills/flow-contracts/operator-prompts-auto-resolution.md`)
-mine nothing. An angle-7 candidate's explanation in the message body is its template.
+### 5. File the offered findings
 
-The explanation message renders in Markdown; step 2's template stays the field list, this is its layout:
-
-- **Findings** — one table, every finding a row: `#`, observed, what breaks, fix (sha).
-- **Each flow-eval candidate** — its own `### <n> · <kind> case — <title>` heading, then a
-  two-column field table: severity, location `path:line`, the reviewer's sentence verbatim, fix
-  commit sha + subject, test names; an impl case adds task title, commit subject, files, tests
-  before→after, code `path:line`; a visual case adds actual and mockup absolute paths, diff score,
-  verdict.
-- **Code** — every excerpt a fenced block with its language tag (` ```kotlin `, ` ```go ` …), real
-  multi-line code taken from the commit with `git show <sha>`, never a one-line paraphrase. A review
-  case shows **Bad** and **Fixed** as two separate blocks, each labelled above it, the fixed block
-  the diff's post-image (or a ` ```diff ` block of the relevant hunk), plus the relevant test's key
-  assertion. An impl case excerpts its core function(s) and lists the plan's worked figures as
-  bullets. A visual case lists its departures in a measured app-vs-mockup table.
-- Each candidate closes with a `**Why it's a good case:**` line; the message's last line is the
-  decision: "reply with which to mine: any of 1–N, or none".
-
-#### The multi-select variant
-
-Some prompts ask the operator to choose any subset of several options, not exactly one. This
-variant states:
-
-- the question, with each option listed separately
-- that the operator may select any subset of the listed options — none, one, or several
-- one explicitly stated default — named by the call site — for what happens if the operator is
-  silent
-
-This contract fixes the shape, not the default's polarity: the call site chooses it, and states it
-plainly. A safe default may resolve silence to the empty set (an explicit "None" option, marked
-recommended) or to the full set (every listed option, silence needing no option of its own to name
-it) — whichever matches what the options actually control. The live multi-select call sites,
-the self-review filing and mining asks, choose the empty set: silence selects
-**None — file nothing** and **None — mine nothing**.
-
-### 5. File chosen findings
-
-File each chosen finding as a Jira issue per **Labels and body of issues the pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`), carrying its angle's label on top of that set.
+Nothing is asked: every offered finding is filed. All of the pass's `big` findings, and every
+`flow-fix` finding step 3 or **The base sync** left unfixed, are filed together as **one** Jira issue, its summary `Self-review <name>: big findings`. Each of
+`flow-cost`, `flow-improvement` and `flow-prompt-tuning` with a finding or, for
+`flow-prompt-tuning`, a case is filed as **one** Jira task of its own, its summary
+`Self-review <name>: <label> findings`, the `flow-prompt-tuning` task naming each case folder
+(`docs/prompt-tuning/<case-id>/`). Each issue's description is one `## Why` / `## How` / `## DoD`
+block per **Labels and body of issues the pipeline creates**
+(`skills/flow-contracts/jira-integration-finish.md`), each finding a `###` heading inside each
+section, and it carries each of its findings' angle labels on top of that label set. Each issue,
+once created, is transitioned to the status named **Self-review**, the transition resolved by that
+name per **Transitions** (`skills/flow-contracts/jira-integration.md`); a transition that fails or
+is not offered is one `⚠ Jira: skipped — <reason>` line and the issue stays filed.
 `## jira` absent or `none` in `<project>/.flow/project.md`, or no Atlassian tooling available in
-this session: print `⚠ Jira: skipped — <reason>` and record that finding `declined` instead.
-
-Mine each chosen candidate into the `flow-eval` checkout here, on every route, while the change's
-worktrees exist — inside integrate run 1, before cleanup removes them — because `case add
-impl|review` reads the change's ledger and panel record (`<project>/.superpowers/sdd/`)
-from the worktree on disk, never from git history. Once cleanup removed the worktree it refuses with
-`plan files gone — mine before cleanup`, and that candidate is left unmined under the failed
-`case add` sentence below. The mining runs in a worktree, never
-the `flow-eval` main checkout, one branch per pass —
-`git -C <agents repo>/../flow-eval worktree add -b flow-eval-cases-<name> <agents repo>/../flow-eval-worktrees/flow-eval-cases-<name> origin/main`
-— from that worktree's root, one `case add` per candidate, per `<agents repo>/../flow-eval/docs/cases.md`:
-
-```bash
-go run ./cmd/flow-eval case add impl --repo <code checkout> [--plan-repo <plan checkout>] --change <name> --task <n>
-go run ./cmd/flow-eval case add review --repo <code checkout> [--plan-repo <plan checkout>] --change <name>
-go run ./cmd/flow-eval case add visual --id <id> --mockup <mockup path> --capture <capture path> --verdict match|mismatch [--defect '<text>' [--region x,y,w,h]]…
-```
-
-`--repo` and `--plan-repo` are the change's worktrees, never the main checkouts, standalone or in a
-run; `--mockup` is the mockup's path inside its checkout — the main checkout, or
-the worktree in a run — never the copy extracted into `<state-dir>`, which sits outside any checkout
-and is refused. A case drafted from a worktree, by `--repo`, `--plan-repo` or `--mockup`, has its
-`case.json` `source.repo` then set to the main checkout's directory name. Edit each draft as that file's "What to check and edit" asks, from what the
-candidate's evidence answers; run `case validate` the same way; and commit each case
-alone as `feat(cases): add <role> case <id>`. The branch is never merged or pushed: the
-operator's review of its commits is the label approval the README names. No `flow-eval`
-checkout there: print `⚠ flow-eval: skipped — <reason>` and mine nothing. A `case add` or
-`case validate` that fails leaves its candidate unmined, its output named in the final report.
+this session: print `⚠ Jira: skipped — <reason>` and record those findings `declined` instead.
 
 ### 6. Record every finding in the flow store
 
@@ -545,7 +436,7 @@ flow self-review finding -change <name> -angle <label> -disposition fixed|filed|
 ```
 
 `-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined` and `noted`;
-`-blast-radius` is step 3's count; `-severity` is the grade the pass gave the finding, required for `fixed` and `filed`, which `flow self-review finding` refuses without it, and omitted for `declined` or `noted` when the pass gave none; `-theme` is the theme the pass named, on every `flow-cost` and `flow-speed` row whatever its disposition — `flow self-review finding` refuses a `noted` one without it, and a `fixed`, `filed` or `declined` row carrying a theme settles it for 30 days. An `In-run pipeline fix:`
+`-blast-radius` is step 3's count; `-severity` is the grade the pass gave the finding, required for `fixed` and `filed`, which `flow self-review finding` refuses without it, and omitted for `declined` or `noted` when the pass gave none; `-theme` is the theme the pass named, on every `flow-cost` row whatever its disposition — `flow self-review finding` refuses a `noted` one without it, and a `fixed`, `filed` or `declined` row carrying a theme settles it for 30 days. An `In-run pipeline fix:`
 line naming a sha gets no second row when `flow self-review findings -change <name>` already
 lists that sha (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). A row this step records for such a line, which the pass never grades, takes `-severity` by the rule of **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`). A store failure is one
 warning line and the pass continues to the listing below.
@@ -558,7 +449,7 @@ listing holds every row and item 5 of step 3 recorded its `fixed` rows.
 
 ### 8. Report
 
-End naming the shas landed, the Jira keys filed and the flow-eval cases mined, by branch and sha, each prompt-tuning case written in step 2a by the absolute path of its `index.html` in `<agents repo>`'s main checkout once landed (`<agents repo>/docs/prompt-tuning/<case-id>/index.html`) (each `none` when empty), each chosen candidate left unmined with its `case add` command, and each product defect the pass met (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+End naming the shas landed, the Jira keys filed, each prompt-tuning case written in step 2a by the absolute path of its `index.html` in `<agents repo>`'s main checkout once landed (`<agents repo>/docs/prompt-tuning/<case-id>/index.html`) (each `none` when empty), and each product defect the pass met (**the sweep**, `skills/flow-contracts/known-bugs.md`).
 
 ## Guardrails
 

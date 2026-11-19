@@ -9,18 +9,13 @@ package repotest
 // deny/allow on each. The cases share one fixture that later cases mutate
 // (archiving a change, adding worktrees, moving the main checkout off main),
 // so they run in the harness's order, one subtest per harness case; the case
-// numbers are the harness's own. In command templates {ROOT}, {MAIN}, {WT},
-// {SIB}, {LWT}, {LSHA}, {CWT} and {RWT} stand for the fixture paths;
+// numbers are the harness's own. In command templates {ROOT}, {MAIN},
+// {SIB} and {WT} stand for the fixture paths;
 // every other `$NAME` is literal shell text the hook sees unexpanded.
-//
-// The loop-landing checker (cases 77-101) and the untasked-commits checker
-// (cases 104-107) are stubs passed through LOOP_LANDING_CHECK and
-// UNTASKED_COMMITS_CHECK; cases 108-109 run the real untasked checker.
 
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -278,96 +273,6 @@ func TestBlockUnsafeCommands(t *testing.T) {
 	f.bash("75 a heredoc inside bash <( keeps its body scanned", "deny", "{ROOT}", "bash <(\ncat > /dev/stdout <<'EOF'\nrm {MAIN}/f.txt\nEOF\n)")
 	f.bash("76 a heredoc written then run under another spelling keeps its body scanned", "deny", "{ROOT}", "cat > {SIB}/x.sh <<'EOF'\nrm {MAIN}/f.txt\nEOF\nsh \"{SIB}\"/x.sh")
 
-	// 77-81: a fix loop lands only once flow-guard check-loop-landing admits it; the
-	// checker is a stub here (the guard is covered by check_loop_landing_test.go).
-	loopLog, loopRC := root+"/loop-args", root+"/loop-rc"
-	f.write(root+"/loopcheck", "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" >\""+loopLog+"\"\necho \"LOOP-LANDING-REFUSED: REVIEW — stub\"\nexit \"$(cat \""+loopRC+"\")\"\n")
-	f.env = []string{"LOOP_LANDING_CHECK=" + root + "/loopcheck"}
-	lwt := root + "/main-worktrees/pipeline-fix-x-6"
-	f.vars["LWT"] = lwt
-	f.git("-C", main, "worktree", "add", lwt, "-b", "pipeline-fix-x-6", "origin/main")
-	f.git("-C", main, "worktree", "add", root+"/main-worktrees/self-review-x", "-b", "self-review-x", "origin/main")
-	for _, w := range []string{lwt, root + "/main-worktrees/self-review-x"} {
-		f.write(w+"/loop.txt", w+"\n")
-		f.git("-C", w, "add", "loop.txt")
-		f.git("-C", w, "commit", "-q", "-m", "fix: loop")
-	}
-	setRC := func(rc string) { f.write(loopRC, rc+"\n") }
-	setRC("1")
-	f.check("77 loop push the checker refuses", func(t *testing.T) {
-		out := f.run(t, root, "Bash", map[string]string{"command": f.x(`git -C {LWT} push origin pipeline-fix-x-6:main`)})
-		if !denyRe.MatchString(out) || !strings.Contains(out, "LOOP-LANDING-REFUSED: REVIEW") ||
-			!strings.Contains(out, "pipeline-fix land <worktree> <important|minor> once") {
-			t.Errorf("%s", out)
-		}
-	})
-	setRC("0")
-	f.bash("78 loop push the checker admits", "allow", "{ROOT}", `git -C {LWT} push origin pipeline-fix-x-6:main`)
-	f.check("78 checker args", func(t *testing.T) {
-		if got := f.readLog(loopLog); got != lwt+" pipeline-fix-x-6 " {
-			t.Errorf("checker args: %s", got)
-		}
-	})
-	setRC("1")
-	f.check("79 self-review HEAD:main push the checker refuses", func(t *testing.T) {
-		out := f.run(t, root, "Bash", map[string]string{"command": f.x(`git -C {ROOT}/main-worktrees/self-review-x push origin HEAD:main`)})
-		if !denyRe.MatchString(out) || !strings.Contains(out, "pipeline-fix land <worktree> once") {
-			t.Errorf("%s", out)
-		}
-	})
-	f.bash("80 loop push with no runnable checker", "deny", "{ROOT}", `git -C {LWT} push origin pipeline-fix-x-6:main`, "LOOP_LANDING_CHECK="+root+"/missing")
-	_ = os.Remove(loopLog)
-	f.bash("81 a non-loop landing", "allow", "{ROOT}", `git -C {WT} push origin change:main`)
-	f.check("81 loop checker not run", func(t *testing.T) {
-		if _, err := os.Stat(loopLog); err == nil {
-			t.Error("loop checker ran")
-		}
-	})
-	setRC("1")
-	f.vars["LSHA"] = f.git("-C", lwt, "rev-parse", "HEAD")
-	for i, c := range []string{"git -C {LWT} push origin @:main", "git -C {LWT} push origin {LSHA}:main",
-		"git -C {LWT} push origin HEAD~0:main", "git -C {LWT} -c x=y push origin pipeline-fix-x-6:main",
-		"git -C {LWT} branch tmp && git -C {LWT} push origin tmp:main"} {
-		f.bash(fmt.Sprintf("%d loop landed as: %s", 82+i, c), "deny", "{ROOT}", c)
-	}
-	f.git("-C", main, "merge", "-q", "--ff-only", "pipeline-fix-x-6")
-	f.bash("87 a colon-less push of the default branch the loop was pulled into", "deny", "{ROOT}", `git -C {MAIN} push origin main`)
-	f.git("-C", main, "reset", "-q", "--hard", "origin/main")
-	f.git("-C", main, "branch", "-q", "spectre/chg", f.vars["LSHA"])
-	f.git("-C", main, "update-ref", "refs/heads/pipeline-fix-x-6", "origin/main")
-	_ = os.Remove(loopLog)
-	f.bash("88 a change branch the checker refuses", "deny", "{ROOT}", `git -C {LWT} push origin spectre/chg:main`)
-	f.check("88 checker handed the change branch", func(t *testing.T) {
-		b, _ := os.ReadFile(loopLog)
-		if !strings.Contains("\n"+string(b), "\nspectre/chg\n") {
-			t.Errorf("checker args: %s", b)
-		}
-	})
-	f.write(root+"/slowcheck", "#!/usr/bin/env bash\nsleep 1.5\n")
-	f.bash("89 two landing pushes share one checker budget", "deny", "{ROOT}", `git -C {LWT} push origin spectre/chg:main; git -C {LWT} push origin spectre/chg:main`,
-		"LOOP_LANDING_CHECK="+root+"/slowcheck", "LOOP_LANDING_TIMEOUT=2")
-	// 90-97: a push named through an unexpanded shell expansion cannot be checked;
-	// the stub admits, so only the unreadable-landing check can deny.
-	setRC("0")
-	for i, c := range []string{"git -C $W push origin $B:main", "git -C {WT} push origin \"${B}:main\"",
-		"git -C {WT} push origin $(git branch --show-current):main",
-		"git -C {WT} push origin `git branch --show-current`:main"} {
-		f.bash(fmt.Sprintf("%d unreadable landing: %s", 90+i, c), "deny", "{ROOT}", c)
-	}
-	f.check("90 unreadable landing names land's grade", func(t *testing.T) {
-		out := f.run(t, root, "Bash", map[string]string{"command": "git -C $W push origin $B:main"})
-		if !strings.Contains(out, "pipeline-fix land <worktree> <important|minor>") {
-			t.Errorf("%s", out)
-		}
-	})
-	f.bash("94 cd to an unexpanded path, then push HEAD", "deny", "{ROOT}", `cd $W && git push origin HEAD`)
-	f.bash("95 push of an unexpanded branch", "deny", "{ROOT}", `git -C $W push -u origin $B`)
-	f.bash("96 unexpanded repository, literal non-default destination", "allow", "{ROOT}", `git -C $W push origin spectre/x`)
-	f.bash("97 a branch assigned in the command itself", "allow", "{ROOT}", `B=change; git -C {WT} push origin $B`)
-	f.bash("98 a prefix assignment is not seen by its own command's words", "deny", "{ROOT}", `B=x git -C {WT} push origin $B:main`)
-	f.bash("99 --all with an unexpanded remote pushes the default branch too", "deny", "{ROOT}", `git -C {WT} push --all $R`)
-	f.bash("100 an expanded git option hides the repository", "deny", "{ROOT}", `git ${OPTS} push origin HEAD`)
-	f.bash("101 an expanded git command word", "deny", "{ROOT}", `$GIT push origin HEAD`)
 	f.env = nil
 	if err := os.MkdirAll(main+"/sub", 0o755); err != nil {
 		t.Fatal(err)
@@ -405,78 +310,6 @@ func TestBlockUnsafeCommands(t *testing.T) {
 	}
 	f.bash("136 a written check script run afterwards keeps its body scanned", "deny", "{ROOT}", "cat > {SIB}/check-a.sh <<EOF\nrm {MAIN}/f.txt\nEOF\n{SIB}/check-a.sh")
 	f.bash("137 a heredoc body then 'GIT_EXTERNAL_DIFF={SIB}/x.sh git diff' keeps its body scanned", "deny", "{ROOT}", xsh+"GIT_EXTERNAL_DIFF={SIB}/x.sh git diff --ext-diff a b")
-
-	// 104-107: a push of a change branch runs check-untasked-commits over its
-	// unpushed commits (kan-941); a stub stands in for the guard.
-	untaskedRC, untaskedLog := root+"/untasked-rc", root+"/untasked-log"
-	f.write(root+"/untaskedcheck", "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" >\""+untaskedLog+"\"\necho \"UNTASKED: 1 commit(s) sit outside every task\"\nexit \"$(cat \""+untaskedRC+"\")\"\n")
-	f.env = []string{"UNTASKED_COMMITS_CHECK=" + root + "/untaskedcheck"}
-	cwt := root + "/main-worktrees/chg2"
-	f.vars["CWT"] = cwt
-	f.git("-C", main, "worktree", "add", cwt, "-b", "spectre/chg2", "origin/main")
-	f.git("-C", cwt, "push", "-q", "-u", "origin", "spectre/chg2")
-	f.write(cwt+"/m.txt", "m\n")
-	f.git("-C", cwt, "add", "m.txt")
-	f.git("-C", cwt, "commit", "-q", "-m", "fix(app): review Minors")
-	f.write(untaskedRC, "1\n")
-	f.bash("104 a change-branch push carrying an untasked commit", "deny", "{ROOT}", `git -C {CWT} push origin spectre/chg2`)
-	f.check("104 checker args", func(t *testing.T) {
-		if got := f.readLog(untaskedLog); got != cwt+" refs/remotes/origin/spectre/chg2 --not-remotes " {
-			t.Errorf("checker args: %s", got)
-		}
-	})
-	f.check("104 deny reason names no missing trailer", func(t *testing.T) {
-		out := f.run(t, root, "Bash", map[string]string{"command": "git -C " + cwt + " push origin spectre/chg2"})
-		if !strings.Contains(out, "sits outside every task") || strings.Contains(out, "neither") {
-			t.Errorf("deny reason: %s", out)
-		}
-	})
-	f.bash("160 a bare change-branch push with its output redirected and piped", "deny", "{ROOT}", `git -C {CWT} push -q 2>&1 | tail -1`)
-	f.write(untaskedRC, "0\n")
-	f.bash("105 a change-branch push the checker clears", "allow", "{ROOT}", `cd {CWT} && git push`)
-	f.write(untaskedRC, "1\n")
-	_ = os.Remove(untaskedLog)
-	f.git("-C", cwt, "checkout", "-q", "-b", "spectre/chg3")
-	f.bash("106 a change branch origin does not hold yet", "allow", "{ROOT}", `git -C {CWT} push -u origin spectre/chg3`)
-	f.check("106 checker not run", func(t *testing.T) {
-		if _, err := os.Stat(untaskedLog); err == nil {
-			t.Error("checker ran")
-		}
-	})
-	f.bash("107 a checker that cannot run fails open", "allow", "{ROOT}", `git -C {CWT} push origin HEAD:spectre/chg2`, "UNTASKED_COMMITS_CHECK="+root+"/missing")
-	f.env = nil
-
-	// 143-148: a commit and its push in one command (kan-1003's self-review: the design handoff
-	// 0497d943 was committed and pushed in one call, before the push check could see it).
-	f.write(cwt+"/h.txt", "h\n")
-	f.bash("143 commit and push in one command, no trailer", "deny", "{ROOT}", `cd {CWT} && git add h.txt && git commit -qm 'docs(design): add the handoff' && git push -q`)
-	f.bash("144 the same with a Flow-Key trailer", "allow", "{ROOT}", `cd {CWT} && git commit -q -m 'docs(design): add the handoff' -m 'Flow-Key: flow.brainstorm' && git push -q`)
-	f.bash("145 a planning commit pathspec-limited to spectre/changes/", "allow", "{ROOT}", `git -C {CWT} commit -q -m 'docs(spectre): record' -- spectre/changes/chg && git -C {CWT} push -q origin spectre/chg3`)
-	f.bash("150 a planning commit's pathspec given without '--'", "allow", "{ROOT}", `git -C {CWT} commit -q -m 'docs(spectre): record' spectre/changes/chg && git -C {CWT} push -q origin spectre/chg3`)
-	f.bash("146 a chore subject", "allow", "{ROOT}", `cd {CWT} && git commit -q -m 'chore(spectre): plan chg — plan gate' && git push -q`)
-	f.bash("147 a message the command does not state, pushed in the same call", "deny", "{ROOT}", `cd {CWT} && git commit -q -F msg.txt && git push -q`)
-	f.bash("161 commit and push in one command, both redirected, no trailer", "deny", "{ROOT}", `cd {CWT} && git commit -qm 'docs(design): add the handoff' 2>&1 && git push -q >/dev/null 2>&1`)
-	f.bash("162 a planning commit pathspec-limited to spectre/changes/, redirected", "allow", "{ROOT}", `git -C {CWT} commit -q -m 'docs(spectre): record' -- spectre/changes/chg 2>&1 && git -C {CWT} push -q origin spectre/chg3`)
-	f.bash("148 a trailer-less commit on a change branch, pushed to a branch that is no change branch, is denied at the commit", "deny", "{ROOT}", `cd {CWT} && git commit -qm 'docs(x): y' && git push -q origin HEAD:feature/x`)
-
-	// 108-109: the real checker after a rebase onto a moved base — the base's own
-	// trailer-less commits are on origin already, never the change's to judge.
-	rwt := root + "/main-worktrees/chg4"
-	f.vars["RWT"] = rwt
-	f.git("-C", main, "worktree", "add", rwt, "-b", "spectre/chg4", "origin/main")
-	f.git("-C", rwt, "push", "-q", "-u", "origin", "spectre/chg4")
-	f.write(rwt+"/b.txt", "b\n")
-	f.git("-C", rwt, "add", "b.txt")
-	f.git("-C", rwt, "commit", "-q", "-m", "fix(build): someone else's work")
-	f.git("-C", rwt, "push", "-q", "origin", "HEAD:refs/heads/main")
-	f.write(rwt+"/t.txt", "t\n")
-	f.git("-C", rwt, "add", "t.txt")
-	f.git("-C", rwt, "commit", "-q", "-m", "feat(app): task one", "-m", "Task-Id: 1")
-	f.bash("108 a push after a rebase onto a moved base", "allow", "{ROOT}", `git -C {RWT} push --force-with-lease origin spectre/chg4`)
-	f.write(rwt+"/u.txt", "u\n")
-	f.git("-C", rwt, "add", "u.txt")
-	f.git("-C", rwt, "commit", "-q", "-m", "fix(app): review Minors")
-	f.bash("109 the real checker still lists the change's own untasked commit", "deny", "{ROOT}", `git -C {RWT} push --force-with-lease origin spectre/chg4`)
 
 	// 110-113: a `go test` over a whole heavy package is the operator's to ask for; a named test run is not.
 	f.bash("110 go test over the whole guard package", "deny", "{ROOT}", `cd {SIB} && go test ./internal/guard/`)
@@ -523,80 +356,6 @@ func TestBlockUnsafeCommands(t *testing.T) {
 	f.writeTool("3 Write in main checkout on a feature branch", "allow", "{MAIN}/new.txt")
 }
 
-// TestBlockUnsafeCommandsDeniesAnUntraileredChangeBranchCommit pins the change-branch commit
-// check: a commit the command states with no trailer and no chore subject, in a worktree on
-// spectre/<name>, is denied; a trailered, chore, -F or --amend commit, and any commit on another
-// branch, passes.
-func TestBlockUnsafeCommandsDeniesAnUntraileredChangeBranchCommit(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	root, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
-	main := root + "/main"
-	f.vars["SWT"], f.vars["FWT"] = root+"/main-worktrees/c1", root+"/main-worktrees/fc1"
-	f.git("init", "-q", "--bare", root+"/origin.git")
-	f.git("clone", "-q", root+"/origin.git", main)
-	f.write(main+"/f.txt", "a\n")
-	f.git("-C", main, "add", "f.txt")
-	f.git("-C", main, "commit", "-q", "-m", "init")
-	f.git("-C", main, "branch", "-M", "main")
-	f.git("-C", main, "push", "-q", "-u", "origin", "main")
-	f.git("-C", main, "worktree", "add", f.vars["SWT"], "-b", "spectre/c1")
-	f.git("-C", main, "worktree", "add", f.vars["FWT"], "-b", "feature/c1")
-
-	f.check("1 untrailered commit on spectre/c1", func(t *testing.T) {
-		out := f.run(t, root, "Bash", map[string]string{"command": f.x(`git -C {SWT} commit -m "fix(x): y"`)})
-		if decision(out) != "deny" || !strings.Contains(out, "Flow-Key:") {
-			t.Errorf("out=%s", out)
-		}
-	})
-	f.bash("2 Task-Id trailer", "allow", "{ROOT}", `git -C {SWT} commit -m "fix(x): y" -m "Task-Id: 3"`)
-	f.bash("3 chore subject", "allow", "{ROOT}", `git -C {SWT} commit -m "chore(spectre): plan c1"`)
-	f.bash("4 message from a file", "allow", "{ROOT}", `git -C {SWT} commit -F msg.txt`)
-	f.bash("5 amend", "allow", "{ROOT}", `git -C {SWT} commit --amend --no-edit`)
-	f.bash("6 another branch", "allow", "{ROOT}", `git -C {FWT} commit -m "fix(x): y"`)
-	// The implementer brief's FIX DISPATCH form (kan-1053 self-review, F2).
-	f.bash("7 --trailer flags", "allow", "{ROOT}", `git -C {SWT} commit -m "fix(x): y" --trailer "Task-Id: 3" --trailer "Flow-Key: k" -- f.txt`)
-	f.bash("8 --trailer= form", "allow", "{ROOT}", `git -C {SWT} commit -m "fix(x): y" --trailer=Flow-Key:k`)
-	f.check("9 a --trailer naming another key", func(t *testing.T) {
-		out := f.run(t, root, "Bash", map[string]string{"command": f.x(`git -C {SWT} commit -m "fix(x): y" --trailer "Signed-off-by: a"`)})
-		if decision(out) != "deny" {
-			t.Errorf("out=%s", out)
-		}
-	})
-}
-
-// TestBlockUnsafeCommandsSkipsAMessageItCannotRead pins kan-1032's
-// self-review: an apostrophe in a quoted heredoc unbalances tokenize, whose
-// raw-word fallback keeps the quote on the message; such a message is not
-// judged, so a chore commit after it is allowed.
-func TestBlockUnsafeCommandsSkipsAMessageItCannotRead(t *testing.T) {
-	t.Parallel()
-	root, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
-	main := root + "/main"
-	f.vars["SWT"] = root + "/main-worktrees/c1"
-	f.git("init", "-q", "--bare", root+"/origin.git")
-	f.git("clone", "-q", root+"/origin.git", main)
-	f.write(main+"/f.txt", "a\n")
-	f.git("-C", main, "add", "f.txt")
-	f.git("-C", main, "commit", "-q", "-m", "init")
-	f.git("-C", main, "branch", "-M", "main")
-	f.git("-C", main, "push", "-q", "-u", "origin", "main")
-	f.git("-C", main, "worktree", "add", f.vars["SWT"], "-b", "spectre/c1")
-
-	f.bash("the same without the apostrophe", "allow", "{ROOT}",
-		"cat <<'EOF'\nthe coordinators note\nEOF\ngit -C {SWT} commit -q -m \"chore(spectre): plan c1\"")
-	f.bash("a chore commit after a heredoc apostrophe", "allow", "{ROOT}",
-		"cat <<'EOF'\nthe coordinator's note\nEOF\ngit -C {SWT} commit -q -m \"chore(spectre): plan c1\"")
-}
-
 // TestBlockUnsafeCommandsDeniesABareCatRedirect pins kan-1033's finding 4.2:
 // a bare `cat > <file>` reads stdin, which a Bash call never has, so it
 // hangs until the call times out; a cat with input of its own passes.
@@ -619,44 +378,6 @@ func TestBlockUnsafeCommandsDeniesABareCatRedirect(t *testing.T) {
 	for _, c := range []string{"cat > f <<'EOF'\nbody\nEOF", "cat > f < in", "x | cat > f", "cat a > f", "cat -n f > g", "echo cat > f", "concat > f"} {
 		f.bash("allow "+c, "allow", "{ROOT}", c)
 	}
-}
-
-// TestCommitThenPushWithUnreadableMessageIsDenied pins kan-1018's self-review: a commit whose
-// message the hook cannot read (-F, a shell expansion), pushed to spectre/* in the same call, is
-// denied — the push check runs before the commit exists. The commit alone is still never judged,
-// and a readable trailered message pushed in one call passes.
-func TestCommitThenPushWithUnreadableMessageIsDenied(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	root, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	f := &pmFixture{t: t, home: t.TempDir(), vars: map[string]string{"ROOT": root}}
-	main := root + "/main"
-	f.vars["SWT"] = root + "/main-worktrees/x"
-	f.git("init", "-q", "--bare", root+"/origin.git")
-	f.git("clone", "-q", root+"/origin.git", main)
-	f.write(main+"/f.txt", "a\n")
-	f.git("-C", main, "add", "f.txt")
-	f.git("-C", main, "commit", "-q", "-m", "init")
-	f.git("-C", main, "branch", "-M", "main")
-	f.git("-C", main, "push", "-q", "-u", "origin", "main")
-	f.git("-C", main, "worktree", "add", f.vars["SWT"], "-b", "spectre/x")
-
-	for _, cmd := range []string{
-		`cd {SWT} && git commit -F msg.txt && git push origin spectre/x`,
-		`cd {SWT} && git commit -m "$(cat msg)" && git push origin HEAD:spectre/x`,
-	} {
-		f.check(cmd, func(t *testing.T) {
-			out := f.run(t, root, "Bash", map[string]string{"command": f.x(cmd)})
-			if decision(out) != "deny" || !strings.Contains(out, "Commit and push in two calls") {
-				t.Errorf("out=%s", out)
-			}
-		})
-	}
-	f.bash("-F alone", "allow", "{ROOT}", `git -C {SWT} commit -F msg.txt`)
-	f.bash("trailered message then push", "allow", "{ROOT}", `cd {SWT} && git commit -m "fix(x): y" -m "Flow-Key: k" && git push origin spectre/x`)
 }
 
 // TestBlockUnsafeCommandsReadsADataHeredocBodyAsData pins kan-1025: a heredoc

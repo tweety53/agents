@@ -81,7 +81,7 @@ A base URL falling back to its `Default` there points at the project's shared bu
 same silent wrong answer as falling back to the shared database, reached one step later. The
 argument is stated once under **The empty id** (`skills/flow-contracts/workspace-isolation.md`).
 
-### Working directory for `survivors`, `remove`, and `create`
+### Working directory for `remove` and `create`
 
 **Each command runs with a repository root as its working directory, and which root is fixed here
 rather than left to the caller.** It has to be stated because a command in this table is routinely
@@ -89,13 +89,7 @@ repo-relative: `<project>/gradlew workspaceRemove` and `<project>/scripts/worksp
 shapes this file writes one in, and both resolve against the working directory, so a project author
 cannot write one correctly without being told which directory that is.
 
-- **`survivors` runs from the main checkout**, and that is not a convention invented here.
-  `<agents repo>/scripts/flow-guard check-cleanup-complete` launches it as
-  `bash -o pipefail -c "$cmd"` with the repository it was handed as the working directory
-  (`ccRunSurvivors`, `<agents repo>/stats/internal/guard/cleanupcomplete.go`), and it is handed the main checkout: by the time the guard asks, the
-  change's apply worktree has already been removed.
-
-- **`remove` runs from the main checkout** too. Run 2 calls it after the worktree half of its cleanup
+- **`remove` runs from the main checkout**. Run 2 calls it after the worktree half of its cleanup
   step, per **Run 2 — the branch is merged** (`skills/flow-contracts/finish-contract-run2.md`), so the
   apply worktree is by then not a directory anything could run from — and two commands out of one
   table, called by one run of one command, must not disagree about where they run.
@@ -106,42 +100,6 @@ cannot write one correctly without being told which directory that is.
   **Temporary artifacts registry** (`skills/flow-contracts/artifacts-registry.md`) records. The asymmetry is
   the rule working rather than an exception to it: each command runs from the checkout that still
   exists when it is called.
-
-### The one-minute bound
-
-**The bound and its outcome are stated here because a `survivors` command is written against
-them.** A command that cannot answer in a minute needs a different design — a cached answer, a
-narrower query — rather than a longer bound. The outcome deliberately differs from the stop
-command's, which shares the bound and *fails* on it: an un-stopped stack is a reason not to remove
-a worktree, so blocking is the safe direction there, while blocking an already-merged change over
-a slow report is what the skip rule exists to prevent.
-
-**What the bound terminates is a process group on the machine running the guard, and a command
-that puts its real work outside that group outlives the bound.** The termination is
-`<agents repo>/scripts/flow-guard check-cleanup-complete`'s (`ccRunSurvivors`, `<agents repo>/stats/internal/guard/cleanupcomplete.go`),
-and it signals the process group it created — which reaches
-a pipeline, a subshell and any ordinary child, and reaches nothing that has left the group. Two
-shapes leave it, and the second is the one a project actually writes: a command that starts its
-work under its own job control, and **a command that reaches its service through a container
-runtime**, `docker exec …` most of all. There the client the guard signals is a *proxy*: the work
-runs in another PID namespace, where no signal sent from the host can name it, so killing the
-client ends the guard's wait and leaves the query running inside the container. Measured on this
-machine: a group kill reaped the in-group child and left a sibling that had claimed a group of its
-own still running afterwards.
-
-**That is a limitation of the bound, not a defect the guard can close**, and it is stated here
-because the command is the only place it can be fixed. A guard that stays project-agnostic and
-single-file cannot hold one container runtime's `kill` any more than it can hold `psql -l` — the
-reason a third verb exists at all, under
-**Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`). What the bound still
-guarantees is what run 2 needs: the *guard* returns, the row is reported as a skip rather than as a
-verification, and nothing the escaped process prints later is read as a survivor report. What it
-does not guarantee is that the escaped process stopped — and inside a shared container that process
-may be holding a lock every other concurrent workspace is waiting on. **So a `survivors` command
-that crosses a container boundary carries its own timeout inside the container** — `docker exec`'s
-own, the client tool's connect and statement timeouts, or a wrapper that ends the query rather than
-the proxy. A command written that way needs nothing from this bound; one written without it can
-strand work the guard has already stopped waiting for.
 
 ### The three-`url`-rows worked example
 
@@ -181,8 +139,7 @@ and a non-zero exit stops that run. That is what makes the enforcement reach eve
 installed into, rather than only the repository the guard ships in — where it is *also* a lint step,
 which is a self-check on the agents repository's own configuration and nothing more. A project that
 declares no section passes silently in both places, which is the overwhelmingly common case.
-bare `/flow` deliberately does not repeat the validation: run 2 reads the `survivors` row alone
-and already reports every input it cannot resolve as a skip, and a blocking validation there would
+bare `/flow` deliberately does not repeat the validation: a blocking validation there would
 strand an already-merged change over text that session cannot correct — the trade
 **Creation and cleanup** (`skills/flow-contracts/workspace-isolation.md`) rejects when it weighs a
 change stranded short of its terminal state against stale storage. So a malformed declaration is

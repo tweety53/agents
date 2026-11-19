@@ -39,7 +39,7 @@ exactly what that row specifies and nothing else. The row is authoritative.
 
 **Load `skills/flow-contracts/project-configuration-standards.md`** only when resolving a `## standards` entry.
 
-**Load `skills/flow-contracts/project-configuration-isolation.md`** only when `flow-guard prepare-workspace` or `flow-guard check-cleanup-complete` cannot be located, or when writing or reviewing a `## workspace isolation` section.
+**Load `skills/flow-contracts/project-configuration-isolation.md`** only when `flow-guard prepare-workspace` cannot be located, or when writing or reviewing a `## workspace isolation` section.
 
 **Load `skills/flow-contracts/project-configuration-visual.md`** only when `flow.visual-verify` begins, or when writing or reviewing a `## visual verification` section.
 

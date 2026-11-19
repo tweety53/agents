@@ -6,10 +6,9 @@ worktree.
 
 **`skills/flow-contracts/finish-contract-run2.md` is canonical for the full procedure.**
 `flow-guard integrate-change` runs it — chained from `land` on the merge-and-push route, or called once
-`prepare`'s `NEXT:` names it — with its five stage marks; the parent handles each stop, makes the
+`prepare`'s `NEXT:` names it — with its four stage marks; the parent handles each stop, makes the
 Jira transition, and prints the handoff. **Load `skills/flow-contracts/finish-contract-run2.md`
-only when** a stop below cites one of its sections, and **load
-`skills/flow-contracts/artifacts-registry.md` only when** a `LEFTOVER:` line names a row of it.
+only when** a stop below cites one of its sections.
 
 **A self-hosting change refreshes the tooling before the save.** Under the condition of **A change
 to `<agents repo>`'s own tooling integrates with the branch's copy of it**
@@ -38,8 +37,7 @@ It keeps `tasks.md` and `self-review-context.md` in flowd, and with them every d
 `self-review-context.md`, each named — stops cleanup at `IN_PROGRESS`: report the lines, restore
 the file, and re-run. `remove-change-worktrees` refuses until the save ran.
 
-Then call `cleanup` with the parent's own shell outside every worktree in the set, per check 6 of
-**Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`).
+Then call `cleanup` with the parent's own shell outside every worktree in the set.
 
 ```bash
 flow-guard integrate-change cleanup <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
@@ -50,33 +48,25 @@ and a kill partway leaves it down.
 
 - **`STOP: not-merged`** → this is not run 2; fall back to `skills/flow/integrate.md` and **remove
   nothing**.
-- **`STOP: disclose`** → relay its `UNCLASSIFIED:` and `DISCLOSE:` lines per check 4 and the
-  wave-group copies of **Worktree cleanup** (`skills/flow-contracts/finish-contract-run2.md`), ask
-  only what they ask, then re-run `cleanup` adding `--proceed <main-checkout>` for each repository
-  the stop names, every earlier `--proceed` kept.
-- **`STOP: worktree-cleanup`** → a `REFUSED:` or `HELD:` line, or the guard's exit 2: stop at
+- **`STOP: worktree-cleanup`** → a `REFUSED:` line, or the guard's exit 2: stop at
   `IN_PROGRESS`, leave every worktree alone, and report each line per **Worktree cleanup**
   (`skills/flow-contracts/finish-contract-run2.md`).
-- **`STOP: leftover`** → the verdict rows of step 4 of **Run 2 — the branch is merged**
-  (`skills/flow-contracts/finish-contract-run2.md`): print the incomplete block below.
 - **`STOP: state`** → report it; the change stays at `IN_PROGRESS`.
 
 Three stops in a row of `cleanup` take **Three failed rounds** (`skills/flow-contracts/pipeline.md`),
 applied inline from every earlier stop's lines — only stops the parent can cure itself. A stop
-that exists to ask or to hand to the operator — `STOP: disclose`, `STOP: worktree-cleanup`,
+that exists to ask or to hand to the operator — `STOP: worktree-cleanup`,
 `STOP: not-merged` — is never counted toward it: it is handled as its bullet above says, every time.
 
 A `WORKSPACE-REMOVE-FAILED:` line is **the one exception to the stop-at-the-first-failure rule**:
-the script carries on to the cleanup check, which decides the verdict from the project's survivor
-report, never from this command's exit code. Relay every clause a `COMPLETE:` line carries after
-` — ` word for word, a `SKIPPED:` one included, and each `REMOTE-*` line as the handoff's
+the script carries on. Relay each `REMOTE-*` line as the handoff's
 **Remote branch:**.
 
 **Load `skills/flow-contracts/jira-integration.md`.** **Transition the issue to Done** on the
 `JIRA: transition <KEY> to Done` line, after the state write, per **Jira integration**
-(`skills/flow-contracts/jira-integration.md`). A run that stopped at step 4 transitions nothing.
+(`skills/flow-contracts/jira-integration.md`).
 
-A `REFRESH-REFUSED` line goes into the handoff verbatim, per step 6 of **Run 2 — the branch is
+A `REFRESH-REFUSED` line goes into the handoff verbatim, per step 5 of **Run 2 — the branch is
 merged** (`skills/flow-contracts/finish-contract-run2.md`).
 
 ```
@@ -85,55 +75,30 @@ merged** (`skills/flow-contracts/finish-contract-run2.md`).
 **Change:** <name>
 **Worktrees:** removed | left alone — <reason>
 **Remote branch:** deleted | already gone | not deleted — <reason>
-**Cleanup:** verified
 **Main checkout:** fast-forwarded | already current | <the REFRESH-REFUSED line>
 **Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 **Jira:** <KEY> → Done | none linked | ⚠ Jira: skipped — <reason>
 ```
 
-A run 2 that **completes step 5** is terminal and names **no** next command.
+A run 2 that **completes step 4** is terminal and names **no** next command.
 
 **The Finished handoff, and the run's final report beside it, carry no open item** — nothing
 "still open", unverified, untraced or left as the operator's call. Each one is resolved before the handoff prints: fixed,
-disproved with its evidence, or a `big` finding filed or declined at step 4's prompt of
+disproved with its evidence, or a finding filed at step 5 of
 `/flow-self-review` (`skills/flow-self-review/SKILL.md`).
 
 **Every post-landing item is finished before the handoff prints — a "Not done" line is never the way
-out.** Once `COMPLETE:` arrives, the parent records the self-review `fixed` rows for every fix commit
+out.** The parent records the self-review `fixed` rows for every fix commit
 that landed on the base (each sha read from `git log` by its subject; `flow self-review findings
 -change <name>` must list them), copies each vendored or sibling-repository file the change's finding
 names — in a worktree of that repository, pushed to its `main` — and makes every Jira transition. A
 stop in the middle (a daemon holding a worktree, a hook refusing the main checkout) is a blocker to
 clear, never a reason to print `Not done` and end the turn.
 
-On a leftover — or on no verdict at all — the run stops at step 4 instead:
-
-````
-## Cleanup incomplete — not finished
-
-**Change:** <name>
-**Remaining:** <what the guard named> | unverified — <what the guard reported on stderr>
-**State:** IN_PROGRESS — FINISHED is not written while anything remains
-
-<what the operator must clear>
-
-Next:
-```
-/flow <name>
-```
-````
-
 ## Worktree cleanup
 
 Run `flow-guard remove-change-worktrees` once per repository per **Worktree cleanup**
-(`skills/flow-contracts/finish-contract-run2.md`), canonical for its checks, exit codes and relay:
-
-**Check 4 asks only about an irreplaceable, unpreserved entry**, per check 4 of **Worktree cleanup**
-(`skills/flow-contracts/finish-contract-run2.md`), canonical for the buckets and that one ask;
-everything else it finds is reported and the removal proceeds. **Checks 1, 2, 3, 5 and 6 remain
-gates.** Check 6, the live-process check, is named explicitly because it is the one check 4's
-proceed-without-asking could plausibly be read as reaching: a live process is not a preserved
-record, so `HELD:` and the guard's exit 2 both stop `/flow`.
+(`skills/flow-contracts/finish-contract-run2.md`), canonical for its checks, exit codes and relay.
 
 ## Guardrails
 

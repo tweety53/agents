@@ -200,7 +200,6 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `flow.landing-routes` | The landing routes, including moving the issue to In Review (run 1) ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.verify-merge` | Verify the merge (run 2) | `/flow`, `/flow-fast` |
 | `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.verify-cleanup` | Verify the cleanup (run 2) | `/flow` |
 | `flow.write-finished` | Write `FINISHED` (run 2) | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `flow.refresh-main-checkout` | Bring the main checkout forward (run 2) | `/flow`, `/flow-fast`, `/flow-interactive` |
 | `plan.session` | Plan session — `/flow-plan` research up to a capture's kickoff | `/flow-plan` |
@@ -219,11 +218,10 @@ them all. `.flow/project.md` `## lint` lists this repository's own.
 - `enforce-agent-baseline.py` — denies a dispatch missing the `agent-baseline.md` pointer, a fork
   in a flow session, or a loop-keyed dispatch with no `Key:` line, and begins the dispatch's row
   (`stats/internal/repotest/enforce_agent_baseline_hook_test.go`).
-- `enforce-loop-dispatch.py` — admits a pipeline-fix or self-review loop dispatch only off its pairs
-  row, and records it (`scripts/flow-guard check-loop-dispatch`).
+- `enforce-loop-dispatch.py` — records a pipeline-fix or self-review loop dispatch
+  (`scripts/flow-guard check-loop-dispatch`).
 - `block-unsafe-commands.py` — denies edits, staging, commits, stashes and resets on a main
-  checkout's default branch, and an unrecorded loop-branch landing push
-  (`scripts/flow-guard check-loop-landing`).
+  checkout's default branch.
 - `flow-active-change.py` — routes a plain problem report to the open change as a fix run, or to an
   unfinished `/flow-interactive` session as its next request or stop.
 - `await-own-agents.py` — blocks a subagent's stop while an agent it launched still runs, so it
@@ -239,9 +237,7 @@ them all. `.flow/project.md` `## lint` lists this repository's own.
 `mutate-and-verify` + `break-and-prove` (the `mutation` role).
 
 **Land and clean up:** `integrate-change` (every mechanical step, in four calls),
-`check-finish-preflight` (integrate vs cleanup from merge state), `check-unfinished-work`,
-`check-cleanup-complete` (`FINISHED` only when every
-temporary artifact is gone).
+`check-finish-preflight` (integrate vs cleanup from merge state), `check-unfinished-work`.
 
 **This repository's lint** adds `check-references` (every ``**Section** (`file`)`` citation
 resolves).

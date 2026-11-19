@@ -58,8 +58,7 @@ The merge-and-push route pushes `spectre/<name>` before `<base>`, so `origin/spe
 stays at its pre-reshape tip. Run 2's `git branch -d` does not depend on it: `flow-guard remove-change-worktrees`
 points the branch's upstream at `origin/<base>` first, because `-d` refuses a branch not merged into
 its upstream — else into the main checkout's `HEAD`, which run 2 refreshes only after cleanup — and a
-forge merge deletes `origin/spectre/<name>`; judged against either, a merged branch would end the
-cleanup `LEFTOVER` and fail again on every re-run. A rejected push of `<base>` re-resolves the base before re-syncing because a rejected push
+forge merge deletes `origin/spectre/<name>`; judged against either, a merged branch would fail again on every re-run. A rejected push of `<base>` re-resolves the base before re-syncing because a rejected push
 fetches nothing: `origin/<base>` would still name the tip the push was refused against, and the
 re-sync would rebase onto it and be refused again.
 
@@ -127,14 +126,6 @@ Without it, a
 satellite worktree's call falls back to resolving the link's peer name through `peers`, which cannot
 resolve from inside a worktree.
 
-### finish-contract-run1.md — Run 1, `flow-guard check-visual-verify-dispatched` (KAN-859)
-
-Moved verbatim (KAN-859), where it followed "not a second prompt.":
-
-This guard exists because a stage
-mark is not evidence a stage ran — a run can mark `flow.visual-verify` begun and completed around no
-dispatch at all; see that guard's own header for the account.
-
 ### unfinished-work-gate.md — Stop is the recommendation (KAN-859)
 
 Moved verbatim (KAN-859) from `finish-contract-run1.md`, where it followed "**Stop is marked as the recommendation, and the reason is stated rather than left to be inferred.**":
@@ -182,10 +173,7 @@ field reference truncates any path containing a space at the first one: fed
 `worktree /tmp/my worktree` it yields `/tmp/my`, and the run then `--force`-removes a path that is
 not the worktree, or fails having named the wrong one. `10` is one past the length of the literal
 `worktree ` prefix. The branch on the next line is a ref name and cannot contain a space, so `$2` is
-right for it. `<agents repo>/scripts/flow-guard check-cleanup-complete` parses the same stream the same way
-(`<agents repo>/stats/internal/guard/cleanupcomplete.go`, row one: the rest of the `worktree ` line, the
-branch's first field) — the guard
-and the snippet it verifies must not disagree, or the wrong one gets copied next.
+right for it.
 
 ### finish-contract-run2.md — step 1 (KAN-859)
 
@@ -194,39 +182,11 @@ Moved verbatim (KAN-859), where it followed "otherwise `git merge-base --is-ance
 That fallback must stay reachable on its own — it is the only
    merge evidence available on a non-GitHub forge.
 
-### finish-contract-run2.md — step 4, the `SKIPPED:` relay (KAN-859)
-
-Moved verbatim (KAN-859), where it followed the `COMPLETE: <repo> — … — SKIPPED:` example:
-
-A run that reported only "cleanup verified" would have told the
-   operator the opposite of what the guard said, while following this table to the letter.
-
-### finish-contract-run2.md — step 4, not a cue to restart the stack (KAN-859)
-
-Moved verbatim (KAN-859), where it followed "**None of this is a cue to bring the stack back up.**":
-
-Once check 5 in **Worktree cleanup** below
-   has stopped the project's declared stack, every later run-2 step that touches it — a
-   reported-and-continued removal failure at step 2 above, or a `SKIPPED:` clause on a `COMPLETE:`
-   line here — is that same stack's absence showing up again, correctly, one step later. Restarting
-   it to make one of those steps succeed undoes what check 5 was for and answers a question this
-   procedure never asked.
-
-### finish-contract-run2.md — step 4, a leftover blocks `FINISHED` (KAN-859)
-
-Moved verbatim (KAN-859), where it followed "**A leftover blocks the `FINISHED` write, and that is the whole point of having a verdict.**":
-
-`FINISHED` is terminal: bare `/flow` stops at it and `/flow-status` does not list it, so a
-   change written `FINISHED` over a known leftover has exactly one record of that leftover — the
-   console line — which is the transcript-only record this pipeline refuses everywhere else. Left at
-   `IN_PROGRESS` instead, the change stays listed, stays re-runnable, and the state file it already
-   has is the durable record; no new field is invented to carry a fact the state itself carries.
-
-### finish-contract-run2.md — step 6, why the refresh
+### finish-contract-run2.md — step 5, why the refresh
 
 Nothing in the pipeline moves the local `<base>` ref: every change lands from its own apply
 worktree, as a push of its branch or a forge merge, so the operator's main checkout is simply
-behind `origin/<base>` afterwards. Step 6 fast-forwards it so it shows the landed change, and only
+behind `origin/<base>` afterwards. Step 5 fast-forwards it so it shows the landed change, and only
 when nothing in it could be lost; anything else is the operator's to settle.
 
 ### finish-contract-run2.md — Worktree cleanup, check 3's comment (KAN-859)
@@ -242,40 +202,6 @@ Moved verbatim (KAN-859) out of check 3's shell block, where it followed the `@{
 #    removes the tracking ref, after which no upstream can ever resolve and the branch cannot be
 #    re-pushed because it no longer exists on the remote.
 ```
-
-### finish-contract-run2.md — Worktree cleanup, check 6's cwd (KAN-859)
-
-Moved verbatim (KAN-859), where it followed "before it runs.":
-
-`flow-guard check-worktree-processes`'s own header treats a process whose working
-directory is at or under the worktree as held, and a shell that is itself `cd`'d into `$WT` (or into
-another worktree in the same set) is exactly such a process — it would report `HELD:` against
-itself, not against the stack this check exists to catch.
-
-### finish-contract-run2.md — Worktree cleanup, check 6 is a gate (KAN-859)
-
-Moved verbatim (KAN-859), where it followed "or the worktree path is not readable.":
-
-Neither is a pass: an inability that proceeded to
-removal would be the failure this check exists to prevent, arrived at more quietly.
-
-### finish-contract-run2.md — Worktree cleanup, no confirmation past check 6 (KAN-859)
-
-Moved verbatim (KAN-859), where it followed "unlike check 4's one ask.":
-
-That ask is safe
-because the operator sees exactly the irreplaceable entry at stake and decides; a live process is
-different in kind. Confirming it destroys the only records that can reach the process afterwards,
-and the resulting orphan holds ports shared across every workspace.
-
-### finish-contract-run2.md — Worktree cleanup, check 4's empty bucket (KAN-859)
-
-Moved verbatim (KAN-859); the run-loaded copy keeps the sentence up to "proceed without asking":
-
-An empty unclassified bucket → **show the regeneratable bucket's count and proceed without
-asking** — every entry in it is reproduced identically by the next run of whatever wrote it, so
-confirming its loss adds nothing the operator can act on, and asking every single time a routine
-archive leaves nothing but build output behind is a prompt with no real decision behind it.
 
 ### finish-contract-run2.md — Worktree cleanup, a known limit (KAN-859)
 
@@ -310,7 +236,7 @@ Moved verbatim (KAN-859), where it followed "**The remote branch is deleted with
 
 - **The remote branch is deleted without a further prompt.** Run 2 is reached only by proving the
   branch is an ancestor of the base branch, so its commits are in the base branch and nothing can be
-  lost — which is why this is not gated the way check 4's disclosure is.
+  lost.
 
 ### finish-contract-run2.md — the remote branch, a refused push (KAN-859)
 
@@ -333,15 +259,4 @@ Moved verbatim (KAN-859); the run-loaded copy keeps the sentence up to "the othe
 
 When the key
 or the file is absent the check is **skipped, not failed**, and cleanup proceeds on the strength of
-the other checks — check 6 among them, which is what makes an undeclared `## stop` key survivable:
-a project that declares nothing to stop is still checked for a process running from its worktree.
-
-## Moved by the 2026-11-13 prompt audit — incident records
-
-Each passage below sat inline in a run-loaded file beside the rule it motivated; the rule and its
-in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
-attribution; the text after it is the passage, verbatim.
-
-### finish-contract-run1.md — Run 1 — the branch is not merged
-
-- *another branch's, and the reset would fold it under the change's subject* — (kan-941 folded `develop`'s and `main`'s commits that way)
+the other checks.
