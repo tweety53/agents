@@ -51,9 +51,10 @@ func vvpFixture(t *testing.T, extra string) *vvpFix {
 	f.commit("src/ui/app.tsx")
 	f.green()
 	// `policy get` answers policy.json when a test wrote one, else the
-	// seeded pairs of the next `flow` on PATH (TestMain's stub).
+	// seeded pairs (testPolicy) -- never the dev store's, which an open
+	// experiment can override.
 	writeExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2\" in \"record dispatches\") cat "+filepath.Join(root, "rows.json")+";;\n"+
-		"\"policy get\") if [ -f "+filepath.Join(root, "policy.json")+" ]; then cat "+filepath.Join(root, "policy.json")+"; else PATH=${PATH#*:} exec flow \"$@\"; fi;; esac\n")
+		"\"policy get\") if [ -f "+filepath.Join(root, "policy.json")+" ]; then cat "+filepath.Join(root, "policy.json")+"; else printf '%s\\n' '"+testPolicy+"'; fi;; esac\n")
 	f.app = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) }))
 	t.Cleanup(f.app.Close)
 	repo, err := filepath.Abs("../../..")
