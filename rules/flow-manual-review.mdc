@@ -69,7 +69,5 @@ ordering is what it is, what was rejected, what was measured — and exist for w
 contract. They are deliberately absent from the table above, because that table is what a command
 reads. Nothing enforces this.
 
-These files are installed alongside the skills in every harness — `~/.claude/skills/` and
-`~/.zcode/skills/`, and `<project>/.agents/skills/` on a Muse project install — so the paths above
-resolve wherever this rule is read. A Muse session without a project install reads them through the
-Claude Code layer, which Muse discovers natively.
+These files are installed alongside the skills in `~/.claude/skills/`, so the paths above resolve
+wherever this rule is read.
