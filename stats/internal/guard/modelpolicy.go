@@ -9,8 +9,7 @@ import (
 	"github.com/tweety53/agents/stats/internal/modelpolicy"
 )
 
-// The allowed pairs as mechanics: policyTable reads them, every one with
-// open experiment overrides applied, for pair-judge and
+// The allowed pairs as mechanics: policyTable reads them, for pair-judge and
 // visual-verify-pass;
 // policyAllows judges one pair against them.
 
@@ -43,13 +42,7 @@ type policyWire struct {
 // store, or the CLI's last-good cache when flowd is down (decision
 // policy-cache) -- as rows: the base row first (unmarked), then one row per
 // marker, then the opt-in row (marker `Operator pair: <role>`, needing a
-// grant). Every open allowed-pairs experiment is overlaid (KAN-1067): `flow
-// experiment overrides`' {role: [pairs]} replaces the base row's pairs;
-// roles without pairs and `main` -- the parent agent, never a dispatch --
-// are left alone, and a failed or unparsable overrides read leaves the
-// pairs alone (decision overrides-via-flow-cli). A planning role's base
-// pairs are replaced exactly as any other role's. No answer at all is an
-// error naming flowd and the cache.
+// grant). No answer at all is an error naming flowd and the cache.
 func policyTable(env Env) (map[string][]policyRow, error) {
 	out, errb, rc := pcFlow(env, false, "policy", "get")
 	var wire map[string]policyWire
@@ -70,17 +63,6 @@ func policyTable(env Env) (map[string][]policyRow, error) {
 			rs = append(rs, policyRow{Pairs: w.Optin, Marker: mpOperatorMarker(role), Grant: true})
 		}
 		rows[role] = rs
-	}
-	out, _, rc = pcFlow(env, false, "experiment", "overrides")
-	var overrides map[string][]string
-	if rc != 0 || json.Unmarshal(out, &overrides) != nil {
-		return rows, nil
-	}
-	for role, pairs := range overrides {
-		if role == "main" || len(pairs) == 0 || len(rows[role]) == 0 {
-			continue
-		}
-		rows[role][0].Pairs = pairs
 	}
 	return rows, nil
 }

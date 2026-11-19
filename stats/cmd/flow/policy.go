@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,7 +20,7 @@ const policyUsage = `usage: flow policy get    [-addr url] [-timeout dur]
        flow policy grant  [-addr url] [-timeout dur] -change <name> -roles <role>[,<role>...]
        flow policy revoke [-addr url] [-timeout dur] -change <name> -roles <role>[,<role>...]
 
-Every role's allowed pairs live in flowd's store (kan-1103); the Experiments
+Every role's allowed pairs live in flowd's store (kan-1103); the Agent roles
 view edits them. get prints them as one JSON object,
 {role: {base: [...], optin: [...], marked: [{pair, marker}]}}, and caches
 every good answer at <state dir>/policy-cache.json; with flowd unreachable
@@ -144,4 +145,19 @@ func writePolicyCache(path string, p []byte) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)
+}
+
+// withFlowdClient runs call against a client under f's address and
+// timeout, recovering from any panic in the client path and reporting it as
+// client.ErrUnavailable -- getSettings' guarantee.
+func withFlowdClient[T any](ctx context.Context, f storeConnFlags, call func(context.Context, *client.Client) (T, error)) (out T, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			var zero T
+			out, err = zero, fmt.Errorf("%w: recovered panic: %v", client.ErrUnavailable, r)
+		}
+	}()
+	reqCtx, cancel := context.WithTimeout(ctx, f.timeout)
+	defer cancel()
+	return call(reqCtx, client.New(f.addr, &http.Client{Timeout: f.timeout}))
 }

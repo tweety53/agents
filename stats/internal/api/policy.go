@@ -5,9 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sort"
-	"strings"
-	"time"
 
 	"github.com/tweety53/agents/stats/internal/modelpolicy"
 	"github.com/tweety53/agents/stats/internal/store"
@@ -55,7 +52,7 @@ func tableRoles(table []byte) map[string]bool {
 
 // policyError writes err's status: a malformed pair or grant 400, a
 // revoke of a grant never made 404, anything else mapStoreError's answer.
-func (h *experimentsHandler) policyError(w http.ResponseWriter, action string, err error) {
+func (h *policyHandler) policyError(w http.ResponseWriter, action string, err error) {
 	switch {
 	case errors.Is(err, store.ErrInvalidPair):
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -68,7 +65,7 @@ func (h *experimentsHandler) policyError(w http.ResponseWriter, action string, e
 }
 
 // policy serves GET /api/v1/policy: {role: {base, optin, marked}}.
-func (h *experimentsHandler) policy(w http.ResponseWriter, r *http.Request) {
+func (h *policyHandler) policy(w http.ResponseWriter, r *http.Request) {
 	p, err := h.store.RolePairs(r.Context())
 	if err != nil {
 		h.policyError(w, "read policy", err)
@@ -80,7 +77,7 @@ func (h *experimentsHandler) policy(w http.ResponseWriter, r *http.Request) {
 // putRole serves PUT /api/v1/policy/roles/{role}: replaces the role's base
 // and opt-in pairs whole. A role the roles table lacks is 400, as is a
 // malformed pair.
-func (h *experimentsHandler) putRole(w http.ResponseWriter, r *http.Request) {
+func (h *policyHandler) putRole(w http.ResponseWriter, r *http.Request) {
 	role := r.PathValue("role")
 	if known := tableRoles(h.table); known != nil && !known[role] {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("role %q is not in the Allowed pairs table", role))
@@ -103,11 +100,9 @@ type rolesEditDTO struct {
 }
 
 // putRoles serves POST /api/v1/policy/roles: one edit of several roles' pairs.
-// It validates every role first, closes as inconclusive any open experiment
-// holding one of them, opens one experiment whose cells are the roles' new
-// main pairs, then writes the pairs -- so the edit is permanent at once and
-// its before/after stats start at once. 201 with the opened experiment.
-func (h *experimentsHandler) putRoles(w http.ResponseWriter, r *http.Request) {
+// It validates every role first, then writes the pairs; 200 with the whole
+// policy.
+func (h *policyHandler) putRoles(w http.ResponseWriter, r *http.Request) {
 	var dto rolesEditDTO
 	if err := decodeJSONBody(w, r, &dto); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -119,7 +114,6 @@ func (h *experimentsHandler) putRoles(w http.ResponseWriter, r *http.Request) {
 	}
 	known := tableRoles(h.table)
 	roles := make([]string, 0, len(dto.Roles))
-	cells := map[string][]string{}
 	for role, p := range dto.Roles {
 		if role == "main" || (known != nil && !known[role]) {
 			writeError(w, http.StatusBadRequest, fmt.Sprintf("role %q is not an editable row of the Allowed pairs table", role))
@@ -136,34 +130,6 @@ func (h *experimentsHandler) putRoles(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		roles = append(roles, role)
-		cells[role] = p.Base
-	}
-	sort.Strings(roles)
-	open, err := h.store.ListExperiments(r.Context(), true)
-	if err != nil {
-		h.experimentError(w, "list experiments", err)
-		return
-	}
-	now := time.Now()
-	for _, e := range open {
-		for _, role := range roles {
-			if _, held := e.Cells[role]; held {
-				if err := h.store.CloseExperiment(r.Context(), e.ID, "inconclusive", "Superseded by a roles edit on "+now.Format("2006-01-02")+"."); err != nil {
-					h.experimentError(w, "close experiment", err)
-					return
-				}
-				break
-			}
-		}
-	}
-	name := "edit-" + strings.Join(roles, "+") + "-" + now.Format("2006-01-02-1504")
-	if len(roles) > 2 {
-		name = fmt.Sprintf("edit-%s+%d-more-%s", roles[0], len(roles)-1, now.Format("2006-01-02-1504"))
-	}
-	e, err := h.store.OpenExperiment(r.Context(), store.Experiment{Name: name, Cells: cells})
-	if err != nil {
-		h.experimentError(w, "open experiment", err)
-		return
 	}
 	for _, role := range roles {
 		if err := h.store.ReplaceRolePairs(r.Context(), role, dto.Roles[role].Base, dto.Roles[role].Optin); err != nil {
@@ -171,12 +137,12 @@ func (h *experimentsHandler) putRoles(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	writeJSON(w, http.StatusCreated, e)
+	h.policy(w, r)
 }
 
 // grants serves GET /api/v1/policy/grants?change=<name>: the roles the
 // change holds a live grant for.
-func (h *experimentsHandler) grants(w http.ResponseWriter, r *http.Request) {
+func (h *policyHandler) grants(w http.ResponseWriter, r *http.Request) {
 	change := r.URL.Query().Get("change")
 	if change == "" {
 		writeError(w, http.StatusBadRequest, "grants need ?change=<name>")
@@ -196,7 +162,7 @@ func (h *experimentsHandler) grants(w http.ResponseWriter, r *http.Request) {
 // putGrant serves PUT /api/v1/policy/grants and DELETE /api/v1/policy/grants:
 // grant or revoke {change, roles}. A grant naming a role the roles table
 // lacks is 400.
-func (h *experimentsHandler) putGrant(w http.ResponseWriter, r *http.Request) {
+func (h *policyHandler) putGrant(w http.ResponseWriter, r *http.Request) {
 	var dto grantDTO
 	if err := decodeJSONBody(w, r, &dto); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())

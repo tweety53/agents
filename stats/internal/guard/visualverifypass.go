@@ -177,7 +177,7 @@ import (
 //      -role verifier -model <model> -effort <effort> -key <key> -session-token <t>
 //      -diff-base <HEAD>[,<sibling HEAD>…] [-round-base <sha>]` per survivor,
 //      the pair the first base pair of the `visual-verifier` allowed-pairs row
-//      (an open experiment's in its place; a failed read or an unusable row
+//      (a failed read or an unusable row
 //      ends the stage `stopped` with `STOP: pair — <why>`, exit 1) — a sibling is a worktree whose diff
 //      the survivor's `ui paths` matched under --repo; keys suffixed
 //      `-<repository name>` when the set holds more than one worktree; on a

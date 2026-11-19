@@ -46,7 +46,7 @@ neither the write into the store nor the render out of it invents a model slug.
 ## Allowed pairs
 
 **flowd's store is canonical for which `{model, effort}` every flow dispatch may run on**: each role's pairs live there, read with `flow policy get` and edited by hand in the
-Experiments view; the tables below name the roles only. A dispatch names its role with a
+Agent roles view; the tables below name the roles only. A dispatch names its role with a
 `Role: <role id>` line; a pair is `<model>` and `<subagent_type>` joined by `/`, an Explore or Plan
 pair adding `@<effort>`. Any well-formed pair is accepted — which models a role may use is the
 operator's call, made in the editor. A role's pairs come in three tiers:
@@ -63,9 +63,10 @@ operator's call, made in the editor. A role's pairs come in three tiers:
 `flow policy get` caches its last good answer under the flow state directory; with flowd down it
 answers from that cache, and with neither a dispatch runs on the session's own pair (`<parent model>` / `<parent effort>`, **Harness mapping** below).
 
-Each `###` heading below is one pipeline area, and a role sits under exactly one, with its `Does`
-cell, a plain-English line on what the role does. flowd serves both, with the role's pairs, on
-`GET /api/v1/roles`, and the Experiments view groups its roles table by them.
+Each `###` heading below is the pipeline stage a role runs in (`flow stage keys`; self-review's,
+pipeline fix's and pair choice's dispatches have their own), and a role sits under exactly one, with
+its `Does` cell, a plain-English line on what the role does. flowd serves both, with the role's
+pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table by them.
 
 ### Planning
 
@@ -75,28 +76,28 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 | `plan-designer` | Proposes a design or plan for the planner to choose from. |
 | `planner` | Writes the design and the task plan. |
 | `planner-short` | Writes the design and the task plan of a change triaged short, reading the code itself with no Explore or Plan agents. |
+| `decider` | Reviews the approved plan and decides the implementer groups, the review panel's bundles and visual verification (headless, `plan-check`). |
 
 ### Implementation
 
 | Role | Does |
 |---|---|
 | `implementer` | Writes the code for a group of tasks, tests first. |
-| `panel-fix` | Fixes what the review panel found. |
-| `minor-fix` | Fixes a review round's Minors when the round raised nothing worse. |
+| `gated-reviewer` | Reviews each implementer group's tasks as they land. |
+| `gated-re-reviewer` | Re-checks a gated review's findings after their fix. |
 | `operator-asked` | Runs a task the operator asked a subagent for, in their own words, inside a /flow-interactive request. |
 
 ### Review
 
 | Role | Does |
 |---|---|
-| `decider` | Reviews the approved plan and decides the implementer groups, the review panel's bundles and visual verification (headless, `plan-check`). |
-| `gated-reviewer` | Reviews each implementer group's tasks as they land. |
-| `gated-re-reviewer` | Re-checks a gated review's findings after their fix. |
 | `panel-reviewer` | Reviews the whole branch, first pass. |
 | `panel-rerun` | Re-reviews the branch after a fix round. |
 | `panel-merger` | Merges the reviewers' findings into one list without duplicates. |
+| `panel-fix` | Fixes what the review panel found. |
+| `minor-fix` | Fixes a review round's Minors when the round raised nothing worse. |
 
-### Visual verification
+### Verification
 
 | Role | Does |
 |---|---|
@@ -128,17 +129,6 @@ cell, a plain-English line on what the role does. flowd serves both, with the ro
 | Role | Does |
 |---|---|
 | `pair-judge` | Picks each dispatch's model and effort from its role's allowed pairs. |
-
-## Experiments
-
-**An open experiment overrides roles' base pairs.** `flow experiment open -name <n>
--cell '<role>=<pair>[,<pair>…]'…` stores it in flowd; while it is open, `flow experiment overrides` prints its pairs, which replace
-that role's base pairs for the pair judge and every other reader, and marked and opt-in pairs are never overridden. One
-experiment may carry several roles; a role is in at most one open experiment. Role `main` names
-the parent session's `<model>@<effort>`; only matching runs count in its after figures. flowd unreachable → no
-experiment applies. **Make permanent** (`POST /api/v1/experiments/{id}/promote`, the Experiments
-view's button) writes an open experiment's cells — `main` aside — into those roles' base pairs and
-closes it `positive`; `/flow-experiment-close` calls it on a positive verdict.
 
 ## Harness mapping
 

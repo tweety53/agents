@@ -26,14 +26,13 @@ async function openTimings(page: Page) {
   const root = page.getByRole("region", { name: `Run timings and costs: uitest-beta/${RUN}` });
   await expect(root.getByRole("heading", { name: `${RUN} · timings and costs` })).toBeVisible();
   await expect(root.getByRole("link", { name: "← Run detail" })).toBeVisible();
-  for (const r of ["Run totals", "Timeline", "Time and cost by", "Data quality", "Counts", "Cost per task", "Cost per verify round"]) {
+  for (const r of ["Run totals", "Time and cost by", "Data quality", "Counts", "Cost per group", "Cost per verify round"]) {
     await expect(root.getByRole("region", { name: r, exact: true })).toBeVisible();
   }
   // A panel whose figures carry a source badge states its definition in the badge's title.
-  for (const r of ["Run totals", "Cost per task", "Cost per verify round"]) {
+  for (const r of ["Run totals", "Cost per group", "Cost per verify round"]) {
     await expect(root.getByRole("region", { name: r, exact: true }).locator(".src[title]").first()).toHaveAttribute("title", /\S/);
   }
-  await expect(root.getByRole("img", { name: "Run timeline" })).toBeVisible();
   return root;
 }
 
@@ -75,12 +74,6 @@ test("run timings grouped by repo", async ({ page }) => {
   await expect(chip).toHaveAttribute("aria-pressed", "true");
   await parkPointer(page);
   await expect(page).toHaveScreenshot("run-timings-repo.png", { fullPage: true });
-});
-
-test("run timings timeline bar hover", async ({ page }) => {
-  const root = await openTimings(page);
-  await root.locator("rect.bar").first().hover();
-  await expect(page).toHaveScreenshot("run-timings-bar-hover.png", { fullPage: true });
 });
 
 test("run timings data quality expanded", async ({ page }) => {

@@ -37,8 +37,7 @@ import (
 // the rule it had and is refused.
 //
 // The candidates (decision judge-candidates-capped) are the role's base
-// pairs, read with `flow policy get` with any open experiment's override
-// applied (policyTable), in row order, each parsed into model and effort --
+// pairs, read with `flow policy get` (policyTable), in row order, each parsed into model and effort --
 // `opus/flow-low`, `opus/flow-planner-medium`, `sonnet/Explore@low` -- an
 // unparseable pair dropped. Which pairs a role admits is its row's alone: no
 // model or effort is filtered here. Marked and opt-in pairs are never

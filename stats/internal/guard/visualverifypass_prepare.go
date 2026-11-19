@@ -641,8 +641,7 @@ var vvpRedispatch = regexp.MustCompile(`^visual-verify-[0-9]+(-|$)`)
 var vvpPairRe = regexp.MustCompile(`^([a-z0-9.-]+)/flow-([a-z]+)$`)
 
 // pair is the model and effort every verifier row begins on: the first base
-// pair of the `visual-verifier` allowed-pairs row, an open experiment's
-// override in its place (policyTable); the DISPATCH line names the Agent
+// pair of the `visual-verifier` allowed-pairs row (policyTable); the DISPATCH line names the Agent
 // call from it (kan-1086 self-review, F9). A failed read or an empty or
 // unparsable row stops prepare.
 func (v *vvp) pair() (model, effort string) {

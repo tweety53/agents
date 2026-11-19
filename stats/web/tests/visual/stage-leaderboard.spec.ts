@@ -10,8 +10,8 @@ import { FIXTURE_NOW } from "./support";
 // Values below are read from the live UI-test stack rather than assumed:
 // GET /api/v1/stats/stage-leaderboard?from=2026-07-16T09:00:00Z&to=2026-08-15T09:00:00Z
 // (the default 30d window ending at FIXTURE_NOW) returns 16 rows, the
-// costliest /flow-interactive "flow.sdd-tdd" ($3.23, stageLabel "Implementing
-// tasks"), and projects uitest-alpha ($10.149) then uitest-beta ($2.778) --
+// costliest /flow-interactive "flow.sdd-tdd" ($3.23, stageLabel
+// "Implementing"), and projects uitest-alpha ($10.149) then uitest-beta ($2.778) --
 // so the first Project chip after All is "uitest-alpha". The previous window
 // (2026-06-16T09:00:00Z to 2026-07-16T09:00:00Z) returns no rows, so every
 // row's growth reads "new" and Biggest riser reads "—" ("no stage grew"),
@@ -36,7 +36,7 @@ async function openAndAssert(page: Page) {
   for (const t of ["Spend", "Top 3 stages", "Biggest riser"]) await expect(page.locator(".lb-tile .lb-lbl", { hasText: new RegExp(`^${t}$`) })).toBeVisible();
 
   await expect(page.getByRole("table").getByRole("row").first().getByRole("columnheader")).toHaveText(HEADERS);
-  await expect(page.getByRole("table").getByRole("row", { name: /Implementing tasks/ }).first()).toBeVisible();
+  await expect(page.getByRole("table").getByRole("row", { name: /Implementing/ }).first()).toBeVisible();
 }
 
 test("stage leaderboard at rest", async ({ page }) => {

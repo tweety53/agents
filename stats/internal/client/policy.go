@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -13,7 +14,7 @@ import (
 // cache it whole.
 func (c *Client) Policy(ctx context.Context) (json.RawMessage, error) {
 	var out json.RawMessage
-	if err := c.getExperimentsJSON(ctx, c.baseURL+"/api/v1/policy", &out); err != nil {
+	if err := c.getPolicyJSON(ctx, c.baseURL+"/api/v1/policy", &out); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -25,7 +26,7 @@ func (c *Client) Grants(ctx context.Context, change string) ([]string, error) {
 	var out struct {
 		Roles []string `json:"roles"`
 	}
-	if err := c.getExperimentsJSON(ctx, c.baseURL+"/api/v1/policy/grants?change="+url.QueryEscape(change), &out); err != nil {
+	if err := c.getPolicyJSON(ctx, c.baseURL+"/api/v1/policy/grants?change="+url.QueryEscape(change), &out); err != nil {
 		return nil, err
 	}
 	return out.Roles, nil
@@ -33,7 +34,7 @@ func (c *Client) Grants(ctx context.Context, change string) ([]string, error) {
 
 // Grant (revoke false) or revokes change's operator grant for roles via
 // PUT or DELETE /api/v1/policy/grants. A refused call is
-// ErrExperimentRejected carrying the daemon's message.
+// ErrPolicyRejected carrying the daemon's message.
 func (c *Client) Grant(ctx context.Context, change string, roles []string, revoke bool) error {
 	method := http.MethodPut
 	if revoke {
@@ -43,8 +44,47 @@ func (c *Client) Grant(ctx context.Context, change string, roles []string, revok
 	if err != nil {
 		return err
 	}
-	if err := experimentAnswer(body, status, http.StatusOK); err != nil {
+	if err := policyAnswer(body, status, http.StatusOK); err != nil {
 		return fmt.Errorf("policy grant: %w", err)
+	}
+	return nil
+}
+
+// ErrPolicyRejected means the daemon refused a policy write as malformed
+// (400) or naming a grant never made (404); the wrapped text is its message.
+var ErrPolicyRejected = errors.New("client: store rejected the policy call")
+
+// policyAnswer maps a policy write's status onto this package's errors: ok
+// is success, 400/404 ErrPolicyRejected, anything else ErrUnavailable.
+func policyAnswer(body []byte, status, ok int) error {
+	var wire errorWireResponse
+	_ = json.Unmarshal(body, &wire)
+	switch status {
+	case ok:
+		return nil
+	case http.StatusBadRequest, http.StatusNotFound:
+		return fmt.Errorf("%w: %s", ErrPolicyRejected, wire.Error)
+	default:
+		return fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
+	}
+}
+
+// getPolicyJSON GETs url and decodes its 200 body into out; any other
+// outcome is ErrUnavailable.
+func (c *Client) getPolicyJSON(ctx context.Context, url string, out any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	body, status, err := c.send(req)
+	if err != nil {
+		return err
+	}
+	if status != http.StatusOK {
+		return fmt.Errorf("%w: unexpected status %d", ErrUnavailable, status)
+	}
+	if err := json.Unmarshal(body, out); err != nil {
+		return fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
 	}
 	return nil
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { PlanTask, StateBoardRow } from "../api";
-import { currentRequest, interactiveWaiting, isInteractive, lastEndedRequest } from "./interactive";
+import type { PlanTask, StageRunDTO, StateBoardRow } from "../api";
+import { currentRequest, interactiveWaiting, isInteractive, lastEndedRequest, requestSteps } from "./interactive";
 
 const tasks: PlanTask[] = [
   { n: 1, title: "a", state: "done", outcome: "landed", commit: "a41c9e2" },
@@ -29,5 +29,17 @@ describe("interactive helpers", () => {
     expect(interactiveWaiting(row({ tasks: idle }))).toBe(true);
     expect(interactiveWaiting(row({ tasks: idle, currentStage: "flow.verify" }))).toBe(false);
     expect(interactiveWaiting(row({}))).toBe(false);
+  });
+});
+
+describe("requestSteps", () => {
+  it("counts a retired stage key as the slim stage that replaced it", () => {
+    const run = (stage: string, endedAt?: string) => ({ stage, request: 7, startedAt: "2026-01-01T00:00:00Z", endedAt }) as StageRunDTO;
+    expect(requestSteps([run("flow.load-context", "2026-01-01T00:01:00Z"), run("flow.sdd-tdd")], 7)).toEqual([
+      { stage: "flow.plan", state: "todo" },
+      { stage: "flow.implement", state: "current" },
+      { stage: "flow.verify", state: "todo" },
+      { stage: "flow.land", state: "todo" },
+    ]);
   });
 });

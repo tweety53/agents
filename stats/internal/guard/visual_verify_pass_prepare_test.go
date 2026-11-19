@@ -77,8 +77,7 @@ func vvpFixture(t *testing.T, extra string) *vvpFix {
 	f.commit("src/ui/app.tsx")
 	f.green()
 	// `policy get` answers policy.json when a test wrote one, else the
-	// seeded pairs (testPolicy) -- never the dev store's, which an open
-	// experiment can override.
+	// seeded pairs (testPolicy) -- never the dev store's.
 	writeExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2\" in \"record dispatches\") cat "+filepath.Join(root, "rows.json")+";;\n"+
 		"\"policy get\") if [ -f "+filepath.Join(root, "policy.json")+" ]; then cat "+filepath.Join(root, "policy.json")+"; else printf '%s\\n' '"+testPolicy+"'; fi;; esac\n")
 	f.app = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) }))

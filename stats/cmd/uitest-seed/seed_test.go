@@ -187,7 +187,7 @@ func TestSeedPopulatesFixture(t *testing.T) {
 		}
 		wantChanges := len(project.Changes)
 		if project.Key == "uitest-alpha" {
-			wantChanges += 4 // seedInteractive's two sessions and seedMainExperiment's two changes, seeded beside fixtureData
+			wantChanges += 4 // seedInteractive's two sessions and seedSelfReviewPair's two changes, seeded beside fixtureData
 		}
 		switch project.Key { // seedDecisions' runs, and seedRunCosts' two, seeded beside fixtureData
 		case "uitest-alpha":
@@ -253,60 +253,6 @@ func TestSeedPopulatesFixture(t *testing.T) {
 	}
 	if stageRunsWithTokens == 0 {
 		t.Fatalf("no seeded stage run carries token usage")
-	}
-
-	// The open experiment's Tokens/change and Wall-clock panels draw figures
-	// on both sides of its start (KAN-1067 visual-verify fix 2).
-	list, err := st.ListExperiments(ctx, true)
-	if err != nil {
-		t.Fatalf("list experiments: %v", err)
-	}
-	found := 0
-	for _, e := range list {
-		if e.ClosedAt != nil {
-			continue
-		}
-		stats, err := st.ExperimentStats(ctx, e.ID)
-		if err != nil {
-			t.Fatalf("experiment stats %d: %v", e.ID, err)
-		}
-		for _, m := range stats.Metrics {
-			if m.Name != "tokens" && m.Name != "wallClockMin" {
-				continue
-			}
-			found++
-			if m.Before == nil || m.After == nil || *m.Before <= 0 || *m.After <= 0 {
-				t.Fatalf("open experiment %q: %s before=%v after=%v, want both positive", e.Name, m.Name, m.Before, m.After)
-			}
-		}
-	}
-	if found != 2 {
-		t.Fatalf("open experiments carry %d tokens/wallClockMin metrics, want 2", found)
-	}
-
-	// The closed main-cell experiment draws selfReviewFindings on both
-	// sides (KAN-1071 visual-verify fix 1): 2 before, 1 after.
-	all, err := st.ListExperiments(ctx, false)
-	if err != nil {
-		t.Fatalf("list experiments: %v", err)
-	}
-	var mainSR *store.ExperimentMetric
-	for _, e := range all {
-		if _, ok := e.Cells["main"]; !ok {
-			continue
-		}
-		stats, err := st.ExperimentStats(ctx, e.ID)
-		if err != nil {
-			t.Fatalf("experiment stats %d: %v", e.ID, err)
-		}
-		for i, m := range stats.Metrics {
-			if m.Name == "selfReviewFindings" {
-				mainSR = &stats.Metrics[i]
-			}
-		}
-	}
-	if mainSR == nil || mainSR.Before == nil || mainSR.After == nil || *mainSR.Before != 2 || *mainSR.After != 1 {
-		t.Fatalf("main-cell experiment selfReviewFindings = %+v, want before 2, after 1", mainSR)
 	}
 }
 

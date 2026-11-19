@@ -56,11 +56,10 @@ func TestMain(m *testing.M) {
 		}
 	}
 	os.Setenv("FLOW_GUARD_TELEMETRY", "off")
-	// Every allowed-pairs reader runs `flow experiment overrides`
-	// (policyTable). A real `flow` on PATH would read the dev store's open
-	// experiments, so a test's table would follow whatever the operator has
-	// open; a dead records address makes that read fail fast -- the table
-	// alone. A test wanting an override puts its own fake `flow` on PATH.
+	// A real `flow` on PATH would read the dev store, so a test would follow
+	// whatever the operator has stored; a dead records address makes any
+	// such read fail fast. A test wanting an answer puts its own fake `flow`
+	// on PATH.
 	os.Setenv("FLOW_RECORDS_ADDR", "http://127.0.0.1:1")
 	// A test binary started with SIGINT or SIGHUP ignored -- a `&` job of a
 	// non-interactive shell, or nohup -- hands that ignore to every child it
@@ -1136,7 +1135,7 @@ var testPolicy = strings.TrimSpace(testPolicyJSON)
 var policyStub = "[ \"$1 $2\" = \"policy get\" ] && { printf '%s\\n' '" + testPolicy + "'; exit 0; }\n"
 
 // noFlowEnv is an env whose only `flow` answers `policy get` with
-// testPolicy and fails everything else: the seeded pairs, no experiment.
+// testPolicy and fails everything else: the seeded pairs alone.
 func noFlowEnv(t *testing.T) Env {
 	t.Helper()
 	return fakeFlowEnv(t, "exit 1\n")

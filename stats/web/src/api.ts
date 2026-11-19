@@ -49,7 +49,7 @@ export type ViewName =
   | "flow-health"
   | "self-review"
   | "review-dynamics"
-  | "experiments";
+  | "agent-roles";
 
 export const VIEW_NAMES: readonly ViewName[] = [
   "state-board",
@@ -62,7 +62,7 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "flow-health",
   "self-review",
   "review-dynamics",
-  "experiments",
+  "agent-roles",
 ];
 
 /** The "cost-per-change" statistics endpoint slug -- not a navigable
@@ -81,9 +81,8 @@ export type HealthViewSlug = "guard-health";
 export type WeeklyModelEffortViewSlug = "weekly-model-effort-costs";
 
 /** Every slug GET /api/v1/stats/{view} is called with from this client. */
-/** Experiments reads its own endpoints (fetchRoles, fetchExperiments,
- * fetchExperimentStats), never /api/v1/stats/{view}. */
-export type StatsViewSlug = Exclude<ViewName, "experiments"> | CostPerChangeViewSlug | HealthViewSlug | WeeklyModelEffortViewSlug;
+/** Agent roles reads its own endpoint (fetchRoles), never /api/v1/stats/{view}. */
+export type StatsViewSlug = Exclude<ViewName, "agent-roles"> | CostPerChangeViewSlug | HealthViewSlug | WeeklyModelEffortViewSlug;
 
 /**
  * Parameters every statistics view accepts. "from" and "to" are both
@@ -1001,7 +1000,7 @@ export async function putChange(
 /** One row of GET /api/v1/roles: a leading `main` entry, then every role of
  * the roles table with its pairs from flowd's store (kan-1103) -- base
  * (always admitted), opt-in (on an operator grant), marked (on their marker
- * line) -- and the open experiment cell replacing its base pairs (KAN-1067). */
+ * line). */
 export interface RoleEntry {
   role: string;
   base: string[];
@@ -1009,53 +1008,11 @@ export interface RoleEntry {
   marked: { pair: string; marker: string }[];
   group: string;
   does: string;
-  override?: { pairs: string[]; experimentId: number };
-}
-
-/** One allowed-pairs experiment, as GET /api/v1/experiments lists it. */
-export interface ExperimentDTO {
-  id: number;
-  name: string;
-  cells: Record<string, string[]>;
-  startedAt: string;
-  closedAt?: string;
-  verdict?: string;
-  summary: string;
-  status: "open" | "closed";
-}
-
-/** One metric of GET /api/v1/experiments/{id}/stats: means before and
- * after the start (null with no counted run) and its weekly series. Lower
- * is better for every metric. */
-export interface ExperimentMetric {
-  name: string;
-  before: number | null;
-  after: number | null;
-  series: { week: string; value: number }[];
-}
-
-export interface ExperimentStats {
-  experiment: ExperimentDTO;
-  beforeFrom: string;
-  end: string;
-  runs: { before: number; after: number };
-  excluded: number;
-  metrics: ExperimentMetric[];
 }
 
 /** GET /api/v1/roles */
 export function fetchRoles(init?: RequestInit): Promise<RoleEntry[]> {
   return getJSON<RoleEntry[]>("/api/v1/roles", init);
-}
-
-/** GET /api/v1/experiments -- newest first. */
-export function fetchExperiments(init?: RequestInit): Promise<ExperimentDTO[]> {
-  return getJSON<ExperimentDTO[]>("/api/v1/experiments", init);
-}
-
-/** GET /api/v1/experiments/{id}/stats */
-export function fetchExperimentStats(id: number, init?: RequestInit): Promise<ExperimentStats> {
-  return getJSON<ExperimentStats>(`/api/v1/experiments/${id}/stats`, init);
 }
 
 /** A pair the store accepts: `<model>/<agent>[@<effort>]` (store.ValidPair). */
@@ -1070,7 +1027,7 @@ async function sendJSON(method: string, path: string, body?: unknown): Promise<v
   await handleResponse<unknown>(res);
 }
 
-/** POST /api/v1/policy/roles -- saves several roles' pairs at once and opens one experiment over the new main pairs. */
+/** POST /api/v1/policy/roles -- saves several roles' pairs at once. */
 export function postRolesEdit(roles: Record<string, { base: string[]; optin: string[] }>): Promise<void> {
   return sendJSON("POST", "/api/v1/policy/roles", { roles });
 }
@@ -1080,7 +1037,3 @@ export function putRolePairs(role: string, pairs: { base: string[]; optin: strin
   return sendJSON("PUT", `/api/v1/policy/roles/${encodeURIComponent(role)}`, pairs);
 }
 
-/** POST /api/v1/experiments/{id}/promote -- "Make permanent": the cells become base pairs and the experiment closes positive. */
-export function promoteExperiment(id: number): Promise<void> {
-  return sendJSON("POST", `/api/v1/experiments/${id}/promote`);
-}

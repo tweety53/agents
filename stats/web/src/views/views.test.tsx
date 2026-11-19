@@ -18,8 +18,8 @@ import type {
 } from "../api";
 import { App } from "../App";
 import { DynamicsChart } from "../components/DynamicsChart";
+import { AgentRoles } from "./AgentRoles";
 import { Decisions } from "./Decisions";
-import { Experiments } from "./Experiments";
 import { FlowHealth, speedUpCandidates } from "./FlowHealth";
 import { ReviewDynamics } from "./ReviewDynamics";
 import { Reviewers } from "./Reviewers";
@@ -29,14 +29,11 @@ import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
 import { WeeklyCosts } from "./WeeklyCosts";
 
-const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, fetchExperimentsMock, fetchExperimentStatsMock, postRolesEditMock, promoteExperimentMock } = vi.hoisted(() => ({
+const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, postRolesEditMock } = vi.hoisted(() => ({
   postRolesEditMock: vi.fn(),
-  promoteExperimentMock: vi.fn(),
   fetchStatsViewMock: vi.fn(),
   fetchProjectsMock: vi.fn(),
   fetchRolesMock: vi.fn(),
-  fetchExperimentsMock: vi.fn(),
-  fetchExperimentStatsMock: vi.fn(),
 }));
 
 vi.mock("../api", async (importOriginal) => {
@@ -46,10 +43,7 @@ vi.mock("../api", async (importOriginal) => {
     fetchStatsView: fetchStatsViewMock,
     fetchProjects: fetchProjectsMock,
     fetchRoles: fetchRolesMock,
-    fetchExperiments: fetchExperimentsMock,
-    fetchExperimentStats: fetchExperimentStatsMock,
     postRolesEdit: postRolesEditMock,
-    promoteExperiment: promoteExperimentMock,
   };
 });
 
@@ -255,7 +249,7 @@ const REVIEWER_PROJECTS = [
 ];
 
 const fixtures: Record<
-  Exclude<ViewName, "flow-health" | "experiments" | "run-costs"> | HealthViewSlug | WeeklyModelEffortViewSlug,
+  Exclude<ViewName, "flow-health" | "agent-roles" | "run-costs"> | HealthViewSlug | WeeklyModelEffortViewSlug,
   StatsResponse<unknown, unknown>
 > = {
   "state-board": envelope("state-board", [
@@ -2377,59 +2371,28 @@ describe("review dynamics", () => {
   });
 });
 
-describe("Experiments", () => {
+describe("AgentRoles", () => {
   const roles = [
     {
       role: "main", base: [], optin: [], marked: [], group: "Session", does: "The session you talk to: runs the pipeline and sends out every other role.",
-      override: { pairs: ["opus@medium"], experimentId: 2 },
     },
     { role: "explorer", base: ["opus/Explore@low", "opus/Explore@medium"], optin: [], marked: [], group: "Planning", does: "Reads the codebase to answer a planner's question." },
     {
       role: "plan-designer", base: ["opus/Plan@low", "opus/Plan@medium"], optin: ["fable/Plan@xhigh"], marked: [], group: "Planning",
-      does: "Proposes a design or plan for the planner to choose from.", override: { pairs: ["opus/Plan@xhigh"], experimentId: 3 },
+      does: "Proposes a design or plan for the planner to choose from.",
     },
     {
       role: "implementer", base: ["opus/flow-low"], optin: [], marked: [{ pair: "opus/flow-high", marker: "No-progress escalation" }],
       group: "Implementation", does: "Writes the code for a group of tasks, tests first.",
     },
   ];
-  const experiments = [
-    { id: 3, name: "plan-designer on xhigh", cells: { "plan-designer": ["opus/Plan@xhigh"] }, startedAt: "2026-10-30T09:00:00Z", summary: "", status: "open" },
-    { id: 2, name: "main agent opus@medium", cells: { main: ["opus@medium"] }, startedAt: "2026-10-28T09:00:00Z", summary: "", status: "open" },
-    {
-      id: 1, name: "implementer sonnet/flow-low", cells: { implementer: ["sonnet/flow-low"] }, startedAt: "2026-10-01T09:00:00Z",
-      closedAt: "2026-10-21T09:00:00Z", verdict: "negative", summary: "Negative. Table unchanged; experiment closed.", status: "closed",
-    },
-  ];
-  const week = (w: string, value: number) => ({ week: `${w}T00:00:00Z`, value });
-  const stats = (id: number, metrics: { name: string; before: number | null; after: number | null }[]) => ({
-    experiment: experiments.find((e) => e.id === id),
-    beforeFrom: "2026-10-23T09:00:00Z",
-    end: "2026-11-06T09:00:00Z",
-    runs: { before: 14, after: 4 },
-    excluded: 0,
-    metrics: metrics.map((m) => ({ ...m, series: [week("2026-10-19", 2.9), week("2026-10-26", 2.4), week("2026-11-02", 1.8)] })),
-  });
-
   beforeEach(() => {
     postRolesEditMock.mockReset().mockResolvedValue(undefined);
-    promoteExperimentMock.mockReset().mockResolvedValue(undefined);
     fetchRolesMock.mockReset().mockResolvedValue(roles);
-    fetchExperimentsMock.mockReset().mockResolvedValue(experiments);
-    fetchExperimentStatsMock.mockReset().mockImplementation((id: number) =>
-      Promise.resolve(
-        id === 3
-          ? stats(3, [
-              { name: "reviewRounds", before: 2.6, after: 1.9 },
-              { name: "tokens", before: 412000, after: 488000 },
-            ])
-          : stats(id, [{ name: "reviewRounds", before: 2.2, after: 3.1 }]),
-      ),
-    );
   });
 
-  it("Experiments groups the roles, one row per role, on Main and Explicit allow columns", async () => {
-    render(<Experiments />);
+  it("Agent roles groups the roles, one row per role, on Main and Explicit allow columns", async () => {
+    render(<AgentRoles />);
     const table = await screen.findByRole("region", { name: "Current roles" });
     expect(within(table).getAllByRole("columnheader").slice(0, 4).map((h) => h.textContent)).toEqual(["Role", "Agent", "Main", "Explicit allow"]);
     const rows = within(table).getAllByRole("row");
@@ -2442,8 +2405,6 @@ describe("Experiments", () => {
     expect(designer.querySelector("td.agent")).toHaveTextContent("Plan");
     expect([...designer.querySelectorAll("td.pairs")[0].querySelectorAll(".chip .pair")].map((p) => p.textContent)).toEqual(["opus/Plan@low", "opus/Plan@medium"]);
     expect([...designer.querySelectorAll("td.pairs")[1].querySelectorAll(".chip .pair")].map((p) => p.textContent)).toEqual(["fable/Plan@xhigh"]);
-    // The experiment override is no longer drawn in the table.
-    expect(designer.querySelector("code.exp")).toBeNull();
     expect(within(designer).queryByRole("link")).toBeNull();
     expect(rows[2].querySelector("td.pairs")).toHaveTextContent("session's own pair");
     // A marked escalation is named in the Main field's open list, not edited.
@@ -2451,10 +2412,10 @@ describe("Experiments", () => {
     expect(rows[7]).toHaveTextContent("Escalation: opus/flow-high with No-progress escalation");
   });
 
-  it("Experiments edits a role's base pairs", async () => {
-    render(<Experiments />);
+  it("Agent roles edits a role's base pairs", async () => {
+    render(<AgentRoles />);
     const table = await screen.findByRole("region", { name: "Current roles" });
-    expect(within(table).queryByRole("button", { name: "Save and open experiment" })).toBeNull();
+    expect(within(table).queryByRole("button", { name: "Save" })).toBeNull();
     await userEvent.click(within(table).getByRole("button", { name: "Choose main pairs for explorer" }));
     const menu = table.querySelector(".menu") as HTMLElement;
     await userEvent.click(within(menu).getByRole("checkbox", { name: "opus/Explore@low" }));
@@ -2470,13 +2431,13 @@ describe("Experiments", () => {
     expect(add).toHaveValue("");
     await userEvent.click(within(menu).getByRole("button", { name: "Done" }));
     expect(table.querySelector(".menu")).toBeNull();
-    await userEvent.click(within(table).getByRole("button", { name: "Save and open experiment" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Save" }));
     expect(postRolesEditMock).toHaveBeenCalledWith({ explorer: { base: ["opus/Explore@medium", "sonnet/Explore@max"], optin: [] } });
     await waitFor(() => expect(fetchRolesMock).toHaveBeenCalledTimes(2));
   });
 
-  it("Experiments closes a pairs field on Escape and on an outside click", async () => {
-    render(<Experiments />);
+  it("Agent roles closes a pairs field on Escape and on an outside click", async () => {
+    render(<AgentRoles />);
     const table = await screen.findByRole("region", { name: "Current roles" });
     const trig = within(table).getByRole("button", { name: "Choose main pairs for explorer" });
     await userEvent.click(trig);
@@ -2488,19 +2449,19 @@ describe("Experiments", () => {
     expect(table.querySelector(".menu")).toBeNull();
   });
 
-  it("Experiments adds an opt-in pair", async () => {
-    render(<Experiments />);
+  it("Agent roles adds an opt-in pair", async () => {
+    render(<AgentRoles />);
     const table = await screen.findByRole("region", { name: "Current roles" });
     await userEvent.click(within(table).getByRole("button", { name: "Choose explicit allow pairs for plan-designer" }));
     const menu = table.querySelector(".menu") as HTMLElement;
     await userEvent.type(within(menu).getByRole("searchbox", { name: "Add explicit allow pair to plan-designer" }), "fable/Plan@max{Enter}");
     await userEvent.click(within(menu).getByRole("checkbox", { name: "fable/Plan@xhigh" }));
-    await userEvent.click(within(table).getByRole("button", { name: "Save and open experiment" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Save" }));
     expect(postRolesEditMock).toHaveBeenCalledWith({ "plan-designer": { base: ["opus/Plan@low", "opus/Plan@medium"], optin: ["fable/Plan@max"] } });
   });
 
-  it("Experiments saves edits to several roles as one experiment", async () => {
-    render(<Experiments />);
+  it("Agent roles saves edits to several roles in one call", async () => {
+    render(<AgentRoles />);
     const table = await screen.findByRole("region", { name: "Current roles" });
     await userEvent.click(within(table).getByRole("button", { name: "Choose main pairs for explorer" }));
     await userEvent.click(within(table).getByRole("checkbox", { name: "opus/Explore@low" }));
@@ -2509,138 +2470,24 @@ describe("Experiments", () => {
     await userEvent.click(within(table).getByRole("checkbox", { name: "opus/flow-low" }));
     await userEvent.click(within(table).getByRole("button", { name: "Done" }));
     expect(table.querySelector(".savebar")).toHaveTextContent("2 roles changed: explorer, implementer");
-    await userEvent.click(within(table).getByRole("button", { name: "Save and open experiment" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Save" }));
     expect(postRolesEditMock).toHaveBeenCalledTimes(1);
     expect(Object.keys(postRolesEditMock.mock.calls[0][0])).toEqual(["explorer", "implementer"]);
     await waitFor(() => expect(fetchRolesMock).toHaveBeenCalledTimes(2));
   });
 
-  it("Experiments shows a refused save", async () => {
+  it("Agent roles shows a refused save", async () => {
     postRolesEditMock.mockReset().mockRejectedValue(new Error("role pair \"x\" is not <model>/<type>[@<effort>]"));
-    render(<Experiments />);
+    render(<AgentRoles />);
     const table = await screen.findByRole("region", { name: "Current roles" });
     await userEvent.click(within(table).getByRole("button", { name: "Choose main pairs for implementer" }));
     await userEvent.click(within(table).getByRole("checkbox", { name: "opus/flow-low" }));
-    await userEvent.click(within(table).getByRole("button", { name: "Save and open experiment" }));
+    await userEvent.click(within(table).getByRole("button", { name: "Save" }));
     expect(await within(table).findByRole("alert")).toHaveTextContent("is not <model>/<type>");
   });
 
-  it("Experiments marks each experiment open or closed and selects the newest", async () => {
-    render(<Experiments />);
-    const list = await screen.findByRole("region", { name: "Experiments" });
-    const first = await within(list).findByRole("button", { name: /plan-designer on xhigh/ });
-    expect(first).toHaveClass("on");
-    expect(within(first).getByText("open")).toHaveClass("pill", "open");
-    expect(first).toHaveTextContent("since 2026-10-30");
-    const closed = within(list).getByRole("button", { name: /implementer sonnet\/flow-low/ });
-    expect(within(closed).getByText("closed")).toHaveClass("pill", "closed");
-    expect(closed).toHaveTextContent("since 2026-10-01 · closed 2026-10-21");
-  });
-
-  it("Experiments lists open experiments before closed ones, whatever order the API returns", async () => {
-    // The closed one started last, so only an open-first sort puts it last.
-    fetchExperimentsMock.mockReset().mockResolvedValue([{ ...experiments[2], startedAt: "2026-10-31T09:00:00Z" }, experiments[1], experiments[0]]);
-    render(<Experiments />);
-    const list = await screen.findByRole("region", { name: "Experiments" });
-    const names = (await within(list).findAllByRole("button")).map((b) => b.firstChild?.textContent);
-    expect(names).toEqual(["plan-designer on xhigh", "main agent opus@medium", "implementer sonnet/flow-low"]);
-  });
-
-  it("Experiments keeps the stat panel's delta line on one line", async () => {
-    render(<Experiments />);
-    const rounds = await screen.findByRole("region", { name: "Review rounds / change" });
-    expect(within(rounds).getByText("▼ 27% vs 2.6 before")).toHaveStyle({ whiteSpace: "nowrap" });
-  });
-
-  it("Experiments shows the selected experiment's override, stat panels, charts and summary", async () => {
-    render(<Experiments />);
-    expect(screen.queryByRole("region", { name: "Override" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Make permanent" })).toBeNull();
-    expect(await screen.findByText("Runs counted: 14 before · 4 after start")).toBeInTheDocument();
-
-    const rounds = screen.getByRole("region", { name: "Review rounds / change" });
-    expect(within(rounds).getByText("1.9")).toHaveClass("v");
-    expect(within(rounds).getByText("▼ 27% vs 2.6 before")).toHaveClass("d", "down");
-    const tokens = screen.getByRole("region", { name: "Tokens / change (k)" });
-    expect(within(tokens).getByText("488")).toBeInTheDocument();
-    expect(within(tokens).getByText("▲ 18% vs 412 before")).toHaveClass("d", "up");
-
-    const trend = screen.getByRole("region", { name: "Weekly trend — before vs after start" });
-    const charts = within(trend).getAllByRole("img");
-    expect(charts).toHaveLength(2);
-    expect(charts[0]).toHaveAttribute("aria-label", "Review rounds / change, weekly, before vs after 2026-10-30");
-    expect(charts[0].querySelector("[data-testid=start-marker]")).not.toBeNull();
-    // Lower is better: rounds fell, so its after mean is --delta-down;
-    // tokens rose, so theirs is --delta-up.
-    expect(charts[0].querySelector("[data-testid=mean-before]")).toHaveAttribute("stroke", "var(--text-muted)");
-    expect(charts[0].querySelector("[data-testid=mean-after]")).toHaveAttribute("stroke", "var(--delta-down)");
-    expect(charts[1].querySelector("[data-testid=mean-after]")).toHaveAttribute("stroke", "var(--delta-up)");
-    const points = charts[0].querySelectorAll("circle.pt");
-    expect(points).toHaveLength(3);
-    expect(points[0]).toHaveAttribute("tabindex", "0");
-    expect(points[0].querySelector("title")).toHaveTextContent("10-19: 2.90");
-    for (const legend of ["weekly value", "mean before", "mean after (better)", "mean after (worse)", "experiment window"]) {
-      expect(within(trend).getByText(legend)).toBeInTheDocument();
-    }
-
-    expect(within(screen.getByRole("region", { name: "Summary" })).getByText("Open — the closing agent writes the summary.")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /implementer sonnet\/flow-low/ }));
-    expect(await within(screen.getByRole("region", { name: "Summary" })).findByText("Negative. Table unchanged; experiment closed.")).toBeInTheDocument();
-    expect(fetchExperimentStatsMock).toHaveBeenLastCalledWith(1);
-  });
-
-  it("Experiments draws an unchanged metric as neutral, with no arrow and no delta colour", async () => {
-    fetchExperimentStatsMock.mockReset().mockResolvedValue(stats(3, [{ name: "reviewRounds", before: 0, after: 0 }, { name: "verifyReds", before: 2, after: 2 }]));
-    render(<Experiments />);
-    for (const [name, text] of [["Review rounds / change", "= vs 0.0 before"], ["Verify reds", "= vs 2.0 before"]]) {
-      const panel = await screen.findByRole("region", { name });
-      const d = within(panel).getByText(text);
-      expect(d).toHaveClass("d");
-      expect(d).not.toHaveClass("up");
-      expect(d).not.toHaveClass("down");
-    }
-    for (const chart of within(screen.getByRole("region", { name: "Weekly trend — before vs after start" })).getAllByRole("img")) {
-      expect(chart.querySelector("[data-testid=mean-after]")).toHaveAttribute("stroke", "var(--text-muted)");
-    }
-  });
-
-  it("Experiments anchors a chart's end x-axis labels inside the plot", async () => {
-    render(<Experiments />);
-    const trend = await screen.findByRole("region", { name: "Weekly trend — before vs after start" });
-    for (const chart of await within(trend).findAllByRole("img")) {
-      const labels = [...chart.querySelectorAll("text")].filter((t) => /^\d\d-\d\d$/.test(t.textContent ?? ""));
-      expect(labels[0]).toHaveAttribute("text-anchor", "start");
-      expect(labels[labels.length - 1]).toHaveAttribute("text-anchor", "end");
-    }
-  });
-
-  it("Experiments draws a mean-after line with no before mean as neutral", async () => {
-    fetchExperimentStatsMock.mockReset().mockResolvedValue(stats(3, [{ name: "tokens", before: null, after: 60000 }]));
-    render(<Experiments />);
-    const trend = await screen.findByRole("region", { name: "Weekly trend — before vs after start" });
-    const lines = (await within(trend).findAllByRole("img"))
-      .map((c) => c.querySelector("[data-testid=mean-after]"))
-      .filter(Boolean);
-    expect(lines.length).toBeGreaterThan(0);
-    for (const l of lines) expect(l).toHaveAttribute("stroke", "var(--text-muted)");
-  });
-
-  it("Experiments reads — where no run follows the start, and invites an open when none exists", async () => {
-    fetchExperimentStatsMock.mockReset().mockResolvedValue({ ...stats(3, [{ name: "reviewRounds", before: 2.6, after: null }]), runs: { before: 14, after: 0 } });
-    const { unmount } = render(<Experiments />);
-    const rounds = await screen.findByRole("region", { name: "Review rounds / change" });
-    expect(within(rounds).getByText("—")).toHaveClass("v");
-    unmount();
-
-    fetchExperimentsMock.mockReset().mockResolvedValue([]);
-    render(<Experiments />);
-    const list = await screen.findByRole("region", { name: "Experiments" });
-    expect(await within(list).findByText(/No experiments yet — open one with/)).toHaveTextContent("No experiments yet — open one with flow experiment open.");
-    expect(within(list).getByText("flow experiment open").tagName).toBe("CODE");
-  });
-
-  it("Experiments is a nav route labelled Agent roles", async () => {
-    window.history.replaceState(null, "", "#/experiments");
+  it("Agent roles is a nav route", async () => {
+    window.history.replaceState(null, "", "#/agent-roles");
     render(<App />);
     expect(await screen.findByRole("link", { name: "Agent roles" })).toHaveAttribute("aria-current", "page");
     expect(await screen.findByRole("region", { name: "Current roles" })).toBeInTheDocument();

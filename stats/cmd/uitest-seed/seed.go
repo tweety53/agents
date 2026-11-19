@@ -30,8 +30,7 @@ var weeklyFixtureAt = time.Date(2026, 7, 23, 9, 0, 0, 0, time.UTC)
 var reviewersFixtureAt = time.Date(2026, 7, 20, 9, 0, 0, 0, time.UTC)
 
 // kan104At is when kan-104 finished and its one stage run started: before
-// every view's window, so the Trend view's finished changes and every
-// experiment's windows leave it out.
+// every view's window, so the Trend view's finished changes leave it out.
 var kan104At = time.Date(2024, 6, 3, 9, 0, 0, 0, time.UTC)
 
 // stageFixture is one stage run to write against a change, expressed at
@@ -229,9 +228,7 @@ func fixtureData() []projectFixture {
 					// period, priced from the agent-rv-a/agent-rv-b buckets
 					// above -- each bucket split evenly between the two
 					// dispatches carrying it. That run starts in 2024, before
-					// every view's window and every experiment's (an
-					// experiment counts a change in the window of its first
-					// stage run), so neither the change nor its cost moves
+					// every view's window, so neither the change nor its cost moves
 					// another view's figure; it ends after the dispatches
 					// start, so recording them opens no automatic stage run
 					// inside the windows (openAutoStageRun). The decision, recorded before the window, names the slots:
@@ -592,7 +589,10 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 	if err := seedReviewDynamics(ctx, st); err != nil {
 		return err
 	}
-	if err := seedExperiments(ctx, st); err != nil {
+	if err := seedSelfReviewPair(ctx, st); err != nil {
+		return err
+	}
+	if err := seedExplorerDispatches(ctx, st); err != nil {
 		return err
 	}
 	if err := seedInteractive(ctx, st); err != nil {
@@ -814,44 +814,10 @@ func seedReviewDynamics(ctx context.Context, st *store.Store) error {
 	return nil
 }
 
-// seedExperiments opens the Experiments view's two experiments (KAN-1067)
-// over the fixture's existing changes: a closed implementer experiment,
-// 2026-07-30 .. fixtureNow, whose before window [07-14, 07-30) holds the
-// changes first run in the weeks of weeklyFixtureAt and whose after window
-// holds the ones run near fixtureNow; and an open combined experiment
-// started 2026-07-01, carrying experiment 4's three planning cells
-// (planning-opus-medium-to-xhigh) so the roles panel draws the prototype's
-// override text. An open experiment's windows end at the daemon's real
-// now, its before window reaching back as far as its after window reaches
-// forward, so the start sits where the before window already covers the
-// fixture's first stage run (2026-03-09, seedReviewDynamics' week -8) on
-// any day from 2026-10-23 on: the figures it draws never move again.
-func seedExperiments(ctx context.Context, st *store.Store) error {
-	closed, err := st.OpenExperiment(ctx, store.Experiment{Name: "implementer sonnet/flow-low",
-		Cells: map[string][]string{"implementer": {"sonnet/flow-low"}}, StartedAt: time.Date(2026, 7, 30, 9, 0, 0, 0, time.UTC)})
-	if err != nil {
-		return fmt.Errorf("uitest-seed: open the closed experiment: %w", err)
-	}
-	if err := st.CloseExperimentAt(ctx, closed.ID, "negative",
-		"Negative. Sonnet implementers cut tokens 22% but raised review rounds 2.2 → 3.1 and verify reds 0.6 → 1.3; wall-clock rose 26%. Table unchanged; experiment closed.",
-		fixtureNow); err != nil {
-		return fmt.Errorf("uitest-seed: close experiment %d: %w", closed.ID, err)
-	}
-	if _, err := st.OpenExperiment(ctx, store.Experiment{Name: "planning on xhigh",
-		Cells: map[string][]string{
-			"explorer":      {"sonnet/Explore@low"},
-			"plan-designer": {"opus/Plan@medium", "opus/Plan@high", "opus/Plan@xhigh"},
-			"planner":       {"opus/flow-planner-medium", "opus/flow-planner-high", "opus/flow-planner-xhigh"},
-		},
-		StartedAt: time.Date(2026, 7, 1, 9, 0, 0, 0, time.UTC)}); err != nil {
-		return fmt.Errorf("uitest-seed: open the combined experiment: %w", err)
-	}
-	if err := seedMainExperiment(ctx, st); err != nil {
-		return err
-	}
-	// Explorer dispatches with tokens and duration on both sides of the open
-	// experiment's start, so its Tokens/change and Wall-clock panels and
-	// charts draw figures, as the prototype does.
+// seedExplorerDispatches records explorer dispatches with tokens and
+// duration on five fixture changes, each attached to the change's first
+// stage run so no auto stage run opens and no run count moves.
+func seedExplorerDispatches(ctx context.Context, st *store.Store) error {
 	for _, x := range []struct {
 		project, change, model string
 		at                     time.Time
@@ -880,15 +846,12 @@ func seedExperiments(ctx context.Context, st *store.Store) error {
 	return nil
 }
 
-// seedMainExperiment writes a closed main-cell experiment, main=sonnet@low
-// (KAN-1071), over two changes of its own in January 2025 -- long before
-// every spec's pinned period and every other experiment's windows, so no
-// other capture's figures move: one before the start on opus, one after it
-// on sonnet at low effort, each with a flow.self-review run and graded
-// self-review findings, so the Experiments view draws the
-// selfReviewFindings card ("Self-review Crit+Imp") with a value on both
-// sides.
-func seedMainExperiment(ctx context.Context, st *store.Store) error {
+// seedSelfReviewPair writes two changes of their own in January 2025 --
+// long before every spec's pinned period, so no other capture's figures
+// move: one on opus, one on sonnet at low effort, each with a
+// flow.self-review run and graded self-review findings, which the
+// Self-review view's finding table and its period controls read.
+func seedSelfReviewPair(ctx context.Context, st *store.Store) error {
 	const project = "uitest-alpha"
 	start := time.Date(2025, 1, 13, 9, 0, 0, 0, time.UTC)
 	for _, c := range []struct {
@@ -930,16 +893,6 @@ func seedMainExperiment(ctx context.Context, st *store.Store) error {
 				return fmt.Errorf("uitest-seed: record self-review finding for %s: %w", c.name, err)
 			}
 		}
-	}
-	e, err := st.OpenExperiment(ctx, store.Experiment{Name: "main sonnet@low",
-		Cells: map[string][]string{"main": {"sonnet@low"}}, StartedAt: start})
-	if err != nil {
-		return fmt.Errorf("uitest-seed: open the main-cell experiment: %w", err)
-	}
-	if err := st.CloseExperimentAt(ctx, e.ID, "positive",
-		"Positive. Sonnet-low main sessions halved self-review Critical and Important findings 2 → 1.",
-		start.Add(14*24*time.Hour)); err != nil {
-		return fmt.Errorf("uitest-seed: close experiment %d: %w", e.ID, err)
 	}
 	return nil
 }
@@ -1168,7 +1121,7 @@ func seedTrend(ctx context.Context, st *store.Store) error {
 
 // decisionsRunsAt is when every Decisions fixture run's change was last
 // updated, its stage run started and its dispatches ran -- June 2024, before
-// every view's window and every experiment's. decisionsAt is when the first
+// every view's window. decisionsAt is when the first
 // of its decisions was recorded; the rest follow eight hours apart, all
 // inside the default 30d window at fixtureNow, before every spec's pinned
 // period and outside the 7d window (decision decisions-seed-isolated).

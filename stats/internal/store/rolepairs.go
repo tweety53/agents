@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -35,7 +36,9 @@ var ErrGrantNotFound = errors.New("store: grant not found")
 
 // ValidPair reports whether p is shaped <model>/<type>[@<effort>] -- the
 // only check an edited pair gets (decision syntax-only-validation).
-func ValidPair(p string) bool { return experimentPair.MatchString(p) }
+func ValidPair(p string) bool { return pairShape.MatchString(p) }
+
+var pairShape = regexp.MustCompile(`^[a-z][a-z0-9.-]*/[A-Za-z][A-Za-z0-9._-]*(@[a-z]+)?$`)
 
 // RolePairs returns every role's pairs, keyed by role.
 func (s *Store) RolePairs(ctx context.Context) (map[string]RolePolicy, error) {

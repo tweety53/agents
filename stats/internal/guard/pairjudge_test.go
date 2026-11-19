@@ -56,21 +56,6 @@ func TestPairJudgeCandidates(t *testing.T) {
 		})
 	}
 
-	t.Run("an open experiment's override replaces the base row", func(t *testing.T) {
-		t.Parallel()
-		stub := newPJStub(t, pjAnswer)
-		policy := pjPolicy(`"implementer":` + row)
-		env := fakeFlowEnvBare(t, "[ \"$1 $2\" = \"policy get\" ] && { printf '%s\\n' '"+policy+"'; exit 0; }\n"+
-			"[ \"$1 $2\" = \"experiment overrides\" ] || exit 9\nprintf '%s\\n' '{\"implementer\":[\"sonnet/flow-low\",\"sonnet/flow-medium\"]}'\n",
-			"FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd())
-		if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, env); r.rc != 0 {
-			t.Fatalf("rc=%d out=%q, want 0", r.rc, r.out)
-		}
-		if got, want := stub.candidates(t), []string{"sonnet/flow-low", "sonnet/flow-medium"}; !slices.Equal(got, want) {
-			t.Errorf("candidates = %q, want %q", got, want)
-		}
-	})
-
 	for pair, want := range map[string]string{
 		"opus/flow-low":            "opus low judge r (judge ",
 		"opus/flow-planner-medium": "opus medium judge r (judge ",

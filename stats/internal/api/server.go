@@ -203,7 +203,7 @@ type serverOptions struct {
 	spa         http.Handler
 	guardRuns   GuardRunStore
 	repricer    Repricer
-	experiments ExperimentStore
+	policy      PolicyStore
 	changeFiles ChangeFileStore
 	runTimings  RunTimingsStore
 	stateRoot   string
@@ -477,14 +477,8 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 		ph := &pricingHandler{store: so.repricer, logger: logger}
 		mux.HandleFunc("POST /api/v1/pricing/reprice", ph.reprice)
 	}
-	if so.experiments != nil {
-		eh := &experimentsHandler{store: so.experiments, table: so.rolesTable, logger: logger}
-		mux.HandleFunc("POST /api/v1/experiments", eh.open)
-		mux.HandleFunc("GET /api/v1/experiments", eh.list)
-		mux.HandleFunc("GET /api/v1/experiments/overrides", eh.overrides)
-		mux.HandleFunc("POST /api/v1/experiments/{id}/close", eh.close)
-		mux.HandleFunc("GET /api/v1/experiments/{id}/stats", eh.stats)
-		mux.HandleFunc("POST /api/v1/experiments/{id}/promote", eh.promote)
+	if so.policy != nil {
+		eh := &policyHandler{store: so.policy, table: so.rolesTable, logger: logger}
 		mux.HandleFunc("GET /api/v1/policy", eh.policy)
 		mux.HandleFunc("PUT /api/v1/policy/roles/{role}", eh.putRole)
 		mux.HandleFunc("POST /api/v1/policy/roles", eh.putRoles)

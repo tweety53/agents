@@ -55,8 +55,7 @@ carries whitespace or a newline.
 tasks count counts the plan's column-0 task checkbox lines and records
 the figure as one observation of the change's plan-growth series
 (KAN-415), together with the plan's count of "Correction (YYYY-MM-DD):"
-paragraphs -- the plan-corrections metric experiments compare
-(KAN-1067). Lines inside fenced blocks count toward neither. The store
+paragraphs (KAN-1067). Lines inside fenced blocks count toward neither. The store
 never gates the caller -- an unrecorded observation is one warning line
 and changes no exit code, exactly as ` + "`flow suite record`" + `
 treats a runtime figure.

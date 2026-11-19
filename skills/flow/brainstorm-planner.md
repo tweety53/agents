@@ -349,8 +349,7 @@ It prints one line, `<model> <effort> <judge|fallback|single> <reason>`, and sav
 prompt as `<key>.pick`, which the dispatch hook records with the row. The judge picks only among
 the role's allowed pairs in flowd; no pair is ever written into a prompt or a skill. A judge
 that cannot answer never blocks: it prints the role's first candidate with source `fallback`. A
-role the judge does not cover (it exits 2) runs on its first pair in `flow experiment overrides`
-when an open experiment names it, else its first `base` pair in `flow policy get`.
+role the judge does not cover (it exits 2) runs on its first `base` pair in `flow policy get`.
 
 A pair is a model and an agent type joined by `/`: `opus/flow-low` dispatches
 `subagent_type: flow-low` on `model: opus`; `opus/flow-planner-medium` is `flow-planner-medium` on

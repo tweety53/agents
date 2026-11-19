@@ -311,7 +311,7 @@ one database. Neither variable crosses the boundary this section exists to prote
 `stats/web` is the one SPA this repository carries. Its baseline covers the dashboard and
 run-detail views, per `stats/web/tests/visual/baseline.spec.ts`, against the disposable UI-test
 stack on `http://127.0.0.1:4174` — `## run`'s "This is the stack `flow.visual-verify` … starts and
-stops" paragraph is the answer to where that stage gets its stack from, and is not restated here. `ui paths` also names `skills/flow-contracts/model-policy.md`, which `stats/Makefile`'s `policy-copy` embeds into flowd for the Experiments view.
+stops" paragraph is the answer to where that stage gets its stack from, and is not restated here. `ui paths` also names `skills/flow-contracts/model-policy.md`, which `stats/Makefile`'s `policy-copy` embeds into flowd for the Agent roles view.
 
 **The `--app` argument is `<worktree>:stats/web=http://127.0.0.1:4174`.** `flow-guard
 visual-verify-pass prepare` takes the app root
@@ -342,7 +342,7 @@ held"; `make ui-test-up` rebuilds too, so a stack this stage started matches fir
 reused stack pays the restart. It then requires `skills/flow-contracts/model-policy.md`'s bytes inside
 `/tmp/flow-uitest-flowd`, the binary `make ui-test-up` built and runs (`UITEST_BIN` in
 `stats/Makefile`): `//go:embed` stores the file verbatim, and no `index.html` byte changes when
-that file does, so without it a reused stack would render the Experiments view from the old
+that file does, so without it a reused stack would render the Agent roles view from the old
 policy. It last compares `make go-sources-hash` with the hash `make
 ui-test-up` recorded in `/tmp/flow-uitest-go.sha256`, since neither `index.html` nor the policy
 changes when a Go source or the seed does, so a stack built before a Go-side fix reads stale.

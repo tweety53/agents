@@ -89,7 +89,6 @@ No command takes a flag.
 | `/flow-self-review <name>` | Runs the self-review pass an older run deferred |
 | `/flow-prompt-tuning` | Applies saved implementer/reviewer prompt updates after a replay proves each; logs to `docs/prompt-tuning/LEDGER.md` |
 | `/flow-visual-tooling-analysis` | Works out why a visual verification missed a defect and writes the sweeps that close its class |
-| `/flow-experiment-close` | Closes an allowed-pairs experiment from its stored stats with a verdict; a positive one starts the `/flow` change that makes it permanent |
 | `/flow-learn-quiz` | Teacher mode: has you restate a change and quizzes you until you understand it |
 | `/call-efficiency-audit` | Measures a running dev stack's repeated reads, repeated queries and per-item queries |
 
@@ -242,7 +241,7 @@ every `/flow*` command writes through the `flow` CLI.**
 
 **Web UI** at http://127.0.0.1:4173, filterable by project, period and model (`stats/web/src/views/`):
 - state board, stage leaderboard, cost and token trend, weekly costs
-- planner decisions (implementer groups and review grouping), reviewers, review dynamics, experiments
+- planner decisions (implementer groups and review grouping), reviewers, review dynamics, agent roles
 - self-review, flow health (which guards fire, which never fire, and what they cost in run time), run detail
 
 Run detail's **Timings and costs →** opens that run's own page (`#/run-costs/<project>/<change>`):

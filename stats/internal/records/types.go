@@ -618,8 +618,8 @@ type SpecLastRun struct {
 // appends to it. Planned and appended are derived from the series -- the
 // first observation and the latest minus it -- never stored, so the rows
 // themselves are the growth trend (KAN-415). Corrections is the plan's
-// count of `Correction (YYYY-MM-DD):` paragraphs at the same observation,
-// the plan-corrections metric experiments compare (KAN-1067); a client
+// count of `Correction (YYYY-MM-DD):` paragraphs at the same observation
+// (KAN-1067); a client
 // that omits it records 0.
 type TaskCount struct {
 	ID          int64     `json:"id"`

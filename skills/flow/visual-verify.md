@@ -11,7 +11,7 @@ here. A run whose diff touches no UI path never reads this file.
 **The verifier's pair governs the one verifier dispatch** — `flow.verify`'s (**Visual
 verification**, `skills/flow/verify-and-handoff.md`); `flow.verify` runs inline in the parent
 and dispatches no verifier. The pair is the first base pair of the **Allowed pairs** row
-`visual-verifier` (`skills/flow-contracts/model-policy.md`), an open experiment's in its place;
+`visual-verifier` (`skills/flow-contracts/model-policy.md`);
 `prepare` reads it and
 names it on its `DISPATCH:` line. It is not a session override: read from
 neither the settings store nor `<project>/.flow/project.md`, and a plain-language session

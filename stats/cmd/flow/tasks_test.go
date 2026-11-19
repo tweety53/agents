@@ -293,8 +293,7 @@ func TestTasksCountRecordsThePlanTaskCount(t *testing.T) {
 
 // TestTasksCountPostsCorrections: the plan's `Correction (YYYY-MM-DD):`
 // paragraphs are counted beside its tasks and posted in the same
-// observation -- the plan-corrections metric experiments compare
-// (KAN-1067). A Correction line shown inside a fenced example is
+// observation (KAN-1067). A Correction line shown inside a fenced example is
 // documentation, never counted, the same fence rule the task count keeps.
 func TestTasksCountPostsCorrections(t *testing.T) {
 	t.Parallel()

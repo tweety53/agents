@@ -16,7 +16,7 @@ import { DashboardBar } from "./components/DashboardBar";
 import { defaultPeriod, type Period } from "./components/PeriodPicker";
 import type { ViewProps } from "./viewTypes";
 import { Decisions } from "./views/Decisions";
-import { Experiments } from "./views/Experiments";
+import { AgentRoles } from "./views/AgentRoles";
 import { FlowHealth } from "./views/FlowHealth";
 import { RunDetail } from "./views/RunDetail";
 import { RunCosts } from "./views/RunCosts";
@@ -42,7 +42,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   "flow-health": "Flow health",
   "self-review": "Self-review fixes",
   "review-dynamics": "Review dynamics",
-  experiments: "Agent roles",
+  "agent-roles": "Agent roles",
 };
 
 const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
@@ -56,7 +56,7 @@ const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
   "flow-health": FlowHealth,
   "self-review": SelfReview,
   "review-dynamics": ReviewDynamics,
-  experiments: Experiments,
+  "agent-roles": AgentRoles,
 };
 
 function isViewName(v: string): v is ViewName {
@@ -253,7 +253,7 @@ export function App() {
             Decisions carries its own Period, Project, Class and Review grouping chips (decision
             decisions-chip-filters); Flow health carries its own Period, Project and Rank by chips
             (decision chip-filters-period-project-rank); Run costs carries its own Period and Project chips;
-            Experiments spans each experiment's own window. */}
+            Agent roles has no period. */}
         {route.kind === "view" &&
           route.view !== "weekly-costs" &&
           route.view !== "run-costs" &&
@@ -263,7 +263,7 @@ export function App() {
           route.view !== "reviewers" &&
           route.view !== "decisions" &&
           route.view !== "flow-health" &&
-          route.view !== "experiments" && (
+          route.view !== "agent-roles" && (
           <DashboardBar
             period={period}
             onPeriodChange={setPeriod}

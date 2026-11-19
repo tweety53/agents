@@ -1,3 +1,4 @@
+import { canonicalStage } from "./phase";
 import type { PlanTask, StageRunDTO, StateBoardRow } from "../api";
 import type { ProgressState } from "./mainNow";
 
@@ -35,7 +36,7 @@ export function focusRequest(row: Row, runs: StageRunDTO[]): number | undefined 
 export function requestSteps(runs: StageRunDTO[], n: number): { stage: string; state: ProgressState }[] {
   const own = runs.filter((r) => r.request === n);
   return REQUEST_STAGES.map((stage) => {
-    const of = own.filter((r) => r.stage === stage);
+    const of = own.filter((r) => canonicalStage(r.stage) === stage);
     return { stage, state: of.some((r) => !r.endedAt) ? "current" : of.length ? "done" : "todo" };
   });
 }

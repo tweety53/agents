@@ -729,21 +729,13 @@ th button {
 .lb-clip { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 td.lb-clip { max-width: 0; width: 100%; }
 
-/* The Experiments view (views/Experiments.tsx), drawn exactly as the
-   approved prototype .superpowers/sdd/experiments-prototype.html: its
-   rules, scoped under .experiments, every colour a theme.css token. */
-.experiments {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+/* The Agent roles view (views/AgentRoles.tsx): the roles table of the
+   approved prototype .superpowers/sdd/roles-prototype.html, scoped under
+   .agent-roles, every colour a theme.css token. */
+.agent-roles {
   font: 14px/1.4 system-ui, -apple-system, sans-serif;
 }
-@media (max-width: 760px) {
-  .experiments {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-.experiments .panel {
+.agent-roles .panel {
   background: var(--surface-panel);
   border: 1px solid var(--border);
   border-radius: 3px;
@@ -751,166 +743,57 @@ td.lb-clip { max-width: 0; width: 100%; }
   margin: 0;
   min-width: 0;
 }
-.experiments .ttl {
+.agent-roles .ttl {
   font-size: 0.7rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-secondary);
   margin: 0 0 8px;
 }
-.experiments .list button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  color: inherit;
-  padding: 8px;
-  cursor: pointer;
-  font: inherit;
-}
-.experiments .list button:hover {
-  background: var(--surface-tip);
-}
-.experiments .list button:focus-visible {
-  outline: 2px solid var(--series-1);
-}
-.experiments .list button.on {
-  border-color: var(--series-1);
-  background: var(--surface-tip);
-}
-.experiments .pill {
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 8px;
-  border: 1px solid currentColor;
-  margin-left: 6px;
-}
-.experiments .open {
-  color: var(--st-progress);
-}
-.experiments .closed {
-  color: var(--st-finished);
-}
-.experiments .sub {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-.experiments code {
+.agent-roles code {
   font-family: var(--font-mono);
   font-size: 12px;
 }
-.experiments .right {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-.experiments .cells {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
-}
-.experiments .stat .v {
-  font-family: var(--font-mono);
-  font-size: 1.6rem;
-}
-.experiments .stat .d {
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-.experiments .up {
-  color: var(--delta-up);
-}
-.experiments .down {
-  color: var(--delta-down);
-}
-.experiments table {
+.agent-roles table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
 }
-.experiments th,
-.experiments td {
+.agent-roles th,
+.agent-roles td {
   text-align: left;
   padding: 4px 6px;
   border-bottom: 1px solid var(--border);
 }
-.experiments th {
+.agent-roles th {
   color: var(--text-secondary);
   font-weight: 500;
 }
-.experiments .wrap {
+.agent-roles .wrap {
   overflow-x: auto;
 }
-.experiments svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-.experiments .charts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
-}
-.experiments figure {
-  margin: 0;
-  min-width: 0;
-}
-.experiments figcaption {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-}
-.experiments .legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-bottom: 10px;
-}
-.experiments .legend i {
-  display: inline-block;
-  width: 14px;
-  height: 8px;
-  margin-right: 4px;
-  vertical-align: middle;
-}
-.experiments .legend i.dash {
-  height: 0;
-  border-top: 2px dashed;
-}
-.experiments .pt {
-  cursor: default;
-}
-.experiments .pt:hover,
-.experiments .pt:focus {
-  r: 5;
-  outline: none;
-}
-.experiments .roles {
+.agent-roles .roles {
   grid-column: 1 / -1;
 }
-.experiments .roles s {
+.agent-roles .roles s {
   color: var(--text-muted);
 }
-.experiments .roles .exp {
+.agent-roles .roles .exp {
   color: var(--st-progress);
 }
-.experiments .roles table {
+.agent-roles .roles table {
   font-size: 12px;
   line-height: 1.35;
   table-layout: fixed;
   min-width: 1000px;
 }
-.experiments .roles th:nth-child(1) {
+.agent-roles .roles th:nth-child(1) {
   width: 250px;
 }
-.experiments .roles th:nth-child(2) {
+.agent-roles .roles th:nth-child(2) {
   width: 110px;
 }
-.experiments .roles .savebar {
+.agent-roles .roles .savebar {
   display: flex;
   gap: 10px;
   align-items: center;
@@ -919,68 +802,57 @@ td.lb-clip { max-width: 0; width: 100%; }
   border: 1px solid var(--series-1);
   border-radius: 6px;
 }
-.experiments .roles .savebar span:first-child {
+.agent-roles .roles .savebar span:first-child {
   flex: 1;
 }
-.experiments .roles td.role {
+.agent-roles .roles td.role {
   width: auto;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.experiments .roles td.role code {
+.agent-roles .roles td.role code {
   margin-left: 6px;
   color: var(--text-muted);
 }
-.experiments .roles td.agent code {
+.agent-roles .roles td.agent code {
   color: var(--text-muted);
 }
-.experiments .roles td.pairs .ms {
+.agent-roles .roles td.pairs .ms {
   display: block;
   width: auto;
   margin: 0;
 }
-.experiments .roles .trig {
+.agent-roles .roles .trig {
   height: 28px;
 }
-.experiments .roles th,
-.experiments .roles td {
+.agent-roles .roles th,
+.agent-roles .roles td {
   padding: 2px 8px;
   vertical-align: top;
 }
-.experiments .roles td {
+.agent-roles .roles td {
   border-bottom: none;
 }
-.experiments .roles th {
+.agent-roles .roles th {
   font-weight: 600;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border);
 }
-.experiments .roles tr.grp th {
+.agent-roles .roles tr.grp th {
   padding-top: 8px;
   font-size: 0.68rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
-.experiments .roles tbody tr.role:hover td {
+.agent-roles .roles tbody tr.role:hover td {
   background: var(--surface-tip);
 }
-.experiments .roles td.role {
+.agent-roles .roles td.role {
   white-space: nowrap;
   width: 1%;
 }
-/* A pairs list wraps between pairs, never inside one: a long list (a planning row's
-   base pairs struck beside an override's) would otherwise overflow the panel and
-   squeeze the Does column to a word a line (kan-1102 self-review, F19). */
-.experiments .roles td.does {
-  color: var(--text-secondary);
-  width: 160px;
-  max-width: 160px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.experiments .roles .tag {
+.agent-roles .roles .tag {
   font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -990,26 +862,17 @@ td.lb-clip { max-width: 0; width: 100%; }
   border-radius: 999px;
   color: var(--text-muted);
 }
-.experiments .roles code {
+.agent-roles .roles code {
   font-size: 11.5px;
 }
-.experiments .roles .pair {
+.agent-roles .roles .pair {
   white-space: nowrap;
 }
-.experiments .roles .esc {
+.agent-roles .roles .esc {
   display: block;
   color: var(--text-muted);
 }
-/* The pairs editor (kan-1103): one multiselect field per tier, its chips the
-   trigger, a filterable checklist popover below. */
-.experiments .roles .ms {
-  position: relative;
-  display: inline-block;
-  width: 250px;
-  margin-right: 6px;
-  vertical-align: middle;
-}
-.experiments .roles .trig {
+.agent-roles .roles .trig {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1027,7 +890,7 @@ td.lb-clip { max-width: 0; width: 100%; }
   cursor: pointer;
   position: relative;
 }
-.experiments .roles .trig::after {
+.agent-roles .roles .trig::after {
   content: "▾";
   position: absolute;
   right: 7px;
@@ -1036,15 +899,15 @@ td.lb-clip { max-width: 0; width: 100%; }
   color: var(--text-muted);
   font-size: 10px;
 }
-.experiments .roles .trig:hover {
+.agent-roles .roles .trig:hover {
   border-color: var(--text-muted);
 }
-.experiments .roles .ms.open .trig,
-.experiments .roles .trig:focus-visible {
+.agent-roles .roles .ms.open .trig,
+.agent-roles .roles .trig:focus-visible {
   outline: 2px solid var(--series-1);
   outline-offset: -1px;
 }
-.experiments .roles .chips {
+.agent-roles .roles .chips {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -1052,7 +915,7 @@ td.lb-clip { max-width: 0; width: 100%; }
   overflow: hidden;
   white-space: nowrap;
 }
-.experiments .roles .cnt {
+.agent-roles .roles .cnt {
   flex: none;
   font-size: 10px;
   padding: 0 5px;
@@ -1060,31 +923,31 @@ td.lb-clip { max-width: 0; width: 100%; }
   background: var(--surface-tip);
   color: var(--text-secondary);
 }
-.experiments .roles .lbl {
+.agent-roles .roles .lbl {
   flex: none;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
 }
-.experiments .roles .chip {
+.agent-roles .roles .chip {
   font-size: 11px;
   padding: 0 5px;
   border-radius: 4px;
   background: var(--surface-tip);
   color: var(--series-1);
 }
-.experiments .roles .exp {
+.agent-roles .roles .exp {
   display: block;
 }
-.experiments .roles .none {
+.agent-roles .roles .none {
   color: var(--text-muted);
   font-style: italic;
 }
-.experiments .roles s .chip {
+.agent-roles .roles s .chip {
   color: var(--text-muted);
 }
-.experiments .roles .menu {
+.agent-roles .roles .menu {
   position: fixed;
   z-index: 20;
   min-width: 260px;
@@ -1094,17 +957,17 @@ td.lb-clip { max-width: 0; width: 100%; }
   border-radius: 8px;
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
 }
-.experiments .roles .menu input[type="search"] {
+.agent-roles .roles .menu input[type="search"] {
   width: 100%;
   box-sizing: border-box;
   margin-bottom: 4px;
   font-size: 11.5px;
 }
-.experiments .roles .opts {
+.agent-roles .roles .opts {
   max-height: 200px;
   overflow: auto;
 }
-.experiments .roles .opts label {
+.agent-roles .roles .opts label {
   display: flex;
   gap: 8px;
   align-items: center;
@@ -1112,10 +975,10 @@ td.lb-clip { max-width: 0; width: 100%; }
   border-radius: 4px;
   cursor: pointer;
 }
-.experiments .roles .opts label:hover {
+.agent-roles .roles .opts label:hover {
   background: var(--surface-tip);
 }
-.experiments .roles .foot {
+.agent-roles .roles .foot {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1124,27 +987,22 @@ td.lb-clip { max-width: 0; width: 100%; }
   border-top: 1px solid var(--border);
   color: var(--text-muted);
 }
-.experiments .roles .tier {
+.agent-roles .roles .tier {
   color: var(--text-muted);
 }
-.experiments .roles a {
+.agent-roles .roles a {
   color: var(--series-1);
   text-decoration: none;
   margin-left: 4px;
 }
-.experiments .roles a:hover,
-.experiments .roles a:focus {
+.agent-roles .roles a:hover,
+.agent-roles .roles a:focus {
   text-decoration: underline;
   outline: none;
 }
-.experiments .summary {
-  white-space: pre-wrap;
-  color: var(--text-secondary);
-}
 
 /* Stage leaderboard (KAN-1052): the approved prototype's sl-* rules, with its
-   .up / .down / tr.other scoped under the view so the Experiments view's own
-   .up / .down are unaffected. Tiles: one column on narrow screens (Spend,
+   .up / .down / tr.other scoped under the view. Tiles: one column on narrow screens (Spend,
    Top 3, Biggest riser); from 760px Spend stacked over Biggest riser in a
    narrower left column, Top 3 spanning both rows in a wider right one, so the
    two short tiles together match the list's height (decision
