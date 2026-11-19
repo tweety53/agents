@@ -481,3 +481,19 @@ func TestMigrateWorktrees(t *testing.T) {
 		}
 	})
 }
+
+// TestMigrateWorktreesWaitsLongerForTheStoreList pins kan-1132's
+// self-review, F3: the store list is read with a 15s timeout, as a partial
+// answer refuses.
+func TestMigrateWorktreesWaitsLongerForTheStoreList(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	fx := mwNewFx(t)
+	if code, out, errb := fx.run(t, fx.path()); code != 0 {
+		t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
+	}
+	b, _ := os.ReadFile(fx.fake + "/args.log")
+	if want := "state list -C " + fx.repo + " -timeout 15s\n"; !strings.Contains(string(b), want) {
+		t.Errorf("args.log lacks %q:\n%s", want, b)
+	}
+}

@@ -248,9 +248,11 @@ type mwRecord struct {
 // `flow state get` prints it. A synthetic record (a stage mark's bootstrap)
 // is dropped: `state get` adds a "synthetic" field the store's closed PUT
 // schema refuses, and no STARTED write has given it a worktree to rewrite.
-// A non-empty message is a reason the records cannot be read in full.
+// A non-empty message is a reason the records cannot be read in full. The
+// list waits 15s for the store: the CLI's 2s default falls back to a partial
+// answer on a loaded machine, which this refuses (kan-1132 self-review, F3).
 func mwRecords(env Env, flow, main string) ([]mwRecord, string) {
-	list := exec.Command(flow, "state", "list", "-C", main)
+	list := exec.Command(flow, "state", "list", "-C", main, "-timeout", "15s")
 	list.Dir = env.Dir
 	out, err := list.Output()
 	var l struct {

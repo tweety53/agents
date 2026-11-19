@@ -273,14 +273,16 @@ var pfNumbered = regexp.MustCompile(`^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}-)?pipeline-f
 // 0 when there is none. <k> one more than it is unique across the
 // repository, so two loops never share a key prefix. ok false unless flowd
 // answered from its store, complete: the on-disk fallback holds no
-// pipeline-fix record, so it would admit a used <k>.
+// pipeline-fix record, so it would admit a used <k>. The list waits 15s for
+// the store: the CLI's 2s default falls back to a partial answer on a loaded
+// machine, which this refuses (kan-1132 self-review, F3).
 func pfHighestK(env Env, pe pfEnv) (int, bool) {
 	var names []string
 	_, refs := kwRun(env, "", pe.git, "-C", pe.main, "for-each-ref", "--format=%(refname:lstrip=2)", "refs/heads/", "refs/remotes/")
 	for _, r := range strings.Fields(refs) {
 		names = append(names, filepath.Base(r))
 	}
-	out, _, rc := pcFlow(env, false, "state", "list", "-C", pe.main)
+	out, _, rc := pcFlow(env, false, "state", "list", "-C", pe.main, "-timeout", "15s")
 	var list struct {
 		Source   string `json:"source"`
 		Complete bool   `json:"complete"`

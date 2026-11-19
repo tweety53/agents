@@ -714,3 +714,18 @@ func TestPipelineFixVerifyFillsVisualSpecs(t *testing.T) {
 		t.Fatalf("(b) rc %d: %s", rc, out)
 	}
 }
+
+// TestPipelineFixStartWaitsLongerForTheStoreList pins kan-1132's
+// self-review, F3: start reads flow state list with a 15s store timeout, as
+// it refuses anything but a complete store answer.
+func TestPipelineFixStartWaitsLongerForTheStoreList(t *testing.T) {
+	smoke.Heavy(t)
+	pfIdentity(t)
+	fx := pfNew(t, "")
+	if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
+		t.Fatal(out)
+	}
+	if want := "state list -C " + fx.repo + " -timeout 15s\n"; !strings.Contains(fx.calls(t), want) {
+		t.Errorf("flow calls lack %q:\n%s", want, fx.calls(t))
+	}
+}
