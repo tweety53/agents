@@ -19,8 +19,7 @@ fix is one new commit on top per task, carrying that task's `Task-Id:` trailer.
 **Each fixer's return is one Bash call**: the push, `flow record status
 -change <name> -ref F<n> -status fixed` for each Minor its summary head names `fixed:`, and, when a
 task's pass was `fix`, that task's `task-<n>-fix-<k>.diff` of its fix commit's own range,
-`git diff <fix-commit>^..<fix-commit>`, and
-the re-review bundle's `begin`. A `not-fixed:` line is the parent's to judge: withdrawn with its
+`git diff <fix-commit>^..<fix-commit>`. A `not-fixed:` line is the parent's to judge: withdrawn with its
 one clause, or carried to the next fixer. A finding the FRAME DEPARTURES paragraph raises is fixed in the app by its task's fix commit, and a `not-fixed:` line for it, or a fix that only adds or edits a sidecar `#` comment naming the departure, carries it to the next fixer (kan-1087 self-review, F17). A clause claiming a test passes or the finding is already
 green names the run — its command and exit — else the line is carried to the next fixer, and
 `flow record status` refuses a green withdrawal with no exit.

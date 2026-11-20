@@ -53,7 +53,7 @@ Critical, Important or Minor alike.** Then:
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The panel** states, at the start of any round;
 - **the round's re-running roles ride one bundled dispatch, on role `panel-rerun`**, its pair
-  from `flow-guard pair-judge`, under the 5-minute ceiling — one **PASS** section
+  from `flow-guard pair-judge` — one **PASS** section
   per role, the one-per-role fallback (**Bundled dispatch**, `skills/flow/review-panel.md`)
   separating them one per role when the bundled findings need separation. **Each role's re-run is
   targeted at what that role raised and nothing else**: it reads the round's `fix-round-N.diff` plus the sites of its own open
@@ -122,8 +122,8 @@ whole fix diff.
 ### The fix round mutation-proves what it changed
 
 **Every executable behaviour the fix changed is mutation-proved, not only the test cases the round
-adds.** The fix subagent performs the proof and reports it, per the MUTATION PROOF paragraph its
-dispatch carries; the parent runs no build of its own here. A survivor the fix subagent cannot
+adds.** The fix subagent performs the proof and reports it, per the MUTATION PROOF paragraph of
+`skills/flow/fixer-brief.md`; the parent runs no build of its own here. A survivor the fix subagent cannot
 judge real or equivalent goes through the same handback the section already names.
 
 **A fix that adds or strengthens a test is proved by a flip of the fixed line itself, one flip per

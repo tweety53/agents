@@ -33,6 +33,13 @@ import (
 //
 // Exit 0 closed; 1 a commit is missing or off the branch — commit it, then
 // re-run; 2 a tick or push failed, or a usage error.
+//
+// A call that times out is inspected before it is retried: `git status
+// --porcelain=v2 --branch` and `git stash list` in the worktree first. A
+// reverting, rebasing or merging state on the `# branch` lines, a change the
+// run did not make, or a stash entry the run did not push means the tree is
+// not the one the run left — the run stops with both outputs verbatim,
+// never re-running the guard on top of it.
 func init() { Registry["close-task"] = closeTask }
 
 func closeTask(args []string, env Env, stdout, stderr io.Writer) int {

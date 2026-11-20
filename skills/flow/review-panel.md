@@ -131,20 +131,13 @@ dispatch, a one-role dispatch included, at
 `<canon>/.superpowers/sdd/slot-prompt-<round>-<slots>[-<repo>].md` (`<slots>` the bundle's ids
 `+`-joined, `-<repo>` only on one repository's dispatch of a multi-repository panel), made of, in order:
 
-1. the blockquotes **TOOLS**, **FOREGROUND BUILDS**, **NO DELEGATION** and **WORKTREES** (the resolved set filled in), copied verbatim from this file, and **INDEPENDENT PASSES** when the bundle holds more than one slot; on a fix round, the FIX-ROUND SCOPE blockquote of `skills/flow/review-panel-fix-round.md`, naming the `<fix report>` path(s);
+1. the line `Read <skill-dir>/slot-brief.md in full first — every paragraph binds you`, then the resolved set its WORKTREES paragraph lists, and on one repository's dispatch the repository its SECTION paragraph reads; on a fix round, the FIX-ROUND SCOPE blockquote of `skills/flow/review-panel-fix-round.md`, naming the `<fix report>` path(s);
 2. one `## PASS <id>` section per slot in the bundle's order: the fenced body of that slot's `<id>-reviewer-prompt.md`, dedented, with the six values of the placeholder table above filled with absolute paths, then that slot's REPORT FILE line (`panel-report-<round>-<id>[-<repo>].md`). `mutation` has no template: its section is **The mutation-testing brief** below, built last, naming its throwaway copies, `<worktree>-mutation-<round>` per repository.
 
 The Agent call's description is `panel-<round>-<slots>[-<repo>]` and its prompt opens `Role: panel-reviewer` (`Role: panel-rerun` on a fix round). Its prompt carries only that Role line
 (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), the baseline
 pointer, `read <the assembled path> in full first — it is your brief`, and each role's REPORT FILE path — so a slot that answers without reading its brief still owes its file. The return message carries one findings summary per role under a heading naming the
 role; the parent records each finding under that role.
-
-Every bundle prompt also carries this paragraph verbatim:
-
-> **INDEPENDENT PASSES:** each pass starts from `final-review.diff` and the code, never from an
-> earlier pass's report or conclusions. Do not cite, defer to, or skip a defect because an earlier
-> pass raised it — if it sits in this pass's angle, raise it again under this pass. Write each
-> pass's report file before beginning the next pass.
 
 **A defect raised by several roles is recorded per role and fixed once.** Findings from different
 roles in the same round that cite the same `file:line` and name the same root cause are one
@@ -165,8 +158,9 @@ round, and its own role re-runs on it.
 bundle whose other members are clean dispatches with its re-running members only; the one-per-role fallback above separates them one per role when the
 bundled findings need separation (**Panel re-runs**).
 
-**Every slot's dispatch is recorded**, the same pair section 4 of `skills/flow/implement.md`
-records for an implementer:
+**Every slot's dispatch is recorded** — on claude-code by the hooks alone, which begin each row at
+launch and end it when its agent stops (**Dispatch sites — the parent's closed list**,
+`skills/flow/implement.md`); on any other harness by the parent, with this pair:
 
 ```bash
 flow record dispatch begin -change <name> -role reviewer -slot <slot|slot+slot+slot> -model <m> -effort <e> \
@@ -177,23 +171,11 @@ flow record dispatch end -change <name> -key panel-<round>-<slot|slot+slot+slot>
   [-ended-at "$(date -u -r <report-file> +%Y-%m-%dT%H:%M:%SZ)"]
 ```
 
-Every dispatch of the round is launched in one message — on pass 1, every dispatch but the `mutation` bundle
-(below); the round's wait is the harness's completion notifications, never a poll (see
-**No forking, and a wall-clock ceiling on every slot** below); every `end` is recorded in one call once they all exist (the turn discipline of **4. Execute
+Every dispatch of the round is launched in one message; the round's wait is the harness's completion notifications, never a poll (the turn discipline of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`).
-On claude-code each `end` passes no `-ended-at`: the daemon closes a stamped row at its own agent transcript's last write, so a slot that finished early is never stamped with the round's last finish. On any other harness the daemon reads no agent transcript, so each `end` passes its own slot's report-file modification time as `-ended-at`; a bundled dispatch's `<report-file>` is the newest of its slots' reports.
-A dispatch whose report never appears within its
-ceiling takes the breach path under **No forking, and a wall-clock ceiling on every slot** below.
+A parent-recorded `end` — any harness but claude-code, whose daemon reads no agent transcript — passes its own slot's report-file modification time as `-ended-at`; a bundled dispatch's `<report-file>` is the newest of its slots' reports.
 
-**On pass 1 the test list runs between the launch and the wait.** The parent runs it there, in
-the foreground, while the read-only slots review (**The pass-1 panel reads while the suite
-runs.**, `skills/flow/implement.md`).
-The `mutation` bundle stays out of pass 1's launch message: once the suite has exited, the next message launches it, before the round's wait.
-A full-suite fix is applied only once the round's wait
-ends, never under the reading slots, so once the round's reports exist, the slots that raised a
-finding re-run in the next round over the delta that commit adds, under **Panel re-runs**
-(`skills/flow/review-panel-fix-round.md`); a suite that passes adds no commit and re-dispatches nothing.
-**A live check's before figures are measured in the same window**, after the suite: when
+**A live check's before figures are measured before the round's launch:** when
 `design.md`'s `## Live check` names something to exercise, the parent measures each before figure
 from the merge base the way **Live check** (`skills/flow/verify-and-handoff.md`) states and writes
 it to `<abs-worktree>/.superpowers/sdd/live-before.md` with the merge-base sha it was measured at — never into the change's directory, a
@@ -224,101 +206,15 @@ describes — real input events (`page.mouse.wheel()`), a fresh account, data se
 resting state — and a finding closes on that target's evidence, never on the test target's clean
 exit alone.
 
-**Every slot's dispatch prompt also carries the FOREGROUND BUILDS paragraph**:
-
-> **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
-> command still executing in the background. Run it in the foreground, or poll it to
-> completion, before you stop.
-
-**Every slot's dispatch prompt also carries the TOOLS paragraph**:
-
-> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
-> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
-> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
-> schema loaded later changes your tool list and re-prices your whole context at full input rate.
-
-**Every slot's dispatch prompt also carries the NO DELEGATION paragraph**:
-
-> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
-> subagent, background agent or helper of any kind — you are the leaf of this run, and any child
-> you start is unrecorded and outside the parent's closed list (**Dispatch sites — the
-> parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
-> fixing are your own Read, Bash and Edit calls.
-
-**Every slot's dispatch prompt also carries the REPORT FILE paragraph**, with the round and the
-slot's resolved id substituted:
-
-> **REPORT FILE:** write your full report to
-> `<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md` before you end your turn — every
-> finding with its `file:line`, severity, the sentence naming the defect, how to see it (a command where one exists), and the
-> id of the task whose `Task-Id:` commit its `file:line` falls in — none where it spans tasks or
-> falls in none. A finding's `file:line` is a line of that file in the worktree under review,
-> never a line number of `final-review.diff` or of any other diff. Your return message is the findings summary, each finding naming its task id
-> too; the file is the record. Open the file with one `Critical: <n>`, one `Important: <n>` and one
-> `Minor: <n>` line counting the findings it raises at each severity, then one `Unread: none` line, or
-> `Unread: <repository>[, <repository>…]` naming each `# worktree:` section you did not read in
-> full. Write this file's own text, never one derived from another role's report or from a shared
-> text by substitution: a substitution rewrites every match in the findings as well.
-
-**Every slot's dispatch prompt also carries the WORKTREES paragraph**, listing the resolved set
-and, when it holds more than one worktree, the qualification rule:
-
-> **WORKTREES:** this change spans `<abs-worktree-1>`, `<abs-worktree-2>`, …; `final-review.diff`
-> is sectioned by worktree, each section headed `# worktree: <path> — merge base <sha>`. When more
-> than one is listed, prefix every finding's `file:line` with that worktree's repository name —
-> its main checkout's basename (`gymie-frontend:src/Foo.tsx:42`).
-
-**A per-repository dispatch's prompt also carries the SECTION paragraph**, with `<repo>`
-substituted:
-
-> **SECTION:** this dispatch reads only the `# worktree:` section of `<repo>` in its diff file.
-> Follow a seam into another section only as far as judging this section needs.
-
-### No forking, and a wall-clock ceiling on every slot
+### No forking
 
 No panel slot is dispatched onto a skill or agent that forks its own background agent — a forked
 agent reports to nobody the dispatcher is tracking. Repair it by dispatching the slot on a shape
 that reports back directly; never drop the slot.
 
-Every panel slot carries a 15-minute wall-clock ceiling from its dispatch — 30 minutes for the
-`mutation` slot, which runs the tests once per mutant, and 5 minutes for a fix-round re-run dispatch, which reads a delta
-and has no business running longer. The dispatcher tracks each in-flight slot's elapsed time
-itself rather than blocking indefinitely on a completion notification: it notes each slot's
-dispatch instant (`date +%s`) when it dispatches, waits on the slot only through its completion
-notification and one background timer — `sleep <seconds to the earliest open ceiling>`, launched
-with `run_in_background: true`, its own notification the named wake-up — and on every notification
-compares each open slot's elapsed time against its ceiling, re-arming the timer for the next —
-a slot past its ceiling gets no further wait and takes the breach path below at once. **The ceiling is a record-and-review bound, not a stop**: it cannot halt
-an in-flight dispatch — a slot the harness runs as one blocking call pays the overrun in full
-before the breach can even be recorded — so a run is never promised a stop the harness cannot
-deliver.
-
-On a breach, in order: stop the slot where the harness offers a handle on the in-flight dispatch,
-and where it does not, let the dispatch return and record the breach then; record the breach as
-`flow record pass -round <round> -note 'breach: <key> <elapsed>'`, `<elapsed>` as `21m47s`; close
-its dispatch row. A slot that returned a parsable report past its ceiling is closed by that report
-as usual, keeps its findings, and is not re-dispatched. A slot stopped, or one that returned no
-parsable report, is closed `-outcome timed-out` and re-dispatched once, under
-`-key panel-<round>-<slot>-retry` — each further re-dispatch of the same slot after another breach
-under `-retry-2`, `-retry-3` and so on, the count of its re-dispatches so far.
-
 A slot whose dispatch failed or returned no parsable report is `not run`, never zero findings, and
 its round is never clean.
 
-A second breach of the same slot is a prompt, shape per Operator prompts
-(`skills/flow-contracts/operator-prompts.md`), resolved per that contract's **Auto-resolution** on
-its recommended **Re-dispatch it again**; a third breach of the same slot is not asked: the slot
-is re-dispatched fresh as **Three failed rounds** (`skills/flow-contracts/pipeline.md`) states,
-its prompt carrying each breached attempt's output and naming the failed approach — a bundle that
-breached is split one role per dispatch.
-
-> **Slot `<slot>` breached the wall-clock ceiling a second time. How should this proceed?**
-> - **Re-dispatch it again** *(default, recommended)*
-> - **Proceed without the slot**
-> - **Stop the run** — ends at `IN_PROGRESS` with the implementation committed on the branch
-
-A timed-out slot raises no finding, consumes no fix round, and is not a clean result for the final
-pass.
 
 ### The findings merger
 
@@ -337,17 +233,11 @@ defect raised by several roles, every `flow record finding`, `status` and `incid
 and every re-run decision stay the parent's.
 
 **The merger runs on the `panel-merger` role's pair** — its work is mechanical, and every review
-stays on its slot's own pair. Its row is begun by the hook at launch and ended once its summary is
-read, before any finding is recorded:
-
-```bash
-flow record dispatch end -change <name> -key panel-<round>-merger \
-  -session-token mf-<literal-token> -outcome completed
-```
+stays on its slot's own pair. Its row is begun and ended by the hooks.
 
 It is launched with `run_in_background: true`, its `description` opening with its key, and a
 prompt opening with the line `Role: panel-merger`, its pair its **Allowed pairs** row
-(`skills/flow-contracts/model-policy.md`) — followed by the baseline pointer, the TOOLS and NO DELEGATION paragraphs above, the
+(`skills/flow-contracts/model-policy.md`) — followed by the baseline pointer, the line `Read <skill-dir>/slot-brief.md` for its TOOLS and NO DELEGATION paragraphs, the
 MERGER BRIEF paragraph below, every role's report path, and one line per dispatch of the round —
 its `-key`, the `-outcome` its row was closed with, and its elapsed seconds.
 
@@ -387,7 +277,7 @@ prefix still kills the mutant and the run's cost does not grow with the package;
 family shares no prefix does it run every test of the package, file or module the mutated code
 belongs to.
 Every test run of a mutant passes the test runner's no-cache flag — `-count=1` for `go test` — because a cached result never sees a mutated file a test reads through a subprocess.
-The slot's own mutant runs are scoped before the first mutation too: it measures one run of the mutated code's whole package, and when that run's seconds times the number of mutants it plans pass half the slot's ceiling, every mutant run filters by the name prefix the mutated code's test family shares (`-run '^TestCheckPanel'`), never a full test name (group-allowed-pairs-roles self-review: the slot ran the whole guard package per mutant and timed out at 15 minutes; the prefix-filtered retry finished in 88 s).
+The slot's own mutant runs are scoped before the first mutation too: it measures one run of the mutated code's whole package, and when that run's seconds times the number of mutants it plans passes 15 minutes, every mutant run filters by the name prefix the mutated code's test family shares (`-run '^TestCheckPanel'`), never a full test name (group-allowed-pairs-roles self-review: the slot ran the whole guard package per mutant and timed out at 15 minutes; the prefix-filtered retry finished in 88 s).
 The slot never forces a full rebuild of its copy — no `--rerun-tasks`, `clean`, cache-busting flag or deleting build output — whatever the build tool; it measures one scoped run before its first mutation; and it runs one build at a time in its copy, never starting another while an earlier one, a backgrounded one included, still runs.
 A Gradle run that fails with `Timeout waiting to lock journal` is waited out and retried with backoff, a few minutes in total — the lock sits in the shared Gradle home, held by another worktree's daemon; never run `gradle --stop` or kill a daemon another worktree owns, and if the lock is still held the mutant is reported `unproven (journal lock held by <pid from the message>)`, never skipped silently.
 Never symlink a shared `node_modules` into your copy: run `npm ci` inside the copy, which installs its own — over a symlink it empties the shared directory.
@@ -534,118 +424,16 @@ fix's `fix-mutation:` lines cover it (**Panel re-runs**,
 after a slot's last read that does not make that result stale, and neither does a fix's delta
 for a slot its one reviewer did not read (`skills/flow/fix.md`).
 
-**Every fix subagent's dispatch prompt also carries the VERBATIM REPORT — THE FACT paragraph**:
+**Each fix chunk's prompt is the fixer stub** (**Every fix is a fresh one-shot**,
+`skills/flow/implement.md`): `Role: panel-fix`, its `FIX INPUT:` the chunk's structured blocks, each
+naming its slot's report path, and its REPORT FILE
+`<abs-worktree>/.superpowers/sdd/panel-fix-report-<round>[-<n>].md`; the brief it reads is
+`skills/flow/fixer-brief.md`. **A restore that would discard unstaged edits is denied** (**Restoring
+a path with unstaged edits**, `skills/flow-contracts/git-boundaries.md`).
 
-> **VERBATIM REPORT — THE FACT:** each finding below names the file its slot's report was written
-> to. That file is the reviewer's own report, unedited — read it before you act on the finding.
-> The structured block is the dispatcher's summary of it: direction on what to work on, and
-> never a source of fact. Where the two disagree the report wins. Where the block asserts
-> something the report does not, treat it as unchecked and establish it yourself before building
-> on it.
-
-**Every fix subagent's dispatch prompt also carries the FINDINGS ARE INPUT paragraph**:
-
-> **FINDINGS ARE INPUT:** a finding names a defect and suggests a route to fixing it — findings
-> are input, not orders. Your obligation is to resolve the defect the finding names; the
-> suggested route is the raising slot's proposal, never a binding instruction. Where the literal
-> route would break something the code already requires — a required ordering, a declared
-> contract, a stated invariant — take the route that resolves the defect without the damage, and
-> your report records the deviation and justifies it: what the literal route would have broken,
-> and how yours resolves the defect. A silent deviation is an unfixed finding, and so is a
-> literal compliance that leaves the defect standing.
-
-**Every fix subagent's dispatch prompt also carries the ROUND SCOPE paragraph**:
-
-> **ROUND SCOPE:** your round's output is the diff and the report, nothing else. Do not rewrite
-> `proposal.md` or `design.md`: unaffected sections are never restated, and a decision your fix
-> genuinely overturns is superseded by one appended entry under `## Decisions`, never a per-round
-> rewrite of the file. Your report names what you fixed and the behaviours you changed,
-> then stops.
-
-**Every fix subagent's dispatch prompt also carries the FOREGROUND BUILDS paragraph**:
-
-> **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
-> command still executing in the background. Run it in the foreground, or poll it to
-> completion, before you stop.
-
-**Every fix subagent's dispatch prompt also carries the TOOLS paragraph**:
-
-> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
-> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
-> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
-> schema loaded later changes your tool list and re-prices your whole context at full input rate.
-
-**Every fix subagent's dispatch prompt also carries the NO DELEGATION paragraph**:
-
-> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
-> subagent, background agent or helper of any kind — you are the leaf of this run, and any child
-> you start is unrecorded and outside the parent's closed list (**Dispatch sites — the
-> parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
-> fixing are your own Read, Bash and Edit calls.
-
-**Every fix subagent's dispatch prompt also carries the TARGETED TESTS paragraph**:
-
-> **TARGETED TESTS:** Run only the tests the `**Tests:**` fields of the tasks your fix touches
-> name, and the tests your fix adds, through the build
-> tool's own selector — `--tests '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t
-> '<name>'` for vitest — once for RED, once for GREEN, and again only after a source edit. Never
-> run the module or repository suite mid-task: the `## test` list runs again in
-> `flow.verify`. Pipe a test run's output through `tail` so a green
-> run costs lines of context, not a build log. Keep every run bounded (PROOF RUNS,
-> `skills/flow/implementer-brief.md`).
-
-**Every fix subagent's dispatch prompt also carries the OUTPUT BUDGET paragraph**:
-
-> **OUTPUT BUDGET:** Every tool result stays in your context, and every later turn re-reads your
-> whole context — a large output is paid for again on every turn after it. Read a file over 200
-> lines by line range — `grep -n` for the symbol, then `sed -n '<a>,<b>p'` or Read with
-> `offset`/`limit` — and never re-read a file already in your context unless you have edited it
-> since. Cap every search (`| head -40`) and every build, lint or install run (`| tail -30`), and
-> reproduce a failing block from its log rather than printing the whole log. Never print a
-> generated file — a lockfile, a snapshot, a bundle, a build artifact.
-
-**Every fix subagent's dispatch prompt also carries the MUTATION PROOF paragraph of `skills/flow/fix.md`**, verbatim.
-
-**A restore that would discard unstaged edits is denied** (**Restoring a path with unstaged edits**,
-`skills/flow-contracts/git-boundaries.md`).
-
-**Every fix subagent's dispatch prompt also carries the PIXEL PROBE paragraph**:
-
-> **PIXEL PROBE:** every fix you land to draw/geometry code — code that computes what is
-> drawn: extents, bounds, gridlines, offsets, paths, positions, sizes — carries a probe assertion
-> against the actual rendered pixels: drive the real draw path and assert on the value it renders or computes, never on
-> a hand-derived copy of it. A fix commit for this class of bug that lands no such probe is
-> rejected at the fix step — the finding stays open and the round does not close — so the
-> regression is caught this round, not discovered by the next one. Where pixels cannot be
-> rendered in this environment, the probe asserts on the geometry the draw path actually
-> computes — the same numbers the renderer will paint — and your report names why the pixel
-> output itself was not asserted.
-
-**Every fix subagent's dispatch prompt also carries the REPORT FILE paragraph**:
-
-> **REPORT FILE:** write your report to
-> `<abs-worktree>/.superpowers/sdd/panel-fix-report-<round>.md` — a chunked round's chunk `<n>`
-> appends its own suffix, `panel-fix-report-<round>-<n>.md` — as your **last** act — after
-> your final test run — naming each finding you addressed, the executable
-> behaviours your fix changed, the `fix-mutation:` and `fix-mutations-total:` lines this round's
-> contract requires. Each fixed finding carries its
-> proof, each run's command and the tail of its output: the test run before the fix, the same
-> run after it, and the failure that run shows with the fix reverted — the re-running slot checks
-> this proof rather than re-deriving it. Each fixed Critical or Important finding also carries one
-> line, `regression-test: F<n> — <repo-relative path> — <test name>`, naming the git-tracked suite
-> test that fails at the pre-fix code, or `regression-test: F<n> — none — <reason>` where no suite test can exist.
-> The dispatcher waits on that file's presence. Your final message repeats the report's
-> `fix-mutation:` and `fix-mutations-total:` lines.
-
-**The fix subagent's own dispatch is recorded too** — the hook begins its row, `-role panel-fix`,
-at launch, and the parent ends it:
-
-```bash
-flow record dispatch end -change <name> -key panel-fix-<round>[-<chunk>] \
-  -session-token mf-<literal-token> -commit <fix-sha> -outcome completed
-```
-
-`-commit` is the fix commit itself, carrying the round's `Flow-Key:` trailer.
+**The fix subagent's own dispatch is recorded too** — the hooks begin and end its row, `-role
+panel-fix`, the end's `-commit` the fix commit its summary head names, carrying the round's
+`Flow-Key:` trailer.
 
 Then the stage ends:
 

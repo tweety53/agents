@@ -144,6 +144,7 @@ var crExpectedZero = []struct {
 			"skills/flow/plan-check-decide-prompt.md",
 			"skills/flow/plan-check-decision.md",
 			"skills/flow/plan-triage-prompt.md",
+			"skills/flow/fixer-brief.md",
 			"skills/flow/engineering-principles.md",
 			"skills/flow/reviewer-calibration.md",
 			"skills/flow/primary-reviewer-prompt.md",

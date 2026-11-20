@@ -16,8 +16,7 @@ import (
 // scripts/throwaway-worktree.sh shim (KAN-1058).
 //
 // flow-guard throwaway-worktree — create or remove the throwaway copy of a
-// worktree that a wave group's implementer (skills/flow/sdd-dispatch.md) or a
-// review-panel slot (skills/flow/review-panel-optional-slots.md) works in.
+// worktree that a review-panel slot (skills/flow/review-panel-optional-slots.md) works in.
 //
 // Usage: flow-guard throwaway-worktree create <worktree> <copy> [--sdd]
 //        flow-guard throwaway-worktree remove <worktree> <copy> [--fold-back]

@@ -109,7 +109,8 @@ func TestAreaFor(t *testing.T) {
 		"skills/flow/test-sanity-reviewer-prompt.md":     {"review", "test-sanity"},
 		"skills/flow/call-efficiency-reviewer-prompt.md": {"review", "call-efficiency"},
 		"skills/flow/engineering-principles.md":          {"impl", ""},
-		"skills/flow/sdd-dispatch.md":                    {"impl", ""},
+		"skills/flow/fixer-brief.md":                     {"impl", ""},
+		"skills/flow/slot-brief.md":                      {"review", ""},
 		"skills/flow/implementer-brief.md":               {"impl", ""},
 		"skills/flow/visual-verify-verifier.md":          {"vv", ""},
 		"skills/flow/review-panel-fix-round.md":          {"fix", ""},
@@ -130,7 +131,7 @@ func TestAreaFor(t *testing.T) {
 	if _, _, ok := AreaFor("skills/flow/implement.md"); ok {
 		t.Error("AreaFor(implement.md) found an area; want not-found")
 	}
-	if got := len(MappedTargets()); got != 10 {
-		t.Errorf("MappedTargets() = %d paths, want 10", got)
+	if got := len(MappedTargets()); got != 11 {
+		t.Errorf("MappedTargets() = %d paths, want 11", got)
 	}
 }

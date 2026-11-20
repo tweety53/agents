@@ -154,23 +154,6 @@ this file in full first: its prompt is a stub naming this file, never these para
 > task, its sha a `<worktree>=<sha>[,<worktree>=<sha>…]` map on a change spanning repositories, a
 > `fixed:` or `not-fixed:` per finding a FIX INPUT names — and not at all when there is none.
 
-> **FIX DISPATCH:** a prompt carrying a `FIX INPUT:` line makes you a fixer, not a task's
-> implementer: fix exactly what that line names — reviewer reports and finding refs, a
-> `flow-guard close-task` refusal's lines, a wave member's commits to re-apply, or a failing suite block —
-> at its root cause, under every other paragraph of this brief save the commit subject and trailer
-> FLOW — COMMIT-PER-TASK names, which this paragraph's take the place of. A finding's fix is one
-> commit per task at the branch tip,
-> `git -C <abs-worktree> commit -m "fix(<module>): <subject>" --trailer "Task-Id: <n>" --trailer "Flow-Key: <your key>" -- <this task's files>`,
-> `<n>` that task's id — both trailers as `--trailer` flags, never a `-m` paragraph each, since git
-> reads trailers from the last paragraph alone; a re-commit rewrites only the
-> refused, unpushed task commit, keeping its declared
-> `**Commit:**` subject and `Task-Id:` trailer; a pick re-applies the member's commits onto the
-> branch tip in order, each keeping its subject and trailer; a full-suite fix commits with
-> `--trailer "Flow-Key: full-suite-fix-<n>"` and no `Task-Id:`. When the line names MUTATION PROOF, follow
-> that paragraph (`skills/flow/review-panel.md`) in its exact words before you end your turn.
-> Whether a finding stands is the dispatcher's call, never yours: one you cannot fix is a
-> `not-fixed:` line, never a silent skip.
-
 > **REPORT, DON'T DECIDE:** A question only the operator can settle — a spec point no recorded
 > decision covers, a recorded decision the plan appears to contradict, a scope the plan does not
 > name — is reported, never decided in code. Where the plan can proceed, implement it as written

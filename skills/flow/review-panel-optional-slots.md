@@ -41,8 +41,7 @@ Dispatch each slot present in this round's panel **once**, its brief hand-assemb
 (**Bundled dispatch**, `skills/flow/review-panel.md`) from the shared resolved set, never from a copy: the
 brief names each copy, `<worktree>-<slot>-<round>`, as the repository path to mutate and test
 in, and never lists a worktree whose name already ends `-mutation-<round>` (kan-1119 self-review, F1).
-Remove every copy unconditionally once that slot's dispatch closes — completed, timed out
-(including after the wall-clock re-dispatch), or the run stopped — with
+Remove every copy unconditionally once that slot's dispatch closes — completed, aborted or the run stopped — with
 `flow-guard throwaway-worktree remove <worktree> <worktree>-<slot>-<round> --fold-back`, run as its own Bash call with literal absolute paths, never chained into a compound command, which first copies
 each non-empty `<worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md`,
 `<worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh`,

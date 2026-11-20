@@ -23,6 +23,10 @@ merely read -- a Read of a transcript, a diff of a test, a grep of a JSONL line 
 woke again after its parent had moved on -- kan-1085's fixer left a build running in the background
 and its parent waited 44 minutes on it.
 
+A stop it lets through -- no child and no background command left -- closes the agent's flow
+dispatch row: `flow-guard end-dispatch-row` reads the transcript's `Key:` line and final message
+and ends the row the begin hook opened, so the parent ends none itself.
+
 Fails open: any error -- bad input, unreadable folder -- exits 0 with no output.
 """
 
@@ -30,11 +34,13 @@ import glob
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 
 STALE_SECONDS = 30 * 60
-SCRIPT = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "flow-guard") + " await-sub-agents"
+FLOW_GUARD = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "flow-guard")
+SCRIPT = FLOW_GUARD + " await-sub-agents"
 
 
 def running_children(agent_id: str, folder: str) -> "list[str]":
@@ -104,6 +110,18 @@ def running_background(transcript: str) -> "list[str]":
     return [i for i in launched if i not in done]
 
 
+def end_row(transcript: str, payload: dict) -> None:
+    """Close the stopping agent's flow dispatch row; best-effort, output discarded."""
+    session_id, cwd = payload.get("session_id") or "", payload.get("cwd") or ""
+    if not session_id or not cwd:
+        return
+    try:
+        subprocess.run([FLOW_GUARD, "end-dispatch-row", transcript, session_id, cwd],
+                       capture_output=True, timeout=30, cwd=cwd)
+    except Exception:
+        pass
+
+
 def main() -> None:
     try:
         payload = json.load(sys.stdin)
@@ -128,6 +146,7 @@ def main() -> None:
         }))
         return
     if not children:
+        end_row(transcript, payload)
         return
     ids = " ".join(children)
     print(json.dumps({

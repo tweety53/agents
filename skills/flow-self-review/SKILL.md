@@ -92,7 +92,7 @@ prompts should handle and would recur. The verifier grades no severity: a visual
 gap in instructions:
 
 - **`implementer`** — a rule in the implementer instructions (`skills/flow/implementer-brief.md`,
-  `skills/flow/implement.md`, `skills/flow/sdd-dispatch.md`, `skills/flow/engineering-principles.md`) would have prevented the
+  `skills/flow/implement.md`, `skills/flow/fixer-brief.md`, `skills/flow/engineering-principles.md`) would have prevented the
   bad code.
 - **`reviewer`** — either a **miss**, a defect raised only in a later round or by a later slot that
   a first-round reviewer instruction (`skills/flow/*-reviewer-prompt.md`,

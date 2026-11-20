@@ -137,7 +137,6 @@ func TestThrowawayWorktreeCreate(t *testing.T) {
 		name, doc, marker, placeholder string
 		sdd                            bool
 	}{
-		{"wave group", "skills/flow/sdd-dispatch.md", "**Waves — concurrent dispatch", "<worktree>-wave-group-<g>", false},
 		{"slot --sdd", "skills/flow/review-panel-optional-slots.md", "## The throwaway worktree", "<worktree>-<slot>-<round>", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -59,8 +59,8 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    (`<changeRoot>/visual-verification.md`) sections are rewritten beside the fix's paths as DRIFT
    CHECK (`skills/flow/implement.md`) requires; the record and `<changeRoot>/visual-verification/`
    are written on disk only, the change directory gitignored. The fix is held to the paragraphs
-   below, and its dispatch prompt carries the MUTATION PROOF paragraph of this file and the
-   PIXEL PROBE paragraph of `skills/flow/review-panel.md`; the fix closes only when every reported `fix-mutation:` line is checked against the fix
+   below and to `skills/flow/fixer-brief.md`, its prompt the fixer stub (**Every fix is a fresh
+   one-shot**, `skills/flow/implement.md`); the fix closes only when every reported `fix-mutation:` line is checked against the fix
    diff the way **The fix round mutation-proves what it changed**
    (`skills/flow/review-panel-fix-round.md`) walks them — a mutant nothing kills is a new fixable
    defect this procedure takes another fix on.
@@ -278,49 +278,6 @@ forced reproduction as its evidence (the candidate made to fail on purpose, a de
 injected, failing the test without the fix and passing with it) where the candidate can be forced. The fix's one commit carries
 those fixes and its body states each forced reproduction, or that the fix
 went straight to code; a fixer that names no candidate has not finished the trace, and is sent back to it.
-
-**Every fix subagent's dispatch prompt also carries the MUTATION PROOF paragraph**:
-
-> **MUTATION PROOF:** every executable behaviour your fix changed is mutation-proved before you
-> end your turn — not only the test cases this round adds. The fix commit lands before the first
-> flip — a flip restored with `git checkout --` reverts the file to its index state, so an unstaged
-> fix dies with the first restore — and a flip's killing-test failure is trusted as proof only once
-> the mutation is asserted landed: the mutated bytes, read back from disk, are the ones the flip
-> wrote. Mutate the mechanism: revert it in a
-> scratch tree, or flip the single value it turns on — but before the tests run, confirm the edit
-> landed: the target changed where you intended, not nowhere and not somewhere else. An edit that
-> never applied is a refusal, not a surviving mutant — redo it with a working mechanism; it never
-> buys a test. Then confirm an existing test fails, and restore. Where your fix adds or
-> strengthens a test, the mechanism to mutate is the fixed line itself — flip the line your fix
-> changed, the code the added or strengthened test exists to catch — and the test confirmed to
-> fail under the flip is that added or strengthened test: one flip per fixed finding, the proof
-> that your fix's own test tests what it claims.
-> `flow-guard break-and-prove [--clean <command>] <file> (--sed <expr> | --patch <patch>) -- <test-command>` mechanizes a
-> single-file flip: it mutates `<file>`, asserts the test fails, restores `<file>` from a
-> pre-mutation byte snapshot rather than `git checkout --`, so uncommitted edits on it survive, and
-> asserts the restored run passes; a flip across several files or harnesses is one `break-and-prove --patch` call per file and test command. `<test-command>` runs from the repository root, so a runner
-> rooted in a subdirectory names it with its own directory flag — `go -C stats test ./internal/guard` in a
-> repository whose `go.mod` sits in `<project>/stats/`. A runner with no such flag runs through a
-> shell that enters its directory first — `-- sh -c 'cd stats/web && exec npx vitest run <file>'`
-> for a vitest suite under `<project>/stats/web/`, since a vitest started at the root finds no config, runs
-> outside its jsdom environment and writes its cache into an untracked `<project>/node_modules/` that the
-> post-restore check refuses as drift. Each mutation alters one mechanism — where a single
-> revert would also change state a second check reads, split it into surgical mutations, one per
-> mechanism. A mutation no test catches is a surviving mutant: add the test that catches it before
-> your turn ends. Where your fix changed a guard script — a check that exists to fail on a defect
-> class — the mechanism to mutate is the fix itself: run the guard against the defect state with
-> the fix reverted, where it must report the defect, and with the fix applied, where it must not;
-> the line records the measured pre/post observable, not a bare test name. Record one
-> `fix-mutation:` line per behaviour in your report, plus a
-> `fix-mutations-total:` count, in exactly this shape: `fix-mutation: <path> — <what was mutated> —
-> <the test that failed>`; `fix-mutation: <path> — none — <reason>` for a behaviour you exempt; for
-> a guard-script fix the third field is the measured `<pre>→<post> <what the observable counts>`
-> (`2→0 orphaned temp lists`); and one `fix-mutations-total: <n>` line after them. Where
-> you cannot judge whether a survivor is real or an equivalent mutant, say so in the report rather
-> than deciding it yourself.
-
-Every fix subagent's dispatch prompt also carries the PIXEL PROBE paragraph, which
-`skills/flow/review-panel.md` states.
 
 ## Narrowed visual re-runs
 
