@@ -42,7 +42,7 @@ func TestNoProgressRule(t *testing.T) {
 	}
 	// Every loop's own file cites the rule.
 	loops := []struct{ file, phrase string }{
-		{"skills/flow/implement.md", "A fourth `full-suite-fix-<n>` after three failed ones is the fresh dispatch of **Three failed rounds**"},
+		{"skills/flow/implement.md", "three failed rounds take **Three failed rounds** (`skills/flow-contracts/pipeline.md`)"},
 		{"skills/flow/gated-review-fix.md", "after three failed re-reviews of one task is the fresh dispatch of **Three failed rounds**"},
 		{"skills/flow/review-panel-fix-round.md", "as does a fourth round after three failed ones (**Three failed rounds**, there)"},
 		{"skills/flow/visual-verify.md", "as do three remainders of one dispatch that each close `NEXT: rest` (**Three failed rounds**, there)"},

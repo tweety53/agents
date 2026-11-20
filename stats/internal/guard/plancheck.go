@@ -96,6 +96,7 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 		fb := dgpvFallback(tasks, visual)
 		d = &fb
 	}
+	spAddSecurity(d, filepath.Join(wt, ".flow", "project.md"), tasks)
 	d.Overrides = []json.RawMessage{}
 	b, _ := json.MarshalIndent(d, "", "  ")
 	write := func(path string, content []byte) error {

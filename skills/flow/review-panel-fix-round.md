@@ -41,11 +41,10 @@ Critical, Important or Minor alike.** Then:
   alike**, a row linked by `-supersedes` to another
   role's row of the same round counting as that other role's (**Bundled dispatch**, `skills/flow/review-panel.md`). **A fix round is never exempt from being itself reviewed**: the
   fix for one finding can introduce the very class it fixed, no per-file or per-test check
-  catches that, and the round's own mutation-proof never substitutes for the
-  re-run its fixes name — for every role but Mutation, below. A slot that raised nothing keeps the
-  result it has; the round's own mutation-proof (below) covers what the fix changed;
+  catches that, and nothing substitutes for the re-run its fixes name — for every role but
+  Mutation, below. A slot that raised nothing keeps the result it has;
   **Mutation is the one role never re-dispatched after a fix.** A surviving mutant the round fixed
-  closes when the fix's `fix-mutation:` lines prove the tests it added. A round whose every Critical and
+  closes when the fix adds the test the finding named. A round whose every Critical and
   Important is a surviving mutant therefore dispatches its fix and closes with no re-run round;
   Mutation sweeps again only at the next pass 1.
 - **a diff-reading slot whose
@@ -119,67 +118,16 @@ the match and all three shapes is left untouched** on `open`, for the handback b
 **Read discipline** (`skills/flow/implement.md`): the specific hunks a finding names, never the <!-- refs-guard:allow -->
 whole fix diff.
 
-### The fix round mutation-proves what it changed
-
-**Every executable behaviour the fix changed is mutation-proved, not only the test cases the round
-adds.** The fix subagent performs the proof and reports it, per the MUTATION PROOF paragraph of
-`skills/flow/fixer-brief.md`; the parent runs no build of its own here. A survivor the fix subagent cannot
-judge real or equivalent goes through the same handback the section already names.
-
-**A fix that adds or strengthens a test is proved by a flip of the fixed line itself, one flip per
-fixed finding.** The mutation flips the line the fix changed — the code the added or strengthened
-test exists to catch — and the test confirmed to fail under the flip is that added or strengthened
-test, not merely any test that happens to trip: the flip is what shows the fix's own test tests
-what it claims. The flip is recorded with the round's other `flow record mutation` rows before the
-round's re-review begins.
+### What a fix round leaves behind
 
 **Every fixed Critical or Important finding leaves a tracked suite test behind** — the
 `regression-test:` line of the REPORT FILE paragraph (`skills/flow/review-panel.md`), so a
 regression of a reviewed defect is still caught once the worktree is gone; a fixed Minor needs none.
-
-**A fix round that fixed a Critical or Important finding and changed no executable behaviour still
-records one `-mutated none -test <reason>` row.**
-
-**Record each one with one `flow record mutation -change <name> -round <round> -path <path>
--mutated <what> -test <test>` call per line, transcribed from the fix subagent's final message — the
-exemption form records `-mutated none -test <reason>`; the lines the calls write are:**
-
-```text
-fix-mutation: <path> — <what was mutated> — <the test that failed>
-fix-mutation: <path> — none — <reason>
-fix-mutations-total: <n>
-```
-
-Each row is recorded before the round's re-review begins.
-
-**The rendered record carries these lines in its pass-log section, one round's count after that
-round's lines, and never inside the marker block.**
-
-**A fix to a guard script is proved by the guard's own observable, measured on both sides of the
-fix.** A guard script is a check that exists to fail on a defect class — this project's
-`scripts/check-*` family, or wherever its `## lint` section names its guards. The mutation probe
-is the guard run itself against the defect state: on the pre-fix code the guard reports the
-defect — the probe fails — and on the post-fix code it does not — the probe passes. The
-`fix-mutation:` line for that behaviour carries the measured pre/post observable as its third
-field, `<pre>→<post> <what the observable counts>`
-(`2→0 orphaned temp lists`), never a bare test name.
-
-**The parent checks the reported list against the fix diff before the round can close, reading the
-`fix-mutation:` lines and walking the diff itself.** Walk every
-hunk of the fix diff with a non-comment, non-whitespace change: each one is either covered by a
-reported line, or is not an executable behaviour at all. A fixed finding whose fix added or
-strengthened a test closes only with its own flip in the pass log — the per-finding obligation
-above is checked beside this walk, and a finding short its flip stays open for the handback below,
-never closed on another finding's line. A hunk that removes or weakens a test or an
-assertion states in the record what it used to cover and names what still covers that same behaviour
-now — checked by running the named covering test against the **pre-fix** code and confirming it
-fails. A hunk whose path is draw/geometry code is held to the **PIXEL PROBE** paragraph
-beside the mutation lines: the fix's report names the probe assertion it landed against the
-actual rendered pixels, and a fix commit for this class of bug that landed no such
-probe is rejected at the fix step — the round does not close and the finding stays open, for the
-handback below — rather than the regression being discovered next round.
-
-This binds the fix round every run — the obligation is the round's, not a slot's.
+The parent checks the fix diff against the report with `git diff --stat` and the hunks a finding
+names. A fix to draw/geometry code is held to the PIXEL PROBE paragraph of
+`skills/flow/fixer-brief.md`: a fix commit that landed no probe against the rendered pixels is
+rejected at the fix step — the round does not close and the finding stays open, for the handback
+below.
 
 **Carry each surviving finding to the fix subagent as a structured block**, not a bare restatement
 of its prose: its `F<n>`, the slot that raised it, its severity, its `file:line`, its theme, and

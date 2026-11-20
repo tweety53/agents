@@ -203,6 +203,13 @@
     "describe": "operator-2"
   },
   {
+    "key": "runner-2",
+    "role": "verifier",
+    "opener": "",
+    "category": "runner",
+    "describe": "Running the tests, run 2"
+  },
+  {
     "key": "panel-2-minor-fix",
     "role": "panel-fix",
     "opener": "",

@@ -105,6 +105,8 @@ func RoleOf(stored, key string) string {
 		return "minor-fix"
 	case strings.HasPrefix(key, "full-suite-fix"):
 		return "panel-fix"
+	case strings.HasPrefix(key, "runner-"):
+		return "runner"
 	case strings.HasPrefix(key, "plan-review"):
 		return "decider"
 	}

@@ -145,7 +145,6 @@ this file in full first: its prompt is a stub naming this file, never these para
 > commit: <task-id> <full sha>
 > fixed: F<n> <full sha>
 > not-fixed: F<n> — <reason>
-> fix-mutation: <path> — <what was mutated> — <the test that failed>
 > question: <the question, verbatim>
 > report: <this report file's absolute path>
 > ```

@@ -290,3 +290,38 @@ func TestDgpvInvalidGroupSizeLimit(t *testing.T) {
 		t.Errorf("dgpvInvalid = %q", got)
 	}
 }
+
+// TestPlanCheckAddsTheSecuritySlotOnAMatchingFile (kan-1125): a task file
+// matching `## security paths` adds a security bundle to the decision whatever
+// the decider answered; no match, or no section, adds none.
+func TestPlanCheckAddsTheSecuritySlotOnAMatchingFile(t *testing.T) {
+	t.Parallel()
+	plan := "# Tasks\n\n- [ ] 1. first\n\n**Files:** `api/auth/login.go`\n"
+	for name, c := range map[string]struct {
+		project string
+		want    bool
+	}{
+		"match":      {"## visual verification\n\n| Setting | Value |\n\n## security paths\n\napi/auth/**, api/secrets/**\n", true},
+		"no match":   {"## visual verification\n\n| Setting | Value |\n\n## security paths\n\napi/billing/**\n", false},
+		"no section": {"## visual verification\n\n| Setting | Value |\n", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			wt, root, out := dgpvFixture(t)
+			writeFile(t, wt+"/.flow/project.md", c.project)
+			writeFile(t, root+"/tasks.md", plan)
+			good := `{"groups":[{"tasks":["1"],"reason":"a"}],"panel":[{"slots":["primary"],"reason":"c"}],"visual":{"verify":"skipped","reason":"e"}}`
+			stub := newPJStub(t, pjJSON(pcAnswer(pcReport, good), ""))
+			if r := runGuard("plan-check", []string{wt, root, out}, pjEnv(t, pjPolicy(dgpvPolicy), stub)); r.rc != 0 {
+				t.Fatalf("rc=%d err=%q", r.rc, r.err)
+			}
+			has := false
+			for _, b := range dgpvRead(t, out).Panel {
+				has = has || slices.Contains(b.Slots, "security")
+			}
+			if has != c.want {
+				t.Errorf("security bundle present = %v, want %v", has, c.want)
+			}
+		})
+	}
+}

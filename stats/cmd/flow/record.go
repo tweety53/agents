@@ -1252,6 +1252,8 @@ func launchRoleID(role, key string) string {
 		return "planner-short"
 	case role == "verifier" && strings.HasPrefix(key, "visual-verify"):
 		return "visual-verifier"
+	case role == "verifier" && strings.HasPrefix(key, "runner-"):
+		return "runner"
 	case role == "implementer" && strings.HasPrefix(key, "operator-"):
 		return "operator-asked"
 	}

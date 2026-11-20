@@ -42,6 +42,7 @@ Every slot id a `panel` bundle names maps to one prompt:
 | `test-sanity` | **Test-sanity** — would each test the diff adds or changes fail if its behaviour broke | `test-sanity-reviewer-prompt.md` |
 | `call-efficiency` | **Call-efficiency** — second callers, a read repeated in one request, a query per list item | `call-efficiency-reviewer-prompt.md` |
 | `failure-modes` | **Failure-modes** — error return, timeout, partial write, concurrent re-entry | `failure-modes-reviewer-prompt.md` |
+| `security` | **Security** — injection, authorisation, secrets, trust boundary; added by `flow-guard plan-check` when a task's `**Files:**` matches the project's `## security paths`, never picked by the decider | `security-reviewer-prompt.md` |
 | `mutation` | **Mutation** — sabotage-proofing | the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
 
 A role a bundle drops leaves the bundle dispatching the roles it still names, and a bundle left
@@ -50,7 +51,7 @@ naming none is not dispatched.
 **A subagent-facing file is passed by absolute path, never read into this context.** This repository's
 `primary-reviewer-prompt.md` and `reviewer-calibration.md` (Primary), `principles-reviewer-prompt.md` and
 `engineering-principles.md` (Principles),
-`failure-modes-reviewer-prompt.md` (Failure-modes), and
+`failure-modes-reviewer-prompt.md` (Failure-modes), `security-reviewer-prompt.md` (Security), and
 `<project>/.flow/project.md`'s standards files are inputs to the slot that reads them; the
 dispatcher resolves their paths, confirms each exists, and names them in the prompt.
 
@@ -59,7 +60,7 @@ substituted in the dispatch prompt with the value named here:
 
 | Placeholder | Template | The parent substitutes |
 |---|---|---|
-| `[DIFF_PATH]` | all five | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` on a fix's review (`skills/flow/fix.md`, step 4); on a re-run, the round's `fix-round-N.diff` |
+| `[DIFF_PATH]` | all six | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` on a fix's review (`skills/flow/fix.md`, step 4); on a re-run, the round's `fix-round-N.diff` |
 | `[ARTIFACT_PATHS]` | primary | the absolute paths of the change's `proposal.md`, `design.md` and `tasks.md` in the plan directory (`<changeRoot>`, or a satellite's canonical change directory) |
 | `[CALIBRATION_PATH]` | primary | the **absolute** path of `reviewer-calibration.md` beside this file, resolved as `[PRINCIPLES_PATH]` is |
 | `[PRINCIPLES_PATH]` | principles | as the Principles section below resolves it |
@@ -365,7 +366,7 @@ skip-the-render shortcut.
 **Load `skills/flow/review-panel-fix-round.md` only when** a round has recorded a Critical or
 Important finding, before that round's fix opens, or a section of it is cited at the point of use (the full-suite fix, the gated
 reviewer's fix, the stage-diff check) — it carries every fix round's procedure: the
-fix commit routes, which slots re-run and on what, the fix's mutation proof and round close, the fix chunks and the
+fix commit routes, which slots re-run and on what, the round close, the fix chunks and the
 non-convergence loop, while the fix subagent's dispatch paragraphs and dispatch record stay in
 this file.
 
@@ -377,9 +378,9 @@ Minor it raised to that same fix**, closed by the same verification. **A round t
 Critical and no Important has its Minors fixed by one fresh subagent at the round's close** — role
 `minor-fix`, key `panel-<round>-minor-fix` (**Dispatch sites — the parent's closed list**,
 `skills/flow/implement.md`), its pair from `flow-guard pair-judge minor-fix`, its prompt carrying
-every fix subagent paragraph below but MUTATION PROOF and REPORT FILE, its open Minors as the
+every fix subagent paragraph below but REPORT FILE, its open Minors as the
 findings, and `REPORT FILE: <abs-worktree>/.superpowers/sdd/minor-fix-report-<round>.md` — no
-mutation proof, no slot re-run. It edits each Minor's named location, stages the changed paths and makes one
+slot re-run. It edits each Minor's named location, stages the changed paths and makes one
 commit per worktree at the branch tip —
 `git -C <worktree> commit -m "fix(<module>): review Minors" -m "Flow-Key: flow.review-panel" -- <the changed paths>`, the scope
 naming the module the edits moved. On its return the parent pushes that commit per **Branch
@@ -417,9 +418,7 @@ no stale result — where **a slot's clean result is stale when the rule above r
 re-run and it has not, or when any commit or working-tree change to source landed after that slot's
 last read, from any stage — `flow.verify` included**. An unrecorded edit after the panel closes is
 stale by definition, not only one a fix round produced. A fix against which a slot raised no
-finding leaves that slot's result current: the round's own mutation-proof (below) covers what the
-fix changed. A fix of Mutation's own findings leaves Mutation's result current too: the
-fix's `fix-mutation:` lines cover it (**Panel re-runs**,
+finding leaves that slot's result current: a fix's own report covers what it changed. A fix of Mutation's own findings leaves Mutation's result current too (**Panel re-runs**,
 `skills/flow/review-panel-fix-round.md`). **The `review Minors` commit leaves every slot's result current** — a source change
 after a slot's last read that does not make that result stale, and neither does a fix's delta
 for a slot its one reviewer did not read (`skills/flow/fix.md`).

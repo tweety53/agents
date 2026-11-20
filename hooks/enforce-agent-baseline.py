@@ -113,6 +113,7 @@ ROW_KEY = (
     r"|panel-fix-\d+(?:-\d+)?(?:-retry)?"
     r"|fix-\d+-(?:implementer|review)"
     r"|full-suite-fix-\d+"
+    r"|runner-\d+"
     r"|visual-verify(?:-[a-z0-9][a-z0-9-]*)?"
     r"|pipeline-fix-[a-z0-9][a-z0-9-]*"
     r"|plan-\d+"
@@ -164,7 +165,7 @@ ROW_ROLE = {
     "panel-reviewer": "reviewer", "panel-rerun": "reviewer",
     "panel-merger": "merger",
     "panel-fix": "panel-fix", "minor-fix": "panel-fix", "no-progress-fixer": "panel-fix",
-    "visual-verifier": "verifier",
+    "visual-verifier": "verifier", "runner": "verifier",
     "planner": "planner", "plan-designer": "planner",
     "planner-short": "planner",
     "explorer": "explorer",

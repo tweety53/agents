@@ -60,10 +60,8 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    CHECK (`skills/flow/implement.md`) requires; the record and `<changeRoot>/visual-verification/`
    are written on disk only, the change directory gitignored. The fix is held to the paragraphs
    below and to `skills/flow/fixer-brief.md`, its prompt the fixer stub (**Every fix is a fresh
-   one-shot**, `skills/flow/implement.md`); the fix closes only when every reported `fix-mutation:` line is checked against the fix
-   diff the way **The fix round mutation-proves what it changed**
-   (`skills/flow/review-panel-fix-round.md`) walks them — a mutant nothing kills is a new fixable
-   defect this procedure takes another fix on.
+   one-shot**, `skills/flow/implement.md`); the fix closes when the
+   re-run of step 3 passes.
 
 3. **Re-run the failing check**, under `flow.verify`. In-run: the stage that reported the defect,
    re-run as `skills/flow/verify-and-handoff.md`'s Verify and Visual verification

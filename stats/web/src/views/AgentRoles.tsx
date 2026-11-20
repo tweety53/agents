@@ -27,6 +27,7 @@ export const SHORT_DOES: Record<string, string> = {
   "panel-rerun": "Re-reviews the branch",
   "panel-merger": "Merges findings",
   "visual-verifier": "Compares UI to mockup",
+  runner: "Runs suites, returns a verdict",
   "self-review-pass": "Reviews the run",
   "self-review-plan": "Plans review fixes",
   "self-review-fix": "Makes a review fix",

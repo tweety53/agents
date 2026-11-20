@@ -102,6 +102,7 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 | Role | Does |
 |---|---|
 | `visual-verifier` | Screenshots the UI and compares it with the mockup. |
+| `runner` | Runs the test list or another long command and returns a verdict with the failing names and its flake-or-defect evidence. |
 
 ### Self-review
 

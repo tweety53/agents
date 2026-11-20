@@ -208,7 +208,7 @@ var ErrInvalidRecord = errors.New("api: invalid record")
 // heatmap.
 var panelSlots = map[string]bool{
 	"primary": true, "principles": true, "test-sanity": true,
-	"call-efficiency": true, "failure-modes": true, "mutation": true,
+	"call-efficiency": true, "failure-modes": true, "mutation": true, "security": true,
 }
 
 func ApplyDispatchRecord(ctx context.Context, rw RecordWriter, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {

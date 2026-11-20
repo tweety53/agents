@@ -93,8 +93,9 @@ the spec-reach check to the lint list itself (`Spec reach: not
 configured` is the ordinary case for a project with no `regression checkout`). Run
 every command in order and do not stop at the first failure.
 The lint commands and the test commands run as two groups at once, each
-in the order printed, in one Bash call launched with `run_in_background: true` as the paragraph below
-runs a `verify` that can outrun the shell tool's time limit; the `## Report` lists every command in the order
+in the order printed, in the one Bash call of **Recording** below, which a runner
+(its row of **Dispatch sites — the parent's closed list**, `skills/flow/implement.md`; `runner-<n>`, the call as its
+`COMMANDS:`) runs and answers with its verdict; the `## Report` lists every command in the order
 printed. **Nothing runs them later** —
 `/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
 While a stack is up for this run, the test commands start only after `flow-guard check-dev-stack-fresh
@@ -102,7 +103,7 @@ While a stack is up for this run, the test commands start only after `flow-guard
 `## run`, so no suite runs against a build older than the last commit; a stack
 that will not start ends the turn as a failed command's environment cause does.
 
-**A `verify` that can outrun the shell tool's time limit runs whole, in the background** — one Bash call launched with `run_in_background: true`, and the parent waits for its completion notification and reads the exit code and output from it, never a `sleep` poll. Never split its
+**A `verify` that can outrun the shell tool's time limit runs whole, in the runner's foreground.** Never split its
 `<specs>` into hand-chosen chunks to fit the limit: a hand-made split can drop a spec, and each
 chunk pays the suite's start-up again.
 
@@ -140,7 +141,8 @@ targeted tests and nothing wider: a targeting that is empty or fails falls back 
 never to a whole suite, and no whole-suite command is typed by hand in its place.
 
 **Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
-inline re-run of that command — the environmental-flake case. A failing visual `verify` row's one re-run is the narrowed run of **Narrowed visual re-runs**
+re-run by the runner, which reports `flaky`, `defect` or `environment` evidence
+(`skills/flow/runner-brief.md`) — the environmental-flake case. A failing visual `verify` row's one re-run is the narrowed run of **Narrowed visual re-runs**
 (`skills/flow/fix.md`). Output carrying `WARNING: DATA RACE`
 or `race detected during execution of test` is never that case: the command takes the fix procedure
 whatever its re-run exits, since a race that passes once is still a race
@@ -364,28 +366,14 @@ and nothing the ledger or panel record already holds. The abandoned approaches a
 reasons are recorded because the diff shows only the winning shape — a deferred self-review pass
 reads the narrative, and the negative results live nowhere else in the change's record. The narrative itself is gitignored, written on disk and nothing else; nothing stages it.
 
-**Close every open dispatch row of the change** before the state is written — only this
-run knows how its own dispatches ended. List them from the canonical worktree:
+**The hooks have ended every row whose agent stopped**; before the state is
+written, list the rows still open and end each `-outcome aborted` — its agent is gone:
 
 ```bash
 flow record dispatches -change <name> -C <canonical-worktree> \
   | jq -r '.[] | select((.outcome // "") == "") | "\(.key) \(.sessionToken) \(.agentId // "inline")"'
+flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome aborted
 ```
-
-and close each printed row under its own key and token, `-outcome completed` when its report was
-read, `-outcome aborted` otherwise — an earlier run's row included:
-
-```bash
-flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome <completed|aborted> \
-  [-ended-at <when its work ended>] [-commit <its task commit>]
-```
-
-On claude-code a row passes no `-ended-at`: the daemon closes it at its agent
-transcript's last write, as each panel `end` does (`skills/flow/review-panel.md`). On any other harness a row passes
-`-ended-at` as the instant the row's work ended — its task commit's author date
-(`git log -1 --format=%aI <sha>`), never the committer date a cherry-pick restamps, else its report
-file's mtime — never the moment it is closed. An implementer row carries
-`-commit` with its task commit's full sha.
 
 **Record the `**Summary:**` bullets next**, per **Summary and live-stack line, before every handoff** (`skills/flow-contracts/pipeline.md`).
 

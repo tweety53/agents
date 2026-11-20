@@ -13,7 +13,7 @@ Minors. Fixers of one worktree run in series, each launched once the previous on
 run; fixers of different worktrees run at once. Each is the gated row of **Every fix is a
 fresh one-shot** (`skills/flow/implement.md`), keyed `task-<n+n>-implementer-fix-<k>`, the ids of
 the tasks its group fixes `+`-joined in plan order, on the `panel-fix` role's pair. Its `FIX INPUT:` line names each reviewer
-report path, each finding's ref and MUTATION PROOF. Every task commit is pushed by then, so each
+report path, each finding's ref. Every task commit is pushed by then, so each
 fix is one new commit on top per task, carrying that task's `Task-Id:` trailer.
 
 **Each fixer's return is one Bash call**: the push, `flow record status
@@ -29,9 +29,7 @@ green names the run — its command and exit — else the line is carried to the
 diff, its findings file `findings-gated-<n+n>-fix-<k>.jsonl`. The re-dispatched bundle runs on the `gated-re-reviewer` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`),
 its prompt opening with the line `Role: gated-re-reviewer` in place of the original bundle's.
 The re-dispatched bundle's Agent-tool `description` is `Tasks <ids>/<N> (re-review)` — `Task <x>/<N> (re-review)`
-for one task — so the `flow-task-list` mod shows its row as a re-review. It carries the fixer's
-`fix-mutation:` lines beside each fix diff, a mutant nothing kills failing the gate and sending
-the task back through this file's fix path.
+for one task — so the `flow-task-list` mod shows its row as a re-review.
 
 A clean re-review pass closes each finding its task's earlier pass raised, `flow record status
 -change <name> -ref F<n> -status fixed`; a finding a re-review pass raises is

@@ -25,6 +25,9 @@ bundle is one reviewer dispatch.
 | `failure-modes` | error returns, timeouts, partial writes, concurrent re-entry |
 | `mutation` | sabotage-proofing: breaks the code on purpose to prove the tests notice |
 
+`security` is not in this catalog: `flow-guard plan-check` adds it after your answer when a task's
+`**Files:**` matches the project's `## security paths`.
+
 - Pick a reviewer only when the change gives it something to read: no `call-efficiency` for a
   change that adds no call, query or request; no `failure-modes` without I/O, persistence or
   concurrency; no `test-sanity` when no test is added or changed; no `mutation` when the change
