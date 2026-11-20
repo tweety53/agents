@@ -1453,7 +1453,7 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 
 	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-1", records.Decision{
 		SessionToken: "mf-reviewers-test",
-		Decision: json.RawMessage(`{"panel": [{"slots": ["primary", "exp-failure-modes"]}]}`),
+		Decision:     json.RawMessage(`{"panel": [{"slots": ["primary", "exp-failure-modes"]}]}`),
 	}); err != nil {
 		t.Fatalf("RecordDecision: %v", err)
 	}

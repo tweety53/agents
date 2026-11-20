@@ -759,7 +759,7 @@ type recordIdentityFlags struct {
 // FLOW_RECORDS_ADDR. `flow self-review bundle` and
 // `flow suite record`/`list` register through here too, for the same reason:
 // suite runtimes are medianed across runs, so a worktree's rows must reach
-// the persistent store. `flow stage`, `flow state` and
+// the persistent store. `flow stage`, `flow state`, `flow policy` and
 // `flow jira` are record-family members too (kan-1038): stage marks, state
 // rows and Jira transitions must outlive the worktree's daemon,
 // so they register their -addr through registerRecordsAddrFlag. Every
