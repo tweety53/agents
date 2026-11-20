@@ -6,8 +6,9 @@ license: MIT
 compatibility: Runs from the agents repository's main checkout, which stays read-only; needs the flow CLI and the Agent tool.
 ---
 
-Walk the prompt-tuning cases the self-review's angle 4, `flow-prompt-tuning`, saved —
-step 2a of **Workflow** (`skills/flow-self-review/SKILL.md`) is canonical for the case folder and its fields — under
+Walk the prompt-tuning cases an earlier self-review saved — the pass no longer writes new ones: its
+angle 3, `flow-prompt-tuning`, files findings only (`skills/flow-self-review/SKILL.md`), so this command
+works the folders that remain — under
 `<agents repo>/docs/prompt-tuning/<case-id>/`, prove each proposed prompt update by a replay
 on the case's repro data, apply the updates that pass, remove the applied updates a replay no
 longer needs, record every case in

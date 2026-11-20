@@ -139,5 +139,5 @@ past planning is (**Work end to end — stop only to plan or to test by hand**,
   Nor is the base sync `flow-guard check-base-behind` prints: a merge commit of the tracked branch onto the
   `--base`, pushed fast-forward — it rewrites no history and only brings the base up to what it
   tracks.
-  Nor is the self-review pass's filing (step 5, `skills/flow-self-review/SKILL.md`): it creates
+  Nor is the self-review pass's filing (step 4, `skills/flow-self-review/SKILL.md`): it creates
   new issues only, by the operator's standing decision, and touches no existing one.

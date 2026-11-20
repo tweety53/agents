@@ -204,8 +204,8 @@ hand like a guard-script one.
 ## stop
 
 **This key declares no command, and that is the answer rather than an omission.** `/flow`'s
-worktree-cleanup check 5 runs whatever this key declares before removing a worktree; there is
-nothing here for it to run.
+no `/flow` step runs this key before removing a worktree; there is
+nothing here for a stack start or restart to run.
 
 **What is protected is the dev workspace's service and its storage, and only those** — the empty-id
 case of `## workspace isolation` below, which is what the main checkout resolves:
@@ -235,7 +235,7 @@ requires, and that must keep working. The line is the one **Workspace isolation*
 resource, never the service that holds it. This section protects the service and the dev workspace's
 own logical resources; it says nothing about anyone else's.
 
-**Nothing worktree-local exists for check 5 to stop.** A worktree gets its own database and port, and
+**Nothing worktree-local exists to stop.** A worktree gets its own database and port, and
 no `/flow` step starts a daemon against them.
 
 Stopping the dev stack is an **operator** action, deliberately. The commands live where the operator

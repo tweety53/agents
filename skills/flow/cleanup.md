@@ -49,17 +49,15 @@ and a kill partway leaves it down.
 - **`STOP: self-review-report`** → `cleanup` refuses without a completed `flow.self-review` run:
   run the self-review pass of `skills/flow/integrate.md` — beginning `flow.self-review` again first
   when its run was ended `stopped` — end the stage `completed`, re-run.
-- **`STOP: not-merged`** → this is not run 2; fall back to `skills/flow/integrate.md` and **remove
-  nothing**.
 - **`STOP: worktree-cleanup`** → a `REFUSED:` line, or the guard's exit 2: stop at
   `IN_PROGRESS`, leave every worktree alone, and report each line per **Worktree cleanup**
-  (`skills/flow-contracts/finish-contract-run2.md`).
+  (`skills/flow-contracts/finish-contract-run2.md`). A `REFUSED: … check 3` line means the branch
+  is not merged: this is not run 2, so fall back to `skills/flow/integrate.md`; nothing was removed.
 - **`STOP: state`** → report it; the change stays at `IN_PROGRESS`.
 
 Three stops in a row of `cleanup` take **Three failed rounds** (`skills/flow-contracts/pipeline.md`),
 applied inline from every earlier stop's lines — only stops the parent can cure itself. A stop
-that exists to ask or to hand to the operator — `STOP: worktree-cleanup`,
-`STOP: not-merged` — is never counted toward it: it is handled as its bullet above says, every time.
+that exists to ask or to hand to the operator — `STOP: worktree-cleanup` — is never counted toward it: it is handled as its bullet above says, every time.
 
 A `WORKSPACE-REMOVE-FAILED:` line is **the one exception to the stop-at-the-first-failure rule**:
 the script carries on. Relay each `REMOTE-*` line as the handoff's

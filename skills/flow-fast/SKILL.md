@@ -252,23 +252,20 @@ flow stage begin -command '/flow-fast' -stage flow.self-review -harness <harness
 **Self-review runs here, in this run — this section is canonical for `/flow-fast`'s self-review.**
 A `flow.self-review` stage already completed for `<name>` skips the pass: a fix re-run never
 records its findings twice.
-Assemble the bundle in `<sr-dir>/bundle.md` (**2. Read the bundle and run the four angles**, `skills/flow-self-review/SKILL.md`), never printed, never committed, as, in
+Assemble the bundle in `<sr-dir>/bundle.md` (**2. Read the bundle and run the three angles**, `skills/flow-self-review/SKILL.md`), never printed, never committed, as, in
 order: the stdout of `flow self-review
 bundle -change <name>` run from the worktree — of the sources `/flow`'s bundle judges a change
 by, a `/flow-fast` run can never have tasks.md, design.md, narrative.md, visual-verification.md and live-verification.md (no spectre
 artifacts), so those five report `skipped` by design, never silently;
 the git-log source resolves from the main checkout the command resolves, as the change branch's
-commits; the ledger and panel render from the store when the run wrote rows — then
-`## Session narrative`, one paragraph this session writes on what it
-did and where it struggled, recording every approach tried and abandoned with why it failed
-(**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`).
+commits; the ledger and panel render from the store when the run wrote rows.
 
-Over that bundle run steps 2–6 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`),
-canonical for the four angles, the fix loop, where the fixes land — on `<name>` itself
+Over that bundle run steps 2–5 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`),
+canonical for the three angles, the fix, where the fixes land — on `<name>` itself
 when `<worktree>` is `<agents repo>`'s — the filing and the store rows. No report is written: the findings live in flowd.
 
 The fixes land with the change on every route. **7. Land**'s landing push carries the fix
-commits' shas per item 5 of step 3 of `/flow-self-review`, in whichever invocation makes it.
+commits' shas per item 2 of step 3 of `/flow-self-review`, in whichever invocation makes it.
 
 A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes the mark below
 `-outcome stopped` instead, and continues straight into the fix re-run **the sweep**

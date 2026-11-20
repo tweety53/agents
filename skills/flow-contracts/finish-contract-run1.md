@@ -17,7 +17,8 @@ branch's merge status is the only source of truth, and a field could disagree wi
 
 **The merge status is decided by three signals, in this order, and by a script — not by prose.**
 `flow-guard check-finish-preflight <worktree> <base-ref> <recorded-merge-base|->` prints one verdict
-line and exits 0 whenever it reached a verdict. It exits 2 with no verdict when it cannot read the
+line — and, after a `RUN1`, `check-base-moved`'s own `CLEAR` / `MOVED` / `REFUSE` line about the
+same worktree — and exits 0 whenever it reached a verdict. It exits 2 with no verdict when it cannot read the
 worktree at all — an unreadable tree is never a licence to proceed.
 
 **`<base-ref>` is composed as `origin/$BASE`** — the remote-tracking ref, `$BASE` being the bare
@@ -35,34 +36,21 @@ the set found by **Resolving a change's worktrees** below, and proceed to run 2 
 worktree returns `RUN2`. A resolved set that comes back empty is not "every worktree" — it stops the
 run exactly as **Resolving a change's worktrees** requires, never a vacuous `RUN2`.
 
-### Surface foreign staged work before the preflight
+### Surface main-checkout drift before the preflight
 
 **There must be no staged or dirty work in a main checkout — everything is done in worktrees.**
-Before `flow-guard check-finish-preflight` runs for any worktree, the run surfaces the foreign staged work
-the affected main checkouts carry.
+Before `flow-guard check-finish-preflight` runs for any worktree, the run surfaces each affected
+main checkout's drift from its expected post-merge state — on the repository's default branch with
+nothing tracked modified, staged or unmerged.
 
 The affected repositories are resolved from the worktree set: for each worktree, the main checkout
-`git rev-parse --git-common-dir` resolves, made absolute and physical, deduplicated. `flow-guard check-foreign-staged` runs
-once per distinct main checkout, and its header is canonical for the verdict grammar it prints. On
-`STAGED-CLEAN` from every repository the run continues into the preflight with nothing more said.
-On any `STAGED-FOREIGN`, every repository's listing is shown together and the run stops at
-`STOP: main-checkout`. **An exit 2 with no verdict** — a main checkout whose status cannot be
-read — stops the same way, with nothing to list; an inability is never read as `STAGED-CLEAN`.
-
-The stop leaves the change where its state has it with nothing staged, committed, pushed, reset or
-stashed by the run; the operator commits, stashes or resets the residue themselves and re-runs.
-The relay includes the guard's own hand-verification procedure per **Hand-verifying a guard
-verdict** (`skills/flow-contracts/pipeline.md`).
-
-In the same pre-run position, over the same distinct main checkouts, the run also surfaces each
-checkout's drift from its expected post-merge state — on the repository's default branch with
-nothing tracked modified, staged or unmerged. `flow-guard check-main-checkout-drift` runs once per
-distinct main checkout, and its header is canonical for the verdict grammar it prints: a
-`DRIFT-BRANCH` line names a checkout on any other branch than the one `refs/remotes/origin/HEAD`
-points at, a `DRIFT-DIRTY` line counts tracked entries. On `DRIFT-CLEAN` from every
-repository the run continues with nothing more said. **A clean checkout on another branch is
-switched back, never asked about.** When a repository's only finding is `DRIFT-BRANCH` — both
-guards exited 0, `flow-guard check-foreign-staged` printed `STAGED-CLEAN` and no `DRIFT-DIRTY` printed —
+`git rev-parse --git-common-dir` resolves, made absolute and physical, deduplicated.
+`flow-guard check-main-checkout-drift` runs once per distinct main checkout, and its header is
+canonical for the verdict grammar it prints: a `DRIFT-BRANCH` line names a checkout on any other
+branch than the one `refs/remotes/origin/HEAD` points at, a `DRIFT-DIRTY` line counts tracked
+entries, staged ones included. On `DRIFT-CLEAN` from every repository the run continues with
+nothing more said. **A clean checkout on another branch is switched back, never asked about.** When
+a repository's only finding is `DRIFT-BRANCH` — no `DRIFT-DIRTY` printed —
 `flow-guard integrate-change prepare` runs `git -C <main-checkout> switch <default>`, prints one
 `DRIFT-SWITCHED: <main-checkout> — <branch> -> <default>, <branch> kept at <sha> (<n> commits
 ahead of <default>)` line, and re-runs `flow-guard check-main-checkout-drift`, continuing only on
@@ -74,8 +62,11 @@ another worktree, an untracked file it would overwrite, no default branch to swi
 index — which leaves the checkout as it was and adds a `DRIFT-SWITCH-REFUSED` line to the
 listing; and a re-run that does not print `DRIFT-CLEAN`. Each repository is judged on its own: one
 repository's switch never waits on another's question. On any other `DRIFT-BRANCH` line, or any
-`DRIFT-DIRTY` line, every repository's findings — this guard's and `flow-guard check-foreign-staged`'s alike — are
-shown together and the run stops at `STOP: main-checkout`; **an exit 2 with no
+`DRIFT-DIRTY` line, every repository's findings are shown together and the run stops at
+`STOP: main-checkout`, leaving the change where its state has it with nothing staged, committed,
+pushed, reset or stashed by the run; the operator commits, stashes or resets the residue
+themselves and re-runs. The relay includes the guard's own hand-verification procedure per
+**Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`). **An exit 2 with no
 verdict** — a checkout whose branch, default branch or status cannot be read — stops the
 same way, an inability never reading as `DRIFT-CLEAN`. A checkout clean but behind its default
 branch is ordinary not-pulled state and never a finding here; run 2's refresh step owns
@@ -107,22 +98,17 @@ that greps for `CLEAR` in empty output finds nothing.
 
 **Load `skills/flow/unfinished-work-gate.md` only when** a worktree reported `OUTSTANDING` — finishing the work is there.
 
-**Check whether the base branch has moved — after the unfinished-work gate, before the landing
-question.** `flow-guard check-base-moved <worktree> <base-ref> <recorded-merge-base|->` prints one verdict
-line and exits 0 whenever it reached a verdict; it exits 2 with no verdict line when it cannot read
-the worktree. `<base-ref>` is composed as `origin/$BASE`, exactly as the preflight's own is above,
-and `<recorded-merge-base>` is the merge base recorded in the state file's `worktrees` map for that
-worktree. The three verdicts — `CLEAR`, `MOVED` and `REFUSE` — and the exit contract are the
-script's own; see `<agents repo>/scripts/flow-guard check-base-moved`'s header rather than a copy of them
-here. A `MOVED` verdict is relayed with the guard's hand-verification procedure alongside it, per
-**Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`).
-
-Run it once per worktree in the set found by **Resolving a change's worktrees** below — never a raw
-read of the state file's `worktrees` map, for the same reason the preflight verdict and the
-unfinished-work check above do not read it raw. Every worktree's verdict is reported, and none is
-prompted: a `MOVED` verdict, overlapping or not, is what **Sync the branch onto the base**
-(`skills/flow/sync-onto-base.md`) consumes. A `REFUSE`, an exit 2, or a resolved set that comes back empty stops and asks, exactly
-as the preflight verdict above does.
+**The base-moved verdict is the preflight's second line, not a call of its own.** After a `RUN1`
+the preflight prints `check-base-moved`'s `CLEAR`, `MOVED` or `REFUSE` line for the same worktree,
+the three verdicts and the exit contract being `<agents repo>/scripts/flow-guard check-base-moved`'s
+header's rather than a copy of them here; `<base-ref>` is composed as `origin/$BASE`, exactly as
+above, and `<recorded-merge-base>` is the merge base recorded in the state file's `worktrees` map
+for that worktree. A `MOVED` verdict is relayed with the guard's hand-verification procedure
+alongside it, per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`). Every
+worktree's verdict is reported, and none is prompted: a `MOVED` verdict, overlapping or not, is
+what **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) consumes, after the
+unfinished-work gate. A `REFUSE`, an exit 2, or a resolved set that comes back empty stops and
+asks, exactly as the preflight verdict above does.
 
 Only then decide, **before any git action but the sync above**, how the branch should land — the default, the prompt
 and its parse are step 2 of `skills/flow/integrate.md`. The answer is never remembered between runs.
@@ -151,7 +137,7 @@ All three routes then commit the work as the implementation commit, subject
 `<type>(<module>): <what the implementation does>` with `<module>` naming the area the reshaped
 diff carries. It carries, beside `Flow-Key: flow.commit-two`, the `Task-Id: <n>` trailer of every
 commit the reshape squashed. `<project>/spectre/changes/` is gitignored, so the change directory lands in no
-commit — save **The design record** below.
+commit.
 
 **Nothing under `<abs-worktree>/.superpowers/sdd/` is committed** — not the rendered ledger and
 panel record, not the brainstorm design document. They are worktree-lifetime files, removed with
@@ -165,28 +151,6 @@ symlink case — is the chain **The guarded commit chain** (`git-boundaries-comm
 
 **Push every worktree's `spectre/<name>` `--force-with-lease`**, in `## Merge order`, once the
 implementation commit lands — the reshape's push (**Branch backup**, `git-boundaries.md`).
-
-### The design record
-
-`flow-guard integrate-change commit` writes the canonical worktree's `<changeRoot>/design.md` out
-as `<project>/docs/designs/<name>.md` — the two header lines below, a blank line, then `design.md` byte
-for byte — after the reshape and before the implementation commit, which carries it (decision
-`design-record-at-run1`). A change with no `design.md` gets none, and a satellite
-worktree never writes one. The file is derived on every run of the step, so a decision a fix
-round superseded is in it, and it is never edited by hand; nothing keeps it current after
-landing — a decision a later change overturns is superseded in that change's own record. A
-change with no Jira key drops the parenthesis. A decision superseded after the implementation
-commit — by a self-review fix — is written out again with
-`flow-guard integrate-change design-record <main-checkout> <name>`, which runs the same write
-alone, and the file committed with that fix (kan-1119 self-review, F5).
-
-```markdown
-# <name>
-> Design record of change <name> (<Jira key>), written at landing. Each decision's own **Status:** line is the status.
-```
-
-A canonical worktree whose only implementation path is the record still commits it:
-`integrate-change prepare` asks for that worktree's implementation subject.
 
 ### The routes
 
@@ -218,12 +182,10 @@ case — replaces each section whose heading opens with bands, seams or ink, thr
 its level or higher, with one line naming the lines it held, its heading and the record's path,
 and its `git log --stat` lines leave out every `*.png` path. A source that is absent is reported
 `skipped: <source> (absent)` inside the bundle, never fatal.
-The session writes that document to `<sr-dir>/bundle.md` (**2. Read the bundle and run the four angles**, `skills/flow-self-review/SKILL.md`), never printing it, and appends `## Session narrative` there (one paragraph it writes for run 1 itself; the
-change's `narrative.md` is already a bundle section, and a change predating the narrative rule
-has the bundle report it skipped) — it is never committed.
+The session writes that document to `<sr-dir>/bundle.md` (**2. Read the bundle and run the three angles**, `skills/flow-self-review/SKILL.md`), never printing it — it is never committed.
 
-Over that bundle the session runs steps 2–6 of `/flow-self-review`
-(`skills/flow-self-review/SKILL.md`), canonical for the four angles, the fix loop and its
+Over that bundle the session runs steps 2–5 of `/flow-self-review`
+(`skills/flow-self-review/SKILL.md`), canonical for the three angles, the fix and its
 dispatch pairs, where the fixes land (always the `self-review-<name>` loop branch, landed by `flow-guard pipeline-fix land`, never onto the change's branch), the filing and the store rows — on every route, before cleanup removes the worktrees.
 No report is written: the findings live in flowd. The session then ends the stage with
 `flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>`; `cleanup` checks that row
@@ -231,7 +193,7 @@ No report is written: the findings live in flowd. The session then ends the stag
 `STOP: self-review-report` until it holds. The run's final report names the branch and shas.
 
 A completed `flow.self-review` stage skips the pass on a re-run, so no finding is recorded or
-offered twice. So does a completed `self-review-<name>-pass` row while the loop branch `self-review-<name>` exists, the re-run resuming the loop from `<sr-dir>/findings.md` (step 2 of `/flow-self-review`).
+offered twice. So does a completed `self-review-<name>-pass` row while the loop branch `self-review-<name>` exists, the re-run resuming the fix from `<sr-dir>/findings.md` (step 2 of `/flow-self-review`).
 A pass covers what the bundle holds and nothing beyond it.
 
 **Resolve the base branch; never assume it, and never derive it from the current branch.**

@@ -33,27 +33,20 @@ for the host, as in run 2
 (`skills/flow-contracts/finish-contract-run2.md`) — that option belongs to the human doing this by hand, never to the
 script — but signals 1 and 3 still run, and still run in this order.
 
-## `flow-guard check-foreign-staged` and `flow-guard check-main-checkout-drift` — Surface foreign staged work before the preflight
+## `flow-guard check-main-checkout-drift` — Surface main-checkout drift before the preflight
 
-**When the script is absent** — a repository that
-does not carry it — read each main checkout by hand with
-`git status --porcelain --untracked-files=no`, keep the lines whose first column is not a space,
-together with any intent-to-add entry's ` A <path>` line,
-stop over what that finds, and say in the handoff that the surfacing was done
-manually; it is never skipped for want of the script.
-
-**When the drift script is absent** — a repository that does not carry it — read each main
+**When the script is absent** — a repository that does not carry it — read each main
 checkout by hand in the same shape its header's hand-verification procedure gives: the current
 branch against the branch `refs/remotes/origin/HEAD` names with its prefix stripped, and
 `git status --porcelain --untracked-files=no`, stopping over what those find, and
 say in the handoff that the surfacing was done manually; it is never skipped for want of the
 script. A checkout whose only finding is its branch is switched back by hand with
-`git -C <main-checkout> switch <default>` under the same four exclusions, per **Surface foreign
-staged work before the preflight** (`skills/flow-contracts/finish-contract-run1.md`).
+`git -C <main-checkout> switch <default>` under the same four exclusions, per **Surface main-checkout
+drift before the preflight** (`skills/flow-contracts/finish-contract-run1.md`).
 
 ## `flow-guard check-base-moved` — Run 1 — the branch is not merged
 
-**When the script is absent** — a harness whose repository does not carry it — reach the same three
+`check-finish-preflight` prints its verdict after a `RUN1`. **When the script is absent** — a harness whose repository does not carry it — reach the same three
 verdicts by hand, in the same order, and say in the handoff that the check was run manually. The
 check is never skipped for want of the script.
 
@@ -99,9 +92,6 @@ elif UP="$(git -C "$WT" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}
 else
   echo "not merged, and no upstream — cannot prove these commits exist anywhere else"; false
 fi
-
-# 5. the project's local stack is stopped — run its `## stop` command if declared. Give it a
-#    bounded wait — 60 seconds — and treat a timeout as a FAILED check.
 ```
 
 Then, and only then:

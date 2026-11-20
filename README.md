@@ -52,7 +52,7 @@ flowchart LR
                   non-planner types compact at 200,000 tokens (`autoCompactWindow`), over the session's
                   `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
 ├── commands-claude/  thin slash-command wrappers for Claude Code
-├── docs/             briefs/ (lessons), designs/ (the design record run 1 writes per /flow change) and prompt-tuning/ (/flow-prompt-tuning inbox + LEDGER.md)
+├── docs/             briefs/ (lessons), designs/ (design records of earlier /flow changes) and prompt-tuning/ (/flow-prompt-tuning inbox + LEDGER.md)
 ├── hooks/            the Python hooks (see Guardrails)
 ├── mods/             Claude Code plugins: flow-task-list (the task band above the prompt)
 ├── rules/            rules (alwaysApply in each frontmatter) + agent-baseline.md, the subagent baseline
@@ -139,9 +139,6 @@ flowchart TD
   headless pass reads the artifacts — and nothing of the conversation — once, after the plan is written
   (`flow-guard plan-check`). The planner fixes, contests
   or escalates each finding; the lenses are `skills/flow/plan-review-rubric.md`.
-- **The design outlives the change.** Run 1 commits the change's `design.md` as
-  `docs/designs/<name>.md` inside the implementation commit, a point-in-time record nothing keeps
-  current.
 
 Canonical detail: **State transitions** (`skills/flow-contracts/pipeline.md`), and
 `skills/flow-contracts/finish-contract-run1.md` / `finish-contract-run2.md` for landing and cleanup.

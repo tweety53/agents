@@ -53,9 +53,9 @@ stops the parent can cure itself. A stop that exists to ask the operator — `ST
 
 - **`NEXT:` naming `cleanup`** — every worktree returned `RUN2` → `skills/flow/cleanup.md` <!-- refs-guard:allow -->
 - **`STOP: main-checkout`** → stop at `IN_PROGRESS` and report every repository's lines together,
-  per **Surface foreign staged work before the preflight**
+  per **Surface main-checkout drift before the preflight**
   (`skills/flow-contracts/finish-contract-run1.md`); the operator cleans the main checkout and
-  re-runs. A `DRIFT-SWITCHED:` line is relayed as printed and asks nothing: `prepare` already switched that clean checkout back to its default branch and carried on, per **Surface foreign staged work before the preflight** (`skills/flow-contracts/finish-contract-run1.md`).
+  re-runs. A `DRIFT-SWITCHED:` line is relayed as printed and asks nothing: `prepare` already switched that clean checkout back to its default branch and carried on, per **Surface main-checkout drift before the preflight** (`skills/flow-contracts/finish-contract-run1.md`).
 - **`STOP: preflight` or `STOP: base`** → stop, report what the script reported, relay the guard's
   hand-verification procedure per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`), and ask
   the operator.
@@ -79,7 +79,7 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
 
 ## 2. Ask how the branch should land
 
-`prepare` then runs `flow-guard check-base-moved` and, on `MOVED`, the sync of **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`). A
+`prepare` then reads the base-moved line the preflight printed after `RUN1` and, on `MOVED`, runs the sync of **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`). A
 `REFUSE`, an exit 2 or an empty resolved set is `STOP: base-moved`, handled as `STOP: preflight`
 above. **Load `skills/flow/sync-onto-base.md` only when** the script stops on `sync-conflict` or
 `sync`, the rebase is resolved in place there, and `prepare` is re-run. `STOP: rebase-lint` is
@@ -104,13 +104,6 @@ when one is usable — say so, open or closed-unmerged, before the operator answ
 ## 3. Commit the staged work
 
 **Load `skills/flow-contracts/git-boundaries-commit-chain.md`** before writing the subjects below.
-
-**Append this run's own narrative first**, the same append `flow.verify` <!-- refs-guard:allow -->
-(`skills/flow/verify-and-handoff.md`) makes, heading `## <YYYY-MM-DD> — integrate run`, covering
-this run's preflight, the unfinished-work gate and the rebase — into the `narrative.md` the
-`NEXT:` line names. An invocation that already appended its section at `flow.verify`
-extends it instead: ` — integrate run` is appended to that section's heading and the preflight,
-gate and rebase lines go under it.
 
 ```bash
 flow-guard integrate-change commit <main-checkout> <name> <worktree>="<type>(<module>): <what the implementation does>"... --harness <harness> --session-token mf-<literal-token>
@@ -159,7 +152,7 @@ earlier `--pr-url` kept.
 ## 5. Run the self-review pass
 
 Per **Run the self-review pass** (`skills/flow-contracts/finish-contract-run1.md`), canonical for it.
-Write the bundle's stdout, then `## Session narrative`, to `<sr-dir>/bundle.md`, never printing it,
+Write the bundle's stdout to `<sr-dir>/bundle.md`, never printing it,
 and run the pass over it. No report is written or committed. The pass runs after `land`, on the
 branch it landed; its fixes go on `self-review-<name>` and land by `flow-guard pipeline-fix land`
 (`skills/flow-self-review/SKILL.md`), never back onto the change's branch.

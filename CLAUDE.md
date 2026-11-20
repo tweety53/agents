@@ -52,8 +52,7 @@ through to the on-disk journal.
 **Only those.** A worktree's own derived `flow_<id>` database and bucket are per-change artifacts,
 and `<project>/scripts/flow-guard workspace remove <id>` drops them during the cleanup run as it should.
 
-The reasoning, that boundary, and why `/flow`'s worktree-cleanup check 5 therefore has nothing to
-run, are the `## stop` section of `<project>/.flow/project.md` — canonical for it, and not
+The reasoning and that boundary are the `## stop` section of `<project>/.flow/project.md` — canonical for it, and not
 restated here. Stopping the dev stack is an operator action; the commands live in that file's
 `## run` section and in `<project>/stats/README.md`.
 

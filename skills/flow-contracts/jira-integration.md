@@ -103,7 +103,7 @@ placeholder.
 | bare `/flow` | run 2, after the `FINISHED` state write | **Done** |
 | `/flow-interactive` | session start, immediately after the key resolves | **In Progress** |
 | `/flow-interactive` | the explicit stop, after cleanup | **Done** |
-| the self-review pass (`skills/flow-self-review/SKILL.md`, step 5) | immediately after it creates a self-review issue | **Self-review** — on that new issue, never the change's own |
+| the self-review pass (`skills/flow-self-review/SKILL.md`, step 4) | immediately after it creates a self-review issue | **Self-review** — on that new issue, never the change's own |
 
 No other command transitions the issue. **Self-review** sits outside the four positions below: it
 is made only on an issue the pass has just created, so no forward-only or unrecognised-status
