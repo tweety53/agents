@@ -1210,10 +1210,12 @@ export function RunDetail({ project, change }: RunDetailProps) {
                 <>
                   {timelinePanel}
                   <div className="lb-split">
-                    {stageRunsPanel}
+                    <div className="lb-work-col">
+                      {stageRunsPanel}
+                      {decision && <DecisionsPanel decision={decision} dispatches={dispatches} />}
+                    </div>
                     <div className="lb-work-col">
                       {costPanel}
-                      {decision && <DecisionsPanel decision={decision} dispatches={dispatches} />}
                       {rolePanel}
                     </div>
                   </div>

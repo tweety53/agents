@@ -1185,13 +1185,13 @@ describe("the reworked run view (kan-1048)", () => {
     expect(findChangesMock.mock.calls.length).toBe(finds);
   });
 
-  it("run detail shows the latest decision's roles under Cost by stage", async () => {
+  it("run detail shows the latest decision's roles under Stage runs", async () => {
     decisionsMock.mockResolvedValueOnce([{ decision: { class: "big", execution: "sdd", fixer: { model: "opus", effort: "low", reason: "r" } } }]);
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const panel = await screen.findByRole("region", { name: "Decisions" });
     expect(decisionsMock).toHaveBeenCalledWith(PROJECT, CHANGE);
     expect(panel).toHaveTextContent("Fixeropus · low");
-    expect(screen.getByRole("region", { name: "Cost by stage" }).nextElementSibling).toBe(panel);
+    expect(screen.getByRole("region", { name: "Stage runs" }).nextElementSibling).toBe(panel);
   });
 
   it("run detail marks main as waiting while only its subagents work", async () => {
