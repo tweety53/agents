@@ -1,6 +1,9 @@
 // The run's latest recorded decision, one line per role: the model and
 // effort the run gave it, the decision's reason on hover. A plan-check
-// decision names no model: each line shows its reason in plain words instead.
+// decision names no model: each line shows the pair the run's own dispatch for that point was given
+// (matched by its key), or "not run yet", with the decision's reason beneath it.
+
+import type { RecordDispatch } from "../api";
 
 // Older rows hold `pairs` as prose rather than a list; this panel ignores those.
 type Override = { to?: string; pairs?: unknown; instruction?: string };
@@ -25,16 +28,26 @@ export interface Decision {
 
 type Line = { role: string; model: string; reason?: string; prose?: boolean };
 
-const pick = (role: string, p: Pick | undefined): Line[] =>
+/** The pair of the latest dispatch whose key `want` accepts, "not run yet" when none ran. */
+function decided(dispatches: RecordDispatch[], want: (key: string) => boolean): string {
+  const d = dispatches.filter((x) => x.key && want(x.key)).sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))[0];
+  return d ? (d.effort && d.effort !== "default" ? `${d.model} · ${d.effort}` : d.model) : "not run yet";
+}
+
+const pick = (role: string, p: Pick | undefined, run?: string): Line[] =>
   p?.model
     ? [{ role, model: p.effort ? `${p.model} · ${p.effort}` : p.model, reason: p.reason }]
     : p?.reason
-      ? [{ role, model: p.reason, reason: p.reason, prose: true }]
+      ? [{ role, model: run ?? "", reason: p.reason, prose: true }]
       : [];
 
-const review = (p: Pick | undefined): Line[] => pick(`Review: ${p?.slots?.join(", ") ?? ""}`, p);
+const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-function lines(d: Decision): Line[] {
+function lines(d: Decision, dispatches: RecordDispatch[]): Line[] {
+  const review = (p: Pick | undefined): Line[] => {
+    const re = new RegExp(`^panel-\\d+-${escapeRe((p?.slots ?? []).join("+"))}$`);
+    return pick(`Review: ${p?.slots?.join(", ") ?? ""}`, p, decided(dispatches, (k) => re.test(k)));
+  };
   // An override names its pair as "<model>/<agent definition>", the definition ending in its effort.
   const overrides = (Array.isArray(d.overrides) ? (d.overrides as Override[]) : []).flatMap((o) => {
     const [model, agent] = (o.to ?? "").split("/");
@@ -42,7 +55,7 @@ function lines(d: Decision): Line[] {
     return (Array.isArray(o.pairs) ? o.pairs : []).map((role) => ({ role: role[0].toUpperCase() + role.slice(1), model: `${model} · ${effort}`, reason: o.instruction }));
   });
   const implementers = d.groups?.length
-    ? d.groups.flatMap((g) => ((ids) => pick(`${ids.length > 1 ? "Tasks" : "Task"} ${ids.join(", ")}`, g))(g.tasks ?? (g.bundles ?? []).map(String)))
+    ? d.groups.flatMap((g) => ((ids) => pick(`${ids.length > 1 ? "Tasks" : "Task"} ${ids.join(", ")}`, g, decided(dispatches, (k) => k === `task-${ids.join("+")}-implementer`)))(g.tasks ?? (g.bundles ?? []).map(String)))
     : pick("Implementer", d.implementer);
   return [
     ...overrides,
@@ -52,11 +65,11 @@ function lines(d: Decision): Line[] {
     ...pick("Review re-run", Array.isArray(d.panel) ? undefined : d.panel?.rerun_dispatch),
     ...review(d.extra_dispatch),
     ...review(d.extra_dispatch_mutation),
-    ...(d.visual?.verify ? pick(`Visual check: ${d.visual.verify}`, { reason: d.visual.reason ?? "" }) : []),
+    ...(d.visual?.verify ? pick(`Visual check: ${d.visual.verify}`, { reason: d.visual.reason ?? "" }, decided(dispatches, (k) => k === "visual-verify")) : []),
   ];
 }
 
-export function DecisionsPanel({ decision }: { decision: Decision }) {
+export function DecisionsPanel({ decision, dispatches = [] }: { decision: Decision; dispatches?: RecordDispatch[] }) {
   return (
     <section className="lb-panel" aria-label="Decisions">
       <div className="lb-panel-h">
@@ -64,10 +77,13 @@ export function DecisionsPanel({ decision }: { decision: Decision }) {
         {decision.class && <span className="lb-panel-note">{[decision.class, decision.execution].filter(Boolean).join(" · ")}</span>}
       </div>
       <div className="lb-panel-b">
-        {lines(decision).map((l, i) => (
+        {lines(decision, dispatches).map((l, i) => (
           <div key={i} className={l.prose ? "lb-decision lb-decision-prose" : "lb-decision"} data-testid="decision-row" title={l.prose ? undefined : l.reason}>
-            <span className="lb-n">{l.role}</span>
-            <span className={l.prose ? "lb-decision-why" : "r"}>{l.model}</span>
+            <span className="lb-decision-head">
+              <span className="lb-n">{l.role}</span>
+              <span className={l.model === "not run yet" ? "lb-muted r" : "r"}>{l.model}</span>
+            </span>
+            {l.prose && <span className="lb-decision-why">{l.reason}</span>}
           </div>
         ))}
       </div>

@@ -64,10 +64,40 @@ describe("DecisionsPanel", () => {
       />,
     );
     expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual([
-      "Tasks 1, 22 builds on 1",
-      "Task 3a big task",
-      "Review: primary, failure-modesnew I/O",
-      "Visual check: requiredthe SPA changes",
+      "Tasks 1, 2not run yet2 builds on 1",
+      "Task 3not run yeta big task",
+      "Review: primary, failure-modesnot run yetnew I/O",
+      "Visual check: requirednot run yetthe SPA changes",
+    ]);
+  });
+});
+
+describe("DecisionsPanel with a plan-check decision", () => {
+  it("shows the pair each point's own dispatch was given, or not run yet, with the reason beneath", () => {
+    const d = {
+      groups: [
+        { tasks: ["1", "2"], reason: "same schema foundation" },
+        { tasks: ["3"], reason: "independent" },
+      ],
+      panel: [{ slots: ["primary", "principles"], reason: "large change" }],
+      visual: { verify: "required", reason: "UI changes" },
+    };
+    const run = (key: string, model: string, effort: string, startedAt: string) => ({ id: 1, key, role: "x", model, effort, startedAt });
+    render(
+      <DecisionsPanel
+        decision={d}
+        dispatches={[
+          run("task-1+2-implementer", "sonnet", "low", "2026-01-01T00:00:00Z"),
+          run("panel-1-primary+principles", "opus", "low", "2026-01-01T01:00:00Z"),
+        ]}
+      />,
+    );
+    const rows = screen.getAllByTestId("decision-row").map((r) => r.textContent);
+    expect(rows).toEqual([
+      "Tasks 1, 2sonnet · lowsame schema foundation",
+      "Task 3not run yetindependent",
+      "Review: primary, principlesopus · lowlarge change",
+      "Visual check: requirednot run yetUI changes",
     ]);
   });
 });
