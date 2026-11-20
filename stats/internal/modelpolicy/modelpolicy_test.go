@@ -57,7 +57,7 @@ func TestRowsTwoColumns(t *testing.T) {
 	}
 	for _, role := range []string{
 		"explorer", "plan-designer", "plan-triage", "planner", "planner-short", "implementer", "no-progress-fixer", "panel-fix", "minor-fix", "panel-reviewer", "panel-rerun", "decider", "gated-reviewer",
-		"gated-re-reviewer", "visual-verifier", "runner", "panel-merger",
+		"gated-re-reviewer", "visual-verifier", "runner", "general", "panel-merger",
 		"self-review-pass", "self-review-plan", "pipeline-fix-plan", "self-review-fix", "pipeline-fix-fix",
 		"self-review-review-1", "pipeline-fix-review-1", "self-review-review-r", "pipeline-fix-review-r", "pair-judge",
 	} {
@@ -65,7 +65,7 @@ func TestRowsTwoColumns(t *testing.T) {
 			t.Errorf("role %q has no row", role)
 		}
 	}
-	if want := []string{"Planning", "Implementation", "Review", "Verification", "Self-review", "Pipeline fix", "Pair choice"}; !reflect.DeepEqual(groups, want) {
+	if want := []string{"Planning", "Implementation", "Review", "Verification", "Self-review", "Pipeline fix", "General", "Pair choice"}; !reflect.DeepEqual(groups, want) {
 		t.Errorf("groups = %q, want %q", groups, want)
 	}
 }

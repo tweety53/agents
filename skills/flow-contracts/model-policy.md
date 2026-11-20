@@ -124,11 +124,29 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 | `pipeline-fix-review-1` | First review of the tooling fix. |
 | `pipeline-fix-review-r` | Re-review once that fix is corrected. |
 
+### General
+
+| Role | Does |
+|---|---|
+| `general` | Any task no other role fits; the operator adds pairs in the Experiments view. |
+
 ### Pair choice
 
 | Role | Does |
 |---|---|
 | `pair-judge` | Picks each dispatch's model and effort from its role's allowed pairs. |
+
+### Choosing a role
+
+**Never invent a role name. Every `flow-*` dispatch's prompt carries a `Role: <id>` line naming a role above, on a pair that role admits** — `hooks/enforce-agent-baseline.py` denies one that does not. A task no role fits takes `general`.
+
+| Situation | Role |
+|---|---|
+| A conflict or red check after a rebase or base sync, fixed outside any loop | `minor-fix` |
+| A fix loop that made no progress | `no-progress-fixer` |
+| Screenshot recapture, browser driving or a capture run | `visual-verifier` |
+| Running the test list or another long command for its verdict | `runner` |
+| Anything else | `general` |
 
 ## Harness mapping
 

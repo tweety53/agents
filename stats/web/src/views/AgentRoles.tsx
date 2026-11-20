@@ -28,6 +28,7 @@ export const SHORT_DOES: Record<string, string> = {
   "panel-merger": "Merges findings",
   "visual-verifier": "Compares UI to mockup",
   runner: "Runs suites, returns a verdict",
+  general: "Any task no other role fits",
   "self-review-pass": "Reviews the run",
   "self-review-plan": "Plans review fixes",
   "self-review-fix": "Makes a review fix",
