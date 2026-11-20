@@ -521,7 +521,8 @@ command and its `flow stage end` its last. **A wait on a child is the end of the
 every child goes out with `run_in_background: true`, and the completion notification wakes the
 parent — no `sleep` poll and no `until test -s …` loop. On the notification one `test -s` settles a
 report; an absent file takes that dispatch's no-report path (**The return**), and a child still
-`running` after its report exists is stopped with `TaskStop`, its row ended by hand. A finished
+`running` after its report exists is stopped with `TaskStop`, its row ended by hand — its own leftover
+background shell is already killed when it stops (`hooks/await-own-agents.py`), so this is the rare child that stalled without one. A finished
 phase is never a stop: the same turn loads the next phase's file and dispatches its first step.
 
 **Read discipline.** These five rules are the run's own size

@@ -23,6 +23,13 @@ merely read -- a Read of a transcript, a diff of a test, a grep of a JSONL line 
 woke again after its parent had moved on -- kan-1085's fixer left a build running in the background
 and its parent waited 44 minutes on it.
 
+A stop that carries a final message (the payload's `last_assistant_message`) is a finished agent: its report
+is written, so a background command it still holds is no work anyone waits for. The hook kills it --
+every process holding that command's `<id>.output` file open, found with `lsof`, so only that agent's own
+task is touched, never the parent's or a sibling's -- and lets the stop through instead of blocking on a
+notification that may never come (kan-1092 task 19: a hung build left the agent "waiting on 1 shell" until
+its parent stopped it by hand). A stop with no final message still blocks, as above.
+
 A stop it lets through -- no child and no background command left -- closes the agent's flow
 dispatch row: `flow-guard end-dispatch-row` reads the transcript's `Key:` line and final message
 and ends the row the begin hook opened, so the parent ends none itself.
@@ -68,6 +75,23 @@ MOVED_TO_BACKGROUND = re.compile(
 )
 TASK_ID = re.compile(r"<task-id>([A-Za-z0-9]+)</task-id>")
 STOPPED = re.compile(r"Successfully stopped task: ([A-Za-z0-9]+)")
+
+
+def kill_background(transcript: str, ids: "list[str]") -> None:
+    """SIGTERM every process holding an `<id>.output` file of the given background commands open."""
+    with open(transcript, encoding="utf-8", errors="replace") as f:
+        text = f.read()
+    for task in ids:
+        for path in set(re.findall(r"(/[^\s\"']*/" + re.escape(task) + r"\.output)", text)):
+            if not os.path.exists(path):
+                continue
+            out = subprocess.run(["lsof", "-t", "--", path], capture_output=True, text=True, timeout=10).stdout
+            for pid in out.split():
+                if pid.isdigit() and int(pid) != os.getpid():
+                    try:
+                        os.kill(int(pid), 15)
+                    except OSError:
+                        pass
 
 
 def running_background(transcript: str) -> "list[str]":
@@ -135,6 +159,12 @@ def main() -> None:
         background = running_background(transcript) if os.path.exists(transcript) else []
     except Exception:  # fail open: a bug here must never trap a subagent
         return
+    if background and (payload.get("last_assistant_message") or "").strip():
+        try:
+            kill_background(transcript, background)
+        except Exception:
+            pass
+        background = []
     if background:
         print(json.dumps({
             "decision": "block",

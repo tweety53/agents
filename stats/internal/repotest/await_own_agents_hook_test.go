@@ -7,6 +7,7 @@ package repotest
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -211,5 +212,73 @@ func TestAwaitOwnAgentsHookTaskStopEndsBackground(t *testing.T) {
 	resultOf("b3", "Successfully stopped task: bg2")
 	if out := run(); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "bg2") {
 		t.Errorf("(c) stop only quoted: out %q; want a block naming bg2", out)
+	}
+}
+
+// TestAwaitOwnAgentsHookKillsLeftoverBackground pins the stop that carries a
+// final message: the background command the agent still holds is killed (only
+// the processes holding its own output file) and the stop goes through; with
+// no final message the stop still blocks and the command lives.
+func TestAwaitOwnAgentsHookKillsLeftoverBackground(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "sess", "subagents")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	startShell := func(name string) (*exec.Cmd, string) {
+		t.Helper()
+		out := filepath.Join(dir, name+".output")
+		f, err := os.Create(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer f.Close()
+		c := exec.Command("sleep", "120")
+		c.Stdout = f
+		if err := c.Start(); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = c.Process.Kill(); _, _ = c.Process.Wait() })
+		return c, out
+	}
+	own, ownOut := startShell("bgown")
+	sibling, _ := startShell("bgsibling")
+
+	tr := filepath.Join(dir, "agent-impl.jsonl")
+	call, _ := json.Marshal(map[string]any{"type": "assistant", "message": map[string]any{"role": "assistant", "content": []any{map[string]any{"type": "tool_use", "id": "t1", "name": "Bash", "input": map[string]any{}}}}})
+	res, _ := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": []any{map[string]any{"type": "tool_result", "tool_use_id": "t1", "content": "Command was moved to the background (ID: bgown) after running for 180s. Output is being written to: " + ownOut + ". You will be notified"}}}})
+	if err := os.WriteFile(tr, append(append(call, '\n'), append(res, '\n')...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run := func(final string) string {
+		t.Helper()
+		p, _ := json.Marshal(map[string]any{"hook_event_name": "SubagentStop", "agent_id": "impl", "agent_transcript_path": tr, "last_assistant_message": final})
+		out, _, rc := runHook(t, "await-own-agents.py", p)
+		if rc != 0 {
+			t.Fatalf("rc %d, out %q", rc, out)
+		}
+		return out
+	}
+	gone := func(c *exec.Cmd) bool {
+		done := make(chan struct{})
+		go func() { _ = c.Wait(); close(done) }()
+		select {
+		case <-done:
+			return true
+		case <-time.After(3 * time.Second):
+			return false
+		}
+	}
+
+	if out := run(""); !strings.Contains(out, `"decision": "block"`) {
+		t.Fatalf("no final message: out %q; want a block", out)
+	}
+	if out := run("task 19 done\ncommit: 19 " + strings.Repeat("a", 40)); out != "" {
+		t.Errorf("final message: out %q; want allow", out)
+	}
+	if !gone(own) {
+		t.Error("the agent's own background command still runs after its stop")
+	}
+	if sibling.ProcessState != nil {
+		t.Error("a sibling's background command was killed")
 	}
 }
