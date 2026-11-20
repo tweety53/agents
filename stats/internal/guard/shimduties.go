@@ -69,7 +69,6 @@ func siblingCmd(env Env, override, name string, args ...string) *exec.Cmd {
 var selfJudging = map[string]bool{
 	"check-dev-stack-fresh": true,
 	"check-guard-calls":     true,
-	"check-references":      true,
 }
 
 // CwdCheckout is the KAN-902 re-exec: for a self-judging guard called from

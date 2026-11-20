@@ -71,7 +71,7 @@ It adds the worktree at `<project>-worktrees/<name>`, the sibling of the main ch
 `spectre/<name>` — tracking the remote branch when a `/flow-plan` capture or an earlier run pushed
 it, else a new branch from `origin/<default-branch>`, never HEAD — records it in the state through
 `flow state add-worktree`, runs the project's `## worktree setup` commands (**Project
-configuration**, `skills/flow-contracts/project-configuration.md`) and `flow-guard ignore-scratch`,
+configuration**, `skills/flow-contracts/project-configuration.md`),
 and pushes the branch (**Branch backup**, `skills/flow-contracts/git-boundaries.md`). `<base>` is
 the creating run's `--base <branch>` (`skills/flow/SKILL.md`), omitted when none was given; the
 base is recorded on the branch for `flow-guard resolve-base-branch`, and `origin/<base>` missing

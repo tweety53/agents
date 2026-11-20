@@ -68,6 +68,19 @@ const dur = (ms: number) => {
 };
 const total = (rows: GuardHealthRow[]) => rows.reduce((s, r) => s + r.totalMs, 0);
 
+/** What each guard does, and whether the operator approved it as useful. Edited by hand: a guard missing here shows neither. */
+const GUARD_INFO: Record<string, { does: string; approved: boolean }> = {
+  "check-guard-calls": { does: "Lint: every flow-guard call in docs, skills and hooks names a real guard and has its own test", approved: true },
+  "render-frames": { does: "Renders the design repo's tagged frames a plan cites into the project's mockups folder", approved: true },
+  "check-base-behind": { does: "Compares each worktree's recorded base with the branch origin tracks, before a stale base fails things", approved: true },
+  "end-dispatch-row": { does: "Closes a stopping subagent's dispatch row with its outcome and commit", approved: true },
+  "check-visual-trigger": { does: "Tells the verify stage whether a diff touches ui paths, so the UI check runs", approved: true },
+  "check-unfinished-work": { does: "Integrate gate: reports whether the change still has unfinished work", approved: true },
+  "plan-triage": { does: "One headless model call deciding full or short planning for a new change", approved: true },
+  "sweep-dispatch-rows": { does: "Closes dispatch rows whose stop was missed, from the agent's hand-back report", approved: false },
+  "check-gated-verdicts": { does: "Bounces a reviewer's stop once when its report names no task verdict line", approved: false },
+};
+
 const byName = (a: GuardHealthRow, b: GuardHealthRow) => a.guard.localeCompare(b.guard);
 const ORDER: Record<Rank, (a: GuardHealthRow, b: GuardHealthRow) => number> = {
   fires: (a, b) => b.fired - a.fired || b.runs - a.runs,
@@ -260,6 +273,8 @@ function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number;
             <td>
               <Slot name={r.guard} />
               {cand.has(r.guard) && <span className="lb-pill fh-speed">speed-up</span>}
+              {GUARD_INFO[r.guard]?.approved && <span className="lb-pill fh-approved">approved</span>}
+              {GUARD_INFO[r.guard] && <div className="fh-does">{GUARD_INFO[r.guard].does}</div>}
             </td>
             <td className="r lb-num">{int(r.runs)}</td>
             <td className="r lb-num">{r.fired ? int(r.fired) : "—"}</td>

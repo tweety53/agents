@@ -475,7 +475,7 @@ func TestFlowGuardBootstrapRepoRootAndCodes(t *testing.T) {
 	for _, c := range []struct {
 		name string
 		code int
-	}{{"run-reproducer", 4}, {"check-references", 2}} {
+	}{{"run-reproducer", 4}, {"check-guard-calls", 2}} {
 		t.Run(c.name+" cannot answer with no go and nothing cached", func(t *testing.T) {
 			fresh := newBootstrapFixture(t, "codes")
 			r := runBootstrap(t, fresh, withPath(bootstrapEnv(t.TempDir()), noGoPath), filepath.Join(fresh, "scripts", "flow-guard"), c.name)

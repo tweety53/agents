@@ -18,7 +18,7 @@ section — named here so this file states them rather than leaving a placeholde
 ```bash
 cd stats && gofmt -w .                                  # auto-fix, Go source only — nothing else in
                                                           # this repository has an auto-fix command
-scripts/flow-guard check-references                               # plus every other scripts/flow-guard check-* guard
+scripts/flow-guard check-guard-calls                              # plus every other scripts/flow-guard check-* guard
                                                           # named in <project>/.flow/project.md's `## lint`
 cd stats && make -s web-dist && go vet ./... && gofmt -l .  # must exit clean before claiming Go work done
 cd stats && make -s web-dist && cd web && npx tsc -b      # must exit clean before claiming SPA work done

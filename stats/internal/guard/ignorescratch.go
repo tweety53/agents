@@ -35,10 +35,6 @@ import (
 // Exit codes: 0 already ignored, or committed; 1 a git step failed or the
 // index was not clean (stderr names which; nothing committed); 2 usage (not
 // exactly one argument, or <worktree> is not a directory).
-func init() {
-	Registry["ignore-scratch"] = ignoreScratch
-}
-
 func ignoreScratch(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		fmt.Fprintln(stderr, "usage: flow-guard ignore-scratch <worktree>")

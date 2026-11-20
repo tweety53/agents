@@ -214,8 +214,6 @@ them all. `.flow/project.md` `## lint` lists this repository's own.
 **Land and clean up:** `integrate-change` (every mechanical step, in four calls),
 `check-finish-preflight` (integrate vs cleanup from merge state), `check-unfinished-work`.
 
-**This repository's lint** adds `check-references` (every ``**Section** (`file`)`` citation
-resolves).
 
 ---
 

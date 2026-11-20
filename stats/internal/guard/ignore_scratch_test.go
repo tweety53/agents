@@ -3,7 +3,6 @@ package guard
 import (
 	"bytes"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,8 +16,9 @@ import (
 // one is left alone; a pre-staged index is refused.
 func TestIgnoreScratch(t *testing.T) {
 	smoke.Heavy(t)
-	t.Parallel()
-	shim := guardShim(t, "ignore-scratch")
+	for k, v := range map[string]string{"GIT_AUTHOR_NAME": "test", "GIT_AUTHOR_EMAIL": "test@example.com", "GIT_COMMITTER_NAME": "test", "GIT_COMMITTER_EMAIL": "test@example.com"} {
+		t.Setenv(k, v)
+	}
 	repo := func(t *testing.T) (string, func(args ...string) string) {
 		t.Helper()
 		dir, err := filepath.EvalSymlinks(t.TempDir())
@@ -42,13 +42,9 @@ func TestIgnoreScratch(t *testing.T) {
 	}
 	run := func(t *testing.T, args ...string) guardResult {
 		t.Helper()
-		cmd := exec.Command(shim, args...)
-		cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
-			"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com", "FLOW_GUARD_CACHE_DIR="+guardCache(t))
 		var o, e bytes.Buffer
-		cmd.Stdout, cmd.Stderr = &o, &e
-		err := cmd.Run()
-		return guardResult{rc: exitCode(err), stdout: o.String(), err: e.String(), out: o.String() + e.String()}
+		rc := ignoreScratch(args, Env{Getenv: os.Getenv}, &o, &e)
+		return guardResult{rc: rc, stdout: o.String(), err: e.String(), out: o.String() + e.String()}
 	}
 
 	t.Run("already ignored", func(t *testing.T) {

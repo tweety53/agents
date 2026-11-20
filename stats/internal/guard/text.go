@@ -4,6 +4,7 @@ package guard
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 )
 
@@ -84,4 +85,30 @@ func smcUTF8(env Env) bool {
 		}
 	}
 	return false
+}
+
+// crSortSep is crSort over lines joined and terminated by sep, sort run with
+// args (`-z` for a NUL separator); the caller's collation variables are the
+// only environment sort sees.
+func crSortSep(env Env, lines []string, sep string, args ...string) ([]string, error) {
+	if len(lines) < 2 {
+		return lines, nil
+	}
+	bin, ok := lookPath(env, "sort")
+	if !ok {
+		return nil, fmt.Errorf("no sort on PATH")
+	}
+	cmd := exec.Command(bin, args...)
+	cmd.Env = []string{}
+	for _, k := range []string{"LANG", "LC_ALL", "LC_COLLATE", "LC_CTYPE"} {
+		if v, set := env.LookupEnv(k); set {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+	}
+	cmd.Stdin = strings.NewReader(strings.Join(lines, sep) + sep)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("sort: %v", err)
+	}
+	return strings.Split(strings.TrimSuffix(string(out), sep), sep), nil
 }

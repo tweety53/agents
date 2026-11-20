@@ -1381,3 +1381,19 @@ func gdcCopyTree(t *testing.T, src, dst string) {
 		t.Fatal(err)
 	}
 }
+
+// crEnv is an Env whose variables are vars alone, plus the process's PATH
+// and locale for the `sort` the guard runs; a name absent from vars is unset.
+func crEnv(dir string, vars map[string]string) Env {
+	lookup := func(k string) (string, bool) {
+		if v, ok := vars[k]; ok {
+			return v, true
+		}
+		switch k {
+		case "PATH", "LANG", "LC_ALL", "LC_COLLATE", "LC_CTYPE":
+			return os.LookupEnv(k)
+		}
+		return "", false
+	}
+	return Env{Dir: dir, LookupEnv: lookup, Getenv: func(k string) string { v, _ := lookup(k); return v }}
+}

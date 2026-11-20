@@ -1186,6 +1186,8 @@ td.lb-clip { max-width: 0; width: 100%; }
 
 /* Flow guards (KAN-1050): the speed-up candidate pill. */
 .lb-pill.fh-speed { color: var(--delta-up); margin-left: 6px; }
+.lb-pill.fh-approved { color: var(--status-ok); margin-left: 6px; }
+.fh-does { font-size: 12px; font-weight: 400; color: var(--text-secondary); white-space: normal; max-width: 52ch; }
 
 /* Role costs (#/role-costs), drawn as .superpowers/sdd/<change>/role-costs-prototype.html:
    stage rows with a stage-coloured stripe, one-line role rows, a model · effort mix, the pair list on click. */

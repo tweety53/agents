@@ -94,10 +94,10 @@ func cwdEnv(root, dir string) Env {
 func TestCwdCheckoutReexec(t *testing.T) {
 	t.Parallel()
 	main, wt, bare := cwdFixture(t)
-	if got, ok := CwdCheckout(cwdEnv(main, wt), "check-references"); !ok || got != wt+"/scripts/flow-guard" {
+	if got, ok := CwdCheckout(cwdEnv(main, wt), "check-guard-calls"); !ok || got != wt+"/scripts/flow-guard" {
 		t.Errorf("from another worktree: %q %v; want %s/scripts/flow-guard", got, ok, wt)
 	}
-	if got, ok := CwdCheckout(cwdEnv(main, wt+"/scripts"), "check-references"); !ok || got != wt+"/scripts/flow-guard" {
+	if got, ok := CwdCheckout(cwdEnv(main, wt+"/scripts"), "check-guard-calls"); !ok || got != wt+"/scripts/flow-guard" {
 		t.Errorf("from inside another worktree: %q %v; want %s/scripts/flow-guard", got, ok, wt)
 	}
 
@@ -118,7 +118,7 @@ func TestCwdCheckoutReexec(t *testing.T) {
 		{"a worktree without scripts/flow-guard", main, bare},
 		{"no FLOW_GUARD_REPO_ROOT", "", wt},
 	} {
-		if got, ok := CwdCheckout(cwdEnv(c.root, c.dir), "check-references"); ok {
+		if got, ok := CwdCheckout(cwdEnv(c.root, c.dir), "check-guard-calls"); ok {
 			t.Errorf("from %s: re-exec'd %q; want no re-exec", c.what, got)
 		}
 	}
@@ -129,7 +129,7 @@ func TestCwdCheckoutReexec(t *testing.T) {
 func TestCwdCheckoutGuardSet(t *testing.T) {
 	t.Parallel()
 	want := []string{
-		"check-dev-stack-fresh", "check-guard-calls", "check-references",
+		"check-dev-stack-fresh", "check-guard-calls",
 	}
 	if got := slices.Sorted(maps.Keys(selfJudging)); !slices.Equal(got, want) {
 		t.Fatalf("selfJudging = %q, want %q", got, want)
