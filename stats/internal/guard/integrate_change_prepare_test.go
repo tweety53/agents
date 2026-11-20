@@ -116,6 +116,13 @@ g -C "$WORK/b-worktrees/demo" rm -q -r spectre/changes/demo-fix-1 && g -C "$WORK
 sut prepare "$WORK/a" demo
 check "fix_folder_deletion: prepare's NEXT asks a subject for b" \
   '[ "$RC" -eq 0 ] && printf "%s" "$OUT" | tail -1 | grep -qF "$WORK/b-worktrees/demo=<impl subject>"'`},
+		{"mixed_run1_run2", `# --- mixed_run1_run2: b landed on a prior run (RUN2) while a is still RUN1 ---
+fixture
+g -C "$WORK/b" merge -q --ff-only spectre/demo && g -C "$WORK/b" push -q origin main
+sut prepare "$WORK/a" demo
+check "mixed_run1_run2: prepare exits 0" '[ "$RC" -eq 0 ]'
+check "mixed_run1_run2: no base-moved stop, NEXT is commit" \
+  '! printf "%s" "$OUT" | grep -q "STOP: base-moved" && printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: .*commit"'`},
 		{"mixed_roots", `# --- mixed_roots ---
 fixture
 mkdir -p "$WORK/b-worktrees/demo/openspec/changes/demo"

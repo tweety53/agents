@@ -175,6 +175,8 @@ func (c *ic) prepare() {
 	for i := range c.wt {
 		v := bm[i]
 		switch {
+		case v == "": // a RUN2 worktree, already landed: nothing to sync
+			continue
 		case strings.HasPrefix(v, "CLEAR:") && strings.Contains(v[len("CLEAR:"):], "merge base now "):
 			c.rb[i] = v[strings.LastIndex(v, "merge base now ")+len("merge base now "):]
 		case strings.HasPrefix(v, "CLEAR:"):
