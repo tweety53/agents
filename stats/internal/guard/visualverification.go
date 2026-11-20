@@ -532,9 +532,9 @@ func (v *vvValidation) settingRow(line int, cells []string) {
 func (v *vvValidation) commandRow(line int, cells []string) {
 	disp, key := vtTrimCell(cells[0]), vtFoldCell(cells[0])
 	switch key {
-	case "setup", "verify", "capture", "fingerprint", "start", "specs":
+	case "setup", "verify", "capture", "fingerprint", "start", "specs", "smoke":
 	default:
-		v.addv(line, "Command `"+disp+"` is not one of `setup`, `verify`, `capture`, `fingerprint`, `start` or `specs` — the vocabulary is closed, so the row is dropped")
+		v.addv(line, "Command `"+disp+"` is not one of `setup`, `verify`, `capture`, `fingerprint`, `start`, `specs` or `smoke` — the vocabulary is closed, so the row is dropped")
 		return
 	}
 	if f, seen := v.cmd[key]; seen {

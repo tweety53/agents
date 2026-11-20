@@ -29,7 +29,7 @@ rows below is reported and its row dropped, never silently ignored.
 The commands table's header folds the same way, to `command|runs` — the same heading
 `## workspace isolation` above already establishes for a table of project-declared commands, reused
 here rather than invented a second time. **Its `Command` vocabulary is closed** too: a name outside
-the six rows below is reported and its row dropped.
+the seven rows below is reported and its row dropped.
 
 | Command | Required | Meaning |
 |---------|----------|---------|
@@ -38,6 +38,7 @@ the six rows below is reported and its row dropped.
 | `capture` | yes | Runs the per-change spec and **creates** this change's baseline — it is expected to write PNGs that do not yet exist, and that is success, not failure. `verify` above is the regression gate, guarding an already-committed baseline; `capture` is not, and the project's own command must be the variant that succeeds on a first-run write rather than the one built to fail a comparison against nothing. |
 | `fingerprint` | no | Exits 0 when the app the stage's probe answered from is serving the worktree's own build, non-zero otherwise. What a bundle's identity is differs per stack, so the project owns the comparison; `flow.verify` owns what a non-zero exit does (one restart from `## run`, then block). Absent means the stage reports `fingerprint: not declared` and proves nothing about the served bundle — a supported state for a project with no served bundle, not a misconfiguration. |
 | `start` | no | Starts the stack for this stage's own probe, from the worktree; absent means `## run`. This is where a project moves a port the operator's `## run` keeps fixed. |
+| `smoke` | no | A cheap check of the toolchain, run from the capture root by `flow-guard visual-verify-pass prepare` before any verifier row is begun, once per surviving worktree: a non-zero exit is a failing preflight check named `smoke`, so a missing build or a broken harness stops the pass at `STOP: preflight` with no verifier run spent; on success it prints `SMOKE: <worktree> ok in <seconds>s`. For a Playwright project, list the specs without running them. |
 | `specs` | no | Prints the specs covering the change's touched ui paths, one per line, run from the regression checkout with `<frontend-root>` and `<merge-base>` substituted — a fix round's re-run substitutes its round base for `<merge-base>` (`skills/flow/fix.md`). Its output reaches `verify` through `verify`'s `<specs>`; an empty output runs the smoke set alone, and a non-zero exit runs it and blocks — neither falls back to the whole suite, which runs only when the operator asks for it, under `flow-guard run-verify-list -full`. Absent means `verify` runs the smoke set alone and `capture` runs as declared. |
 
 **Frames at a design-repo tag.** With `design repo` declared, a frame drawn at a tag of that

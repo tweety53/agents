@@ -43,7 +43,7 @@ func vvpSectionWith(extra string) (section, tail string) {
 		switch {
 		case tail != "" || !strings.HasPrefix(l, "| `"):
 			tail += l
-		case slices.Contains([]string{"setup", "verify", "capture", "fingerprint", "start", "specs"}, key):
+		case slices.Contains([]string{"setup", "verify", "capture", "fingerprint", "start", "specs", "smoke"}, key):
 			section += l
 		default:
 			section = strings.Replace(section, "| `screenshots` | `tests/visual` |\n", "| `screenshots` | `tests/visual` |\n"+l, 1)
@@ -1179,5 +1179,21 @@ func TestPrepareStopsOnInvalidVisualSection(t *testing.T) {
 	}
 	if _, err := os.Stat(f.stagePath()); err == nil {
 		t.Errorf("a stage file was written")
+	}
+}
+
+// TestVisualVerifyPassPrepareRunsTheSmokeRow: a declared `smoke` command runs
+// before any verifier row; a non-zero exit is a failing preflight check that
+// begins no row, a zero exit prints its measured time and the pass goes on.
+func TestVisualVerifyPassPrepareRunsTheSmokeRow(t *testing.T) {
+	t.Parallel()
+	bad := vvpFixture(t, "| `smoke` | `echo broken-harness; exit 3` |\n")
+	rc, out, _ := bad.prepare()
+	if rc != 1 || !strings.Contains(out, "STOP: preflight") || !strings.Contains(out, "smoke:") || !strings.Contains(out, "broken-harness") || strings.Contains(out, "DISPATCH:") {
+		t.Fatalf("failing smoke: exit %d; want a preflight stop naming smoke and no dispatch\n%s", rc, out)
+	}
+	good := vvpFixture(t, "| `smoke` | `true` |\n")
+	if rc, out, _ := good.prepare(); rc != 0 || !strings.Contains(out, "SMOKE: "+good.wt+" ok in ") || !strings.Contains(out, "DISPATCH: visual-verify ") {
+		t.Fatalf("passing smoke: exit %d\n%s", rc, out)
 	}
 }

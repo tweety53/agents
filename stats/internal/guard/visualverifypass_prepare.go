@@ -263,6 +263,15 @@ func (v *vvp) preflight(survivors []string) {
 		} else if rc, out, errs := v.guard("check-visual-preflight", strings.NewReader(kv+"\n"), append([]string{w}, v.apps[w]...)...); rc != 0 {
 			collect("check-visual-preflight", out, errs)
 		}
+		if cmd := strings.TrimSpace(v.cells(w)["smoke"]); cmd != "" {
+			start := time.Now()
+			rc, out := kwRun(v.env, v.captureRoot(w), "sh", "-c", cmd)
+			if rc != 0 {
+				collect("smoke", "", cmd+" exited "+fmt.Sprint(rc)+": "+out)
+			} else {
+				v.say("SMOKE: %s ok in %.1fs", w, time.Since(start).Seconds())
+			}
+		}
 		if c := v.cells(w)["mockups"]; c != "" {
 			root := v.captureRoot(w)
 			targets := []string{root}
