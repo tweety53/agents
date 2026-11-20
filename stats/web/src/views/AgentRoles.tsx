@@ -41,6 +41,9 @@ export const SHORT_DOES: Record<string, string> = {
 };
 const shortDoes = (r: RoleEntry) => SHORT_DOES[r.role] ?? r.does.split(" ").slice(0, 4).join(" ");
 
+// Roles run by a guard's headless `claude -p`, never dispatched as an agent.
+const HEADLESS = new Set(["pair-judge", "decider", "plan-triage"]);
+
 const MAIN_PAIR = "session's own pair";
 
 // Tokens are drawn in thousands, the label's (k).
@@ -188,6 +191,7 @@ function RoleRow({ r, catalog, draft, onDraft }: { r: RoleEntry; catalog: string
     <tr className="role">
       <td className="role" title={r.does}>
         <code>{r.role}</code>
+        {HEADLESS.has(r.role) && <span className="tag">headless</span>}
         <span className="does">{shortDoes(r)}</span>
       </td>
       <td className="pairs">

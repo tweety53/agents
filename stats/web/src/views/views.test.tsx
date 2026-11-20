@@ -2017,6 +2017,18 @@ describe("AgentRoles", () => {
     expect(rows[2].querySelector("td.pairs")).toHaveTextContent("session's own pair");
   });
 
+  it("Agent roles tags the headless roles", async () => {
+    fetchRolesMock.mockResolvedValue([
+      { role: "pair-judge", base: ["sonnet/flow-low"], optin: [], group: "Pair choice", does: "Picks each dispatch's model and effort." },
+      { role: "implementer", base: ["opus/flow-low"], optin: [], group: "Implementation", does: "Writes the code." },
+    ]);
+    render(<AgentRoles />);
+    const table = await screen.findByRole("region", { name: "Current roles" });
+    const tagged = within(table).getAllByText("headless");
+    expect(tagged).toHaveLength(1);
+    expect(tagged[0].closest("td")).toHaveTextContent("pair-judge");
+  });
+
   it("Agent roles edits a role's base pairs", async () => {
     render(<AgentRoles />);
     const table = await screen.findByRole("region", { name: "Current roles" });
