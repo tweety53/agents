@@ -49,8 +49,8 @@ var (
 	edrKey        = regexp.MustCompile(`(?m)^Key:[ \t]*(\S+)[ \t]*$`)
 	edrCommit     = regexp.MustCompile(`(?m)^commit:[ \t]*\S+[ \t]+([0-9a-f]{40})\b`)
 	edrGatedKey   = regexp.MustCompile(`^task-[0-9]+(?:\+[0-9]+)*-reviewer`)
-	edrGatedFix   = regexp.MustCompile(`(?m)^task [0-9]+: fix\b`)
-	edrGatedClean = regexp.MustCompile(`(?m)^task [0-9]+: clean\b`)
+	edrGatedFix   = regexp.MustCompile(`(?m)^[ \t]*(?:[-*][ \t]+)?task [0-9]+: fix\b`)
+	edrGatedClean = regexp.MustCompile(`(?m)^[ \t]*(?:[-*][ \t]+)?task [0-9]+: clean\b`)
 )
 
 func endDispatchRow(args []string, env Env, stdout, stderr io.Writer) int {

@@ -35,6 +35,7 @@ func TestEndDispatchRow(t *testing.T) {
 		{"gated clean", "Key: task-1-reviewer\n", "task 1: clean — x\n", "-outcome clean", ""},
 		{"no final message", "Key: panel-1-primary\n", "", "", ""},
 		{"gated verdict only in the hook payload", "Key: task-1-reviewer\n", "", "-outcome fix", "task 1: fix — y\n"},
+		{"gated verdicts as a bullet list", "Key: task-1+2-reviewer-fix-2\n", "## Verdict\nOne still needs a fix.\n\n- task 1: clean — x\n- task 2: fix — y\n", "-outcome fix", ""},
 		{"loop key", "Key: pipeline-fix-3-fix\n", "done", "", ""},
 		{"no key", "hello", "done", "", ""},
 	} {
