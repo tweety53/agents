@@ -43,14 +43,14 @@ import (
 	"github.com/tweety53/agents/stats/internal/web"
 )
 
+// roleCostsSince is when the Role costs view starts: the operator reset it on
+// 2026-11-20 to the start of the kan-1092 run (15:15 UTC), so the view ignores every
+// dispatch started earlier. Nothing is deleted; the Reviewers, findings and run views read the same rows in full.
+var roleCostsSince = time.Date(2026, 11, 20, 15, 15, 0, 0, time.UTC)
+
 // shutdownGrace bounds how long Serve's graceful shutdown waits for
 // in-flight requests to finish before giving up and closing the
 // connection pool anyway.
-// roleCostsSince is when the Role costs view starts: the operator reset it on
-// 2026-11-20 to the start of the kan-1092 run (15:15 UTC), so the view ignores every dispatch started earlier. Nothing is
-// deleted; the Reviewers, findings and run views read the same rows in full.
-var roleCostsSince = time.Date(2026, 11, 20, 15, 15, 0, 0, time.UTC)
-
 const shutdownGrace = 15 * time.Second
 
 // harvestInterval is how often the transcript watcher scans
