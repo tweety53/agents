@@ -60,9 +60,10 @@ issue ("no jira"). Move it to **In Progress** per **Transitions** there. Every J
 one `⚠ Jira: skipped — <reason>` line of **Never blocking**.
 
 **Name.** `<lowercased key>-<slug>` per **Change naming**; with no issue,
-`interactive-<YYYYMMDD-HHMM>` (UTC). A name so resolved that matches an open `/flow-interactive`
-change — the reused `Interactive session` issue's included — resumes it (**Resume**, below), never
-a new session numbering from 1.
+`interactive-<YYYYMMDD-HHMM>` (UTC). **An open `/flow-interactive` change whose name is, or starts
+with `<lowercased key>-`, the resolved issue's key is resumed whatever its slug** (**Resume**, below) —
+the reused `Interactive session` issue's included, so a topic-slugged request never opens a second
+change on the same issue — never a new session numbering from 1. Find it with `flow state find <key>`.
 
 ```bash
 flow stage mark  -command '/flow-interactive' -stages flow.plan -harness <harness> <name>
