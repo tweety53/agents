@@ -1083,23 +1083,26 @@ describe("the reworked run view (kan-1048)", () => {
     expect(line.querySelector(".lb-num")).toHaveTextContent(`$${costs.toFixed(2)}`);
   });
 
-  it("run detail lists each agent that ran with no dispatch row as its own row, named by its description", async () => {
+  it("run detail groups the agents that ran with no dispatch row by role, like any role row", async () => {
     listStageRunsMock.mockResolvedValue(
       stageRunsResponse([
         run(70, "flow.plan", "2026-01-01T00:00:00Z", "2026-01-01T00:30:00Z", {
-          metrics: { cost_usd: 4, dispatches: { ex1: { cost_usd: 0.5, description: "plan-1 explore fix loop" }, ex2: { cost_usd: 0.25, description: "plan-review-1" } } },
+          metrics: {
+            cost_usd: 4,
+            dispatches: {
+              ex1: { cost_usd: 0.5, description: "explore-1 backend", model: "sonnet" },
+              ex2: { cost_usd: 0.25, description: "Explore frontend screens", model: "sonnet" },
+              pr: { cost_usd: 0.25, description: "plan-review-1", model: "opus" },
+            },
+          },
         }),
       ]),
     );
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const main = await screen.findByRole("region", { name: "Main" });
-    const rows = await waitFor(() => {
-      const r = within(main).getAllByTestId("phase-role").filter((x) => /^(plan-1 explore|plan-review-1)/.test(x.textContent ?? ""));
-      expect(r).toHaveLength(2);
-      return r;
-    });
-    expect(rows[0]).toHaveTextContent(/^plan-1 explore fix loop\$0\.50$/);
-    expect(rows[1]).toHaveTextContent(/^plan-review-1\$0\.25$/);
+    const line = await waitFor(() => within(main).getAllByTestId("phase-role").find((r) => r.textContent?.startsWith("explorer"))!);
+    expect(line).toHaveTextContent(/^explorer ×2sonnet ×2\$0\.75$/);
+    expect(within(main).getAllByTestId("phase-role").some((r) => /^plan-review-1 ×1opus ×1\$0\.25$/.test(r.textContent ?? ""))).toBe(true);
   });
 
   it("run detail on a self-review sub-run's own page shows one Main panel of that run's work, its cost split by what each run did", async () => {

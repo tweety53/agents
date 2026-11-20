@@ -215,7 +215,10 @@ function modelEffortLabel(d: Step): string {
  * descriptions, then "main session" for the runs' cost no bucket carries --
  * the main session's own turns. Null where nothing is left.
  */
-export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, number>): { unattributed: number | null; unrecorded: { label: string; cost: number }[]; main: number | null } {
+/** The agents no dispatch row claims, one row per role: an "explore…" description is an explorer, any other keeps its own name. */
+export type UnrecordedRole = { role: string; count: number; models: string; cost: number };
+
+export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, number>): { unattributed: number | null; unrecorded: UnrecordedRole[]; main: number | null } {
   const header = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
   // A run with no measured header cost holds buckets the header never counted: they are no part of
   // the main session's share, whose header is the other runs' alone (else it reads negative).
@@ -227,11 +230,27 @@ export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<str
     if (headerAgents.has(id)) buckets += c;
     if (!claimed.has(id)) unattributed += c;
   }
-  const unrecorded = runs.flatMap((r) =>
-    Object.entries(asObject(asObject(r.metrics)?.dispatches) ?? {})
-      .filter(([id]) => costs.has(id) && !claimed.has(id))
-      .map(([id, b]) => ({ label: String(asObject(b)?.description ?? id), cost: costs.get(id) ?? 0 })),
-  );
+  const byRole = new Map<string, { count: number; cost: number; models: Map<string, number> }>();
+  for (const r of runs) {
+    for (const [id, b] of Object.entries(asObject(asObject(r.metrics)?.dispatches) ?? {})) {
+      if (!costs.has(id) || claimed.has(id)) continue;
+      const o = asObject(b);
+      const desc = String(o?.description ?? id);
+      const role = /^explor/i.test(desc) ? "explorer" : desc;
+      const g = byRole.get(role) ?? { count: 0, cost: 0, models: new Map<string, number>() };
+      g.count += 1;
+      g.cost += costs.get(id) ?? 0;
+      const m = typeof o?.model === "string" && o.model ? formatModel(o.model) : "unknown";
+      g.models.set(m, (g.models.get(m) ?? 0) + 1);
+      byRole.set(role, g);
+    }
+  }
+  const unrecorded: UnrecordedRole[] = [...byRole].map(([role, g]) => ({
+    role,
+    count: g.count,
+    cost: g.cost,
+    models: [...g.models].map(([m, n]) => `${m} ×${n}`).join(", "),
+  }));
   const keep = (v: number) => (Math.abs(v) >= 0.005 ? v : null);
   return { unattributed: keep(unattributed), unrecorded, main: header === null ? null : keep(header - buckets) };
 }
@@ -384,10 +403,12 @@ function WorkPanel({
                 </Fragment>
               ))}
               {roles.length === 0 && <li className="lb-muted">No dispatches yet.</li>}
-              {rest.unrecorded.map((u, i) => (
-                <li key={`${u.label}-${i}`} data-testid="phase-role" className="lb-muted" title="An agent that ran with no recorded dispatch row">
-                  <span className="lb-role">{u.label}</span>
-                  <span />
+              {rest.unrecorded.map((u) => (
+                <li key={u.role} data-testid="phase-role" title="Agents that ran with no recorded dispatch row">
+                  <span className="lb-role">
+                    {u.role} <span className="lb-muted">×{u.count}</span>
+                  </span>
+                  <span className="lb-role-models">{u.models}</span>
                   <span className="lb-num r">{formatUsd(u.cost)}</span>
                   <span />
                 </li>
