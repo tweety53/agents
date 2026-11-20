@@ -88,6 +88,7 @@ export function SelfReview() {
             const fixed = data.rows.filter((r) => r.disposition === "fixed");
             if (fixed.length === 0) return <p className="lb-muted">No fixed findings in this period.</p>;
             return (
+              <div className="lb-scroll">
               <table className="lb-table">
                 <thead>
                   <tr>
@@ -120,6 +121,7 @@ export function SelfReview() {
                   ))}
                 </tbody>
               </table>
+              </div>
             );
           }}
         </Panel>
