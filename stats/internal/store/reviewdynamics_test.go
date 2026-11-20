@@ -2,13 +2,11 @@ package store_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"testing"
 	"time"
 
-	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -93,7 +91,7 @@ func TestReviewDynamicsSeries(t *testing.T) {
 	ctx := context.Background()
 	period := store.Period{From: week1, To: week1.Add(15 * 24 * time.Hour)}
 
-	got, err := st.ReviewDynamics(ctx, period, &project, nil)
+	got, err := st.ReviewDynamics(ctx, period, &project)
 	if err != nil {
 		t.Fatalf("ReviewDynamics: %v", err)
 	}
@@ -147,7 +145,7 @@ func TestReviewDynamicsSeries(t *testing.T) {
 		}
 	}
 
-	short, err := st.ReviewDynamics(ctx, store.Period{From: week1, To: week1.Add(14 * 24 * time.Hour)}, &project, nil)
+	short, err := st.ReviewDynamics(ctx, store.Period{From: week1, To: week1.Add(14 * 24 * time.Hour)}, &project)
 	if err != nil {
 		t.Fatalf("ReviewDynamics 14 days: %v", err)
 	}
@@ -156,7 +154,7 @@ func TestReviewDynamicsSeries(t *testing.T) {
 	}
 
 	other := "proj-dynamics-none"
-	empty, err := st.ReviewDynamics(ctx, period, &other, nil)
+	empty, err := st.ReviewDynamics(ctx, period, &other)
 	if err != nil {
 		t.Fatalf("ReviewDynamics other project: %v", err)
 	}
@@ -172,7 +170,7 @@ func TestReviewDynamicsHeatSummary(t *testing.T) {
 	st, project := seedDynamics(t)
 	ctx := context.Background()
 	// Week 2 alone, so week 1 is the previous range.
-	got, err := st.ReviewDynamics(ctx, store.Period{From: week2, To: week2.Add(7 * 24 * time.Hour)}, &project, nil)
+	got, err := st.ReviewDynamics(ctx, store.Period{From: week2, To: week2.Add(7 * 24 * time.Hour)}, &project)
 	if err != nil {
 		t.Fatalf("ReviewDynamics: %v", err)
 	}
@@ -237,7 +235,7 @@ func TestReviewDynamicsModelVersions(t *testing.T) {
 		}
 	}
 
-	got, err := st.ReviewDynamics(ctx, store.Period{From: week1, To: week1.Add(7 * 24 * time.Hour)}, &fx.project, nil)
+	got, err := st.ReviewDynamics(ctx, store.Period{From: week1, To: week1.Add(7 * 24 * time.Hour)}, &fx.project)
 	if err != nil {
 		t.Fatalf("ReviewDynamics: %v", err)
 	}
@@ -298,7 +296,7 @@ func TestReviewDynamicsPrefersServedModelAndEffort(t *testing.T) {
 		t.Fatalf("stamp served metrics: %v", err)
 	}
 
-	got, err := st.ReviewDynamics(ctx, store.Period{From: week1, To: week1.Add(7 * 24 * time.Hour)}, &fx.project, nil)
+	got, err := st.ReviewDynamics(ctx, store.Period{From: week1, To: week1.Add(7 * 24 * time.Hour)}, &fx.project)
 	if err != nil {
 		t.Fatalf("ReviewDynamics: %v", err)
 	}
@@ -320,28 +318,17 @@ func TestReviewDynamicsPrefersServedModelAndEffort(t *testing.T) {
 	}
 }
 
-// TestReviewDynamicsClassAndProjects pins class-buttons and
-// project-buttons: a class keeps only the changes whose latest decision
-// carries it, and Projects lists the period's reviewed projects whatever
-// the filters -- reviewer dispatches only, period.To excluded.
-func TestReviewDynamicsClassAndProjects(t *testing.T) {
+// TestReviewDynamicsProjects pins project-buttons: Projects lists the
+// period's reviewed projects whatever the filter -- reviewer dispatches
+// only, period.To excluded.
+func TestReviewDynamicsProjects(t *testing.T) {
 	t.Parallel()
 	st, project := seedDynamics(t)
 	ctx := context.Background()
-	decide := func(change, token, class string) {
-		if _, _, err := st.RecordDecision(ctx, project, change, records.Decision{
-			SessionToken: token, Decision: json.RawMessage(`{"class":"` + class + `"}`),
-		}); err != nil {
-			t.Fatalf("RecordDecision %s: %v", change, err)
-		}
-	}
-	decide("a", "mf-a-1", "small")
-	decide("a", "mf-a-2", "big") // the latest decision wins
-	decide("b", "mf-b-1", "small")
 	period := store.Period{From: week1, To: week1.Add(15 * 24 * time.Hour)}
 
-	// Projects ignores the project and class filters, keeps reviewer
-	// dispatches only, and ends before period.To.
+	// Projects ignores the project filter, keeps reviewer dispatches only,
+	// and ends before period.To.
 	other, idle, edge := project+"-other", project+"-idle", project+"-edge"
 	for p, d := range map[string]struct {
 		role string
@@ -352,18 +339,9 @@ func TestReviewDynamicsClassAndProjects(t *testing.T) {
 		fx.dispatch("x", d.role, "primary", "opus", "low", "panel-0-primary", "completed", d.at)
 	}
 
-	big := "big"
-	got, err := st.ReviewDynamics(ctx, period, &project, &big)
+	got, err := st.ReviewDynamics(ctx, period, &project)
 	if err != nil {
 		t.Fatalf("ReviewDynamics: %v", err)
-	}
-	if got.Summary.Changes != 1 {
-		t.Errorf("big Changes = %d, want 1 (change a alone)", got.Summary.Changes)
-	}
-	for _, c := range got.Heat {
-		if c.Slot == "test-sanity" {
-			t.Errorf("big heat carries change b's test-sanity cell: %+v", c)
-		}
 	}
 	listed := map[string]bool{}
 	for _, p := range got.Projects {
@@ -373,13 +351,5 @@ func TestReviewDynamicsClassAndProjects(t *testing.T) {
 		if listed[p] != want {
 			t.Errorf("Projects lists %q = %v, want %v (Projects = %v)", p, listed[p], want, got.Projects)
 		}
-	}
-
-	micro := "micro"
-	if got, err = st.ReviewDynamics(ctx, period, &project, &micro); err != nil {
-		t.Fatalf("ReviewDynamics: %v", err)
-	}
-	if got.Summary.Changes != 0 || len(got.Heat) != 0 {
-		t.Errorf("micro = %d changes, %d heat cells; want none", got.Summary.Changes, len(got.Heat))
 	}
 }

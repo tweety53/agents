@@ -80,7 +80,7 @@ type StatsStore interface {
 	// self-review finding recorded in the period, newest first.
 	SelfReviewFindingsInPeriod(ctx context.Context, period store.Period, project *string) ([]store.SelfReviewFindingRow, error)
 	// ReviewDynamics backs the "review-dynamics" view.
-	ReviewDynamics(ctx context.Context, period store.Period, project, class *string) (store.ReviewDynamics, error)
+	ReviewDynamics(ctx context.Context, period store.Period, project *string) (store.ReviewDynamics, error)
 	// CountRunsWithoutModel and ListModels back task 21's model filter:
 	// the former only called when a model filter is set (statsResponse's
 	// ExcludedNoModel), the latter GET /api/v1/models's only source.
@@ -161,7 +161,7 @@ func acceptedViewNames() string {
 // surface) to "an unknown query *parameter*" on a route that has no
 // filter/sort surface of its own to delegate that check to.
 var statsQueryParams = map[string]bool{
-	"from": true, "to": true, "project": true, "change": true, "model": true, "class": true,
+	"from": true, "to": true, "project": true, "change": true, "model": true,
 	// "projects=1" asks stage-leaderboard or weekly-costs for its
 	// per-project spend, reviewers for its per-project dispatch count, and
 	// guard-health for its per-project guard-run count;
@@ -169,15 +169,11 @@ var statsQueryParams = map[string]bool{
 	"projects": true,
 }
 
-// planClasses are the values the "class" parameter accepts: the plan classes a
-// decision recorded before the decider carried, smallest first.
-var planClasses = map[string]bool{"micro": true, "small": true, "regular": true, "big": true}
-
 // acceptedStatsQueryParamNames is statsQueryParams' keys, named in the
 // unrecognised-parameter error message -- kept as one literal alongside the
 // map it names, rather than duplicated at each call site, so adding a
 // parameter to the map cannot silently leave the error message stale.
-const acceptedStatsQueryParamNames = "from, to, project, change, model, class"
+const acceptedStatsQueryParamNames = "from, to, project, change, model"
 
 // statsResponse is the JSON envelope every view answers with: the request
 // that was actually served (never merely echoed -- From/To are the parsed
@@ -467,18 +463,6 @@ func (h *statsHandler) view(w http.ResponseWriter, r *http.Request) {
 			"view %q does not accept a project restriction: its rows span every project", name))
 		return
 	}
-	// Only review dynamics filters by plan class; anywhere else the
-	// parameter would be silently ignored.
-	if c := firstValue(values, "class"); c != "" {
-		if name != viewReviewDynamics {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("view %q does not accept a class restriction", name))
-			return
-		}
-		if !planClasses[c] {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("unrecognised class %q; accepted: micro, small, regular, big", c))
-			return
-		}
-	}
 	// Review dynamics splits its own series by model, so a restriction
 	// would hide the comparison the view exists to draw.
 	if model != nil && name == viewReviewDynamics {
@@ -671,11 +655,7 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 		return h.healthRows(ctx, name, period, project, model)
 
 	case viewReviewDynamics:
-		var class *string
-		if c := firstValue(values, "class"); c != "" {
-			class = &c
-		}
-		d, err := h.store.ReviewDynamics(ctx, period, project, class)
+		d, err := h.store.ReviewDynamics(ctx, period, project)
 		if err != nil {
 			s, m := mapStoreError(h.logger, "review dynamics", err)
 			return nil, s, m

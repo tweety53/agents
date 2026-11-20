@@ -52,7 +52,7 @@ func TestSelfReviewBundleWritesTheContextFile(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("seed change: %v", err)
 	}
-	srv, err := api.New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, st, st, st, st, st, nil)
+	srv, err := api.New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, st, st, st, st, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

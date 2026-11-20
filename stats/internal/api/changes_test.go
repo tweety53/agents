@@ -252,14 +252,6 @@ type fakeStore struct {
 	projectKeysByDisplayName      map[string][]string
 	projectKeysByDisplayNameErr   error
 	projectKeysByDisplayNameCalls []string
-
-	// --- settings bookkeeping (internal/api/settings_test.go's fakeStore
-	// methods operate on these) --- settings is nil until the first
-	// PutSettings, mirroring flow_settings holding no row yet.
-	settings       *store.Settings
-	getSettingsErr error
-	putSettingsErr error
-	learningTopics []store.LearningTopic
 }
 
 func (f *fakeStore) ProjectKeysByDisplayName(_ context.Context, displayName string) ([]string, error) {
@@ -335,7 +327,7 @@ var _ api.ChangeStore = (*fakeStore)(nil)
 func newTestServer(t *testing.T, fs *fakeStore) *httptest.Server {
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, fs, fs, fs, fs, fs, nil)
+	srv, err := api.New(cfg, fs, fs, fs, fs, nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -437,7 +429,7 @@ func TestServerBindsLoopbackOnly(t *testing.T) {
 	t.Parallel()
 	t.Run("non-loopback host is refused", func(t *testing.T) {
 		cfg := config.Config{Host: "0.0.0.0", Port: 0, DSN: "unused"}
-		srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil)
+		srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil)
 		if err == nil {
 			t.Fatal("expected an error for a non-loopback host, got nil")
 		}
@@ -455,14 +447,14 @@ func TestServerBindsLoopbackOnly(t *testing.T) {
 		// it would make the answer depend on this machine's own
 		// name-resolution configuration.
 		cfg := config.Config{Host: "localhost", Port: 0, DSN: "unused"}
-		if _, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil); err == nil {
+		if _, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil); err == nil {
 			t.Fatal("expected an error for a hostname, got nil")
 		}
 	})
 
 	t.Run("loopback host is accepted", func(t *testing.T) {
 		cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-		srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil)
+		srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil)
 		if err != nil {
 			t.Fatalf("unexpected error for a loopback host: %v", err)
 		}
@@ -990,7 +982,7 @@ func TestShutdownDrainsInFlight(t *testing.T) {
 	}
 
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, fs, fs, fs, fs, fs, nil)
+	srv, err := api.New(cfg, fs, fs, fs, fs, nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}

@@ -1021,7 +1021,7 @@ func TestEndDispatchRouteTakesAStampedRowsEndFromItsAgent(t *testing.T) {
 	fs.changes[changeKey("proj", "kan-1")] = store.Change{ProjectKey: "proj", Name: "kan-1", State: store.StateInProgress}
 	finished := time.Date(2026, 8, 22, 9, 5, 0, 0, time.UTC)
 	asked := 0
-	srv, err := api.New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, fs, fs, fs, fs, fs, nil,
+	srv, err := api.New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, fs, fs, fs, fs, nil,
 		api.WithAgentEnds(func(agentID string) (time.Time, bool) {
 			asked++
 			return finished, agentID == "a-slot"

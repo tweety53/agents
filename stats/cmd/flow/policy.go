@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
@@ -33,6 +34,17 @@ grant lapses when the change reaches FINISHED.
 Exit codes: 0 done; 1 the store refused, or could not be reached (get:
 and no cache exists); 2 usage.
 `
+
+// storeConnFlags is the store connection common to `policy` and `pricing reprice`.
+type storeConnFlags struct {
+	addr    string
+	timeout time.Duration
+}
+
+func registerStoreConnFlags(fset *flag.FlagSet, f *storeConnFlags, getenv func(string) string) {
+	registerRecordsAddrFlag(fset, &f.addr, getenv)
+	fset.DurationVar(&f.timeout, "timeout", defaultTimeout, "store request timeout")
+}
 
 // policyCachePath is where `flow policy get` keeps its last good answer.
 func policyCachePath(getenv func(string) string) string {
@@ -149,7 +161,7 @@ func writePolicyCache(path string, p []byte) error {
 
 // withFlowdClient runs call against a client under f's address and
 // timeout, recovering from any panic in the client path and reporting it as
-// client.ErrUnavailable -- getSettings' guarantee.
+// client.ErrUnavailable.
 func withFlowdClient[T any](ctx context.Context, f storeConnFlags, call func(context.Context, *client.Client) (T, error)) (out T, err error) {
 	defer func() {
 		if r := recover(); r != nil {

@@ -30,7 +30,7 @@ func jiraTestServer(t *testing.T, atlassian http.HandlerFunc) *httptest.Server {
 		t.Cleanup(upstream.Close)
 		cfg.Jira = config.JiraConfig{Site: upstream.URL, Email: "ops@example.com", APIToken: "token"}
 	}
-	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil)
+	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestJiraTransitionUpstreamTransientExhausted(t *testing.T) {
 		return jira.Result{}, fmt.Errorf("%w: %s to %s: upstream 503", jira.ErrTransientExhausted, key, target)
 	})
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil, api.WithJiraTransitioner(exhausted))
+	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil, api.WithJiraTransitioner(exhausted))
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}

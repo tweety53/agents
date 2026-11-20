@@ -258,7 +258,7 @@ func (f runTimingsFake) ChangeGuardRuns(_ context.Context, ws []store.GuardWindo
 // computed result, and 404 for a change the store does not hold.
 func TestRunTimingsRouteServesTheResult(t *testing.T) {
 	t.Parallel()
-	srv, err := New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, nil, nil, nil, nil, nil, nil, WithRunTimings(runTimingsFake{}))
+	srv, err := New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, nil, nil, nil, nil, nil, WithRunTimings(runTimingsFake{}))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -421,7 +421,7 @@ func rtJournalAtStateRoot(t *testing.T) {
 	if err := os.MkdirAll(fallback.RecordJournalPath(root, "p", "kan-2-b"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	srv, err := New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, nil, nil, nil, nil, nil, nil, WithRunTimings(runTimingsFake{}), WithStateRoot(root))
+	srv, err := New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, nil, nil, nil, nil, nil, WithRunTimings(runTimingsFake{}), WithStateRoot(root))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

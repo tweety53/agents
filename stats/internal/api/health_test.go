@@ -160,7 +160,7 @@ func newGuardRunServer(t *testing.T, f api.GuardRunStore) *httptest.Server {
 	if f != nil {
 		opts = append(opts, api.WithGuardRuns(f))
 	}
-	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil, opts...)
+	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil, opts...)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}

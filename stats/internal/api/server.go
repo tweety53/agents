@@ -354,7 +354,7 @@ func rejectEncodedSlash(next http.Handler) http.Handler {
 // opts is variadic and, absent WithSPA, changes nothing about the mux this
 // function has always built -- see WithSPA's own doc comment for why the
 // SPA route is opt-in here rather than a fixed part of every Server.
-func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs RecordStore, sets SettingsStore, logger *slog.Logger, opts ...Option) (*Server, error) {
+func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs RecordStore, logger *slog.Logger, opts ...Option) (*Server, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("api: %w", err)
 	}
@@ -376,7 +376,6 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	hz := &hazardHandler{store: rs, logger: logger}
 	suh := &suiteHandler{store: rs, logger: logger}
 	sph := &specHandler{store: rs, logger: logger}
-	seth := &settingsHandler{store: sets, logger: logger}
 	// The Jira transition endpoint exists whenever the daemon has the
 	// FLOWD_JIRA_* block; without it the handler is built with a nil
 	// transitioner and answers 503 per request, keeping "no Jira access"
@@ -448,10 +447,6 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("GET /api/v1/records/{project}/{change}/requests", rh.listRequests)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/passes", rh.recordPass)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/mutations", rh.recordMutation)
-	mux.HandleFunc("GET /api/v1/settings", seth.get)
-	mux.HandleFunc("PUT /api/v1/settings", seth.put)
-	mux.HandleFunc("GET /api/v1/learning", seth.listLearning)
-	mux.HandleFunc("POST /api/v1/learning", seth.addLearning)
 	mux.HandleFunc("POST /api/v1/jira/transition", jh.transition)
 	mux.HandleFunc(apiPathPrefix, func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, fmt.Sprintf("no such API route: %s %s", r.Method, r.URL.Path))

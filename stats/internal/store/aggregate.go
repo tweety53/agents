@@ -979,9 +979,8 @@ func (s *Store) ListModels(ctx context.Context, period Period, project *string) 
 // it was dispatched, across how many changes, and what it found by
 // severity. Experimental is true for a slot whose id carries the "exp-" prefix (design.md's
 // exp-slot-prefix decision -- no schema flag, the id itself is the fact);
-// Description is that slot's newest recorded decision roster entry naming
-// it, empty when no decision ever named it (a default-panel run, or a slot
-// whose roster entry carries no description at all).
+// Description is the slot's line in extraDispatchDescriptions, empty when
+// it has none.
 type ReviewerRow struct {
 	Slot         string
 	Experimental bool
@@ -1045,19 +1044,8 @@ const reviewerScopeSQL = `
 			FROM scoped_findings
 			GROUP BY slot
 		),
-		slot_desc AS (
-			SELECT DISTINCT ON (r->>'slot') r->>'slot' AS slot, r->>'description' AS description
-			FROM decisions d, jsonb_path_query(d.decision, '$.panel.roster[*]') r
-			WHERE r->>'slot' IS NOT NULL
-			ORDER BY r->>'slot', d.recorded_at DESC
-		),
 		roster_slots AS (
-			SELECT slot FROM slot_desc
-			UNION
-			SELECT jsonb_path_query(decision, '$.extra_dispatch.slots[*]') #>> '{}'
-			FROM decisions
-			UNION
-			SELECT jsonb_path_query(decision, '$.extra_dispatch_mutation.slots[*]') #>> '{}'
+			SELECT jsonb_path_query(decision, '$.panel[*].slots[*]') #>> '{}' AS slot
 			FROM decisions
 			UNION
 			SELECT 'gated-reviewer'
@@ -1151,29 +1139,16 @@ func (s *Store) ReviewerProjects(ctx context.Context, period Period) ([]ProjectD
 // and a finding whose status begins "withdrawn" counts under Withdrawn only.
 // Cost and pricing are reviewerPricingSQL's.
 //
-// Description is read from the newest decisions row whose
-// decision->'panel'->'roster' carries an entry naming this slot -- one
-// DISTINCT ON pass over every roster entry (slot_desc), never a scan of
-// decisions per slot -- independent of period and
-// project -- a roster entry describes what a slot IS, not when it ran, so
-// scoping it to the query's own period would make the same slot's
-// description flicker between periods for no reason tied to the roster
-// itself.
-//
 // roster_slots is also the view's membership test: a slot is a row only
-// when some recorded roster names it. Dispatches of other roles (panel-fix,
-// verifier) and one-off reviewers sometimes carry an invented -slot, and
-// without this join each surfaced as a zero-findings row. The always-on
-// extra dispatches' slots are recorded under extra_dispatch.slots and
-// extra_dispatch_mutation.slots, never in the roster, so they count as
-// members too; those records carry no description, so theirs comes from
-// extraDispatchDescriptions.
+// when some recorded decision's panel names it (panel[].slots). Dispatches
+// of other roles (panel-fix, verifier) and one-off reviewers sometimes carry
+// an invented -slot, and without this join each surfaced as a zero-findings
+// row. Decisions of the retired shape name none.
 func (s *Store) Reviewers(ctx context.Context, period Period, project, model *string) ([]ReviewerRow, error) {
 	rows, err := s.pool.Query(ctx, reviewerScopeSQL+reviewerPricingSQL+`
 		SELECT
 			da.slot,
 			da.slot LIKE 'exp-%' AS experimental,
-			COALESCE(sd.description, '') AS description,
 			da.dispatches,
 			da.changes,
 			COALESCE(fa.critical, 0),
@@ -1184,7 +1159,6 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 			COALESCE(fa.withdrawn, 0)
 		FROM dispatch_agg da
 		JOIN roster_slots rs ON rs.slot = da.slot
-		LEFT JOIN slot_desc sd ON sd.slot = da.slot
 		LEFT JOIN finding_agg fa ON fa.slot = da.slot
 		ORDER BY da.slot
 	`, period.From, period.To, project, model)
@@ -1197,15 +1171,13 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 	for rows.Next() {
 		var row ReviewerRow
 		if err := rows.Scan(
-			&row.Slot, &row.Experimental, &row.Description,
+			&row.Slot, &row.Experimental,
 			&row.Dispatches, &row.Changes, &row.Critical, &row.Important, &row.Minor,
 			&row.CostUSD, &row.PricedDispatches, &row.Withdrawn,
 		); err != nil {
 			return nil, fmt.Errorf("store: reviewers: scan: %w", err)
 		}
-		if row.Description == "" {
-			row.Description = extraDispatchDescriptions[row.Slot]
-		}
+		row.Description = extraDispatchDescriptions[row.Slot]
 		if row.Slot == "gated-reviewer" {
 			row.Description = "Gated review — checks each implementer group's risky tasks as they land, before the panel"
 		}
@@ -1217,9 +1189,8 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 	return out, nil
 }
 
-// extraDispatchDescriptions describes the always-on extra dispatches'
-// slots (extra_dispatch and extra_dispatch_mutation), in the words of
-// skills/flow/review-panel.md's table for them.
+// extraDispatchDescriptions describes the slots that carry one, in the words
+// of skills/flow/review-panel.md's table for them.
 var extraDispatchDescriptions = map[string]string{
 	"test-sanity":     "Test-sanity — would each test the diff adds or changes fail if its behaviour broke",
 	"call-efficiency": "Call-efficiency — second callers, a read repeated in one request, a query per list item",

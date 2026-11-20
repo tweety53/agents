@@ -33,7 +33,7 @@ func TestPricingRepriceAnswersCounts(t *testing.T) {
 		t.Helper()
 		cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
 		fs := newFakeStore()
-		srv, err := api.New(cfg, fs, fs, fs, fs, fs, nil, api.WithRepricer(f))
+		srv, err := api.New(cfg, fs, fs, fs, fs, nil, api.WithRepricer(f))
 		if err != nil {
 			t.Fatalf("api.New: %v", err)
 		}

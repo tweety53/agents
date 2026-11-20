@@ -47,7 +47,7 @@ export function useStatsView<Row, Project = ProjectSpend>(
     // the dashboard bar's model variable re-requests this view -- omitting
     // it here would leave the view showing the previous model's rows until
     // some other dependency happened to change too.
-  }, [view, fromMs, toMs, params.project, params.breakdown, params.change, params.model, params.class, enabled]);
+  }, [view, fromMs, toMs, params.project, params.breakdown, params.change, params.model, enabled]);
 
   return state;
 }

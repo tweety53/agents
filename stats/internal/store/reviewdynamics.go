@@ -77,13 +77,6 @@ const modelVersionSQL = `COALESCE(d.metrics->>'modelVersion',
 	CASE WHEN ` + servedModelSQL + ` ~* '^(claude|glm)-' THEN ` + servedModelSQL + ` END,
 	model_family(` + servedModelSQL + `) || ' (version unrecorded)')`
 
-// classFilterSQL restricts a query's change c to the plan class $5 names,
-// read from the change's latest recorded decision; a NULL $5 keeps every
-// change (class-buttons).
-const classFilterSQL = `
-			  AND ($5::text IS NULL OR (SELECT dc.decision->>'class' FROM decisions dc
-				WHERE dc.change_id = c.id ORDER BY dc.recorded_at DESC, dc.id DESC LIMIT 1) = $5)`
-
 // implBadOutcomes are the implementer dispatch outcomes counted as blocked
 // (impl-vv-metrics).
 var implBadOutcomes = []string{"blocked", "aborted", "failed", "stopped", "cancelled"}
@@ -91,9 +84,7 @@ var implBadOutcomes = []string{"blocked", "aborted", "failed", "stopped", "cance
 // ReviewDynamics trends review-panel, implementer and visual-verify
 // outcomes over period, bucketed by UTC day when the period is 14 days or
 // shorter and by ISO week otherwise (bucket-from-range). project, when
-// set, restricts every series to that project, and class, when set, to the
-// changes whose latest recorded decision has that plan class
-// (class-buttons).
+// set, restricts every series to that project.
 //
 // Per-change metrics put a change in the bucket of its cohort dispatch's
 // started_at and count every finding of the change (cohort-by-change);
@@ -127,18 +118,18 @@ var implBadOutcomes = []string{"blocked", "aborted", "failed", "stopped", "cance
 //     bucket with an implBadOutcomes outcome ÷ all of them.
 //
 // The summary applies the same formulas to the whole period.
-func (s *Store) ReviewDynamics(ctx context.Context, period Period, project, class *string) (ReviewDynamics, error) {
+func (s *Store) ReviewDynamics(ctx context.Context, period Period, project *string) (ReviewDynamics, error) {
 	unit := "week"
 	if period.To.Sub(period.From) <= 14*24*time.Hour {
 		unit = "day"
 	}
 	out := ReviewDynamics{Bucket: unit}
 
-	cur, err := s.dynamicsFor(ctx, period, project, class, unit)
+	cur, err := s.dynamicsFor(ctx, period, project, unit)
 	if err != nil {
 		return ReviewDynamics{}, err
 	}
-	prev, err := s.dynamicsFor(ctx, Period{From: period.From.Add(-period.To.Sub(period.From)), To: period.From}, project, class, unit)
+	prev, err := s.dynamicsFor(ctx, Period{From: period.From.Add(-period.To.Sub(period.From)), To: period.From}, project, unit)
 	if err != nil {
 		return ReviewDynamics{}, err
 	}
@@ -171,7 +162,7 @@ type dynamicsPeriod struct {
 	summary           DynamicsSummary
 }
 
-func (s *Store) dynamicsFor(ctx context.Context, period Period, project, class *string, unit string) (dynamicsPeriod, error) {
+func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string, unit string) (dynamicsPeriod, error) {
 	var out dynamicsPeriod
 	add := func(b time.Time, metric, series string, value float64, basis int) {
 		out.series = append(out.series, DynamicsPoint{Bucket: b, Metric: metric, Series: series, Value: value, Basis: basis})
@@ -182,7 +173,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project, class *
 		}
 		return float64(n) / float64(d)
 	}
-	args := []any{period.From, period.To, project, unit, class}
+	args := []any{period.From, period.To, project, unit}
 
 	// Review panel, per change.
 	var changes, findings, critImp, rounds int
@@ -191,7 +182,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project, class *
 			SELECT d.change_id, min(d.started_at) AS first_at
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
 			WHERE d.role = 'reviewer' AND d.slot IS NOT NULL
-			  AND ($3::text IS NULL OR c.project_key = $3)`+classFilterSQL+`
+			  AND ($3::text IS NULL OR c.project_key = $3)`+`
 			GROUP BY d.change_id
 			HAVING min(d.started_at) >= $1 AND min(d.started_at) < $2
 		),
@@ -256,7 +247,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project, class *
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
 			WHERE d.role = 'reviewer' AND d.slot IS NOT NULL
 			  AND d.started_at >= $1 AND d.started_at < $2
-			  AND ($3::text IS NULL OR c.project_key = $3)`+classFilterSQL+`
+			  AND ($3::text IS NULL OR c.project_key = $3)`+`
 		)
 		SELECT d.id, date_trunc($4::text, d.started_at AT TIME ZONE 'UTC'), d.slot, d.model, d.version, d.effort,
 			count(f.id) FILTER (WHERE canonical_severity(f.severity) = 'critical'),
@@ -302,7 +293,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project, class *
 				mode() WITHIN GROUP (ORDER BY `+keyed.model+` || ' · ' || `+servedEffortSQL+`) AS series
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
 			WHERE d.role = 'implementer'
-			  AND ($3::text IS NULL OR c.project_key = $3)`+classFilterSQL+`
+			  AND ($3::text IS NULL OR c.project_key = $3)`+`
 			GROUP BY d.change_id
 			HAVING min(d.started_at) >= $1 AND min(d.started_at) < $2
 		)
@@ -334,10 +325,10 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project, class *
 
 	err = s.scanRows(ctx, "implementer blocked share", `
 		SELECT date_trunc($4::text, d.started_at AT TIME ZONE 'UTC') AS bucket,
-			count(*) FILTER (WHERE d.outcome = ANY($6)), count(*)
+			count(*) FILTER (WHERE d.outcome = ANY($5)), count(*)
 		FROM dispatches d JOIN changes c ON c.id = d.change_id
 		WHERE d.role = 'implementer' AND d.started_at >= $1 AND d.started_at < $2
-		  AND ($3::text IS NULL OR c.project_key = $3)`+classFilterSQL+`
+		  AND ($3::text IS NULL OR c.project_key = $3)`+`
 		GROUP BY bucket ORDER BY bucket
 	`, append(args, implBadOutcomes), func(scan func(...any) error) error {
 		var b time.Time
@@ -360,7 +351,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project, class *
 				COALESCE(max(substring(d.dispatch_key FROM '^visual-verify-fix-([0-9]+)')::int), 0) AS rounds
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
 			WHERE d.role = 'verifier' AND d.dispatch_key LIKE 'visual-verify%'
-			  AND ($3::text IS NULL OR c.project_key = $3)`+classFilterSQL+`
+			  AND ($3::text IS NULL OR c.project_key = $3)`+`
 			GROUP BY d.change_id
 			HAVING min(d.started_at) >= $1 AND min(d.started_at) < $2
 		)

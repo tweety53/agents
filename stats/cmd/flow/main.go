@@ -46,11 +46,7 @@ commands:
   interactive land     land a /flow-interactive request: rebase, check, push (see: flow interactive)
   decision render     print the ## Decision block for a decision.json (see: flow decision)
   journal flush        replay every pending journal entry into the store
-  settings get         print the harness-wide settings record
-  settings set         write the harness-wide settings record
   policy get|grants|grant|revoke  read role pairs, manage operator grants (see: flow policy)
-  learning add <topic> record one learning note's topic (see: flow learning)
-  learning list        print every learning topic with its count as a JSON array
   pricing reprice      price every stage run and dispatch since a date again (see: flow pricing)
   tasks tick <change> <task-id>  flip a task's checkbox and its steps' checkboxes
   tasks count <change> record one observation of a plan's task count
@@ -106,12 +102,8 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdin i
 		return runSpec(ctx, args[1:], getenv, stdout, stderr)
 	case "journal":
 		return runJournal(ctx, args[1:], getenv, stdout, stderr)
-	case "settings":
-		return runSettings(ctx, args[1:], getenv, stdout, stderr)
 	case "policy":
 		return runPolicy(ctx, args[1:], getenv, stdout, stderr)
-	case "learning":
-		return runLearning(ctx, args[1:], getenv, stdout, stderr)
 	case "pricing":
 		return runPricing(ctx, args[1:], getenv, stdout, stderr)
 	case "tasks":

@@ -1453,16 +1453,7 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 
 	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-1", records.Decision{
 		SessionToken: "mf-reviewers-test",
-		Decision: json.RawMessage(`{
-			"panel": {
-				"roster": [
-					{"slot": "primary", "experimental": false},
-					{"slot": "exp-failure-modes", "experimental": true,
-					 "prompt": "skills/flow/experimental/failure-modes.md",
-					 "description": "What the diff does under error, timeout and partial write"}
-				]
-			}
-		}`),
+		Decision: json.RawMessage(`{"panel": [{"slots": ["primary", "exp-failure-modes"]}]}`),
 	}); err != nil {
 		t.Fatalf("RecordDecision: %v", err)
 	}
@@ -1494,7 +1485,7 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 		t.Errorf("primary Experimental = true, want false")
 	}
 	if primary.Description != "" {
-		t.Errorf("primary Description = %q, want empty (its roster entry carries none)", primary.Description)
+		t.Errorf("primary Description = %q, want empty (it has no description)", primary.Description)
 	}
 	if primary.Dispatches != 2 {
 		t.Errorf("primary Dispatches = %d, want 2", primary.Dispatches)
@@ -1512,10 +1503,6 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 	}
 	if !exp.Experimental {
 		t.Errorf("exp-failure-modes Experimental = false, want true")
-	}
-	const wantDescription = "What the diff does under error, timeout and partial write"
-	if exp.Description != wantDescription {
-		t.Errorf("exp-failure-modes Description = %q, want %q", exp.Description, wantDescription)
 	}
 	if exp.Dispatches != 1 {
 		t.Errorf("exp-failure-modes Dispatches = %d, want 1", exp.Dispatches)
@@ -1535,11 +1522,7 @@ func TestReviewersCountsBySeverityAndMarksExperimental(t *testing.T) {
 // slot in slots, so Reviewers' roster_slots admits them.
 func recordReviewerRoster(t *testing.T, st *store.Store, projectKey, change string, slots ...string) {
 	t.Helper()
-	roster := make([]map[string]any, 0, len(slots))
-	for _, s := range slots {
-		roster = append(roster, map[string]any{"slot": s, "experimental": false})
-	}
-	body, err := json.Marshal(map[string]any{"panel": map[string]any{"roster": roster}})
+	body, err := json.Marshal(map[string]any{"panel": []map[string]any{{"slots": slots}}})
 	if err != nil {
 		t.Fatalf("marshal roster: %v", err)
 	}
@@ -1864,7 +1847,7 @@ func TestReviewersIncludesExtraDispatchSlots(t *testing.T) {
 	}
 	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-1", records.Decision{
 		SessionToken: "mf-extra-" + projectKey,
-		Decision:     json.RawMessage(`{"panel": "default", "extra_dispatch": {"slots": ["test-sanity", "call-efficiency"], "model": "sonnet", "effort": "low"}}`),
+		Decision:     json.RawMessage(`{"panel": [{"slots": ["test-sanity", "call-efficiency"]}]}`),
 	}); err != nil {
 		t.Fatalf("RecordDecision: %v", err)
 	}
@@ -1928,7 +1911,7 @@ func TestReviewersCountsMutationExtraDispatch(t *testing.T) {
 	}
 	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-1", records.Decision{
 		SessionToken: "mf-extramf-" + projectKey,
-		Decision:     json.RawMessage(`{"panel": "default", "extra_dispatch_mutation": {"slots": ["mutation", "failure-modes"], "model": "opus", "effort": "low"}}`),
+		Decision:     json.RawMessage(`{"panel": [{"slots": ["mutation", "failure-modes"]}]}`),
 	}); err != nil {
 		t.Fatalf("RecordDecision: %v", err)
 	}
@@ -2069,13 +2052,13 @@ func TestReviewersScopesByDispatchStart(t *testing.T) {
 // has a roster to consult.
 func seedRoster(t *testing.T, st *store.Store, projectKey, change string, slots ...string) {
 	t.Helper()
-	entries := make([]string, len(slots))
-	for i, s := range slots {
-		entries[i] = fmt.Sprintf(`{"slot": %q}`, s)
+	body, err := json.Marshal(map[string]any{"panel": []map[string]any{{"slots": slots}}})
+	if err != nil {
+		t.Fatalf("marshal roster: %v", err)
 	}
 	if _, _, err := st.RecordDecision(context.Background(), projectKey, change, records.Decision{
 		SessionToken: "mf-roster-" + projectKey,
-		Decision:     json.RawMessage(`{"panel": {"roster": [` + strings.Join(entries, ",") + `]}}`),
+		Decision:     body,
 	}); err != nil {
 		t.Fatalf("RecordDecision: %v", err)
 	}

@@ -138,7 +138,7 @@ func TestApiPathsAreNotSwallowedBySpaFallback(t *testing.T) {
 	}
 
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, fakeStore{}, fakeStore{}, fakeStore{}, fakeStore{}, fakeStore{}, nil, api.WithSPA(spaHandler))
+	srv, err := api.New(cfg, fakeStore{}, fakeStore{}, fakeStore{}, fakeStore{}, nil, api.WithSPA(spaHandler))
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -392,7 +392,7 @@ func (fakeStore) Reviewers(context.Context, store.Period, *string, *string) ([]s
 func (fakeStore) SelfReviewFindingsInPeriod(context.Context, store.Period, *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
 }
-func (fakeStore) ReviewDynamics(context.Context, store.Period, *string, *string) (store.ReviewDynamics, error) {
+func (fakeStore) ReviewDynamics(context.Context, store.Period, *string) (store.ReviewDynamics, error) {
 	return store.ReviewDynamics{}, nil
 }
 
@@ -597,26 +597,5 @@ func (fakeStore) RecordMutation(context.Context, string, string, records.Mutatio
 }
 
 func (fakeStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
-	return nil, nil
-}
-
-// GetSettings, PutSettings and the learning-topic pair are here for the same reason
-// AllRecordedRunsUnmeasured's own doc comment gives: api.New gained a
-// fifth store parameter (task 2) for the settings routes, and every
-// implementer must keep compiling -- this file's fakeStore never
-// exercises /api/v1/settings.
-func (fakeStore) GetSettings(context.Context) (store.Settings, error) {
-	return store.Settings{}, nil
-}
-
-func (fakeStore) PutSettings(context.Context, store.Settings) error {
-	return nil
-}
-
-func (fakeStore) RecordLearningTopic(context.Context, store.LearningTopic) error {
-	return nil
-}
-
-func (fakeStore) ListLearningTopics(context.Context) ([]store.LearningTopicCount, error) {
 	return nil, nil
 }

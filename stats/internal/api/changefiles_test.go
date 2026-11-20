@@ -20,7 +20,7 @@ import (
 func newChangeFilesServer(t *testing.T, st *store.Store) *httptest.Server {
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, st, st, st, st, st, nil, api.WithChangeFiles(st))
+	srv, err := api.New(cfg, st, st, st, st, nil, api.WithChangeFiles(st))
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}

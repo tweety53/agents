@@ -82,7 +82,7 @@ func (f *fakeStore) GuardHealthProjects(_ context.Context, _ store.Period) ([]st
 func (f *fakeStore) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, _ *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
 }
-func (f *fakeStore) ReviewDynamics(_ context.Context, _ store.Period, _, _ *string) (store.ReviewDynamics, error) {
+func (f *fakeStore) ReviewDynamics(_ context.Context, _ store.Period, _ *string) (store.ReviewDynamics, error) {
 	return store.ReviewDynamics{}, nil
 }
 func (f *fakeStore) CountRunsWithoutModel(_ context.Context, _ store.Period, _ *string) (int, error) {
@@ -240,7 +240,7 @@ func (f *statsFake) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period
 	f.lastProject = p
 	return f.selfReview, f.aggErr
 }
-func (f *statsFake) ReviewDynamics(_ context.Context, _ store.Period, p, _ *string) (store.ReviewDynamics, error) {
+func (f *statsFake) ReviewDynamics(_ context.Context, _ store.Period, p *string) (store.ReviewDynamics, error) {
 	f.lastProject = p
 	return f.reviewDynamics, f.aggErr
 }
@@ -374,7 +374,7 @@ var _ api.StatsStore = (*statsFake)(nil)
 func newStatsTestServer(t *testing.T, sts api.StatsStore, opts ...api.Option) *httptest.Server {
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), sts, newFakeStore(), newFakeStore(), nil, opts...)
+	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), sts, newFakeStore(), nil, opts...)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -1455,7 +1455,7 @@ func TestNegativeLimitAtHTTPBoundaryIsRejected(t *testing.T) {
 	t.Run("changes", func(t *testing.T) {
 		fs := newFakeStore()
 		cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-		srv, err := api.New(cfg, fs, fs, fs, fs, fs, nil)
+		srv, err := api.New(cfg, fs, fs, fs, fs, nil)
 		if err != nil {
 			t.Fatalf("api.New: %v", err)
 		}
@@ -1653,7 +1653,7 @@ func newIntegrationStore(t *testing.T) *store.Store {
 func newIntegrationTestServer(t *testing.T, st *store.Store) *httptest.Server {
 	t.Helper()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	srv, err := api.New(cfg, st, st, st, st, st, nil)
+	srv, err := api.New(cfg, st, st, st, st, nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
@@ -2031,7 +2031,7 @@ func TestStatsSelfReviewView(t *testing.T) {
 
 	serve := func(opts ...api.Option) *httptest.Server {
 		cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-		srv, err := api.New(cfg, newFakeStore(), newFakeStore(), sts, newFakeStore(), newFakeStore(), nil, opts...)
+		srv, err := api.New(cfg, newFakeStore(), newFakeStore(), sts, newFakeStore(), nil, opts...)
 		if err != nil {
 			t.Fatalf("api.New: %v", err)
 		}
@@ -2267,14 +2267,6 @@ func TestStatsReviewDynamics(t *testing.T) {
 	status, raw := doGetRaw(t, ts, periodPath("review-dynamics")+"&model=opus")
 	if status != http.StatusBadRequest || !strings.Contains(string(raw), "model restriction") {
 		t.Errorf("model restriction = %d %s, want 400 naming the model restriction", status, raw)
-	}
-	for _, path := range []string{periodPath("review-dynamics") + "&class=huge", periodPath("reviewers") + "&class=big"} {
-		if status, raw := doGetRaw(t, ts, path); status != http.StatusBadRequest || !strings.Contains(string(raw), "class") {
-			t.Errorf("GET %s = %d %s, want 400 naming the class", path, status, raw)
-		}
-	}
-	if status, raw := doGetRaw(t, ts, periodPath("review-dynamics")+"&class=big"); status != http.StatusOK {
-		t.Errorf("class=big = %d %s, want 200", status, raw)
 	}
 }
 

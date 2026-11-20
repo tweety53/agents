@@ -429,7 +429,7 @@ func TestSeedDrawsReviewerStates(t *testing.T) {
 		return float64(r.Withdrawn) / float64(n)
 	}
 	for _, r := range rows {
-		if r.Experimental && r.Description != "" {
+		if r.Description != "" {
 			described = true
 		}
 		if severest.Slot == "" || wpd(r) > wpd(severest) {
@@ -446,7 +446,7 @@ func TestSeedDrawsReviewerStates(t *testing.T) {
 		}
 	}
 	if !described {
-		t.Error("no experimental slot carries its roster description")
+		t.Error("no slot carries a description")
 	}
 	if severest.Slot == alarmiest.Slot {
 		t.Errorf("%s heads both the Severity and the False alarms rank; want them to differ", severest.Slot)
@@ -569,7 +569,7 @@ func TestSeedRunCostsFixture(t *testing.T) {
 		t.Errorf("saved openers = %v, want task 15 a verify round and 16 a visual-verify round", openers)
 	}
 
-	srv, err := api.New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, st, st, st, st, st,
+	srv, err := api.New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, st, st, st, st,
 		slog.New(slog.NewTextHandler(io.Discard, nil)), api.WithRunTimings(st), api.WithChangeFiles(st), api.WithGuardRuns(st))
 	if err != nil {
 		t.Fatalf("api.New: %v", err)

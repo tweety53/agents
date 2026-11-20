@@ -882,7 +882,7 @@ func (stubStageStore) Reviewers(context.Context, store.Period, *string, *string)
 func (stubStageStore) SelfReviewFindingsInPeriod(context.Context, store.Period, *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
 }
-func (stubStageStore) ReviewDynamics(context.Context, store.Period, *string, *string) (store.ReviewDynamics, error) {
+func (stubStageStore) ReviewDynamics(context.Context, store.Period, *string) (store.ReviewDynamics, error) {
 	return store.ReviewDynamics{}, nil
 }
 
@@ -1096,73 +1096,6 @@ func (stubStageStore) ProjectKeysByDisplayName(context.Context, string) ([]strin
 
 var _ api.StatsStore = stubStageStore{}
 
-// GetSettings and PutSettings are here for the same reason
-// ProjectKeysByDisplayName's own doc comment gives: api.New gained a
-// fifth store parameter (task 2) for the settings routes, and every
-// implementer must keep compiling -- this file's tests never exercise
-// /api/v1/settings through stubStageStore itself
-// (TestSettingsPutBodyCarriesNoModelKeys below fakes the HTTP layer
-// directly, the same genuineDaemon pattern every other test in this file
-// uses).
-func (stubStageStore) GetSettings(context.Context) (store.Settings, error) {
-	return store.Settings{}, errStageStoreNotImplemented
-}
-
-func (stubStageStore) PutSettings(context.Context, store.Settings) error {
-	return errStageStoreNotImplemented
-}
-
-func (stubStageStore) RecordLearningTopic(context.Context, store.LearningTopic) error {
-	return errStageStoreNotImplemented
-}
-
-func (stubStageStore) ListLearningTopics(context.Context) ([]store.LearningTopicCount, error) {
-	return nil, errStageStoreNotImplemented
-}
-
-var _ api.SettingsStore = stubStageStore{}
-
-// TestSettingsPutBodyCarriesNoModelKeys asserts client.PutSettings' wire
-// payload carries no "defaultModel", "selfReviewModel" or "planningModel"
-// key at all -- the Decide step picks every dispatch's model and
-// self-review runs on the operator's own session, so the daemon's strict
-// decoder would refuse a payload still carrying any of them.
-func TestSettingsPutBodyCarriesNoModelKeys(t *testing.T) {
-	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		switch r.Method {
-		case http.MethodPut:
-			body, err := io.ReadAll(r.Body)
-			if err != nil {
-				t.Fatalf("read PUT body: %v", err)
-			}
-			var wire map[string]json.RawMessage
-			if err := json.Unmarshal(body, &wire); err != nil {
-				t.Fatalf("decode PUT body as a map: %v", err)
-			}
-			for _, key := range []string{"defaultModel", "selfReviewModel", "planningModel"} {
-				if _, ok := wire[key]; ok {
-					t.Fatalf("PUT body carries a %q key it should not: %s", key, body)
-				}
-			}
-			var stored client.Settings
-			if err := json.Unmarshal(body, &stored); err != nil {
-				t.Fatalf("decode PUT body: %v", err)
-			}
-			_ = json.NewEncoder(w).Encode(stored)
-		default:
-			t.Fatalf("unexpected method: %s", r.Method)
-		}
-	}))
-	defer srv.Close()
-
-	c := client.New(srv.URL, srv.Client())
-	want := client.Settings{Reviewers: []string{"primary"}}
-	if _, err := c.PutSettings(context.Background(), want); err != nil {
-		t.Fatalf("PutSettings(%+v): %v", want, err)
-	}
-}
-
 // TestClientAgreesWithRealDaemonOverDaemonHeader is F6's fix: the daemon
 // header value exists in three places -- api.DaemonHeaderValue (the
 // source), internal/client's own literal copy (necessary, per the CLI's
@@ -1187,7 +1120,7 @@ func TestSettingsPutBodyCarriesNoModelKeys(t *testing.T) {
 func TestClientAgreesWithRealDaemonOverDaemonHeader(t *testing.T) {
 	cs := newInMemoryChangeStore()
 	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	apiServer, err := api.New(cfg, cs, stubStageStore{}, stubStageStore{}, stubStageStore{}, stubStageStore{}, nil)
+	apiServer, err := api.New(cfg, cs, stubStageStore{}, stubStageStore{}, stubStageStore{}, nil)
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}

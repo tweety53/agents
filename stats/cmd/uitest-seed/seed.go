@@ -232,8 +232,7 @@ func fixtureData() []projectFixture {
 					// another view's figure; it ends after the dispatches
 					// start, so recording them opens no automatic stage run
 					// inside the windows (openAutoStageRun). The decision, recorded before the window, names the slots:
-					// exp-test-sanity's roster entry carries its description,
-					// and the extra-dispatch slots read theirs from the
+					// the extra-dispatch slots read their descriptions from the
 					// store's extraDispatchDescriptions. exp-test-sanity
 					// raises nothing ("found nothing"); the withdrawn
 					// findings give the False alarms rank a different head
@@ -242,23 +241,11 @@ func fixtureData() []projectFixture {
 					SessionToken: "uitest-kan-104",
 					DecisionAt:   weeklyFixtureAt.Add(-7*24*time.Hour - time.Hour),
 					Decision: `{
-						"class": "regular", "execution": "sdd",
-						"implementer": {"model": "opus", "effort": "medium"},
-						"panel": {
-							"compact": false, "rerun": "delta",
-							"roster": [
-								{"slot": "exp-test-sanity", "experimental": true,
-								 "description": "Whether each test the diff adds or changes would fail if the behaviour it names broke"},
-								{"slot": "security", "description": "Security — secrets, injection, auth and redirect checks"},
-								{"slot": "data-integrity", "description": "Data-integrity — partial writes, constraints and migrations"},
-								{"slot": "api-contract", "description": "API-contract — wire shapes, error bodies and versioning"},
-								{"slot": "concurrency", "description": "Concurrency — races, locks and re-entry"},
-								{"slot": "performance", "description": "Performance — hot loops, re-renders and allocations"},
-								{"slot": "docs", "description": "Docs — comments, READMEs and usage lines the diff leaves stale"}
-							]
-						},
-						"extra_dispatch": {"slots": ["test-sanity", "call-efficiency", "failure-modes"]},
-						"extra_dispatch_mutation": {"slots": ["mutation"]}
+						"panel": [
+							{"slots": ["exp-test-sanity", "security", "data-integrity"], "reason": "fixture"},
+							{"slots": ["api-contract", "concurrency", "performance", "docs"], "reason": "fixture"},
+							{"slots": ["test-sanity", "call-efficiency", "failure-modes", "mutation"], "reason": "fixture"}
+						]
 					}`,
 					Dispatches: []dispatchFixture{
 						{Slot: "mutation", Model: "opus", AgentID: "agent-rv-a", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
@@ -352,15 +339,7 @@ func fixtureData() []projectFixture {
 					SessionToken: "uitest-kan-102",
 					DecisionAt:   fixtureNow.Add(-2*time.Hour - 5*time.Minute),
 					Decision: `{
-						"class": "regular", "execution": "sdd",
-						"implementer": {"model": "sonnet", "effort": "medium"},
-						"panel": {
-							"compact": false, "rerun": "delta",
-							"roster": [
-								{"slot": "primary", "experimental": false},
-								{"slot": "principles", "experimental": false}
-							]
-						}
+						"panel": [{"slots": ["primary", "principles"], "reason": "fixture"}]
 					}`,
 					Dispatches: []dispatchFixture{
 						// agent-panel-a and agent-panel-b are the flow.review-panel

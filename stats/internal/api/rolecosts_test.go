@@ -82,7 +82,7 @@ func TestRoleCostsRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 	fs := newFakeStore()
-	srv, err := api.New(config.Config{Host: "127.0.0.1", DSN: "unused"}, fs, fs, fs, fs, fs, nil, api.WithPolicy(&fakePolicy{}, table), api.WithRoleCosts(rows))
+	srv, err := api.New(config.Config{Host: "127.0.0.1", DSN: "unused"}, fs, fs, fs, fs, nil, api.WithPolicy(&fakePolicy{}, table), api.WithRoleCosts(rows))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestRoleCostsCountsARowUnderItsPolicyRole(t *testing.T) {
 		t.Fatal(err)
 	}
 	fs := newFakeStore()
-	srv, err := api.New(config.Config{Host: "127.0.0.1", DSN: "unused"}, fs, fs, fs, fs, fs, nil, api.WithPolicy(&fakePolicy{}, table), api.WithRoleCosts(rows))
+	srv, err := api.New(config.Config{Host: "127.0.0.1", DSN: "unused"}, fs, fs, fs, fs, nil, api.WithPolicy(&fakePolicy{}, table), api.WithRoleCosts(rows))
 	if err != nil {
 		t.Fatal(err)
 	}

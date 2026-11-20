@@ -72,7 +72,7 @@ func newPolicyTestServer(t *testing.T, fe *fakePolicy) *httptest.Server {
 	if err != nil {
 		t.Fatalf("read model-policy table: %v", err)
 	}
-	srv, err := api.New(cfg, fs, fs, fs, fs, fs, nil, api.WithPolicy(fe, table))
+	srv, err := api.New(cfg, fs, fs, fs, fs, nil, api.WithPolicy(fe, table))
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}
