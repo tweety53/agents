@@ -1235,7 +1235,7 @@ td.lb-clip { max-width: 0; width: 100%; }
 /* Self-review: the Fixed / To review tabs and the suggestion cards. */
 .sr-table td { vertical-align: top; }
 .sr-table td.sr-wrap { white-space: normal; min-width: 30ch; }
-.sr-table td.sr-narrow { min-width: 0; max-width: 28ch; overflow-wrap: anywhere; }
+.sr-table td.sr-narrow { min-width: 24ch; max-width: 32ch; }
 .sr-detail summary { cursor: pointer; color: var(--text-secondary); font-size: 12px; }
 .sr-detail pre, .sr-card pre { white-space: pre-wrap; font: inherit; margin: 6px 0 0; }
 .sr-card { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 0 0 10px; }
