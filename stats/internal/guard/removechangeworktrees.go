@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
-	"time"
 )
 
 // The contract below moved here from the header of the deleted
@@ -21,9 +20,8 @@ import (
 // Usage: flow-guard remove-change-worktrees <repo> <name>
 //
 // The worktrees are the ones `git -C <repo> worktree list --porcelain` lists on
-// refs/heads/spectre/<name>, plus every wave-group copy of one, detached or on
-// its own flow-copy/ branch
-// (`<worktree>-wave-group-<g>`). A listed worktree whose directory is gone is
+// refs/heads/spectre/<name>, plus every throwaway copy of one, detached or on
+// its own flow-copy/ branch (`<worktree>-mutation-<round>`). A listed worktree whose directory is gone is
 // already removed: success, its registration pruned.
 //
 // First the save gate: an apply worktree holding a file `flow change save`
@@ -40,13 +38,6 @@ import (
 //     resolved fresh for THIS worktree, in-process as flow-guard resolve-base-branch
 //     does). Ignored files go with `--force`, never asked about: everything
 //     the run needs was committed earlier in it.
-//   check 5 on each copy, then each apply worktree — the fenced command
-//     lines of <repo>/.flow/project.md's `## stop` body (the key's shape is
-//     project-configuration.md's), run as one script with the
-//     worktree as its directory under `bash -o pipefail -c`, bounded at 60
-//     seconds (own process group, SIGTERM, a 2-second grace, SIGKILL); a file,
-//     key or fence that is absent means no command is declared, the check is
-//     skipped, and nothing outside the fence is ever run.
 //   `worktree remove --force` for each copy, then `branch -D
 //     flow-copy/<its last path element>` when that branch exists, then each
 //     apply worktree;
@@ -64,8 +55,6 @@ import (
 //
 // Prints to stdout, one line each:
 //   REFUSED: <worktree> — check <n>: <reason>   a check failed (gate)
-//   SKIPPED: check 5 — ## stop declares no fenced command   a declared `## stop`
-//     whose body carries no fence; check 5 is skipped, never silently
 //   REMOVED: <worktree> | <worktree> — already gone | spectre/<name>
 //   REFUSED: <worktree> — git worktree remove: <git's message>
 //   REFUSED: spectre/<name> — git branch -d: <git's message>
@@ -82,10 +71,8 @@ import (
 
 // removeChangeWorktrees is `flow-guard remove-change-worktrees`: the comment above is the contract. It runs Worktree cleanup
 // (skills/flow-contracts/finish-contract-run2.md) for one repository: checks
-// 1-3 and 5 on every apply worktree of spectre/<name> and check 5 on every
-// wave-group copy, all before anything is removed; then the removals, the
-// local branch and the remote branch. Check 5 reads the `## stop` key in
-// project-configuration.md's shape, through kwFenced as `## worktree setup` is.
+// 1-3 on every apply worktree of spectre/<name>, all before anything is
+// removed; then the removals, the local branch and the remote branch.
 func init() { Registry["remove-change-worktrees"] = removeChangeWorktrees }
 
 func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
@@ -177,39 +164,6 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 			fail(wt, 3, "%s", msg)
 		} else if upstream == "" {
 			upstream = "origin/" + base
-		}
-	}
-	if failed {
-		Reason(env, "removal-failed")
-		return 1
-	}
-
-	// 5 runs on every worktree and every copy, and stays a gate.
-	stopBody := projectSection(repo+"/.flow/project.md", "stop")
-	stopCmd := strings.Join(kwFenced(stopBody), "\n")
-	if stopBody != "" && stopCmd == "" {
-		fmt.Fprintln(stdout, "SKIPPED: check 5 — ## stop declares no fenced command")
-	}
-	all := append(slices.Clone(copies), wts...)
-	for _, wt := range all {
-		if stopCmd != "" {
-			timeout, grace := ccDefaultTimeout, ccDefaultGrace
-			if env.SurvivorsTimeout > 0 {
-				timeout = env.SurvivorsTimeout
-			}
-			if env.SurvivorsKillGrace > 0 {
-				grace = env.SurvivorsKillGrace
-			}
-			out, rc, timedOut, started := ccRunSurvivors(env, wt, stopCmd, timeout, grace, stderr)
-			_, _ = stderr.Write(out)
-			switch {
-			case !started:
-				fail(wt, 5, "the ## stop command could not be started")
-			case timedOut:
-				fail(wt, 5, "the ## stop command timed out after %s", timeout.Round(time.Second))
-			case rc != 0:
-				fail(wt, 5, "the ## stop command exited %d", rc)
-			}
 		}
 	}
 	if failed {

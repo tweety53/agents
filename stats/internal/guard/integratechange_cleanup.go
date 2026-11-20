@@ -78,22 +78,6 @@ func (c *ic) cleanup() {
 		}
 		c.baseOf(i)
 		rbase[i] = c.base
-		v := ""
-		if _, ok := lookPath(c.env, "gh"); c.prURLState != "" && ok {
-			gh := c.cmd("/", "gh", "pr", "view", c.prURLState, "--json", "state", "-q", ".state")
-			gh.Stderr = nil
-			if out, rc := c.capture(gh); rc == 0 {
-				v = out
-			}
-		}
-		if v == "MERGED" {
-			continue
-		}
-		if _, ok := c.git("-C", c.wt[i], "merge-base", "--is-ancestor", "HEAD", "origin/"+c.base); ok {
-			continue
-		}
-		c.stopOutcome = "not-run-2"
-		c.stop("not-merged", c.wt[i]+" is not merged into origin/"+c.base+" — this is not run 2; remove nothing and run prepare")
 	}
 	for _, m := range c.mains {
 		c.run("remove-change-worktrees", m, c.name)

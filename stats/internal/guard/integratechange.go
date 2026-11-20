@@ -25,7 +25,6 @@ import (
 // Usage:
 //   flow-guard integrate-change prepare <main-checkout> <name>
 //   flow-guard integrate-change commit  <main-checkout> <name> [<worktree>=<impl subject>]...
-//   flow-guard integrate-change design-record <main-checkout> <name>
 //   flow-guard integrate-change land    <main-checkout> <name> [--route <route>] [--pr-url <worktree>=<url|none>]...
 //   flow-guard integrate-change cleanup <main-checkout> <name>
 //
@@ -91,11 +90,11 @@ type ic struct {
 //
 // prepare  resolves the worktree set (the state file's `worktrees` map, else
 //
-//	the porcelain scan of <main-checkout>), runs check-foreign-staged
-//	and check-main-checkout-drift per distinct main checkout,
+//	the porcelain scan of <main-checkout>), runs
+//	check-main-checkout-drift per distinct main checkout,
 //	switching a checkout whose only drift is DRIFT-BRANCH back to its
 //	default branch (switch_back below) and re-reading its drift; any
-//	STAGED-FOREIGN, DRIFT-DIRTY, unswitched DRIFT-BRANCH or exit 2 is
+//	DRIFT-DIRTY, unswitched DRIFT-BRANCH or exit 2 is
 //	STOP: main-checkout. Then check-finish-preflight per worktree. Every
 //	worktree RUN2 -> NEXT is `cleanup`. Otherwise run 1, which first
 //	stops at STOP: base-mismatch when one worktree records a flowBase
@@ -110,16 +109,12 @@ type ic struct {
 //	(`git rev-parse --git-path flow-reshape-base`) for `commit`. Its
 //	NEXT names `<worktree>=<impl subject>` only for a worktree whose
 //	implementation commit would not be empty (impl_paths below) and
-//	is not the canonical worktree's link.md alone (link_only below),
-//	and always for the canonical worktree when its change directory
-//	holds a design.md, whose design record commit writes.
+//	is not the canonical worktree's link.md alone (link_only below).
 //
 // commit   the reshape per worktree (`git reset --soft <reshape base>`,
 //
 //	the Task-Id trailers it folds carried into the implementation
-//	commit), the ledger render, the design record (the canonical
-//	change directory's design.md written to docs/designs/<name>.md
-//	under a two-line header, else STOP: design-record), commitTwo per
+//	commit), the ledger render, commitTwo per
 //	worktree in `## Merge order`, then the push of each reshaped
 //	branch. A
 //	worktree with nothing on the implementation side takes no
@@ -128,16 +123,6 @@ type ic struct {
 //	one stops `commit-two`.
 //	Then the --force-with-lease branch push per worktree, in merge
 //	order — the reshape's push (Branch backup, git-boundaries.md).
-//	The parent appends its narrative before calling this.
-//
-// design-record  loads the worktree set, finds the canonical worktree,
-//
-//	writes the design record exactly as commit does and prints its
-//	path — no reshape, no stage mark, no push — so a record whose
-//	design.md changed after landing is re-derived alone. A canonical
-//	change directory with no design.md is exit 2, reason no-design.
-//	It marks no stage, so it alone needs no --harness or
-//	--session-token (kan-1119 self-review, F5).
 //
 // land     the route (merge and push: the --force-with-lease branch push then
 //
@@ -200,8 +185,6 @@ func integrateChange(args []string, env Env, stdout, stderr io.Writer) (code int
 		c.prepare()
 	case "commit":
 		c.commit()
-	case "design-record":
-		c.designRecord()
 	case "land":
 		c.land()
 	case "cleanup":
@@ -238,7 +221,7 @@ func (c *ic) parse(args []string) {
 	}
 	sub, mainArg, name := arg(0), arg(1), arg(2)
 	if sub == "" || mainArg == "" || name == "" {
-		c.die("usage", "usage: flow-guard integrate-change prepare|commit|design-record|land|cleanup <main-checkout> <name> [flags]")
+		c.die("usage", "usage: flow-guard integrate-change prepare|commit|land|cleanup <main-checkout> <name> [flags]")
 	}
 	// A relative argument resolves against the directory it was called from.
 	m, ok := icPhys(c.env.Dir, mainArg)
@@ -284,7 +267,7 @@ func (c *ic) parse(args []string) {
 			c.subjects = append(c.subjects, a)
 		}
 	}
-	if sub != "design-record" && (c.harness == "" || c.token == "") {
+	if c.harness == "" || c.token == "" {
 		c.die("harness-or-token-missing", "--harness and --session-token are required (or FLOW_HARNESS / FLOW_SESSION_TOKEN)")
 	}
 }

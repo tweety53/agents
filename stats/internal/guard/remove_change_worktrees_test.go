@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
@@ -54,12 +53,6 @@ func (fx *rcwFx) copy() string {
 	c := fx.wt + "-wave-group-2"
 	fx.g.git(fx.repo, "worktree", "add", "-q", "--detach", c, "HEAD")
 	return c
-}
-
-func (fx *rcwFx) stop(t *testing.T, body string) {
-	t.Helper()
-	mkdir(t, fx.repo+"/.flow")
-	writeFile(t, fx.repo+"/.flow/project.md", "# project\n\n## stop\n\n"+body+"\n\n## run\n\nnothing\n")
 }
 
 // run runs remove-change-worktrees in-process.
@@ -132,9 +125,6 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		code, out, errb := fx.run(t, nil)
 		if code != 0 {
 			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-		}
-		if l := rcwLines(out, "SKIPPED: "); len(l) != 0 {
-			t.Errorf("SKIPPED lines %q, want none for an absent ## stop", l)
 		}
 		if l := rcwLines(out, "REMOVED: "); len(l) != 2 || !strings.HasSuffix(l[0], "/wt/demo") || l[1] != "REMOVED: spectre/demo" {
 			t.Errorf("REMOVED lines %q, want the worktree then the branch", l)
@@ -301,92 +291,6 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		if err != nil || !strings.Contains(string(out), "REMOVED: spectre/demo\n") {
 			t.Fatalf("shim: %v, stdout %q", err, out)
 		}
-	})
-}
-
-func TestRemoveChangeWorktreesStopCommand(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-
-	t.Run("no fence: skipped", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		marker := fx.dir + "/ran"
-		fx.stop(t, "Never stop the dev stack; an operator runs `touch "+marker+"` by hand.")
-		code, out, errb := fx.run(t, nil)
-		if code != 0 || rcwExists(fx.wt) {
-			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-		}
-		if rcwExists(marker) {
-			t.Error("prose outside a fence was run")
-		}
-		// KAN-860 F4: the skip is reported, never silent.
-		if l := rcwLines(out, "SKIPPED: "); len(l) != 1 || l[0] != "SKIPPED: check 5 — ## stop declares no fenced command" {
-			t.Errorf("SKIPPED lines %q, want the one check 5 skip", l)
-		}
-	})
-
-	t.Run("fenced: every fence, read as ## worktree setup reads it", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		marker := fx.dir + "/ran"
-		// KAN-860 F9: an indented fence and a second fence, as kwFenced reads them.
-		fx.stop(t, "\t```bash\n\techo a >> "+marker+"\n\t```\n\nthen\n\n```bash\necho b >> "+marker+"\n```")
-		code, out, errb := fx.run(t, nil)
-		if code != 0 || rcwExists(fx.wt) {
-			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-		}
-		if got := rbRead(marker); got != "a\nb\n" {
-			t.Errorf("marker %q, want both fences run in order", got)
-		}
-		if l := rcwLines(out, "SKIPPED: "); len(l) != 0 {
-			t.Errorf("SKIPPED lines %q, want none", l)
-		}
-	})
-
-	t.Run("fenced: run, nothing else", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		marker, other := fx.dir+"/ran", fx.dir+"/other"
-		fx.stop(t, "Stop it with:\n\n```bash\necho ran >> "+marker+"\n```\n\nNever `touch "+other+"`.")
-		code, out, errb := fx.run(t, nil)
-		if code != 0 || rcwExists(fx.wt) {
-			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
-		}
-		if got := rbRead(marker); got != "ran\n" {
-			t.Errorf("marker %q, want the fenced command run exactly once", got)
-		}
-		if rcwExists(other) {
-			t.Error("prose outside the fence was run")
-		}
-	})
-
-	t.Run("fenced: a failing command is a failed check", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		fx.stop(t, "```bash\nexit 3\n```")
-		code, out, _ := fx.run(t, nil)
-		if code != 1 || !strings.Contains(out, "check 5") {
-			t.Fatalf("exit %d, stdout %q; want 1 and a check 5 refusal", code, out)
-		}
-		fx.assertUntouched(t)
-	})
-
-	t.Run("fenced: the 60-second bound", func(t *testing.T) {
-		t.Parallel()
-		fx := rcwNewFx(t)
-		fx.stop(t, "```bash\nsleep 30\n```")
-		expired := make(chan time.Time)
-		close(expired)
-		start := time.Now()
-		code, out, _ := fx.run(t, func(e *Env) { e.SurvivorsExpire, e.SurvivorsKillGrace = expired, 100*time.Millisecond })
-		if code != 1 || !strings.Contains(out, "check 5") || !strings.Contains(out, "timed out") {
-			t.Fatalf("exit %d, stdout %q; want 1 and a check 5 timeout refusal", code, out)
-		}
-		if d := time.Since(start); d > 20*time.Second {
-			t.Errorf("the bound did not cut the command short: %v", d)
-		}
-		fx.assertUntouched(t)
 	})
 }
 

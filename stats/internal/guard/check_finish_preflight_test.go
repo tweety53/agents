@@ -126,12 +126,14 @@ func TestCheckFinishPreflight(t *testing.T) {
 			bmRC("zero-commit clean branch: exit 0", 0)}},
 		{setup: merged, checks: []bmCheck{
 			bmPrefix("merged with clean tree -> RUN2", "RUN2"),
+			bmLacks("RUN2 carries no base-moved line", "CLEAR:"),
 			bmRC("merged clean: exit 0", 0)}},
 		{setup: func(fx *fpFx) { merged(fx); fx.g.write(fx.repo+"/file.txt", "dirty") }, checks: []bmCheck{
 			bmPrefix("merged but dirty -> REFUSE", "REFUSE"),
 			bmRC("merged dirty: exit 0 — the verdict carries the answer", 0)}},
 		{setup: func(fx *fpFx) { fx.newRepo(""); fx.work(); fx.g.write(fx.repo+"/file.txt", "dirty") }, checks: []bmCheck{
-			bmPrefix("unmerged and dirty -> RUN1", "RUN1")}},
+			bmPrefix("unmerged and dirty -> RUN1", "RUN1"),
+			bmHas("RUN1 is followed by check-base-moved's verdict line", "\nCLEAR: ")}},
 		// 5: the reason, not just the prefix — `-^{commit}` would REFUSE too.
 		{setup: merged, args: func(fx *fpFx) []string { return []string{fx.repo, "main", "-"} }, checks: []bmCheck{
 			bmPrefix("absent merge base -> REFUSE", "REFUSE"),

@@ -14,7 +14,8 @@ import (
 //
 // Usage: flow-guard check-finish-preflight <worktree> <base-ref> <recorded-merge-base|->
 //
-// Prints ONE verdict line to stdout:
+// Prints ONE verdict line to stdout, and after a RUN1 a second, check-base-moved's
+// own CLEAR / MOVED / REFUSE line about the same worktree:
 //   RUN1: <reason>    integrate — the branch has not reached the base branch
 //   RUN2: <reason>    clean up  — the branch is merged and nothing is outstanding
 //   REFUSE: <reason>  stop and ask the operator
@@ -115,8 +116,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	//     base ref is resolved below — an unresolvable base ref must not hide
 	//     this shape, which is the one this guard exists to catch.
 	if headSHA == recordedSHA {
-		fmt.Fprintln(stdout, "RUN1: HEAD is still the recorded merge base — the branch has no commits of its own")
-		return 0
+		return runOne(env, stdout, stderr, worktree, baseRef, recorded, "RUN1: HEAD is still the recorded merge base — the branch has no commits of its own")
 	}
 
 	// Resolve the effective base ref (KAN-88) before testing whether it
@@ -135,8 +135,7 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	//     verdict. git's stderr is discarded so no chatter can prefix the
 	//     verdict line for a caller that merges the two streams.
 	if rc := exitCode(git("-C", worktree, "merge-base", "--is-ancestor", "--end-of-options", headSHA, ref).Run()); rc == 1 {
-		fmt.Fprintf(stdout, "RUN1: HEAD is not an ancestor of %s — not merged\n", ref)
-		return 0
+		return runOne(env, stdout, stderr, worktree, baseRef, recorded, fmt.Sprintf("RUN1: HEAD is not an ancestor of %s — not merged", ref))
 	} else if rc != 0 {
 		fmt.Fprintf(stderr, "check-finish-preflight: merge-base failed in %s (exit %d) — cannot determine anything\n", worktree, rc)
 		Reason(env, "merge-base-failed")
@@ -163,5 +162,21 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 
 	fmt.Fprintf(stdout, "RUN2: HEAD is an ancestor of %s, differs from the recorded merge base, and the worktree is clean\n", ref)
+	return 0
+}
+
+// runOne prints a RUN1 verdict and, on the line after it, check-base-moved's
+// answer about the same worktree (CLEAR, MOVED or REFUSE, its own grammar): the
+// base only matters to a branch that is about to integrate, so one call answers
+// both. The base-moved answer is read first, so a tree it cannot read is exit 2
+// with nothing on stdout, never a RUN1 without its companion line.
+func runOne(env Env, stdout, stderr io.Writer, worktree, baseRef, recorded, run1 string) int {
+	bm := baseMoved(env, worktree, baseRef, recorded, stderr)
+	if bm.code != 0 {
+		Reason(env, "base-moved-unreadable")
+		return bm.code
+	}
+	fmt.Fprintln(stdout, run1)
+	fmt.Fprintln(stdout, bm.line)
 	return 0
 }

@@ -326,7 +326,7 @@ sut prepare "$WORK/a" demo
 check "prepare exits 0" '[ "$RC" -eq 0 ]'
 check "prepare names the configured route" 'printf "%s" "$OUT" | grep -q "^ROUTE: merge and push — from this project"'
 check "prepare prints each worktree's reshape base" '[ "$(printf "%s\n" "$OUT" | grep -c "^WORKTREE: ")" -eq 2 ]'
-check "prepare ends on NEXT: commit" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: append this run.s narrative"'
+check "prepare ends on NEXT: commit" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: flow-guard integrate-change commit "'
 [ "$RC" -eq 0 ] || halt prepare
 
 printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"

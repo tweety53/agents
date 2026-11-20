@@ -1,9 +1,6 @@
 package guard
 
 import (
-	"bytes"
-	"os"
-	"strings"
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/smoke"
@@ -21,7 +18,7 @@ g -C "$WORK/b" add stray.txt
 sut prepare "$WORK/a" demo
 check "staged work in a main checkout stops prepare with exit 1" '[ "$RC" -eq 1 ]'
 check "the stop is STOP: main-checkout" 'printf "%s" "$OUT" | tail -1 | grep -q "^STOP: main-checkout"'
-check "the guard's own STAGED-FOREIGN line is relayed" 'printf "%s" "$OUT" | grep -q "^STAGED-FOREIGN: $WORK/b"'
+check "the guard's own DRIFT-DIRTY line is relayed" 'printf "%s" "$OUT" | grep -q "^DRIFT-DIRTY: $WORK/b"'
 check "the preflight begins no mark" '! grep -q "stage begin" "$WORK/stages.log"'`},
 		{"no_verdict", `# --- no_verdict ---
 fixture
@@ -294,7 +291,7 @@ check "rerun_on_disk: the change directory is on disk and untracked" \
   '[ -f "$A/spectre/changes/demo/tasks.md" ] && [ -z "$(git -C "$A" ls-files spectre/changes)" ]'
 sut prepare "$WORK/a" demo
 check "rerun_on_disk: prepare exits 0" '[ "$RC" -eq 0 ]'
-check "rerun_on_disk: its NEXT names the live narrative" 'printf "%s" "$OUT" | tail -1 | grep -qF "append this run'"'"'s narrative to $A/spectre/changes/demo/narrative.md"'
+check "rerun_on_disk: its NEXT is the commit call" 'printf "%s" "$OUT" | tail -1 | grep -qF "NEXT: flow-guard integrate-change commit "'
 printf '\n## fix run\n\nfixed\n' >>"$A/spectre/changes/demo/narrative.md"
 sut commit "$WORK/a" demo "$A=feat(a): do the work" "$WORK/b=feat(b): do the work"
 check "rerun_on_disk: commit exits 0" '[ "$RC" -eq 0 ]'`},
@@ -318,133 +315,4 @@ split="$(git -C "$A" rev-parse HEAD)"
 sut prepare "$WORK/a" demo
 check "rerun_reshape_base: the reshape base is run 1's implementation commit" 'printf "%s" "$OUT" | grep -qF "WORKTREE: $A — base main, reshape base $split"'`},
 	})
-}
-
-// icDesignRecord writes a design.md into the canonical change directory and
-// sets rec to the record's path; design_files <worktree> prints the paths
-// the worktree's branch commits since main list.
-const icDesignRecord = `design() {
-  rec="$WORK/a-worktrees/demo/docs/designs/demo.md"
-  printf '## Context\n\n- one\n\n## Decisions\n\n**Status:** active\n' >"$WORK/a-worktrees/demo/spectre/changes/demo/design.md"
-}
-design_files() {
-  git -C "$1" log --format= --name-only main..HEAD
-}
-`
-
-// TestIntegrateChangeDesignRecord pins run 1's design record: commit writes
-// the canonical change directory's design.md, under its two-line header, into
-// the canonical worktree's implementation commit, and prepare asks for that
-// worktree's subject whenever a design.md exists.
-func TestIntegrateChangeDesignRecord(t *testing.T) {
-	smoke.Heavy(t)
-	icRunCases(t, []icCaseDef{
-		{"record_in_impl_commit", icDesignRecord + `# --- record_in_impl_commit ---
-fixture
-design
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "record_in_impl_commit: commit exits 0" '[ "$RC" -eq 0 ]'
-check "record_in_impl_commit: a's implementation commit lists the record" \
-  'git -C "$WORK/a-worktrees/demo" log --format= --name-only --grep="^feat(a): do the work$" main..HEAD | grep -qx docs/designs/demo.md'
-check "record_in_impl_commit: line 1 is the title" '[ "$(sed -n 1p "$rec")" = "# demo" ]'
-check "record_in_impl_commit: line 2 is the header with the Jira key" \
-  '[ "$(sed -n 2p "$rec")" = "> Design record of change demo (KAN-1), written at landing. Each decision'"'"'s own **Status:** line is the status." ]'
-check "record_in_impl_commit: line 3 is empty" '[ -z "$(sed -n 3p "$rec")" ]'
-check "record_in_impl_commit: the rest is design.md byte for byte" \
-  'tail -n +4 "$rec" | cmp -s - "$WORK/a-worktrees/demo/spectre/changes/demo/design.md"'
-check "record_in_impl_commit: b's commit lists no record" '! design_files "$WORK/b-worktrees/demo" | grep -q "^docs/designs/"'`},
-		{"no_design_no_record", icDesignRecord + `# --- no_design_no_record ---
-fixture
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "no_design_no_record: commit exits 0" '[ "$RC" -eq 0 ]'
-check "no_design_no_record: no commit lists a record" \
-  '! design_files "$WORK/a-worktrees/demo" | grep -q "^docs/designs/" && ! design_files "$WORK/b-worktrees/demo" | grep -q "^docs/designs/"'`},
-		{"record_only_canon", icDesignRecord + `# --- record_only_canon ---
-fixture
-g -C "$WORK/a-worktrees/demo" reset -q --hard main
-c="$WORK/a-worktrees/demo/spectre/changes/demo"
-mkdir -p "$c"
-printf '# Tasks\n\n- [x] 1. Do the work\n' >"$c/tasks.md"
-printf '# demo\n\n## Merge order\n\n1. ` + "`" + `b` + "`" + `\n2. ` + "`" + `.` + "`" + `\n' >"$c/link.md"
-design
-sut prepare "$WORK/a" demo
-check "record_only_canon: prepare exits 0" '[ "$RC" -eq 0 ]'
-check "record_only_canon: prepare's NEXT asks a subject for a" \
-  'printf "%s" "$OUT" | tail -1 | grep -qF "$WORK/a-worktrees/demo=<impl subject>"'
-printf '\n## integrate run\n\nnarrative\n' >>"$c/narrative.md"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): record the design" "$WORK/b-worktrees/demo=feat(b): do the work"
-check "record_only_canon: commit exits 0" '[ "$RC" -eq 0 ]'
-check "record_only_canon: a's implementation commit lists the record" \
-  'git -C "$WORK/a-worktrees/demo" log --format= --name-only --grep="^feat(a): record the design$" main..HEAD | grep -qx docs/designs/demo.md'`},
-		{"record_write_fails", icDesignRecord + `# --- record_write_fails ---
-fixture
-design
-mkdir -p "$WORK/a-worktrees/demo/docs" && printf 'x\n' >"$WORK/a-worktrees/demo/docs/designs"
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "record_write_fails: an unwritable record stops commit naming its path" \
-  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -qF "STOP: design-record — cannot create the directory of $WORK/a-worktrees/demo/docs/designs/demo.md"'`},
-		{"no_jira_key", icDesignRecord + `# --- no_jira_key ---
-fixture
-sed -i.bak 's/"jiraIssue":"KAN-1",//' "$WORK/state.json"
-design
-sut prepare "$WORK/a" demo
-[ "$RC" -eq 0 ] || halt prepare
-printf '\n## integrate run\n\nnarrative\n' >>"$WORK/a-worktrees/demo/spectre/changes/demo/narrative.md"
-sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): do the work" "$WORK/b=feat(b): do the work"
-check "no_jira_key: commit exits 0" '[ "$RC" -eq 0 ]'
-check "no_jira_key: line 2 drops the parenthesis" \
-  '[ "$(sed -n 2p "$rec")" = "> Design record of change demo, written at landing. Each decision'"'"'s own **Status:** line is the status." ]'`},
-	})
-}
-
-// TestIntegrateChangeDesignRecordSubcommand pins kan-1119's self-review F5:
-// design-record re-derives the design record alone — the same bytes commit
-// writes, its path printed, no commit made — and a change with no design.md
-// is exit 2 with no record written.
-func TestIntegrateChangeDesignRecordSubcommand(t *testing.T) {
-	smoke.Heavy(t)
-	icRunCases(t, []icCaseDef{
-		{"design_record_alone", icDesignRecord + `# --- design_record_alone ---
-fixture
-design
-before=$(git -C "$WORK/a-worktrees/demo" rev-list --count HEAD)
-sut design-record "$WORK/a" demo
-check "design_record_alone: exits 0" '[ "$RC" -eq 0 ]'
-check "design_record_alone: line 1 is the title" '[ "$(sed -n 1p "$rec")" = "# demo" ]'
-check "design_record_alone: line 2 is the header" \
-  '[ "$(sed -n 2p "$rec")" = "> Design record of change demo (KAN-1), written at landing. Each decision'"'"'s own **Status:** line is the status." ]'
-check "design_record_alone: line 3 is empty" '[ -z "$(sed -n 3p "$rec")" ]'
-check "design_record_alone: the rest is design.md byte for byte" \
-  'tail -n +4 "$rec" | cmp -s - "$WORK/a-worktrees/demo/spectre/changes/demo/design.md"'
-check "design_record_alone: stdout names the record" 'printf "%s" "$OUT" | grep -qxF "$rec"'
-check "design_record_alone: no commit made" '[ "$(git -C "$WORK/a-worktrees/demo" rev-list --count HEAD)" = "$before" ]'`},
-		{"design_record_no_design", icDesignRecord + `# --- design_record_no_design ---
-fixture
-rec="$WORK/a-worktrees/demo/docs/designs/demo.md"
-rm -f "$WORK/a-worktrees/demo/spectre/changes/demo/design.md"
-sut design-record "$WORK/a" demo
-check "design_record_no_design: exits 2" '[ "$RC" -eq 2 ]'
-check "design_record_no_design: writes no record" '[ ! -e "$rec" ]'`},
-	})
-	// design-record marks no stage, so it needs no --harness or --session-token.
-	// Dir "/" keeps the in-process call from cd-ing the test process away
-	// from under the package's parallel tests.
-	var out, errb bytes.Buffer
-	before, _ := os.Getwd()
-	Registry["integrate-change"]([]string{"design-record", t.TempDir(), "demo"}, Env{Dir: "/", Getenv: func(string) string { return "" }}, &out, &errb)
-	if after, _ := os.Getwd(); after != before {
-		t.Errorf("design-record moved the test process's cwd: %s -> %s", before, after)
-	}
-	if strings.Contains(errb.String(), "--harness") {
-		t.Errorf("design-record asks for a harness: %s", errb.String())
-	}
 }

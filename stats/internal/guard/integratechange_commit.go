@@ -14,7 +14,6 @@ func (c *ic) commit() {
 		c.die("no-worktree-in-the-set", "no worktree in the set holds %s's tasks.md", c.name)
 	}
 	c.reopenLand()
-	live := c.canon + "/" + c.spec + "/changes/" + c.name
 	c.mergeOrder()
 	reshape := false
 	for i := range c.wt {
@@ -50,9 +49,6 @@ func (c *ic) commit() {
 				continue
 			}
 			rb := icReadTrimmed(f)
-			if c.wt[o] == c.canon && isFile(live+"/design.md") {
-				c.writeDesignRecord(live + "/design.md")
-			}
 			subj := ""
 			for _, s := range c.subjects {
 				k, v, _ := strings.Cut(s, "=")
@@ -85,45 +81,6 @@ func (c *ic) commit() {
 func icReadTrimmed(f string) string {
 	b, _ := os.ReadFile(f)
 	return strings.TrimRight(string(b), "\n")
-}
-
-// designRecord is `integrate-change design-record`: the design record alone,
-// re-derived from the canonical change directory's design.md.
-func (c *ic) designRecord() {
-	c.loadSet()
-	if !c.findCanonical() {
-		c.die("no-worktree-in-the-set", "no worktree in the set holds %s's tasks.md", c.name)
-	}
-	design := c.canon + "/" + c.spec + "/changes/" + c.name + "/design.md"
-	if !isFile(design) {
-		c.die("no-design", "%s does not exist — no design record to write", design)
-	}
-	c.writeDesignRecord(design)
-	c.say(c.canon + "/docs/designs/" + c.name + ".md")
-}
-
-// writeDesignRecord writes the change's design.md to docs/designs/<name>.md in
-// the canonical worktree, under a fixed two-line header, for the
-// implementation commit to carry (The design record,
-// skills/flow-contracts/finish-contract-run1.md). commitTwo stages it.
-func (c *ic) writeDesignRecord(design string) {
-	body, err := os.ReadFile(design)
-	if err != nil {
-		c.stopAs("design-unreadable", "design-record", "cannot read "+design+": "+err.Error())
-	}
-	key := ""
-	if c.jiraKey != "" {
-		key = " (" + c.jiraKey + ")"
-	}
-	head := "# " + c.name + "\n> Design record of change " + c.name + key +
-		", written at landing. Each decision's own **Status:** line is the status.\n\n"
-	out := c.canon + "/docs/designs/" + c.name + ".md"
-	if err := os.MkdirAll(c.canon+"/docs/designs", 0o755); err != nil {
-		c.stopAs("record-not-writable", "design-record", "cannot create the directory of "+out+": "+err.Error())
-	}
-	if err := os.WriteFile(out, append([]byte(head), body...), 0o644); err != nil {
-		c.stopAs("record-not-writable", "design-record", "cannot write "+out+": "+err.Error())
-	}
 }
 
 // commitTwo is the guarded commit chain of skills/flow-contracts/git-boundaries.md

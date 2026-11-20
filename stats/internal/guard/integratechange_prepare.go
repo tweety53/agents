@@ -64,16 +64,14 @@ func (c *ic) prepare() {
 	// the base the change records (KAN-911: run 2 refreshes it), stops.
 	dirty := false
 	for _, m := range c.mains {
-		c.run("check-foreign-staged", m)
-		fs := c.rc == 0 && c.verdict("STAGED-CLEAN") != ""
 		c.run("check-main-checkout-drift", m)
-		if fs && c.rc == 0 && c.verdict("DRIFT-BRANCH") != "" && c.verdict("DRIFT-DIRTY") == "" {
+		if c.rc == 0 && c.verdict("DRIFT-BRANCH") != "" && c.verdict("DRIFT-DIRTY") == "" {
 			c.switchBack(m)
 			c.run("check-main-checkout-drift", m)
 		}
-		if !fs || !(c.rc == 0 && c.verdict("DRIFT-CLEAN") != "") {
+		if !(c.rc == 0 && c.verdict("DRIFT-CLEAN") != "") {
 			b, _ := c.gitQuiet("-C", m, "branch", "--show-current")
-			onBase := fs && c.rc == 0 && c.verdict("DRIFT-DIRTY") == "" && b != "" && c.onRecordedBase(b)
+			onBase := c.rc == 0 && c.verdict("DRIFT-DIRTY") == "" && b != "" && c.onRecordedBase(b)
 			dirty = dirty || !onBase
 		}
 	}
@@ -82,6 +80,7 @@ func (c *ic) prepare() {
 	}
 
 	run1 := false
+	bm := make([]string, len(c.wt)) // each RUN1 worktree's base-moved line, the preflight's second line
 	for i := range c.wt {
 		if !isDir(c.wt[i]) {
 			c.stopAs("worktree-missing", "preflight", c.wt[i]+" is not on disk — report it and ask the operator")
@@ -92,6 +91,7 @@ func (c *ic) prepare() {
 		switch v := c.verdict("RUN1", "RUN2", "REFUSE"); {
 		case strings.HasPrefix(v, "RUN1:"):
 			run1 = true
+			bm[i] = c.verdict("CLEAR", "MOVED", "REFUSE")
 		case strings.HasPrefix(v, "RUN2:"):
 		default:
 			c.stopAs("verdict-needs-operator", "preflight", "relay the verdict and its hand-verification procedure, then ask the operator")
@@ -148,7 +148,6 @@ func (c *ic) prepare() {
 	// This prepare's own flow.land run supersedes a stopped earlier one; a stale
 	// marker would make the next commit open a second run (c.canon is known only now).
 	_ = os.Remove(c.landStoppedFile())
-	live := c.canon + "/" + c.spec + "/changes/" + c.name
 
 	ask := false
 	// Every worktree's commit range, from the merge base, for signal seven's
@@ -174,8 +173,7 @@ func (c *ic) prepare() {
 	}
 	var moved []int
 	for i := range c.wt {
-		c.run("check-base-moved", c.wt[i], "origin/"+c.bases[i], c.mb[i])
-		v := c.verdict("CLEAR", "MOVED", "REFUSE")
+		v := bm[i]
 		switch {
 		case strings.HasPrefix(v, "CLEAR:") && strings.Contains(v[len("CLEAR:"):], "merge base now "):
 			c.rb[i] = v[strings.LastIndex(v, "merge base now ")+len("merge base now "):]
@@ -228,11 +226,11 @@ func (c *ic) prepare() {
 		for _, l := range icLines(others) {
 			c.say(" new: " + l)
 		}
-		if (len(c.implPaths(c.wt[i], rb)) > 0 && !c.linkOnly(i, rb)) || (c.wt[i] == c.canon && isFile(live+"/design.md")) {
+		if len(c.implPaths(c.wt[i], rb)) > 0 && !c.linkOnly(i, rb) {
 			subjects += " " + c.wt[i] + "=<impl subject>"
 		}
 	}
-	c.say("NEXT: append this run's narrative to " + live + "/narrative.md, then flow-guard integrate-change commit " + c.main + " " + c.name + subjects + " " + c.flags())
+	c.say("NEXT: flow-guard integrate-change commit " + c.main + " " + c.name + subjects + " " + c.flags())
 }
 
 // defaultRoute is project-get.sh's `default landing route`, or nothing.
