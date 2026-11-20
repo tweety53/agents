@@ -216,7 +216,10 @@ removes the worktree, and is filed in step 4 as a `big` finding is.
 
 Nothing is asked and no Jira issue is created: the operator reads the suggestions on the Self-review
 dashboard's **To review** tab, approves or declines each, and creates and plans any task themselves.
-Every `big` finding, every `flow-fix` finding step 3 or **The base sync** left unfixed, and every
+Only an impactful finding is suggested: a Critical or Important one (`skills/flow/reviewer-calibration.md`). A Minor
+finding is never recorded as a suggestion — `flow self-review finding` refuses `suggested` with `-severity minor` — and is
+left out of the report; this holds for suggestions only, and fixes are recorded as they always were. Every impactful
+`big` finding, every impactful `flow-fix` finding step 3 or **The base sync** left unfixed, and every impactful
 `flow-improvement` and `flow-prompt-tuning` finding is recorded in step 5 as `suggested`, one row each,
 carrying its full `-detail`: one markdown body with `## Why` (what was found and why it matters, with the
 evidence), `## How` (the proposed change, files and steps) and `## DoD` (how to tell it is done), and for a

@@ -1233,9 +1233,7 @@ td.lb-clip { max-width: 0; width: 100%; }
 }
 
 /* Self-review: the Fixed / To review tabs and the suggestion cards. */
-.sr-tabs { display: flex; gap: 6px; margin: 0 0 10px; }
-.sr-tab { border: 1px solid var(--border-strong); background: transparent; padding: 4px 12px; border-radius: 6px; cursor: pointer; font: inherit; }
-.sr-tab.on { background: var(--text-primary); color: var(--bg, #fff); }
+.sr-wrap { white-space: normal; max-width: 60ch; }
 .sr-detail summary { cursor: pointer; color: var(--text-secondary); font-size: 12px; }
 .sr-detail pre, .sr-card pre { white-space: pre-wrap; font: inherit; margin: 6px 0 0; }
 .sr-card { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 0 0 10px; }

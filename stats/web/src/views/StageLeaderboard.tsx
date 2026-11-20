@@ -32,7 +32,6 @@ import { PERIOD_DAYS, type PeriodChip, formatUsdCompact, sum, windowFor } from "
 import { useStatsView } from "../hooks/useStatsView";
 import { projectLabel } from "../lib/projectLabel";
 import { stageLabel } from "../lib/stageLabel";
-import type { ViewProps } from "../viewTypes";
 
 
 interface Filters {
@@ -86,7 +85,7 @@ function StageCell({ stage, command }: { stage: string; command?: string }) {
   );
 }
 
-export function StageLeaderboard(_props: ViewProps) {
+export function StageLeaderboard() {
   const [f, setF] = useState<Filters>(defaults);
   const project = f.project ?? undefined;
   const length = f.to.getTime() - f.from.getTime();

@@ -12,7 +12,6 @@ import {
   putChange,
   STAGE_RUN_QUERY_FIELDS,
 } from "./api";
-import { CHANGE_VARIABLE_SORT_FIELD } from "./components/ChangeVariable";
 import { RUN_DETAIL_STAGE_RUN_SORT_FIELD } from "./hooks/useRunDetail";
 
 describe("buildStatsViewQuery", () => {
@@ -397,9 +396,6 @@ describe("the SPA's sort fields are members of the server's allowlist, not a pri
     expect(STAGE_RUN_QUERY_FIELDS.length).toBeGreaterThan(0);
   });
 
-  it("ChangeVariable's sort field is a member of the server's change allowlist", () => {
-    expect(CHANGE_QUERY_FIELDS).toContain(CHANGE_VARIABLE_SORT_FIELD);
-  });
 
   it("useRunDetail's sort field is a member of the server's stage-run allowlist", () => {
     expect(STAGE_RUN_QUERY_FIELDS).toContain(RUN_DETAIL_STAGE_RUN_SORT_FIELD);

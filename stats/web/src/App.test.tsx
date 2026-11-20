@@ -3,9 +3,9 @@
 // carries or falls back to. `fetchStatsView` and `listStageRuns` are
 // mocked at the module boundary -- the same pattern views.test.tsx and
 // RunDetail.test.tsx already use -- so these tests assert this file's own
-// routing and period logic, never the network layer.
+// routing logic, never the network layer.
 import { render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import type { CostPerChangeRow, ListStageRunsResponse, StatsResponse } from "./api";
 
@@ -79,151 +79,15 @@ describe("route resolution ignores the query string (task 1)", () => {
   });
 });
 
-// These read the URL period through the first request, so they run on
-// Self-review fixes, which keeps the dashboard bar: Trend and Reviewers send
-// their own chip window (decisions-bar-tests-retarget-self-review).
-describe("the period is read from the URL, falling back to the default (task 2)", () => {
-  // A fixed clock, not a second `new Date()` at assertion time -- the
-  // latter is flaky by construction (the two calls can straddle a
-  // millisecond, or in the worst case a day boundary).
-  const NOW = new Date("2026-03-01T00:00:00.000Z");
-  const DEFAULT_FROM = new Date("2026-01-30T00:00:00.000Z");
-
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(NOW);
-  });
-  afterEach(() => {
-    vi.useRealTimers();
-    window.location.hash = "";
-  });
-
-  async function renderAndReadPeriod(hash: string): Promise<{ from: Date; to: Date }> {
+it("no view renders a dashboard bar: every one carries its own chips", async () => {
+  for (const [hash, heading] of [["#/weekly-costs", "Weekly costs"], ["#/trend", "Trend over time"]] as const) {
     window.location.hash = hash;
-    render(<App />);
-    await vi.waitFor(() => expect(fetchStatsViewMock).toHaveBeenCalled());
-    const [, params] = fetchStatsViewMock.mock.calls[0] as [string, { from: Date; to: Date }];
-    return { from: params.from, to: params.to };
-  }
-
-  it("only `from` is present: falls back to the default period", async () => {
-    const { from, to } = await renderAndReadPeriod("#/self-review?from=2026-01-01T00:00:00Z");
-    expect(from).toEqual(DEFAULT_FROM);
-    expect(to).toEqual(NOW);
-  });
-
-  it("only `to` is present: falls back to the default period", async () => {
-    const { from, to } = await renderAndReadPeriod("#/self-review?to=2026-01-01T00:00:00Z");
-    expect(from).toEqual(DEFAULT_FROM);
-    expect(to).toEqual(NOW);
-  });
-
-  it("an unparsable bound: falls back to the default period", async () => {
-    const { from, to } = await renderAndReadPeriod(
-      "#/self-review?from=not-a-date&to=2026-01-01T00:00:00Z",
-    );
-    expect(from).toEqual(DEFAULT_FROM);
-    expect(to).toEqual(NOW);
-  });
-
-  it("`to` earlier than `from`: falls back to the default period", async () => {
-    const { from, to } = await renderAndReadPeriod(
-      "#/self-review?from=2026-02-01T00:00:00Z&to=2026-01-01T00:00:00Z",
-    );
-    expect(from).toEqual(DEFAULT_FROM);
-    expect(to).toEqual(NOW);
-  });
-
-  it("no query at all: falls back to the default period", async () => {
-    const { from, to } = await renderAndReadPeriod("#/self-review");
-    expect(from).toEqual(DEFAULT_FROM);
-    expect(to).toEqual(NOW);
-  });
-
-  it("a valid pair is applied as given", async () => {
-    const { from, to } = await renderAndReadPeriod(
-      "#/self-review?from=2026-01-05T00:00:00Z&to=2026-01-10T00:00:00Z",
-    );
-    expect(from).toEqual(new Date("2026-01-05T00:00:00Z"));
-    expect(to).toEqual(new Date("2026-01-10T00:00:00Z"));
-  });
-
-  it("a period write updates the URL via replaceState and does not push a history entry", async () => {
-    const replaceStateSpy = vi.spyOn(window.history, "replaceState");
-    const pushStateSpy = vi.spyOn(window.history, "pushState");
-
-    window.location.hash = "#/self-review";
-    render(<App />);
-    await vi.waitFor(() => expect(fetchStatsViewMock).toHaveBeenCalled());
-
-    expect(replaceStateSpy).toHaveBeenCalled();
-    expect(pushStateSpy).not.toHaveBeenCalled();
-    expect(window.location.hash).toContain("from=");
-    expect(window.location.hash).toContain("to=");
-
-    replaceStateSpy.mockRestore();
-    pushStateSpy.mockRestore();
-  });
-
-  // Review finding F1: a hashchange that carries an explicit period (a
-  // shared deep link pasted into a tab where the app is already mounted --
-  // this fires `hashchange` with no reload, so no fresh `useState`
-  // initialiser runs) must not be clobbered by the stale in-memory period.
-  // The URL is authoritative on arrival, same as it is on first load.
-  it("a hashchange carrying an explicit period wins over the stale in-memory one", async () => {
-    window.location.hash = "#/self-review";
-    render(<App />);
-    await vi.waitFor(() => expect(fetchStatsViewMock).toHaveBeenCalled());
-    fetchStatsViewMock.mockClear();
-
-    window.location.hash = "#/self-review?from=2026-01-05T00:00:00Z&to=2026-01-10T00:00:00Z";
-    window.dispatchEvent(new HashChangeEvent("hashchange"));
-
-    await vi.waitFor(() => expect(fetchStatsViewMock).toHaveBeenCalled());
-    const [, params] = fetchStatsViewMock.mock.calls[0] as [string, { from: Date; to: Date }];
-    expect(params.from).toEqual(new Date("2026-01-05T00:00:00Z"));
-    expect(params.to).toEqual(new Date("2026-01-10T00:00:00Z"));
-  });
-
-  // Task 5: nothing else in this file asserts defaultPeriod()'s own span
-  // and end -- every fallback case above only checks that App *uses* the
-  // default, not what the default actually is. A fixed clock, not a
-  // second `new Date()` at assertion time, which would be flaky by
-  // construction.
-  it("the default period is the preceding 30 days ending now", async () => {
-    const { from, to } = await renderAndReadPeriod("#/self-review");
-    expect(to).toEqual(NOW);
-    expect(from).toEqual(DEFAULT_FROM);
-    expect(to.getTime() - from.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
-  });
-});
-
-describe("the filter bar (KAN-1038)", () => {
-  it("weekly costs renders no filter bar", async () => {
-    window.location.hash = "#/weekly-costs";
     const { unmount } = render(<App />);
-    expect(await screen.findByRole("heading", { name: "Weekly costs" })).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Statistics views" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument();
     expect(screen.queryByRole("toolbar", { name: "Dashboard controls" })).toBeNull();
-    for (const label of ["Period start", "Period end", "Project filter", "Model"]) {
-      expect(screen.queryByLabelText(label)).toBeNull();
-    }
     unmount();
-    window.location.hash = "#/self-review";
-    render(<App />);
-    expect(await screen.findByRole("toolbar", { name: "Dashboard controls" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Period start")).toBeInTheDocument();
-    window.location.hash = "";
-  });
-
-  it("the trend view renders no dashboard bar (decision trend-drops-daily-views)", async () => {
-    window.location.hash = "#/trend";
-    render(<App />);
-    expect(await screen.findByRole("heading", { name: "Trend over time" })).toBeInTheDocument();
-    expect(screen.queryByRole("toolbar", { name: "Dashboard controls" })).toBeNull();
-    expect(screen.queryByLabelText("Period start")).toBeNull();
-    window.location.hash = "";
-  });
+  }
+  window.location.hash = "";
 });
 
 it("reviewers carries no dashboard bar", async () => {

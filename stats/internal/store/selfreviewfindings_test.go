@@ -343,7 +343,10 @@ func TestSelfReviewSuggestionsAreReviewed(t *testing.T) {
 	if _, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{Change: "kan-1", Angle: "flow-improvement", Note: "x", Disposition: "suggested"}); !errors.Is(err, store.ErrSelfReviewFindingInvalid) {
 		t.Fatalf("a suggestion without a detail: err = %v, want ErrSelfReviewFindingInvalid", err)
 	}
-	got, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{Change: "kan-1", Angle: "flow-improvement", Note: "cache the guard", Disposition: "suggested", Detail: "## Why\nslow\n## How\ncache\n## DoD\nfaster"})
+	if _, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{Change: "kan-1", Angle: "flow-improvement", Note: "tiny", Disposition: "suggested", Severity: "minor", Detail: "d"}); !errors.Is(err, store.ErrSelfReviewFindingInvalid) {
+		t.Fatalf("a minor suggestion: err = %v, want ErrSelfReviewFindingInvalid", err)
+	}
+	got, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{Change: "kan-1", Angle: "flow-improvement", Note: "cache the guard", Disposition: "suggested", Severity: "important", Detail: "## Why\nslow\n## How\ncache\n## DoD\nfaster"})
 	if err != nil {
 		t.Fatalf("record suggestion: %v", err)
 	}

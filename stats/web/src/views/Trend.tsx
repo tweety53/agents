@@ -26,7 +26,6 @@ import { formatUsdCompact, sum } from "../format";
 import { useStatsView } from "../hooks/useStatsView";
 import { projectLabel } from "../lib/projectLabel";
 import { weekWindow } from "../lib/weekWindow";
-import type { ViewProps } from "../viewTypes";
 
 const PERIOD_WEEKS = { "8w": 8, "12w": 12, "26w": 26 } as const;
 type PeriodChip = keyof typeof PERIOD_WEEKS;
@@ -188,7 +187,7 @@ function Chart({ pts }: { pts: Point[] }) {
   );
 }
 
-export function Trend(_props: ViewProps) {
+export function Trend() {
   const [f, setF] = useState<Filters>(defaults);
   const state = useStatsView<TrendChange[]>("trend", { from: f.from, to: f.to });
   const ready = state.status === "ready" && state.data.recorded && !state.data.unmeasured;

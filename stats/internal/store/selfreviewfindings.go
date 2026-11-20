@@ -40,6 +40,9 @@ func validateSelfReviewFinding(f records.SelfReviewFinding) error {
 			return fmt.Errorf("%w: filed needs an issue key as ref, got %q", ErrSelfReviewFindingInvalid, f.Ref)
 		}
 	case "suggested":
+		if f.Severity == "minor" {
+			return fmt.Errorf("%w: a minor finding is never suggested, only critical or important ones", ErrSelfReviewFindingInvalid)
+		}
 		if f.Ref != "" || strings.TrimSpace(f.Detail) == "" {
 			return fmt.Errorf("%w: suggested carries no ref and needs a detail, got ref %q", ErrSelfReviewFindingInvalid, f.Ref)
 		}

@@ -1,7 +1,5 @@
-// App is the shell every view mounts inside: the period and project
-// controls (shared, because every view is driven by both -- design.md's
-// "Filtering, searching and sorting" and "Project is a first-class
-// filter"), and a minimal hash router with no added dependency -- the
+// App is the shell every view mounts inside: a minimal hash router with no
+// added dependency (every view carries its own Period and Project chips) -- the
 // static routes plus a redirect are well inside what `window.location.hash`
 // can carry, and pulling in a router library for that would be exactly the
 // "config switch/registry with one implementation" KISS violation
@@ -12,9 +10,6 @@
 // first") -- an empty or unrecognised hash both resolve to it.
 import { useEffect, useState, type ReactElement } from "react";
 import { VIEW_NAMES, type ViewName } from "./api";
-import { DashboardBar } from "./components/DashboardBar";
-import { defaultPeriod, type Period } from "./components/PeriodPicker";
-import type { ViewProps } from "./viewTypes";
 import { AgentRoles } from "./views/AgentRoles";
 import { FlowHealth } from "./views/FlowHealth";
 import { RunDetail } from "./views/RunDetail";
@@ -43,7 +38,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   "agent-roles": "Agent roles",
 };
 
-const VIEW_COMPONENTS: Record<ViewName, (props: ViewProps) => ReactElement> = {
+const VIEW_COMPONENTS: Record<ViewName, () => ReactElement> = {
   "state-board": StateBoard,
   "stage-leaderboard": StageLeaderboard,
   trend: Trend,
@@ -115,107 +110,20 @@ function currentRoute(): Route {
   return { kind: "view", view: isViewName(path) ? path : DEFAULT_VIEW };
 }
 
-/**
- * Review finding F1: a `hashchange` can arrive with no reload -- pasting a
- * shared deep link into a tab where the app is already mounted fires it
- * just the same as clicking an in-app link -- so `useState`'s initialiser
- * never re-runs and the in-memory period survives untouched unless this
- * listener also re-derives it. `onUrlPeriod` is called only when the new
- * hash carries an explicit, validly-parsed period (`periodFromQuery`,
- * task 2's same fallback rule): an in-app nav click's hash carries no
- * query at all, and that case must leave the current period alone rather
- * than resetting it to the default on every click.
- */
-function useHashRoute(onUrlPeriod: (period: Period) => void): Route {
+function useHashRoute(): Route {
   const [route, setRoute] = useState<Route>(currentRoute());
   useEffect(() => {
-    const onHashChange = () => {
-      setRoute(currentRoute());
-      const hash = window.location.hash.replace(/^#\/?/, "");
-      const { query } = splitHash(hash);
-      const period = periodFromQuery(query);
-      if (period) onUrlPeriod(period);
-    };
+    const onHashChange = () => setRoute(currentRoute());
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
-    // onUrlPeriod is NOT a stable identity -- App creates it fresh on every
-    // render. This effect subscribes once and so captures the mount-time
-    // closure permanently, which is safe only because that closure's body
-    // reads nothing from App's scope: it forwards to setPeriod's functional
-    // update form, and setPeriod is the genuinely stable one.
-    //
-    // That safety is a property of the closure's body, not of the dependency
-    // array. If onUrlPeriod is ever edited to read an outer variable directly
-    // -- `route` or `period`, say, instead of the functional update -- this
-    // handler will read that variable's mount-time value forever, because the
-    // effect never resubscribes. Change the body and you must revisit this.
   }, []);
   return route;
 }
 
-/**
- * Reads `from`/`to` from the hash's query, applying them only when both
- * are present, both parse to a valid instant, and `from` is strictly
- * before `to`. Anything else -- missing, incomplete, unparsable or
- * reversed -- returns null so the caller falls back to the default period
- * rather than partially applying it. The URL is untrusted input: a
- * crafted one must not be able to produce an empty view with no
- * explanation, which is the failure this change exists to remove.
- */
-function periodFromQuery(query: string): Period | null {
-  const params = new URLSearchParams(query);
-  const fromStr = params.get("from");
-  const toStr = params.get("to");
-  if (!fromStr || !toStr) return null;
-  const from = new Date(fromStr);
-  const to = new Date(toStr);
-  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return null;
-  if (from.getTime() >= to.getTime()) return null;
-  return { from, to };
-}
-
-function currentPeriod(): Period {
-  const hash = window.location.hash.replace(/^#\/?/, "");
-  const { query } = splitHash(hash);
-  return periodFromQuery(query) ?? defaultPeriod();
-}
-
-function routePath(route: Route): string {
-  return route.kind === "view" ? route.view : `${route.kind}/${encodeURIComponent(route.project)}/${encodeURIComponent(route.change)}`;
-}
-
-
 export function App() {
-  const [period, setPeriod] = useState<Period>(currentPeriod);
-  // A hashchange carrying the same period as the current one (e.g. the
-  // write-back effect below round-tripping through history, or a repeat
-  // paste of the same link) must not thrash: comparing by value, not by
-  // the freshly-parsed Date objects' identity, is what keeps a no-op
-  // arrival from triggering a re-render and re-fetch.
-  const onUrlPeriod = (next: Period) => {
-    setPeriod((prev) => (prev.from.getTime() === next.from.getTime() && prev.to.getTime() === next.to.getTime() ? prev : next));
-  };
-  const route = useHashRoute(onUrlPeriod);
-  const [project, setProject] = useState<string | undefined>(undefined);
-  const [model, setModel] = useState<string | undefined>(undefined);
-
-  // Carries the period into the hash's query on every change, via
-  // `replaceState` rather than a hash assignment -- adjusting a range is
-  // exploration, not navigation, and one history entry per adjustment
-  // would make the back button useless. `replaceState` does not dispatch
-  // `hashchange`, so this write never feeds back into useHashRoute's own
-  // listener as a route change.
-  useEffect(() => {
-    const params = new URLSearchParams({ from: period.from.toISOString(), to: period.to.toISOString() });
-    const newHash = `#/${routePath(route)}?${params.toString()}`;
-    if (window.location.hash !== newHash) {
-      window.history.replaceState(null, "", newHash);
-    }
-  }, [route, period]);
+  const route = useHashRoute();
 
   const ActiveView = route.kind === "view" ? VIEW_COMPONENTS[route.view] : null;
-  // Review dynamics compares models itself -- every other static view
-  // aggregates stage runs and accepts the restriction.
 
   return (
     <div className="app-shell">
@@ -232,35 +140,6 @@ export function App() {
             ))}
           </ul>
         </nav>
-        {/* Weekly costs carries its own Period, Split by and Project chips (decision
-            chip-filters-period-split-project); the live state board carries its own chip filters and an opened run none
-            (decision hide-dashboard-bar); the stage leaderboard carries its own Period, Project
-            and Command chips (decision leaderboard-chip-filters); the trend view carries its own
-            Period, Command and Project chips (decision trend-drops-daily-views); Reviewers carries its
-            own Period, Project and Rank by chips (decision reviewers-chip-filters-period-project);
-            Flow health carries its own Period, Project and Rank by chips
-            (decision chip-filters-period-project-rank);
-            Role costs carries its own Period and Project chips; Reviewer findings carries its own Range; Agent roles has no period. */}
-        {route.kind === "view" &&
-          route.view !== "weekly-costs" &&
-          route.view !== "state-board" &&
-          route.view !== "stage-leaderboard" &&
-          route.view !== "trend" &&
-          route.view !== "reviewers" &&
-          route.view !== "flow-health" &&
-          route.view !== "role-costs" &&
-          route.view !== "review-dynamics" &&
-          route.view !== "agent-roles" && (
-          <DashboardBar
-            period={period}
-            onPeriodChange={setPeriod}
-            project={project}
-            onProjectChange={setProject}
-            model={model}
-            onModelChange={setModel}
-            modelDisabled={false}
-          />
-        )}
       </header>
       <main>
         {route.kind === "run" ? (
@@ -269,13 +148,7 @@ export function App() {
           <RunTimings project={route.project} change={route.change} />
         ) : (
           ActiveView && (
-            <ActiveView
-              period={period}
-              onPeriodChange={setPeriod}
-              project={project}
-              onProjectChange={setProject}
-              model={model}
-            />
+            <ActiveView />
           )
         )}
       </main>

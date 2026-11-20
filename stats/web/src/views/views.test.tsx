@@ -643,7 +643,7 @@ describe("views render their fixture response's actual values", () => {
   it("stage leaderboard chips drive the request and the client filter", async () => {
     answerLeaderboard();
     const user = userEvent.setup();
-    render(<StageLeaderboard period={period} project={undefined} />);
+    render(<StageLeaderboard />);
     await screen.findByRole("table");
     const day = 24 * 60 * 60 * 1000;
     expect(calls().map(span)).toEqual([
@@ -689,7 +689,7 @@ describe("views render their fixture response's actual values", () => {
 
   it("stage leaderboard asks for projects on its current-window call only", async () => {
     answerLeaderboard();
-    render(<StageLeaderboard period={period} project={undefined} />);
+    render(<StageLeaderboard />);
     await screen.findByRole("table");
     expect(calls().map((p) => (p as { projects?: boolean }).projects)).toEqual([true, undefined]);
   });
@@ -697,7 +697,7 @@ describe("views render their fixture response's actual values", () => {
   it("stage leaderboard Period chip keeps the Project and Command chips", async () => {
     answerLeaderboard();
     const user = userEvent.setup();
-    render(<StageLeaderboard period={period} project={undefined} />);
+    render(<StageLeaderboard />);
     await screen.findByRole("table");
     const projectGroup = within(screen.getByRole("group", { name: "Project" }));
     await user.click(projectGroup.getByRole("button", { name: /^gymie/ }));
@@ -714,7 +714,7 @@ describe("views render their fixture response's actual values", () => {
   it("stage leaderboard Spend tile compares the chosen command's previous spend", async () => {
     answerLeaderboard();
     const user = userEvent.setup();
-    render(<StageLeaderboard period={period} project={undefined} />);
+    render(<StageLeaderboard />);
     await screen.findByRole("table");
     await user.click(within(screen.getByRole("group", { name: "Command" })).getByRole("button", { name: /^\/flow-fast/ }));
     const spend = tile("sl-t-spend");
@@ -728,7 +728,7 @@ describe("views render their fixture response's actual values", () => {
       leaderboardRows([["/flow", "flow.sdd-tdd", 0.002], ["/flow", "flow.verify", 0.5]]),
     );
     const user = userEvent.setup();
-    render(<StageLeaderboard period={period} project={undefined} />);
+    render(<StageLeaderboard />);
     await screen.findByRole("table");
     const row = (name: string) => within([...document.querySelectorAll<HTMLElement>("tbody tr")].find((tr) => tr.textContent?.includes(name))!);
     row("Implementing").getByText("new");
@@ -750,7 +750,7 @@ describe("views render their fixture response's actual values", () => {
             },
       ),
     );
-    render(<StageLeaderboard period={period} project={undefined} />);
+    render(<StageLeaderboard />);
     await screen.findByRole("table");
     // 0.001 is dropped; exactly half a cent and 0.2 are kept.
     screen.getByText("14 stages ran");
@@ -766,7 +766,7 @@ describe("views render their fixture response's actual values", () => {
           ? Promise.resolve({ ...envelope("stage-leaderboard", leaderboardRows(LEADERBOARD_CURRENT)), projects: LEADERBOARD_PROJECTS })
           : Promise.reject(new Error("previous window failed")),
     );
-    render(<StageLeaderboard period={period} project={undefined} />);
+    render(<StageLeaderboard />);
     expect(await screen.findByRole("alert")).toHaveTextContent("previous window failed");
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
@@ -775,7 +775,7 @@ describe("views render their fixture response's actual values", () => {
     fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures) =>
       Promise.resolve(view !== "stage-leaderboard" ? fixtures[view] : envelope("stage-leaderboard", leaderboardRows(LEADERBOARD_CURRENT), false)),
     );
-    const { unmount } = render(<StageLeaderboard period={period} project={undefined} />);
+    const { unmount } = render(<StageLeaderboard />);
     expect(await screen.findByTestId("not-recorded")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     unmount();
@@ -783,14 +783,14 @@ describe("views render their fixture response's actual values", () => {
     fetchStatsViewMock.mockImplementation((view: keyof typeof fixtures) =>
       Promise.resolve(view !== "stage-leaderboard" ? fixtures[view] : envelope("stage-leaderboard", leaderboardRows(LEADERBOARD_CURRENT), true, true)),
     );
-    render(<StageLeaderboard period={period} project={undefined} />);
+    render(<StageLeaderboard />);
     expect(await screen.findByTestId("unmeasured")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
   it("stage leaderboard project chips name projects with spend", async () => {
     answerLeaderboard();
-    render(<StageLeaderboard period={period} project={undefined} />);
+    render(<StageLeaderboard />);
     await screen.findByRole("table");
     const chips = within(screen.getByRole("group", { name: "Project" })).getAllByRole("button");
     expect(chips.map((c) => c.textContent)).toEqual(["All", "gymie$1,000", "agents$260"]);
@@ -799,7 +799,7 @@ describe("views render their fixture response's actual values", () => {
 
   it("stage leaderboard tiles name stages and the biggest riser", async () => {
     answerLeaderboard();
-    render(<StageLeaderboard period={period} project={undefined} />);
+    render(<StageLeaderboard />);
     await screen.findByRole("table");
     const spend = tile("sl-t-spend");
     spend.getByText("$1,260");
@@ -824,7 +824,7 @@ describe("views render their fixture response's actual values", () => {
 
   it("stage leaderboard table ranks the top ten with deltas and an Other row", async () => {
     answerLeaderboard();
-    render(<StageLeaderboard period={period} project={undefined} />);
+    render(<StageLeaderboard />);
     const table = within(await screen.findByRole("table"));
     expect(table.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
       "#", "Stage", "Command", "Spend", "Share", "vs previous 30d", "Runs", "Median run", "P90 run", "Main share",
@@ -860,7 +860,7 @@ describe("views render their fixture response's actual values", () => {
   it("stage leaderboard reports no riser and the empty state", async () => {
     const cur = leaderboardRows(LEADERBOARD_CURRENT);
     answer(cur, cur.map((r) => ({ ...r, totalCostUsd: r.totalCostUsd * 2 })));
-    const { unmount } = render(<StageLeaderboard period={period} project={undefined} />);
+    const { unmount } = render(<StageLeaderboard />);
     await screen.findByRole("table");
     const riser = tile("sl-t-riser");
     riser.getByText("—");
@@ -868,13 +868,13 @@ describe("views render their fixture response's actual values", () => {
     unmount();
 
     answer([], []);
-    render(<StageLeaderboard period={period} project={undefined} />);
+    render(<StageLeaderboard />);
     expect(await screen.findByText("No costed stage runs in this period.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
   it("reviewers ranks by value, severity and false alarms", async () => {
     const user = userEvent.setup();
-    render(<Reviewers period={period} project={undefined} />);
+    render(<Reviewers />);
     await screen.findByRole("table");
     const slots = () => [...document.querySelectorAll("tbody .rv-slot")].map((e) => e.firstChild?.textContent);
     const sorted = () => screen.getAllByRole("columnheader").filter((th) => th.hasAttribute("aria-sort"));
@@ -913,7 +913,7 @@ describe("views render their fixture response's actual values", () => {
 
   it("reviewers names every slot tied on most critical, each", async () => {
     fetchStatsViewMock.mockResolvedValueOnce({ ...envelope("reviewers", [rv("one", 2, 2, 1, 2, 0, 0, 0), rv("two", 2, 2, 1, 2, 0, 0, 0)]), projects: [] });
-    render(<Reviewers period={period} project={undefined} />);
+    render(<Reviewers />);
     await screen.findByRole("table");
     expect(document.querySelectorAll(".rv-tiles .lb-tile")[1]).toHaveTextContent("most critical: one, two (2 each)");
   });
@@ -921,7 +921,7 @@ describe("views render their fixture response's actual values", () => {
   it("reviewers shows no tiles when the rows are not recorded or unmeasured", async () => {
     for (const [recorded, unmeasured] of [[false, false], [true, true]]) {
       fetchStatsViewMock.mockResolvedValueOnce({ ...envelope("reviewers", REVIEWER_ROWS, recorded, unmeasured), projects: [] });
-      const { unmount } = render(<Reviewers period={period} project={undefined} />);
+      const { unmount } = render(<Reviewers />);
       await waitFor(() => expect(fetchStatsViewMock).toHaveBeenCalled());
       await screen.findByRole("toolbar");
       await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument());
@@ -932,7 +932,7 @@ describe("views render their fixture response's actual values", () => {
   });
 
   it("reviewers tiles and footer derive from the rows", async () => {
-    render(<Reviewers period={period} project={undefined} />);
+    render(<Reviewers />);
     await screen.findByRole("table");
     const [cost, severity, alarms] = [...document.querySelectorAll<HTMLElement>(".rv-tiles .lb-tile")];
     expect(cost).toHaveTextContent("Cost · best value$0.08beta per weighted findingleast: gamma $1.00found nothing: exp-delta ($0.60)");
@@ -949,7 +949,7 @@ describe("views render their fixture response's actual values", () => {
     const reqs = () => fetchStatsViewMock.mock.calls.filter((c) => c[0] === "reviewers").map((c) => c[1] as { from: Date; to: Date; project?: string; projects?: boolean });
     const day = 24 * 60 * 60 * 1000;
     const now = BOARD_NOW.getTime();
-    const { unmount } = render(<Reviewers period={period} project={undefined} />);
+    const { unmount } = render(<Reviewers />);
     await screen.findByRole("table");
     expect(reqs()).toHaveLength(1);
     expect(reqs()[0]).toMatchObject({ projects: true, project: undefined });
@@ -983,7 +983,7 @@ describe("views render their fixture response's actual values", () => {
     unmount();
 
     fetchStatsViewMock.mockResolvedValueOnce({ ...envelope("reviewers", []), projects: [] });
-    render(<Reviewers period={period} project={undefined} />);
+    render(<Reviewers />);
     expect(await screen.findByText("No reviewer dispatches in this period.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(document.querySelector(".rv-tiles")).toBeNull();
@@ -991,7 +991,7 @@ describe("views render their fixture response's actual values", () => {
 
   it("self-review: Fixed tab is read only with the finding's detail; To review approves and declines under a status filter", async () => {
     const user = userEvent.setup();
-    render(<SelfReview period={period} project={undefined} />);
+    render(<SelfReview />);
 
     // Fixed: only fixed findings, the fix linked to its commit, the detail one click away, no buttons.
     expect(await screen.findByRole("link", { name: "abc1234" })).toHaveAttribute("href", "https://github.com/o/r/commit/abc1234");
@@ -1000,22 +1000,22 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
 
     // To review: the open suggestion with its whole detail; the declined one sits under its filter.
-    await user.click(screen.getByRole("tab", { name: "To review" }));
+    await user.click(screen.getByRole("button", { name: "To review" }));
     expect(screen.getByText("cache the guard")).toBeInTheDocument();
     expect(screen.getByText("faster", { exact: false })).toBeInTheDocument();
     expect(screen.queryByText("split the brief")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Approve" }));
     expect(reviewMock).toHaveBeenCalledWith("agents", 3, "approved");
     await waitFor(() => expect(screen.queryByText("cache the guard")).not.toBeInTheDocument());
-    await user.click(screen.getByRole("button", { name: /Approved/ }));
+    await user.click(screen.getByRole("button", { name: /^Approved/ }));
     expect(screen.getByText("cache the guard")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /Declined/ }));
+    await user.click(screen.getByRole("button", { name: /^Declined/ }));
     expect(screen.getByText("split the brief")).toBeInTheDocument();
   });
 
   it("self-review: an empty period says so on the Fixed tab", async () => {
     fetchStatsViewMock.mockResolvedValueOnce(envelope("self-review", []));
-    render(<SelfReview period={period} project={undefined} />);
+    render(<SelfReview />);
     expect(await screen.findByText("No fixed findings in this period.")).toBeInTheDocument();
   });
 });
@@ -1151,7 +1151,7 @@ describe("weekly costs", () => {
     onTestFinished(() => {
       vi.useRealTimers();
     });
-    render(<WeeklyCosts period={period} project={undefined} />);
+    render(<WeeklyCosts />);
     await screen.findByText("What moved, week of 2026-06-10 vs 2026-06-03");
   };
 
@@ -1306,7 +1306,7 @@ describe("weekly costs", () => {
     onTestFinished(() => {
       vi.useRealTimers();
     });
-    render(<WeeklyCosts period={period} project={undefined} />);
+    render(<WeeklyCosts />);
     expect(await screen.findByTestId("not-recorded")).toBeInTheDocument();
     expect(screen.queryAllByTestId("wc-segment")).toHaveLength(0);
   });
@@ -1406,7 +1406,7 @@ describe("trend", () => {
   const tileOf = (label: string) => within([...document.querySelectorAll<HTMLElement>(".tr-tile")].find((t) => t.querySelector(".lb-lbl")?.textContent === label)!);
   const renderTrend = async () => {
     vi.setSystemTime(TREND_NOW);
-    render(<Trend period={period} project={undefined} />);
+    render(<Trend />);
     await screen.findByText("Median per change");
   };
 
@@ -1543,7 +1543,7 @@ describe("absence is rendered distinctly from a recorded zero", () => {
     fetchStatsViewMock.mockImplementation((view: StatsViewSlug) =>
       Promise.resolve(envelope(view, [], false)),
     );
-    render(<Trend period={period} project={undefined} />);
+    render(<Trend />);
     // Trend's body reads its one request's absence through Panel, the sole
     // implementation of that branch (Panel.tsx's header comment).
     const banners = await screen.findAllByTestId("not-recorded");
@@ -1561,7 +1561,7 @@ describe("absence is rendered distinctly from a recorded zero", () => {
     fetchStatsViewMock.mockImplementation((view: StatsViewSlug) =>
       Promise.resolve(envelope(view, [], true, true)),
     );
-    render(<Trend period={period} project={undefined} />);
+    render(<Trend />);
     const banners = await screen.findAllByTestId("unmeasured");
     expect(banners.length).toBeGreaterThan(0);
     for (const banner of banners) {
@@ -1757,7 +1757,7 @@ describe("flow health", () => {
       gh("delta", 50, 0, 0, 40, 2000, null),
       gh("echo", 300, 0, 0, 1666, 500000, null),
     ]);
-    render(<FlowHealth period={period} project={undefined} />);
+    render(<FlowHealth />);
     await screen.findByRole("table");
     const sorted = () => [...document.querySelectorAll("th[aria-sort]")].map((th) => [th.textContent, th.getAttribute("aria-sort")]);
     const expectRank = (order: string[], heading: string, header: string) => {
@@ -1791,7 +1791,7 @@ describe("flow health", () => {
       gh("quiet-3", 300, 0, 0, 3, 1000, null),
       gh("quiet-4", 200, 0, 0, 5, 1000, null),
     ]);
-    render(<FlowHealth period={period} project={undefined} />);
+    render(<FlowHealth />);
     await screen.findByRole("table");
     const tileTexts = [
       "Catching · fired at least once3 of 8most: fire-big 50 fires",
@@ -1850,7 +1850,7 @@ describe("flow health", () => {
     const day = 24 * 60 * 60 * 1000;
     const now = BOARD_NOW.getTime();
     const pressed = (g: string, name: string | RegExp) => expect(group(g).getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
-    render(<FlowHealth period={period} project={undefined} />);
+    render(<FlowHealth />);
     await screen.findByRole("table");
     expect(reqs()).toHaveLength(1);
     expect(reqs()[0]).toMatchObject({ projects: true, project: undefined });
@@ -1888,7 +1888,7 @@ describe("flow health", () => {
       gh("f-five", 100, 5, 3, 1500, 4200000, "2026-08-15T00:00:00Z"),
       gh("f-quarter", 100, 25, 0, 1500, 1000, "2026-08-16T00:00:00Z"),
     ]);
-    const { unmount } = render(<FlowHealth period={period} project={undefined} />);
+    const { unmount } = render(<FlowHealth />);
     await screen.findByRole("table");
     const text = (guard: string) => cells(guard).map((td) => td.textContent);
     // Columns: #, Guard, Runs, Fired, Fire rate, Cannot answer, Median run, Run time, Share, Last fired.
@@ -1901,7 +1901,7 @@ describe("flow health", () => {
 
     // Rounding carries into the next unit rather than showing 60 of the smaller one.
     answerGuards([gh("c-s", 1, 0, 0, 999.6, 59960, null), gh("c-m", 1, 0, 0, 1, 3599000, null), gh("c-h", 1, 0, 0, 1, 7170000, null)]);
-    const second = render(<FlowHealth period={period} project={undefined} />);
+    const second = render(<FlowHealth />);
     await screen.findByRole("table");
     expect(text("c-s").slice(6, 8)).toEqual(["1.0 s", "1 min"]);
     expect(text("c-m")[7]).toBe("1 h 0 min");
@@ -1909,7 +1909,7 @@ describe("flow health", () => {
     second.unmount();
 
     answerGuards([gh("solo", 10, 1, 0, 450, 1500, "2026-08-14T23:30:00Z")]);
-    render(<FlowHealth period={period} project={undefined} />);
+    render(<FlowHealth />);
     await screen.findByRole("table");
     expect(foot()[1]).toBe("1 guard");
     expect(foot()[8]).toBe("100%");
@@ -1917,13 +1917,13 @@ describe("flow health", () => {
 
   it("flow health shows no tiles and the empty message with no guard runs", async () => {
     answerGuards([]);
-    const { unmount } = render(<FlowHealth period={period} project={undefined} />);
+    const { unmount } = render(<FlowHealth />);
     expect(await screen.findByText("No guard runs in this period.")).toBeInTheDocument();
     expect(document.querySelector(".lb-tile")).toBeNull();
     unmount();
 
     fetchStatsViewMock.mockResolvedValueOnce({ ...envelope("guard-health", fixtures["guard-health"].rows, false), projects: [] });
-    render(<FlowHealth period={period} project={undefined} />);
+    render(<FlowHealth />);
     expect(await screen.findByTestId("not-recorded")).toBeInTheDocument();
     expect(document.querySelector(".lb-tile")).toBeNull();
   });
@@ -1943,7 +1943,7 @@ describe("review dynamics", () => {
         heat: [cell("mutation", "sonnet", "low", 2), cell("test-sanity", "opus", "high", 3), cell("test-sanity", "opus", "low", 3), cell("test-sanity", "opus", "medium", 1)],
       }),
     );
-    render(<ReviewDynamics period={period} project={undefined} />);
+    render(<ReviewDynamics />);
     const heat = (await screen.findByText(/Findings per dispatch: slot/)).closest(".dynamics-panel") as HTMLElement;
     expect(within(heat).getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["test-sanity", "mutation"]);
     expect(within(heat).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["", "opuslow", "opusmedium", "opushigh", "sonnetlow"]);
@@ -1953,7 +1953,7 @@ describe("review dynamics", () => {
 
   it("review dynamics opens on the last 30 days and picks 7, 14, 30 or 60", async () => {
     fetchStatsViewMock.mockResolvedValue(envelope("review-dynamics", reviewDynamicsRows()));
-    render(<ReviewDynamics period={period} project={undefined} />);
+    render(<ReviewDynamics />);
     await screen.findByText(/Findings per dispatch: slot/);
     expect(days(lastParams())).toBe(30);
     expect(Math.abs(lastParams().to.getTime() - Date.now())).toBeLessThan(60_000);
@@ -1965,7 +1965,7 @@ describe("review dynamics", () => {
 
   it("review dynamics steps the range back and forth by its own length, never past now", async () => {
     fetchStatsViewMock.mockResolvedValue(envelope("review-dynamics", reviewDynamicsRows()));
-    render(<ReviewDynamics period={period} project={undefined} />);
+    render(<ReviewDynamics />);
     await screen.findByText(/Findings per dispatch: slot/);
     const range = screen.getByRole("group", { name: "Range" });
     await userEvent.click(within(range).getByRole("button", { name: "7 days" }));

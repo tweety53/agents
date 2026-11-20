@@ -53,7 +53,7 @@ landed sha for fixed and omitted for declined, noted and suggested (the old
 filed, with an issue key, still reads back); -detail is the finding's full
 markdown body -- what was found, why it matters, how it was fixed or how to
 fix it, the definition of done, its evidence -- required for suggested, a
-proposal the operator approves or declines on the Self-review dashboard;
+(critical or important, never minor) proposal the operator approves or declines on the Self-review dashboard;
 -blast-radius is the finding's file count, omitted when none was counted;
 -severity is the finding's grade, required for fixed and suggested and omitted for declined and noted when none was given;
 

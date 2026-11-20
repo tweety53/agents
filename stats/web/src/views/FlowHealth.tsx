@@ -30,7 +30,6 @@ import { Panel } from "../components/Panel";
 import { PERIOD_DAYS, type PeriodChip, windowFor } from "../format";
 import { useStatsView } from "../hooks/useStatsView";
 import { projectLabel } from "../lib/projectLabel";
-import type { ViewProps } from "../viewTypes";
 
 const RANKS = { fires: "Fires", rate: "Fire rate", silent: "Never fired", time: "Run time" } as const;
 type Rank = keyof typeof RANKS;
@@ -293,7 +292,7 @@ function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number;
   );
 }
 
-export function FlowHealth(_props: ViewProps) {
+export function FlowHealth() {
   const [f, setF] = useState<Filters>(defaults);
   const [rank, setRank] = useState<Rank>("fires");
   const [show, setShow] = useState<Show | null>(null);

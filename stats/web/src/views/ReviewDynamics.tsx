@@ -6,7 +6,6 @@
 import { useState } from "react";
 import type { HeatCell, ReviewDynamicsRows } from "../api";
 import { useStatsView } from "../hooks/useStatsView";
-import type { ViewProps } from "../viewTypes";
 
 const DAY_MS = 86400000;
 const RANGES = [7, 14, 30, 60] as const;
@@ -109,7 +108,7 @@ function Heatmap({ cells, previous }: { cells: HeatCell[]; previous: HeatCell[] 
   );
 }
 
-export function ReviewDynamics(_: ViewProps) {
+export function ReviewDynamics() {
   // end is when the view opened: every window is counted back from it, so
   // stepping later returns to exactly the windows stepped through.
   const [end] = useState(() => Date.now());

@@ -338,7 +338,7 @@ func TestSelfReviewFindingSendsItsDetail(t *testing.T) {
 	detail := "## Why\nslow\n## How\ncache\n## DoD\nfaster"
 	var stdout, stderr strings.Builder
 	code := run(context.Background(), []string{"self-review", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-		"-change", "demo", "-angle", "flow-improvement", "-disposition", "suggested", "-severity", "minor", "-note", "cache it", "-detail", detail},
+		"-change", "demo", "-angle", "flow-improvement", "-disposition", "suggested", "-severity", "important", "-note", "cache it", "-detail", detail},
 		env.get, strings.NewReader(""), &stdout, &stderr)
 	if code != 0 || got.Detail != detail || got.Disposition != "suggested" {
 		t.Errorf("exit %d (stderr %q), sent %+v; want 0 and the detail %q", code, stderr.String(), got, detail)

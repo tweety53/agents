@@ -29,7 +29,6 @@ import { Panel } from "../components/Panel";
 import { PERIOD_DAYS, type PeriodChip, formatUsdCompact, sum, windowFor } from "../format";
 import { useStatsView } from "../hooks/useStatsView";
 import { projectLabel } from "../lib/projectLabel";
-import type { ViewProps } from "../viewTypes";
 
 const RANKS = { value: "Value", severity: "Severity", alarms: "False alarms" } as const;
 type Rank = keyof typeof RANKS;
@@ -284,7 +283,7 @@ function Table({ slots, rank }: { slots: Slot[]; rank: Rank }) {
   );
 }
 
-export function Reviewers(_props: ViewProps) {
+export function Reviewers() {
   const [f, setF] = useState<Filters>(defaults);
   const [rank, setRank] = useState<Rank>("value");
   const state = useStatsView<ReviewerRow[], ReviewerProject>("reviewers", {
