@@ -988,6 +988,28 @@ async function sendJSON(method: string, path: string, body?: unknown): Promise<v
   await handleResponse<unknown>(res);
 }
 
+/** One page of the Self-review dashboard's list, with the list's total and the suggestion counts by status. */
+export interface SelfReviewPage {
+  total: number;
+  toReview: number;
+  approved: number;
+  declined: number;
+  limit: number;
+  offset: number;
+  rows: SelfReviewRow[];
+}
+
+/** GET /api/v1/stats/self-review-findings -- one page only, never every row. */
+export function fetchSelfReviewPage(
+  p: { from: Date; to: Date; project?: string; show: "fixed" | "to-review"; status?: string; limit: number; offset: number },
+  init?: RequestInit,
+): Promise<SelfReviewPage> {
+  const q = new URLSearchParams({ from: p.from.toISOString(), to: p.to.toISOString(), show: p.show, limit: String(p.limit), offset: String(p.offset) });
+  if (p.project) q.set("project", p.project);
+  if (p.status) q.set("status", p.status);
+  return getJSON<SelfReviewPage>(`/api/v1/stats/self-review-findings?${q}`, init);
+}
+
 /** PATCH /api/v1/self-review/{project}/findings/{id}/review -- approve or decline a suggested finding. */
 export function reviewSelfReviewFinding(project: string, id: number, status: "to-review" | "approved" | "declined"): Promise<void> {
   return sendJSON("PATCH", `/api/v1/self-review/${encodeURIComponent(project)}/findings/${id}/review`, { status });

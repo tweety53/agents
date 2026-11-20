@@ -7,6 +7,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type {
+  SelfReviewRow,
   TrendChange,
   HealthViewSlug,
   StageLeaderboardRow,
@@ -26,8 +27,9 @@ import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
 import { WeeklyCosts } from "./WeeklyCosts";
 
-const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, postRolesEditMock, reviewMock } = vi.hoisted(() => ({
+const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, postRolesEditMock, reviewMock, pageMock } = vi.hoisted(() => ({
   reviewMock: vi.fn(() => Promise.resolve()),
+  pageMock: vi.fn(),
   postRolesEditMock: vi.fn(),
   fetchStatsViewMock: vi.fn(),
   fetchProjectsMock: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock("../api", async (importOriginal) => {
     fetchRoles: fetchRolesMock,
     postRolesEdit: postRolesEditMock,
     reviewSelfReviewFinding: reviewMock,
+    fetchSelfReviewPage: pageMock,
   };
 });
 
@@ -989,7 +992,17 @@ describe("views render their fixture response's actual values", () => {
     expect(document.querySelector(".rv-tiles")).toBeNull();
   });
 
+  // The server's paging, over the fixture rows: the list for `show`/`status`, `limit` rows from `offset`.
+  const servePages = (rows: SelfReviewRow[]) =>
+    pageMock.mockImplementation(async (q: { show: string; status?: string; limit: number; offset: number }) => {
+      const list = rows.filter((r) => (q.show === "fixed" ? r.disposition === "fixed" : r.reviewStatus === q.status));
+      const n = (s: string) => rows.filter((r) => r.reviewStatus === s).length;
+      return { total: list.length, toReview: n("to-review"), approved: n("approved"), declined: n("declined"), limit: q.limit, offset: q.offset, rows: list.slice(q.offset, q.offset + q.limit) };
+    });
+  const fixtureRows = () => (fixtures["self-review"].rows as unknown as SelfReviewRow[]);
+
   it("self-review: Fixed tab is read only with the finding's detail; To review approves and declines under a status filter", async () => {
+    servePages(fixtureRows());
     const user = userEvent.setup();
     render(<SelfReview />);
 
@@ -1001,22 +1014,38 @@ describe("views render their fixture response's actual values", () => {
 
     // To review: the open suggestion with its whole detail; the declined one sits under its filter.
     await user.click(screen.getByRole("button", { name: "To review" }));
-    expect(screen.getByText("cache the guard")).toBeInTheDocument();
+    expect(await screen.findByText("cache the guard")).toBeInTheDocument();
     expect(screen.getByText("faster", { exact: false })).toBeInTheDocument();
     expect(screen.queryByText("split the brief")).not.toBeInTheDocument();
+    pageMock.mockImplementationOnce(async () => ({ total: 0, toReview: 0, approved: 1, declined: 1, limit: 25, offset: 0, rows: [] }));
     await user.click(screen.getByRole("button", { name: "Approve" }));
     expect(reviewMock).toHaveBeenCalledWith("agents", 3, "approved");
     await waitFor(() => expect(screen.queryByText("cache the guard")).not.toBeInTheDocument());
-    await user.click(screen.getByRole("button", { name: /^Approved/ }));
-    expect(screen.getByText("cache the guard")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^Declined/ }));
-    expect(screen.getByText("split the brief")).toBeInTheDocument();
+    expect(await screen.findByText("split the brief")).toBeInTheDocument();
   });
 
   it("self-review: an empty period says so on the Fixed tab", async () => {
-    fetchStatsViewMock.mockResolvedValueOnce(envelope("self-review", []));
+    servePages([]);
     render(<SelfReview />);
     expect(await screen.findByText("No fixed findings in this period.")).toBeInTheDocument();
+  });
+
+  it("self-review: loads one page at a time and Next/Previous move through the rest", async () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({ ...fixtureRows()[0], id: 100 + i, note: `fix number ${i}` }));
+    servePages(many);
+    const user = userEvent.setup();
+    render(<SelfReview />);
+    expect(await screen.findByText("fix number 0")).toBeInTheDocument();
+    expect(pageMock).toHaveBeenLastCalledWith(expect.objectContaining({ show: "fixed", limit: 25, offset: 0 }));
+    expect(screen.queryByText("fix number 25")).not.toBeInTheDocument();
+    expect(screen.getByText("1–25 of 30")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByText("fix number 25")).toBeInTheDocument();
+    expect(screen.queryByText("fix number 0")).not.toBeInTheDocument();
+    expect(screen.getByText("26–30 of 30")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   });
 });
 

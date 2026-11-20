@@ -82,6 +82,9 @@ func (f *fakeStore) GuardHealthProjects(_ context.Context, _ store.Period) ([]st
 func (f *fakeStore) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, _ *string) ([]store.SelfReviewFindingRow, error) {
 	return nil, nil
 }
+func (f *fakeStore) SelfReviewFindingsPage(_ context.Context, _ store.Period, _ *string, _, _ string, _, _ int) (store.SelfReviewPage, error) {
+	return store.SelfReviewPage{}, nil
+}
 func (f *fakeStore) ReviewDynamics(_ context.Context, _ store.Period, _ *string) (store.ReviewDynamics, error) {
 	return store.ReviewDynamics{}, nil
 }
@@ -115,6 +118,7 @@ type statsRun struct {
 }
 
 type statsFake struct {
+	pageAsked        string
 	liveStateBoard   []store.LiveStateRow
 	activity         map[string][2]string
 	lastChange       *string
@@ -239,6 +243,12 @@ func (f *statsFake) Reviewers(_ context.Context, _ store.Period, p, m *string) (
 func (f *statsFake) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period, p *string) ([]store.SelfReviewFindingRow, error) {
 	f.lastProject = p
 	return f.selfReview, f.aggErr
+}
+
+// SelfReviewFindingsPage records the page asked for and answers the fixture rows, total 7.
+func (f *statsFake) SelfReviewFindingsPage(_ context.Context, _ store.Period, p *string, show, status string, limit, offset int) (store.SelfReviewPage, error) {
+	f.lastProject, f.pageAsked = p, fmt.Sprintf("%s/%s/%d/%d", show, status, limit, offset)
+	return store.SelfReviewPage{Rows: f.selfReview, Total: 7, ToReview: 3, Approved: 2, Declined: 2}, f.aggErr
 }
 func (f *statsFake) ReviewDynamics(_ context.Context, _ store.Period, p *string) (store.ReviewDynamics, error) {
 	f.lastProject = p
@@ -2367,5 +2377,27 @@ func TestStateBoardServesRequestsAsTasks(t *testing.T) {
 	}
 	if rows[1].Command != "/flow" || len(rows[1].Tasks) != 1 || rows[1].Tasks[0]["title"] != "Planned" {
 		t.Errorf("kan-2 = %+v, want /flow and its tasks.md's one task", rows[1])
+	}
+}
+
+// TestSelfReviewPageEndpoint: the page route passes limit and offset to the store, defaults to 25
+// rows, carries the total and the status counts, and refuses a limit past the cap.
+func TestSelfReviewPageEndpoint(t *testing.T) {
+	t.Parallel()
+	fake := &statsFake{}
+	ts := newStatsTestServer(t, fake)
+	base := "/api/v1/stats/self-review-findings?from=2026-01-01T00:00:00Z&to=2026-02-01T00:00:00Z"
+	code, body := doGetRaw(t, ts, base+"&show=to-review&status=approved&limit=10&offset=20")
+	if code != 200 || fake.pageAsked != "to-review/approved/10/20" || !strings.Contains(body, `"total":7`) || !strings.Contains(body, `"toReview":3`) {
+		t.Errorf("status %d, asked %q, body %s", code, fake.pageAsked, body)
+	}
+	doGetRaw(t, ts, base+"&show=fixed")
+	if fake.pageAsked != "fixed//25/0" {
+		t.Errorf("default page asked %q, want fixed//25/0", fake.pageAsked)
+	}
+	for _, bad := range []string{"&limit=101", "&limit=0", "&offset=-1", "&limit=x", "&bogus=1"} {
+		if code, _ := doGetRaw(t, ts, base+"&show=fixed"+bad); code != 400 {
+			t.Errorf("%s: status %d, want 400", bad, code)
+		}
 	}
 }

@@ -224,3 +224,61 @@ func (h *selfreviewHandler) reviewFinding(w http.ResponseWriter, r *http.Request
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// selfReviewPageMax caps one page; the dashboard asks for far fewer.
+const selfReviewPageMax = 100
+
+type selfReviewPageDTO struct {
+	Total    int                `json:"total"`
+	ToReview int                `json:"toReview"`
+	Approved int                `json:"approved"`
+	Declined int                `json:"declined"`
+	Limit    int                `json:"limit"`
+	Offset   int                `json:"offset"`
+	Rows     []selfReviewRowDTO `json:"rows"`
+}
+
+// selfReviewPage serves GET /api/v1/stats/self-review-findings?from&to[&project]&show=fixed|to-review
+// [&status=to-review|approved|declined][&limit][&offset]: one page of the dashboard's list, with
+// the list's total and the suggestion counts by status. The dashboard never loads every row.
+func (h *statsHandler) selfReviewPage(w http.ResponseWriter, r *http.Request) {
+	values := r.URL.Query()
+	for param := range values {
+		switch param {
+		case "from", "to", "project", "show", "status", "limit", "offset":
+		default:
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("unrecognised query parameter %q", param))
+			return
+		}
+	}
+	period, project, err := parsePeriodAndProject(r.Context(), h.store, values)
+	if err != nil {
+		writeParseOrStoreError(w, h.logger, "resolve project for self-review findings", err)
+		return
+	}
+	limit, offset := 25, 0
+	for name, dst := range map[string]*int{"limit": &limit, "offset": &offset} {
+		if raw := firstValue(values, name); raw != "" {
+			n, err := strconv.Atoi(raw)
+			if err != nil || n < 0 || (name == "limit" && (n == 0 || n > selfReviewPageMax)) {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("%s must be a whole number (limit 1-%d, offset 0 or more), got %q", name, selfReviewPageMax, raw))
+				return
+			}
+			*dst = n
+		}
+	}
+	show, status := firstValue(values, "show"), firstValue(values, "status")
+	if show == "to-review" && status == "" {
+		status = "to-review"
+	}
+	page, err := h.store.SelfReviewFindingsPage(r.Context(), period, project, show, status, limit, offset)
+	if err != nil {
+		s, m := mapStoreError(h.logger, "self-review findings page", err)
+		writeError(w, s, m)
+		return
+	}
+	writeJSON(w, http.StatusOK, selfReviewPageDTO{
+		Total: page.Total, ToReview: page.ToReview, Approved: page.Approved, Declined: page.Declined,
+		Limit: limit, Offset: offset, Rows: toSelfReviewDTOs(page.Rows, h.commitBase),
+	})
+}

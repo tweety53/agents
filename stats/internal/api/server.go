@@ -403,6 +403,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("POST /api/v1/stages/end", sh.end)
 	mux.HandleFunc("GET /api/v1/stages/{project}/{change}/{stage}/completed", rh.stageCompleted)
 	mux.HandleFunc("GET /api/v1/stage-runs", sth.listStageRuns)
+	mux.Handle("GET /api/v1/stats/self-review-findings", http.TimeoutHandler(http.HandlerFunc(sth.selfReviewPage), so.statsTimeout, statsTimeoutMessage))
 	mux.Handle("GET /api/v1/stats/{view}", http.TimeoutHandler(http.HandlerFunc(sth.view), so.statsTimeout, statsTimeoutMessage))
 	mux.HandleFunc("GET /api/v1/models", sth.listModels)
 	mux.HandleFunc("GET /api/v1/stages", listStages)

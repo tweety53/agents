@@ -170,3 +170,61 @@ func (s *Store) ReviewSelfReviewFinding(ctx context.Context, projectKey string, 
 	}
 	return nil
 }
+
+// SelfReviewPage is one page of the self-review dashboard: the rows of the chosen list, how many
+// rows that list holds in all, and the suggestion counts by review status (for the status chips).
+type SelfReviewPage struct {
+	Rows                         []SelfReviewFindingRow
+	Total                        int
+	ToReview, Approved, Declined int
+}
+
+// SelfReviewFindingsPage reads one page of the findings recorded within period, newest first,
+// optionally restricted to one project. show is "fixed" (the fixed findings) or "to-review" (the
+// suggestions with the given review status). Only limit rows are read.
+func (s *Store) SelfReviewFindingsPage(ctx context.Context, period Period, project *string, show, status string, limit, offset int) (SelfReviewPage, error) {
+	var out SelfReviewPage
+	disposition, reviewStatus := "fixed", ""
+	switch show {
+	case "fixed":
+	case "to-review":
+		disposition, reviewStatus = "suggested", status
+		if status != "to-review" && status != "approved" && status != "declined" {
+			return out, fmt.Errorf("%w: status must be to-review, approved or declined, got %q", ErrSelfReviewFindingInvalid, status)
+		}
+	default:
+		return out, fmt.Errorf("%w: show must be fixed or to-review, got %q", ErrSelfReviewFindingInvalid, show)
+	}
+	if err := s.pool.QueryRow(ctx, `
+		SELECT
+		  count(*) FILTER (WHERE disposition = $4 AND ($5 = '' OR review_status = $5)),
+		  count(*) FILTER (WHERE review_status = 'to-review'),
+		  count(*) FILTER (WHERE review_status = 'approved'),
+		  count(*) FILTER (WHERE review_status = 'declined')
+		FROM self_review_findings
+		WHERE recorded_at >= $1 AND recorded_at < $2 AND ($3::text IS NULL OR project_key = $3)
+	`, period.From, period.To, project, disposition, reviewStatus).Scan(&out.Total, &out.ToReview, &out.Approved, &out.Declined); err != nil {
+		return out, fmt.Errorf("store: count self-review findings: %w", err)
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT project_key, id, change, angle, note, disposition, COALESCE(ref, ''), blast_radius, COALESCE(severity, ''), COALESCE(detail, ''), COALESCE(review_status, ''), recorded_at
+		FROM self_review_findings
+		WHERE recorded_at >= $1 AND recorded_at < $2 AND ($3::text IS NULL OR project_key = $3)
+		  AND disposition = $4 AND ($5 = '' OR review_status = $5)
+		ORDER BY recorded_at DESC, id DESC
+		LIMIT $6 OFFSET $7
+	`, period.From, period.To, project, disposition, reviewStatus, limit, offset)
+	if err != nil {
+		return out, fmt.Errorf("store: self-review findings page: %w", err)
+	}
+	defer rows.Close()
+	out.Rows = []SelfReviewFindingRow{}
+	for rows.Next() {
+		var r SelfReviewFindingRow
+		if err := rows.Scan(&r.ProjectKey, &r.ID, &r.Change, &r.Angle, &r.Note, &r.Disposition, &r.Ref, &r.BlastRadius, &r.Severity, &r.Detail, &r.ReviewStatus, &r.RecordedAt); err != nil {
+			return out, fmt.Errorf("store: self-review findings page: scan: %w", err)
+		}
+		out.Rows = append(out.Rows, r)
+	}
+	return out, rows.Err()
+}

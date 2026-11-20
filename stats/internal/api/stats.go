@@ -79,6 +79,8 @@ type StatsStore interface {
 	// SelfReviewFindingsInPeriod backs the "self-review" view: every
 	// self-review finding recorded in the period, newest first.
 	SelfReviewFindingsInPeriod(ctx context.Context, period store.Period, project *string) ([]store.SelfReviewFindingRow, error)
+	// SelfReviewFindingsPage backs GET /api/v1/stats/self-review-findings: one page, never all rows.
+	SelfReviewFindingsPage(ctx context.Context, period store.Period, project *string, show, status string, limit, offset int) (store.SelfReviewPage, error)
 	// ReviewDynamics backs the "review-dynamics" view.
 	ReviewDynamics(ctx context.Context, period store.Period, project *string) (store.ReviewDynamics, error)
 	// CountRunsWithoutModel and ListModels back task 21's model filter:

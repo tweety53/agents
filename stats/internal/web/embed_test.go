@@ -601,3 +601,7 @@ func (fakeStore) ListDecisions(context.Context, string, string) ([]records.Decis
 }
 
 func (fakeStore) ReviewSelfReviewFinding(context.Context, string, int64, string) error { return nil }
+
+func (fakeStore) SelfReviewFindingsPage(context.Context, store.Period, *string, string, string, int, int) (store.SelfReviewPage, error) {
+	return store.SelfReviewPage{}, nil
+}

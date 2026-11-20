@@ -368,3 +368,43 @@ func TestSelfReviewSuggestionsAreReviewed(t *testing.T) {
 		t.Fatalf("review of a fixed finding: err = %v, want ErrSelfReviewFindingNotSuggested", err)
 	}
 }
+
+// TestSelfReviewFindingsPagePagesAndCounts: a page holds at most limit rows of the chosen list,
+// newest first, with the list's total and the suggestion counts by status.
+func TestSelfReviewFindingsPagePagesAndCounts(t *testing.T) {
+	t.Parallel()
+	st, _, projectKey := newHazardStore(t)
+	ctx := context.Background()
+	for i := 0; i < 5; i++ {
+		if _, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{Change: "kan-1", Angle: "flow-fix", Note: fmt.Sprintf("fix %d", i), Disposition: "fixed", Ref: "abc1234", Severity: "important"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 0; i < 3; i++ {
+		f, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{Change: "kan-1", Angle: "flow-improvement", Note: fmt.Sprintf("idea %d", i), Disposition: "suggested", Severity: "important", Detail: "d"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if i == 0 {
+			_ = st.ReviewSelfReviewFinding(ctx, projectKey, f.ID, "approved")
+		}
+	}
+	period := store.Period{From: time.Now().Add(-time.Hour), To: time.Now().Add(time.Hour)}
+	page, err := st.SelfReviewFindingsPage(ctx, period, nil, "fixed", "", 2, 2)
+	if err != nil {
+		t.Fatalf("page: %v", err)
+	}
+	if len(page.Rows) != 2 || page.Total != 5 || page.Rows[0].Note != "fix 2" {
+		t.Errorf("fixed page 2 = %d rows, total %d, first %q; want 2 rows, total 5, first \"fix 2\"", len(page.Rows), page.Total, page.Rows[0].Note)
+	}
+	if page.ToReview != 2 || page.Approved != 1 || page.Declined != 0 {
+		t.Errorf("counts = %d/%d/%d, want 2/1/0", page.ToReview, page.Approved, page.Declined)
+	}
+	page, err = st.SelfReviewFindingsPage(ctx, period, nil, "to-review", "to-review", 10, 0)
+	if err != nil || len(page.Rows) != 2 || page.Total != 2 {
+		t.Errorf("to-review page = %+v, err %v; want 2 rows", page, err)
+	}
+	if _, err := st.SelfReviewFindingsPage(ctx, period, nil, "bogus", "", 10, 0); !errors.Is(err, store.ErrSelfReviewFindingInvalid) {
+		t.Errorf("bogus show: err = %v, want ErrSelfReviewFindingInvalid", err)
+	}
+}

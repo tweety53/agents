@@ -1242,3 +1242,4 @@ td.lb-clip { max-width: 0; width: 100%; }
 .sr-card header { display: flex; flex-direction: column; gap: 2px; }
 .sr-card footer { display: flex; gap: 8px; margin-top: 10px; }
 .sr-err { color: var(--danger, #c0392b); }
+.sr-pager { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
