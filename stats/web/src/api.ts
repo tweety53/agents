@@ -1,3 +1,4 @@
+import type { Decision } from "./components/DecisionsPanel";
 // api.ts is the typed client for flowd's HTTP surface (stats/internal/api).
 // It carries exactly the parameters the server actually accepts --
 // "from"/"to"/"project"/"breakdown"/"change"/"command"/"stage"/"model" on
@@ -898,6 +899,11 @@ export function getRunTimings(project: string, change: string, init?: RequestIni
   return getJSON<RunTimings>(`/api/v1/stats/run/${encodeURIComponent(project)}/${encodeURIComponent(change)}`, init);
 }
 
+/** GET /api/v1/records/{project}/{change}/decisions -- the change's recorded decisions, newest first. */
+export function getDecisions(project: string, change: string, init?: RequestInit): Promise<{ decision: Decision }[]> {
+  return getJSON<{ decision: Decision }[]>(`/api/v1/records/${encodeURIComponent(project)}/${encodeURIComponent(change)}/decisions`, init);
+}
+
 /** GET /api/v1/changes/find?name= -- every project's record for one change name. */
 export function findChanges(name: string, init?: RequestInit): Promise<{ records: ChangeDTO[] }> {
   return getJSON<{ records: ChangeDTO[] }>(`/api/v1/changes/find?name=${encodeURIComponent(name)}`, init);
@@ -986,7 +992,3 @@ export function putRolePairs(role: string, pairs: { base: string[]; optin: strin
   return sendJSON("PUT", `/api/v1/policy/roles/${encodeURIComponent(role)}`, pairs);
 }
 
-/** GET /api/v1/records/{project}/{change}/decisions -- the change's recorded decisions, newest first. */
-export function getDecisions(project: string, change: string, init?: RequestInit): Promise<{ decision: { groups?: { tasks: string[] }[] } }[]> {
-  return getJSON<{ decision: { groups?: { tasks: string[] }[] } }[]>(`/api/v1/records/${encodeURIComponent(project)}/${encodeURIComponent(change)}/decisions`, init);
-}
