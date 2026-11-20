@@ -89,7 +89,7 @@ export function SelfReview() {
             if (fixed.length === 0) return <p className="lb-muted">No fixed findings in this period.</p>;
             return (
               <div className="lb-scroll">
-              <table className="lb-table">
+              <table className="lb-table sr-table">
                 <thead>
                   <tr>
                     <th>Recorded</th>
