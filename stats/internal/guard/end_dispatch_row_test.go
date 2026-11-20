@@ -72,6 +72,39 @@ func TestEndDispatchRow(t *testing.T) {
 	}
 }
 
+// TestEndDispatchRowReadsTheHandbackReport: a child that reports through the SubagentHandback tool
+// ends on a tool call with no text part; its message is the final message, so a gated reviewer's
+// verdict lines close the row `fix`, not `aborted`.
+func TestEndDispatchRowReadsTheHandbackReport(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"stageRuns":[{"changeName":"c1","sessionToken":"mf-t2"}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	tmp := t.TempDir()
+	log := filepath.Join(tmp, "flow.log")
+	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >>"+log+"\n")
+	tr := filepath.Join(tmp, "agent.jsonl")
+	writeFile(t, tr, `{"type":"user","message":{"role":"user","content":"Key: task-1-reviewer\n"}}`+"\n"+
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"SubagentHandback","input":{"message":"task 1: fix — y\n"}}]}}`+"\n")
+	env := Env{Getenv: func(k string) string {
+		switch k {
+		case "FLOW_ADDR":
+			return srv.URL
+		case "PATH":
+			return filepath.Join(tmp, "bin") + ":" + os.Getenv("PATH")
+		}
+		return os.Getenv(k)
+	}, Dir: tmp}
+	var o, e bytes.Buffer
+	if rc := endDispatchRow([]string{tr, "s1", tmp}, env, &o, &e); rc != 0 {
+		t.Fatalf("rc %d: %s%s", rc, o.String(), e.String())
+	}
+	if got, _ := os.ReadFile(log); !strings.Contains(string(got), "-outcome fix") {
+		t.Errorf("flow called with %q, want -outcome fix", got)
+	}
+}
+
 func jsonString(s string) string {
 	b, _ := json.Marshal(s)
 	return string(b)

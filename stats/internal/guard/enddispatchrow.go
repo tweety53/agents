@@ -135,23 +135,32 @@ func edrTranscript(path string) (prompt, final string, err error) {
 }
 
 // edrText is a message content's text: the string itself, or its text parts
-// joined.
+// joined, plus a SubagentHandback call's message.
 func edrText(raw json.RawMessage) string {
 	var s string
 	if json.Unmarshal(raw, &s) == nil {
 		return s
 	}
 	var parts []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
+		Type  string `json:"type"`
+		Text  string `json:"text"`
+		Name  string `json:"name"`
+		Input struct {
+			Message string `json:"message"`
+		} `json:"input"`
 	}
 	if json.Unmarshal(raw, &parts) != nil {
 		return ""
 	}
 	var b strings.Builder
 	for _, p := range parts {
-		if p.Type == "text" {
+		switch {
+		case p.Type == "text":
 			b.WriteString(p.Text)
+		case p.Type == "tool_use" && p.Name == "SubagentHandback":
+			// A child that reports through the handback tool ends on a tool call, so its report is
+			// the call's message, not a text part.
+			b.WriteString(p.Input.Message)
 		}
 	}
 	return b.String()
