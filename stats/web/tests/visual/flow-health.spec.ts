@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { bodyBackground, DARK_SURFACE_1, FIXTURE_NOW } from "./support";
 
-// Captures of the reworked Flow health view (KAN-1050): the view at rest at
+// Captures of the reworked Flow guards view (KAN-1050): the view at rest at
 // 1280px, the Never fired tile hovered, the Catching tile focused, the Never
 // fired tile pressed, Rank by Run time with the Speed-up candidates tile
 // pressed, and the first Project chip after All pressed -- every one full
@@ -40,7 +40,7 @@ async function openAndAssert(page: Page) {
   await page.goto("/#/flow-health");
   await expect(page.getByText("Loading…")).toHaveCount(0);
 
-  await expect(page.getByRole("link", { name: "Flow health" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("link", { name: "Flow guards" })).toHaveAttribute("aria-current", "page");
   const bar = page.getByRole("toolbar", { name: "Filters" });
   for (const g of ["Period", "Project", "Rank by"]) await expect(bar.getByRole("group", { name: g })).toBeVisible();
   await expect(bar.getByRole("group", { name: "Period" }).getByRole("button", { name: "30d" })).toHaveAttribute("aria-pressed", "true");

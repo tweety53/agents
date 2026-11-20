@@ -31,7 +31,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   trend: "Trend over time",
   "weekly-costs": "Weekly costs",
   reviewers: "Reviewers",
-  "flow-health": "Flow health",
+  "flow-health": "Flow guards",
   "self-review": "Self-review fixes",
   "review-dynamics": "Reviewer findings",
   "role-costs": "Role costs",

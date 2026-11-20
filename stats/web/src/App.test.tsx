@@ -101,7 +101,7 @@ it("reviewers carries no dashboard bar", async () => {
 it("flow health carries no dashboard bar", async () => {
   window.location.hash = "#/flow-health";
   render(<App />);
-  expect(await screen.findByRole("heading", { name: "Flow health" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Flow guards" })).toBeInTheDocument();
   expect(screen.queryByRole("toolbar", { name: "Dashboard controls" })).toBeNull();
   window.location.hash = "";
 });

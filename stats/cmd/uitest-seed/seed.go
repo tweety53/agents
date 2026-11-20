@@ -115,7 +115,7 @@ type changeFixture struct {
 }
 
 // dispatchFixture is one review-panel slot's dispatch and the findings it
-// raised -- what the Reviewers view and Flow health's C/I/Mi tile count.
+// raised -- what the Reviewers view and Flow guards's C/I/Mi tile count.
 type dispatchFixture struct {
 	Slot  string
 	Model string

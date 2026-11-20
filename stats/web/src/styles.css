@@ -1184,7 +1184,7 @@ td.lb-clip { max-width: 0; width: 100%; }
 .dc-run td { font-size: 12px; color: var(--text-secondary); background: var(--surface-1); }
 .dc-run td:first-child { padding-left: 28px; }
 
-/* Flow health (KAN-1050): the speed-up candidate pill. */
+/* Flow guards (KAN-1050): the speed-up candidate pill. */
 .lb-pill.fh-speed { color: var(--delta-up); margin-left: 6px; }
 
 /* Role costs (#/role-costs), drawn as .superpowers/sdd/<change>/role-costs-prototype.html:

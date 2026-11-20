@@ -1,4 +1,4 @@
-// Flow health -- "Which guards catch something, which never fire, and what
+// Flow guards -- "Which guards catch something, which never fire, and what
 // does each cost in run time?" (decision flow-health-question), built as the
 // approved prototype draws it. The eight period totals it used to show are
 // gone, each answered by a sibling view (drop-eight-tiles); the name and
@@ -312,9 +312,9 @@ export function FlowHealth() {
   const title = show ? `${SHOW[show]}, ${TITLE[rank].replace(/^Every guard, /, "")}` : TITLE[rank];
 
   return (
-    <section aria-label="Flow health" className="dashboard lb sl">
+    <section aria-label="Flow guards" className="dashboard lb sl">
       <div>
-        <h2>Flow health</h2>
+        <h2>Flow guards</h2>
         <p className="lb-sub">Which guards catch something, which never fire, and what does each cost in run time?</p>
       </div>
       <div className="lb-fbar" role="toolbar" aria-label="Filters">
