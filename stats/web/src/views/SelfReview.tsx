@@ -104,7 +104,7 @@ export function SelfReview() {
                   {fixed.map((r) => (
                     <tr key={r.id}>
                       <td>{r.recordedAt.slice(0, 10)}</td>
-                      <td>{r.change}</td>
+                      <td className="sr-wrap sr-narrow">{r.change}</td>
                       <td>{r.angle}</td>
                       <td>{r.severity}</td>
                       <td className="sr-wrap">
