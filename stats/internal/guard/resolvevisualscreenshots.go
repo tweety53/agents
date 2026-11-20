@@ -213,8 +213,9 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 		// on the project root's own branch, that worktree holds the change's
 		// captures, and the main checkout holds only what already landed.
 		git := envGit(env)
-		if branch, _ := capture(git("-C", rootAbs, "branch", "--show-current")); branch != "" {
-			if wt := rvsWorktreeOn(git("-C", base, "worktree", "list", "--porcelain"), branch); wt != "" {
+		// Mid-rebase HEAD is detached: the branch is the one being rebased.
+		if branch := rvsBranch(git, rootAbs); branch != "" {
+			if wt := rvsWorktreeOnGit(git, git("-C", base, "worktree", "list", "--porcelain"), branch); wt != "" {
 				base = wt
 			}
 		}
@@ -260,6 +261,11 @@ func rvsLogical(env Env, p string) string {
 // lists on branch, or "". A git that fails prints nothing, and nothing
 // matches.
 func rvsWorktreeOn(cmd *exec.Cmd, branch string) string {
+	return rvsWorktreeOnGit(nil, cmd, branch)
+}
+
+// rvsWorktreeOnGit also finds a worktree mid-rebase of branch when git is given.
+func rvsWorktreeOnGit(git func(...string) *exec.Cmd, cmd *exec.Cmd, branch string) string {
 	out, _ := cmd.Output()
 	var w string
 	for _, l := range strings.Split(string(out), "\n") {
@@ -268,6 +274,25 @@ func rvsWorktreeOn(cmd *exec.Cmd, branch string) string {
 		}
 		if l == "branch refs/heads/"+branch {
 			return w
+		}
+		// A worktree mid-rebase lists as detached; its rebase names the branch.
+		if git != nil && l == "detached" && w != "" && rvsBranch(git, w) == branch {
+			return w
+		}
+	}
+	return ""
+}
+
+// rvsBranch is the branch dir is on, or the one it is rebasing when HEAD is
+// detached by a rebase; "" otherwise.
+func rvsBranch(git func(...string) *exec.Cmd, dir string) string {
+	if b, _ := capture(git("-C", dir, "branch", "--show-current")); b != "" {
+		return b
+	}
+	for _, d := range []string{"rebase-merge", "rebase-apply"} {
+		p, _ := capture(git("-C", dir, "rev-parse", "--path-format=absolute", "--git-path", d+"/head-name"))
+		if b, err := os.ReadFile(strings.TrimSpace(p)); err == nil {
+			return strings.TrimPrefix(strings.TrimSpace(string(b)), "refs/heads/")
 		}
 	}
 	return ""

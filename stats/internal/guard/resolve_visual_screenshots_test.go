@@ -251,6 +251,26 @@ var rvsCases = map[string]func(t *testing.T) rvsFixture{
 		return rvsFixture{g.projElse, []string{g.projElse, "app.spec.ts"}, 0,
 			g.pw + "/app.spec.ts-snapshots/home-darwin.png\n", ""}
 	},
+	// A root mid-rebase has a detached HEAD; the rebased branch still finds its worktree.
+	"case 18": func(t *testing.T) rvsFixture {
+		g := rvsGitFixture(t)
+		root := t.TempDir()
+		for _, a := range [][]string{{"init", "-q"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "i"}, {"checkout", "-q", "--detach"}} {
+			cmd := exec.Command(fixtureGit, append([]string{"-C", root}, a...)...)
+			cmd.Env = append(os.Environ(), fixtureGitEnv...)
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("git %v: %v\n%s", a, err, out)
+			}
+		}
+		writeFile(t, root+"/.git/rebase-merge/head-name", "refs/heads/spectre/change\n")
+		cfg, err := os.ReadFile(g.projChange + "/.flow/project.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeFile(t, root+"/.flow/project.md", string(cfg))
+		return rvsFixture{root, []string{root, "app.spec.ts"}, 0,
+			g.wt + "/app.spec.ts-snapshots/home-darwin.png\n", ""}
+	},
 	// Matches print in byte order, never the caller's collation.
 	"bytewise order": func(t *testing.T) rvsFixture {
 		root := rvsRoot(t)
@@ -374,6 +394,7 @@ func TestResolveVisualScreenshots(t *testing.T) {
 		rvsExit("case 16", 0), rvsPNGLines("case 16", 1),
 		rvsNames("case 16", "/.worktrees/change/app.spec.ts-snapshots/home-darwin.png"),
 		rvsExit("case 17", 0), rvsPNGLines("case 17", 1), rvsOmits("case 17", ".worktrees"),
+		rvsExit("case 18", 0), rvsNames("case 18", "/.worktrees/change/app.spec.ts-snapshots/home-darwin.png"),
 		{"empty root", "exit 2 with the bash's line", nil}, {"empty checkout", "exit 2 with the bash's line", nil},
 		rvsExit("bytewise order", 0), rvsExit("symlinked cwd", 0), rvsExit("symlinks not followed", 0),
 	}
