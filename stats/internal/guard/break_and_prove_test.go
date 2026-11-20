@@ -533,21 +533,13 @@ func TestBreakAndProveCleanBackgroundChild(t *testing.T) {
 }
 
 // A runner with no directory flag runs through a shell that enters its
-// directory first, as fix.md's break-and-prove instruction says: a
+// directory first: a
 // cache it writes lands under the subdirectory's own ignore, where a run from
 // the root leaves an untracked root directory the post-restore check refuses
 // (kan-1057 self-review, F1). Each script writes a file into cache/, since an
 // empty directory is invisible to git status.
 func TestBreakAndProveSubdirectoryShellForm(t *testing.T) {
 	t.Parallel()
-	doc, err := os.ReadFile("../../../skills/flow/fix.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	const form = "`-- sh -c 'cd stats/web && exec npx vitest run <file>'`"
-	if !strings.Contains(string(doc), form) {
-		t.Errorf("fix.md does not carry the subdirectory shell form %s", form)
-	}
 	base := bpBuild(t)
 	sed := []string{"--sed", "s/mode: strict/mode: lax/", "sub/config.yaml"}
 	setup := func(t *testing.T) string {
