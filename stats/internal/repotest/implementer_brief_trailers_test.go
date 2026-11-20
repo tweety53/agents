@@ -16,7 +16,7 @@ import (
 // scratch repository, and both trailers must parse from the commit it makes.
 func TestImplementerBriefFixCommitTrailersParse(t *testing.T) {
 	t.Parallel()
-	src, err := os.ReadFile(filepath.Join(repoRoot(t), "skills", "flow", "implementer-brief.md"))
+	src, err := os.ReadFile(filepath.Join(repoRoot(t), "skills", "flow", "fixer-brief.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestImplementerBriefFixCommitTrailersParse(t *testing.T) {
 	}
 	text := strings.Join(para, " ")
 	if text == "" {
-		t.Fatal("no `> **FIX DISPATCH:**` paragraph in skills/flow/implementer-brief.md")
+		t.Fatal("no `> **FIX DISPATCH:**` paragraph in skills/flow/fixer-brief.md")
 	}
 	if strings.Contains(text, `-m "Flow-Key:`) {
 		t.Error("FIX DISPATCH spells Flow-Key as its own -m paragraph")

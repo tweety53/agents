@@ -263,7 +263,7 @@ where it rides the run's route; a repository the change holds no worktree in tak
 its default branch, landed by its own `## default landing route`. Production stays out of reach
 (`rules/never-touch-production.mdc`).
 
-**A design choice never makes a fix `big`** — the fix's planner below weighs the options and
+**A design choice never makes a fix `big`** — the fixer weighs the options and
 takes the recommended one without asking, whether the choice is where a check lives, a name, a
 scope, a mechanism or whether a guard or a test is added: the fix takes the simplest option
 and notes it, the smallest change that closes the defect, no refactor and no detour.
@@ -273,8 +273,8 @@ and notes it, the smallest change that closes the defect, no refactor and no det
 dropped — never the project's `<default-branch>`, which `<agents repo>` may not carry.
 
 **Every dispatch in the loop is one-shot.** No `SendMessage` to a finished child, and no child
-parks a question for a resume. **Each in-run fix runs the loop of 3. Fix every finding that is not
-`big`** (`skills/flow-self-review/SKILL.md`), canonical for its planner, fixer and review pairs,
+parks a question for a resume. **Each in-run fix runs the fix of 3. Fix every `flow-fix` finding that is not
+`big`** (`skills/flow-self-review/SKILL.md`), canonical for its fixer pair,
 the paragraphs every prompt carries, the no-progress escalation, and each item the steps below
 cite. One loop carries one defect, `<k>` one more than the highest `<n>` of any
 `pipeline-fix-*-<n>` change record in flowd, worktree name, ref, or `flow.loop-k-used` mark —
@@ -285,29 +285,20 @@ refuses any other `<k>`); its name
 the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-base>` for
 `<fix-base>`; the parent is that file's "this session".
 
-1. **Plan, then fix** — the parent creates the fix's own worktree with
+1. **Fix** — the parent creates the fix's own worktree with
    `<agents repo>/scripts/flow-guard pipeline-fix start <name> <k>` — never the main checkout, never the
-   change's own worktree. It dispatches `pipeline-fix-<k>-plan`, its prompt carrying the defect, its evidence and the counted blast
-   radius, then `pipeline-fix-<k>-fix`, `-fix-g<g>` when the planner recorded more than one group,
-   each as item 1 there states. Each prompt carries its `Key: pipeline-fix-<k>-<suffix>` as a line
+   change's own worktree. It dispatches one fixer, `pipeline-fix-<k>-fix`, its prompt carrying the defect, its evidence and the counted blast
+   radius, as item 1 there states. The prompt carries its `Key: pipeline-fix-<k>-fix` as a line
    of its own, from which `hooks/enforce-loop-dispatch.py` records the row under the loop's change;
    the parent never runs `flow record dispatch begin` or `end` for it under its own change. The fixer also adds one test or guard that fails without the fix,
    and updates a saved memory that encoded the defect.
-2. **Review** — a fresh `pipeline-fix-<k>-review-<r>` over
-   `git diff origin/<agents-base>...pipeline-fix-<name>-<k>`, as item 2 there states.
-3. **Fix the findings** — a fresh `pipeline-fix-<k>-fix-<r>`, as item 3 there states, under
-   **Fewest operator actions** above. As `skills/flow-self-review/SKILL.md` states for its own loop,
-   three failed review or verify rounds take **Three failed rounds** above. A defect whose commit the review drops is re-planned: the
-   parent runs `<agents repo>/scripts/flow-guard pipeline-fix drop <worktree>`, landing nothing, and opens
-   a fresh loop on it, its planner carrying the review's objection.
-4. **Land** — once the parent has ticked the plan and run the lint lines and tests, as
-   item 4 there states, a red line fixed by `pipeline-fix-<k>-fix-v<v>`, it lands by
+2. **Land** — it lands by
    `<agents repo>`'s `## default landing route`
    (`flow-guard project-get <agents repo> 'default landing route'`), without asking. Merge and push is
    `<agents repo>/scripts/flow-guard pipeline-fix land <worktree> <important|minor>`, the last argument the defect's grade as **Record each one** below defines it, run with a Bash `timeout: 600000` —
    a landing that moved `<agents repo>/stats/` restarts flowd inside the call, and a kill partway leaves it down.
-   On that route the loop runs no separate `flow-guard pipeline-fix verify`: land runs it on the rebased HEAD,
-   and its `red:` lines feed `pipeline-fix-<k>-fix-v<v>` as a verify's do.
+   Land runs the lint lines and tests on the rebased HEAD, and its `red:` lines feed
+   `pipeline-fix-<k>-fix-v<v>` as item 2 there states; three red lands take **Three failed rounds** above.
 
 The loop runs in the background while the run's own work continues; the run still never ends a
 turn with one of its children in flight.
@@ -322,7 +313,7 @@ In-run pipeline fix: <agents sha | deferred> — <the defect, one line> (blast r
 ```
 
 The sha, there and in the store row below, is the defect's task commit — its first, when the plan
-holds several — re-read by its subject on `<agents-base>` after landing, as item 5 of that loop
+holds several — re-read by its subject on `<agents-base>` after landing, as item 2 of that fix
 states. A landed fix is also one row in the flow store, recorded once its sha is on
 `<agents-base>`:
 

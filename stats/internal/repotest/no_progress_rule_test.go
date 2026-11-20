@@ -37,7 +37,7 @@ func TestNoProgressRule(t *testing.T) {
 		}
 	}
 	fix := strings.Join(strings.Fields(section(t, "skills/flow-contracts/pipeline.md", "Pipeline defects found mid-run")), " ")
-	if want := "As `skills/flow-self-review/SKILL.md` states for its own loop, three failed review or verify rounds take **Three failed rounds** above."; !strings.Contains(fix, want) {
+	if want := "three red lands take **Three failed rounds** above."; !strings.Contains(fix, want) {
 		t.Errorf("pipeline.md's Pipeline defects found mid-run lacks %q", want)
 	}
 	// Every loop's own file cites the rule.
@@ -45,15 +45,14 @@ func TestNoProgressRule(t *testing.T) {
 		{"skills/flow/implement.md", "A fourth `full-suite-fix-<n>` after three failed ones is the fresh dispatch of **Three failed rounds**"},
 		{"skills/flow/gated-review-fix.md", "after three failed re-reviews of one task is the fresh dispatch of **Three failed rounds**"},
 		{"skills/flow/review-panel-fix-round.md", "as does a fourth round after three failed ones (**Three failed rounds**, there)"},
-		{"skills/flow/review-panel.md", "the slot is re-dispatched fresh as **Three failed rounds**"},
 		{"skills/flow/visual-verify.md", "as do three remainders of one dispatch that each close `NEXT: rest` (**Three failed rounds**, there)"},
 		{"skills/flow/visual-verify.md", "Three re-dispatches that each close `NEXT: redispatch` take **Three failed rounds**"},
 		{"skills/flow/unfinished-work-gate.md", "take **Three failed rounds** (`skills/flow-contracts/pipeline.md`), applied inline by the parent from every earlier verdict"},
 		{"skills/flow/integrate.md", "Three stops in a row of one call take **Three failed rounds**"},
-		{"skills/flow-self-review/SKILL.md", "Three failed rounds of the review loop or of the verify loop are answered the same way, by the next re-plan (**Three failed rounds**"},
+		{"skills/flow-self-review/SKILL.md", "three red lands in a row take **Three failed rounds**"},
 		{"skills/flow/cleanup.md", "Three stops in a row of `cleanup` take **Three failed rounds**"},
 		{"skills/flow/integrate.md", "only stops the parent can cure itself. A stop that exists to ask the operator — `STOP: main-checkout`, `STOP: base-mismatch` — is never counted toward it"},
-		{"skills/flow/cleanup.md", "only stops the parent can cure itself. A stop that exists to ask or to hand to the operator — `STOP: worktree-cleanup`, `STOP: not-merged` — is never counted toward it"},
+		{"skills/flow/cleanup.md", "only stops the parent can cure itself. A stop that exists to ask or to hand to the operator — `STOP: worktree-cleanup` — is never counted toward it"},
 	}
 	if strings.Contains(repoText(t, "skills/flow/review-panel.md"), "a third breach of the same slot is asked") {
 		t.Error("skills/flow/review-panel.md still asks on a slot's third breach")

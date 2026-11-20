@@ -13,14 +13,14 @@ import (
 // findings' own matches as well).
 func TestPanelReportFileIsWrittenDirectly(t *testing.T) {
 	t.Parallel()
-	b, err := os.ReadFile(filepath.Join(repoRoot(t), "skills/flow/review-panel.md"))
+	b, err := os.ReadFile(filepath.Join(repoRoot(t), "skills/flow/slot-brief.md"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	panel := string(b)
 	i := strings.Index(panel, "> **REPORT FILE:** write your full report to")
 	if i < 0 {
-		t.Fatal("skills/flow/review-panel.md: no REPORT FILE paragraph")
+		t.Fatal("skills/flow/slot-brief.md: no REPORT FILE paragraph")
 	}
 	block := panel[i:]
 	if j := strings.Index(block, "\n\n"); j >= 0 {
