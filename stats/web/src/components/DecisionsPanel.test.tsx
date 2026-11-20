@@ -106,4 +106,15 @@ describe("DecisionsPanel with a plan-check decision", () => {
     render(<DecisionsPanel decision={{ groups: [{ tasks: ["21"], reason: "a" }, { tasks: ["22"], reason: "b" }, { tasks: ["2"], reason: "c" }] }} dispatches={[run("task-21+22-implementer")]} />);
     expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual(["Task 21sonnet · lowa", "Task 22sonnet · lowb", "Task 2not run yetc"]);
   });
+
+  it("a review slot dispatched per repository shows its pair", () => {
+    const run = (key: string, model: string) => ({ id: 1, key, role: "x", model, effort: "high", startedAt: "2026-01-01T00:00:00Z" });
+    render(
+      <DecisionsPanel
+        decision={{ panel: [{ slots: ["primary", "principles"], reason: "big" }, { slots: ["mutation"], reason: "m" }] }}
+        dispatches={[run("panel-0-primary+principles-backend", "opus"), run("panel-0-primary+principles-frontend", "opus"), run("panel-0-mutation", "sonnet")]}
+      />,
+    );
+    expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual(["Review: primary, principlesopus · highbig", "Review: mutationsonnet · highm"]);
+  });
 });

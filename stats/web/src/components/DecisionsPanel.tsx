@@ -51,7 +51,8 @@ const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 function lines(d: Decision, dispatches: RecordDispatch[]): Line[] {
   const review = (p: Pick | undefined): Line[] => {
-    const re = new RegExp(`^panel-\\d+-${escapeRe((p?.slots ?? []).join("+"))}$`);
+    // A multi-repository change dispatches each slot per repo: `panel-<round>-<slots>-<repo>`.
+    const re = new RegExp(`^panel-\\d+-${escapeRe((p?.slots ?? []).join("+"))}(-[a-z0-9-]+)?$`);
     return pick(`Review: ${p?.slots?.join(", ") ?? ""}`, p, decided(dispatches, (k) => re.test(k)));
   };
   // An override names its pair as "<model>/<agent definition>", the definition ending in its effort.
