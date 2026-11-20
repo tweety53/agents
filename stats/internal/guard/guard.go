@@ -26,6 +26,8 @@ type Env struct {
 	SurvivorsTimeout, SurvivorsKillGrace time.Duration
 	// PairJudgeTimeout is pair-judge's model-call deadline; zero means 60 s.
 	PairJudgeTimeout time.Duration
+	// PairJudgeCoin is the 50/50 draw of the implementer's opus/flow-low pick; nil is a fair coin.
+	PairJudgeCoin func() bool
 	// LoadAvg returns the one-minute load average loadGate reads; nil reads
 	// it from the machine.
 	LoadAvg func() (float64, error)

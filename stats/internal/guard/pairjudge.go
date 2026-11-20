@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -48,6 +49,9 @@ import (
 //     and no model call;
 //   - judge: the judge answered `PAIR: <one candidate, verbatim>` and
 //     `REASON: <one line>`; the pick and that reason are printed;
+//   - split: the implementer role's judge pick of opus/flow-low, half the
+//     time, printed as sonnet/flow-low (reason names the swap) when the row
+//     admits it; every other pick stays as it was (Env.PairJudgeCoin in tests);
 //   - fallback: the first candidate, the reason naming the cause -- no
 //     pair-judge pair to run on, the command missing or not runnable, a
 //     non-zero exit, the deadline, an answer that is not JSON, no PAIR or REASON line, or a pick outside
@@ -221,6 +225,7 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 	} else {
 		line = pick.line("judge", reason)
 	}
+	line = pjSplitImplementer(env, role, cands, line)
 	line += "\n"
 	pickFile := strings.TrimSuffix(args[1], filepath.Ext(args[1])) + ".pick"
 	if err := os.WriteFile(pickFile, []byte(line), 0o644); err != nil {
@@ -228,6 +233,28 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprint(stdout, line)
 	return 0
+}
+
+// pjSplitImplementer turns half of the implementer's opus/flow-low picks, the
+// judge's or the only candidate's, into sonnet/flow-low when the row admits
+// it; any other pick is returned as it was. The reason names the swap.
+func pjSplitImplementer(env Env, role string, cands []pjCandidate, line string) string {
+	const from = "opus low judge "
+	if role != "implementer" || !strings.HasPrefix(line, from) {
+		return line
+	}
+	i := slices.IndexFunc(cands, func(c pjCandidate) bool { return c.pair == "sonnet/flow-low" })
+	if i < 0 {
+		return line
+	}
+	coin := env.PairJudgeCoin
+	if coin == nil {
+		coin = func() bool { return rand.IntN(2) == 0 }
+	}
+	if !coin() {
+		return line
+	}
+	return cands[i].line("split", "opus low pick moved to sonnet low, a 50/50 split")
 }
 
 // pjCandidates is role's base row, parsed.

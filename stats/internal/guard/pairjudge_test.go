@@ -476,3 +476,30 @@ func TestJudgeKeyFileOffAndDefault(t *testing.T) {
 		}
 	}
 }
+
+// TestImplementerOpusLowSplitsWithSonnetLow: the implementer's opus low pick
+// becomes sonnet low when the coin says so; any other pick, and any other
+// role's opus low, stays as picked.
+func TestImplementerOpusLowSplitsWithSonnetLow(t *testing.T) {
+	t.Parallel()
+	pol := func(role string) string {
+		return pjPolicy(`"` + role + `":{"base":["opus/flow-low","sonnet/flow-low","opus/flow-high"],"optin":[],"marked":[]},"pair-judge":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}`)
+	}
+	for _, c := range []struct {
+		name, role, pick, want string
+		coin                   bool
+	}{
+		{"heads moves", "implementer", "opus/flow-low", "sonnet low split", true},
+		{"tails stays", "implementer", "opus/flow-low", "opus low judge", false},
+		{"other pair stays", "implementer", "opus/flow-high", "opus high judge", true},
+		{"other role stays", "panel-fix", "opus/flow-low", "opus low judge", true},
+	} {
+		stub := newPJStub(t, pjJSON("PAIR: "+c.pick+"\nREASON: r", ""))
+		env := policyFlowEnv(t, pol(c.role), "FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd())
+		env.PairJudgeCoin = func() bool { return c.coin }
+		r := runGuard("pair-judge", []string{c.role, pjDigest(t, "d")}, env)
+		if !strings.HasPrefix(r.stdout, c.want) {
+			t.Errorf("%s: stdout %q, want prefix %q", c.name, r.stdout, c.want)
+		}
+	}
+}

@@ -15,7 +15,8 @@ The reasoning behind this file lives in `skills/flow-contracts/model-policy-rati
 **Every dispatch runs on its role's pair**: the pair `flow-guard pair-judge` picks from the role's
 allowed pairs at dispatch time, or, for a role the judge does not cover, the role's first pair
 (**Model and effort**, `skills/flow/brainstorm-planner.md`). Nothing records a pair ahead of the
-dispatch. The parent
+dispatch. Half of the implementer's `opus/flow-low` picks are moved to `sonnet/flow-low` by
+the judge itself, so the two split that case evenly. The parent
 session runs on the harness's own model for the whole of `/flow`. This **explicitly overrides**
 superpowers:subagent-driven-development's model guidance, its final review on the most capable
 model and its model escalation in fix rounds 4–5.
