@@ -599,3 +599,5 @@ func (fakeStore) RecordMutation(context.Context, string, string, records.Mutatio
 func (fakeStore) ListDecisions(context.Context, string, string) ([]records.Decision, error) {
 	return nil, nil
 }
+
+func (fakeStore) ReviewSelfReviewFinding(context.Context, string, int64, string) error { return nil }

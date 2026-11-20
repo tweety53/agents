@@ -483,7 +483,7 @@ var (
 )
 
 // SelfReviewFinding is one /flow-self-review finding and its outcome
-// (KAN-875). Disposition is the closed set fixed/filed/declined/noted; Ref is the
+// (KAN-875). Disposition is the closed set fixed/filed/declined/noted/suggested; Ref is the
 // landed sha for fixed, the issue key for filed and empty for declined and
 // noted.
 // BlastRadius is the finding's file count, nil when none was counted.
@@ -496,8 +496,13 @@ type SelfReviewFinding struct {
 	Ref         string `json:"ref,omitempty"`
 	BlastRadius *int   `json:"blastRadius,omitempty"`
 	// Severity is critical, important or minor, empty when none was graded.
-	Severity   string    `json:"severity,omitempty"`
-	RecordedAt time.Time `json:"recordedAt"`
+	Severity string `json:"severity,omitempty"`
+	// Detail is the finding's full markdown body: what was found, why it matters, how it
+	// was fixed or how to fix it, the definition of done and its evidence.
+	Detail string `json:"detail,omitempty"`
+	// ReviewStatus is to-review, approved or declined on a suggested finding, empty on every other.
+	ReviewStatus string    `json:"reviewStatus,omitempty"`
+	RecordedAt   time.Time `json:"recordedAt"`
 }
 
 // Hazard is a proactive, per-project warning a dispatch bundle carries

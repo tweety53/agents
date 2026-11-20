@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
@@ -44,6 +45,9 @@ type selfreviewStore interface {
 	// route: one row per self-review finding and its outcome (KAN-875).
 	RecordSelfReviewFinding(ctx context.Context, projectKey string, in records.SelfReviewFinding) (records.SelfReviewFinding, error)
 	ListSelfReviewFindings(ctx context.Context, projectKey, change string) ([]records.SelfReviewFinding, error)
+
+	// ReviewSelfReviewFinding backs the review route: the operator's approve or decline of a suggestion.
+	ReviewSelfReviewFinding(ctx context.Context, projectKey string, id int64, status string) error
 }
 
 // selfreviewHandler serves GET
@@ -195,4 +199,28 @@ func (h *selfreviewHandler) listFindings(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// reviewFinding serves PATCH /api/v1/self-review/{project}/findings/{id}/review: the operator's
+// to-review, approved or declined on a suggested finding. A row that is no suggestion is 404.
+func (h *selfreviewHandler) reviewFinding(w http.ResponseWriter, r *http.Request) {
+	project := r.PathValue("project")
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "finding id must be a number")
+		return
+	}
+	var in struct {
+		Status string `json:"status"`
+	}
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := h.store.ReviewSelfReviewFinding(r.Context(), project, id, in.Status); err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("review self-review finding %d", id), err)
+		writeError(w, status, msg)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

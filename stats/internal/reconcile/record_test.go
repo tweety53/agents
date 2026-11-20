@@ -1536,3 +1536,11 @@ func TestReplayRequestEntries(t *testing.T) {
 		t.Fatalf("pending record entries after replay = %d, want 0", n)
 	}
 }
+
+func (nopRecordStore) ReviewSelfReviewFinding(context.Context, string, int64, string) error {
+	return nil
+}
+
+func (*fakeRecordStore) ReviewSelfReviewFinding(context.Context, string, int64, string) error {
+	return nil
+}

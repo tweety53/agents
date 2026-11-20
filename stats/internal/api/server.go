@@ -413,6 +413,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("GET /api/v1/self-review/{project}/{change}/bundle", srb.bundle)
 	mux.HandleFunc("POST /api/v1/self-review/{project}/{change}/findings", srb.recordFinding)
 	mux.HandleFunc("GET /api/v1/self-review/{project}/{change}/findings", srb.listFindings)
+	mux.HandleFunc("PATCH /api/v1/self-review/{project}/findings/{id}/review", srb.reviewFinding)
 	mux.HandleFunc("GET /api/v1/projects", ph.projects)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches", rh.recordDispatch)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/end", rh.endDispatch)
@@ -682,7 +683,7 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrSelfReviewFindingInvalid):
 		return http.StatusBadRequest, err.Error()
-	case errors.Is(err, store.ErrDispatchNotFound):
+	case errors.Is(err, store.ErrDispatchNotFound), errors.Is(err, store.ErrSelfReviewFindingNotSuggested):
 		return http.StatusNotFound, err.Error()
 	case errors.Is(err, store.ErrAgentIDInvalid), errors.Is(err, store.ErrInvalidRetime):
 		return http.StatusBadRequest, err.Error()

@@ -44,15 +44,18 @@ positional argument.
 
 usage: flow self-review finding [-addr url] [-timeout dur] [-C dir]
                               -change name -angle label
-                              -disposition fixed|filed|declined|noted -note text
-                              [-ref sha|KEY] [-blast-radius N]
+                              -disposition fixed|declined|noted|suggested -note text
+                              [-detail markdown] [-ref sha] [-blast-radius N]
                               [-severity critical|important|minor]
 
 Records one self-review finding and its outcome (KAN-875): -ref is the
-landed sha for fixed, the issue key for filed and omitted for declined
-and noted;
+landed sha for fixed and omitted for declined, noted and suggested (the old
+filed, with an issue key, still reads back); -detail is the finding's full
+markdown body -- what was found, why it matters, how it was fixed or how to
+fix it, the definition of done, its evidence -- required for suggested, a
+proposal the operator approves or declines on the Self-review dashboard;
 -blast-radius is the finding's file count, omitted when none was counted;
--severity is the finding's grade, required for fixed and filed and omitted for declined and noted when none was given;
+-severity is the finding's grade, required for fixed and suggested and omitted for declined and noted when none was given;
 
 This is a write that never blocks: a store that cannot be reached, or
 that fails the write for any reason but a refusal, is one warning line on
@@ -217,11 +220,12 @@ func runSelfReviewFinding(ctx context.Context, args []string, getenv func(string
 	registerRecordConnFlags(fset, &f, getenv)
 	fset.StringVar(&f.change, "change", "", "the change the finding belongs to (required)")
 	fset.StringVar(&in.Angle, "angle", "", "the finding's angle label (required)")
-	fset.StringVar(&in.Disposition, "disposition", "", "fixed, filed, declined or noted (required)")
+	fset.StringVar(&in.Disposition, "disposition", "", "fixed, declined, noted or suggested (required)")
+	fset.StringVar(&in.Detail, "detail", "", "the finding's full markdown body (required for suggested)")
 	fset.StringVar(&in.Note, "note", "", "the finding, one line (required)")
-	fset.StringVar(&in.Ref, "ref", "", "the landed sha for fixed, the issue key for filed")
+	fset.StringVar(&in.Ref, "ref", "", "the landed sha for fixed")
 	fset.IntVar(&blastRadius, "blast-radius", -1, "the finding's file count (optional)")
-	fset.StringVar(&in.Severity, "severity", "", "critical, important or minor (required for fixed and filed)")
+	fset.StringVar(&in.Severity, "severity", "", "critical, important or minor (required for fixed and suggested)")
 
 	projectKey, _, code := parseSelfReviewFlags(fset, &f, args, getenv, stderr)
 	if code >= 0 {
@@ -234,7 +238,7 @@ func runSelfReviewFinding(ctx context.Context, args []string, getenv func(string
 			return 2
 		}
 	}
-	if (in.Disposition == "fixed" || in.Disposition == "filed") && in.Severity == "" {
+	if (in.Disposition == "fixed" || in.Disposition == "filed" || in.Disposition == "suggested") && in.Severity == "" {
 		fmt.Fprintf(stderr, "flow: -severity is required for -disposition %s\n", in.Disposition)
 		fmt.Fprint(stderr, selfReviewUsage)
 		return 2

@@ -410,14 +410,20 @@ export interface GuardProject {
 /** Mirrors selfReviewRowDTO. `commitUrl` is "" unless the finding is
  * `fixed` and the daemon knows its checkout's GitHub commit base. */
 export interface SelfReviewRow {
+  id: number;
   recordedAt: string;
   project: string;
   change: string;
   angle: string;
   note: string;
-  disposition: "fixed" | "filed" | "declined" | "noted";
+  disposition: "fixed" | "filed" | "declined" | "noted" | "suggested";
   ref: string;
   blastRadius: number | null;
+  severity: string;
+  /** The finding's full markdown body: what, why, how, definition of done, evidence. */
+  detail: string;
+  /** A suggestion's review state; empty on every other disposition. */
+  reviewStatus: "" | "to-review" | "approved" | "declined";
   commitUrl: string;
 }
 
@@ -980,6 +986,11 @@ async function sendJSON(method: string, path: string, body?: unknown): Promise<v
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   await handleResponse<unknown>(res);
+}
+
+/** PATCH /api/v1/self-review/{project}/findings/{id}/review -- approve or decline a suggested finding. */
+export function reviewSelfReviewFinding(project: string, id: number, status: "to-review" | "approved" | "declined"): Promise<void> {
+  return sendJSON("PATCH", `/api/v1/self-review/${encodeURIComponent(project)}/findings/${id}/review`, { status });
 }
 
 /** POST /api/v1/policy/roles -- saves several roles' pairs at once. */

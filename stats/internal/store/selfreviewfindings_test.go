@@ -332,3 +332,36 @@ func TestSelfReviewFindingsSharingARefStayDistinct(t *testing.T) {
 		t.Fatalf("got %d rows, want 2: %+v", len(got), got)
 	}
 }
+
+// TestSelfReviewSuggestionsAreReviewed pins the suggested disposition: it needs a detail, starts
+// to-review, is reviewed by id, and a finding of any other disposition cannot be reviewed.
+func TestSelfReviewSuggestionsAreReviewed(t *testing.T) {
+	t.Parallel()
+	st, _, projectKey := newHazardStore(t)
+	ctx := context.Background()
+
+	if _, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{Change: "kan-1", Angle: "flow-improvement", Note: "x", Disposition: "suggested"}); !errors.Is(err, store.ErrSelfReviewFindingInvalid) {
+		t.Fatalf("a suggestion without a detail: err = %v, want ErrSelfReviewFindingInvalid", err)
+	}
+	got, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{Change: "kan-1", Angle: "flow-improvement", Note: "cache the guard", Disposition: "suggested", Detail: "## Why\nslow\n## How\ncache\n## DoD\nfaster"})
+	if err != nil {
+		t.Fatalf("record suggestion: %v", err)
+	}
+	if got.ReviewStatus != "to-review" || got.Detail == "" {
+		t.Fatalf("recorded = %+v, want to-review with its detail", got)
+	}
+	if err := st.ReviewSelfReviewFinding(ctx, projectKey, got.ID, "approved"); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+	list, _ := st.ListSelfReviewFindings(ctx, projectKey, "kan-1")
+	if len(list) != 1 || list[0].ReviewStatus != "approved" || list[0].Detail != got.Detail {
+		t.Fatalf("listed = %+v, want the approved suggestion with its detail", list)
+	}
+	fixed, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{Change: "kan-1", Angle: "flow-fix", Note: "f", Disposition: "fixed", Ref: "abc1234", Severity: "minor", Detail: "d"})
+	if err != nil {
+		t.Fatalf("record fixed: %v", err)
+	}
+	if err := st.ReviewSelfReviewFinding(ctx, projectKey, fixed.ID, "approved"); !errors.Is(err, store.ErrSelfReviewFindingNotSuggested) {
+		t.Fatalf("review of a fixed finding: err = %v, want ErrSelfReviewFindingNotSuggested", err)
+	}
+}

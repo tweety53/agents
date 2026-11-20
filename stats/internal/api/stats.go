@@ -1371,6 +1371,7 @@ func (h *statsHandler) listModels(w http.ResponseWriter, r *http.Request) {
 }
 
 type selfReviewRowDTO struct {
+	ID          int64  `json:"id"`
 	RecordedAt  string `json:"recordedAt"`
 	Project     string `json:"project"`
 	Change      string `json:"change"`
@@ -1379,6 +1380,10 @@ type selfReviewRowDTO struct {
 	Disposition string `json:"disposition"`
 	Ref         string `json:"ref"`
 	BlastRadius *int   `json:"blastRadius"`
+	Severity    string `json:"severity"`
+	// Detail is the finding's full markdown body; ReviewStatus is a suggestion's to-review, approved or declined.
+	Detail       string `json:"detail"`
+	ReviewStatus string `json:"reviewStatus"`
 	// CommitURL links a fixed finding's sha under commitBase; "" for a
 	// filed, declined or noted finding, or when the daemon has no commit base.
 	CommitURL string `json:"commitUrl"`
@@ -1388,14 +1393,18 @@ func toSelfReviewDTOs(rows []store.SelfReviewFindingRow, commitBase string) []se
 	out := make([]selfReviewRowDTO, len(rows))
 	for i, r := range rows {
 		out[i] = selfReviewRowDTO{
-			RecordedAt:  r.RecordedAt.UTC().Format(time.RFC3339Nano),
-			Project:     r.ProjectKey,
-			Change:      r.Change,
-			Angle:       r.Angle,
-			Note:        r.Note,
-			Disposition: r.Disposition,
-			Ref:         r.Ref,
-			BlastRadius: r.BlastRadius,
+			ID:           r.ID,
+			Severity:     r.Severity,
+			Detail:       r.Detail,
+			ReviewStatus: r.ReviewStatus,
+			RecordedAt:   r.RecordedAt.UTC().Format(time.RFC3339Nano),
+			Project:      r.ProjectKey,
+			Change:       r.Change,
+			Angle:        r.Angle,
+			Note:         r.Note,
+			Disposition:  r.Disposition,
+			Ref:          r.Ref,
+			BlastRadius:  r.BlastRadius,
 		}
 		if r.Disposition == "fixed" && commitBase != "" {
 			out[i].CommitURL = commitBase + "/" + r.Ref

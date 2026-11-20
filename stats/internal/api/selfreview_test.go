@@ -435,3 +435,45 @@ func TestSelfReviewBundleReadsRequests(t *testing.T) {
 		t.Errorf("a failed requests read still rendered requests:\n%s", body)
 	}
 }
+
+// ReviewSelfReviewFinding mirrors store.Store.ReviewSelfReviewFinding: a suggested row's status.
+func (f *fakeStore) ReviewSelfReviewFinding(_ context.Context, projectKey string, id int64, status string) error {
+	for i, r := range f.selfReviewFindings {
+		if r.projectKey == projectKey && r.finding.ID == id && r.finding.Disposition == "suggested" {
+			f.selfReviewFindings[i].finding.ReviewStatus = status
+			return nil
+		}
+	}
+	return store.ErrSelfReviewFindingNotSuggested
+}
+
+// TestReviewSelfReviewFindingRoute: PATCH .../findings/{id}/review sets a suggestion's status (204)
+// and answers 404 for a row that is no suggestion.
+func TestReviewSelfReviewFindingRoute(t *testing.T) {
+	t.Parallel()
+	fs := newFakeStore()
+	fs.selfReviewFindings = []selfReviewFindingRecord{
+		{projectKey: "p", finding: records.SelfReviewFinding{ID: 1, Change: "c", Disposition: "suggested", ReviewStatus: "to-review"}},
+		{projectKey: "p", finding: records.SelfReviewFinding{ID: 2, Change: "c", Disposition: "fixed"}},
+	}
+	srv := newTestServer(t, fs)
+	patch := func(id, status string) int {
+		req, _ := http.NewRequest(http.MethodPatch, srv.URL+"/api/v1/self-review/p/findings/"+id+"/review", strings.NewReader(`{"status":"`+status+`"}`))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		return resp.StatusCode
+	}
+	if got := patch("1", "approved"); got != http.StatusNoContent {
+		t.Errorf("approve a suggestion: %d, want 204", got)
+	}
+	if fs.selfReviewFindings[0].finding.ReviewStatus != "approved" {
+		t.Errorf("status = %q, want approved", fs.selfReviewFindings[0].finding.ReviewStatus)
+	}
+	if got := patch("2", "approved"); got != http.StatusNotFound {
+		t.Errorf("review a fixed finding: %d, want 404", got)
+	}
+}

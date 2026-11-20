@@ -10,7 +10,7 @@ Run a change's self-review reasoning pass — the only one the pipeline has — 
 `/flow`'s run 1 (**Run the self-review pass**,
 `skills/flow-contracts/finish-contract-run1.md`, canonical for that bundle's shape) or **5. Verify**
 (`skills/flow-fast/SKILL.md`) assembles: inside that run, or, as this standalone command, from the
-bundle run 2's cleanup saved in flowd (`flow change save`). This file is canonical for the three angles, what is fixed, what is filed and the store record. **Neither the pass nor its fixes run
+bundle run 2's cleanup saved in flowd (`flow change save`). This file is canonical for the three angles, what is fixed, what is suggested and the store record. **Neither the pass nor its fixes run
 in this session**: step 2 dispatches the pass, and step 3 fixes, each a one-shot
 dispatch on the pair this file names — never the model this session runs on.
 
@@ -115,10 +115,9 @@ An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**
 `skills/flow-contracts/pipeline.md`) that names a sha is reported under angle 1 as fixed and
 is never offered for filing; one that reads `deferred` is an angle-1 finding like any other.
 
-**A finding is fixed or filed only from the three angles.** A `flow-fix` finding is
-fixed in step 3 unless it is `big`, and filed under its angle when it is. A `flow-improvement` or
-`flow-prompt-tuning` finding is never fixed in the run: it is filed, for its
-angle's task in step 4. An observation with nothing to fix is reported and recorded `noted`, never
+**A finding is fixed or suggested only from the three angles.** A `flow-fix` finding is
+fixed in step 3 unless it is `big`, and suggested under its angle when it is. A `flow-improvement` or
+`flow-prompt-tuning` finding is never fixed in the run: it is suggested, in step 4. An observation with nothing to fix is reported and recorded `noted`, never
 filed. **An observation that names
 an action the run can take is a fixable finding, never `noted`**, unless the action is `big`, reaches production
 (`rules/never-touch-production.mdc`) or deletes what cannot be restored. **The pass covers
@@ -141,7 +140,7 @@ reach outside `<agents repo>`, whose fix goes where that section places it. An
 `In-run pipeline fix:` line naming a sha is already fixed and is not classified again. **A `big` finding is not fixed here**: step 4 files it, and its fix is a separate flow run.
 
 **A finding whose fix would add or extend a guard, check, hook, refusal, lint rule, script or other
-automation is never built by the pass and never filed.** It is recorded `declined` in step 5, its
+automation is never built by the pass and never suggested.** It is recorded `declined` in step 5, its
 note naming the proposal.
 
 **Every other `flow-fix` finding that is not `big` is fixed and landed without asking**, on one branch for the
@@ -213,32 +212,30 @@ finding `fixed` with the merge commit's sha. A merge that conflicts, a red or ab
 rejected push pushes nothing,
 removes the worktree, and is filed in step 4 as a `big` finding is.
 
-### 4. File the findings
+### 4. Suggest the findings
 
-Nothing is asked: every finding to file is filed. All of the pass's `big` findings, and every
-`flow-fix` finding step 3 or **The base sync** left unfixed, are filed together as **one** Jira issue, its summary `Self-review <name>: big findings`. Each of
-`flow-improvement` and `flow-prompt-tuning` with a finding is filed as **one** Jira task of its own, its summary
-`Self-review <name>: <label> findings`; a `flow-prompt-tuning` finding's `###` heading carries its trace — the prompt file, the review slot and round that raised the defect, and the change's fix commit sha — so a later prompt change can be tied back to the review result that prompted it. Each issue's description is one `## Why` / `## How` / `## DoD`
-block per **Labels and body of issues the pipeline creates**
-(`skills/flow-contracts/jira-integration-finish.md`), each finding a `###` heading inside each
-section, and it carries each of its findings' angle labels on top of that label set. Each issue,
-once created, is transitioned to the status named **Self-review**, the transition resolved by that
-name per **Transitions** (`skills/flow-contracts/jira-integration.md`); a transition that fails or
-is not offered is one `⚠ Jira: skipped — <reason>` line and the issue stays filed.
-`## jira` absent or `none` in `<project>/.flow/project.md`, or no Atlassian tooling available in
-this session: print `⚠ Jira: skipped — <reason>` and record those findings `declined` instead.
+Nothing is asked and no Jira issue is created: the operator reads the suggestions on the Self-review
+dashboard's **To review** tab, approves or declines each, and creates and plans any task themselves.
+Every `big` finding, every `flow-fix` finding step 3 or **The base sync** left unfixed, and every
+`flow-improvement` and `flow-prompt-tuning` finding is recorded in step 5 as `suggested`, one row each,
+carrying its full `-detail`: one markdown body with `## Why` (what was found and why it matters, with the
+evidence), `## How` (the proposed change, files and steps) and `## DoD` (how to tell it is done), and for a
+`flow-prompt-tuning` finding the trace — the prompt file, the review slot and round that raised the defect,
+and the change's fix commit sha — so a later prompt change can be tied back to the review result that
+prompted it. A `fixed` row carries a `-detail` too: what was wrong, why, what the fix changed and the
+evidence it holds.
 
 ### 5. Record every finding in the flow store
 
 One call per finding, every disposition alike, before step 6 — a fixed finding's `-ref` read
-off `<agents-base>` after step 3's landing, a filed finding's from step 4:
+off `<agents-base>` after step 3's landing:
 
 ```bash
-flow self-review finding -change <name> -angle <label> -disposition fixed|filed|declined|noted [-ref <sha|KEY>] [-blast-radius <N>] [-severity critical|important|minor] -note '<the finding, one line>'
+flow self-review finding -change <name> -angle <label> -disposition fixed|suggested|declined|noted [-ref <sha>] [-blast-radius <N>] [-severity critical|important|minor] -note '<the finding, one line>' [-detail '<markdown>']
 ```
 
-`-ref` is the landed sha for `fixed`, the issue key for `filed`, and omitted for `declined` and `noted`;
-`-blast-radius` is step 3's count; `-severity` is the grade the pass gave the finding, required for `fixed` and `filed`, which `flow self-review finding` refuses without it, and omitted for `declined` or `noted` when the pass gave none. An `In-run pipeline fix:`
+`-ref` is the landed sha for `fixed`, and omitted for `suggested`, `declined` and `noted`; `-detail` is required for `suggested`;
+`-blast-radius` is step 3's count; `-severity` is the grade the pass gave the finding, required for `fixed` and `suggested`, which `flow self-review finding` refuses without it, and omitted for `declined` or `noted` when the pass gave none. An `In-run pipeline fix:`
 line naming a sha gets no second row when `flow self-review findings -change <name>` already
 lists that sha (**Pipeline defects found mid-run**, `skills/flow-contracts/pipeline.md`). A row this step records for such a line, which the pass never grades, takes `-severity` by the rule of **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`). A store failure is one
 warning line and the pass continues to the listing below.
@@ -251,8 +248,8 @@ listing holds every row and item 2 of step 3 recorded its `fixed` rows.
 
 ### 7. Report
 
-One line per finding — its angle, what it was, and its landed sha or filed key or `noted` — then
-the shas landed, the Jira keys filed (each `none` when empty), and each product defect the pass met (**the sweep**,
+One line per finding — its angle, what it was, and its landed sha or `suggested` or `noted` — then
+the shas landed, the suggestions recorded (the count), and each product defect the pass met (**the sweep**,
 `skills/flow-contracts/known-bugs.md`).
 
 ## Guardrails

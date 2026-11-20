@@ -26,7 +26,8 @@ import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
 import { WeeklyCosts } from "./WeeklyCosts";
 
-const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, postRolesEditMock } = vi.hoisted(() => ({
+const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, postRolesEditMock, reviewMock } = vi.hoisted(() => ({
+  reviewMock: vi.fn(() => Promise.resolve()),
   postRolesEditMock: vi.fn(),
   fetchStatsViewMock: vi.fn(),
   fetchProjectsMock: vi.fn(),
@@ -41,6 +42,7 @@ vi.mock("../api", async (importOriginal) => {
     fetchProjects: fetchProjectsMock,
     fetchRoles: fetchRolesMock,
     postRolesEdit: postRolesEditMock,
+    reviewSelfReviewFinding: reviewMock,
   };
 });
 
@@ -380,11 +382,11 @@ const fixtures: Record<
     gh("check-no-bash", 35, 0, 0, 95, 3421, null),
   ]),
   "self-review": envelope("self-review", [
-    { recordedAt: "2026-01-12T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-fix", note: "guard misses a case", disposition: "fixed", ref: "abc1234", blastRadius: 3, commitUrl: "https://github.com/o/r/commit/abc1234" },
-    { recordedAt: "2026-01-11T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-cost", note: "cheaper reviewer", disposition: "fixed", ref: "def5678", blastRadius: null, commitUrl: "https://github.com/o/r/commit/def5678" },
-    { recordedAt: "2026-01-10T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-speed", note: "needs a redesign", disposition: "filed", ref: "KAN-9", blastRadius: null, commitUrl: "" },
-    { recordedAt: "2026-01-09T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "not worth it", disposition: "declined", ref: "", blastRadius: null, commitUrl: "" },
-    { recordedAt: "2026-01-08T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "panel caught it early", disposition: "noted", ref: "", blastRadius: null, commitUrl: "" },
+    { id: 1, recordedAt: "2026-01-12T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-fix", note: "guard misses a case", disposition: "fixed", ref: "abc1234", blastRadius: 3, severity: "important", detail: "## Why\nthe guard skips empty input", reviewStatus: "", commitUrl: "https://github.com/o/r/commit/abc1234" },
+    { id: 2, recordedAt: "2026-01-11T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-cost", note: "cheaper reviewer", disposition: "fixed", ref: "def5678", blastRadius: null, severity: "minor", detail: "", reviewStatus: "", commitUrl: "https://github.com/o/r/commit/def5678" },
+    { id: 3, recordedAt: "2026-01-10T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-speed", note: "cache the guard", disposition: "suggested", ref: "", blastRadius: null, severity: "minor", detail: "## Why\nslow\n## How\ncache\n## DoD\nfaster", reviewStatus: "to-review", commitUrl: "" },
+    { id: 4, recordedAt: "2026-01-09T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "split the brief", disposition: "suggested", ref: "", blastRadius: null, severity: "minor", detail: "## Why\nlong", reviewStatus: "declined", commitUrl: "" },
+    { id: 5, recordedAt: "2026-01-08T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "panel caught it early", disposition: "noted", ref: "", blastRadius: null, severity: "", detail: "", reviewStatus: "", commitUrl: "" },
   ]),
   "review-dynamics": envelope("review-dynamics", reviewDynamicsRows()),
 };
@@ -987,32 +989,34 @@ describe("views render their fixture response's actual values", () => {
     expect(document.querySelector(".rv-tiles")).toBeNull();
   });
 
-  it("renders self-review fixes", async () => {
+  it("self-review: Fixed tab is read only with the finding's detail; To review approves and declines under a status filter", async () => {
     const user = userEvent.setup();
-    const { unmount } = render(<SelfReview period={period} project={undefined} />);
+    render(<SelfReview period={period} project={undefined} />);
 
-    // A fixed finding's ref links to its commit; a filed one's key is text.
-    const link = await screen.findByRole("link", { name: "abc1234" });
-    expect(link).toHaveAttribute("href", "https://github.com/o/r/commit/abc1234");
-    expect(screen.getByRole("cell", { name: "KAN-9" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "KAN-9" })).not.toBeInTheDocument();
+    // Fixed: only fixed findings, the fix linked to its commit, the detail one click away, no buttons.
+    expect(await screen.findByRole("link", { name: "abc1234" })).toHaveAttribute("href", "https://github.com/o/r/commit/abc1234");
+    expect(screen.getByText("the guard skips empty input", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText("cache the guard")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
 
-    within(screen.getByRole("region", { name: "Fixed" })).getByText("2");
-    within(screen.getByRole("region", { name: "Filed" })).getByText("1");
+    // To review: the open suggestion with its whole detail; the declined one sits under its filter.
+    await user.click(screen.getByRole("tab", { name: "To review" }));
+    expect(screen.getByText("cache the guard")).toBeInTheDocument();
+    expect(screen.getByText("faster", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText("split the brief")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+    expect(reviewMock).toHaveBeenCalledWith("agents", 3, "approved");
+    await waitFor(() => expect(screen.queryByText("cache the guard")).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /Approved/ }));
+    expect(screen.getByText("cache the guard")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Declined/ }));
+    expect(screen.getByText("split the brief")).toBeInTheDocument();
+  });
 
-    // design.md's self-review-drop-per-change: no per-change block.
-    expect(screen.queryByRole("region", { name: "Per change" })).not.toBeInTheDocument();
-
-    // The outcome column filters the findings table.
-    await user.selectOptions(screen.getByRole("combobox", { name: "Filter by Outcome" }), "declined");
-    expect(screen.getByRole("cell", { name: "not worth it" })).toBeInTheDocument();
-    expect(screen.queryByRole("cell", { name: "guard misses a case" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("cell", { name: "panel caught it early" })).not.toBeInTheDocument();
-    unmount();
-
+  it("self-review: an empty period says so on the Fixed tab", async () => {
     fetchStatsViewMock.mockResolvedValueOnce(envelope("self-review", []));
     render(<SelfReview period={period} project={undefined} />);
-    expect(await screen.findByText("No self-review findings in this period.")).toBeInTheDocument();
+    expect(await screen.findByText("No fixed findings in this period.")).toBeInTheDocument();
   });
 });
 

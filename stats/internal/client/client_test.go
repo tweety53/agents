@@ -1359,3 +1359,7 @@ func TestGetChangeIgnoresStaleRestartMarker(t *testing.T) {
 		t.Fatalf("took %v, want a fast failure", d)
 	}
 }
+
+func (stubStageStore) ReviewSelfReviewFinding(context.Context, string, int64, string) error {
+	return nil
+}

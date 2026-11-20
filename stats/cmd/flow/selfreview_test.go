@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // TestRunSelfReviewBundlePrintsBundle drives `flow self-review bundle`
@@ -258,6 +260,7 @@ func TestSelfReviewFindingRefusesUngradedFixedOrFiled(t *testing.T) {
 	}{
 		{"fixed", "abc1234", 2},
 		{"filed", "KAN-1", 2},
+		{"suggested", "", 2},
 		{"declined", "", 0},
 	} {
 		reached = false
@@ -317,5 +320,27 @@ func TestSelfReviewFindingsCLI(t *testing.T) {
 
 	if code, stdout := read("http://127.0.0.1:1"); code == 0 || stdout != "" {
 		t.Errorf("unreachable: exit %d, stdout %q; want non-zero and nothing", code, stdout)
+	}
+}
+
+// TestSelfReviewFindingSendsItsDetail: a suggested finding's -detail reaches the store whole.
+func TestSelfReviewFindingSendsItsDetail(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	env := newTestEnv(t)
+	var got records.SelfReviewFinding
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+	detail := "## Why\nslow\n## How\ncache\n## DoD\nfaster"
+	var stdout, stderr strings.Builder
+	code := run(context.Background(), []string{"self-review", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+		"-change", "demo", "-angle", "flow-improvement", "-disposition", "suggested", "-severity", "minor", "-note", "cache it", "-detail", detail},
+		env.get, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 || got.Detail != detail || got.Disposition != "suggested" {
+		t.Errorf("exit %d (stderr %q), sent %+v; want 0 and the detail %q", code, stderr.String(), got, detail)
 	}
 }
