@@ -47,9 +47,9 @@ import (
 // in-flight requests to finish before giving up and closing the
 // connection pool anyway.
 // roleCostsSince is when the Role costs view starts: the operator reset it on
-// 2026-11-20, so the view ignores every dispatch started earlier. Nothing is
+// 2026-11-20 to the start of the kan-1092 run (15:15 UTC), so the view ignores every dispatch started earlier. Nothing is
 // deleted; the Reviewers, findings and run views read the same rows in full.
-var roleCostsSince = time.Date(2026, 11, 20, 15, 38, 0, 0, time.UTC)
+var roleCostsSince = time.Date(2026, 11, 20, 15, 15, 0, 0, time.UTC)
 
 const shutdownGrace = 15 * time.Second
 
