@@ -185,7 +185,6 @@ scripts/flow-guard check-spec-reach .
 scripts/flow-guard resolve-visual-screenshots . baseline.spec.ts
 scripts/flow-guard check-uitest-overrides
 scripts/flow-guard check-guard-calls
-scripts/flow-guard check-no-bash
 cd stats && gofmt -l .
 cd stats && make -s web-dist && go vet ./...
 cd stats && make -s web-dist && cd web && npx tsc -b

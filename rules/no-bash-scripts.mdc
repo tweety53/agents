@@ -13,8 +13,7 @@ written in the project's own language — in the `agents` repository, Go in `flo
 A command typed into a shell is not a script; a file committed to be run is.
 
 The only exceptions are the ones a project declares. In `agents` they are `<agents repo>/setup.sh` and the
-`<agents repo>/scripts/flow-guard` bootstrap, and `flow-guard check-no-bash` fails on any other tracked `.sh`
-file or file whose first line runs bash.
+`<agents repo>/scripts/flow-guard` bootstrap; no guard checks it.
 <!-- /core -->
 
 ## Why

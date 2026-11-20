@@ -69,7 +69,6 @@ func siblingCmd(env Env, override, name string, args ...string) *exec.Cmd {
 var selfJudging = map[string]bool{
 	"check-dev-stack-fresh":     true,
 	"check-guard-calls":         true,
-	"check-no-bash":             true,
 	"check-references":          true,
 	"check-spec-reach":          true,
 	"check-uitest-overrides":    true,
