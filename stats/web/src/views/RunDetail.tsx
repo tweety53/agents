@@ -270,21 +270,6 @@ export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<str
   return { unattributed: keep(unattributed), unrecorded, main: header === null ? null : keep(header - buckets) };
 }
 
-/** Every role's cost on the page, costliest first: dispatch rows, headless calls, unrecorded agents (explorer ...) and the main session's own turns. */
-export function roleCosts(runs: StageRunDTO[], steps: Step[], headless: HeadlessRow[]): { role: string; cost: number }[] {
-  const costs = dispatchCosts(runs);
-  const by = new Map<string, number>();
-  const add = (role: string, cost: number | null) => {
-    if (cost !== null && cost > 0) by.set(role, (by.get(role) ?? 0) + cost);
-  };
-  for (const r of roleSummary(steps, costs)) add(r.role, r.cost);
-  for (const h of headlessRoles(headless)) add(h.role, h.cost);
-  const rest = residualCosts(runs, steps, costs);
-  for (const u of rest.unrecorded) add(u.role, u.cost);
-  add("main session", rest.main);
-  return [...by].map(([role, cost]) => ({ role, cost })).sort((a, b) => b.cost - a.cost);
-}
-
 /** Self-review's one-line summary: its plan's done/total, its findings, and its highest fix round when one ran. */
 function selfReviewSummary(tasks: PlanTask[] | undefined, findings: number, steps: Step[]): string {
   const round = fixRound(steps);
@@ -974,29 +959,6 @@ export function RunDetail({ project, change }: RunDetailProps) {
           </section>
           );
 
-          const roleCost = roleCosts(runs, steps, headless ?? []);
-          const maxRole = Math.max(0, ...roleCost.map((r) => r.cost));
-          const rolePanel = (
-          <section className="lb-panel" aria-label="Cost by role" style={interactive ? { order: 8 } : undefined}>
-            <div className="lb-panel-h">
-              <span>Cost by role</span>
-            </div>
-            <div className="lb-panel-b">
-              {roleCost.map(({ role, cost }) => (
-                <div key={role} className="lb-hbar">
-                  <span className="lb-n" title={role}>
-                    <span>{role}</span>
-                  </span>
-                  <span className="lb-t">
-                    <span style={{ width: `${maxRole ? (cost / maxRole) * 100 : 0}%` }} />
-                  </span>
-                  <span className="r lb-num">{formatUsd(cost)}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-          );
-
           return (
             <>
               <section className="lb-panel lb-kpis" aria-label="Run totals">
@@ -1202,7 +1164,6 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   )}
                   {interactive && requestCostPanel}
                   {interactive && costPanel}
-                  {interactive && rolePanel}
                 </div>
               </div>
 
@@ -1216,7 +1177,6 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     </div>
                     <div className="lb-work-col">
                       {costPanel}
-                      {rolePanel}
                     </div>
                   </div>
                 </>

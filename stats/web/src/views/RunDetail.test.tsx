@@ -17,7 +17,7 @@ import {
   type StageRunDTO,
   type StatsResponse,
 } from "../api";
-import { RunDetail, residualCosts, roleCosts } from "./RunDetail";
+import { RunDetail, residualCosts } from "./RunDetail";
 
 const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock, decisionsMock } = vi.hoisted(() => ({
   decisionsMock: vi.fn((_project: string, _change: string) => Promise.resolve([] as unknown[])),
@@ -1489,22 +1489,5 @@ describe("residualCosts", () => {
     // Run 1 measured $10 with agent a's $3 inside it; run 2 has no header and holds agent b's $100.
     const r = residualCosts([run(1, 10, { a: 3 }), run(2, null, { b: 100 })], [], costs);
     expect(r.main).toBe(7);
-  });
-});
-
-describe("roleCosts", () => {
-  it("sums every role's cost on the page: dispatch rows, headless calls, unrecorded agents and the main session, costliest first", () => {
-    const run: StageRunDTO = {
-      stageRunId: 1, harness: "claude", command: "/flow", stage: "flow.implement", attempt: 1, startedAt: "2026-11-18T10:00:00Z",
-      metrics: { cost_usd: 20, dispatches: { a: { cost_usd: 5 }, b: { cost_usd: 4 }, c: { cost_usd: 7, description: "explore the repo" } } },
-    };
-    const steps = [{ role: "reviewer", agentId: "a" }, { role: "reviewer", agentId: "b" }] as never;
-    const headless = [{ role: "decider", model: "opus", effort: "low", costUSD: 0.5 }] as never;
-    expect(roleCosts([run], steps, headless)).toEqual([
-      { role: "reviewer", cost: 9 },
-      { role: "explorer", cost: 7 },
-      { role: "main session", cost: 4 },
-      { role: "decider", cost: 0.5 },
-    ]);
   });
 });
