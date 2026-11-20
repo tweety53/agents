@@ -77,7 +77,7 @@ WARNING="$(cat "$ERR")"; rm -f "$ERR"
 Then read the fields from `$RECORD`:
 
 ```bash
-printf '%s' "$RECORD" | jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue, .planningEffort, (.models // {} | tojson), .updatedAt, .updatedBy, (.worktrees // {} | keys[])'
+printf '%s' "$RECORD" | jq -r '.state, .branch, .prUrl, .artifactUrl, .jiraIssue, .updatedAt, .updatedBy, (.worktrees // {} | keys[])'
 ```
 
 **Load `skills/flow-contracts/worktree-resolution.md`** before resolving the merge-status report
@@ -155,14 +155,6 @@ is a **read-only** report: never call Jira, never transition an issue, never inf
 change name.
 
 Surface `artifactUrl` when present — the link to the published proposal artifact.
-
-Surface `planningEffort` only when the record carries one, verbatim — it is a legacy field no run
-writes, per **The record** in State file (`skills/flow-contracts/state-file.md`); omit the
-line otherwise.
-
-Surface `models` the same way: the recorded `models.default` verbatim, or `not recorded` when it
-is `null` or the key is absent — the shape is canonical in **State file**
-(`skills/flow-contracts/state-file.md`).
 
 Next-command mapping:
 

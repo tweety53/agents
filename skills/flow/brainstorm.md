@@ -52,16 +52,11 @@ flow stage begin -command '/flow' -stage flow.plan -harness <harness> -session-t
   "worktrees": {},
   "artifactUrl": null,
   "jiraIssue": "<resolved key, or null>",
-  "planningEffort": null,
-  "models": { "default": null },
   "prUrl": null,
   "updatedAt": "<ISO-8601 UTC now>",
   "updatedBy": "/flow"
 }
 ```
-
-`planningEffort` and `models.default` are written `null` and stay `null` for the life of the
-change.
 
 **Then create the worktree — before brainstorming, before any file is read or written for this
 change.** From this point on, the main checkout is never read, checked out, staged, committed or
@@ -148,8 +143,8 @@ token spend.
 
 1. **Design round.** The planner runs section **B** of `skills/flow/brainstorm-planner.md` without <!-- refs-guard:allow -->
    plan mode, reading the ticket, `findings.md`, the latest `round-<r>.md` and the latest
-   `answers-<r>.md` under `<abs-worktree>/.superpowers/sdd/planner/` — the three paths named in its
-   prompt, never an earlier round or answers file — reading the code itself, and dispatching its
+   round file's `## Answers` under `<abs-worktree>/.superpowers/sdd/planner/` — the three paths named in its
+   prompt, never an earlier round file — reading the code itself, and dispatching its
    own Explore and Plan agents only where that cannot settle a question (**Explore and design
    agents**, `skills/flow/brainstorm-planner.md`), writing or updating the
    prototype file a visible change needs and never publishing it, and writes `round-<r>.md`: the
@@ -166,11 +161,11 @@ token spend.
    them whenever a prototype exists, asks its `## Questions` verbatim and no other —
    four to an **AskUserQuestion** call in round-file order, the convergence confirm last — the URL appended to the text of the question that depends on the
    prototype, or else of the convergence confirm, since the question dialog may hide the text
-   above it — and writes the answers verbatim to `answers-<r>.md`; it never answers
+   above it — and appends the answers verbatim to that round file under `## Answers`; it never answers
    a question itself. Every later planner dispatch's prompt, the final one included, carries the
    prototype's latest Artifact URL. An explicit approve of the convergence confirm closes
    brainstorming; any other answer dispatches round `<r+1>`. An operator message mid-planning is
-   written to the next `answers-<r>.md` and relayed the same way.
+   appended to the latest round file's `## Answers` and relayed the same way.
 3. **Artifacts and plan.** One final planner dispatch runs sections **C** and **D** of <!-- refs-guard:allow -->
    `skills/flow/brainstorm-planner.md` — `spectre new`, the three artifacts from the approved
    design (read from the approved round file, its answers and `findings.md`), the plan,
@@ -228,7 +223,8 @@ and the self-review planner never run it.
    absolute path; it triages the report per **Plan review** (`skills/flow/brainstorm-planner.md`).
    Its `QUESTIONS` return is relayed as step 2 of the section above relays a round, and a fresh
    final dispatch takes the answers. Its `PLAN-WRITTEN` return closes the check; nothing is
-   checked a second time, but when that triage changed `tasks.md`, re-run `plan-check … -decide-only`.
+   checked a second time, and a changed `tasks.md` re-decides once (**Plan check gate**,
+   `skills/flow/brainstorm-planner.md`).
 4. **`PLAN-CHECK-NOT-RUN`** — the check could not run: say so in the gate summary and go on, never
    as clean.
 

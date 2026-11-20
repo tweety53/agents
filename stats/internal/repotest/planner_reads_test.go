@@ -1,7 +1,7 @@
 package repotest
 
 // TestPlannerReadsLatestRoundOnly pins KAN-1110's rolling round state: a
-// planner round reads the latest round, its answers and findings.md, and the
+// planner round reads the latest round file with its answers and findings.md, and the
 // agents a planner dispatch launches are soft-capped.
 
 import (
@@ -12,7 +12,7 @@ import (
 func TestPlannerReadsLatestRoundOnly(t *testing.T) {
 	t.Parallel()
 	run := strings.Join(strings.Fields(section(t, "skills/flow/brainstorm.md", "Run brainstorming and planning through the planner role")), " ")
-	for _, want := range []string{"findings.md", "never an earlier round or answers file"} {
+	for _, want := range []string{"findings.md", "never an earlier round file"} {
 		if !strings.Contains(run, want) {
 			t.Errorf("brainstorm.md's planner section lacks %q", want)
 		}

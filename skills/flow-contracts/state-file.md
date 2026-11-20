@@ -60,10 +60,6 @@ reaches the network.
   },
   "artifactUrl": null,
   "jiraIssue": null,
-  "planningEffort": null,
-  "models": {
-    "default": null
-  },
   "prUrl": null,
   "updatedAt": "2026-07-28T10:00:00Z",
   "updatedBy": "/flow"
@@ -119,21 +115,9 @@ field is how it gets erased.
 - `artifactUrl` — `null` for the life of the change: `/flow` publishes no proposal artifact
   (design.md's `publish-proposal-removed`), so nothing ever writes this field a non-null value.
 - `jiraIssue` — the key of the Jira issue driving this change (e.g. `"KAN-8"`), or `null` when no issue is linked. Written only on the run that **creates** the change; every other invocation **carries it forward verbatim**. See **Jira integration** (`jira-integration.md`).
-- `planningEffort` — a legacy field: the level recorded for an older change's planning, or `null`.
-  No run writes it; every invocation **carries it forward verbatim**. It governs nothing — no
-  command derives behaviour from it, and the review panel's breadth is never scaled from it.
-- `models` — a legacy field: an object carrying one field, `default`, naming the model recorded
-  for an older change, or `null`. The run that **creates** the change writes it `null` — no run
-  asks a model question — and every other invocation **carries it forward verbatim**. It governs
-  nothing: `/flow` dispatches on the model it resolves per run. The model's default and how an operator override applies are
-  stated once under **Model resolution** (`skills/flow/SKILL.md`), which is canonical
-  for them; a second copy here is what this repository's reference guard exists to prevent. This
-  field records what was *chosen* — the SDD ledger remains the only record of what a dispatch
-  actually ran on.
-
-  **A record that omits `planningEffort` or `models` entirely is valid**, and each absent key is
-  read as *not recorded*. The carve-out covers a key that is **absent**: `artifactUrl`,
-  `jiraIssue` and `prUrl` are all *present and nullable*, which is a different thing from *absent*.
+- `planningEffort` and `models` — retired fields no run writes or reads. A record that carries one
+  (an older change's) is valid and is carried forward verbatim; a record that omits them is the
+  norm.
 
 - `prUrl` — the pull request's URL once one is open; `null` otherwise. Its non-nullness is what
   records that a PR was opened, so no separate boolean exists. It is also what tells `/flow`

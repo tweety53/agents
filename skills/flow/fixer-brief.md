@@ -39,7 +39,7 @@ It reads `implementer-brief.md` and then this file in full first; every paragrap
 
 > **ROUND SCOPE:** your round's output is the diff and the report, nothing else. Do not rewrite
 > `proposal.md` or `design.md`: unaffected sections are never restated, and a decision your fix
-> genuinely overturns is superseded by one appended entry under `## Decisions`, never a per-round
+> genuinely overturns is overridden by one appended entry under `## Decisions`, never a per-round
 > rewrite of the file. Your report names what you fixed and the behaviours you changed,
 > then stops.
 

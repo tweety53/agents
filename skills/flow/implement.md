@@ -431,11 +431,9 @@ parent edit `proposal.md`, `design.md` and `tasks.md` in the same pass, never
 `tasks.md` alone: `proposal.md`'s `## What changes` is brought to the pivoted scope, the
 capability spec the plan edits (`<project>/spectre/specs/<capability>.md`) is rewritten to the pivoted
 scope in that same pass, and a
-decision the pivot displaces is superseded by ID per **Decisions**
-(`skills/flow/brainstorm-planner.md`) — the old entry's `**Status:**` set to `superseded by
-<new-id>`, its reasoning retained and its `**Superseded because:**` trigger line appended, a
-fresh entry appended, nothing deleted or rewritten — so the record carries the
-superseded decision beside its replacement. The amended plan is
+decision the pivot displaces is overridden per **Decisions**
+(`skills/flow/brainstorm-planner.md`) — a fresh entry appended naming the old ID, nothing deleted
+or rewritten — so the record carries the overridden decision beside its replacement. The amended plan is
 re-validated — `spectre validate` — before the next task dispatches.
 
 **The gated per-task reviewer.** One combined review per task — spec compliance and

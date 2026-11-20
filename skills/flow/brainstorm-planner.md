@@ -32,7 +32,7 @@ states.
   nothing: the question stays held and is asked again in the next round. Any other ambiguity
   takes its recommended option: it is recorded as a `## Decisions` entry and as one line,
   `<decision id>: <chosen> — <what it was chosen over>`, under the round file's `## Auto-taken`,
-  and in `answers-<r>.md`; the parent's relay never prints, asks or mentions it, and the next
+  and in the round file's `## Answers`; the parent's relay never prints, asks or mentions it, and the next
   planner and the final planner read it from the file. A round asks every question it holds — four
   is only the limit of one **AskUserQuestion** call, so more questions take more calls in the same
   round, never a later round. Each question is asked in the round it
@@ -73,7 +73,7 @@ states.
 
 - **A round file opens with `## Summary`** — at most ten lines: the decisions the operator's answers settled
   and what is still open. The Summary names no auto-taken decision — an auto-taken pick lives only
-  under `## Auto-taken` and in `answers-<r>.md`. The parent relays that section and the file's absolute path, and the
+  under `## Auto-taken` and in `## Answers`. The parent relays that section and the file's absolute path, and the
   design draft stays in the file. The design draft carries `### Settled` — every answer given so
   far, the operator's words verbatim beside the question and its round — so the latest round file
   alone is the design's whole state.
@@ -103,8 +103,7 @@ states.
   and says it could not be published. Cite the approved file, with its Artifact URL
   or, where it could not be published, that it was not, from `design.md`'s `## Context` as the
   spec the implementation and `flow.verify` compare
-  against, and every capture test of a view it draws drives each interactive state it shows —
-  hover, focus, pressed — so `flow.verify` renders and compares that state too. A change with nothing visible builds none. Where the confirm is not asked — the
+  against. A change with nothing visible builds none. Where the confirm is not asked — the
   `## decisions: recommended` mode, and the self-review planner, which take the
   recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)
   — the published prototype is the spec without an approval round. **The approved prototype is
@@ -195,14 +194,13 @@ choice records none.
 ### <the decision>
 
 **ID:** <kebab-case-slug>
-**Status:** active
 **Chosen:** <option> — <one-line rationale>
 **Considered:** <other options, each with the tradeoff that ruled it out>
 ```
 
-**ID** is mandatory, assigned once and never changed. A later round supersedes a decision by
-setting its `**Status:**` to `superseded by <new-id>`, appending one `**Superseded because:**
-<trigger>` line to it, and adding a new entry; a recorded entry is never deleted or rewritten.
+**ID** is mandatory, assigned once and never changed. A later round that overturns a decision appends
+a new entry naming the old ID in its `**Chosen:**` line; a recorded entry is never deleted or
+rewritten, so the later entry overrides it.
 
 ### Open questions
 
@@ -266,14 +264,11 @@ alone. The self-review planner and a fix run's re-plan are never reviewed.
 **A dispatch whose prompt names a `plan-check.md` report triages it.** It reads the report,
 `proposal.md`, `design.md` and `tasks.md`; it opens a file under
 `<abs-worktree>/.superpowers/sdd/planner/` only for a finding whose fix turns on a round's answer.
-Append `## Triage` to `plan-check.md`, one line per finding: `F<k> fixed — <what changed>`, `F<k>
-contested — <the repository path:line or artifact line the reviewer could have read>`, `F<k>
-escalated`, or, for an `advisory` only, `F<k> declined — <reason>`. Fix in the artifacts a finding
-with one obvious fix. Escalate a finding whose fix would change a `## Decisions` entry, or that
-you would contest without evidence the reviewer could have read: return `QUESTIONS`, the next
-`round-<r>.md` quoting the finding verbatim beside the options. Write each finding still standing
-into `design.md`'s `## Risks` as `Accepted: <the finding> — <why>`, re-run `spectre validate`, and
-return `PLAN-WRITTEN`.
+Fix in the artifacts a finding with one obvious fix. A finding whose fix would change a
+`## Decisions` entry returns `QUESTIONS`, the next `round-<r>.md` quoting the finding verbatim
+beside the options. Write each finding still standing into `design.md`'s `## Risks` as
+`Accepted: <the finding> — <why>` — a contest of the reviewer's reading names the path:line it
+rests on — re-run `spectre validate`, and return `PLAN-WRITTEN`.
 
 ### Plan check gate
 
@@ -289,7 +284,9 @@ Its header is canonical for the call, its checks, its fallback and its exits;
 writes `<abs-worktree>/.superpowers/sdd/plan-check.md`, whose last line is `PLAN-CHECK-CLEAN`,
 `PLAN-CHECK-FINDINGS <n>` or `PLAN-CHECK-NOT-RUN`, and the decision. Exit 2 stops the run with its
 stderr. Gate **No** re-runs it as `plan-check … -decide-only`, which rewrites
-`decision.json` and leaves `plan-check.md` as it is.
+`decision.json` and leaves `plan-check.md` as it is. **That re-run is the only one: it happens
+once whenever `tasks.md` changed after the check — a triage fix or a gate **No** — and the decision
+is recorded again.**
 
 The parent renders the file and prints the output verbatim; the `STARTED`
 handoff prints it again (**The `STARTED` handoff block**, `skills/flow/brainstorm.md`):
@@ -303,8 +300,7 @@ It exits 0 on a printed block and 2 on a usage error or an unreadable file.
 **The plan is never acted on unread.** Once the plan-check step has printed its `## Decision` block,
 print the plan summary — plain prose on what will be built and how: the behaviour added or changed, the approach, the seams and decisions that matter and what was left out; no per-task rows — and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The `STARTED` handoff block** (`skills/flow/brainstorm.md`) under it. The
 summary ends on two lines of their own: `**Design:** <absolute path of design.md>` and
-`**Plan check:** <absolute path of the report> — clean | <n> fixed, <n> contested, <n>
-accepted | not run`.
+`**Plan check:** <absolute path of the report> — clean | <n> fixed, <n> accepted | not run`.
 
 Then the question — `/flow-plan`'s wording is **Save the plan?**, `/flow`'s is **Proceed to
 implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
@@ -316,11 +312,10 @@ updates)**.
 still asked.
 
 On **No**, take the operator's changes (a follow-up **AskUserQuestion** round when the option
-carried none), write them verbatim to the next `answers-<r>.md`, and dispatch a fresh final planner
+carried none), write them verbatim to the latest round file's `## Answers`, and dispatch a fresh final planner
 on them as a `QUESTIONS` return is taken (**Run brainstorming and planning through the planner
 role**, `skills/flow/brainstorm.md`) — it revises `tasks.md` and re-runs `spectre validate
-"<name>"`. Then re-run `plan-check … -decide-only` and record the decision again, print the summary and ask
-again. Loop until **Yes**. **Yes** is the only exit. Under the `## decisions: recommended` mode the
+"<name>"`. Then print the summary and ask again. Loop until **Yes**. **Yes** is the only exit. Under the `## decisions: recommended` mode the
 gate takes **Yes** without asking — the summary and the `## Decision` block still print, so the
 record of what was approved stays complete (**Auto-resolution**,
 `skills/flow-contracts/operator-prompts.md`).

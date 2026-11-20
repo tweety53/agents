@@ -405,11 +405,8 @@ Write the state file: `IN_PROGRESS` from `STARTED`, otherwise **the state exactl
 so this step re-reads the current record and
 confirms every resolved worktree is present rather than reconstructing the map from scratch;
 add any entry still missing (a worktree added after the last incremental write) before
-proceeding. Carry `artifactUrl` (always `null` under `/flow`), `jiraIssue`, `planningEffort`
-(never written — `null` unless a legacy record holds a level), `models.default` (a legacy field,
-likewise never written — `/flow` resolves models from the settings
-store per run, never records a value into the per-change state) and `prUrl`
-forward verbatim.
+proceeding. Carry `artifactUrl` (always `null` under `/flow`), `jiraIssue` and `prUrl`
+forward verbatim, and any legacy `planningEffort` or `models` an older record holds.
 The state file lives outside the repo — never `git add` it.
 
 ```bash

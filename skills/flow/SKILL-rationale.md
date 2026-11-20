@@ -39,10 +39,7 @@ records.
 > This is design.md's `started-redefined`: `STARTED` is a kickoff marker,
 > "the operator started this," not a record that a design was approved and a proposal published.
 
-> `planningEffort` and `models.default` are written `null` and stay `null` for the life of the
-> change: `/flow` asks no planning-effort or model question on a creating run
-> (`ask-options-removed`), and models are chosen per dispatch by the Decide step
-> (`planner-chooses-models`), not recorded per change. `artifactUrl` stays `null` —
+> `artifactUrl` stays `null` —
 > `/flow` publishes no proposal artifact (`publish-proposal-removed`).
 
 ## integrate.md — preamble
@@ -667,8 +664,7 @@ Verbatim passages KAN-856 moved out of the planning session's run-loaded files; 
 
 ### brainstorm.md — A. Resolve the change and write `STARTED` (KAN-856)
 
-`planningEffort` and `models.default` are written `null` and stay `null` for the life of the
-change: `/flow` asks no planning-effort or model question on a creating run, and models are chosen per dispatch by the Decide step, not recorded per change.
+`planningEffort` and `models.default` are no longer written (2026-11-20): `/flow` asks no planning-effort or model question, and models are chosen per dispatch by the Decide step.
 
 The
 operator sees `STARTED` recorded the moment they invoke `/flow`, whether or not the run goes on to
