@@ -80,6 +80,15 @@ import (
 // Measured 2026-11-17, claude in a project with a memory index: the index is
 // in context without the variable and absent with it, $0.0222 against $0.0047.
 //
+// The file defaults to ~/.config/flow/headless-api-key when that exists, so
+// the switch is the file itself: rename it to go back to the subscription;
+// FLOW_HEADLESS_API_KEY_FILE=off does the same for one environment.
+// FLOW_HEADLESS_API_KEY_FILE, when set, names a file holding an Anthropic API
+// key; the judge child alone gets it as ANTHROPIC_API_KEY, so every headless
+// call bills API credits while no other `claude` -- the session's own
+// included -- sees the key or leaves the subscription login. An unreadable or
+// empty file is the fallback's cause, never a silent run on the subscription.
+//
 // FLOW_PAIR_JUDGE_CMD, when set, names the command run in place of `claude`
 // (decision judge-command-seam). Bounds (decision
 // judge-timeout-60s-digest-200kb): a 60 s deadline (Env.PairJudgeTimeout in
@@ -284,6 +293,20 @@ func pjRun(env Env, rows map[string][]policyRow, judgeRole, system string, diges
 		"--output-format", "json", "--system-prompt", system)
 	cmd.Dir = env.Dir
 	cmd.Env = append(os.Environ(), "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1")
+	f := env.Getenv("FLOW_HEADLESS_API_KEY_FILE")
+	if f == "" && env.Getenv("HOME") != "" {
+		if d := filepath.Join(env.Getenv("HOME"), ".config", "flow", "headless-api-key"); isRegular(d) {
+			f = d
+		}
+	}
+	if f != "" && f != "off" {
+		key, err := os.ReadFile(f)
+		if k := strings.TrimSpace(string(key)); err != nil || k == "" {
+			return "", "", "FLOW_HEADLESS_API_KEY_FILE " + f + " is unreadable or empty"
+		} else {
+			cmd.Env = append(cmd.Env, "ANTHROPIC_API_KEY="+k)
+		}
+	}
 	cmd.Stdin = bytes.NewReader(digest)
 	cmd.WaitDelay = time.Second // an orphaned child holding the pipes cannot outlast the deadline by more
 	var out, errb bytes.Buffer

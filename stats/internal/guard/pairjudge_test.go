@@ -428,3 +428,51 @@ func TestPairJudgeRecordsItsHeadlessCall(t *testing.T) {
 		t.Fatalf("headless = %+v, want the pair-judge call on sonnet low with its cost", h)
 	}
 }
+
+// TestJudgeGetsTheAPIKeyFromItsFile: FLOW_HEADLESS_API_KEY_FILE reaches the
+// judge child as ANTHROPIC_API_KEY; an empty file falls back with the cause
+// and the child never runs.
+func TestJudgeGetsTheAPIKeyFromItsFile(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct{ name, content string }{{"key", "sk-test\n"}, {"empty", ""}} {
+		stub := newPJStub(t, "printf '%s' \"$ANTHROPIC_API_KEY\" > '"+t.TempDir()+"/unused'\nprintf '%s' \"$ANTHROPIC_API_KEY\" > $(dirname $0)/key\n"+pjJSON("PAIR: opus/flow-low\nREASON: r", ""))
+		keyFile := filepath.Join(t.TempDir(), "key")
+		writeFile(t, keyFile, c.content)
+		env := policyFlowEnv(t, pjPolicy(`"planner":{"base":["opus/flow-low","opus/flow-medium"],"optin":[],"marked":[]},"pair-judge":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}`),
+			"FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd(), "FLOW_HEADLESS_API_KEY_FILE="+keyFile)
+		r := runGuard("pair-judge", []string{"planner", pjDigest(t, "d")}, env)
+		got, _ := os.ReadFile(stub.dir + "/key")
+		switch c.name {
+		case "key":
+			if r.rc != 0 || string(got) != "sk-test" {
+				t.Errorf("rc=%d key=%q err=%q", r.rc, got, r.err)
+			}
+		default:
+			if stub.ran() || !strings.Contains(r.stdout, "unreadable or empty") {
+				t.Errorf("ran=%v stdout=%q", stub.ran(), r.stdout)
+			}
+		}
+	}
+}
+
+// TestJudgeKeyFileOffAndDefault: "off" keeps the child on the subscription,
+// and the default ~/.config/flow/headless-api-key is used when present.
+func TestJudgeKeyFileOffAndDefault(t *testing.T) {
+	t.Parallel()
+	for _, mode := range []string{"off", "default"} {
+		stub := newPJStub(t, "printf '%s' \"$ANTHROPIC_API_KEY\" > $(dirname $0)/key\n"+pjJSON("PAIR: opus/flow-low\nREASON: r", ""))
+		home := t.TempDir()
+		writeFile(t, home+"/.config/flow/headless-api-key", "sk-home\n")
+		extra := "HOME=" + home
+		want := "sk-home"
+		if mode == "off" {
+			extra, want = "FLOW_HEADLESS_API_KEY_FILE=off", ""
+		}
+		env := policyFlowEnv(t, pjPolicy(`"planner":{"base":["opus/flow-low","opus/flow-medium"],"optin":[],"marked":[]},"pair-judge":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}`),
+			"FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd(), extra, "HOME="+home)
+		runGuard("pair-judge", []string{"planner", pjDigest(t, "d")}, env)
+		if got, _ := os.ReadFile(stub.dir + "/key"); string(got) != want {
+			t.Errorf("%s: key %q, want %q", mode, got, want)
+		}
+	}
+}
