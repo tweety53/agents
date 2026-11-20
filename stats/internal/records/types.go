@@ -113,6 +113,9 @@ type Dispatch struct {
 	// PairPick is the pair judge's `<source>: <reason>` the dispatch was
 	// begun with (-pair-pick); empty on a dispatch no judge picked (KAN-1119).
 	PairPick string `json:"pairPick,omitempty"`
+	// PolicyRole is the allowed-pairs role the dispatch's prompt named on
+	// its `Role:` line (-policy-role); empty where none was passed.
+	PolicyRole string `json:"policyRole,omitempty"`
 	// ClosesLoop says this scoped visual-verify verifier row closed the fix
 	// loop with no -fix-<k>-full run behind it; set by `flow record dispatch
 	// end -closes-loop`, which flow-guard visual-verify-pass close passes,

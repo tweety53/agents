@@ -240,8 +240,9 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | None":
         return None
     planning = tool_input.get("subagent_type") in PLANNING_AGENT_TYPES
     key = begin_key(tool_input, prompt)
-    role = ROLE_LINE.search(prompt)
-    role = ROW_ROLE.get(role.group(1)) if role else None
+    role_line = ROLE_LINE.search(prompt)
+    role_id = role_line.group(1) if role_line else None
+    role = ROW_ROLE.get(role_id) if role_id else None
     session_id, cwd = payload.get("session_id"), payload.get("cwd")
     if key is None or role is None or not isinstance(session_id, str) or not session_id or not isinstance(cwd, str):
         return None
@@ -281,7 +282,7 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | None":
     single = SINGLE_TASK_KEY.match(key)
     if single:
         args += ["-task", single.group(1)]
-    args += ["-key", key, "-session-token", token]
+    args += ["-key", key, "-session-token", token, "-policy-role", role_id]
     pick = read_pick(os.path.join(worktree, ".superpowers", "sdd", "pair-judge", key + ".pick"))
     if pick:
         args += ["-pair-pick", pick]

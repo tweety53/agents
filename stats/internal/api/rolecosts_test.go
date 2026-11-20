@@ -126,3 +126,44 @@ func TestRoleCostsRoute(t *testing.T) {
 		t.Errorf("weeks = %+v", got.Weeks)
 	}
 }
+
+// TestRoleCostsCountsARowUnderItsPolicyRole: a row whose prompt named its
+// role (-policy-role) is counted under it, not under the role its key
+// derives -- a no-progress escalation keyed as the panel-fix round it
+// repeats is no-progress-fixer's spend.
+func TestRoleCostsCountsARowUnderItsPolicyRole(t *testing.T) {
+	at := time.Date(2026, 8, 12, 9, 0, 0, 0, time.UTC)
+	ended := at.Add(time.Minute)
+	usd := 4.0
+	rows := fakeRoleDispatches{
+		{Role: "panel-fix", Key: "panel-fix-3", Model: "opus", Effort: "high", StartedAt: at, EndedAt: &ended, CostUSD: &usd, Outcome: "completed", PolicyRole: "no-progress-fixer"},
+	}
+	table, err := os.ReadFile("../../../skills/flow-contracts/model-policy.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fs := newFakeStore()
+	srv, err := api.New(config.Config{Host: "127.0.0.1", DSN: "unused"}, fs, fs, fs, fs, fs, nil, api.WithPolicy(&fakePolicy{}, table), api.WithRoleCosts(rows))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	resp, err := http.Get(ts.URL + "/api/v1/stats/role-costs?from=2026-08-01T00:00:00Z&to=2026-09-01T00:00:00Z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var got struct {
+		Roles []struct {
+			Role, Group string
+			CostUSD     float64
+		}
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Roles) != 1 || got.Roles[0].Role != "no-progress-fixer" || got.Roles[0].Group != "Implementation" || got.Roles[0].CostUSD != 4 {
+		t.Fatalf("roles = %+v, want the row under no-progress-fixer (Implementation)", got.Roles)
+	}
+}

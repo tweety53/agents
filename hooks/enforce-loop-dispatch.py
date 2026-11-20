@@ -43,6 +43,10 @@ CHECK = [os.environ["LOOP_DISPATCH_CHECK"]] if os.environ.get("LOOP_DISPATCH_CHE
 ]
 
 
+# A prompt's `Role:` line: the allowed-pairs role the row is counted under in Role costs.
+ROLE_LINE = re.compile(r"^Role:[ \t]*(\S+)[ \t]*$", re.M)
+
+
 def bound(seconds):
     """A subprocess call's wall-clock bound. FLOW_HOOK_UNBOUNDED=1 lifts it: the hook's tests
     inject that so the full -race suite starving a stub past the bound never fails a case
@@ -67,7 +71,9 @@ def main():
     if not m or not VALID_KEY.fullmatch(m.group(1)) or BASELINE not in prompt:
         return 0
     key = m.group(1)
-    args = [*CHECK, REPO, key, str(tool_input.get("subagent_type") or ""), str(tool_input.get("model") or "")]
+    role = ROLE_LINE.search(prompt)
+    args = [*CHECK, REPO, key, str(tool_input.get("subagent_type") or ""), str(tool_input.get("model") or ""),
+            role.group(1) if role else ""]
     try:
         r = subprocess.run(args, capture_output=True, text=True, timeout=bound(CHECK_TIMEOUT), cwd=cwd)
     except (OSError, subprocess.SubprocessError) as e:

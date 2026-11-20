@@ -12,8 +12,9 @@ import (
 // The contract below moved here from the header of the deleted
 // scripts/check-loop-dispatch.sh shim (KAN-1058).
 //
-// flow-guard check-loop-dispatch <agents-repo> <key> <subagent_type> <model> — open
-// the row of one dispatch of a pipeline-fix or self-review fix loop
+// flow-guard check-loop-dispatch <agents-repo> <key> <subagent_type> <model> [<role-id>] — open
+// the row of one dispatch of a pipeline-fix or self-review fix loop, <role-id> its
+// prompt's `Role:` line, recorded as the row's -policy-role when given
 // (hooks/enforce-loop-dispatch.py runs it on every Agent/Task call whose
 // prompt carries a `Key: pipeline-fix-<k>-…` or `Key: self-review-…` line).
 // It refuses nothing: recording is best-effort, and the hook never denies.
@@ -177,12 +178,16 @@ func lpFamily(suffix string) string {
 
 func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-loop-dispatch"
-	if len(args) != 4 || args[0] == "" || args[1] == "" {
-		fmt.Fprint(stderr, "usage: flow-guard check-loop-dispatch <agents-repo> <key> <subagent_type> <model>\n")
+	if (len(args) != 4 && len(args) != 5) || args[0] == "" || args[1] == "" {
+		fmt.Fprint(stderr, "usage: flow-guard check-loop-dispatch <agents-repo> <key> <subagent_type> <model> [<role-id>]\n")
 		Reason(env, "usage")
 		return 2
 	}
 	repo, key, typ, model := smcAbs(env, args[0]), args[1], args[2], args[3]
+	roleID := "" // the prompt's `Role:` line id: Role costs counts the row under it
+	if len(args) == 5 {
+		roleID = args[4]
+	}
 	git, ok := panelResolveGit(env, self, stderr)
 	if !ok {
 		Reason(env, "git-unresolved")
@@ -213,8 +218,12 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 		change, rowMain = lpPassTarget(env, git, lp)
 	}
 	recordRole := map[string]string{"pass": "reviewer", "plan": "planner", "fix": "implementer", "fix-r": "implementer", "fix-v": "implementer", "review": "reviewer"}[family]
-	out, _, rc := pcFlow(env, true, "record", "dispatch", "begin", "-C", rowMain, "-change", change,
-		"-role", recordRole, "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token)
+	begin := []string{"record", "dispatch", "begin", "-C", rowMain, "-change", change,
+		"-role", recordRole, "-model", model, "-effort", lpEffort(typ), "-key", key, "-session-token", lp.token}
+	if roleID != "" {
+		begin = append(begin, "-policy-role", roleID)
+	}
+	out, _, rc := pcFlow(env, true, begin...)
 	if rc != 0 {
 		fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- not recorded:\n%s", self, rc, out)
 		fmt.Fprintf(stderr, "%s: a loop's rows need its change: flow-guard pipeline-fix start creates it\n", self)

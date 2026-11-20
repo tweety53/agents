@@ -177,7 +177,10 @@ func foldRoleCosts(rows []store.RoleDispatch, groups map[string]string, order []
 	spans := map[string][]float64{}
 	weeks := map[string]map[string]float64{}
 	for _, d := range rows {
-		role := RoleOf(d.Role, d.Key)
+		role := d.PolicyRole
+		if role == "" {
+			role = RoleOf(d.Role, d.Key)
+		}
 		c := byRole[role]
 		if c == nil {
 			g := groups[role]

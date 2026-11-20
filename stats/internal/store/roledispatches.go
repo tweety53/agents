@@ -19,6 +19,8 @@ type RoleDispatch struct {
 	EndedAt   *time.Time
 	CostUSD   *float64
 	Outcome   string
+	// PolicyRole is the row's `Role:` line id, "" where none was recorded.
+	PolicyRole string
 }
 
 // RoleDispatches returns every dispatch started in period, of project when
@@ -29,7 +31,7 @@ func (s *Store) RoleDispatches(ctx context.Context, period Period, project *stri
 	rows, err := s.pool.Query(ctx, `
 		SELECT * FROM (
 		SELECT d.role, COALESCE(d.dispatch_key, '') AS key, d.model, d.effort,
-			d.started_at, d.ended_at, (d.metrics->>'cost_usd')::float8, COALESCE(d.outcome, '')
+			d.started_at, d.ended_at, (d.metrics->>'cost_usd')::float8, COALESCE(d.outcome, ''), COALESCE(d.policy_role, '')
 		FROM dispatches d
 		JOIN changes c ON c.id = d.change_id
 		WHERE d.started_at >= $1 AND d.started_at < $2
@@ -37,7 +39,7 @@ func (s *Store) RoleDispatches(ctx context.Context, period Period, project *stri
 		UNION ALL
 		SELECT 'headless', g.headless_role, g.headless_model, COALESCE(g.headless_effort, 'default'),
 			g.recorded_at - make_interval(secs => COALESCE(g.headless_ms, 0) / 1000.0), g.recorded_at,
-			g.headless_cost_usd, 'completed'
+			g.headless_cost_usd, 'completed', ''
 		FROM guard_runs g
 		WHERE g.headless_role IS NOT NULL
 		  AND g.recorded_at >= $1 AND g.recorded_at < $2
@@ -52,7 +54,7 @@ func (s *Store) RoleDispatches(ctx context.Context, period Period, project *stri
 	var out []RoleDispatch
 	for rows.Next() {
 		var r RoleDispatch
-		if err := rows.Scan(&r.Role, &r.Key, &r.Model, &r.Effort, &r.StartedAt, &r.EndedAt, &r.CostUSD, &r.Outcome); err != nil {
+		if err := rows.Scan(&r.Role, &r.Key, &r.Model, &r.Effort, &r.StartedAt, &r.EndedAt, &r.CostUSD, &r.Outcome, &r.PolicyRole); err != nil {
 			return nil, fmt.Errorf("store: role dispatches: scan: %w", err)
 		}
 		out = append(out, r)

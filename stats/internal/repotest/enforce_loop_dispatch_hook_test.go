@@ -114,7 +114,7 @@ func TestEnforceLoopDispatchHook(t *testing.T) {
 			}
 			if c.name == "2 recorded" {
 				b, _ := os.ReadFile(s.log)
-				if got := strings.ReplaceAll(string(b), "\n", " "); got != repo+" pipeline-fix-6-fix flow-low opus " {
+				if got := strings.ReplaceAll(string(b), "\n", " "); got != repo+" pipeline-fix-6-fix flow-low opus  " {
 					t.Errorf("checker args: %s", got)
 				}
 			}
