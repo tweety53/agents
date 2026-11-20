@@ -116,7 +116,8 @@ def end_row(transcript: str, payload: dict) -> None:
     if not session_id or not cwd:
         return
     try:
-        subprocess.run([FLOW_GUARD, "end-dispatch-row", transcript, session_id, cwd],
+        subprocess.run([FLOW_GUARD, "end-dispatch-row", transcript, session_id, cwd,
+                        payload.get("last_assistant_message") or ""],
                        capture_output=True, timeout=30, cwd=cwd)
     except Exception:
         pass

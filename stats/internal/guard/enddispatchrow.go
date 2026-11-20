@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// flow-guard end-dispatch-row <agent-transcript> <session-id> <cwd> — close a
+// flow-guard end-dispatch-row <agent-transcript> <session-id> <cwd> [<final-message>] — close a
 // flow dispatch's row when its subagent stops. hooks/await-own-agents.py runs
 // it on every SubagentStop it lets through, so the parent ends no row of its
 // own (the begin is hooks/enforce-agent-baseline.py's).
@@ -24,7 +24,9 @@ import (
 // reads them). A loop key (`pipeline-fix-…`, `self-review-…`) and a verifier
 // key (`visual-verify…`, which visual-verify-pass close ends) are left alone.
 //
-// The outcome reads the agent's final message:
+// The outcome reads the agent's final message — the hook payload's
+// `last_assistant_message` when passed, else the transcript's last assistant
+// text, which a stopping agent's transcript may not hold yet:
 //   - a gated reviewer bundle (`task-<ids>-reviewer…`): `fix` when any
 //     `task <n>: fix` line, else `clean` when any `task <n>: clean` line;
 //   - any other row: `completed`;
@@ -48,15 +50,18 @@ var (
 )
 
 func endDispatchRow(args []string, env Env, stdout, stderr io.Writer) int {
-	if len(args) != 3 {
+	if len(args) < 3 || len(args) > 4 {
 		Reason(env, "usage")
-		fmt.Fprintln(stderr, "usage: flow-guard end-dispatch-row <agent-transcript> <session-id> <cwd>")
+		fmt.Fprintln(stderr, "usage: flow-guard end-dispatch-row <agent-transcript> <session-id> <cwd> [<final-message>]")
 		return 2
 	}
 	na := func(why string) int { fmt.Fprintln(stdout, "END-DISPATCH-ROW-NA "+why); return 0 }
 	prompt, final, err := edrTranscript(args[0])
 	if err != nil {
 		return na("transcript unreadable: " + err.Error())
+	}
+	if len(args) == 4 && strings.TrimSpace(args[3]) != "" {
+		final = args[3]
 	}
 	m := edrKey.FindStringSubmatch(prompt)
 	if m == nil {
