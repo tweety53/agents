@@ -37,6 +37,13 @@ a path with unstaged edits: the restore reverts it to its index state and an unc
 with it. The reason points at flow-guard break-and-prove, which restores from a
 byte snapshot.
 
+It denies `git stash pop`, `apply`, `drop` and `branch` unless the stash entry they act on was made
+on the current branch. A stash list is shared by every worktree of a repository, so a bare
+`git stash pop` after a failed `git stash push` pops another change's work into this worktree
+(kan-1092: kan-1091's WIP landed as conflict markers in four files). A call with no explicit
+`stash@{N}` is denied outright; one naming an entry is allowed only when `git stash list` shows
+"On <current branch>:" for it. The reason tells the agent to stop and report BLOCKED.
+
 Allowed everywhere: reads, `git pull --ff-only`, `git fetch`, `git checkout -b`, `git switch -c`,
 `git worktree add`, `git push`, and the landing script `flow-guard refresh-main-checkout` — it is not a
 `git` verb in the command text, and owns its own main-checkout rules.
@@ -923,6 +930,44 @@ def bash_hits(command, cwd, landings=None):
     return [h for h in hits if h]
 
 
+STASH_RE = re.compile(r"\bgit((?:\s+-[Cc]\s+\S+)*)\s+stash\s+(pop|apply|drop|branch)\b([^;&|\n)]*)")
+STASH_REF_RE = re.compile(r"stash@\{(\d+)\}")
+STASH_LIST_RE = re.compile(r"^stash@\{(\d+)\}: (?:WIP on|On) ([^:]+):")
+STASH_BLOCKED = (
+    " Never use git stash pop/apply/drop/branch: the stash list is shared by every worktree of the "
+    "repository, so it can hold another change's work. If a worktree looks wrong, stop and report "
+    "BLOCKED with the exact `git status` output."
+)
+
+
+def stash_denial(command, cwd):
+    """The reason a `git stash pop|apply|drop|branch` in command acts on a stash not made on the
+    current branch (or names none), else None."""
+    for m in STASH_RE.finditer(command):
+        verb, rest = m.group(2), m.group(3).split()
+        target = cwd
+        flags = m.group(1).split()
+        for k, f in enumerate(flags):
+            if f == "-C" and k + 1 < len(flags):
+                target = resolve(flags[k + 1], cwd)
+        ref = next((STASH_REF_RE.fullmatch(a) for a in rest if STASH_REF_RE.fullmatch(a)), None)
+        if ref is None and verb != "branch":
+            ref = next((re.fullmatch(r"(\d+)", a) for a in rest if re.fullmatch(r"\d+", a)), None)
+        if ref is None:
+            return f"Blocked: `git stash {verb}` names no stash entry, so it acts on stash@{{0}}, which may belong to another change." + STASH_BLOCKED
+        listing = git(target, "stash", "list") or ""
+        current = git(target, "rev-parse", "--abbrev-ref", "HEAD")
+        made_on = {int(x.group(1)): x.group(2) for x in map(STASH_LIST_RE.match, listing.splitlines()) if x}
+        branch = made_on.get(int(ref.group(1)))
+        if branch is None or branch != current:
+            return (
+                f"Blocked: `git stash {verb} stash@{{{ref.group(1)}}}` — that entry "
+                + (f"was made on `{branch}`, not on `{current}`." if branch else "is not in the stash list.")
+                + STASH_BLOCKED
+            )
+    return None
+
+
 def deny_reason(top, branch):
     name = os.path.basename(top)
     return (
@@ -965,6 +1010,9 @@ def main():
                 landings.append(BARE_CAT_REASON)
             if full_go_test(command):
                 landings.append(FULL_GO_TEST_REASON)
+            stash = stash_denial(command, cwd)
+            if stash:
+                landings.append(stash)
             candidates.extend(bash_hits(command, cwd, landings))
             if landings:
                 json.dump(

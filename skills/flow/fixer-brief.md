@@ -5,6 +5,8 @@ Minors fix, a verify fix — is the implementer stub (**4. Execute (SDD + TDD)**
 `skills/flow/implement.md`) carrying a `FIX INPUT:` line and the line `Fix brief:` naming this file.
 It reads `implementer-brief.md` and then this file in full first; every paragraph below binds it.
 
+> **STASH:** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output.
+
 > **FIX DISPATCH:** a prompt carrying a `FIX INPUT:` line makes you a fixer, not a task's
 > implementer: fix exactly what that line names — reviewer reports and finding refs, a
 > `flow-guard close-task` refusal's lines, or a failing suite block —

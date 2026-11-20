@@ -569,3 +569,32 @@ func TestBlockUnsafeCommandsReadsALiteralExportAsData(t *testing.T) {
 		}
 	}
 }
+
+// TestBlockUnsafeCommandsDeniesAStashNotMadeOnTheCurrentBranch: the stash list is shared by every
+// worktree, so a pop, apply, drop or branch is allowed only for an entry made on the current
+// branch and named by its ref; a bare pop/apply (which acts on stash@{0}) is denied whatever it holds.
+func TestBlockUnsafeCommandsDeniesAStashNotMadeOnTheCurrentBranch(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	f, _, main, wt := newPMFixture(t)
+	other := main + "/.worktrees/other"
+	f.git("-C", main, "worktree", "add", other, "-b", "other")
+	f.write(wt+"/f.txt", "change wip\n")
+	f.git("-C", wt, "stash", "push", "-q", "-m", "mine")
+	f.write(other+"/f.txt", "other wip\n")
+	f.git("-C", other, "stash", "push", "-q", "-m", "theirs")
+	// stash@{0} is the one made on `other`, stash@{1} the one made on `change`.
+	defer f.flush()
+	for _, c := range []string{"git stash pop", "git stash apply", "git stash drop", "git stash pop --index", "git stash push -- x && git stash pop", "git stash pop stash@{0}", "git stash apply stash@{0}", "git stash drop stash@{0}", "git stash branch nb stash@{0}", "git stash pop stash@{9}", "git stash pop 0"} {
+		f.bash("deny "+c, "deny", "{WT}", c)
+	}
+	for _, c := range []string{"git stash pop stash@{1}", "git stash apply stash@{1}", "git stash drop stash@{1}", "git stash branch nb stash@{1}", "git stash list", "git stash push -- f.txt", "git stash show stash@{0}"} {
+		f.bash("allow "+c, "allow", "{WT}", c)
+	}
+	f.check("the reason tells the agent to report BLOCKED", func(t *testing.T) {
+		out := f.run(t, f.x("{WT}"), "Bash", map[string]string{"command": "git stash pop"})
+		if !strings.Contains(out, "BLOCKED") || !strings.Contains(out, "git status") {
+			t.Errorf("out=%s", out)
+		}
+	})
+}

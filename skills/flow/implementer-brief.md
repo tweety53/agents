@@ -73,6 +73,8 @@ this file in full first: its prompt is a stub naming this file, never these para
 > completion, before you stop. A `flow-guard` run counts: write your report file last, after
 > every guard has exited, and hand back only then.
 
+> **STASH:** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output.
+
 > **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
 > `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
 > before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a

@@ -25,7 +25,7 @@ token generated once per invocation, shaped as **Stage marks** (`skills/flow-con
 states, and typed the same in every `flow record` command — never a shell substitution, per the
 CLI's own usage text. A mark carries none. `<n>` is the request's number in the session.
 
-**Guardrails, the whole list.** Never dispatch a subagent, save the self-review pass's own
+**Guardrails, the whole list.** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output. Never dispatch a subagent, save the self-review pass's own
 dispatches (`skills/flow-self-review/SKILL.md`), the in-run fix loop of **Pipeline defects found
 mid-run** (`skills/flow-contracts/pipeline.md`), and a subagent the operator asks for in their
 own words (**Operator-asked subagents**, below). Never write `<project>/spectre/`, save those

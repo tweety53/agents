@@ -40,6 +40,8 @@ path, with no copy to go stale. If that checkout is missing from this machine th
 say so rather than proceeding as if the rule did not exist, and treat the one-liner as the whole rule
 in the meantime.
 
+**Git stash is shared by every worktree.** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output.
+
 ## Project rules come on top
 
 If you are working inside a repository, its instruction file, `<project>/CLAUDE.md`, is already in

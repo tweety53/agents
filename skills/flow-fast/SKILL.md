@@ -27,7 +27,7 @@ never a shell substitution, per the CLI's own usage text. A mark carries none. A
 marks each `-stages` key begun and ended `completed`, in order: the stages `/flow-fast` has nothing
 to run for; the mark stays so the run's stage set matches `/flow`'s.
 
-**Guardrails, the whole list.** Never dispatch a subagent the recorded decision does not name —
+**Guardrails, the whole list.** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output. Never dispatch a subagent the recorded decision does not name —
 an implementer per group and its gated reviewer, the decision's panel dispatches, the panel-fix subagent; never
 a planner or a verifier, save the in-run fix loop of **Pipeline defects found mid-run**
 (`skills/flow-contracts/pipeline.md`), which a `/flow-fast` run follows too, and the
