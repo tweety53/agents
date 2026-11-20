@@ -1343,3 +1343,14 @@ func TestLedgerShowsAnInlineRowsServedModelAlone(t *testing.T) {
 		}
 	}
 }
+
+// A blocked dispatch's cause reaches the ledger, so a reader can tell why it was blocked.
+func TestRenderLedgerNamesBlockedCause(t *testing.T) {
+	run := records.Run{Change: "demo", Dispatches: []records.Dispatch{{
+		Seq: 1, Role: "verifier", Model: "opus", Outcome: "blocked", Cause: "missing-fixture",
+		StartedAt: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+	}}}
+	if out := records.RenderLedger(run); !strings.Contains(out, "- Cause: missing-fixture") {
+		t.Errorf("ledger omits the blocked cause:\n%s", out)
+	}
+}

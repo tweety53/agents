@@ -667,6 +667,9 @@ func RenderLedger(r Run) string {
 			fmt.Fprintf(&b, "- Pair pick: %s\n", neutraliseMarkers(d.PairPick))
 		}
 		fmt.Fprintf(&b, "- Outcome: %s\n", orElse(d.Outcome, "not recorded"))
+		if d.Cause != "" {
+			fmt.Fprintf(&b, "- Cause: %s\n", neutraliseMarkers(d.Cause))
+		}
 		started := "not recorded"
 		if !d.StartedAt.IsZero() {
 			started = d.StartedAt.UTC().Format(time.RFC3339)
