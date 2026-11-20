@@ -215,7 +215,7 @@ function modelEffortLabel(d: Step): string {
  * descriptions, then "main session" for the runs' cost no bucket carries --
  * the main session's own turns. Null where nothing is left.
  */
-export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, number>): { unattributed: number | null; unrecorded: string[]; main: number | null } {
+export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, number>): { unattributed: number | null; unrecorded: { label: string; cost: number }[]; main: number | null } {
   const header = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
   // A run with no measured header cost holds buckets the header never counted: they are no part of
   // the main session's share, whose header is the other runs' alone (else it reads negative).
@@ -230,7 +230,7 @@ export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<str
   const unrecorded = runs.flatMap((r) =>
     Object.entries(asObject(asObject(r.metrics)?.dispatches) ?? {})
       .filter(([id]) => costs.has(id) && !claimed.has(id))
-      .map(([id, b]) => String(asObject(b)?.description ?? id)),
+      .map(([id, b]) => ({ label: String(asObject(b)?.description ?? id), cost: costs.get(id) ?? 0 })),
   );
   const keep = (v: number) => (Math.abs(v) >= 0.005 ? v : null);
   return { unattributed: keep(unattributed), unrecorded, main: header === null ? null : keep(header - buckets) };
@@ -384,14 +384,14 @@ function WorkPanel({
                 </Fragment>
               ))}
               {roles.length === 0 && <li className="lb-muted">No dispatches yet.</li>}
-              {rest.unattributed !== null && (
-                <li data-testid="phase-role" className="lb-muted" title={`Agents that ran with no recorded dispatch row: ${rest.unrecorded.join(", ")}`}>
-                  <span className="lb-role">unrecorded agents ×{rest.unrecorded.length}</span>
+              {rest.unrecorded.map((u, i) => (
+                <li key={`${u.label}-${i}`} data-testid="phase-role" className="lb-muted" title="An agent that ran with no recorded dispatch row">
+                  <span className="lb-role">{u.label}</span>
                   <span />
-                  <span className="lb-num r">{formatUsd(rest.unattributed)}</span>
+                  <span className="lb-num r">{formatUsd(u.cost)}</span>
                   <span />
                 </li>
-              )}
+              ))}
               {rest.main !== null && (
                 <li data-testid="phase-role" className="lb-muted" title="the main session's own turns: dispatching, reading reports, acting on them">
                   <span className="lb-role">main session</span>
