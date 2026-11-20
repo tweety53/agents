@@ -1234,8 +1234,8 @@ td.lb-clip { max-width: 0; width: 100%; }
 
 /* Self-review: the Fixed / To review tabs and the suggestion cards. */
 .sr-table { width: 100%; }
-.sr-table td { white-space: normal; overflow-wrap: anywhere; vertical-align: top; }
-.sr-wrap { min-width: 40ch; }
+.sr-table td { vertical-align: top; }
+.sr-wrap { white-space: normal; min-width: 30ch; }
 .sr-detail summary { cursor: pointer; color: var(--text-secondary); font-size: 12px; }
 .sr-detail pre, .sr-card pre { white-space: pre-wrap; font: inherit; margin: 6px 0 0; }
 .sr-card { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 0 0 10px; }
