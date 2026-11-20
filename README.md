@@ -49,9 +49,8 @@ flowchart LR
 .
 ├── .flow/            this repository's own flow config (project.md: lint, test, run, stop)
 ├── agents/           subagent definitions: flow-{low,medium,high,xhigh}, flow-planner-{low,medium,high,xhigh}; the
-                  non-planner types compact at 150,000 tokens (`autoCompactWindow`), which a
-                  `CLAUDE_CODE_AUTO_COMPACT_WINDOW` in the environment overrides — set the session's window with
-                  the `autoCompactWindow` setting instead
+                  non-planner types compact at 200,000 tokens (`autoCompactWindow`), over the session's
+                  `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
 ├── commands-claude/  thin slash-command wrappers for Claude Code
 ├── docs/             briefs/ (lessons), designs/ (the design record run 1 writes per /flow change) and prompt-tuning/ (/flow-prompt-tuning inbox + LEDGER.md)
 ├── hooks/            the Python hooks (see Guardrails)

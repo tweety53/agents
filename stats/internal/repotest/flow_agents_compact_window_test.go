@@ -13,7 +13,7 @@ import (
 func TestFlowAgentsCompactAtTheContextCeiling(t *testing.T) {
 	t.Parallel()
 	root := repoRoot(t)
-	const key = "\nautoCompactWindow: 150000\n"
+	const key = "\nautoCompactWindow: 200000\n"
 	for _, n := range []string{"low", "medium", "high", "xhigh"} {
 		rel := "agents/flow-" + n + ".md"
 		b, err := os.ReadFile(filepath.Join(root, rel))
@@ -21,7 +21,7 @@ func TestFlowAgentsCompactAtTheContextCeiling(t *testing.T) {
 			t.Fatal(err)
 		}
 		if !strings.Contains(string(b), key) {
-			t.Errorf("%s lacks the frontmatter line autoCompactWindow: 150000", rel)
+			t.Errorf("%s lacks the frontmatter line autoCompactWindow: 200000", rel)
 		}
 	}
 	planners, _ := filepath.Glob(filepath.Join(root, "agents", "flow-planner-*.md"))
