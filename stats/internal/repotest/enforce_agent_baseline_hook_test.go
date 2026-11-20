@@ -693,3 +693,88 @@ func TestEnforceAgentBaselineHookRecordsThePairPick(t *testing.T) {
 		})
 	}
 }
+
+// roleCheckPayload is a flow-session dispatch carrying the baseline pointer and, when role is set,
+// its Role line.
+func roleCheckPayload(t *testing.T, role, model, agent string) []byte {
+	t.Helper()
+	tr := filepath.Join(t.TempDir(), "s1.jsonl")
+	if err := os.WriteFile(tr, []byte(`{"type":"user","message":{"content":"<command-name>/flow</command-name>"}}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	prompt := "do it\nBefore anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task. Include this instruction verbatim in any prompt you write for another agent."
+	if role != "" {
+		prompt = "Role: " + role + "\n" + prompt
+	}
+	b, err := json.Marshal(map[string]any{
+		"tool_name": "Agent", "session_id": "s1", "cwd": t.TempDir(), "transcript_path": tr,
+		"tool_input": map[string]string{"description": "x", "prompt": prompt, "subagent_type": agent, "model": model},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// TestEnforceAgentBaselineHookAdmitsOnlyAPolicyRoleAndPair pins the role/pair check against the
+// seeded policy (guard/testdata/policy.json): in a flow session a flow-* dispatch needs a `Role:`
+// line naming a role of `flow policy get` and a `<model>/<subagent_type>` pair that role admits.
+func TestEnforceAgentBaselineHookAdmitsOnlyAPolicyRoleAndPair(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name, role, model, agent string
+		deny                     bool
+		reasonHas                string
+	}{
+		{"no role line", "", "sonnet", "flow-low", true, "Role: <id>"},
+		{"unknown role", "executor", "sonnet", "flow-low", true, "not a role"},
+		{"role with the wrong pair", "panel-merger", "sonnet", "flow-medium", true, "sonnet/flow-low"},
+		{"admitted pair", "panel-merger", "sonnet", "flow-low", false, ""},
+		{"other subagent type", "executor", "sonnet", "general-purpose", false, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			out, _, rc := runHook(t, "enforce-agent-baseline.py", roleCheckPayload(t, c.role, c.model, c.agent), "FLOW_HOOK_ROLE_CHECK=on")
+			denied := strings.Contains(out, `"permissionDecision": "deny"`)
+			if rc != 0 || denied != c.deny {
+				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)
+			}
+			if c.reasonHas != "" && !strings.Contains(out, c.reasonHas) {
+				t.Errorf("reason lacks %q: %s", c.reasonHas, out)
+			}
+		})
+	}
+}
+
+// TestEnforceAgentBaselineHookRoleCheckReadsItsOwnPolicy runs the hook with its own `flow`: an optin
+// pair is admitted, and a `flow policy get` that fails admits every dispatch.
+func TestEnforceAgentBaselineHookRoleCheckReadsItsOwnPolicy(t *testing.T) {
+	t.Parallel()
+	const policy = `{"planner":{"base":["opus/flow-planner-low"],"optin":["fable/flow-planner-low"]}}`
+	cases := []struct {
+		name, flowBody, role, model, agent string
+		deny                               bool
+	}{
+		{"optin pair", "printf '%s' '" + policy + "'\n", "planner", "fable", "flow-planner-low", false},
+		{"pair outside both lists", "printf '%s' '" + policy + "'\n", "planner", "sonnet", "flow-planner-low", true},
+		{"policy unreachable", "exit 1\n", "executor", "sonnet", "flow-medium", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			bin := t.TempDir()
+			writeStub(t, filepath.Join(bin, "flow"), c.flowBody)
+			cmd := exec.Command("python3", filepath.Join(repoRoot(t), "hooks", "enforce-agent-baseline.py"))
+			cmd.Stdin = strings.NewReader(string(roleCheckPayload(t, c.role, c.model, c.agent)))
+			cmd.Env = append(os.Environ(), "HOME="+t.TempDir(), "FLOW_HOOK_UNBOUNDED=1", "FLOW_HOOK_INCIDENT_CMD=true", "FLOW_ADDR=http://127.0.0.1:1", "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+			out, err := cmd.Output()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if denied := strings.Contains(string(out), `"permissionDecision": "deny"`); denied != c.deny {
+				t.Fatalf("deny=%v want %v out=%s", denied, c.deny, out)
+			}
+		})
+	}
+}

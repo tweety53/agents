@@ -41,6 +41,11 @@ names the session change's worktree, <main-checkout>-worktrees/<change> (decisio
 planning-agents-hook-begun, planning-agent-begins-in-brainstorm); a loop planner's agents -- naming
 the loop's worktree, or the run's own outside `flow.plan` -- keep the planner's explicit begin.
 
+It denies, in a flow session, a `flow-*` dispatch whose prompt has no `Role: <id>` line, whose id is
+not a role of `flow policy get`, or whose `<model>/<subagent_type>` pair is in neither the role's base
+nor its optin list: the deny names the role's admitted pairs, or the roles. A `flow policy get` that
+fails lets the dispatch through (skills/flow-contracts/model-policy.md, **Allowed pairs**).
+
 Each deny, once written, also records one `flow record incident` row, with the session's change
 where the store names one; that write fails open, leaving the deny as it stands.
 
@@ -350,6 +355,42 @@ def in_flow_session(payload: dict) -> bool:
         return False
 
 
+def role_pair_reason(payload: dict, tool_input: dict, prompt: str) -> "str | None":
+    """The deny reason for a `flow-*` dispatch in a flow session whose Role line or pair the policy
+    does not admit, else None. Any failure to read the policy admits the dispatch."""
+    agent = tool_input.get("subagent_type")
+    if os.environ.get("FLOW_HOOK_ROLE_CHECK") == "off":  # the hooks' own harness, for cases not about the check
+        return None
+    if not isinstance(agent, str) or not agent.startswith("flow-") or not in_flow_session(payload):
+        return None
+    try:
+        done = subprocess.run(["flow", "policy", "get"], capture_output=True, text=True,
+                              timeout=bound(10), check=False, cwd=payload.get("cwd") or None)
+        policy = json.loads(done.stdout) if done.returncode == 0 else None
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    if not isinstance(policy, dict) or not policy:
+        return None
+    roles = ", ".join(sorted(policy))
+    line = ROLE_LINE.search(prompt)
+    if line is None:
+        return ("Dispatch blocked: a flow-* dispatch's prompt carries a `Role: <id>` line "
+                "(skills/flow-contracts/model-policy.md, **Allowed pairs**).\n\n"
+                f"Roles: {roles}.\nAn unusual task no role fits takes `general`.")
+    role = line.group(1)
+    entry = policy.get(role)
+    if not isinstance(entry, dict):
+        return (f"Dispatch blocked: `Role: {role}` is not a role of the policy; never invent one.\n\n"
+                f"Roles: {roles}.\nAn unusual task no role fits takes `general`.")
+    admitted = [*(entry.get("base") or []), *(entry.get("optin") or [])]
+    pair = f"{tool_input.get('model') or '<no model>'}/{agent}"
+    if pair in admitted:
+        return None
+    return (f"Dispatch blocked: `{role}` does not admit `{pair}`.\n\n"
+            f"Admitted pairs: {', '.join(admitted) or 'none'}.\n"
+            "Re-send with `model` and `subagent_type` set to one of them.")
+
+
 def fork_reason(payload: dict, tool_input: dict) -> "str | None":
     prompt = tool_input.get("prompt")
     if isinstance(prompt, str) and "skills/flow" in prompt:
@@ -466,6 +507,10 @@ def main() -> int:
         return 0
 
     reason = loop_key_line_reason(payload, tool_input, prompt)
+    if reason:
+        deny(reason)
+        return 0
+    reason = role_pair_reason(payload, tool_input, prompt)
     if reason:
         deny(reason)
         return 0
