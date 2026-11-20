@@ -34,6 +34,12 @@ function decided(dispatches: RecordDispatch[], want: (key: string) => boolean): 
   return d ? (d.effort && d.effort !== "default" ? `${d.model} · ${d.effort}` : d.model) : "not run yet";
 }
 
+/** An implementer dispatch covers a group's tasks when its key `task-<ids>-implementer` names every one: the run may bundle tasks the plan listed apart. */
+const ranWith = (key: string, ids: string[]) => {
+  const m = /^task-(\d+(?:\+\d+)*)-implementer$/.exec(key);
+  return !!m && ids.every((i) => m[1].split("+").includes(i));
+};
+
 const pick = (role: string, p: Pick | undefined, run?: string): Line[] =>
   p?.model
     ? [{ role, model: p.effort ? `${p.model} · ${p.effort}` : p.model, reason: p.reason }]
@@ -55,7 +61,7 @@ function lines(d: Decision, dispatches: RecordDispatch[]): Line[] {
     return (Array.isArray(o.pairs) ? o.pairs : []).map((role) => ({ role: role[0].toUpperCase() + role.slice(1), model: `${model} · ${effort}`, reason: o.instruction }));
   });
   const implementers = d.groups?.length
-    ? d.groups.flatMap((g) => ((ids) => pick(`${ids.length > 1 ? "Tasks" : "Task"} ${ids.join(", ")}`, g, decided(dispatches, (k) => k === `task-${ids.join("+")}-implementer`)))(g.tasks ?? (g.bundles ?? []).map(String)))
+    ? d.groups.flatMap((g) => ((ids) => pick(`${ids.length > 1 ? "Tasks" : "Task"} ${ids.join(", ")}`, g, decided(dispatches, (k) => ranWith(k, ids))))(g.tasks ?? (g.bundles ?? []).map(String)))
     : pick("Implementer", d.implementer);
   return [
     ...overrides,

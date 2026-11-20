@@ -100,4 +100,10 @@ describe("DecisionsPanel with a plan-check decision", () => {
       "Visual check: requirednot run yetUI changes",
     ]);
   });
+
+  it("a task the run bundled with another still shows the bundle's pair", () => {
+    const run = (key: string) => ({ id: 1, key, role: "x", model: "sonnet", effort: "low", startedAt: "2026-01-01T00:00:00Z" });
+    render(<DecisionsPanel decision={{ groups: [{ tasks: ["21"], reason: "a" }, { tasks: ["22"], reason: "b" }, { tasks: ["2"], reason: "c" }] }} dispatches={[run("task-21+22-implementer")]} />);
+    expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual(["Task 21sonnet · lowa", "Task 22sonnet · lowb", "Task 2not run yetc"]);
+  });
 });
