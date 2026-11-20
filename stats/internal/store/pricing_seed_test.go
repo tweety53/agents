@@ -138,6 +138,24 @@ func TestSeedPricingRatesCarryFable52(t *testing.T) {
 	}
 }
 
+// TestSeedPricingRatesCarryHaiku55 pins the claude-haiku-5-5 row at the page's over-100,000-token
+// tier (a ceiling, as the seed's comment says), with no fast-mode rate.
+func TestSeedPricingRatesCarryHaiku55(t *testing.T) {
+	t.Parallel()
+	for _, r := range store.SeedPricingRates() {
+		if r.Model != "claude-haiku-5-5" {
+			continue
+		}
+		if r.InputPerMTok != 0.50 || r.OutputPerMTok != 2.50 || r.CacheWrite5mPerMTok != 0.625 ||
+			r.CacheWrite1hPerMTok == nil || *r.CacheWrite1hPerMTok != 1 || r.CacheReadPerMTok != 0.05 ||
+			r.FastInputPerMTok != nil || r.FastOutputPerMTok != nil {
+			t.Errorf("rates = %+v, want 0.50/2.50, cache 0.625/1, read 0.05, no fast rate", r)
+		}
+		return
+	}
+	t.Fatal("no seeded rate for claude-haiku-5-5")
+}
+
 // TestSeedPricingRatesOmitFastForModelsWithNone pins the table's own
 // documented gap: claude-sonnet-5 and claude-haiku-4-5 have no published
 // fast-mode rate (the source table's "—" cells), and this seed must not

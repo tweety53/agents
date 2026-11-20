@@ -27,7 +27,7 @@ func fastRate(v float64) *float64 { return &v }
 // the claude-opus-5-5, claude-fable-5 and claude-haiku-4-5-20251001 rows
 // read from it on 2026-09-23 -- the dated Haiku id is the one the harness
 // serves, at the Haiku 4.5 row's own rates -- the claude-sonnet-5-5 row
-// read from it on 2026-10-29, and the claude-fable-5-2 row read from it on 2026-11-09. The
+// read from it on 2026-10-29, the claude-haiku-5-5 row from its model page on 2026-11-21, and the claude-fable-5-2 row read from it on 2026-11-09. The
 // GLM-5.3-Flash row (kan-479, keyed to the canonical lowercase form of
 // the model id -- design decision model-id-canonical-lowercase) was read from
 // https://docs.z.ai/guides/overview/pricing on 2026-09-09: the launch-
@@ -144,6 +144,21 @@ func SeedPricingRates() []PricingRate {
 			CacheWrite5mPerMTok: 2.50,
 			CacheWrite1hPerMTok: fastRate(4),
 			CacheReadPerMTok:    0.10, // 0.05x input on this model.
+			// No fast-mode rate published for this model.
+		},
+		{
+			// Read from https://platform.claude.com/docs/en/models/haiku-5-5/overview on 2026-11-21.
+			// Haiku 5.5 prices by prompt length (input 0.10 / output 0.50 up to 100,000 tokens, 0.50 /
+			// 2.50 over it), and a stage run's token totals carry no per-request prompt length, so
+			// this row is the OVER-100k tier: a ceiling, never an underestimate, for the long
+			// subagent contexts this model runs in.
+			Model:               "claude-haiku-5-5",
+			EffectiveFrom:       pricingSeedEffectiveFrom,
+			InputPerMTok:        0.50,
+			OutputPerMTok:       2.50,
+			CacheWrite5mPerMTok: 0.625,
+			CacheWrite1hPerMTok: fastRate(1),
+			CacheReadPerMTok:    0.05,
 			// No fast-mode rate published for this model.
 		},
 		{
