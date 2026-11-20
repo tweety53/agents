@@ -851,7 +851,25 @@ func (h *recordHandler) runRecord(w http.ResponseWriter, r *http.Request) {
 		writeError(w, status, msg)
 		return
 	}
-	writeJSON(w, http.StatusOK, rec)
+	out := struct {
+		records.Run
+		Headless []store.HeadlessRow `json:"headless"`
+	}{Run: rec, Headless: []store.HeadlessRow{}}
+	// Optional: a store without the headless read answers the record alone.
+	if hs, ok := h.store.(interface {
+		ChangeHeadless(ctx context.Context, projectKey, change string) ([]store.HeadlessRow, error)
+	}); ok {
+		rows, err := hs.ChangeHeadless(r.Context(), project, change)
+		if err != nil {
+			status, msg := mapStoreError(h.logger, fmt.Sprintf("read the headless calls for %s/%s", project, change), err)
+			writeError(w, status, msg)
+			return
+		}
+		if rows != nil {
+			out.Headless = rows
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // renderRecord serves GET /api/v1/records/{project}/{change}/render/{kind}:

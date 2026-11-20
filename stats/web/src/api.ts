@@ -816,8 +816,17 @@ export interface RecordDispatch {
 }
 
 /** GET /api/v1/records/{project}/{change} -- the change's run record; the run view reads its dispatches. */
-export function getRunRecord(project: string, change: string, init?: RequestInit): Promise<{ dispatches: RecordDispatch[] }> {
-  return getJSON<{ dispatches: RecordDispatch[] }>(`/api/v1/records/${encodeURIComponent(project)}/${encodeURIComponent(change)}`, init);
+export interface HeadlessRow {
+  role: string;
+  model: string;
+  effort: string;
+  costUSD: number | null;
+  durationMS: number;
+  recordedAt: string;
+}
+
+export function getRunRecord(project: string, change: string, init?: RequestInit): Promise<{ dispatches: RecordDispatch[]; headless?: HeadlessRow[] }> {
+  return getJSON<{ dispatches: RecordDispatch[]; headless?: HeadlessRow[] }>(`/api/v1/records/${encodeURIComponent(project)}/${encodeURIComponent(change)}`, init);
 }
 
 /** Mirrors api.metric: one figure with what it means and how it was obtained. */

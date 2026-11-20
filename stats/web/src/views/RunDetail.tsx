@@ -33,7 +33,7 @@ import { SR_STEPS, selfReviewNow, srStep, type SrStep } from "../lib/selfReviewN
 import { canonicalStage, stagePhase, type Phase } from "../lib/phase";
 import { mainNow, mainProgress, mainSummary, type ProgressState } from "../lib/mainNow";
 import { currentRequest, focusRequest, interactiveWaiting, isInteractive, requestStart, requestSteps } from "../lib/interactive";
-import { findChanges, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
+import { findChanges, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type HeadlessRow, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
 
 export interface RunDetailProps {
   project: string;
@@ -215,6 +215,20 @@ function modelEffortLabel(d: Step): string {
  * descriptions, then "main session" for the runs' cost no bucket carries --
  * the main session's own turns. Null where nothing is left.
  */
+/** One line per role of a change's headless calls (pair-judge, plan-triage, decider): how many, on which model · effort, their summed cost. */
+export function headlessRoles(rows: HeadlessRow[]): { role: string; count: number; models: string; cost: number | null }[] {
+  const by = new Map<string, { count: number; cost: number | null; pairs: Map<string, number> }>();
+  for (const r of rows) {
+    const g = by.get(r.role) ?? { count: 0, cost: null, pairs: new Map<string, number>() };
+    g.count += 1;
+    if (r.costUSD !== null) g.cost = (g.cost ?? 0) + r.costUSD;
+    const pair = `${formatModel(r.model)} · ${r.effort}`;
+    g.pairs.set(pair, (g.pairs.get(pair) ?? 0) + 1);
+    by.set(r.role, g);
+  }
+  return [...by].map(([role, g]) => ({ role, count: g.count, cost: g.cost, models: [...g.pairs].map(([p, n]) => `${p} ×${n}`).join(", ") }));
+}
+
 /** The agents no dispatch row claims, one row per role: an "explore…" description is an explorer, any other keeps its own name. */
 export type UnrecordedRole = { role: string; count: number; models: string; cost: number };
 
@@ -292,6 +306,7 @@ function WorkPanel({
   progress,
   summary,
   note,
+  headless,
   open = true,
   onToggle,
   order,
@@ -306,6 +321,8 @@ function WorkPanel({
   summary: string;
   /** A line under the Now line: Main's view of the self-review. */
   note?: ReactNode;
+  /** The change's headless calls, one line per role under the dispatch roles. */
+  headless?: HeadlessRow[];
   open?: boolean;
   onToggle?: () => void;
   /** Its place in the single stack narrow widths fall back to. */
@@ -403,6 +420,16 @@ function WorkPanel({
                 </Fragment>
               ))}
               {roles.length === 0 && <li className="lb-muted">No dispatches yet.</li>}
+              {headlessRoles(headless ?? []).map((h) => (
+                <li key={`headless-${h.role}`} data-testid="phase-role" title="Headless model calls: no agent, one `claude -p` call per guard run">
+                  <span className="lb-role">
+                    {h.role} <span className="lb-muted">×{h.count}</span>
+                  </span>
+                  <span className="lb-role-models">{h.models}</span>
+                  <span className="lb-num r">{h.cost !== null ? formatUsd(h.cost) : <span className="lb-muted">unpriced</span>}</span>
+                  <span />
+                </li>
+              ))}
               {rest.unrecorded.map((u) => (
                 <li key={u.role} data-testid="phase-role" title="Agents that ran with no recorded dispatch row">
                   <span className="lb-role">
@@ -635,13 +662,22 @@ export function RunDetail({ project, change }: RunDetailProps) {
   // The phase panels' dispatches and the self-review findings, refetched on the board's cadence.
   const finished = board?.state === "FINISHED";
   const [dispatches, setDispatches] = useState<RecordDispatch[]>([]);
+  const [headless, setHeadless] = useState<HeadlessRow[]>([]);
   const [findings, setFindings] = useState<SelfReviewFinding[]>([]);
   useEffect(() => {
     let live = true;
     const load = () => {
       getRunRecord(project, change)
-        .then((r) => live && setDispatches(r?.dispatches ?? []))
-        .catch(() => live && setDispatches([]));
+        .then((r) => {
+          if (!live) return;
+          setDispatches(r?.dispatches ?? []);
+          setHeadless(r?.headless ?? []);
+        })
+        .catch(() => {
+          if (!live) return;
+          setDispatches([]);
+          setHeadless([]);
+        });
       listSelfReviewFindings(project, change)
         .then((r) => live && setFindings(r ?? []))
         .catch(() => live && setFindings([]));
@@ -1049,7 +1085,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
               )}
 
                   {isSub ? (
-                    <WorkPanel title="Main" runs={runs0} steps={steps} now={now} nowText={srView.nowText} progress={srView.progress} summary={srView.summary} order={1} />
+                    <WorkPanel title="Main" runs={runs0} steps={steps} now={now} nowText={srView.nowText} progress={srView.progress} summary={srView.summary} headless={headless} order={1} />
                   ) : interactive ? (
                     <>
                       <RequestMainPanel runs={runs0} n={focus} now={now} order={1} />
@@ -1076,6 +1112,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                         steps={mainSteps}
                         now={now}
                         order={1}
+                        headless={headless}
                         nowText={srOpen ? "Running the self-review" : mainNow(mainRuns, mainSteps, board?.tasks, board?.state === "FINISHED", now)}
                         progress={mainProgress(mainRuns).map((x) => ({
                           label: x.phase.toLowerCase(),
