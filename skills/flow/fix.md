@@ -61,7 +61,9 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    are written on disk only, the change directory gitignored. The fix is held to the paragraphs
    below and to `skills/flow/fixer-brief.md`, its prompt the fixer stub (**Every fix is a fresh
    one-shot**, `skills/flow/implement.md`); the fix closes when the
-   re-run of step 3 passes.
+   re-run of step 3 passes. **A verifier's report naming many departures is split from the first
+   dispatch**: one fixer per family (a frame group or a screen), dispatched in series, each its own
+   `fix-<k>`, never one fixer handed the whole list.
 
 3. **Re-run the failing check**, under `flow.verify`. In-run: the stage that reported the defect,
    re-run as `skills/flow/verify-and-handoff.md`'s Verify and Visual verification
