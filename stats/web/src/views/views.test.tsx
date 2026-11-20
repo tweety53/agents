@@ -2002,15 +2002,15 @@ describe("AgentRoles", () => {
   it("Agent roles groups the roles, one row per role, on Main and Explicit allow columns", async () => {
     render(<AgentRoles />);
     const table = await screen.findByRole("region", { name: "Current roles" });
-    expect(within(table).getAllByRole("columnheader").slice(0, 4).map((h) => h.textContent)).toEqual(["Role", "Agent", "Main", "Explicit allow"]);
+    expect(within(table).getAllByRole("columnheader").slice(0, 3).map((h) => h.textContent)).toEqual(["Role", "Main", "Explicit allow"]);
     const rows = within(table).getAllByRole("row");
     expect(rows.map((r) => r.querySelector("th, td")?.textContent)).toEqual([
-      "Role", "Session", "Runs the pipelinemain", "Planning", "Reads the codebaseexplorer", "Proposes a planplan-designer", "Implementation", "Writes the codeimplementer",
+      "Role", "Session", "mainRuns the pipeline", "Planning", "explorerReads the codebase", "plan-designerProposes a plan", "Implementation", "implementerWrites the code",
     ]);
-    for (const i of [1, 3, 6]) expect(rows[i].querySelector("th")).toHaveAttribute("colspan", "4");
+    for (const i of [1, 3, 6]) expect(rows[i].querySelector("th")).toHaveAttribute("colspan", "3");
     const designer = rows[5];
     expect(designer.querySelector("td.role")).toHaveAttribute("title", "Proposes a design or plan for the planner to choose from.");
-    expect(designer.querySelector("td.agent")).toHaveTextContent("Plan");
+    expect(designer.querySelector("td.agent")).toBeNull();
     expect([...designer.querySelectorAll("td.pairs")[0].querySelectorAll(".chip .pair")].map((p) => p.textContent)).toEqual(["opus/Plan@low", "opus/Plan@medium"]);
     expect([...designer.querySelectorAll("td.pairs")[1].querySelectorAll(".chip .pair")].map((p) => p.textContent)).toEqual(["fable/Plan@xhigh"]);
     expect(within(designer).queryByRole("link")).toBeNull();

@@ -187,11 +187,8 @@ function RoleRow({ r, catalog, draft, onDraft }: { r: RoleEntry; catalog: string
   return (
     <tr className="role">
       <td className="role" title={r.does}>
-        {shortDoes(r)}
         <code>{r.role}</code>
-      </td>
-      <td className="agent">
-        <code>{agentOf(r)?.agent ?? "—"}</code>
+        <span className="does">{shortDoes(r)}</span>
       </td>
       <td className="pairs">
         {main ? (
@@ -256,7 +253,6 @@ function RolesTable({ roles, onSaved }: { roles: RoleEntry[]; onSaved: () => voi
         <thead>
           <tr>
             <th>Role</th>
-            <th>Agent</th>
             <th>Main</th>
             <th>Explicit allow</th>
           </tr>
@@ -265,7 +261,7 @@ function RolesTable({ roles, onSaved }: { roles: RoleEntry[]; onSaved: () => voi
           {groups.map((g) => (
             <Fragment key={g.name}>
               <tr className="grp">
-                <th colSpan={4}>{g.name}</th>
+                <th colSpan={3}>{g.name}</th>
               </tr>
               {g.roles.map((r) => (
                 <RoleRow key={r.role} r={r} catalog={catalog} draft={draftOf(r)} onDraft={(d) => setDrafts({ ...drafts, [r.role]: d })} />
