@@ -50,6 +50,18 @@ check "land_merge: the worktrees stay" '[ -d "$WORK/a-worktrees/demo" ] && [ -d 
 check "land_merge: NEXT names the pass then cleanup" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: run the self-review pass .*then flow-guard integrate-change cleanup"'`}})
 }
 
+// TestReLandKeepsFirstLandBase pins that a second land leaves the recorded
+// flowLandBase alone (it would otherwise become HEAD itself).
+func TestReLandKeepsFirstLandBase(t *testing.T) {
+	smoke.Heavy(t)
+	icRunCases(t, []icCaseDef{{"reland_keeps_base", `# --- reland_keeps_base ---
+fixture
+to_land "reland: " no-report
+git -C "$WORK/a-worktrees/demo" config branch.spectre/demo.flowLandBase first-base
+sut land "$WORK/a" demo
+check "reland: flowLandBase kept" '[ "$(git -C "$WORK/a-worktrees/demo" config branch.spectre/demo.flowLandBase)" = first-base ]'`}})
+}
+
 // TestCleanupRefusesWithoutSelfReview pins cleanup's gate: no completed run
 // is exit 1, flowd unreachable exit 2, and nothing is removed.
 func TestCleanupRefusesWithoutSelfReview(t *testing.T) {

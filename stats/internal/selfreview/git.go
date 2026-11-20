@@ -146,7 +146,10 @@ func firstReadableRepo(g Runner, repos []string) string {
 // deleted, or never created — degrade to an empty string: a missing source
 // is never fatal.
 func changeBranchLog(g Runner, repo, change string) string {
-	base := baseRef(g, repo, change)
+	base := trimmedOutput(g.Output(repo, "config", "--get", "branch."+change+".flowLandBase"))
+	if base == "" {
+		base = baseRef(g, repo, change)
+	}
 	if base == "" {
 		return ""
 	}

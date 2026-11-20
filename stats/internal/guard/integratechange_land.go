@@ -33,7 +33,11 @@ func (c *ic) ghPRCreate(w string) (string, bool) {
 }
 
 // recordLandBase stores the pre-push merge base for the post-land self-review range.
+// A re-land keeps the first base: by then HEAD is its own merge base.
 func (c *ic) recordLandBase(w string) {
+	if v, _ := c.git("-C", w, "config", "--get", "branch.spectre/"+c.name+".flowLandBase"); v != "" {
+		return
+	}
 	if mb, ok := c.git("-C", w, "merge-base", "HEAD", "origin/"+c.base); ok && mb != "" {
 		c.gitPass("-C", w, "config", "branch.spectre/"+c.name+".flowLandBase", mb)
 	}

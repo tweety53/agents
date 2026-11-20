@@ -700,6 +700,39 @@ func TestBundleAssemblyLogsEveryMergeOrderPeer(t *testing.T) {
 	}
 }
 
+// TestBundlePeerLogUsesLandBaseAfterLand pins a landed peer: its branch is
+// merged into the base, so only its recorded flowLandBase still bounds its commits.
+func TestBundlePeerLogUsesLandBaseAfterLand(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	peer := gitRepo(t)
+	runGit(t, peer, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+	runGit(t, peer, "update-ref", "refs/remotes/origin/main", "main")
+	runGit(t, peer, "checkout", "-b", "spectre/demo")
+	landBase := strings.TrimSpace(string(must(ExecRunner{}.Output(peer, "rev-parse", "HEAD"))))
+	peerSHA := commitAll(t, peer, "app.go", "package main\n", "feat(app): the satellite's half")
+	runGit(t, peer, "update-ref", "refs/remotes/origin/main", "spectre/demo")
+	runGit(t, peer, "config", "branch.spectre/demo.flowLandBase", landBase)
+	runGit(t, peer, "checkout", "main")
+	rel, err := filepath.Rel(repo, peer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commitAll(t, repo, "spectre/peers", "front "+rel+"\n", "chore: declare the peer")
+	writeChangeDir(t, repo, "demo", map[string]string{
+		"tasks.md": "# demo tasks\n",
+		"link.md":  "## Merge order\n\n1. `.`\n2. `front`\n",
+	})
+
+	bundle, err := Bundle("demo", records.Run{Change: "demo"}, "", false, false, "", []string{repo}, nil, ExecRunner{})
+	if err != nil {
+		t.Fatalf("Bundle: %v", err)
+	}
+	if !strings.Contains(bundle, "commit "+peerSHA) {
+		t.Errorf("landed peer's commit %s missing:\n%s", peerSHA, bundle)
+	}
+}
+
 func TestBundleNamesTheServingBuild(t *testing.T) {
 	t.Parallel()
 	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
