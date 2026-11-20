@@ -17,7 +17,7 @@ import {
   type StageRunDTO,
   type StatsResponse,
 } from "../api";
-import { RunDetail } from "./RunDetail";
+import { RunDetail, residualCosts } from "./RunDetail";
 
 const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock, decisionsMock } = vi.hoisted(() => ({
   decisionsMock: vi.fn((_project: string, _change: string) => Promise.resolve([] as unknown[])),
@@ -1459,4 +1459,17 @@ describe("interactive run view", () => {
     for (const td of stages) expect(td.querySelector(".lb-expander")).toBeNull();
   });
 
+});
+
+describe("residualCosts", () => {
+  const run = (id: number, hdr: number | null, bucket: Record<string, number>): StageRunDTO => ({
+    stageRunId: id, harness: "claude", command: "/flow", stage: "flow.review-panel", attempt: 1, startedAt: "2026-11-18T10:00:00Z",
+    metrics: { ...(hdr === null ? {} : { cost_usd: hdr }), dispatches: Object.fromEntries(Object.entries(bucket).map(([k, v]) => [k, { cost_usd: v }])) },
+  });
+  it("leaves the buckets of a run with no measured header out of the main session's share", () => {
+    const costs = new Map([["a", 3], ["b", 100]]);
+    // Run 1 measured $10 with agent a's $3 inside it; run 2 has no header and holds agent b's $100.
+    const r = residualCosts([run(1, 10, { a: 3 }), run(2, null, { b: 100 })], [], costs);
+    expect(r.main).toBe(7);
+  });
 });

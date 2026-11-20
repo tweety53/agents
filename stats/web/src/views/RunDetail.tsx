@@ -216,13 +216,16 @@ function modelEffortLabel(d: Step): string {
  * descriptions, then "main session" for the runs' cost no bucket carries --
  * the main session's own turns. Null where nothing is left.
  */
-function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, number>): { unattributed: number | null; unrecorded: string[]; main: number | null } {
+export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, number>): { unattributed: number | null; unrecorded: string[]; main: number | null } {
   const header = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
+  // A run with no measured header cost holds buckets the header never counted: they are no part of
+  // the main session's share, whose header is the other runs' alone (else it reads negative).
+  const headerAgents = new Set(dispatchCosts(runs.filter((r) => readCostUsd(r.metrics) !== null)).keys());
   const claimed = new Set(steps.map((d) => d.agentId).filter((a): a is string => !!a));
   let buckets = 0;
   let unattributed = 0;
   for (const [id, c] of costs) {
-    buckets += c;
+    if (headerAgents.has(id)) buckets += c;
     if (!claimed.has(id)) unattributed += c;
   }
   const unrecorded = runs.flatMap((r) =>
