@@ -227,6 +227,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			       ) ORDER BY d.started_at, d.id), '[]'::jsonb) AS list
 			FROM dispatches d
 			WHERE d.change_id = c.id AND d.ended_at IS NULL AND d.started_at IS NOT NULL
+			  AND NOT EXISTS (SELECT 1 FROM stage_runs sr WHERE sr.id = d.stage_run_id AND sr.ended_at IS NOT NULL)
 		) subs ON true
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(array_agg(cr.repo_root ORDER BY cr.repo_root), '{}')

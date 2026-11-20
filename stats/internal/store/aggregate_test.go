@@ -2906,3 +2906,52 @@ func TestReviewersCountsGatedReviews(t *testing.T) {
 		t.Fatalf("rows = %+v, want one gated-reviewer row: 3 dispatches (one a batched review), 3 important, described", rows)
 	}
 }
+
+// TestLiveStateBoardOmitsADispatchOfAnEndedStage: an unended dispatch row
+// whose stage run has ended is not running -- it never got its end -- so the
+// Agents running list leaves it out; one in the open stage stays.
+func TestLiveStateBoardOmitsADispatchOfAnEndedStage(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-stale-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	day := time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC)
+	begin := func(stage string, at time.Time) int64 {
+		t.Helper()
+		in := baseBeginInput(projectKey, "kan-1", "/flow", stage)
+		in.StartedAt = at
+		run, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage(%s): %v", stage, err)
+		}
+		return run.ID
+	}
+	record := func(task string) {
+		t.Helper()
+		d := baseDispatch("implementer", "opus")
+		d.TaskID = task
+		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+			t.Fatalf("RecordDispatch: %v", err)
+		}
+	}
+	first := begin("flow.review-panel", day)
+	record("stale")
+	if err := st.EndStage(ctx, first, day.Add(time.Minute), "completed"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+	begin("flow.implement", day.Add(time.Hour))
+	record("live")
+	rows, err := st.LiveStateBoard(ctx, store.Period{
+		From: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+	}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("LiveStateBoard: %v", err)
+	}
+	for _, r := range rows {
+		if r.Name == "kan-1" && (len(r.Subagents) != 1 || r.Subagents[0].TaskID == nil || *r.Subagents[0].TaskID != "live") {
+			t.Errorf("Subagents = %+v, want only the open stage's dispatch", r.Subagents)
+		}
+	}
+}
