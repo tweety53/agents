@@ -53,7 +53,7 @@ import (
 // The logic lives in stats/internal/guard/throwawayworktree.go.
 
 // throwawayWorktree is `flow-guard throwaway-worktree`: the comment above is the contract. It ports, step for step, the create fence the
-// wave-group copy and the slot copy shared and the slot copy's fold-back and
+// slot copy used and the slot copy's fold-back and
 // remove fence (skills/flow/sdd-dispatch.md and
 // skills/flow/review-panel-optional-slots.md at ae805186). One deliberate
 // difference: the fences ran every step whatever the last one did, where the

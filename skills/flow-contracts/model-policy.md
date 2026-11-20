@@ -108,8 +108,6 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 | Role | Does |
 |---|---|
 | `self-review-pass` | Reviews a finished change and the run that built it. |
-| `prompt-tuning-replay` | Replays a saved prompt-tuning case with a proposed prompt update. |
-| `prompt-tuning-grader` | Judges whether a replayed implementer diff avoided the case's defect. |
 | `self-review-plan` | Plans the fixes for the self-review's findings. |
 | `self-review-fix` | Makes one planned self-review fix. |
 | `self-review-review-1` | First review of a self-review fix. |

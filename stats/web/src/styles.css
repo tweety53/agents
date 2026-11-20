@@ -404,8 +404,6 @@ th button {
 .dynamics-panel svg { width: 100%; height: auto; display: block; }
 .dynamics-axis { stroke: var(--border); }
 .dynamics-tick { fill: var(--text-muted); font-size: 10px; font-family: var(--font-mono); }
-.dynamics-marker { stroke: var(--marker); stroke-dasharray: 3 3; stroke-width: 1; }
-.dynamics-marker-dot { fill: var(--marker); }
 .dynamics-cross { stroke: var(--text-muted); stroke-width: 1; }
 .dynamics-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
 .dynamics-legend i { display: inline-block; width: 10px; height: 3px; margin-right: 4px; vertical-align: middle; }
@@ -413,7 +411,6 @@ th button {
 .dynamics-tip b { display: block; margin-bottom: 2px; }
 .dynamics-tip i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; }
 .dynamics-tip-basis { color: var(--text-muted); }
-.dynamics-tip-marker { color: var(--marker); margin-top: 3px; white-space: normal; max-width: 260px; }
 .dynamics-heat { width: auto; border-collapse: separate; border-spacing: 3px; font-size: 12px; font-variant-numeric: tabular-nums; }
 .dynamics-heat th { color: var(--text-secondary); font-weight: 500; padding: 2px 6px; text-align: center; }
 .dynamics-heat th.dynamics-heat-row { text-align: left; }

@@ -215,11 +215,9 @@ defined; the two call sites point here rather than each describing them.
 
 ### Run 2 — the branch is merged
 
-   **The removal goes after the worktree half, and the order is load-bearing.** Worktree cleanup's
-   check 5 runs the project's `## stop` command, and it is the **only** place run 2 stops the stack —
-   which run 2 nearly always has to do, because the operator may have started the applications against the
-   change, so a stack still up when run 2 starts is the common case rather than a rare one. Dropping a database the project's own stack still holds open is a
-   removal that fails on the ordinary path, so the removal waits until that stack is down.
+   **The removal goes after the worktree half, and the order is load-bearing.** Dropping a database
+   the project's own stack still holds open is a removal that fails, so the removal waits until the
+   worktree half has taken the change's checkout down.
    Nothing pulls the other way: these resources live in the project's shared data services rather
    than in the worktree, so taking the worktree down neither removes them nor puts them out of reach,
    and `remove` runs from the main checkout — stated with the command table, in
@@ -241,11 +239,8 @@ defined; the two call sites point here rather than each describing them.
    uncommitted file in a worktree say, has its database and bucket named as leftovers at step 7 as
    well, with nothing wrong with either. That is the right cost to accept. It lands on a run that has
    already stopped and already needs the operator, it adds lines to a report rather than a failure,
-   and run 2 is re-entrant, so the pass after the blocker is cleared does both halves. The check most
-   likely to fail is check 5 — a stack that will not stop — and that is exactly the condition under
-   which the removal would have failed anyway, which is also why it is not attempted regardless:
-   running with the stack down is the guarantee this order buys, and removing after a failed check
-   would spend it. The order this replaces put its cost on the ordinary path instead.
+   and run 2 is re-entrant, so the pass after the blocker is cleared does both halves. The order
+   this replaces put its cost on the ordinary path instead.
 
    **Both halves share one numbered step deliberately.** They are one act — undoing what this
    change's run created — with an order between them that has to hold, and giving the removal a

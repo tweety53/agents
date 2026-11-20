@@ -24,8 +24,6 @@ export const SHORT_DOES: Record<string, string> = {
   decider: "Checks the plan",
   "minor-fix": "Fixes review Minors",
   "no-progress-fixer": "Takes over a stuck fix",
-  "prompt-tuning-replay": "Replays a prompt fix",
-  "prompt-tuning-grader": "Grades a replay",
   "panel-rerun": "Re-reviews the branch",
   "panel-merger": "Merges findings",
   "visual-verifier": "Compares UI to mockup",

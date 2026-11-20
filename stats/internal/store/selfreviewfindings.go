@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
-	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
 )
@@ -14,8 +12,7 @@ import (
 // ErrSelfReviewFindingInvalid reports a RecordSelfReviewFinding whose
 // disposition is outside fixed/filed/declined/noted, whose ref does not fit its
 // disposition, whose change, angle or note is empty, whose blast radius
-// is negative, whose theme is outside records.SelfReviewThemes, or which is
-// a noted finding of a records.SelfReviewThemedAngles angle with no theme. The handler maps it
+// or is negative. The handler maps it
 // to 400: a caller's mistake, never a store failure.
 var ErrSelfReviewFindingInvalid = errors.New("store: invalid self-review finding")
 
@@ -29,12 +26,6 @@ func validateSelfReviewFinding(f records.SelfReviewFinding) error {
 	case "", "critical", "important", "minor":
 	default:
 		return fmt.Errorf("%w: severity must be critical, important or minor, got %q", ErrSelfReviewFindingInvalid, f.Severity)
-	}
-	if f.Theme != "" && !slices.Contains(records.SelfReviewThemes, f.Theme) {
-		return fmt.Errorf("%w: theme must be one of %s, got %q", ErrSelfReviewFindingInvalid, strings.Join(records.SelfReviewThemes, ", "), f.Theme)
-	}
-	if f.Theme == "" && f.Disposition == "noted" && slices.Contains(records.SelfReviewThemedAngles, f.Angle) {
-		return fmt.Errorf("%w: a noted %s finding carries a theme, one of %s", ErrSelfReviewFindingInvalid, f.Angle, strings.Join(records.SelfReviewThemes, ", "))
 	}
 	if f.BlastRadius != nil && *f.BlastRadius < 0 {
 		return fmt.Errorf("%w: blast radius must be 0 or more, got %d", ErrSelfReviewFindingInvalid, *f.BlastRadius)
@@ -70,15 +61,14 @@ func (s *Store) RecordSelfReviewFinding(ctx context.Context, projectKey string, 
 	}
 	out := in
 	if err := s.pool.QueryRow(ctx, `
-		INSERT INTO self_review_findings (project_key, change, angle, note, disposition, ref, blast_radius, severity, theme)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO self_review_findings (project_key, change, angle, note, disposition, ref, blast_radius, severity)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (project_key, change, angle, disposition, (COALESCE(ref, '')), (md5(note)))
 		DO UPDATE SET blast_radius = COALESCE(self_review_findings.blast_radius, EXCLUDED.blast_radius),
-		              severity = COALESCE(self_review_findings.severity, EXCLUDED.severity),
-		              theme = COALESCE(self_review_findings.theme, EXCLUDED.theme)
-		RETURNING id, note, blast_radius, COALESCE(severity, ''), COALESCE(theme, ''), recorded_at
-	`, projectKey, in.Change, in.Angle, in.Note, in.Disposition, nullIfEmpty(in.Ref), in.BlastRadius, nullIfEmpty(in.Severity), nullIfEmpty(in.Theme),
-	).Scan(&out.ID, &out.Note, &out.BlastRadius, &out.Severity, &out.Theme, &out.RecordedAt); err != nil {
+		              severity = COALESCE(self_review_findings.severity, EXCLUDED.severity)
+		RETURNING id, note, blast_radius, COALESCE(severity, ''), recorded_at
+	`, projectKey, in.Change, in.Angle, in.Note, in.Disposition, nullIfEmpty(in.Ref), in.BlastRadius, nullIfEmpty(in.Severity),
+	).Scan(&out.ID, &out.Note, &out.BlastRadius, &out.Severity, &out.RecordedAt); err != nil {
 		return records.SelfReviewFinding{}, fmt.Errorf("store: record self-review finding for %s/%s: %w", projectKey, in.Change, err)
 	}
 	return out, nil
@@ -88,7 +78,7 @@ func (s *Store) RecordSelfReviewFinding(ctx context.Context, projectKey string, 
 // order they were recorded.
 func (s *Store) ListSelfReviewFindings(ctx context.Context, projectKey, change string) ([]records.SelfReviewFinding, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, change, angle, note, disposition, COALESCE(ref, ''), blast_radius, COALESCE(severity, ''), COALESCE(theme, ''), recorded_at
+		SELECT id, change, angle, note, disposition, COALESCE(ref, ''), blast_radius, COALESCE(severity, ''), recorded_at
 		FROM self_review_findings
 		WHERE project_key = $1 AND change = $2
 		ORDER BY id
@@ -101,46 +91,13 @@ func (s *Store) ListSelfReviewFindings(ctx context.Context, projectKey, change s
 	out := []records.SelfReviewFinding{}
 	for rows.Next() {
 		var f records.SelfReviewFinding
-		if err := rows.Scan(&f.ID, &f.Change, &f.Angle, &f.Note, &f.Disposition, &f.Ref, &f.BlastRadius, &f.Severity, &f.Theme, &f.RecordedAt); err != nil {
+		if err := rows.Scan(&f.ID, &f.Change, &f.Angle, &f.Note, &f.Disposition, &f.Ref, &f.BlastRadius, &f.Severity, &f.RecordedAt); err != nil {
 			return nil, fmt.Errorf("store: list self-review findings for %s/%s: scan: %w", projectKey, change, err)
 		}
 		out = append(out, f)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: list self-review findings for %s/%s: %w", projectKey, change, err)
-	}
-	return out, nil
-}
-
-// SelfReviewThemeCounts reports every theme a self-review finding recorded
-// since the cutoff carries, across every project, ordered by theme: the
-// distinct changes that noted it, and whether a fixed, filed or declined row
-// carried it. A theme no row carries is absent.
-func (s *Store) SelfReviewThemeCounts(ctx context.Context, since time.Time) ([]records.SelfReviewTheme, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT theme,
-			(COUNT(DISTINCT (project_key, change)) FILTER (WHERE disposition = 'noted'))::int,
-			COALESCE(bool_or(disposition <> 'noted'), false)
-		FROM self_review_findings
-		WHERE theme IS NOT NULL AND recorded_at >= $1
-		GROUP BY theme
-		ORDER BY theme
-	`, since)
-	if err != nil {
-		return nil, fmt.Errorf("store: self-review theme counts: %w", err)
-	}
-	defer rows.Close()
-
-	out := []records.SelfReviewTheme{}
-	for rows.Next() {
-		var t records.SelfReviewTheme
-		if err := rows.Scan(&t.Theme, &t.Changes, &t.Settled); err != nil {
-			return nil, fmt.Errorf("store: self-review theme counts: scan: %w", err)
-		}
-		out = append(out, t)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("store: self-review theme counts: %w", err)
 	}
 	return out, nil
 }

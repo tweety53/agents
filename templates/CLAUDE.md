@@ -66,7 +66,6 @@ installed. Those two need none — reading a spectre tree, or a contract file, i
 | `skills/flow-status/` | `/flow-status` | Read-only state report for open changes |
 | `skills/flow-plan/` | `/flow-plan` | Thinking-partner mode — explore ideas, investigate, no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
 | `skills/flow-self-review/` | `/flow-self-review` | Runs a self-review pass a `/flow` run deferred, a one-shot dispatch whose non-big findings are planned in full, from the saved context bundle. Standalone, not a pipeline stage |
-| `skills/flow-prompt-tuning/` | `/flow-prompt-tuning` | Applies the generic implementer/reviewer prompt updates the self-review's prompt-tuning angle saved, after a replay proves each; records each case in docs/prompt-tuning/LEDGER.md and removes its folder. Standalone, not a pipeline stage |
 | `skills/flow-contracts/` | *(on demand)* | The pipeline itself (`pipeline.md` — **load first** for `/flow`) plus the state file, project configuration and Jira contracts, `jira-followups.md` when `/flow`'s integrate run 1 files or joins a follow-up, `finish-contract-run1.md`/`finish-contract-run2.md` for `/flow`'s two-run integrate/cleanup procedure, and `workspace-isolation.md` when a run needs a worktree's own database, cache index, bucket or ports. Load the one file you need — and never a `-rationale.md` appendix, which carries a contract's or a skill's reasoning for whoever edits it and is not loaded by a run |
 
 ### Superpowers general skills

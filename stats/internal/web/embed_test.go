@@ -395,7 +395,6 @@ func (fakeStore) SelfReviewFindingsInPeriod(context.Context, store.Period, *stri
 func (fakeStore) ReviewDynamics(context.Context, store.Period, *string, *string) (store.ReviewDynamics, error) {
 	return store.ReviewDynamics{}, nil
 }
-func (fakeStore) UpsertPromptChange(context.Context, store.PromptChange) error { return nil }
 
 func (fakeStore) GuardHealth(context.Context, store.Period, *string) ([]store.GuardHealthRow, error) {
 	return nil, nil
@@ -619,9 +618,5 @@ func (fakeStore) RecordLearningTopic(context.Context, store.LearningTopic) error
 }
 
 func (fakeStore) ListLearningTopics(context.Context) ([]store.LearningTopicCount, error) {
-	return nil, nil
-}
-
-func (fakeStore) SelfReviewThemeCounts(context.Context, time.Time) ([]records.SelfReviewTheme, error) {
 	return nil, nil
 }

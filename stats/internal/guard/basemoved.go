@@ -10,10 +10,10 @@ import (
 // The contract below moved here from the header of the deleted
 // scripts/check-base-moved.sh shim (KAN-1058).
 //
-// flow-guard check-base-moved — report how far the base branch has moved under a
+// check-base-moved — report how far the base branch has moved under a
 // change, and whether the movement overlaps the change's own touched paths.
 //
-// Usage: flow-guard check-base-moved <worktree> <base-ref> <recorded-merge-base|->
+// Arguments: <worktree> <base-ref> <recorded-merge-base|->
 //
 // Prints ONE verdict line to stdout:
 //   CLEAR:  <worktree> — <ref> has not moved since the recorded merge base
@@ -67,14 +67,10 @@ import (
 // `merge base now <sha>`: the caller's `<rebased-merge-base>` for that
 // worktree for the rest of the run.
 
-// checkBaseMoved is `flow-guard check-base-moved`: the comment above is the contract -- one CLEAR/MOVED/REFUSE verdict line on stdout, exit 0
+// checkBaseMoved is check-base-moved, run in process (foldedGuards) and printed by flow-guard check-finish-preflight after a RUN1, never a subcommand of its own: the comment above is the contract -- one CLEAR/MOVED/REFUSE verdict line on stdout, exit 0
 // whenever a verdict was reached, exit 2 when the tree cannot be read. The
 // reasoning for each step, moved here from the bash body it replaced
 // (d71a2327), sits beside the code it explains.
-func init() {
-	Registry["check-base-moved"] = checkBaseMoved
-}
-
 func checkBaseMoved(args []string, env Env, stdout, stderr io.Writer) int {
 	arg := func(i int) string {
 		if i < len(args) {

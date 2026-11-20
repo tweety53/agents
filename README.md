@@ -52,7 +52,7 @@ flowchart LR
                   non-planner types compact at 200,000 tokens (`autoCompactWindow`), over the session's
                   `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
 ├── commands-claude/  thin slash-command wrappers for Claude Code
-├── docs/             briefs/ (lessons), designs/ (design records of earlier /flow changes) and prompt-tuning/ (/flow-prompt-tuning inbox + LEDGER.md)
+├── docs/             briefs/ (lessons), designs/ (design records of earlier /flow changes)
 ├── hooks/            the Python hooks (see Guardrails)
 ├── mods/             Claude Code plugins: flow-task-list (the task band above the prompt)
 ├── rules/            rules (alwaysApply in each frontmatter) + agent-baseline.md, the subagent baseline
@@ -86,7 +86,6 @@ No command takes a flag.
 | `/flow-plan` | Thinking-partner mode, no implementation; a captured session creates the change at `STARTED` |
 | `/flow-status [name]` | Read-only report of every open change |
 | `/flow-self-review <name>` | Runs the self-review pass an older run deferred |
-| `/flow-prompt-tuning` | Applies saved implementer/reviewer prompt updates after a replay proves each; logs to `docs/prompt-tuning/LEDGER.md` |
 | `/flow-visual-tooling-analysis` | Works out why a visual verification missed a defect and writes the sweeps that close its class |
 | `/flow-learn-quiz` | Teacher mode: has you restate a change and quizzes you until you understand it |
 | `/call-efficiency-audit` | Measures a running dev stack's repeated reads, repeated queries and per-item queries |

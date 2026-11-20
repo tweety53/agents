@@ -44,9 +44,9 @@ script. A checkout whose only finding is its branch is switched back by hand wit
 `git -C <main-checkout> switch <default>` under the same four exclusions, per **Surface main-checkout
 drift before the preflight** (`skills/flow-contracts/finish-contract-run1.md`).
 
-## `flow-guard check-base-moved` — Run 1 — the branch is not merged
+## `flow-guard check-finish-preflight`'s base-moved line — Run 1 — the branch is not merged
 
-`check-finish-preflight` prints its verdict after a `RUN1`. **When the script is absent** — a harness whose repository does not carry it — reach the same three
+**When the script is absent** — a harness whose repository does not carry it — reach the same three
 verdicts by hand, in the same order, and say in the handoff that the check was run manually. The
 check is never skipped for want of the script.
 

@@ -35,7 +35,7 @@ var ErrInvalidGuardRun = errors.New("store: invalid guard run")
 // RecordGuardRun records one flow-guard invocation against projectKey.
 // Every call inserts a new row, as RecordVerdict does. A key the store does
 // not hold falls back to the project of the newest change whose worktrees map
-// names the run's worktree, a directory under it, or a wave copy of it: a
+// names the run's worktree, a directory under it: a
 // guard run from a peer repository's worktree keys to that repository, which
 // is no project, and every capture and verifier run of gymie-playwright was
 // dropped. Any other unknown project is
@@ -81,7 +81,7 @@ func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in record
 		WHERE p.project_key = COALESCE(
 			(SELECT project_key FROM projects WHERE project_key = $1),
 			(SELECT c.project_key FROM changes c, jsonb_object_keys(c.worktrees) k
-				WHERE $3 = k OR starts_with($3, k || '/') OR starts_with($3, k || '-wave-group-')
+				WHERE $3 = k OR starts_with($3, k || '/')
 				ORDER BY c.id DESC LIMIT 1))
 		RETURNING id, recorded_at, reasons
 	`, projectKey, in.Guard, in.Worktree, in.ExitCode, in.Outcome, in.DurationMS, recordedAt, reasons,

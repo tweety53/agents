@@ -168,7 +168,7 @@ func ccRunSurvivors(env Env, repo, cmdText string, timeout, grace time.Duration,
 
 // changeWorktrees reads `git worktree list --porcelain` output: the
 // worktrees checked out on refs/heads/spectre/<name>, and the detached or
-// flow-copy/-branched wave-group copies of that change's apply worktree (ccWaveGroupCopy), each
+// flow-copy/-branched mutation copies of that change's apply worktree (ccMutationCopy), each
 // in git's listed order. remove-change-worktrees removes them.
 //
 // The path is the whole rest of the `worktree ` line, never a
@@ -187,33 +187,28 @@ func changeWorktrees(porcelain []byte, name string) (wts, copies []string) {
 		} else if b, ok := strings.CutPrefix(l, "branch "); ok {
 			if f := strings.Fields(b); len(f) > 0 && f[0] == "refs/heads/spectre/"+name {
 				wts = append(wts, wt)
-			} else if len(f) > 0 && f[0] == "refs/heads/flow-copy/"+wt[strings.LastIndex(wt, "/")+1:] && ccWaveGroupCopy(wt, name) {
+			} else if len(f) > 0 && f[0] == "refs/heads/flow-copy/"+wt[strings.LastIndex(wt, "/")+1:] && ccMutationCopy(wt, name) {
 				copies = append(copies, wt)
 			}
-		} else if l == "detached" && ccWaveGroupCopy(wt, name) {
+		} else if l == "detached" && ccMutationCopy(wt, name) {
 			copies = append(copies, wt)
 		}
 	}
 	return wts, copies
 }
 
-// ccWaveGroupCopy reports whether path is a throwaway copy of change name's
-// apply worktree: implement.md's `<worktree>-wave-group-<g>` or
-// review-panel-optional-slots.md's `<worktree>-mutation-<round>` (kan-1037),
-// matched on the path's last element as `<name>-wave-group-` or
-// `<name>-mutation-` followed by digits and nothing else. The caller only
+// ccMutationCopy reports whether path is a throwaway copy of change name's
+// apply worktree: review-panel-optional-slots.md's
+// `<worktree>-mutation-<round>` (kan-1037), matched on the path's last
+// element as `<name>-mutation-` followed by digits and nothing else. The caller only
 // asks for an entry that is DETACHED or on `refs/heads/flow-copy/<its path's
 // last element>` -- a copy is created on that branch (kan-1090 self-review,
 // F14), one made before that detached -- so a change actually named
-// `<name>-wave-group-3`, whose apply worktree carries a spectre/ branch, is
+// `<name>-mutation-3`, whose apply worktree carries a spectre/ branch, is
 // never read as this change's copy. The path is read from git's
 // own worktree list, never guessed from a layout.
-func ccWaveGroupCopy(path, name string) bool {
+func ccMutationCopy(path, name string) bool {
 	base := path[strings.LastIndex(path, "/")+1:]
-	for _, suffix := range []string{"-wave-group-", "-mutation-"} {
-		if g, ok := strings.CutPrefix(base, name+suffix); ok && g != "" && strings.Trim(g, "0123456789") == "" {
-			return true
-		}
-	}
-	return false
+	g, ok := strings.CutPrefix(base, name+"-mutation-")
+	return ok && g != "" && strings.Trim(g, "0123456789") == ""
 }

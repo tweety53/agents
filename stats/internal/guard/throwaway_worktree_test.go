@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// The throwaway-worktree guard replaces three bash fences: the wave-group
+// The throwaway-worktree guard replaces three bash fences: the mutation
 // create fence in skills/flow/sdd-dispatch.md and the slot create and
 // fold-back-and-remove fences in skills/flow/review-panel-optional-slots.md.
 // Each test runs the fence as it stood at ae805186 (Decision:
@@ -299,13 +299,13 @@ func TestThrowawayWorktreeRemoveFoldBack(t *testing.T) {
 	}
 }
 
-// A wave group's copy holds the context bundle and implementer report its
+// A mutation copy holds the context bundle and implementer report its
 // gated reviewer reads after the copy is gone: --fold-back carries both back
 // under the same newer-than rule, and still leaves any other file behind.
 func TestThrowawayWorktreeFoldBackCarriesTheGroupBundle(t *testing.T) {
 	t.Parallel()
 	wt := twRepo(t)
-	cp := wt + "-wave-group-2"
+	cp := wt + "-mutation-2"
 	gitRun(t, wt, "worktree", "add", "-q", "--detach", cp, "HEAD")
 	writeFile(t, cp+"/.superpowers/sdd/dispatch-context-group-2.md", "group 2 bundle\n")
 	writeFile(t, cp+"/.superpowers/sdd/implementer-report-2.md", "group 2 report\n")
@@ -327,7 +327,7 @@ func TestThrowawayWorktreeFoldBackCarriesTheGroupBundle(t *testing.T) {
 func TestThrowawayWorktreeFoldBackCarriesFrames(t *testing.T) {
 	t.Parallel()
 	wt := twRepo(t)
-	cp := wt + "-wave-group-3"
+	cp := wt + "-mutation-3"
 	gitRun(t, wt, "worktree", "add", "-q", "--detach", cp, "HEAD")
 	fr := "/.superpowers/sdd/demo-frames/"
 	writeFile(t, cp+fr+"render.cjs", "render\n")

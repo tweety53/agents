@@ -49,7 +49,6 @@ still apply.
 | `/flow-status [name]` | `flow-status` | Read-only report of where every open change is |
 | `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
 | `/flow-self-review <name>` | `flow-self-review` | Runs a change's self-review pass, a one-shot dispatch whose non-big findings are planned in full, from the context bundle an older `/flow` or `/flow-fast` run saved; the same pass runs inside `/flow`'s integrate and `/flow-fast`'s verify. Standalone, not a pipeline stage. Fixes and lands every non-big finding; files the big ones. |
-| `/flow-prompt-tuning` | `flow-prompt-tuning` | Applies the generic implementer/reviewer prompt updates the self-review's prompt-tuning angle saved, after a replay proves each; records each case in docs/prompt-tuning/LEDGER.md and removes its folder. Standalone, not a pipeline stage. |
 | `/flow-visual-tooling-analysis` | `flow-visual-tooling-analysis` | Works out why a visual verification missed a defect and writes the sweeps that close its class to `sweeps-<n>.md`, inline in your session. Standalone, not a pipeline stage. |
 | `/call-efficiency-audit` | `call-efficiency-audit` | Measures a running dev stack's call efficiency — browser request log, per-endpoint SQL statement counts, cache `MONITOR` — and reports repeated reads, repeated queries within a request and per-item queries. Standalone, not a pipeline stage. |
 
@@ -67,7 +66,6 @@ skills/
 ├── flow-status/         ← /flow-status (read-only)
 ├── flow-plan/       ← /flow-plan
 ├── flow-self-review/   ← /flow-self-review (self-review pass)
-├── flow-prompt-tuning/ ← /flow-prompt-tuning (replay and apply saved prompt updates)
 ├── flow-visual-tooling-analysis/ ← /flow-visual-tooling-analysis (sweeps for a missed visual defect)
 ├── call-efficiency-audit/ ← /call-efficiency-audit (measure a dev stack's call efficiency)
 └── flow-contracts/    ← on-demand contracts; `pipeline.md` is canonical for the state machine

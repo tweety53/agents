@@ -79,10 +79,8 @@ type StatsStore interface {
 	// SelfReviewFindingsInPeriod backs the "self-review" view: every
 	// self-review finding recorded in the period, newest first.
 	SelfReviewFindingsInPeriod(ctx context.Context, period store.Period, project *string) ([]store.SelfReviewFindingRow, error)
-	// ReviewDynamics backs the "review-dynamics" view and
-	// UpsertPromptChange POST /api/v1/prompt-changes (KAN-1046).
+	// ReviewDynamics backs the "review-dynamics" view.
 	ReviewDynamics(ctx context.Context, period store.Period, project, class *string) (store.ReviewDynamics, error)
-	UpsertPromptChange(ctx context.Context, c store.PromptChange) error
 	// CountRunsWithoutModel and ListModels back task 21's model filter:
 	// the former only called when a model filter is set (statsResponse's
 	// ExcludedNoModel), the latter GET /api/v1/models's only source.

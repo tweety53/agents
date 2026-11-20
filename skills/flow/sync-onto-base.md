@@ -21,7 +21,7 @@ stop-and-ask, an aside still set aside is named in the handoff with `git stash l
 recovery path.
 
 `origin/$BASE` is current: `flow-guard resolve-base-branch` fetched when the caller resolved the base ref,
-and `flow-guard check-base-moved` performs no fetch of its own.
+and the base-moved check performs no fetch of its own.
 
 - **Clean** (exit 0, `REBASED: <worktree> — onto <sha>`): the merge base carried forward for the
   rest of **this run** becomes that `<sha>` — `<rebased-merge-base>`, a this-run-only value

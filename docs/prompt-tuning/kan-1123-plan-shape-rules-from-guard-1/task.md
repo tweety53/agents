@@ -1,1 +1,0 @@
-none — the bad code was written by a panel fix round (FIX INPUT: panel findings F7, F8, F9), not by a tasks.md task. The tasks.md rule the code enforces is tagging rule 2: "An id is kebab-case and local to its guard, naming the reason, never the code: `usage`, `not-a-worktree`, `cannot-read-file` (decision `reason-id-shape`). Two exits refusing for the same reason share one id."

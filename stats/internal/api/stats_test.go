@@ -85,9 +85,6 @@ func (f *fakeStore) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period
 func (f *fakeStore) ReviewDynamics(_ context.Context, _ store.Period, _, _ *string) (store.ReviewDynamics, error) {
 	return store.ReviewDynamics{}, nil
 }
-func (f *fakeStore) UpsertPromptChange(_ context.Context, _ store.PromptChange) error {
-	return nil
-}
 func (f *fakeStore) CountRunsWithoutModel(_ context.Context, _ store.Period, _ *string) (int, error) {
 	return 0, nil
 }
@@ -146,7 +143,6 @@ type statsFake struct {
 	guardHealthProjectsCalled bool
 	selfReview                []store.SelfReviewFindingRow
 	reviewDynamics            store.ReviewDynamics
-	promptChanges             []store.PromptChange
 	aggErr                    error
 
 	countRunsWithoutModel    int
@@ -247,10 +243,6 @@ func (f *statsFake) SelfReviewFindingsInPeriod(_ context.Context, _ store.Period
 func (f *statsFake) ReviewDynamics(_ context.Context, _ store.Period, p, _ *string) (store.ReviewDynamics, error) {
 	f.lastProject = p
 	return f.reviewDynamics, f.aggErr
-}
-func (f *statsFake) UpsertPromptChange(_ context.Context, c store.PromptChange) error {
-	f.promptChanges = append(f.promptChanges, c)
-	return f.aggErr
 }
 func (f *statsFake) GuardHealth(_ context.Context, _ store.Period, p *string) ([]store.GuardHealthRow, error) {
 	f.lastProject = p
@@ -2226,13 +2218,12 @@ func TestStatsWeeklyCostsAnswersProjects(t *testing.T) {
 
 // TestStatsReviewDynamics pins the review-dynamics view's wire shape: one
 // object carrying the series with day-dated buckets, both heatmaps and
-// summaries, the markers and lastPromptChangeAt; the project passes
+// summaries; the project passes
 // through, and a model restriction is refused as the state board's is.
 func TestStatsReviewDynamics(t *testing.T) {
 	t.Parallel()
 	week := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
-	last := week.Add(50 * time.Hour)
-	slot, impl := "primary", 1.5
+	impl := 1.5
 	sts := &statsFake{reviewDynamics: store.ReviewDynamics{
 		Bucket:       "week",
 		Series:       []store.DynamicsPoint{{Bucket: week, Metric: "findings-per-change", Series: "minor", Value: 0.5, Basis: 2}},
@@ -2240,9 +2231,6 @@ func TestStatsReviewDynamics(t *testing.T) {
 		PreviousHeat: []store.HeatCell{},
 		HeatVersion:  []store.HeatCell{{Slot: "primary", Model: "claude-opus-5-5", Effort: "low", Dispatches: 2, Critical: 1}},
 		Summary:      store.DynamicsSummary{FindingsPerChange: 0.5, ImplFindingsPerTask: &impl, Changes: 2},
-		Markers: []store.PromptChange{{SHA: "abc:skills/flow/primary-reviewer-prompt.md", At: week.Add(time.Hour),
-			Kind: "edit", Area: "review", Slot: &slot, Target: "skills/flow/primary-reviewer-prompt.md", Summary: "tighten"}},
-		LastPromptChangeAt: &last,
 	}}
 	ts := newStatsTestServer(t, sts)
 
@@ -2257,7 +2245,7 @@ func TestStatsReviewDynamics(t *testing.T) {
 	if err := json.Unmarshal(env.Rows, &rows); err != nil {
 		t.Fatalf("rows is not one object: %v (body %s)", err, body)
 	}
-	for _, k := range []string{"bucket", "series", "heat", "previousHeat", "heatVersion", "previousHeatVersion", "summary", "previousSummary", "markers", "lastPromptChangeAt"} {
+	for _, k := range []string{"bucket", "series", "heat", "previousHeat", "heatVersion", "previousHeatVersion", "summary", "previousSummary"} {
 		if _, ok := rows[k]; !ok {
 			t.Errorf("rows lacks %q: %s", k, env.Rows)
 		}
@@ -2270,8 +2258,6 @@ func TestStatsReviewDynamics(t *testing.T) {
 		"heatVersion":         `[{"slot":"primary","model":"claude-opus-5-5","effort":"low","dispatches":2,"critical":1,"important":0,"minor":0}]`,
 		"previousHeatVersion": `[]`,
 		"summary":             `{"findingsPerChange":0.5,"criticalImportantPerChange":0,"meanFixRounds":0,"implFindingsPerTask":1.5,"vvFirstPassShare":null,"changes":2}`,
-		"markers":             `[{"sha":"abc:skills/flow/primary-reviewer-prompt.md","at":"2026-08-03T01:00:00Z","kind":"edit","area":"review","slot":"primary","target":"skills/flow/primary-reviewer-prompt.md","summary":"tighten","caseId":null}]`,
-		"lastPromptChangeAt":  `"2026-08-05T02:00:00Z"`,
 	} {
 		if got := string(rows[k]); got != want {
 			t.Errorf("rows.%s = %s, want %s", k, got, want)

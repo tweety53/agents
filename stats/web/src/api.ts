@@ -486,18 +486,6 @@ export interface DynamicsSummary {
   changes: number;
 }
 
-/** One change to a tunable prompt, drawn as a chart marker. */
-export interface PromptChange {
-  sha: string;
-  at: string;
-  kind: "tuning" | "edit";
-  area: "review" | "impl" | "vv" | "fix";
-  slot: string | null;
-  target: string;
-  summary: string;
-  caseId: string | null;
-}
-
 /** The "review-dynamics" view's rows: one object, not an array (KAN-1046). */
 export interface ReviewDynamicsRows {
   bucket: "day" | "week";
@@ -508,8 +496,6 @@ export interface ReviewDynamicsRows {
   previousHeatVersion: HeatCell[];
   summary: DynamicsSummary;
   previousSummary: DynamicsSummary;
-  markers: PromptChange[];
-  lastPromptChangeAt: string | null;
   projects: string[];
 }
 

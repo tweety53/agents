@@ -63,7 +63,6 @@ commands:
   self-review bundle   print a finished change's self-review context bundle (see: flow self-review)
   jira transition      move an issue to a pipeline position via flowd (see: flow jira)
   workspace-id <name>  print a change's workspace id, derived from its name
-  prompt-tuning render|record|import  render a case page, or record prompt changes (see: flow prompt-tuning)
 `
 
 // handledSignals is the one list of signals this CLI treats as termination
@@ -125,8 +124,6 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdin i
 		return runJira(ctx, args[1:], getenv, stdout, stderr)
 	case "workspace-id":
 		return runWorkspaceID(ctx, args[1:], stdout, stderr)
-	case "prompt-tuning":
-		return runPromptTuning(ctx, args[1:], getenv, stdout, stderr)
 	case "interactive":
 		return runInteractive(ctx, args[1:], getenv, stdout, stderr)
 	default:

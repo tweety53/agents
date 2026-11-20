@@ -10,8 +10,7 @@ import (
 // ReviewDynamics is the Review dynamics view's whole answer for one period:
 // the trend series, the slot × model · effort heatmap and the summary for
 // the period and for the previous period of the same length
-// (previous-range), the prompt changes inside the period as markers, and
-// the newest prompt change whatever the period.
+// (previous-range).
 type ReviewDynamics struct {
 	Bucket             string
 	Series             []DynamicsPoint
@@ -21,8 +20,6 @@ type ReviewDynamics struct {
 	HeatVersion, PreviousHeatVersion []HeatCell
 	Summary                          DynamicsSummary
 	PreviousSummary                  DynamicsSummary
-	Markers                          []PromptChange
-	LastPromptChangeAt               *time.Time
 	// Projects is every project with a reviewer dispatch in the period,
 	// whatever the project filter: the page's project buttons
 	// (project-buttons).
@@ -148,12 +145,6 @@ func (s *Store) ReviewDynamics(ctx context.Context, period Period, project, clas
 	out.Series, out.Heat, out.HeatVersion, out.Summary = cur.series, cur.heat, cur.heatVersion, cur.summary
 	out.PreviousHeat, out.PreviousHeatVersion, out.PreviousSummary = prev.heat, prev.heatVersion, prev.summary
 
-	if out.Markers, err = s.ListPromptChanges(ctx, period.From, period.To); err != nil {
-		return ReviewDynamics{}, err
-	}
-	if out.LastPromptChangeAt, err = s.LastPromptChangeAt(ctx); err != nil {
-		return ReviewDynamics{}, err
-	}
 	out.Projects = []string{}
 	err = s.scanRows(ctx, "projects", `
 		SELECT DISTINCT c.project_key

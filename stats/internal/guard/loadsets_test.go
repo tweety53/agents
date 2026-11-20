@@ -16,7 +16,7 @@ router (command + SKILL.md + pipeline.md)              137 bytes  ~    34 tok
   phase files + load directives                          8 bytes  ~     2 tok
   + cited at point of use                                0 bytes  ~     0 tok
   TOTAL definite                                       176 bytes  ~    44 tok
-  + conditional (flow-fix/flow-cost, resume)             0 bytes  ~     0 tok
+  + conditional (flow-fix, resume)                       0 bytes  ~     0 tok
   TOTAL incl. cited                                    176 bytes  ~    44 tok
 --- implementation session (enters via Resuming at STARTED) ---
   phase files + load directives                          0 bytes  ~     0 tok

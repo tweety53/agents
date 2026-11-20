@@ -885,7 +885,6 @@ func (stubStageStore) SelfReviewFindingsInPeriod(context.Context, store.Period, 
 func (stubStageStore) ReviewDynamics(context.Context, store.Period, *string, *string) (store.ReviewDynamics, error) {
 	return store.ReviewDynamics{}, nil
 }
-func (stubStageStore) UpsertPromptChange(context.Context, store.PromptChange) error { return nil }
 
 func (stubStageStore) GuardHealth(context.Context, store.Period, *string) ([]store.GuardHealthRow, error) {
 	return nil, errStageStoreNotImplemented
@@ -1426,8 +1425,4 @@ func TestGetChangeIgnoresStaleRestartMarker(t *testing.T) {
 	if d := time.Since(start); d >= 500*time.Millisecond {
 		t.Fatalf("took %v, want a fast failure", d)
 	}
-}
-
-func (stubStageStore) SelfReviewThemeCounts(context.Context, time.Time) ([]records.SelfReviewTheme, error) {
-	return nil, nil
 }

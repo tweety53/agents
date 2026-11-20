@@ -797,17 +797,6 @@ func seedReviewDynamics(ctx context.Context, st *store.Store) error {
 		}
 	}
 
-	slot := "primary"
-	for _, pc := range []store.PromptChange{
-		{SHA: "2e053aa:skills/flow/primary-reviewer-prompt.md", At: dynamicsFrom.Add(17*24*time.Hour + 9*time.Hour), Kind: "edit", Area: "review",
-			Slot: &slot, Target: "skills/flow/primary-reviewer-prompt.md", Summary: "primary reviewer re-reads every writer of state the diff reuses"},
-		{SHA: "b1c09e2:skills/flow/visual-verify-verifier.md", At: dynamicsFrom.Add(31*24*time.Hour + 9*time.Hour), Kind: "edit", Area: "vv",
-			Target: "skills/flow/visual-verify-verifier.md", Summary: "visual-verify-verifier: compare hover states"},
-	} {
-		if err := st.UpsertPromptChange(ctx, pc); err != nil {
-			return fmt.Errorf("uitest-seed: prompt change %s: %w", pc.SHA, err)
-		}
-	}
 	return nil
 }
 

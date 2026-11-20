@@ -38,21 +38,14 @@ return findings as text, not write report files" — kan-1051 self-review F6, ka
 F15), while the pass's case files were written, so the pass returns the two files' text and this
 session writes them (decision pass-hands-back-file-text).
 
-### Angle 4 — prompt tuning
+### Angle 3 — prompt tuning
 
 The angle borrows from `/claude-api prompt-audit` and its eval-hillclimb guide: describe the
 behaviour, never paste the incident's content into the prompt; scale a change to how many cases
-show the behaviour, never to one vivid failure; treat a prompt change as a hypothesis proven by a
-before/after behavioural probe; one idea per change; and keep context and reasons, which are never
-cruft — re-baselining can add text as well as remove it (kan-1032).
-
-- **The four-part picking bar, zero cases a normal result** (decision `picking-bar`) — rejected:
-  picking any finding a prompt line could address, because it would turn every round into an
-  incident-specific prompt patch (prompt-audit's overgeneralization and patch-accretion rows).
-- **The angle asks nothing, every case `noted`** (decision `never-ask-in-run`) — rejected: offering
-  cases in step 4's filing prompt, by the operator's instruction.
-- **Cases ride the pass's fix branch** (decision `cases-ride-fix-branch`) — rejected: a separate
-  `prompt-tuning-<name>` branch, because it adds a second landing per run.
+show the behaviour, never to one vivid failure. The replay/apply skill and its case files were
+removed (2026-11-20): a finding is filed as one Jira task whose note opens with its trace — prompt
+file, review slot and round, the change's fix sha — which is all a later prompt change needs to be
+tied back to the review result that prompted it.
 
 ## Moved by the 2026-11-13 prompt audit — incident records
 

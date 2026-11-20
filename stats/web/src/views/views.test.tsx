@@ -117,10 +117,6 @@ function reviewDynamicsRows() {
     previousHeatVersion: [],
     summary: { findingsPerChange: 0.75, criticalImportantPerChange: 0.98, meanFixRounds: 1.5, implFindingsPerTask: 1.5, vvFirstPassShare: 0.6, changes: 8 },
     previousSummary: { findingsPerChange: 1, criticalImportantPerChange: 1, meanFixRounds: 2, implFindingsPerTask: 2, vvFirstPassShare: 0.5, changes: 6 },
-    markers: [
-      { sha: "abc1234def:skills/flow/primary-reviewer-prompt.md", at: "2026-01-13T10:00:00Z", kind: "edit", area: "review", slot: "primary", target: "skills/flow/primary-reviewer-prompt.md", summary: "re-read every writer", caseId: null },
-    ],
-    lastPromptChangeAt: "2026-01-13T10:00:00Z",
     projects: ["agents-a740d89c", "gymie-7c1f238a"],
   };
 }

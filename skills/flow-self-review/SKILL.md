@@ -99,7 +99,7 @@ it — the slot's reviewer prompt file at the change's merge base, the diff each
 findings it returned. A generic instruction gap is a `reviewer` miss finding naming the rounds that missed it; any other cause — a re-run shown only the delta, or reviewer variance the
 bundle cannot explain — is an angle-3 finding naming that cause.
 
-An angle-3 finding states the defect class in one sentence with no names from the task, quotes the
+An angle-3 finding's note opens with its trace, `prompt: <file> | slot: <slot> round <r> | fix: <sha>` — the prompt file the update belongs in, the review slot and round that raised the defect, and the commit that fixed it in the change — then states the defect class in one sentence with no names from the task, quotes the
 current prompt text that shows no rule covers the class, names the prompt file the update belongs
 in, and says why the update generalises rather than patching one incident. A finding that fails any
 of those is not reported. **Zero findings is a normal result** — the angle then carries the
@@ -184,7 +184,16 @@ question to the operator.
    module it moved and no `Task-Id:` trailer, adding one test that fails without the fix wherever the fix changes behaviour,
    and running the `<agents repo>/.flow/project.md` `## lint` lines its files need. It never writes
    `<agents repo>/spectre/changes/`, and never merges or pushes. It reports each finding's commit, or a finding it found `big` once under way, left uncommitted.
-2. **Land once.** Land by `<agents repo>`'s `## default landing route`
+2. **Review once, primary only.** The fixer's diff against `origin/<agents-base>` is reviewed by one
+   fresh dispatch on the `self-review-review-1` row, key `self-review-<name>-review-1`, per
+   `skills/flow/primary-reviewer-prompt.md` and `skills/flow/reviewer-calibration.md`, writing its
+   report to `<sr-dir>/review-1.md`; the parent closes it with `flow-guard pipeline-fix end <key> <report>`,
+   the report carrying its `Critical:` and `Important:` lines. Neither line ⇒ item 3. Otherwise one fresh fixer dispatch,
+   key `self-review-<name>-fix-r<r>`, corrects them in the same worktree, then a fresh re-review on the
+   `self-review-review-r` row, key `self-review-<name>-review-r<r>`, `<r>` counting from 1. The loop ends at a review with neither line, and
+   three reviews in a row that still carry one take **Three failed rounds** (`skills/flow-contracts/pipeline.md`). Minors
+   are never fixed here and never block.
+3. **Land once.** Land by `<agents repo>`'s `## default landing route`
    (`flow-guard project-get <agents repo> 'default landing route'`), without asking — merge and push as
    step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the
    branch. `<agents repo>/scripts/flow-guard pipeline-fix land <fix worktree> > <sr-dir>/verify-<v>.log 2>&1` runs the `## lint` lines and the tests on the rebased HEAD before it pushes, `<v>` counting land attempts from 1; this session reads only its exit code and its `red:` lines. A red line is fixed by a fresh fixer dispatch, key `self-review-<name>-fix-v<v>`, its prompt naming the failing command and `<sr-dir>/verify-<v>.log`, then `land` again. **One retry rule**: a red branch never lands and a red line is never waived, and three red lands in a row take **Three failed rounds** (`skills/flow-contracts/pipeline.md`): the next fixer dispatch carries every `verify-<v>.log` of those rounds and changes approach, never a stop and never an ask. The pass is not done until every fixed finding's commit is on `origin/<agents-base>`. Each fixed
@@ -209,7 +218,7 @@ removes the worktree, and is filed in step 4 as a `big` finding is.
 Nothing is asked: every finding to file is filed. All of the pass's `big` findings, and every
 `flow-fix` finding step 3 or **The base sync** left unfixed, are filed together as **one** Jira issue, its summary `Self-review <name>: big findings`. Each of
 `flow-improvement` and `flow-prompt-tuning` with a finding is filed as **one** Jira task of its own, its summary
-`Self-review <name>: <label> findings`. Each issue's description is one `## Why` / `## How` / `## DoD`
+`Self-review <name>: <label> findings`; a `flow-prompt-tuning` finding's `###` heading carries its trace — the prompt file, the review slot and round that raised the defect, and the change's fix commit sha — so a later prompt change can be tied back to the review result that prompted it. Each issue's description is one `## Why` / `## How` / `## DoD`
 block per **Labels and body of issues the pipeline creates**
 (`skills/flow-contracts/jira-integration-finish.md`), each finding a `###` heading inside each
 section, and it carries each of its findings' angle labels on top of that label set. Each issue,

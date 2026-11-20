@@ -596,7 +596,7 @@ func (v *vvp) flow(args ...string) (string, int) {
 	return strings.TrimSpace(string(out)), rc
 }
 
-// foldedGuards are the visual-verify checks run in process by prepare and
+// foldedGuards are the checks run in process by prepare and
 // close alone: none is a flow-guard subcommand (decision guard-checks-in-process).
 var foldedGuards = map[string]Func{
 	"check-frame-list":          checkFrameList,
@@ -605,6 +605,7 @@ var foldedGuards = map[string]Func{
 	"check-visual-preflight":    checkVisualPreflight,
 	"check-visual-verification": checkVisualVerification,
 	"check-sidecar-reach":       checkSidecarReach,
+	"check-base-moved":          checkBaseMoved,
 }
 
 // guard runs a registered guard in process: its exit, stdout and stderr.

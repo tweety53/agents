@@ -13,7 +13,7 @@ import (
 )
 
 // dynamicsFixture seeds the three changes TestReviewDynamicsSeries and
-// TestReviewDynamicsHeatSummaryMarkers read: A and B reviewed in the week
+// TestReviewDynamicsHeatSummary read: A and B reviewed in the week
 // of 2026-06-01, C in the week of 2026-06-08.
 type dynamicsFixture struct {
 	t       *testing.T
@@ -165,25 +165,12 @@ func TestReviewDynamicsSeries(t *testing.T) {
 	}
 }
 
-// TestReviewDynamicsHeatSummaryMarkers pins the heatmap rows, the summary
-// against the previous range of the same length (previous-range) and the
-// prompt-change markers (markers-by-area).
-func TestReviewDynamicsHeatSummaryMarkers(t *testing.T) {
+// TestReviewDynamicsHeatSummary pins the heatmap rows and the summary
+// against the previous range of the same length (previous-range).
+func TestReviewDynamicsHeatSummary(t *testing.T) {
 	t.Parallel()
 	st, project := seedDynamics(t)
 	ctx := context.Background()
-	slot := "primary"
-	for _, pc := range []store.PromptChange{
-		{SHA: "s1:skills/flow/primary-reviewer-prompt.md", At: week2.Add(time.Hour), Kind: "edit", Area: "review",
-			Slot: &slot, Target: "skills/flow/primary-reviewer-prompt.md", Summary: "in range"},
-		{SHA: "s2:skills/flow/visual-verify-verifier.md", At: week2.Add(30 * 24 * time.Hour), Kind: "edit", Area: "vv",
-			Target: "skills/flow/visual-verify-verifier.md", Summary: "later"},
-	} {
-		if err := st.UpsertPromptChange(ctx, pc); err != nil {
-			t.Fatalf("UpsertPromptChange: %v", err)
-		}
-	}
-
 	// Week 2 alone, so week 1 is the previous range.
 	got, err := st.ReviewDynamics(ctx, store.Period{From: week2, To: week2.Add(7 * 24 * time.Hour)}, &project, nil)
 	if err != nil {
@@ -224,13 +211,6 @@ func TestReviewDynamicsHeatSummaryMarkers(t *testing.T) {
 	}
 	if p.VVFirstPassShare == nil || *p.VVFirstPassShare != 0 {
 		t.Errorf("PreviousSummary.VVFirstPassShare = %v, want 0", p.VVFirstPassShare)
-	}
-
-	if len(got.Markers) != 1 || got.Markers[0].Summary != "in range" {
-		t.Errorf("Markers = %+v, want the one in-range change", got.Markers)
-	}
-	if got.LastPromptChangeAt == nil || !got.LastPromptChangeAt.Equal(week2.Add(30*24*time.Hour)) {
-		t.Errorf("LastPromptChangeAt = %v, want the newest change whatever the range", got.LastPromptChangeAt)
 	}
 }
 

@@ -47,10 +47,10 @@ func rcwNewFx(t *testing.T) *rcwFx {
 	return fx
 }
 
-// copy adds a detached wave-group copy of the apply worktree, as
+// copy adds a detached mutation copy of the apply worktree, as
 // implement.md makes one.
 func (fx *rcwFx) copy() string {
-	c := fx.wt + "-wave-group-2"
+	c := fx.wt + "-mutation-2"
 	fx.g.git(fx.repo, "worktree", "add", "-q", "--detach", c, "HEAD")
 	return c
 }
@@ -300,7 +300,7 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 func TestRemoveChangeWorktreesDeletesACopyBranch(t *testing.T) {
 	t.Parallel()
 	fx := rcwNewFx(t)
-	c := fx.wt + "-wave-group-2"
+	c := fx.wt + "-mutation-2"
 	var o, e bytes.Buffer
 	if rc := throwawayWorktree([]string{"create", fx.wt, c}, Env{Getenv: os.Getenv}, &o, &e); rc != 0 {
 		t.Fatalf("create: exit %d: %s", rc, e.String())
@@ -309,12 +309,12 @@ func TestRemoveChangeWorktreesDeletesACopyBranch(t *testing.T) {
 	if code != 0 || rcwExists(c) {
 		t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
 	}
-	if fx.hasRef("refs/heads/flow-copy/demo-wave-group-2") {
+	if fx.hasRef("refs/heads/flow-copy/demo-mutation-2") {
 		t.Error("the copy's flow-copy branch survived")
 	}
 }
 
-// TestRemoveChangeWorktreesRemovesACopyUnasked pins that a wave-group copy is
+// TestRemoveChangeWorktreesRemovesACopyUnasked pins that a mutation copy is
 // removed without asking, before the worktree it was copied from.
 func TestRemoveChangeWorktreesRemovesACopyUnasked(t *testing.T) {
 	t.Parallel()
@@ -325,7 +325,7 @@ func TestRemoveChangeWorktreesRemovesACopyUnasked(t *testing.T) {
 	if code != 0 || rcwExists(fx.wt) || rcwExists(copyWT) {
 		t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
 	}
-	if l := rcwLines(out, "REMOVED: "); len(l) != 3 || !strings.HasSuffix(l[0], "-wave-group-2") {
+	if l := rcwLines(out, "REMOVED: "); len(l) != 3 || !strings.HasSuffix(l[0], "-mutation-2") {
 		t.Errorf("REMOVED lines %q, want the copy first, then the worktree and the branch", l)
 	}
 }

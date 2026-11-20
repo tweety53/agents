@@ -82,7 +82,7 @@ func loadSets(args []string, env Env, stdout, stderr io.Writer) int {
 	row("  phase files + load directives", pd...)
 	row("  + cited at point of use", pc...)
 	row("  TOTAL definite", cat(always, router, pd)...)
-	row("  + conditional (flow-fix/flow-cost, resume)", px...)
+	row("  + conditional (flow-fix, resume)", px...)
 	row("  TOTAL incl. cited", cat(always, router, pd, pc)...)
 
 	fmt.Fprintln(stdout, "--- implementation session (enters via Resuming at STARTED) ---")

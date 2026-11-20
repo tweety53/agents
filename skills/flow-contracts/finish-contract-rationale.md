@@ -64,7 +64,7 @@ re-sync would rebase onto it and be refused again.
 
 ## finish-contract-run1.md — a clean drift branch is switched back (2026-10-22)
 
-During kan-922's integrate run, `prepare` stopped at `STOP: foreign-staged` on a main checkout
+During kan-922's integrate run, `prepare` stopped on a main checkout
 that was clean but left on another session's `fix/base-missing-on-satellite` branch. The
 operator's instruction: "resolve it yourself, update flow to resolve such things automatically".
 So `flow-guard integrate-change prepare` now switches such a checkout back to its default branch.

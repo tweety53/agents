@@ -30,9 +30,9 @@ func TestBlockUnsafeCommandsRecognisesFlowGuardSpelling(t *testing.T) {
 	f.git("-C", main, "remote", "set-head", "origin", "main")
 
 	body := "C={SIB}; cat > $C/t.md <<'EOF'\n> **Execution:** a > b; rm x\nEOF\n"
-	f.bash("bare flow-guard check-base-moved", "allow", "{MAIN}", body+"flow-guard check-base-moved $C/t.md")
+	f.bash("bare flow-guard check-unfinished-work", "allow", "{MAIN}", body+"flow-guard check-unfinished-work $C/t.md")
 	f.bash("path-named flow-guard check-finish-preflight", "allow", "{MAIN}", body+"{ROOT}/agents/scripts/flow-guard check-finish-preflight $C/t.md")
-	f.bash("check-base-moved.sh", "allow", "{MAIN}", body+"check-base-moved.sh $C/t.md")
+	f.bash("check-unfinished-work.sh", "allow", "{MAIN}", body+"check-unfinished-work.sh $C/t.md")
 	f.bash("path-named check-finish-preflight.sh", "allow", "{MAIN}", body+"{ROOT}/agents/scripts/check-finish-preflight.sh $C/t.md")
 	f.bash("flow-guard run of a non-guard word keeps the body scanned", "deny", "{MAIN}", body+"flow-guard sh $C/t.md")
 }

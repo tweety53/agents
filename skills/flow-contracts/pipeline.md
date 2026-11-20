@@ -292,13 +292,14 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
    of its own, from which `hooks/enforce-loop-dispatch.py` records the row under the loop's change;
    the parent never runs `flow record dispatch begin` or `end` for it under its own change. The fixer also adds one test or guard that fails without the fix,
    and updates a saved memory that encoded the defect.
-2. **Land** — it lands by
+2. **Review once, primary only** — as item 2 there states it, on the `pipeline-fix-review-1` and `pipeline-fix-review-r` rows, keys `pipeline-fix-<k>-review-1`, `pipeline-fix-<k>-fix-r<r>` and `pipeline-fix-<k>-review-r<r>`.
+3. **Land** — it lands by
    `<agents repo>`'s `## default landing route`
    (`flow-guard project-get <agents repo> 'default landing route'`), without asking. Merge and push is
    `<agents repo>/scripts/flow-guard pipeline-fix land <worktree> <important|minor>`, the last argument the defect's grade as **Record each one** below defines it, run with a Bash `timeout: 600000` —
    a landing that moved `<agents repo>/stats/` restarts flowd inside the call, and a kill partway leaves it down.
    Land runs the lint lines and tests on the rebased HEAD, and its `red:` lines feed
-   `pipeline-fix-<k>-fix-v<v>` as item 2 there states; three red lands take **Three failed rounds** above.
+   `pipeline-fix-<k>-fix-v<v>` as item 3 there states; three red lands take **Three failed rounds** above.
 
 The loop runs in the background while the run's own work continues; the run still never ends a
 turn with one of its children in flight.

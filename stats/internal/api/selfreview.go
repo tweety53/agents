@@ -44,7 +44,6 @@ type selfreviewStore interface {
 	// route: one row per self-review finding and its outcome (KAN-875).
 	RecordSelfReviewFinding(ctx context.Context, projectKey string, in records.SelfReviewFinding) (records.SelfReviewFinding, error)
 	ListSelfReviewFindings(ctx context.Context, projectKey, change string) ([]records.SelfReviewFinding, error)
-	SelfReviewThemeCounts(ctx context.Context, since time.Time) ([]records.SelfReviewTheme, error)
 }
 
 // selfreviewHandler serves GET
@@ -192,19 +191,6 @@ func (h *selfreviewHandler) listFindings(w http.ResponseWriter, r *http.Request)
 	out, err := h.store.ListSelfReviewFindings(r.Context(), project, change)
 	if err != nil {
 		status, msg := mapStoreError(h.logger, fmt.Sprintf("list self-review findings for %s/%s", project, change), err)
-		writeError(w, status, msg)
-		return
-	}
-	writeJSON(w, http.StatusOK, out)
-}
-
-// themes serves GET /api/v1/self-review-themes: every theme a self-review
-// finding of the last records.SelfReviewThemeWindow carries, across every
-// project, with its count of noting changes and whether it is settled.
-func (h *selfreviewHandler) themes(w http.ResponseWriter, r *http.Request) {
-	out, err := h.store.SelfReviewThemeCounts(r.Context(), time.Now().Add(-records.SelfReviewThemeWindow))
-	if err != nil {
-		status, msg := mapStoreError(h.logger, "self-review theme counts", err)
 		writeError(w, status, msg)
 		return
 	}

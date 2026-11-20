@@ -17,7 +17,7 @@ branch's merge status is the only source of truth, and a field could disagree wi
 
 **The merge status is decided by three signals, in this order, and by a script — not by prose.**
 `flow-guard check-finish-preflight <worktree> <base-ref> <recorded-merge-base|->` prints one verdict
-line — and, after a `RUN1`, `check-base-moved`'s own `CLEAR` / `MOVED` / `REFUSE` line about the
+line — and, after a `RUN1`, the base-moved `CLEAR` / `MOVED` / `REFUSE` line about the
 same worktree — and exits 0 whenever it reached a verdict. It exits 2 with no verdict when it cannot read the
 worktree at all — an unreadable tree is never a licence to proceed.
 
@@ -99,9 +99,9 @@ that greps for `CLEAR` in empty output finds nothing.
 **Load `skills/flow/unfinished-work-gate.md` only when** a worktree reported `OUTSTANDING` — finishing the work is there.
 
 **The base-moved verdict is the preflight's second line, not a call of its own.** After a `RUN1`
-the preflight prints `check-base-moved`'s `CLEAR`, `MOVED` or `REFUSE` line for the same worktree,
-the three verdicts and the exit contract being `<agents repo>/scripts/flow-guard check-base-moved`'s
-header's rather than a copy of them here; `<base-ref>` is composed as `origin/$BASE`, exactly as
+the preflight prints the base-moved `CLEAR`, `MOVED` or `REFUSE` line for the same worktree,
+the three verdicts and the exit contract being the header's of `stats/internal/guard/basemoved.go`
+rather than a copy of them here; `<base-ref>` is composed as `origin/$BASE`, exactly as
 above, and `<recorded-merge-base>` is the merge base recorded in the state file's `worktrees` map
 for that worktree. A `MOVED` verdict is relayed with the guard's hand-verification procedure
 alongside it, per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`). Every
@@ -126,7 +126,7 @@ route, so nothing about the single-repository path changes.
 merge base recorded in the state file's `worktrees` map for this worktree — the same merge base
 **Resolving a change's worktrees** and the finish-preflight verdict above both reference — **or
 `<rebased-merge-base>`, for a worktree **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) rebased
-or whose `flow-guard check-base-moved` `CLEAR` named `merge base now <sha>`**: every commit the run made on the branch — task and fixup commits alike — folds
+or whose base-moved `CLEAR` named `merge base now <sha>`**: every commit the run made on the branch — task and fixup commits alike — folds
 back into the index, uncommitted.
 
 **A re-run reshapes from past the work already landed in its fixed form**: `prepare` writes as the

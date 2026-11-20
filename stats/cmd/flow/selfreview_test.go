@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // TestRunSelfReviewBundlePrintsBundle drives `flow self-review bundle`
@@ -319,53 +317,5 @@ func TestSelfReviewFindingsCLI(t *testing.T) {
 
 	if code, stdout := read("http://127.0.0.1:1"); code == 0 || stdout != "" {
 		t.Errorf("unreachable: exit %d, stdout %q; want non-zero and nothing", code, stdout)
-	}
-}
-
-// TestSelfReviewThemesCLI: `flow self-review finding -theme` posts the theme,
-// and `flow self-review themes` prints every theme of the list with its
-// count and state -- due at records.SelfReviewThemeDueAt changes unless
-// settled or uncounted.
-func TestSelfReviewThemesCLI(t *testing.T) {
-	t.Parallel()
-	repo := gitRepo(t)
-	env := newTestEnv(t)
-	var posted map[string]any
-	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/v1/self-review-themes" {
-			_, _ = w.Write([]byte(`[{"theme":"mutation-slot","changes":5},{"theme":"planning-share","changes":9,"settled":true},{"theme":"other","changes":40},{"theme":"visual-rounds","changes":4}]`))
-			return
-		}
-		_ = json.NewDecoder(r.Body).Decode(&posted)
-		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(posted)
-	}))
-	defer srv.Close()
-	call := func(args ...string) (int, string, string) {
-		var stdout, stderr strings.Builder
-		code := run(context.Background(), append([]string{"self-review"}, args...), env.get, strings.NewReader(""), &stdout, &stderr)
-		return code, stdout.String(), stderr.String()
-	}
-	if code, _, stderr := call("finding", "-addr", srv.URL, "-C", repo, "-change", "demo", "-angle", "flow-cost",
-		"-disposition", "noted", "-theme", "mutation-slot", "-note", "slot waited"); code != 0 || posted["theme"] != "mutation-slot" {
-		t.Fatalf("finding -theme: exit %d, posted %v, stderr %s", code, posted["theme"], stderr)
-	}
-	code, out, stderr := call("themes", "-addr", srv.URL, "-C", repo)
-	if code != 0 {
-		t.Fatalf("themes exit = %d, stderr: %s", code, stderr)
-	}
-	for _, want := range []string{
-		"mutation-slot: 5 changes in 30 days — due\n",
-		"planning-share: 9 changes in 30 days — settled\n",
-		"visual-rounds: 4 changes in 30 days — counted\n",
-		"verify-reruns: 0 changes in 30 days — counted\n",
-		"other: 40 changes in 30 days — uncounted\n",
-	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("themes output lacks %q:\n%s", want, out)
-		}
-	}
-	if n := strings.Count(out, "\n"); n != len(records.SelfReviewThemes) {
-		t.Errorf("themes printed %d lines, want one per theme (%d)", n, len(records.SelfReviewThemes))
 	}
 }
