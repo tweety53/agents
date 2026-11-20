@@ -7058,7 +7058,7 @@ func TestRecordDispatchBeginPrintsTheLaunchLines(t *testing.T) {
 		{"kan-258", "reviewer", "task-1-reviewer-fix-1", nil, "recorded: dispatch 7\ndescription: Task 1/3\nRole: gated-re-reviewer\n"},
 		{"kan-258", "panel-fix", "task-1-implementer-fix-1", nil, "recorded: dispatch 7\ndescription: Task 1/3\nRole: panel-fix\n"},
 		{"kan-258", "panel-fix", "task-1-implementer-recommit-1", nil, "recorded: dispatch 7\ndescription: Task 1/3\nRole: panel-fix\n"},
-		{"kan-259", "reviewer", "panel-2-primary", []string{"-slot", "primary"}, "recorded: dispatch 7\nrecorded: pass 1\ndescription: panel-2-primary\n"},
+		{"kan-259", "reviewer", "panel-2-primary", []string{"-slot", "primary"}, "recorded: dispatch 7\ndescription: panel-2-primary\n"},
 		{"kan-258", "merger", "panel-2-merger", nil, "recorded: dispatch 7\ndescription: panel-2-merger\nRole: panel-merger\n"},
 		{"kan-258", "panel-fix", "panel-fix-3", nil, "recorded: dispatch 7\ndescription: panel-fix-3\nRole: panel-fix\n"},
 		{"kan-258", "panel-fix", "panel-2-minor-fix", nil, "recorded: dispatch 7\ndescription: panel-2-minor-fix\nRole: minor-fix\n"},
@@ -7179,12 +7179,10 @@ func TestRecordRefusesARoundBeyondTheNext(t *testing.T) {
 	}
 }
 
-// TestRecordDispatchBeginWritesThePanelPassRow pins kan-1086's self-review,
-// F8: a hand-begun panel round wrote no pass row, and the back-filled notes
-// named a pair the ledger contradicts. A panel slot's begin now writes its
-// own `dispatched:` pass row from its own flags; a refused begin and a
-// non-panel begin write none.
-func TestRecordDispatchBeginWritesThePanelPassRow(t *testing.T) {
+// TestRecordDispatchBeginWritesNoPassRow: the record renders a round's
+// `dispatched:` line from its panel dispatch rows, so no begin -- a panel
+// slot's included -- writes a pass row restating it.
+func TestRecordDispatchBeginWritesNoPassRow(t *testing.T) {
 	t.Parallel()
 	repo := recordRepo(t, "kan-258")
 	env := newTestEnv(t)
@@ -7223,7 +7221,7 @@ func TestRecordDispatchBeginWritesThePanelPassRow(t *testing.T) {
 	}
 	panel := []string{"-role", "reviewer", "-slot", "primary", "-model", "sonnet", "-effort", "low", "-diff-base", "a515c200", "-key", "panel-4-primary"}
 	code, out, passes := begin(t, false, panel...)
-	if code != 0 || len(passes) != 1 || passes[0].Round != 4 || passes[0].Note != "dispatched: panel-4-primary on sonnet/low over a515c200" || !strings.Contains(out, "recorded: pass 9") {
+	if code != 0 || len(passes) != 0 || strings.Contains(out, "recorded: pass") {
 		t.Fatalf("panel begin: exit %d, passes %+v; output:\n%s", code, passes, out)
 	}
 	if code, out, passes := begin(t, true, panel...); code == 0 || len(passes) != 0 {

@@ -23,6 +23,7 @@ export const SHORT_DOES: Record<string, string> = {
   "panel-reviewer": "Reviews the branch",
   decider: "Checks the plan",
   "minor-fix": "Fixes review Minors",
+  "no-progress-fixer": "Takes over a stuck fix",
   "prompt-tuning-replay": "Replays a prompt fix",
   "prompt-tuning-grader": "Grades a replay",
   "panel-rerun": "Re-reviews the branch",
@@ -64,7 +65,7 @@ function PairList({ pairs, className }: { pairs: string[]; className?: string })
 // trigger, which opens a filterable checklist over every pair the roles use.
 // Typing a well-formed pair (PAIR_SHAPE) not yet listed offers to add it.
 // Escape, a click outside or Done closes it.
-function PairEditor({ role, tier, pairs, catalog, note, onChange }: { role: string; tier: string; pairs: string[]; catalog: string[]; note?: string; onChange: (p: string[]) => void }) {
+function PairEditor({ role, tier, pairs, catalog, onChange }: { role: string; tier: string; pairs: string[]; catalog: string[]; onChange: (p: string[]) => void }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const box = useRef<HTMLSpanElement>(null);
@@ -149,7 +150,7 @@ function PairEditor({ role, tier, pairs, catalog, note, onChange }: { role: stri
             ))}
           </div>
           <div className="foot">
-            <span>{note ? `Escalation: ${note}` : `${pairs.length} selected`}</span>
+            <span>{`${pairs.length} selected`}</span>
             <button type="button" onClick={() => setOpen(false)}>
               Done
             </button>
@@ -184,7 +185,6 @@ type Draft = { base: string[]; optin: string[] };
 
 function RoleRow({ r, catalog, draft, onDraft }: { r: RoleEntry; catalog: string[]; draft: Draft; onDraft: (d: Draft) => void }) {
   const main = r.role === "main";
-  const marked = r.marked.map((x) => `${x.pair} with ${x.marker}`).join("; ");
   return (
     <tr className="role">
       <td className="role" title={r.does}>
@@ -198,7 +198,7 @@ function RoleRow({ r, catalog, draft, onDraft }: { r: RoleEntry; catalog: string
         {main ? (
           <PairList pairs={[MAIN_PAIR]} />
         ) : (
-          <PairEditor role={r.role} tier="main" pairs={draft.base} catalog={optionsFor(r).length ? optionsFor(r) : catalog} note={marked} onChange={(base) => onDraft({ ...draft, base })} />
+          <PairEditor role={r.role} tier="main" pairs={draft.base} catalog={optionsFor(r).length ? optionsFor(r) : catalog} onChange={(base) => onDraft({ ...draft, base })} />
         )}
       </td>
       <td className="pairs">

@@ -64,7 +64,7 @@ func (h *policyHandler) policyError(w http.ResponseWriter, action string, err er
 	}
 }
 
-// policy serves GET /api/v1/policy: {role: {base, optin, marked}}.
+// policy serves GET /api/v1/policy: {role: {base, optin}}.
 func (h *policyHandler) policy(w http.ResponseWriter, r *http.Request) {
 	p, err := h.store.RolePairs(r.Context())
 	if err != nil {

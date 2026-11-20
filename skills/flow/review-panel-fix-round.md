@@ -49,8 +49,7 @@ Critical, Important or Minor alike.** Then:
   Important is a surviving mutant therefore dispatches its fix and closes with no re-run round;
   Mutation sweeps again only at the next pass 1.
 - **a diff-reading slot whose
-  delta is empty in every worktree is not dispatched** — record `not re-run —
-  nothing new since its last read` with `flow record pass -round <round>`;
+  delta is empty in every worktree is not dispatched**;
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The panel** states, at the start of any round;
 - **the round's re-running roles ride one bundled dispatch, on role `panel-rerun`**, its pair
@@ -205,9 +204,7 @@ from its file before writing its fix — on Claude Code the newest
 `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`, since a `flow-*` agent
 carries no Skill tool. **Dispatch it on the `panel-fix` role's pair** from `flow-guard pair-judge` (**Model and effort**,
 `skills/flow/brainstorm-planner.md`), `subagent_type` the pair's agent type with its `model` passed as
-the Agent tool's own `model` parameter, and `-model`/`-effort` below carry that pair. Record
-every pass with `flow record pass -round <round>`: which agents ran, why,
-and the diff path they read.
+the Agent tool's own `model` parameter, and `-model`/`-effort` below carry that pair.
 
 A Minor fixed or withdrawn blocks nothing; a Minor left `open` or `deferred` blocks exactly as a
 Critical does. When fix rounds do not converge, the run decides each unresolved finding itself, one finding

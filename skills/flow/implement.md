@@ -66,8 +66,7 @@ These ten rows are **every** Agent-tool dispatch the parent may make, across sec
 **Every dispatch's prompt carries its Role line** — `Role: <role id>`, a line of its own, the id
 the **Role line** column names — and runs on a pair that role's rows of **Allowed pairs**
 (`skills/flow-contracts/model-policy.md`) admit. A
-no-progress escalation carries its fixer's own Role line — `panel-fix`, or `implementer` for a
-verify fix (or its loop's `Key:` line) — with its `No-progress escalation` line.
+no-progress escalation carries `Role: no-progress-fixer` (a pipeline-fix loop's, its loop's `Key:` line too).
 
 The in-run pipeline fix row's dispatches are recorded by `hooks/enforce-loop-dispatch.py` under
 the loop's own change, off each prompt's `Key:` line: the parent never begins or ends one under its
@@ -125,7 +124,7 @@ Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/mod
 structurally does not have, not by prompt text alone. This covers the panel bundle,
 panel-fix and gated per-task reviewer rows. The verifier
 row dispatches on the `visual-verifier` role's pair (`skills/flow/visual-verify.md`),
-a `flow-<effort>` definition, so it is structurally fork-free too. **`flow-high` is dispatched in exactly one case and never chosen by hand**: the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), the pipeline-fix loop's `pipeline-fix-fix` escalation row included; every other row takes the effort its role's pair names.
+a `flow-<effort>` definition, so it is structurally fork-free too. Every row takes the effort its role's pair names; the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`) is the `no-progress-fixer` role's.
 
 **The return.** Once a dispatch's completion notification arrives and its report file exists, read its verdict, print the change's own
 handoff or continue to the next stage, and close the record under whichever key is open:
@@ -308,21 +307,14 @@ read records the literal `unknown (agent-defined)` and never a guess.
 **A record write never blocks.** An unreachable store journals the intent, prints one warning line,
 and exits 0 — never branch on this command's exit code as a signal about the record.
 
-**An incident one dispatch caused rides the next dispatch to the same role.** When a dispatched
-child does what its brief should have prevented — a fixup folded against a sha that was not an
-ancestor, a checkout that destroyed uncommitted planning artifacts, any damage found
-behind a clean report — the parent, before anything else
-dispatches, records it in the store:
+**A dispatch's damage is saved for later analysis.** When a dispatched child does what its brief
+should have prevented — damage found behind a clean report included — the parent records it, and
+nothing else follows from the record:
 
 ```bash
 flow record incident -guard <the check that would have caught it> -symptom <what happened, verbatim> \
   -recovery <the exact commands that would have caught it> -minutes-lost <n> -change <name>
 ```
-
-and opens the next dispatch to that same role with the incident carried verbatim: what happened,
-those exact commands, and an explicit **stop and report** instruction — a repeat is handed back,
-never self-recovered. A generic warning ("be careful with git") is not a carry. The child's own claim that nothing went wrong
-never closes an incident.
 
 **Load `skills/flow/sdd-dispatch.md`** — it
 carries the per-group implementer dispatch and the **Waves**.
@@ -354,8 +346,7 @@ The paragraphs that instruct an implementer in its work — FLOW — COMMIT-PER-
 DON'T DECIDE — live in that file, which the implementer reads in full first, and the prompt never
 carries them. The prompt is these lines alone, in this order, each `<…>` filled — `<skill-dir>` the
 directory this file was read from, the `Role:` line the **Role line** column's id for
-the row, and the `Incident:` line present only when an incident rides this dispatch (**An incident
-one dispatch caused rides the next dispatch to the same role**, above), the `In-run fix:` line
+the row, the `In-run fix:` line
 present only on a fix's implementer (`skills/flow/fix.md`), and the `Visual close:` line
 present only when a task of the group names a `ui paths` file in its `**Files:**`:
 
@@ -370,7 +361,6 @@ context — it is your brief.
 Worktree: <abs-worktree>
 Plan: <changeRoot>/proposal.md <changeRoot>/design.md <changeRoot>/tasks.md
 Tasks: <the group's task ids, in plan order> of <the plan's task count>
-Incident: <what happened and the exact commands that would have caught it, verbatim — on a repeat, stop and report>
 In-run fix: read <skill-dir>/fix.md, **The fix implementer's brief**, follow every paragraph that applies, including its MUTATION PROOF paragraph and the PIXEL PROBE paragraph of <skill-dir>/review-panel.md; report their fix-mutation: lines
 Visual close: <skill-dir>/fix.md, **The implementer measures before it hands back** and **A fix for a visual departure runs its capture spec before it closes**, binds each task here whose commit reaches a capture spec carrying a `.mockups` sidecar — key `task-<id>`, base the commit the task started from; verifier file <skill-dir>/visual-verify-verifier.md; capture: <the `capture` command>; mockups: <the resolved `mockups` root>, frame <the `mockup frame` value>
 REPORT FILE: <abs-worktree>/.superpowers/sdd/implementer-report-<k>.md
@@ -427,9 +417,7 @@ while the slots are reading the tree.
 entry. At each boundary, in this order:
 
 1. **The returned group's implementer commits**, writes its report and ends; its completion notification
-   wakes the parent with its summary head (`skills/flow/implementer-brief.md`). Each `correction:`
-   and `undeclared:` line the parent judges legitimate is transcribed first (**The record carries
-   its own corrections**, below) — the one edit a boundary may add before the call below.
+   wakes the parent with its summary head (`skills/flow/implementer-brief.md`).
 2. **One Bash call closes the returned group and prints the ready set**, every verdict echoed:
    `flow-guard close-task`, then — only on its exit 0 — the rest.
 
@@ -482,27 +470,6 @@ entry. At each boundary, in this order:
 **The guard's pass ticks the task.** Mark a **task's** checkbox `[x]` (`flow tasks tick`)
 once `flow-guard close-task`'s checks pass on its commit. A step's checkbox tracks
 the step and gates nothing.
-
-**The record carries its own corrections.** When a measurement or a commit disproves what a task
-record declares, the record is corrected in place, at the task-close boundary and where the wrong
-claim sits — a wrong number replaced, a `**Files:**` field widened to the
-paths the commit really needed — never left to
-disagree silently with what the run did. The implementer never edits `<project>/spectre/changes/`
-(FLOW — COMMIT-PER-TASK, `skills/flow/implementer-brief.md`): it discloses each correction as a
-`correction:` line of its summary head, the exact field and its corrected value, and the parent transcribes it into the record before the guard runs
-on the commit. A `**Files:**` widening is
-transcribed with `flow tasks files -C <worktree> <change> <id> add <path>…`, and a narrowing with
-`flow tasks files -C <worktree> <change> <id> remove <path>…`, never with a hand `sed` over
-`tasks.md`. This is expected practice on every task, not one implementer's habit.
-
-**A deviation from the plan records as a dated `Correction:` paragraph.** When a task's commit
-departs from what the plan declares — a file swap, a renamed helper, an added step, any course
-the plan did not name — the parent appends a paragraph opening `Correction (YYYY-MM-DD):` to
-that task's entry in `tasks.md`, at the task-close boundary where the task's other corrections
-are transcribed (before the guard runs on the commit), stating what the plan declared, what
-shipped instead, and why. The disclosure route is the same as any correction's: the implementer
-reports the deviation, the parent transcribes it. A `design.md` statement the plan or a task's commit is found to
-contradict is corrected in place in the same transcription, never recorded as left.
 
 **A pivot reconciles the three artifacts together.** When implementation pivots — a reality
 discovered mid-run (a route already taken on the base, a capability spec another change already
@@ -580,7 +547,6 @@ Include this instruction verbatim in any prompt you write for another agent.
 Report tersely: findings first, bullets over prose, no preamble, no recap. Full prose in whatever you write to disk.
 Key: task-<n+n+n>-reviewer
 Read <skill-dir>/gated-reviewer-brief.md in full first — it is your brief. Each pass below reviews per <skill-dir>/primary-reviewer-prompt.md, [CALIBRATION_PATH] being <skill-dir>/reviewer-calibration.md and its two Scope placeholders the values its PASS block names.
-Incident: <what happened and the exact commands that would have caught it, verbatim — on a repeat, stop and report>
 FINDINGS FILE: <abs-worktree>/.superpowers/sdd/findings-gated-<n+n+n>.jsonl
 PASS task-<n>:
 [DIFF_PATH] <abs-worktree>/.superpowers/sdd/task-<n>.diff
@@ -719,9 +685,7 @@ dispatch begin` and `end` as a group's implementer is — its `-model` and `-eff
 table names, the end's `-commit` its last commit — and launched with `run_in_background: true` like
 every child. `<k>` counts that key's fixes from 1. A fixer is a mutator: it goes out only while no
 implementer writes its worktree. 
-**The parent keeps every judgement**, and delegates none: whether a correction or an undeclared
-path is legitimate — an undeclared path transcribed with `flow tasks files` is a plan edit, never a
-fix; whether a finding stands, or is withdrawn with its one clause; a BLOCKED report or a question,
+**The parent keeps every judgement**, and delegates none: whether a finding stands, or is withdrawn with its one clause; a BLOCKED report or a question,
 per **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`); a pivot; every `flow record finding`, `status` and `incident` call; and whether a fixer or a
 re-review goes out. No child dispatches, waits on or resumes another.
 

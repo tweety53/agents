@@ -31,9 +31,6 @@ this file in full first: its prompt is a stub naming this file, never these para
 > `skills/flow-contracts/git-boundaries.md`). **Your commit's message describes the tree it lands**: an attempt you
 > wrote and undid before committing is never what its subject or body describes (**Revert and
 > back-out commits**, `skills/flow-contracts/git-boundaries.md`).
->
-> A path the commit needed beyond `**Files:**`, or a declared path the task had
-> no reason to touch, is named on an `undeclared:` or `correction:` line of your summary head.
 
 > **REQUIRED SUB-SKILL:** Read and follow superpowers:test-driven-development from its file — on
 > Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/test-driven-development/SKILL.md`
@@ -69,10 +66,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 
 > **PLAN AMENDMENT:** When what you
 > measure contradicts the plan, stop and report the measurement: see **When a measurement
-> contradicts the plan** (`skills/flow-contracts/plan-amendment.md`). Report a correction your
-> measurement produced — a number to replace, a `**Files:**` entry to add — as the
-> exact field and its corrected value, so it can be transcribed into the record in place
-> (The record carries its own corrections, `skills/flow/implement.md`).
+> contradicts the plan** (`skills/flow-contracts/plan-amendment.md`).
 
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to
@@ -149,8 +143,6 @@ this file in full first: its prompt is a stub naming this file, never these para
 > ```text
 > status: DONE | BLOCKED
 > commit: <task-id> <full sha>
-> correction: <task-id> <field> — <corrected value>
-> undeclared: <task-id> <path>[,<path>…] — <one-line reason>
 > fixed: F<n> <full sha>
 > not-fixed: F<n> — <reason>
 > fix-mutation: <path> — <what was mutated> — <the test that failed>

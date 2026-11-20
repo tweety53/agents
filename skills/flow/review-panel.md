@@ -74,8 +74,7 @@ this run's own argument or in the session before this stage, named an id the dec
 carry?), and again at the start of every fix round below — an operator may ask mid-run, after seeing
 pass 1's result, and that request adds the slot starting from the round it was made, never
 retroactively to a pass already closed. Record which
-slots were added this way and why (the operator's own words) with `flow record pass -round <round>`,
-and record explicitly when none were: "no addition this round — the decided panel ran alone."
+slots were added this way and why (the operator's own words) with `flow record pass -round <round>`.
 
 **Model and effort belong to the dispatch's role, not the slot**: every pass-1 panel dispatch runs
 on role `panel-reviewer`, and every fix-round re-run on role `panel-rerun`
@@ -91,8 +90,6 @@ dispatches `mutation` — it carries the mutation slot's prompt and **The throwa
 size, touched area, or any other automatic trigger: beyond the decided panel, anything reaches the
 panel only through an explicit per-run operator instruction, for that run only. A change whose every
 task's `**Files:**` is documentation is decided `primary` alone by `plan-check`, never reduced here.
-
-Record the slots actually dispatched with `flow record pass -round <round>` on **every** run.
 
 Write `<abs-worktree>/.superpowers/sdd/final-review.diff` (the canonical worktree's) and its
 `[TOUCHED_FILES]` list once per round from **every** worktree in the change's resolved set
@@ -126,9 +123,8 @@ separate to hold review quality — and recorded with `flow record pass -round <
 `-model`/`-effort` the bundle's role's pair. Every finding still records its own single role in `-slot`, with the
 bundle's `-dispatch-seq`.
 
-An incident a round's slot caused takes the same course (the incident rule of **4. Execute
-(SDD + TDD)**, `skills/flow/implement.md`): recorded with `flow record incident`, and the next dispatch to that role — a
-re-run, or the panel-fix subagent — carries it verbatim.
+An incident a round's slot caused is saved as **4. Execute (SDD + TDD)** saves one
+(`skills/flow/implement.md`).
 
 **Every dispatch's brief is assembled by hand, once the round's diff is written** — one file per
 dispatch, a one-role dispatch included, at
@@ -284,8 +280,8 @@ No panel slot is dispatched onto a skill or agent that forks its own background 
 agent reports to nobody the dispatcher is tracking. Repair it by dispatching the slot on a shape
 that reports back directly; never drop the slot.
 
-Every panel slot carries a 15-minute wall-clock ceiling from its dispatch — 5 minutes for a
-fix-round re-run dispatch, which reads a delta
+Every panel slot carries a 15-minute wall-clock ceiling from its dispatch — 30 minutes for the
+`mutation` slot, which runs the tests once per mutant, and 5 minutes for a fix-round re-run dispatch, which reads a delta
 and has no business running longer. The dispatcher tracks each in-flight slot's elapsed time
 itself rather than blocking indefinitely on a completion notification: it notes each slot's
 dispatch instant (`date +%s`) when it dispatches, waits on the slot only through its completion

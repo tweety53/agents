@@ -253,7 +253,7 @@ ticks and **The base sync** below: each numbered step below that does is a fresh
 NO DELEGATION paragraphs of `skills/flow/implementer-brief.md` verbatim — a review's READ-ONLY REVIEW
 (`skills/flow/gated-reviewer-brief.md`) too, and the plan's
 PLANNING DELEGATION below in place of NO DELEGATION. Every dispatch is one-shot: no `SendMessage` to it once
-it returns. The `self-review-fix` row carries no no-progress escalation: a self-review fix that makes no progress is answered by the fresh re-plan above, never by `flow-high`. The `pipeline-fix-fix` row keeps it: a pipeline-fix round that made no progress is dispatched again on that row's `opus/flow-high` escalation (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`).
+it returns. The `self-review-fix` row carries no no-progress escalation: a self-review fix that makes no progress is answered by the fresh re-plan above. The `pipeline-fix-fix` row keeps it: a pipeline-fix round that made no progress is dispatched again on the `no-progress-fixer` role (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`).
 
 **The pairs are the `self-review-*` and `pipeline-fix-*` rows** of **Allowed pairs**
 (`skills/flow-contracts/model-policy.md`), a key's suffix naming its row — `pass`, `plan`, `fix`, `review-1` and `review-r` for

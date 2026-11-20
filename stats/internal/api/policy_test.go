@@ -40,7 +40,7 @@ func (f *fakePolicy) ReplaceRolePairs(_ context.Context, role string, base, opti
 	if f.pairs == nil {
 		f.pairs = map[string]store.RolePolicy{}
 	}
-	f.pairs[role] = store.RolePolicy{Base: base, Optin: optin, Marked: f.pairs[role].Marked}
+	f.pairs[role] = store.RolePolicy{Base: base, Optin: optin}
 	return nil
 }
 
@@ -102,16 +102,14 @@ func doJSON(t *testing.T, method, url, body string) (int, string) {
 func TestRolesRoute(t *testing.T) {
 	t.Parallel()
 	type entry struct {
-		Role   string             `json:"role"`
-		Base   []string           `json:"base"`
-		Optin  []string           `json:"optin"`
-		Marked []store.MarkedPair `json:"marked"`
-		Group  string             `json:"group"`
-		Does   string             `json:"does"`
+		Role  string   `json:"role"`
+		Base  []string `json:"base"`
+		Optin []string `json:"optin"`
+		Group string   `json:"group"`
+		Does  string   `json:"does"`
 	}
 	fe := &fakePolicy{pairs: map[string]store.RolePolicy{
-		"explorer":  {Base: []string{"opus/Explore@low"}, Optin: []string{"opus/Explore@high"}, Marked: []store.MarkedPair{}},
-		"panel-fix": {Base: []string{"opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{{Pair: "opus/flow-high", Marker: "No-progress escalation"}}},
+		"explorer": {Base: []string{"opus/Explore@low"}, Optin: []string{"opus/Explore@high"}},
 	}}
 	ts := newPolicyTestServer(t, fe)
 
@@ -126,7 +124,7 @@ func TestRolesRoute(t *testing.T) {
 	if got[0].Role != "main" || got[0].Group != "Session" {
 		t.Errorf("entry 0 = %+v, want main in Session", got[0])
 	}
-	want := entry{Role: "explorer", Base: []string{"opus/Explore@low"}, Optin: []string{"opus/Explore@high"}, Marked: []store.MarkedPair{},
+	want := entry{Role: "explorer", Base: []string{"opus/Explore@low"}, Optin: []string{"opus/Explore@high"},
 		Group: "Planning", Does: "Reads the codebase to answer a planner's question."}
 	if !reflect.DeepEqual(got[1], want) {
 		t.Errorf("entry 1 = %+v, want %+v", got[1], want)
@@ -153,9 +151,6 @@ func TestRolesRoute(t *testing.T) {
 			t.Errorf("entry %d = %+v, want a group and one entry per role", i, e)
 		}
 		seen[e.Role] = true
-		if e.Role == "panel-fix" && !reflect.DeepEqual(e.Marked, fe.pairs["panel-fix"].Marked) {
-			t.Errorf("panel-fix = %+v, want its marked escalation pair", e)
-		}
 	}
 }
 

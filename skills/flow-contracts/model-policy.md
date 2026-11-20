@@ -49,11 +49,9 @@ neither the write into the store nor the render out of it invents a model slug.
 Agent roles view; the tables below name the roles only. A dispatch names its role with a
 `Role: <role id>` line; a pair is `<model>` and `<subagent_type>` joined by `/`, an Explore or Plan
 pair adding `@<effort>`. Any well-formed pair is accepted — which models a role may use is the
-operator's call, made in the editor. A role's pairs come in three tiers:
+operator's call, made in the editor. A role's pairs come in two tiers:
 
 - **base** — always admitted.
-- **marked** — admitted only when the prompt carries the pair's marker as a whole line
-  (`No-progress escalation`, `Operator-approved high`).
 - **opt-in** — admitted only on the operator's explicit say-so for a change: the operator tells
   the session which roles may use them, the session records it with
   `flow policy grant -change <name> -roles <role>[,<role>…]`, and each such dispatch's prompt
@@ -86,6 +84,7 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 | `implementer` | Writes the code for a group of tasks, tests first. |
 | `gated-reviewer` | Reviews each implementer group's tasks as they land. |
 | `gated-re-reviewer` | Re-checks a gated review's findings after their fix. |
+| `no-progress-fixer` | Takes over a fix loop that made no progress — any loop's fixer, with every earlier round's report. |
 | `operator-asked` | Runs a task the operator asked a subagent for, in their own words, inside a /flow-interactive request. |
 
 ### Review

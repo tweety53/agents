@@ -222,10 +222,9 @@ func RenderPanel(r Run) string {
 	// before this section existed, and every panel that ran clean without
 	// one -- renders nothing here, byte-identical to the old output.
 	//
-	// A round a panel dispatch ran in renders even when the parent recorded
-	// no pass row for it, naming the dispatch keys: kan-951's round 1 ran
-	// panel-1-primary+principles and recorded nothing, and its record showed
-	// Round 0 alone, as if the round had never run.
+	// Each round names its panel dispatch keys, read from the dispatch rows
+	// -- no pass row restates them -- so a round that recorded no note still
+	// renders (kan-951's round 1 showed Round 0 alone, as if never run).
 	//
 	// The notes stay verbatim; each round's verdict line is derived from
 	// its Critical and Important finding rows, any status -- kan-1015
@@ -235,22 +234,18 @@ func RenderPanel(r Run) string {
 		b.WriteString("\n## Pass log\n")
 		for _, round := range rounds {
 			fmt.Fprintf(&b, "\n### Round %d\n\n", round)
-			passes := 0
-			for _, p := range r.Passes {
-				if p.Round == round {
-					passes++
-					fmt.Fprintf(&b, "- %s\n", neutraliseMarkers(p.Note))
+			var keys []string
+			for _, d := range r.Dispatches {
+				if n, ok := PanelDispatchRound(d); ok && n == round {
+					keys = append(keys, neutraliseMarkers(d.Key))
 				}
 			}
-			if passes == 0 {
-				var keys []string
-				for _, d := range r.Dispatches {
-					if n, ok := PanelDispatchRound(d); ok && n == round {
-						keys = append(keys, neutraliseMarkers(d.Key))
-					}
-				}
-				if len(keys) > 0 {
-					fmt.Fprintf(&b, "- no pass row recorded — dispatched: %s\n", strings.Join(keys, ", "))
+			if len(keys) > 0 {
+				fmt.Fprintf(&b, "- dispatched: %s\n", strings.Join(keys, ", "))
+			}
+			for _, p := range r.Passes {
+				if p.Round == round {
+					fmt.Fprintf(&b, "- %s\n", neutraliseMarkers(p.Note))
 				}
 			}
 			// A finding another finding of the same round supersedes is the

@@ -966,13 +966,11 @@ export async function putChange(
 
 /** One row of GET /api/v1/roles: a leading `main` entry, then every role of
  * the roles table with its pairs from flowd's store (kan-1103) -- base
- * (always admitted), opt-in (on an operator grant), marked (on their marker
- * line). */
+ * (always admitted) and opt-in (on an operator grant). */
 export interface RoleEntry {
   role: string;
   base: string[];
   optin: string[];
-  marked: { pair: string; marker: string }[];
   group: string;
   does: string;
 }

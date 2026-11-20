@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/tweety53/agents/stats/internal/modelpolicy"
-	"github.com/tweety53/agents/stats/internal/store"
 )
 
 // WithPolicy registers the /api/v1/policy routes against s, and
@@ -28,12 +27,11 @@ type policyHandler struct {
 
 // roleEntry is one row of the roles table GET /api/v1/roles serves.
 type roleEntry struct {
-	Role   string             `json:"role"`
-	Base   []string           `json:"base"`
-	Optin  []string           `json:"optin"`
-	Marked []store.MarkedPair `json:"marked"`
-	Group  string             `json:"group"`
-	Does   string             `json:"does"`
+	Role  string   `json:"role"`
+	Base  []string `json:"base"`
+	Optin []string `json:"optin"`
+	Group string   `json:"group"`
+	Does  string   `json:"does"`
 }
 
 // roles serves GET /api/v1/roles: a leading `main` entry (no table row of
@@ -50,13 +48,13 @@ func (h *policyHandler) roles(w http.ResponseWriter, r *http.Request) {
 		h.policyError(w, "list roles", err)
 		return
 	}
-	out := []roleEntry{{Role: "main", Base: []string{}, Optin: []string{}, Marked: []store.MarkedPair{}, Group: "Session",
+	out := []roleEntry{{Role: "main", Base: []string{}, Optin: []string{}, Group: "Session",
 		Does: "The session you talk to: runs the pipeline and sends out every other role."}}
 	for _, row := range rows {
 		p := pairs[row.Role]
-		e := roleEntry{Role: row.Role, Base: p.Base, Optin: p.Optin, Marked: p.Marked, Group: row.Group, Does: row.Does}
+		e := roleEntry{Role: row.Role, Base: p.Base, Optin: p.Optin, Group: row.Group, Does: row.Does}
 		if e.Base == nil {
-			e.Base, e.Optin, e.Marked = []string{}, []string{}, []store.MarkedPair{}
+			e.Base, e.Optin = []string{}, []string{}
 		}
 		out = append(out, e)
 	}

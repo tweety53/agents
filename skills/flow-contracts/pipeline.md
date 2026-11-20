@@ -158,9 +158,9 @@ per-task re-review, a verify stage's fix loop, a verifier re-dispatch, the imple
 full-suite fix and a guard or integrate call re-run after a stop each repeat until their own clean
 close. **A round that makes no progress — the same defect identity, on the same
 evidence, after a fix — changes the run's approach instead of stopping or asking.** The next fix
-is a fresh dispatch of that loop's own fixer row on the marked pair of its fixer role (**Allowed
-pairs**, `skills/flow-contracts/model-policy.md`, recorded with that pair), its prompt
-opening with the line `No-progress escalation` and carrying every earlier round's report
+is a fresh dispatch of that loop's own fixer row on the `no-progress-fixer` role (**Allowed
+pairs**, `skills/flow-contracts/model-policy.md`, recorded with its pair), its prompt
+carrying `Role: no-progress-fixer` and every earlier round's report
 verbatim and naming the approach that failed; a loop whose fix the parent applies inline applies
 it from those same reports by a different approach. Where the evidence itself may be wrong, the
 defect is first reproduced another way — another reproducer, another capture route. A further
@@ -169,7 +169,7 @@ round without progress changes the approach again; none of them stops the run.
 **Two consecutive verify rounds whose failures all fall outside the change's specs are a round
 without progress too.** When two narrowed visual re-runs in a row fail only in specs outside the
 `specs` row's output, the next round takes one
-batched fixer whose prompt opens with `No-progress escalation` and carries every earlier round's
+batched fixer on the `no-progress-fixer` role, carrying every earlier round's
 report (`skills/flow/fix.md`). When the diff touches shared rendering code every spec is
 in that output, so only the same-defect rule above applies.
 
@@ -178,9 +178,8 @@ in that output, so only the same-defect rule above applies.
 **Three failed rounds of one loop are a round without progress too, whatever their defects.** A
 failed round is one that ends without the loop's own clean close. The fix procedure counts three failed rounds of `skills/flow/fix.md`, a round being one fix. The fourth round, and each
 later one, is the fresh dispatch above — the loop's planner where it has one, else its fixer —
-its prompt opening with the line `No-progress escalation`, carrying every earlier round's report
-verbatim and naming the approach that failed; a role with no marked pair runs it on its base
-pair. It is never a stop and never an ask.
+on the `no-progress-fixer` role — a loop's planner on its own role — carrying every earlier round's report
+verbatim and naming the approach that failed. It is never a stop and never an ask.
 
 **A visual round whose report names more departures than the visual report that opened its round
 is a round without progress too.** The visual stage's `close` prints `ESCALATE:` for it and for

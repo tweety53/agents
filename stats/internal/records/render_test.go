@@ -867,7 +867,7 @@ func TestRenderPanelPassLog(t *testing.T) {
 // it, naming its dispatch keys -- kan-951's round 1 ran
 // panel-1-primary+principles, recorded nothing, and its record showed Round 0
 // alone. A panel-fix row and a non-panel reviewer add no round.
-func TestRenderPanelPassLogShowsADispatchedRoundWithNoPassRow(t *testing.T) {
+func TestRenderPanelPassLogNamesEachRoundsDispatches(t *testing.T) {
 	out := records.RenderPanel(records.Run{
 		Change: "demo",
 		Dispatches: []records.Dispatch{
@@ -880,15 +880,15 @@ func TestRenderPanelPassLogShowsADispatchedRoundWithNoPassRow(t *testing.T) {
 	})
 
 	section := out[strings.Index(out, "## Pass log"):]
-	want := "\n### Round 1\n\n- no pass row recorded — dispatched: panel-1-primary+principles\n"
+	want := "\n### Round 1\n\n- dispatched: panel-1-primary+principles\n"
 	if !strings.Contains(section, want) {
 		t.Errorf("pass-log section missing %q:\n%s", want, section)
 	}
 	if strings.Contains(section, "### Round 2") {
 		t.Errorf("a panel-fix row rendered a round of its own:\n%s", section)
 	}
-	if strings.Contains(section, "dispatched: panel-0") {
-		t.Errorf("round 0 has a pass row and must not render the no-pass-row line:\n%s", section)
+	if want := "\n### Round 0\n\n- dispatched: panel-0-primary+principles\n- roster: compact — 39\n"; !strings.Contains(section, want) {
+		t.Errorf("round 0 missing its dispatches before its note %q:\n%s", want, section)
 	}
 }
 

@@ -163,7 +163,7 @@ ROW_ROLE = {
     "gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer",
     "panel-reviewer": "reviewer", "panel-rerun": "reviewer",
     "panel-merger": "merger",
-    "panel-fix": "panel-fix", "minor-fix": "panel-fix",
+    "panel-fix": "panel-fix", "minor-fix": "panel-fix", "no-progress-fixer": "panel-fix",
     "visual-verifier": "verifier",
     "planner": "planner", "plan-designer": "planner",
     "planner-short": "planner",

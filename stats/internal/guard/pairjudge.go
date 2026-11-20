@@ -103,7 +103,7 @@ func init() {
 var pjJudged = map[string]bool{
 	"planner": true, "planner-short": true, "self-review-plan": true, "pipeline-fix-plan": true,
 	"implementer": true,
-	"panel-fix":   true, "minor-fix": true, "self-review-fix": true, "pipeline-fix-fix": true,
+	"panel-fix":   true, "minor-fix": true, "no-progress-fixer": true, "self-review-fix": true, "pipeline-fix-fix": true,
 	"gated-reviewer": true, "gated-re-reviewer": true, "panel-reviewer": true,
 	"panel-rerun":      true,
 	"self-review-pass": true, "self-review-review-1": true, "self-review-review-r": true,

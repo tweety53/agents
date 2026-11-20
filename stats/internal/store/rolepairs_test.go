@@ -11,8 +11,8 @@ import (
 
 // TestRolePairsSeedMatchesTable pins 0061's seed to the Allowed pairs table
 // of skills/flow-contracts/model-policy.md as it stood when the pairs moved
-// into the store: unmarked rows base, marked rows opt-in under their marker,
-// every list in table order.
+// into the store, every list in table order -- as later migrations left it:
+// 0085 dropped the marked escalation pairs for the no-progress-fixer role.
 func TestRolePairsSeedMatchesTable(t *testing.T) {
 	t.Parallel()
 	st := newTestStore(t)
@@ -21,36 +21,37 @@ func TestRolePairsSeedMatchesTable(t *testing.T) {
 		t.Fatalf("RolePairs: %v", err)
 	}
 	want := map[string]store.RolePolicy{
-		"explorer":                {Base: []string{"opus/Explore@low", "opus/Explore@medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"plan-designer":           {Base: []string{"opus/Plan@low", "opus/Plan@medium", "opus/Plan@high", "opus/Plan@xhigh", "fable/Plan@xhigh", "fable/Plan@high", "fable/Plan@medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"planner":                 {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low", "opus/flow-planner-high", "opus/flow-planner-xhigh", "fable/flow-planner-xhigh", "fable/flow-planner-high", "fable/flow-planner-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"implementer":             {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{{Pair: "opus/flow-high", Marker: "No-progress escalation"}}},
-		"panel-fix":               {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{{Pair: "opus/flow-high", Marker: "No-progress escalation"}}},
-		"minor-fix":               {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"operator-asked":          {Base: []string{"opus/flow-medium", "opus/flow-high", "sonnet/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"decider":                 {Base: []string{"opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"gated-reviewer":          {Base: []string{"opus/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"gated-re-reviewer":       {Base: []string{"opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"panel-reviewer":          {Base: []string{"opus/flow-low", "opus/flow-medium", "fable/flow-low", "fable/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{{Pair: "opus/flow-high", Marker: "Operator-approved high"}}},
-		"panel-sanity-efficiency": {Base: []string{"opus/flow-low", "sonnet/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"panel-mutation-failure":  {Base: []string{"opus/flow-low", "sonnet/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"panel-rerun":             {Base: []string{"opus/flow-low", "sonnet/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"pair-judge":              {Base: []string{"sonnet/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"panel-merger":            {Base: []string{"sonnet/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"visual-verifier":         {Base: []string{"opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"self-review-pass":        {Base: []string{"opus/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"prompt-tuning-replay":    {Base: []string{"opus/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"prompt-tuning-grader":    {Base: []string{"opus/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"self-review-plan":        {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"plan-triage":             {Base: []string{"opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"planner-short":           {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low", "opus/flow-planner-high", "opus/flow-planner-xhigh", "fable/flow-planner-xhigh", "fable/flow-planner-high", "fable/flow-planner-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"self-review-fix":         {Base: []string{"opus/flow-medium", "sonnet/flow-medium"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"self-review-review-1":    {Base: []string{"opus/flow-medium", "opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"self-review-review-r":    {Base: []string{"sonnet/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"pipeline-fix-plan":       {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"pipeline-fix-fix":        {Base: []string{"opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{{Pair: "opus/flow-high", Marker: "No-progress escalation"}}},
-		"pipeline-fix-review-1":   {Base: []string{"opus/flow-medium", "opus/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
-		"pipeline-fix-review-r":   {Base: []string{"sonnet/flow-low"}, Optin: []string{}, Marked: []store.MarkedPair{}},
+		"explorer":                {Base: []string{"opus/Explore@low", "opus/Explore@medium"}, Optin: []string{}},
+		"plan-designer":           {Base: []string{"opus/Plan@low", "opus/Plan@medium", "opus/Plan@high", "opus/Plan@xhigh", "fable/Plan@xhigh", "fable/Plan@high", "fable/Plan@medium"}, Optin: []string{}},
+		"planner":                 {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low", "opus/flow-planner-high", "opus/flow-planner-xhigh", "fable/flow-planner-xhigh", "fable/flow-planner-high", "fable/flow-planner-medium"}, Optin: []string{}},
+		"implementer":             {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}},
+		"panel-fix":               {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}},
+		"minor-fix":               {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}},
+		"operator-asked":          {Base: []string{"opus/flow-medium", "opus/flow-high", "sonnet/flow-medium"}, Optin: []string{}},
+		"decider":                 {Base: []string{"opus/flow-low"}, Optin: []string{}},
+		"gated-reviewer":          {Base: []string{"opus/flow-medium"}, Optin: []string{}},
+		"gated-re-reviewer":       {Base: []string{"opus/flow-low"}, Optin: []string{}},
+		"panel-reviewer":          {Base: []string{"opus/flow-low", "opus/flow-medium", "fable/flow-low", "fable/flow-medium"}, Optin: []string{}},
+		"panel-sanity-efficiency": {Base: []string{"opus/flow-low", "sonnet/flow-low"}, Optin: []string{}},
+		"panel-mutation-failure":  {Base: []string{"opus/flow-low", "sonnet/flow-low"}, Optin: []string{}},
+		"panel-rerun":             {Base: []string{"opus/flow-low", "sonnet/flow-low"}, Optin: []string{}},
+		"pair-judge":              {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
+		"panel-merger":            {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
+		"visual-verifier":         {Base: []string{"opus/flow-low"}, Optin: []string{}},
+		"self-review-pass":        {Base: []string{"opus/flow-medium"}, Optin: []string{}},
+		"prompt-tuning-replay":    {Base: []string{"opus/flow-medium"}, Optin: []string{}},
+		"prompt-tuning-grader":    {Base: []string{"opus/flow-medium"}, Optin: []string{}},
+		"self-review-plan":        {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low"}, Optin: []string{}},
+		"plan-triage":             {Base: []string{"opus/flow-low"}, Optin: []string{}},
+		"planner-short":           {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low", "opus/flow-planner-high", "opus/flow-planner-xhigh", "fable/flow-planner-xhigh", "fable/flow-planner-high", "fable/flow-planner-medium"}, Optin: []string{}},
+		"self-review-fix":         {Base: []string{"opus/flow-medium", "sonnet/flow-medium"}, Optin: []string{}},
+		"self-review-review-1":    {Base: []string{"opus/flow-medium", "opus/flow-low"}, Optin: []string{}},
+		"self-review-review-r":    {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
+		"pipeline-fix-plan":       {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low"}, Optin: []string{}},
+		"pipeline-fix-fix":        {Base: []string{"opus/flow-low"}, Optin: []string{}},
+		"pipeline-fix-review-1":   {Base: []string{"opus/flow-medium", "opus/flow-low"}, Optin: []string{}},
+		"pipeline-fix-review-r":   {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
+		"no-progress-fixer":       {Base: []string{"opus/flow-high"}, Optin: []string{}},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("seed = %#v\nwant %#v", got, want)
@@ -58,7 +59,7 @@ func TestRolePairsSeedMatchesTable(t *testing.T) {
 }
 
 // TestReplaceRolePairsRoundTrip: a replace writes base and opt-in whole, in
-// the order given, and leaves the role's marked pairs alone.
+// the order given.
 func TestReplaceRolePairsRoundTrip(t *testing.T) {
 	t.Parallel()
 	st := newTestStore(t)
@@ -71,9 +72,8 @@ func TestReplaceRolePairsRoundTrip(t *testing.T) {
 		t.Fatalf("RolePairs: %v", err)
 	}
 	want := store.RolePolicy{
-		Base:   []string{"sonnet/flow-medium", "opus/flow-low"},
-		Optin:  []string{"fable/flow-high"},
-		Marked: []store.MarkedPair{{Pair: "opus/flow-high", Marker: "No-progress escalation"}},
+		Base:  []string{"sonnet/flow-medium", "opus/flow-low"},
+		Optin: []string{"fable/flow-high"},
 	}
 	if !reflect.DeepEqual(got["panel-fix"], want) {
 		t.Fatalf("panel-fix = %#v, want %#v", got["panel-fix"], want)
@@ -159,28 +159,5 @@ func TestGrantRevokeRoundTrip(t *testing.T) {
 	}
 	if got, _ := st.Grants(ctx, "kan-1"); len(got) != 0 {
 		t.Fatalf("Grants of a FINISHED change = %v, want none", got)
-	}
-}
-
-// TestReplaceRolePairsRefusesOptinEqualToMarked: an opt-in pair equal to one
-// of the role's marked pairs refuses the whole write rather than vanishing.
-func TestReplaceRolePairsRefusesOptinEqualToMarked(t *testing.T) {
-	t.Parallel()
-	st := newTestStore(t)
-	ctx := context.Background()
-	before, err := st.RolePairs(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = st.ReplaceRolePairs(ctx, "implementer", []string{"opus/flow-low"}, []string{"opus/flow-high"})
-	if !errors.Is(err, store.ErrInvalidPair) {
-		t.Fatalf("replace = %v, want ErrInvalidPair", err)
-	}
-	after, err := st.RolePairs(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(before["implementer"], after["implementer"]) {
-		t.Fatalf("refused write changed implementer: %+v -> %+v", before["implementer"], after["implementer"])
 	}
 }

@@ -22,7 +22,7 @@ const policyUsage = `usage: flow policy get    [-addr url] [-timeout dur]
 
 Every role's allowed pairs live in flowd's store (kan-1103); the Agent roles
 view edits them. get prints them as one JSON object,
-{role: {base: [...], optin: [...], marked: [{pair, marker}]}}, and caches
+{role: {base: [...], optin: [...]}}, and caches
 every good answer at <state dir>/policy-cache.json; with flowd unreachable
 it prints that cache, one warning on stderr. grants prints the JSON list of
 roles <name> holds a live grant for. grant records the operator's say-so

@@ -9,22 +9,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// MarkedPair is an opt-in pair admitted on its own whole prompt line
-// (`No-progress escalation`, `Operator-approved high`) rather than on an
-// operator grant.
-type MarkedPair struct {
-	Pair   string `json:"pair"`
-	Marker string `json:"marker"`
-}
-
 // RolePolicy is one role's pairs (kan-1103, decision pairs-in-db): Base is
 // always admitted; Optin only on an `Operator pair: <role>` line plus a live
-// grant (decision optin-grant); Marked only on its marker line. Each list
+// grant (decision optin-grant). Each list
 // keeps the order it was written in -- Base[0] is the role's default.
 type RolePolicy struct {
-	Base   []string     `json:"base"`
-	Optin  []string     `json:"optin"`
-	Marked []MarkedPair `json:"marked"`
+	Base  []string `json:"base"`
+	Optin []string `json:"optin"`
 }
 
 // ErrInvalidPair is returned by ReplaceRolePairs for a pair not shaped
@@ -42,24 +33,21 @@ var pairShape = regexp.MustCompile(`^[a-z][a-z0-9.-]*/[A-Za-z][A-Za-z0-9._-]*(@[
 
 // RolePairs returns every role's pairs, keyed by role.
 func (s *Store) RolePairs(ctx context.Context) (map[string]RolePolicy, error) {
-	rows, err := s.pool.Query(ctx, `SELECT role, tier, pair, marker FROM role_pairs ORDER BY role, tier, position`)
+	rows, err := s.pool.Query(ctx, `SELECT role, tier, pair FROM role_pairs ORDER BY role, tier, position`)
 	if err != nil {
 		return nil, fmt.Errorf("store: role pairs: %w", err)
 	}
 	defer rows.Close()
 	out := map[string]RolePolicy{}
 	for rows.Next() {
-		var role, tier, pair, marker string
-		if err := rows.Scan(&role, &tier, &pair, &marker); err != nil {
+		var role, tier, pair string
+		if err := rows.Scan(&role, &tier, &pair); err != nil {
 			return nil, fmt.Errorf("store: role pairs: %w", err)
 		}
 		p := out[role]
-		switch {
-		case tier == "base":
+		if tier == "base" {
 			p.Base = append(p.Base, pair)
-		case marker != "":
-			p.Marked = append(p.Marked, MarkedPair{Pair: pair, Marker: marker})
-		default:
+		} else {
 			p.Optin = append(p.Optin, pair)
 		}
 		out[role] = p
@@ -80,16 +68,12 @@ func (p RolePolicy) nonNil() RolePolicy {
 	if p.Optin == nil {
 		p.Optin = []string{}
 	}
-	if p.Marked == nil {
-		p.Marked = []MarkedPair{}
-	}
 	return p
 }
 
-// ReplaceRolePairs replaces role's base and unmarked opt-in pairs whole, in
-// one transaction; its marked pairs are left as they are. A malformed pair,
-// one named twice in a tier, or an opt-in pair equal to one of the role's
-// marked pairs, refuses the whole write with ErrInvalidPair.
+// ReplaceRolePairs replaces role's base and opt-in pairs whole, in one
+// transaction. A malformed pair, or one named twice in a tier, refuses the
+// whole write with ErrInvalidPair.
 func (s *Store) ReplaceRolePairs(ctx context.Context, role string, base, optin []string) error {
 	if role == "" {
 		return fmt.Errorf("%w: empty role", ErrInvalidPair)
@@ -111,15 +95,7 @@ func (s *Store) ReplaceRolePairs(ctx context.Context, role string, base, optin [
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('role_pairs:' || $1))`, role); err != nil {
 			return fmt.Errorf("store: replace role pairs %q: %w", role, err)
 		}
-		var clash string
-		err := tx.QueryRow(ctx, `SELECT pair FROM role_pairs WHERE role = $1 AND tier = 'optin' AND marker <> '' AND pair = ANY($2) LIMIT 1`, role, optin).Scan(&clash)
-		if err == nil {
-			return fmt.Errorf("%w: role %q opt-in pair %q is already one of its marked pairs", ErrInvalidPair, role, clash)
-		}
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("store: replace role pairs %q: %w", role, err)
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM role_pairs WHERE role = $1 AND marker = ''`, role); err != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM role_pairs WHERE role = $1`, role); err != nil {
 			return fmt.Errorf("store: replace role pairs %q: %w", role, err)
 		}
 		for tier, pairs := range map[string][]string{"base": base, "optin": optin} {

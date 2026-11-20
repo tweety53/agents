@@ -10,6 +10,4 @@ reports the measurement and stops, rather than following the plan into a wrong r
 the design is amended before the work continues. Silent deviation and silent compliance are both
 failures: the first is indistinguishable from a mistake, the second wastes the measurement.
 
-A plan claim a run has disproved is a defect in the plan, and the plan is where it is fixed — not routed around in the implementation, and not obeyed anyway. The amendment is
-that correction written into the task record where the disproved claim sits; which half of the
-exchange discloses it and which transcribes it is [the record carries its own corrections](../flow/implement.md).
+A plan claim a run has disproved is a defect in the plan, and the plan is where it is fixed — not routed around in the implementation, and not obeyed anyway.

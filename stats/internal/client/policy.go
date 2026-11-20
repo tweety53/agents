@@ -10,7 +10,7 @@ import (
 )
 
 // Policy fetches every role's pairs via GET /api/v1/policy, returned as the
-// daemon's JSON ({role: {base, optin, marked}}): its readers print and
+// daemon's JSON ({role: {base, optin}}): its readers print and
 // cache it whole.
 func (c *Client) Policy(ctx context.Context) (json.RawMessage, error) {
 	var out json.RawMessage

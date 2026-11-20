@@ -1986,15 +1986,15 @@ describe("review dynamics", () => {
 describe("AgentRoles", () => {
   const roles = [
     {
-      role: "main", base: [], optin: [], marked: [], group: "Session", does: "The session you talk to: runs the pipeline and sends out every other role.",
+      role: "main", base: [], optin: [], group: "Session", does: "The session you talk to: runs the pipeline and sends out every other role.",
     },
-    { role: "explorer", base: ["opus/Explore@low", "opus/Explore@medium"], optin: [], marked: [], group: "Planning", does: "Reads the codebase to answer a planner's question." },
+    { role: "explorer", base: ["opus/Explore@low", "opus/Explore@medium"], optin: [], group: "Planning", does: "Reads the codebase to answer a planner's question." },
     {
-      role: "plan-designer", base: ["opus/Plan@low", "opus/Plan@medium"], optin: ["fable/Plan@xhigh"], marked: [], group: "Planning",
+      role: "plan-designer", base: ["opus/Plan@low", "opus/Plan@medium"], optin: ["fable/Plan@xhigh"], group: "Planning",
       does: "Proposes a design or plan for the planner to choose from.",
     },
     {
-      role: "implementer", base: ["opus/flow-low"], optin: [], marked: [{ pair: "opus/flow-high", marker: "No-progress escalation" }],
+      role: "implementer", base: ["opus/flow-low"], optin: [],
       group: "Implementation", does: "Writes the code for a group of tasks, tests first.",
     },
   ];
@@ -2019,9 +2019,6 @@ describe("AgentRoles", () => {
     expect([...designer.querySelectorAll("td.pairs")[1].querySelectorAll(".chip .pair")].map((p) => p.textContent)).toEqual(["fable/Plan@xhigh"]);
     expect(within(designer).queryByRole("link")).toBeNull();
     expect(rows[2].querySelector("td.pairs")).toHaveTextContent("session's own pair");
-    // A marked escalation is named in the Main field's open list, not edited.
-    await userEvent.click(within(rows[7]).getByRole("button", { name: "Choose main pairs for implementer" }));
-    expect(rows[7]).toHaveTextContent("Escalation: opus/flow-high with No-progress escalation");
   });
 
   it("Agent roles edits a role's base pairs", async () => {
