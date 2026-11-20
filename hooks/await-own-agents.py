@@ -145,6 +145,12 @@ def end_row(transcript: str, payload: dict) -> None:
                        capture_output=True, timeout=30, cwd=cwd)
     except Exception:
         pass
+    # A stop is the moment to close rows whose own stop never did (flow-guard sweep-dispatch-rows).
+    try:
+        subprocess.run([FLOW_GUARD, "sweep-dispatch-rows", os.path.dirname(transcript), session_id, cwd],
+                       capture_output=True, timeout=60, cwd=cwd)
+    except Exception:
+        pass
 
 
 def main() -> None:

@@ -2,12 +2,14 @@ package guard
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -30,7 +32,9 @@ import (
 //   - a gated reviewer bundle (`task-<ids>-reviewer…`): `fix` when any
 //     `task <n>: fix` line, else `clean` when any `task <n>: clean` line;
 //   - any other row: `completed`;
-//   - no final message, or a gated bundle naming no verdict: `aborted`.
+//   - a gated bundle naming no verdict: `aborted`;
+//   - no final message at all: the row is left open, never written `aborted` — an empty read is not
+//     a verdict, and the parent's own end or sweep-dispatch-rows closes it from the real report.
 //
 // The commit is the last `commit: <task-id> <40-hex sha>` line of the final
 // message, passed as -commit.
@@ -77,6 +81,9 @@ func endDispatchRow(args []string, env Env, stdout, stderr io.Writer) int {
 	if change == "" || token == "" {
 		return na("no flow change for session " + args[1])
 	}
+	if strings.TrimSpace(final) == "" {
+		return na(key + " left a no final message; its row stays open")
+	}
 	outcome := edrOutcome(key, final)
 	end := []string{"record", "dispatch", "end", "-C", args[2], "-change", change, "-key", key, "-session-token", token, "-outcome", outcome}
 	if c := edrCommit.FindAllStringSubmatch(final, -1); len(c) > 0 {
@@ -91,8 +98,6 @@ func endDispatchRow(args []string, env Env, stdout, stderr io.Writer) int {
 
 func edrOutcome(key, final string) string {
 	switch {
-	case strings.TrimSpace(final) == "":
-		return "aborted"
 	case !edrGatedKey.MatchString(key):
 		return "completed"
 	case edrGatedFix.MatchString(final):
@@ -211,4 +216,40 @@ func edrSessionChange(env Env, sessionID string) (change, token string) {
 		return "", ""
 	}
 	return pick.ChangeName, pick.SessionToken
+}
+
+// flow-guard sweep-dispatch-rows <subagents-dir> <session-id> <cwd> — close the rows of agents whose
+// stop never closed them. For each agent transcript in the dir that is 30 minutes to 24 hours
+// old, holds a SubagentHandback report and carries no `.swept` sidecar, it runs end-dispatch-row
+// on it (the guard reads the report) and writes the sidecar so it is tried once. hooks/await-own-agents.py
+// runs it after each stop. An agent with no report is never swept: a quiet long build looks the same.
+// Exit 0 always. Go, in flow-guard (stats/internal/guard/enddispatchrow.go).
+func init() { Registry["sweep-dispatch-rows"] = sweepDispatchRows }
+
+func sweepDispatchRows(args []string, env Env, stdout, stderr io.Writer) int {
+	if len(args) != 3 {
+		Reason(env, "usage")
+		fmt.Fprintln(stderr, "usage: flow-guard sweep-dispatch-rows <subagents-dir> <session-id> <cwd>")
+		return 2
+	}
+	files, _ := filepath.Glob(filepath.Join(args[0], "agent-*.jsonl"))
+	for _, f := range files {
+		info, err := os.Stat(f)
+		if err != nil {
+			continue
+		}
+		age := time.Since(info.ModTime())
+		if age < 30*time.Minute || age > 24*time.Hour {
+			continue
+		}
+		if _, err := os.Stat(f + ".swept"); err == nil {
+			continue
+		}
+		if b, err := os.ReadFile(f); err != nil || !bytes.Contains(b, []byte(`"SubagentHandback"`)) {
+			continue
+		}
+		endDispatchRow([]string{f, args[1], args[2]}, env, stdout, stderr)
+		_ = os.WriteFile(f+".swept", nil, 0o644)
+	}
+	return 0
 }
