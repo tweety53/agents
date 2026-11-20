@@ -943,7 +943,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   value={<span className="lb-num">{totalCost === null ? "—" : formatUsd(totalCost)}</span>}
                   hint={`${summary.runCount} stage runs, ${summary.measuredRuns} measured${subCost !== null ? ` · incl. self-review sub-run ${formatUsd(subCost)}` : ""}`}
                 />
-                <Kpi label="Wall clock" value={<span className="lb-num">{formatSpan(t1 - t0)}</span>} hint={`active ${formatSpan(active)}`} />
+                <Kpi label="Active time" value={<span className="lb-num">{formatSpan(active)}</span>} hint={`wall clock ${formatSpan(t1 - t0)}`} />
                 <Kpi
                   label="Input tokens"
                   value={<span className="lb-num">{measured.length === 0 ? "—" : `${(input / 1e6).toFixed(2)}M`}</span>}
@@ -961,16 +961,6 @@ export function RunDetail({ project, change }: RunDetailProps) {
                       <Kpi label="Full panel runs" value={<span className="lb-num">{board.fullPanelRuns}</span>} hint={`of ${board.panelRuns} panel rounds`} />
                       <Kpi label="Reviewer runs" value={<span className="lb-num">{board.reviewerRuns}</span>} />
                       <Kpi label="Findings" value={<Cim c={board.critical} i={board.important} m={board.minor} />} />
-                    </div>
-                  </section>
-                  <section className="lb-panel" aria-label="Self-review totals">
-                    <div className="lb-panel-h">
-                      <span>Self-review</span>
-                    </div>
-                    <div className="lb-kpis">
-                      <Kpi label="Fix rounds" value={<span className="lb-num">{board.selfReviewFixRounds}</span>} />
-                      <Kpi label="Reviewer runs" value={<span className="lb-num">{board.selfReviewReviewerRuns}</span>} />
-                      <Kpi label="Findings" value={<Cim c={board.selfReviewCritical} i={board.selfReviewImportant} m={board.selfReviewMinor} />} />
                     </div>
                   </section>
                 </div>

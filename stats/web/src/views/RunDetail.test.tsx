@@ -773,8 +773,8 @@ describe("the reworked run view (kan-1048)", () => {
     expect(kpi("Now running")).toHaveTextContent("Awaiting your answer");
     expect(kpi("Total cost")).toHaveTextContent("$6.50");
     expect(kpi("Total cost")).toHaveTextContent("4 stage runs, 3 measured");
-    expect(kpi("Wall clock")).toHaveTextContent("3h 00m");
-    expect(kpi("Wall clock")).toHaveTextContent("active 2h 10m");
+    expect(kpi("Active time")).toHaveTextContent("2h 10m");
+    expect(kpi("Active time")).toHaveTextContent("wall clock 3h 00m");
     // Input counts cache reads and writes too, never just the uncached sliver.
     expect(kpi("Input tokens")).toHaveTextContent("1.25M");
     expect(kpi("Input tokens")).toHaveTextContent("cache reads 80%");
@@ -810,18 +810,14 @@ describe("the reworked run view (kan-1048)", () => {
     expect(tasks).toHaveTextContent("● 2. Board card");
     expect(tasks).toHaveTextContent("◻ 3. Run view");
     expect(screen.queryByRole("group", { name: "Failed runs" })).not.toBeInTheDocument();
-    // Main's and the self-review's totals, each in its own labelled group.
+    // Main's totals in a labelled group; the self-review has none.
     const group = (name: string) => within(screen.getByRole("region", { name }));
     const main = group("Main totals");
-    const sr = group("Self-review totals");
     expect(main.getByRole("group", { name: "Fix rounds" })).toHaveTextContent("3");
     expect(main.getByRole("group", { name: "Full panel runs" })).toHaveTextContent("3of 4 panel rounds");
     expect(main.getByRole("group", { name: "Reviewer runs" })).toHaveTextContent("9");
     expect(main.getByRole("group", { name: "Findings" })).toHaveTextContent("C 1 · I 4 · M 7");
-    expect(sr.getByRole("group", { name: "Fix rounds" })).toHaveTextContent("1");
-    expect(sr.getByRole("group", { name: "Reviewer runs" })).toHaveTextContent("2");
-    expect(sr.getByRole("group", { name: "Findings" })).toHaveTextContent("C 0 · I 2 · M 5");
-    expect(sr.queryByRole("group", { name: "Full panel runs" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Self-review totals" })).toBeNull();
     // Cost by stage: summed per stage, largest first, in plain words.
     const rail = screen.getByRole("region", { name: "Cost by stage" });
     // Retired keys fold into the slim stage that replaced them: kickoff and brainstorm are one Planning line.
