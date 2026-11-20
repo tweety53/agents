@@ -14,9 +14,9 @@ halves live in the one repo and are covered below.
 | flow sources | `/Users/tweety53/Projects/agents` | Bash + Python + Go + Markdown | — | The skills/commands/rules half. Verification is the guard scripts below plus a sandboxed `setup.sh` run. |
 | flow stats daemon | `/Users/tweety53/Projects/agents/stats` | Go + React/Vite | `http://127.0.0.1:4173` | `flowd`, loopback-only. Backed by a dedicated `flow-postgres` container on host port 5433, independent of any other Postgres stack on this machine. Also the one application `## apps` names that a fix run's reload rule (`skills/flow/verify-and-handoff.md`) never reloads — the same protection, not a separate one. |
 
-**This repository is Go + Python, with two bash files.** The `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-references`, `check-unfinished-work`, `check-guard-calls`, `check-finish-preflight`, `recover-guard-incident`, `resolve-base-branch`, `check-visual-trigger`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `check-foreign-staged`, `check-main-checkout-drift`, `refresh-main-checkout`, `break-and-prove`, `prepare-workspace` and `check-python-suppressions` — are Go (`stats/internal/guard/`), every one called as `flow-guard <name>` through `scripts/flow-guard`, the one bash bootstrap, which runs the binary built from this checkout; `setup.sh` is the only other bash file and stays bash.
+**This repository is Go + Python, with two bash files.** The `hooks/*.py` hooks run on Python 3, standard library only — `/usr/bin/python3`, no third-party imports, no pip, no network. The guards ported into `flow-guard` — among them `check-references`, `check-unfinished-work`, `check-guard-calls`, `check-finish-preflight`, `recover-guard-incident`, `resolve-base-branch`, `check-visual-trigger`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `check-foreign-staged`, `check-main-checkout-drift`, `refresh-main-checkout`, `break-and-prove`, and `prepare-workspace` — are Go (`stats/internal/guard/`), every one called as `flow-guard <name>` through `scripts/flow-guard`, the one bash bootstrap, which runs the binary built from this checkout; `setup.sh` is the only other bash file and stays bash.
 
-**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, called as `flow-guard <name>`; there is no per-guard script. A new `check-*` guard lands with its Go test, `stats/internal/guard/<name, - replaced by _>_test.go`, in the same change — `check_spec_reach_test.go` for `flow-guard check-spec-reach` — and `flow-guard check-guard-calls`'s rule C fails lint while it is missing.
+**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, called as `flow-guard <name>`; there is no per-guard script. A new `check-*` guard lands with its Go test, `stats/internal/guard/<name, - replaced by _>_test.go`, in the same change — `check_references_test.go` for `flow-guard check-references` — and `flow-guard check-guard-calls`'s rule C fails lint while it is missing.
 
 ### artifact tree
 
@@ -179,11 +179,8 @@ line and never changes the suite's own exit code.
 
 ```bash
 scripts/flow-guard check-references
-scripts/flow-guard check-python-suppressions
 printf 'stats/web/src/App.tsx\n' | scripts/flow-guard check-visual-trigger .
-scripts/flow-guard check-spec-reach .
 scripts/flow-guard resolve-visual-screenshots . baseline.spec.ts
-scripts/flow-guard check-uitest-overrides
 scripts/flow-guard check-guard-calls
 cd stats && gofmt -l .
 cd stats && make -s web-dist && go vet ./...

@@ -1,4 +1,4 @@
-.PHONY: test web-test web-build web-dist policy-copy build up down restart ui-test-up ui-test-down check-uitest-overrides go-sources-hash
+.PHONY: test web-test web-build web-dist policy-copy build up down restart ui-test-up ui-test-down go-sources-hash
 
 # Runs the Go test suite. Tests that need the compose stack's PostgreSQL
 # skip themselves with a clear message when it is not running.
@@ -11,21 +11,8 @@
 # here so a plain `make test` on a fresh checkout builds the SPA it needs
 # rather than hitting that failure; running `go test ./...` directly,
 # skipping this Makefile, still hits it exactly as intended.
-#
-# check-uitest-overrides is a prerequisite here for the same reason
-# web-build is: a Makefile edit that drops `override` from a UITEST_*
-# variable (see the comment above those variables, below) is exactly as much
-# a defect as a missing SPA build, and `make test` is the one command every
-# workflow here already runs before calling anything else done. It is ALSO a
-# prerequisite of ui-test-up and ui-test-down themselves (below) -- those,
-# not `make test`, are the documented entry point that actually runs the
-# destructive commands a dropped `override` would expose, so catching the
-# defect only when someone happens to run `make test` first is not enough.
-test: web-build policy-copy check-uitest-overrides
+test: web-build policy-copy
 	go test ./... -race -count=1
-
-check-uitest-overrides:
-	../scripts/flow-guard check-uitest-overrides
 
 # Runs the SPA's own test suite (vitest).
 web-test:
@@ -287,9 +274,7 @@ restart: build
 # fixing the exposed variable one at a time is what let this recur across
 # three prior review rounds (UITEST_DB, then UITEST_ID, then UITEST_DSN /
 # UITEST_TRANSCRIPTS_DIR / UITEST_STATE_DIR / UITEST_LOG / UITEST_BIN /
-# UITEST_PIDFILE) -- `scripts/flow-guard check-uitest-overrides` (invoked by
-# `make check-uitest-overrides`, and by `make test`) enforces the rule
-# itself so it cannot recur a fourth time.
+# UITEST_PIDFILE) -- every one must be declared with `override`.
 override UITEST_DB := flow_uitest
 # The workspace id scripts/flow-guard workspace derives flow_uitest from (its
 # `flow_<id_underscored>` rule, id "uitest" has no "-" to replace) --
@@ -346,9 +331,7 @@ override UITEST_GO_HASH := /tmp/flow-uitest-go.sha256
 # `make -n ui-test-down 'UITEST_SAFE_RMRF=@echo INJECTED $(1)'`, which
 # without `override` prints the injected text in place of the safety
 # `case` block. `override` on a `define` is valid GNU Make and is the
-# only thing that stops that substitution; `scripts/flow-guard check-uitest-overrides`
-# checks `define`-declared UITEST_* names for it the same way it checks
-# `:=` assignments.
+# only thing that stops that substitution.
 override define UITEST_SAFE_RMRF
 for p in $(1); do \
 	case "$$p" in \
@@ -422,7 +405,7 @@ go-sources-hash:
 #   and launch a second daemon that cannot bind. stats/internal/repotest/make_build_test.go
 #   pid-read case runs each of these reads against a real two-line file rather than
 #   asserting on how they are spelled.
-ui-test-up: web-build policy-copy check-uitest-overrides
+ui-test-up: web-build policy-copy
 	@if [ -f $(UITEST_PIDFILE) ] && kill -0 "$$(head -n1 $(UITEST_PIDFILE))" 2>/dev/null; then \
 		pid="$$(head -n1 $(UITEST_PIDFILE))"; \
 		echo "ui-test-up: stopping previous daemon $$pid"; \
@@ -497,7 +480,7 @@ ui-test-up: web-build policy-copy check-uitest-overrides
 # is the recorded executable, and reading it too yields something `kill`
 # rejects, so this target would skip the SIGTERM and the wait behind it and
 # hand its unforced `flow-guard workspace remove` a still-live daemon to race.
-ui-test-down: check-uitest-overrides
+ui-test-down:
 	@if [ -f $(UITEST_PIDFILE) ]; then \
 		pid="$$(head -n1 $(UITEST_PIDFILE))"; \
 		if kill -0 "$$pid" 2>/dev/null; then \

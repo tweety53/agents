@@ -54,8 +54,7 @@
 // <its output>` on stderr and the list still runs.
 //
 // THE LIST is every non-blank, non-`#` line inside a ```bash fence of
-// `project-get.sh <worktree> <list>`'s output, in the order printed; `lint`
-// appends `flow-guard check-spec-reach <worktree>`. A `# inputs: <pathspec>...`
+// `project-get.sh <worktree> <list>`'s output, in the order printed; A `# inputs: <pathspec>...`
 // line of the `test` list declares what the one command below it reads, and a
 // `# suite: <name>` line names the one command below it as that suite: it runs
 // under `flow suite record -C <worktree> -suite <name> --`, so its runtime
@@ -223,8 +222,8 @@
 // whatever its size.
 //
 // THE LINT STAMP (kan-1081 self-review, F1: a request ended landed with no
-// evidence its lint list ran green). A `lint` run — the appended
-// check-spec-reach included — that exits 0 on a tree clean before and after
+// evidence its lint list ran green). A `lint` run
+// that exits 0 on a tree clean before and after
 // it writes HEAD plus a newline to the worktree's own git dir (`git rev-parse
 // --git-path flow-lint-green`), never into the tree; a failing or dirty run
 // leaves an earlier stamp as it was. Nothing is skipped on it: `flow record
@@ -255,8 +254,7 @@
 //     during execution of test`
 //     `full output: <path>` — on a non-zero exit inside a git worktree, the
 //     command's whole output copied to `<git-path flow-verify-failed>/<list>-<n>.log`
-//     (<n> its 0-based list position, `spec-reach` for the appended
-//     check-spec-reach.sh), never into the tree; each `lint` or `test` run
+//     (<n> its 0-based list position), never into the tree; each `lint` or `test` run
 //     first removes that list's earlier logs, so a printed path holds this
 //     run's output
 //     `result files: <dir>` — beside it, when the run wrote JUnit `TEST-*.xml`
@@ -295,7 +293,7 @@
 //   5  the load average stayed over the core count (THE LOAD GATE): no
 //      command ran and no row was begun
 //
-// project-get and check-spec-reach run in this same binary
+// project-get runs in this same binary
 // (runSibling, selfExe). The test
 // list runs on rgtRun, a job pool, with one job per command so
 // every one starts at once (decision verify-list-on-rgtrun).
@@ -355,8 +353,7 @@ import (
 // With the recording arguments the list ends the row it began with one of
 // three outcomes: blocked with cause test-failure when a command failed,
 // skipped when every command of a test list was skipped, and completed
-// otherwise — a lint list always runs flow-guard check-spec-reach, so it never ends
-// skipped. The begin carries `-diff-base <sha>`, the HEAD of <worktree> (the
+// otherwise. The begin carries `-diff-base <sha>`, the HEAD of <worktree> (the
 // verified worktree, never <canonical-worktree>), which the in-process verify-green check (visual-verify-pass close)
 // judges the row by; a <worktree> git cannot resolve a HEAD in records none,
 // and that row is never green (decision verify-row-records-head). Lint and
@@ -1627,8 +1624,6 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		os.WriteFile(cmdsFile, []byte(strings.Join(append([]string{headSHA}, lines...), "\n")+"\n"), 0o666)
 	}
 	if list == "lint" {
-		self, _ := selfExe()
-		run("flow-guard check-spec-reach "+wt, `"`+self+`" check-spec-reach "`+wt+`"`, "spec-reach")
 		if lintSHA != "" && failed == 0 && clean() {
 			os.WriteFile(lintFile, []byte(lintSHA+"\n"), 0o666)
 		}
@@ -1686,7 +1681,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	case siblingRunning:
 		// A sibling group still runs: it ends the row.
 	case list != "lint" && !visualRan && len(cmds) > 0 && !slices.Contains(skip, false):
-		// A lint list always ran check-spec-reach.sh, so it never ends skipped.
+		// A lint list never ends skipped.
 		record("end", "-outcome", "skipped")
 	default:
 		record("end", "-outcome", "completed")

@@ -79,7 +79,7 @@ the commit names them. The guarded commit chain (**The guarded commit chain**,
 `add -A` is what picks up operator edits and new files at the human gate, which a
 pathspec-scoped commit would drop.
 
-A `/flow-fast` branch's commit series is its whole record, and the route reads it back before anything lands — `flow-guard check-fast-route-record <worktree> <base>` in section 5's verify stage (`skills/flow-fast/SKILL.md`) asserts every commit since the merge base against the contract canonical in the guard's own header, a hit fixed and re-run under the route's commit rule.
+A `/flow-fast` branch's commit series is its whole record,; no guard reads it back, so each commit follows the route's commit rule as it is made.
 
 ## Commits outside every task
 

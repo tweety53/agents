@@ -187,7 +187,7 @@ text after it is the passage, verbatim.
 
 ### visual-verify.md — Visual verification, step 6 (no fingerprint)
 
-- *The stack freshness check runs once, in verify's test group* — the per-stage fingerprint and its `NEXT: restart-stack` branch were deleted (slim-flow-loop); a stack visual verify starts is built from the current tree, `fix.md`'s step 3 re-runs the lint/test list when a visual fix changed code, and the post-capture `check-spec-reach` is appended by `run-verify-list`. The rows below record why the check existed.
+- *The stack freshness check runs once, in verify's test group* — the per-stage fingerprint and its `NEXT: restart-stack` branch were deleted (slim-flow-loop); a stack visual verify starts is built from the current tree, `fix.md`'s step 3 re-runs the lint/test list when a visual fix changed code. The rows below record why the check existed.
 
 - *…a stack step 5 found already running may be serving a build older than the worktree* — gymie KAN-29's last fix round captured, and nearly accepted, the bug the fix had removed.
 - *Steps 1, 2, 3, 5, 6, 12 and 13 are the parent's* — gymie KAN-845: the verifier's step-6 restart was refused by the auto-mode permission classifier, so the dispatch closed `blocked` on a stale bundle one approved restart fixed, and integrate stopped on `VISUAL-VERIFY-MISSING`; the operator's own `devRestart` then dropped `-PisolateOAuthPorts` and rebound the stack to the shared 3000/8080. Since KAN-1060 those steps run in the parent's own calls to `flow-guard visual-verify-pass prepare` and `close` — the same reason keeps them out of the verifier — and the parent still starts, restarts and stops the stack itself, since `start` carries placeholders and `## run` is prose no script can run.

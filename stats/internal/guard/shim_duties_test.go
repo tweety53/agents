@@ -129,8 +129,7 @@ func TestCwdCheckoutReexec(t *testing.T) {
 func TestCwdCheckoutGuardSet(t *testing.T) {
 	t.Parallel()
 	want := []string{
-		"check-dev-stack-fresh", "check-guard-calls", "check-python-suppressions",
-		"check-references", "check-spec-reach", "check-uitest-overrides",
+		"check-dev-stack-fresh", "check-guard-calls", "check-references",
 	}
 	if got := slices.Sorted(maps.Keys(selfJudging)); !slices.Equal(got, want) {
 		t.Fatalf("selfJudging = %q, want %q", got, want)

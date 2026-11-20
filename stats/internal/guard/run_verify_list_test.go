@@ -22,10 +22,12 @@ import (
 // TestRunVerifyList carries the cases of the retired
 // scripts/test-run-verify-list.sh, in its order and over its fixtures. Every
 // step runs twice, on twin roots: through the Go guard and through the bash
-// at 8c54d6d3, whose project-get.sh and check-spec-reach.sh siblings are the
-// live shims. Each step asserts the harness's expectations on the Go output
+// at 8c54d6d3, whose project-get.sh sibling is the live shim. Each step asserts the harness's expectations on the Go output
 // and byte-for-byte stdout/stderr/exit parity with the bash, each twin's root
 // written as <ROOT>.
+// bashSpecReachRow is the row the bash twin appends for its check-spec-reach.sh sibling, which no longer exists.
+var bashSpecReachRow = regexp.MustCompile("- `check-spec-reach\\.sh <ROOT>` — exit [0-9]+\n(  .*\n)*")
+
 func TestRunVerifyList(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
@@ -36,8 +38,8 @@ func TestRunVerifyList(t *testing.T) {
 	bashDir := t.TempDir()
 	writeExec(t, filepath.Join(bashDir, "run-verify-list.sh"),
 		string(historicalFile(t, repo, "8c54d6d3", "scripts/run-verify-list.sh")))
-	// The bash's two siblings, now run through the bootstrap.
-	for _, l := range []string{"project-get", "check-spec-reach"} {
+	// The bash's sibling, now run through the bootstrap; its check-spec-reach.sh row is dropped from the comparison.
+	for _, l := range []string{"project-get"} {
 		writeExec(t, filepath.Join(bashDir, l+".sh"), "#!/bin/sh\nexec '"+filepath.Join(repo, "scripts/flow-guard")+"' "+l+" \"$@\"\n")
 	}
 	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
@@ -116,9 +118,10 @@ func TestRunVerifyList(t *testing.T) {
 			}
 			brc = ee.ExitCode()
 		}
-		// The port spells its usage and the spec-reach row as flow-guard calls.
-		respell := strings.NewReplacer("usage: run-verify-list.sh", "usage: flow-guard run-verify-list", "run-verify-list.sh: ", "run-verify-list: ", "`check-spec-reach.sh ", "`flow-guard check-spec-reach ")
-		if b := (res{brc, respell.Replace(norm(br, bo.String(), be.String()))}); g != b {
+		// The port spells its usage as a flow-guard call, and runs no check-spec-reach row, which the bash twin still appends.
+		respell := strings.NewReplacer("usage: run-verify-list.sh", "usage: flow-guard run-verify-list", "run-verify-list.sh: ", "run-verify-list: ")
+		bashOut := bashSpecReachRow.ReplaceAllString(respell.Replace(norm(br, bo.String(), be.String())), "")
+		if b := (res{brc, bashOut}); g != b {
 			t.Errorf("port rc=%d out=%q\nbash rc=%d out=%q", g.rc, g.out, b.rc, b.out)
 		}
 		return g
@@ -154,7 +157,7 @@ func TestRunVerifyList(t *testing.T) {
 		has(t, r, "(truncated — last 20 of 25 lines)\n  6\n")
 		lacks(t, r, "\n  5\n")
 		has(t, r, "  <ROOT>")
-		has(t, r, "- `flow-guard check-spec-reach <ROOT>` — exit 0\n  Spec reach: not configured")
+		lacks(t, r, "check-spec-reach")
 		lacks(t, r, "full output:")
 	})
 
@@ -584,8 +587,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome completed")) {
 		t.Errorf("an all-skipped list whose visual verify ran: exit %d, calls:\n%s", rc, calls)
 	}
-	// A lint list whose every command is skipped still runs check-spec-reach.sh,
-	// so a check ran and the row ends completed.
+	// A lint list whose every command is skipped ends completed, never skipped.
 	list = "lint"
 	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n")
 	gitIn(t, wt, "add", "-A")

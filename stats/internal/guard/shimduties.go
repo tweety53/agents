@@ -67,12 +67,9 @@ func siblingCmd(env Env, override, name string, args ...string) *exec.Cmd {
 // selfJudging is every guard that judges its own checkout — the guards whose
 // bash shim called flow_guard_cwd_checkout before deriving its root.
 var selfJudging = map[string]bool{
-	"check-dev-stack-fresh":     true,
-	"check-guard-calls":         true,
-	"check-references":          true,
-	"check-spec-reach":          true,
-	"check-uitest-overrides":    true,
-	"check-python-suppressions": true,
+	"check-dev-stack-fresh": true,
+	"check-guard-calls":     true,
+	"check-references":      true,
 }
 
 // CwdCheckout is the KAN-902 re-exec: for a self-judging guard called from

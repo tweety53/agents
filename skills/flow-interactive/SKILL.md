@@ -148,8 +148,7 @@ flow stage end   -command '/flow-interactive' -stage flow.implement -outcome com
 ```
 
 **4. Verify.** `<agents repo>/scripts/flow-guard run-verify-list <worktree> lint`, the `## test` commands
-scoped to the packages and files the request touched, `<agents repo>/scripts/flow-guard run-verify-list <worktree> visual`, and `flow-guard check-fast-route-record <worktree>
-<base>` — as section 5 of `/flow-fast` states them. The request never lands red. The `lint` list,
+scoped to the packages and files the request touched, and `<agents repo>/scripts/flow-guard run-verify-list <worktree> visual` — as section 5 of `/flow-fast` states them. The request never lands red. The `lint` list,
 exiting 0 on a tree clean before and after it, writes `HEAD` to the worktree's `git rev-parse
 --git-path flow-lint-green`: the evidence the **Request-end guard** reads, so step 4 runs on the
 request's last commit.

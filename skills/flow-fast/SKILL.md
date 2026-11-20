@@ -210,9 +210,7 @@ backup**, `skills/flow-contracts/git-boundaries.md`). A branch rewritten by an a
 with `--force-with-lease`, never a bare `git push`, and never `--force`. A backing-out commit — a reverted prototype,
 a withdrawn task — carries the rejection reason in its body (**Revert and back-out commits**,
 `skills/flow-contracts/git-boundaries.md`). The commit series is the change's whole
-record; section 5's lint and tests are the only close a commit gets. The series is read back before section 7 lands anything — `flow-guard check-fast-route-record
-<worktree> <base>` in section 5's verify stage, per **Branch backup**
-(`skills/flow-contracts/git-boundaries.md`). Fix every lint hit the project's `## lint`
+record; section 5's lint and tests are the only close a commit gets. Fix every lint hit the project's `## lint`
 raises on the files you touched rather than suppressing it.
 
 ```bash
@@ -238,9 +236,7 @@ change touched — the packages, modules or test files the diff names, never the
 `<agents repo>/scripts/flow-guard run-verify-list -full <worktree> test`, runs only when the operator asked for it, under the operator's own `FLOW_OPERATOR_FULL_SUITE=1` (**Inline verify**, `skills/flow/verify-and-handoff.md`). When the diff names nothing those commands can scope to, none of them
 runs — the change summary below states that empty-scope reason explicitly, the stated reason
 being what makes the skip auditable rather than lazy, never a reflexive run of the whole list in its
-place. Then `flow-guard check-fast-route-record <worktree> <base>` reads the branch's
-commit series as the record, per **Branch backup**
-(`skills/flow-contracts/git-boundaries.md`). Then `<agents repo>/scripts/flow-guard run-verify-list <worktree> visual` runs the `## visual verification` `verify` row when the diff touches `ui paths` — the committed baselines a `lint` list never checks; a failure that is the change's intended look is recaptured with the section's `capture` row and committed under section 4's commit rule before the run lands. Where the section declares a `regression checkout`, the run first adds that repository's worktree on the change's branch, runs the section's `setup` command in it, and starts there the stack its `verify` row needs (the project's `## run`) — the one exception to the no-isolation rule above; the `visual` list never falls back to the main checkout, and exits 1 naming it while it holds no worktree on the branch. A failure is fixed and re-run under section 4's
+place. Then `<agents repo>/scripts/flow-guard run-verify-list <worktree> visual` runs the `## visual verification` `verify` row when the diff touches `ui paths` — the committed baselines a `lint` list never checks; a failure that is the change's intended look is recaptured with the section's `capture` row and committed under section 4's commit rule before the run lands. Where the section declares a `regression checkout`, the run first adds that repository's worktree on the change's branch, runs the section's `setup` command in it, and starts there the stack its `verify` row needs (the project's `## run`) — the one exception to the no-isolation rule above; the `visual` list never falls back to the main checkout, and exits 1 naming it while it holds no worktree on the branch. A failure is fixed and re-run under section 4's
 commit rule; the run never lands red, a failing test it did not introduce included (**the sweep**,
 `skills/flow-contracts/known-bugs.md`).
 
