@@ -82,7 +82,7 @@ func TestRoleCostsRoute(t *testing.T) {
 		t.Fatal(err)
 	}
 	fs := newFakeStore()
-	srv, err := api.New(config.Config{Host: "127.0.0.1", DSN: "unused"}, fs, fs, fs, fs, nil, api.WithPolicy(&fakePolicy{}, table), api.WithRoleCosts(rows))
+	srv, err := api.New(config.Config{Host: "127.0.0.1", DSN: "unused"}, fs, fs, fs, fs, nil, api.WithPolicy(&fakePolicy{}, table), api.WithRoleCosts(rows, time.Time{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestRoleCostsCountsARowUnderItsPolicyRole(t *testing.T) {
 		t.Fatal(err)
 	}
 	fs := newFakeStore()
-	srv, err := api.New(config.Config{Host: "127.0.0.1", DSN: "unused"}, fs, fs, fs, fs, nil, api.WithPolicy(&fakePolicy{}, table), api.WithRoleCosts(rows))
+	srv, err := api.New(config.Config{Host: "127.0.0.1", DSN: "unused"}, fs, fs, fs, fs, nil, api.WithPolicy(&fakePolicy{}, table), api.WithRoleCosts(rows, time.Time{}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,5 +168,52 @@ func TestRoleCostsCountsARowUnderItsPolicyRole(t *testing.T) {
 	}
 	if len(got.Roles) != 1 || got.Roles[0].Role != "no-progress-fixer" || got.Roles[0].Group != "Implementation" || got.Roles[0].CostUSD != 4 {
 		t.Fatalf("roles = %+v, want the row under no-progress-fixer (Implementation)", got.Roles)
+	}
+}
+
+// periodRecorder is a store that keeps the period it was last asked for.
+type periodRecorder struct {
+	fakeRoleDispatches
+	got store.Period
+}
+
+func (r *periodRecorder) RoleDispatches(_ context.Context, p store.Period, _ *string) ([]store.RoleDispatch, error) {
+	r.got = p
+	return nil, nil
+}
+
+// TestRoleCostsIgnoresDispatchesBeforeItsCutoff: a request reaching back past
+// the cutoff asks the store from the cutoff, and one wholly before it asks
+// for an empty period.
+func TestRoleCostsIgnoresDispatchesBeforeItsCutoff(t *testing.T) {
+	since := time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC)
+	for _, c := range []struct {
+		query            string
+		wantFrom, wantTo time.Time
+	}{
+		{"from=2026-08-01T00:00:00Z&to=2026-12-01T00:00:00Z", since, time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)},
+		{"from=2026-08-01T00:00:00Z&to=2026-09-01T00:00:00Z", since, since},
+		{"from=2026-11-21T00:00:00Z&to=2026-12-01T00:00:00Z", time.Date(2026, 11, 21, 0, 0, 0, 0, time.UTC), time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)},
+	} {
+		rec := &periodRecorder{}
+		table, err := os.ReadFile("../../../skills/flow-contracts/model-policy.md")
+		if err != nil {
+			t.Fatal(err)
+		}
+		fs := newFakeStore()
+		srv, err := api.New(config.Config{Host: "127.0.0.1", DSN: "unused"}, fs, fs, fs, fs, nil, api.WithPolicy(&fakePolicy{}, table), api.WithRoleCosts(rec, since))
+		if err != nil {
+			t.Fatal(err)
+		}
+		ts := httptest.NewServer(srv.Handler())
+		resp, err := http.Get(ts.URL + "/api/v1/stats/role-costs?" + c.query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		ts.Close()
+		if !rec.got.From.Equal(c.wantFrom) || !rec.got.To.Equal(c.wantTo) {
+			t.Errorf("%s: store asked %v..%v, want %v..%v", c.query, rec.got.From, rec.got.To, c.wantFrom, c.wantTo)
+		}
 	}
 }

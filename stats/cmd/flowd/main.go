@@ -46,6 +46,11 @@ import (
 // shutdownGrace bounds how long Serve's graceful shutdown waits for
 // in-flight requests to finish before giving up and closing the
 // connection pool anyway.
+// roleCostsSince is when the Role costs view starts: the operator reset it on
+// 2026-11-20, so the view ignores every dispatch started earlier. Nothing is
+// deleted; the Reviewers, findings and run views read the same rows in full.
+var roleCostsSince = time.Date(2026, 11, 20, 15, 38, 0, 0, time.UTC)
+
 const shutdownGrace = 15 * time.Second
 
 // harvestInterval is how often the transcript watcher scans
@@ -326,7 +331,7 @@ func run(logger *slog.Logger) error {
 		return at, found
 	}
 	restampRecentEnds(ctx, st, time.Now(), agentEnd, logger)
-	srv, err := api.New(cfg, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st), api.WithChangeFiles(st), api.WithRunTimings(st), api.WithStateRoot(fallback.StateRoot(os.Getenv)), api.WithRepricer(st), api.WithPolicy(st, embedded.Table), api.WithRoleCosts(st),
+	srv, err := api.New(cfg, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st), api.WithChangeFiles(st), api.WithRunTimings(st), api.WithStateRoot(fallback.StateRoot(os.Getenv)), api.WithRepricer(st), api.WithPolicy(st, embedded.Table), api.WithRoleCosts(st, roleCostsSince),
 		api.WithCommitBase(commitBaseFromRemote(originRemote())), api.WithBuild(buildIdentity()),
 		api.WithAgentEnds(agentEnd))
 	if err != nil {

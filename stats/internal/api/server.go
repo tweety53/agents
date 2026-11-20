@@ -200,18 +200,19 @@ type Option func(*serverOptions)
 // It exists as its own type, rather than fields tacked onto Server, so a
 // caller reads what New optionally accepts in one place.
 type serverOptions struct {
-	spa         http.Handler
-	guardRuns   GuardRunStore
-	repricer    Repricer
-	policy      PolicyStore
-	roleCosts   RoleCostsStore
-	changeFiles ChangeFileStore
-	runTimings  RunTimingsStore
-	stateRoot   string
-	rolesTable  []byte
-	commitBase  string
-	build       string
-	agentEnd    func(agentID string) (time.Time, bool)
+	spa            http.Handler
+	guardRuns      GuardRunStore
+	repricer       Repricer
+	policy         PolicyStore
+	roleCosts      RoleCostsStore
+	roleCostsSince time.Time
+	changeFiles    ChangeFileStore
+	runTimings     RunTimingsStore
+	stateRoot      string
+	rolesTable     []byte
+	commitBase     string
+	build          string
+	agentEnd       func(agentID string) (time.Time, bool)
 	// statsTimeout replaces statsWriteTimeout when set -- by tests alone
 	// (export_test.go's WithStatsTimeout), so a timeout test need not wait
 	// the real 20s out.
@@ -470,7 +471,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 		mux.HandleFunc("POST /api/v1/pricing/reprice", ph.reprice)
 	}
 	if so.roleCosts != nil {
-		rch := &roleCostsHandler{store: so.roleCosts, table: so.rolesTable, log: logger}
+		rch := &roleCostsHandler{store: so.roleCosts, since: so.roleCostsSince, table: so.rolesTable, log: logger}
 		mux.Handle("GET /api/v1/stats/role-costs", http.TimeoutHandler(http.HandlerFunc(rch.get), so.statsTimeout, statsTimeoutMessage))
 	}
 	if so.policy != nil {

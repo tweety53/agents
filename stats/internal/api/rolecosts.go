@@ -21,13 +21,16 @@ type RoleCostsStore interface {
 }
 
 // WithRoleCosts registers GET /api/v1/stats/role-costs against s; the role
-// groups come from the table WithPolicy passes.
-func WithRoleCosts(s RoleCostsStore) Option {
-	return func(o *serverOptions) { o.roleCosts = s }
+// groups come from the table WithPolicy passes. The view ignores dispatches
+// started before since (the zero time keeps every one): the data under it is
+// shared with other views, so this resets only this one.
+func WithRoleCosts(s RoleCostsStore, since time.Time) Option {
+	return func(o *serverOptions) { o.roleCosts, o.roleCostsSince = s, since }
 }
 
 type roleCostsHandler struct {
 	store RoleCostsStore
+	since time.Time
 	table []byte
 	log   *slog.Logger
 }
@@ -155,6 +158,12 @@ func (h *roleCostsHandler) get(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeParseOrStoreError(w, h.log, "resolve project for role-costs", err)
 		return
+	}
+	if period.From.Before(h.since) {
+		period.From = h.since
+		if period.To.Before(period.From) {
+			period.To = period.From
+		}
 	}
 	rows, err := h.store.RoleDispatches(ctx, period, project)
 	if err != nil {
