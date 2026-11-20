@@ -120,6 +120,9 @@ func RoleOf(stored, key string) string {
 	case "panel-fix":
 		return "panel-fix"
 	case "verifier":
+		if key == "verify" || strings.HasPrefix(key, "verify-") { // run-verify-list's inline verify rows
+			return "runner"
+		}
 		return "visual-verifier"
 	case "planner":
 		if strings.HasPrefix(key, "design-") {

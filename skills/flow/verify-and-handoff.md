@@ -95,7 +95,7 @@ every command in order and do not stop at the first failure.
 The lint commands and the test commands run as two groups at once, each
 in the order printed, in the one Bash call of **Recording** below, which a runner
 (its row of **Dispatch sites — the parent's closed list**, `skills/flow/implement.md`; `runner-<n>`, the call as its
-`COMMANDS:`) runs and answers with its verdict; the `## Report` lists every command in the order
+`COMMANDS:`) runs and answers with its verdict — the parent writes the pair it dispatches the runner on into those arguments as `<runner model>` and `<runner effort>`, so the `verify` rows show the runner's pair; the `## Report` lists every command in the order
 printed. **Nothing runs them later** —
 `/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
 While a stack is up for this run, the test commands start only after `flow-guard check-dev-stack-fresh
@@ -165,8 +165,8 @@ its header canonical) — its exit 5, the load never having dropped, is re-run t
 timeout on a run started at or under the core count is the branch's own defect and takes the fix procedure. No
 timeout is raised to absorb the load (`rules/fix-determinism-at-the-source.mdc`).
 
-**Recording.** One `dispatches` row per worktree the list runs for, `-role verifier -key verify -model <parent
-model> -effort <parent effort> -agent-id inline`, suffixed `-<repository name>` when this
+**Recording.** One `dispatches` row per worktree the list runs for, `-role verifier -key verify -model <runner
+model> -effort <runner effort> -agent-id inline`, suffixed `-<repository name>` when this
 run's resolved set holds more than one worktree — the same convention
 **The verifier dispatch** (`skills/flow/visual-verify.md`) uses for the verifier's rows.
 `flow-guard run-verify-list` records the row itself, never the parent by hand: both groups are run with the
@@ -184,8 +184,8 @@ row `-outcome completed`, and a command that failed twice for a missing build pr
 `-outcome blocked -cause environment` by the parent.
 
 ```bash
-flow-guard run-verify-list <worktree> lint <name> verify[-<repository name>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>] & l=$!
-flow-guard run-verify-list <worktree> test <name> verify[-<repository name>] mf-<literal-token> <parent model> <parent effort> [<canonical worktree>]; t=$?
+flow-guard run-verify-list <worktree> lint <name> verify[-<repository name>] mf-<literal-token> <runner model> <runner effort> [<canonical worktree>] & l=$!
+flow-guard run-verify-list <worktree> test <name> verify[-<repository name>] mf-<literal-token> <runner model> <runner effort> [<canonical worktree>]; t=$?
 wait "$l"; echo "lint: $? test: $t"
 # … only after a group exited non-zero and its re-run is decided:
 flow record dispatch end -C <canonical worktree> -change <name> -key verify[-<repository name>] \

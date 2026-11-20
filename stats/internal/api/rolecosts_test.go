@@ -40,6 +40,8 @@ func TestRoleOf(t *testing.T) {
 		{"panel-fix", "panel-fix-1", "panel-fix"},
 		{"implementer", "full-suite-fix-1", "panel-fix"},
 		{"verifier", "runner-1", "runner"},
+		{"verifier", "verify", "runner"},
+		{"verifier", "verify-gymie", "runner"},
 		{"implementer", "minors-runner-fixer", "minor-fix"},
 		{"verifier", "visual-verify-fix-2-gymie", "visual-verifier"},
 		{"planner", "plan-1", "planner"},
