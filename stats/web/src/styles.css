@@ -804,6 +804,10 @@ td.lb-clip { max-width: 0; width: 100%; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.agent-roles .roles td.role .tag {
+  margin-left: 8px;
+  margin-right: 0;
+}
 .agent-roles .roles td.role .does {
   margin-left: 8px;
   color: var(--text-muted);
