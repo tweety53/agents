@@ -76,7 +76,8 @@ and the base-moved check performs no fetch of its own.
 - **Stop and ask** (exit 2): a `REFUSE`, a base still moving after three rebases, or anything the
   guard could not answer — report its output and stop before the landing question.
 - **After a rebase that needed resolution**, run the project's whole `## lint` and `## test` lists
-  (`<project>/.flow/project.md`) — a hand-merged hunk is code nobody verified — and stop on a
+  (`<project>/.flow/project.md`) once, after the last resolution round, when the guard's re-check
+  finds the base holding still — never once per conflict round — since a hand-merged hunk is code nobody verified — and stop on a
   failure before the landing question, leaving the worktree rebased. A clean rebase runs only what
   the calling stage says it runs. If this change's verification compares against a recorded
   baseline, recapture it now — a proof taken against the pre-rebase base is void.
