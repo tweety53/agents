@@ -134,12 +134,10 @@ its return) and dispatches them.
 
 **Never end your turn while one of your agents runs.** A turn that ends to wait for a hand-back
 loses your 5-minute prompt cache when the agent runs longer, and the hand-back then rewrites your
-whole context; each exit-1 return of the wait below is one cache read, and re-arms the cache.
-Once your own work is done, call
-`<agents repo>/scripts/flow-guard await-sub-agents <agent id>...` with the agent ids your launches
-returned, as its header states, and read each hand-back; say in the round file when an agent
-returned nothing. The
-`await-own-agents` SubagentStop hook refuses your turn end while one runs.
+whole context. Once your own work is done, end your turn: the `await-own-agents` SubagentStop hook
+waits for your agents itself, and returns to you when they finish, or every four minutes while one
+still runs (stop again to keep waiting). Read each hand-back; say in the round file when an agent
+returned nothing.
 
 In `/flow` and `/flow-plan` the recommendation goes to the operator as part of the design, its
 alternatives shown only when they help the operator decide. The self-review planner

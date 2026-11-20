@@ -5,13 +5,15 @@ A subagent's prompt cache lives 5 minutes. A planner that ended its turn to wait
 agents woke on their hand-back 13 minutes later and rewrote its whole 206k-token context
 (kan-1061). This hook reads the `subagents/` folder beside the stopping agent's transcript,
 finds every `agent-<id>.meta.json` whose `parentAgentId` is the stopping agent and whose
-`finished` is not true, and answers {"decision":"block","reason":...} telling it to run
-`flow-guard await-sub-agents` on those ids -- each call returns within two
-minutes, inside the cache window.
+`finished` is not true, and WAITS for them itself, polling every few seconds for up to
+AWAIT_CHILDREN_SECONDS (240, inside the cache window; the default hook timeout is 10 minutes). When
+they all finish it answers {"decision":"block","reason":...} once, telling the agent to read their
+hand-backs; when some still run at the cap it blocks with "still running, stop again" -- each such
+re-stop is one cheap warm-cache turn, so the cache stays warm however long a child takes.
 
 A child whose transcript has not been written for 30 minutes is taken as dead and never
 blocks, so a crashed agent cannot trap its parent. stop_hook_active does not lift the block:
-the wait is the point, and every script call ends a bounded tool call.
+the wait is the point, and every wait is bounded.
 
 A subagent may not stop while a Bash command it moved to the background still runs either: the
 tool_result of one of its own Bash tool_use calls that opens with "Command running in background
@@ -47,7 +49,8 @@ import time
 
 STALE_SECONDS = 30 * 60
 FLOW_GUARD = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "scripts", "flow-guard")
-SCRIPT = FLOW_GUARD + " await-sub-agents"
+WAIT_SECONDS = int(os.environ.get("AWAIT_CHILDREN_SECONDS", "240"))
+POLL_SECONDS = 3
 
 
 def running_children(agent_id: str, folder: str) -> "list[str]":
@@ -201,15 +204,20 @@ def main() -> None:
         end_row(transcript, payload)
         return
     ids = " ".join(children)
-    print(json.dumps({
-        "decision": "block",
-        "reason": (
-            f"Agents you launched are still running ({ids}). Ending your turn now loses your "
-            f"5-minute prompt cache before their hand-back arrives. Run `{SCRIPT} {ids}` -- it "
-            "returns within two minutes, exit 0 once all finished, exit 1 naming those still "
-            "running -- and call it again on exit 1; read each hand-back as it arrives."
-        ),
-    }))
+    deadline = time.time() + WAIT_SECONDS
+    while children and time.time() < deadline:
+        time.sleep(POLL_SECONDS)
+        try:
+            children = running_children(agent_id, os.path.dirname(transcript))
+        except Exception:  # fail open
+            return
+    if children:
+        reason = (f"Agents you launched are still running ({' '.join(children)}). Stop again to keep waiting "
+                  "for them -- ending your turn on your own would lose your 5-minute prompt cache.")
+    else:
+        reason = (f"Agents you launched have finished ({ids}). Read each hand-back and continue; "
+                  "say so when one returned nothing.")
+    print(json.dumps({"decision": "block", "reason": reason}))
 
 
 if __name__ == "__main__":

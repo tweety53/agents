@@ -29,13 +29,14 @@ func TestAwaitOwnAgentsHook(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	wait := "2" // seconds the hook waits for a running child before answering "still running"
 	run := func(agent string, active bool) (string, int) {
 		t.Helper()
 		p, _ := json.Marshal(map[string]any{
 			"hook_event_name": "SubagentStop", "agent_id": agent, "stop_hook_active": active,
 			"agent_transcript_path": filepath.Join(dir, "agent-"+agent+".jsonl"),
 		})
-		out, _, rc := runHook(t, "await-own-agents.py", p)
+		out, _, rc := runHook(t, "await-own-agents.py", p, "AWAIT_CHILDREN_SECONDS="+wait)
 		return out, rc
 	}
 
@@ -49,13 +50,27 @@ func TestAwaitOwnAgentsHook(t *testing.T) {
 	meta("run1", "planner", false)
 	meta("run2", "planner", false)
 	out, rc := run("planner", false)
-	if rc != 0 || !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "flow-guard await-sub-agents run1 run2") {
-		t.Errorf("running children: rc %d, out %q; want a block naming flow-guard await-sub-agents run1 run2", rc, out)
+	if rc != 0 || !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "still running (run1 run2)") {
+		t.Errorf("running children: rc %d, out %q; want a block saying run1 run2 still run", rc, out)
 	}
-	// stop_hook_active still blocks: the wait is the point, and the script returns within two minutes.
+	// stop_hook_active still blocks: the wait is the point.
 	if out, _ := run("planner", true); !strings.Contains(out, `"decision": "block"`) {
 		t.Errorf("stop_hook_active with a running child: out %q; want a block", out)
 	}
+	// The hook waits for the children itself: they finish mid-wait, and the hook answers once that they have.
+	go func() {
+		time.Sleep(1500 * time.Millisecond)
+		meta("run1", "planner", true)
+		meta("run2", "planner", true)
+	}()
+	wait = "30"
+	waited := time.Now()
+	if out, _ := run("planner", false); !strings.Contains(out, "have finished (run1 run2)") || time.Since(waited) > 20*time.Second {
+		t.Errorf("children finishing mid-wait: out %q after %s; want a block saying they finished", out, time.Since(waited))
+	}
+	wait = "2"
+	meta("run1", "planner", false)
+	meta("run2", "planner", false)
 
 	// A child whose transcript went quiet for 30 minutes is dead and never traps its parent.
 	for _, id := range []string{"run1", "run2"} {

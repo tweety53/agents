@@ -764,7 +764,6 @@ var GuardRunOutcomes = []string{"clear", "fired", "cannot-answer"}
 // where importing guard into flowd would pull every guard's init into the
 // daemon (decision guard-helpers-in-records).
 var GuardHelpers = []string{
-	"await-sub-agents",
 	"close-task",
 	"compose-mockup-frames",
 	"installer-sandbox-diff",
