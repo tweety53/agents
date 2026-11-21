@@ -1786,7 +1786,7 @@ describe("flow health", () => {
     const row = (name: string) => screen.getByText(name, { selector: "td *" }).closest("tr") as HTMLElement;
     expect(within(row("check-guard-calls")).getByText("approved")).toBeInTheDocument();
     expect(within(row("check-guard-calls")).getByText(/names a real guard/)).toBeInTheDocument();
-    expect(within(row("sweep-dispatch-rows")).queryByText("approved")).not.toBeInTheDocument();
+    expect(within(row("sweep-dispatch-rows")).getByText("approved")).toBeInTheDocument();
     expect(within(row("sweep-dispatch-rows")).getByText(/stop was missed/)).toBeInTheDocument();
     expect(within(row("some-other-guard")).queryByText("approved")).not.toBeInTheDocument();
   });
