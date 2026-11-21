@@ -34,7 +34,7 @@ import { SR_STEPS, selfReviewNow, srStep, type SrStep } from "../lib/selfReviewN
 import { canonicalStage, stagePhase, type Phase } from "../lib/phase";
 import { mainNow, mainProgress, mainSummary, type ProgressState } from "../lib/mainNow";
 import { currentRequest, focusRequest, interactiveWaiting, isInteractive, requestStart, requestSteps } from "../lib/interactive";
-import { findChanges, getDecisions, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type HeadlessRow, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
+import { findChanges, getDecisions, getPolicy, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type HeadlessRow, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
 
 export interface RunDetailProps {
   project: string;
@@ -217,13 +217,13 @@ function modelEffortLabel(d: Step): string {
  * the main session's own turns. Null where nothing is left.
  */
 /** One line per role of a change's headless calls (pair-judge, plan-triage, decider): how many, on which model · effort, their summed cost. */
-export function headlessRoles(rows: HeadlessRow[]): { role: string; count: number; models: string; cost: number | null }[] {
+export function headlessRoles(rows: HeadlessRow[], versionOf: (model: string) => string = formatModel): { role: string; count: number; models: string; cost: number | null }[] {
   const by = new Map<string, { count: number; cost: number | null; pairs: Map<string, number> }>();
   for (const r of rows) {
     const g = by.get(r.role) ?? { count: 0, cost: null, pairs: new Map<string, number>() };
     g.count += 1;
     if (r.costUSD !== null) g.cost = (g.cost ?? 0) + r.costUSD;
-    const pair = `${formatModel(r.model)} · ${r.effort}`;
+    const pair = `${versionOf(r.model)} · ${r.effort}`;
     g.pairs.set(pair, (g.pairs.get(pair) ?? 0) + 1);
     by.set(r.role, g);
   }
@@ -248,7 +248,40 @@ export function unrecordedRole(desc: string, agentType?: string): string {
   return "other";
 }
 
-export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, number>): { unattributed: number | null; unrecorded: UnrecordedRole[]; main: number | null } {
+let policyOnce: Promise<Record<string, { base: string[] }> | null> | undefined;
+/** The allowed pairs, fetched once per page load: they give an explorer's effort, which no dispatch row records. */
+function usePolicy(): Record<string, { base: string[] }> | null {
+  const [policy, setPolicy] = useState<Record<string, { base: string[] }> | null>(null);
+  useEffect(() => {
+    let live = true;
+    policyOnce ??= getPolicy().catch(() => null);
+    void policyOnce.then((p) => live && setPolicy(p));
+    return () => {
+      live = false;
+    };
+  }, []);
+  return policy;
+}
+
+/** The one effort the policy gives `role` on a model family (`sonnet/Explore@low`, `opus/flow-low`), else undefined. */
+export function policyEffort(policy: Record<string, { base: string[] }> | null, role: string, family: string): string | undefined {
+  const efforts = new Set(
+    (policy?.[role]?.base ?? [])
+      .filter((p) => p.startsWith(`${family}/`))
+      .map((p) => /@(\w+)$|flow-(?:planner-)?(\w+)$/.exec(p)?.slice(1).find(Boolean)),
+  );
+  return efforts.size === 1 ? [...efforts][0] : undefined;
+}
+
+/** A model alias (`opus`) as the change's own dispatches name its version (`opus 5.5`); the alias itself when none carries it. */
+export function versionResolver(steps: Step[]): (model: string) => string {
+  return (model) => {
+    const v = steps.find((d) => d.modelVersion?.replace(/^claude-/, "").startsWith(`${model}-`))?.modelVersion;
+    return formatModel(v ?? model);
+  };
+}
+
+export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, number>, policy: Record<string, { base: string[] }> | null = null): { unattributed: number | null; unrecorded: UnrecordedRole[]; main: number | null } {
   const header = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
   // A run with no measured header cost holds buckets the header never counted: they are no part of
   // the main session's share, whose header is the other runs' alone (else it reads negative).
@@ -273,7 +306,9 @@ export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<str
       const mv = [o?.modelVersion, o?.model].find((v): v is string => typeof v === "string" && v !== "");
       // The effort rides in a flow agent's type (`flow-low`); an Explore agent's is not recorded.
       const effort = /^flow-(?:planner-)?(low|medium|high|xhigh)$/.exec(String(o?.agent_type ?? ""))?.[1];
-      const m = mv ? `${formatModel(mv)}${effort ? ` · ${effort}` : ""}` : "unknown";
+      const family = mv ? /^(?:claude-)?([a-z]+)/.exec(mv)?.[1] : undefined;
+      const shown = effort ?? (role === "explorer" && family ? policyEffort(policy, "explorer", family) : undefined);
+      const m = mv ? `${formatModel(mv)}${shown ? ` · ${shown}` : ""}` : "unknown";
       g.models.set(m, (g.models.get(m) ?? 0) + 1);
       byRole.set(role, g);
     }
@@ -347,13 +382,15 @@ function WorkPanel({
   /** Its place in the single stack narrow widths fall back to. */
   order: number;
 }) {
+  const policy = usePolicy();
   const status = workStatus(runs);
   const active = runs.reduce((a, r) => a + runEnd(r, now) - Date.parse(r.startedAt), 0);
   const cost = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
   // Costs are this panel's own runs' priced buckets, so its lines add up to its header.
   const costs = dispatchCosts(runs);
   const roles = roleSummary(steps, costs);
-  const rest = residualCosts(runs, steps, costs);
+  const rest = residualCosts(runs, steps, costs, policy);
+  const versionOf = versionResolver(steps);
   const slug = title.toLowerCase();
   return (
     <section className={`lb-panel lb-phase ${status}`} aria-label={title} style={{ order }}>
@@ -439,7 +476,7 @@ function WorkPanel({
                 </Fragment>
               ))}
               {roles.length === 0 && <li className="lb-muted">No dispatches yet.</li>}
-              {headlessRoles(headless ?? []).map((h) => (
+              {headlessRoles(headless ?? [], versionOf).map((h) => (
                 <li key={`headless-${h.role}`} data-testid="phase-role" title="Headless model calls: no agent, one `claude -p` call per guard run">
                   <span className="lb-role">
                     {h.role} <span className="lb-muted">×{h.count}</span>

@@ -1030,3 +1030,8 @@ export function putRolePairs(role: string, pairs: { base: string[]; optin: strin
   return sendJSON("PUT", `/api/v1/policy/roles/${encodeURIComponent(role)}`, pairs);
 }
 
+
+/** GET /api/v1/policy -- every role's allowed pairs, `<model>/<agent type>[@effort]`. */
+export function getPolicy(): Promise<Record<string, { base: string[]; optin: string[] }>> {
+  return getJSON("/api/v1/policy");
+}

@@ -760,6 +760,10 @@ type HeadlessCall struct {
 // set 0032_guard_runs.sql's CHECK constraint enforces.
 var GuardRunOutcomes = []string{"clear", "fired", "cannot-answer"}
 
+// RetiredGuards names guards that no longer exist: their past runs stay in guard_runs, and the
+// guard-health view leaves them out at read time, as it does a helper.
+var RetiredGuards = []string{"check-gated-verdicts"}
+
 // GuardHelpers names the flow-guard commands that are helpers, not guards.
 // Their non-zero exits are recorded in guard_runs as fires, but they refuse
 // nothing, so the flow-health guard-health view leaves them out at read
@@ -767,10 +771,6 @@ var GuardRunOutcomes = []string{"clear", "fired", "cannot-answer"}
 // The set lives here because the store and flow-guard both import records,
 // where importing guard into flowd would pull every guard's init into the
 // daemon (decision guard-helpers-in-records).
-// RetiredGuards names guards that no longer exist: their past runs stay in guard_runs, and the
-// guard-health view leaves them out at read time, as it does a helper.
-var RetiredGuards = []string{"check-gated-verdicts"}
-
 var GuardHelpers = []string{
 	"close-task",
 	"compose-mockup-frames",

@@ -17,7 +17,7 @@ import {
   type StageRunDTO,
   type StatsResponse,
 } from "../api";
-import { RunDetail, residualCosts, unrecordedRole, closeOpen } from "./RunDetail";
+import { RunDetail, residualCosts, unrecordedRole, closeOpen, policyEffort, versionResolver, headlessRoles } from "./RunDetail";
 
 const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock, decisionsMock } = vi.hoisted(() => ({
   decisionsMock: vi.fn((_project: string, _change: string) => Promise.resolve([] as unknown[])),
@@ -1519,5 +1519,28 @@ describe("residualCosts models", () => {
     };
     const r = residualCosts([run], [], new Map([["a", 1]]));
     expect(r.unrecorded[0].models).toBe("haiku 5.5 · medium ×1");
+  });
+});
+
+describe("the model · effort label", () => {
+  const policy = { explorer: { base: ["opus/Explore@low", "sonnet/Explore@low", "haiku/Explore@medium"] }, runner: { base: ["haiku/flow-low", "haiku/flow-medium"] } };
+  it("takes an explorer's effort from the policy when it is the one pair of its family", () => {
+    expect(policyEffort(policy, "explorer", "sonnet")).toBe("low");
+    expect(policyEffort(policy, "explorer", "haiku")).toBe("medium");
+    expect(policyEffort(policy, "runner", "haiku")).toBeUndefined(); // two efforts: not guessed
+    expect(policyEffort(null, "explorer", "sonnet")).toBeUndefined();
+  });
+  it("shows an unrecorded explorer as model version · effort", () => {
+    const run: StageRunDTO = {
+      stageRunId: 1, harness: "claude", command: "/flow", stage: "flow.plan", attempt: 1, startedAt: "2026-11-18T10:00:00Z",
+      metrics: { cost_usd: 1, dispatches: { a: { cost_usd: 1, description: "Frontend gap", agent_type: "Explore", model: "sonnet", modelVersion: "claude-sonnet-5-5" } } },
+    };
+    expect(residualCosts([run], [], new Map([["a", 1]]), policy).unrecorded[0].models).toBe("sonnet 5.5 · low ×1");
+  });
+  it("names a headless call's model by the version the change's dispatches carry", () => {
+    const steps = [{ modelVersion: "claude-opus-5-5" }] as never;
+    const rows = [{ role: "plan-triage", model: "opus", effort: "low", costUSD: 0.5, durationMS: 1, recordedAt: "t" }];
+    expect(headlessRoles(rows, versionResolver(steps))[0].models).toBe("opus 5.5 · low ×1");
+    expect(headlessRoles(rows, versionResolver([] as never))[0].models).toBe("opus · low ×1");
   });
 });
