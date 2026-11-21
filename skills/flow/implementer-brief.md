@@ -98,7 +98,9 @@ this file in full first: its prompt is a stub naming this file, never these para
 > every behaviour, name, path, flag or exit code the diff changes, grep for the comments, file
 > headers, usage lines, docs and cross-file citations that describe it, and bring each one in
 > line in this same commit. Every refusal or exit path the diff adds gets a test case of its
-> own.
+> own. A diff that removes a UI control, its tag or its accessibility id also greps every test
+> and spec for that tag — tests that tap, find or assert on it — and updates them in this same
+> task, never leaving them to fail in the suite.
 
 > **PROOF RUNS:** Keep runs bounded — never start an unbounded load, a leaking loop or a suite
 > that can exhaust the machine's memory; stop a run that does. A flake fix
