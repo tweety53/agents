@@ -1123,7 +1123,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		record = func(verb string, flags ...string) bool {
 			argv := []string{"record", "dispatch", verb, "-C", wt, "-change", change}
 			if verb == "begin" {
-				argv = append(argv, "-role", "verifier", "-model", model, "-effort", effort, "-agent-id", "inline")
+				argv = append(argv, "-role", "verifier", "-model", model, "-effort", effort, "-agent-id", "inline", "-policy-role", "runner")
 				// The verified worktree's HEAD, which check-verify-green judges
 				// the row by (decision verify-row-records-head); a worktree git
 				// cannot resolve records none, and that row is never green.

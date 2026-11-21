@@ -815,6 +815,8 @@ export interface RecordDispatch {
   key?: string;
   taskId?: string;
   role: string;
+  /** The allowed-pairs role (the roles table) the dispatch ran under; the run view groups by it before the coarse store role. */
+  policyRole?: string;
   model: string;
   effort?: string;
   outcome?: string;

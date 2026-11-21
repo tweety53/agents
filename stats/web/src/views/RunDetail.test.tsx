@@ -1024,6 +1024,7 @@ describe("the reworked run view (kan-1048)", () => {
         { id: 2, agentId: "inline", role: "verifier", key: "verify", model: "opus", effort: "default", startedAt: "2026-01-01T01:11:00Z", endedAt: "2026-01-01T01:12:00Z" },
         { id: 3, role: "planner", key: "plan-2", model: "opus", effort: "high", startedAt: "2026-01-01T01:13:00Z", endedAt: "2026-01-01T01:14:00Z", outcome: "aborted" },
         { id: 4, role: "explorer", key: "explore-1", model: "sonnet", effort: "low", startedAt: "2026-01-01T01:13:00Z", endedAt: "2026-01-01T01:14:00Z", outcome: "completed" },
+        { id: 5, agentId: "inline", role: "verifier", policyRole: "runner", key: "verify-2", model: "haiku", effort: "medium", startedAt: "2026-01-01T01:15:00Z", endedAt: "2026-01-01T01:16:00Z" },
       ],
     });
     render(<RunDetail project={PROJECT} change={CHANGE} />);
@@ -1033,6 +1034,8 @@ describe("the reworked run view (kan-1048)", () => {
     expect(text).toContain("implementer ×1opus 5.5 · medium");
     // An inline row with no served model carries a hand-typed label: it says the main session ran it, never a model.
     expect(text).toContain("verifier ×1main session");
+    // A row carrying its roles-table role is listed under it, apart from the coarse store role.
+    expect(text).toContain("runner ×1main session");
     expect(text).not.toContain("default");
     const verifier = within(main).getAllByTestId("phase-role").find((r) => r.textContent?.startsWith("verifier"))!;
     expect(verifier.querySelector(".lb-role-models")!.getAttribute("title")).toContain("effort unknown");
