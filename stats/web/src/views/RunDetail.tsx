@@ -203,6 +203,8 @@ const knownEffort = (e: string | undefined) => (e && e !== "default" ? e : undef
 
 /** A dispatch's model as family and version, with its effort when one is known ("opus 5.5 · low"). */
 function modelEffortLabel(d: Step): string {
+  // An inline row's own model is a hand-typed label; only its served model is true.
+  if (d.agentId === "inline" && !d.modelVersion) return "main session";
   const model = d.modelVersion || d.model;
   if (!model) return "unknown";
   const e = knownEffort(d.effort);

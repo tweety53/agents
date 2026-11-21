@@ -1031,7 +1031,8 @@ describe("the reworked run view (kan-1048)", () => {
     await waitFor(() => expect(within(main).getAllByTestId("phase-role").length).toBeGreaterThan(1));
     const text = within(main).getAllByTestId("phase-role").map((r) => r.textContent).join(" | ");
     expect(text).toContain("implementer ×1opus 5.5 · medium");
-    expect(text).toContain("verifier ×1opus");
+    // An inline row with no served model carries a hand-typed label: it says the main session ran it, never a model.
+    expect(text).toContain("verifier ×1main session");
     expect(text).not.toContain("default");
     const verifier = within(main).getAllByTestId("phase-role").find((r) => r.textContent?.startsWith("verifier"))!;
     expect(verifier.querySelector(".lb-role-models")!.getAttribute("title")).toContain("effort unknown");
