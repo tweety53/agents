@@ -1542,5 +1542,7 @@ describe("the model · effort label", () => {
     const rows = [{ role: "plan-triage", model: "opus", effort: "low", costUSD: 0.5, durationMS: 1, recordedAt: "t" }];
     expect(headlessRoles(rows, versionResolver(steps))[0].models).toBe("opus 5.5 · low ×1");
     expect(headlessRoles(rows, versionResolver([] as never))[0].models).toBe("opus · low ×1");
+    const run = { stageRunId: 1, harness: "claude", command: "/flow", stage: "flow.plan", attempt: 1, startedAt: "t", metrics: { dispatches: { a: { modelVersion: "claude-sonnet-5-5" } } } } as StageRunDTO;
+    expect(headlessRoles([{ ...rows[0], model: "sonnet" }], versionResolver([] as never, [run]))[0].models).toBe("sonnet 5.5 · low ×1");
   });
 });

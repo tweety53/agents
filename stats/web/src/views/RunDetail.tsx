@@ -274,11 +274,10 @@ export function policyEffort(policy: Record<string, { base: string[] }> | null, 
 }
 
 /** A model alias (`opus`) as the change's own dispatches name its version (`opus 5.5`); the alias itself when none carries it. */
-export function versionResolver(steps: Step[]): (model: string) => string {
-  return (model) => {
-    const v = steps.find((d) => d.modelVersion?.replace(/^claude-/, "").startsWith(`${model}-`))?.modelVersion;
-    return formatModel(v ?? model);
-  };
+export function versionResolver(steps: Step[], runs: StageRunDTO[] = []): (model: string) => string {
+  const bucketVersions = runs.flatMap((r) => Object.values(asObject(asObject(r.metrics)?.dispatches) ?? {}).map((b) => asObject(b)?.modelVersion));
+  const versions = [...steps.map((d) => d.modelVersion), ...bucketVersions].filter((v): v is string => typeof v === "string");
+  return (model) => formatModel(versions.find((v) => v.replace(/^claude-/, "").startsWith(`${model}-`)) ?? model);
 }
 
 export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, number>, policy: Record<string, { base: string[] }> | null = null): { unattributed: number | null; unrecorded: UnrecordedRole[]; main: number | null } {
@@ -390,7 +389,7 @@ function WorkPanel({
   const costs = dispatchCosts(runs);
   const roles = roleSummary(steps, costs);
   const rest = residualCosts(runs, steps, costs, policy);
-  const versionOf = versionResolver(steps);
+  const versionOf = versionResolver(steps, runs);
   const slug = title.toLowerCase();
   return (
     <section className={`lb-panel lb-phase ${status}`} aria-label={title} style={{ order }}>
