@@ -14,6 +14,8 @@ states.
 
 ## B. Basic Workflow #1 — Brainstorming
 
+Investigate read-only, then present the design.
+
 ### The checklist
 
 - **Every ambiguity is either asked or auto-taken — asked only in `/flow`'s planning up to its
@@ -117,7 +119,8 @@ states.
 for an Explore agent, `plan-designer` for a Plan agent — passed as the Agent tool's `model` and
 `effort`. Its prompt carries the two agent-baseline sentences and the report-tersely line
 (`~/.claude/rules/dispatch-carries-the-baseline.md`) and a narrow, explicit scope: what to look at,
-what is already known, what to return. Never a `fork`, and never an agent that edits files. The
+what is already known, what to return. Never a `fork`, and never an agent that edits files: each is dispatched on the read-only `Explore`
+or `Plan` agent type, whose tool set has no Edit and no Write. The
 agents investigate and propose; you decide. They record no ledger row. Read the code yourself
 first; dispatch an agent only where that cannot settle a question. On an easy change (`planner-short`, **Judge easy or hard**,
 `skills/flow/brainstorm.md`) only Explore agents are dispatched — never a Plan agent.
@@ -152,6 +155,12 @@ options: **Approve the design and move on** *(recommended)* and **Another round 
 something**. Only an explicit **approve** ends the rounds and approves the design; any other
 answer, silence included, is another round, and the operator's words are that round's input. No
 round count ends planning.
+
+**The confirm asked alone shows the whole design** (decision `approval-by-question-preview`). A
+round whose only question is the confirm is asked as one **AskUserQuestion** with exactly those
+two options, the approve option's `preview` carrying the full design draft text. The session is
+never switched into plan mode, and **Another round** only dispatches the next round — nothing is
+stranded.
 
 Under the `## decisions: recommended` mode (**Auto-resolution**,
 `skills/flow-contracts/operator-prompts.md`) the question is not asked and **approve** is taken.

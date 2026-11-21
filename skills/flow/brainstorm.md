@@ -162,7 +162,9 @@ token spend.
    four to an **AskUserQuestion** call in round-file order, the convergence confirm last — the URL appended to the text of the question that depends on the
    prototype, or else of the convergence confirm, since the question dialog may hide the text
    above it — and appends the answers verbatim to that round file under `## Answers`; it never answers
-   a question itself. Every later planner dispatch's prompt, the final one included, carries the
+   a question itself. A round whose `## Questions` holds only the convergence confirm is asked
+   with the round file's full design draft as the approve option's `preview` (**Convergence**,
+   `skills/flow/brainstorm-planner.md`). Every later planner dispatch's prompt, the final one included, carries the
    prototype's latest Artifact URL. An explicit approve of the convergence confirm closes
    brainstorming; any other answer dispatches round `<r+1>`. An operator message mid-planning is
    appended to the latest round file's `## Answers` and relayed the same way.

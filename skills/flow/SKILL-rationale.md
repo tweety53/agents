@@ -98,6 +98,9 @@ empty and returns only its conclusions, so it saves the planning session's conte
 of the failure the ban was written against. **Considered:** keeping the ban for every dispatch —
 rejected because fresh agents save the context the ban protected.
 
+**Superseded by decision `planner-role`, then `approval-by-question-preview` (below):** the two
+decisions that follow no longer hold — planning runs in a `planner` dispatch without plan mode.
+
 On Claude Code `ExitPlanMode` is the design approval and the merged convergence confirm still
 closes the checklist (decision `exit-plan-mode-is-approval`). **Considered:** `ExitPlanMode` in
 addition to the merged confirm's approval — rejected as two approvals of one design;
@@ -107,6 +110,14 @@ the decision, which do not exist yet at design time.
 Planning keeps every current practice and gate and adds the plan-mode practices (decision
 `extend-not-replace`). **Considered:** replacing brainstorming with plan mode — rejected by the
 operator.
+
+The design approval is the convergence confirm asked alone as an **AskUserQuestion** of two
+options, approve or another round, whose approve option's `preview` shows the full design text;
+the session never enters plan mode (decision `approval-by-question-preview`). It gives the
+operator plan-mode approval's read-the-whole-plan-then-approve step without the mode.
+**Considered:** `ExitPlanMode` as the approval — rejected because it needs the session to be in
+plan mode, a rejection strands the session there, and a subagent's plan mode is ignored under the
+auto, acceptEdits and bypass permission modes, so a `planner` dispatch cannot rely on it.
 
 ## git-boundaries.md — Branch backup
 
