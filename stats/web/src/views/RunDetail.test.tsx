@@ -17,7 +17,7 @@ import {
   type StageRunDTO,
   type StatsResponse,
 } from "../api";
-import { RunDetail, residualCosts } from "./RunDetail";
+import { RunDetail, residualCosts, unrecordedRole } from "./RunDetail";
 
 const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock, decisionsMock } = vi.hoisted(() => ({
   decisionsMock: vi.fn((_project: string, _change: string) => Promise.resolve([] as unknown[])),
@@ -1103,7 +1103,7 @@ describe("the reworked run view (kan-1048)", () => {
     const main = await screen.findByRole("region", { name: "Main" });
     const line = await waitFor(() => within(main).getAllByTestId("phase-role").find((r) => r.textContent?.startsWith("explorer"))!);
     expect(line).toHaveTextContent(/^explorer ×2sonnet ×2\$0\.75$/);
-    expect(within(main).getAllByTestId("phase-role").some((r) => /^plan-review-1 ×1opus ×1\$0\.25$/.test(r.textContent ?? ""))).toBe(true);
+    expect(within(main).getAllByTestId("phase-role").some((r) => /^other ×1opus ×1\$0\.25$/.test(r.textContent ?? ""))).toBe(true);
   });
 
   it("run detail lists the change's headless calls, one line per role", async () => {
@@ -1489,5 +1489,16 @@ describe("residualCosts", () => {
     // Run 1 measured $10 with agent a's $3 inside it; run 2 has no header and holds agent b's $100.
     const r = residualCosts([run(1, 10, { a: 3 }), run(2, null, { b: 100 })], [], costs);
     expect(r.main).toBe(7);
+  });
+});
+
+describe("unrecordedRole", () => {
+  it("names the role, never the description", () => {
+    expect(unrecordedRole("fix-visual-4 remaining frame copy and TF3")).toBe("fixer");
+    expect(unrecordedRole("rebaseline-2 CC11 CC12")).toBe("fixer");
+    expect(unrecordedRole("runner-4 re-run visual list after rebaseline")).toBe("runner");
+    expect(unrecordedRole("live check re-run scenario 2 on fresh build")).toBe("live-check");
+    expect(unrecordedRole("gated-status-sweep old findings F1-F48")).toBe("other");
+    expect(unrecordedRole("Explore frontend screens")).toBe("explorer");
   });
 });

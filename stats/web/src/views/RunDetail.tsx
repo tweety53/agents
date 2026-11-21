@@ -233,6 +233,16 @@ export function headlessRoles(rows: HeadlessRow[]): { role: string; count: numbe
 /** The agents no dispatch row claims, one row per role: an "explore…" description is an explorer, any other keeps its own name. */
 export type UnrecordedRole = { role: string; count: number; models: string; cost: number };
 
+/** The role an unrecorded agent's description names, never the description itself: its leading word says the role (`fix-visual-4 …` is a fixer), anything else is `other`. */
+export function unrecordedRole(desc: string): string {
+  const d = desc.trim().toLowerCase();
+  if (d.startsWith("explor")) return "explorer";
+  if (/^(fix|rebaseline|recommit)\b/.test(d)) return "fixer";
+  if (/^runner\b/.test(d)) return "runner";
+  if (/^live[ -]check\b/.test(d)) return "live-check";
+  return "other";
+}
+
 export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<string, number>): { unattributed: number | null; unrecorded: UnrecordedRole[]; main: number | null } {
   const header = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
   // A run with no measured header cost holds buckets the header never counted: they are no part of
@@ -251,7 +261,7 @@ export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<str
       if (!costs.has(id) || claimed.has(id)) continue;
       const o = asObject(b);
       const desc = String(o?.description ?? id);
-      const role = /^explor/i.test(desc) ? "explorer" : desc;
+      const role = unrecordedRole(desc);
       const g = byRole.get(role) ?? { count: 0, cost: 0, models: new Map<string, number>() };
       g.count += 1;
       g.cost += costs.get(id) ?? 0;
