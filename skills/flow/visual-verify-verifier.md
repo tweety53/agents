@@ -662,6 +662,7 @@ each of steps 4, 8–11 and the motion step a status the report check admits —
 is canonical for them — and the parent runs that check on the report before reading it.
 Run it on your own report before handing back: an exit 1 names the steps still owed, so do them
 and run it again, and hand back an incomplete report only for a blocker you cannot cure, named.
+**The report carries one row per frame on the change's list, and you do not hand back while any frame lacks one** — naming a frame on the `frames:` line is never a row, and a remainder handed to a second verifier is a defect of this report.
 Run the bundle's `close --check-only` line again the same way, for its frame-list half: a `no report line` frame gets its
 own per-frame line or is named on the `frames:` line with its reason, and a `no sidecar line` gap
 step 8 could not close stays, which `close` hands the parent.
