@@ -1723,6 +1723,62 @@ func TestEndDispatchRecordsCause(t *testing.T) {
 	}
 }
 
+// TestEndDispatchRecordsCauseDetail: cause_detail is stored with the end,
+// cleared by a re-end without it, and cleared by a re-begin.
+func TestEndDispatchRecordsCauseDetail(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-end-dispatch-cause-detail-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	const token, key = "mf-cause-detail", "visual-verify"
+	begin := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
+	begin.SessionToken = ptr(token)
+	if _, err := st.BeginStage(ctx, begin); err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	dispatch := baseDispatch("verifier", "sonnet")
+	dispatch.SessionToken, dispatch.Key = token, key
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", dispatch); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	read := func() string {
+		t.Helper()
+		rec, err := st.RunRecord(ctx, projectKey, "kan-1")
+		if err != nil || len(rec.Dispatches) != 1 {
+			t.Fatalf("RunRecord: %v, %d dispatches", err, len(rec.Dispatches))
+		}
+		return rec.Dispatches[0].CauseDetail
+	}
+	end := func(in records.DispatchEnd) {
+		t.Helper()
+		in.SessionToken, in.Key = token, key
+		in.EndedAt = dispatch.StartedAt.Add(time.Minute)
+		if _, err := st.EndDispatch(ctx, projectKey, "kan-1", in); err != nil {
+			t.Fatalf("EndDispatch: %v", err)
+		}
+	}
+
+	end(records.DispatchEnd{Outcome: "blocked", Cause: "test-failure", CauseDetail: "/tmp/verify.log"})
+	if got := read(); got != "/tmp/verify.log" {
+		t.Fatalf("CauseDetail = %q, want /tmp/verify.log", got)
+	}
+	end(records.DispatchEnd{Outcome: "blocked", Cause: "test-failure"})
+	if got := read(); got != "" {
+		t.Errorf("a re-end without cause detail left CauseDetail = %q, want it cleared", got)
+	}
+	end(records.DispatchEnd{Outcome: "blocked", Cause: "test-failure", CauseDetail: "/tmp/again.log"})
+	again := dispatch
+	again.StartedAt = dispatch.StartedAt.Add(time.Hour)
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", again); err != nil {
+		t.Fatalf("re-begin: %v", err)
+	}
+	if got := read(); got != "" {
+		t.Errorf("a re-begin left CauseDetail = %q, want it cleared", got)
+	}
+}
+
 // TestEndDispatchRecordsClosesLoop: `flow record dispatch end -closes-loop`
 // stores closesLoop on the row and RunRecord reads it back; a re-end without
 // it, as a transcript restamp sends, keeps it; a row ended without it reads

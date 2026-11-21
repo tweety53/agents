@@ -1377,7 +1377,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 	commit := fset.String("commit", "", "the commit sha this dispatch produced")
 	outcome := fset.String("outcome", "", "how the dispatch ended -- one of: "+strings.Join(recordOutcomes, ", "))
 	cause := fset.String("cause", "", "why the outcome is blocked -- one of: "+strings.Join(recordCauses, ", ")+"; required with -outcome blocked, refused with any other outcome")
-	causeDetail := fset.String("cause-detail", "", "free text beside -cause, e.g. the red verify's log path -- optional, only with -cause; never part of the closed cause vocabulary")
+	causeDetail := fset.String("cause-detail", "", "free text beside -cause, the last failing command's log path -- optional, only with -cause; never part of the closed cause vocabulary")
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, where begin could not carry it -- optional, and never clears an identifier begin already recorded")
 	tokens := fset.String("tokens", "", "the token usage a same-session (inline) dispatch spent, as comma-separated key=value pairs over: input, output, cache-read, cache-creation (optional -- for a harness that writes no transcript the harvester could credit the inline row from)")
 	endedAt := fset.String("ended-at", "", "a back-filled row's real end instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it closes the row")

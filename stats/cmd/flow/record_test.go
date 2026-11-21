@@ -1271,6 +1271,47 @@ func TestDispatchEndCauseAccepted(t *testing.T) {
 	}
 }
 
+// TestDispatchEndCauseDetail pins -cause-detail: refused (exit 2, store
+// untouched) without -cause, and carried on the wire as causeDetail with one.
+func TestDispatchEndCauseDetail(t *testing.T) {
+	t.Parallel()
+	code, _, stderr, contacted, _ := causeEndRun(t, newTestEnv(t), "-outcome", "blocked", "-cause-detail", "/tmp/verify.log")
+	if code != 2 || contacted {
+		t.Fatalf("exit code = %d, contacted = %v, want 2 and the store untouched; stderr:\n%s", code, contacted, stderr.String())
+	}
+
+	repo := recordRepo(t, "kan-510")
+	env := newTestEnv(t)
+	var gotBody []byte
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/passes") {
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":1}`))
+			return
+		}
+		gotBody, _ = readAll(r)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":7,"seq":1,"role":"verifier","model":"sonnet","endedAt":"2026-01-02T03:44:05Z"}`))
+	}))
+	defer srv.Close()
+	var stdout, stderr2 bytes.Buffer
+	code = run(context.Background(),
+		[]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-510", "-key", "visual-verify", "-session-token", "ff-kan510-end-cause",
+			"-outcome", "blocked", "-cause", "test-failure", "-cause-detail", "/tmp/verify.log"},
+		env.get, strings.NewReader(""), &stdout, &stderr2)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr2.String())
+	}
+	var sent map[string]any
+	if err := json.Unmarshal(gotBody, &sent); err != nil {
+		t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
+	}
+	if sent["causeDetail"] != "/tmp/verify.log" {
+		t.Errorf("causeDetail = %v, want /tmp/verify.log on the wire", sent["causeDetail"])
+	}
+}
+
 // --- render ---
 
 // renderRun is the run the render tests' daemon has already rendered: one
