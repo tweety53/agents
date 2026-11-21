@@ -157,6 +157,8 @@ carry. A report with every exit zero still
 closes `-outcome completed`.
 
 
+**A failing capture from a spec the change did not touch is first re-run on the base.** Failing there too, it is stale baseline drift, re-baselined in the same round and never a departure of this change.
+
 A verifier that ends without writing its report file, or whose agent dies, is closed by `close`
 `-outcome aborted` with `STOP: no report`, and blocks this handoff exactly as a failed command would,
 naming the death.
