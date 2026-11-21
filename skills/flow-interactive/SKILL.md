@@ -63,7 +63,7 @@ one `⚠ Jira: skipped — <reason>` line of **Never blocking**.
 `interactive-<YYYYMMDD-HHMM>` (UTC). **An open `/flow-interactive` change whose name is, or starts
 with `<lowercased key>-`, the resolved issue's key is resumed whatever its slug** (**Resume**, below) —
 the reused `Interactive session` issue's included, so a topic-slugged request never opens a second
-change on the same issue — never a new session numbering from 1. Find it with `flow state find <key>`.
+change on the same issue — never a new session numbering from 1. Find it with `flow state list`: every record whose name is, or starts with `<lowercased key>-`, and whose state is not `FINISHED` — the most recently updated when several. (`flow state find` takes one exact name and never matches by key.) Looking before creating is not optional: a session whose worktree is not the one found is a second session on the issue.
 
 ```bash
 flow stage mark  -command '/flow-interactive' -stages flow.plan -harness <harness> <name>
