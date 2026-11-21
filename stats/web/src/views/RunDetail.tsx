@@ -270,7 +270,8 @@ export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<str
       const g = byRole.get(role) ?? { count: 0, cost: 0, models: new Map<string, number>() };
       g.count += 1;
       g.cost += costs.get(id) ?? 0;
-      const m = typeof o?.model === "string" && o.model ? formatModel(o.model) : "unknown";
+      const mv = [o?.modelVersion, o?.model].find((v): v is string => typeof v === "string" && v !== "");
+      const m = mv ? formatModel(mv) : "unknown";
       g.models.set(m, (g.models.get(m) ?? 0) + 1);
       byRole.set(role, g);
     }
