@@ -1317,6 +1317,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 
 	started := time.Now().Add(-time.Second)
 	failed := 0
+	lastLog := "" // the last failing command's kept log
 	// report prints one command's block; name is its kept log's basename.
 	report := func(shown string, rc int, file, name string) {
 		if rc != 0 {
@@ -1341,6 +1342,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		if rc != 0 && keep != "" {
 			log := filepath.Join(keep, name+".log")
 			os.WriteFile(log, out, 0o666)
+			lastLog = log
 			fmt.Fprintf(stdout, "  full output: %s\n", log)
 			if dir := keepResults(abs(wt), filepath.Join(keep, fmt.Sprintf("%s-results-%d", name, time.Now().UnixNano())), started); dir != "" {
 				fmt.Fprintf(stdout, "  result files: %s\n", dir)
@@ -1677,7 +1679,11 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	switch {
 	case failed != 0 || anyBlocked:
-		record("end", "-outcome", "blocked", "-cause", "test-failure")
+		if lastLog != "" {
+			record("end", "-outcome", "blocked", "-cause", "test-failure", "-cause-detail", lastLog)
+		} else {
+			record("end", "-outcome", "blocked", "-cause", "test-failure")
+		}
 	case siblingRunning:
 		// A sibling group still runs: it ends the row.
 	case list != "lint" && !visualRan && len(cmds) > 0 && !slices.Contains(skip, false):

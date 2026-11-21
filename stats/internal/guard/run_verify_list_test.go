@@ -563,7 +563,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	fixtureRepo(t, wt, repoShape{})
 
 	commit("exit 1", "one")
-	if rc, calls := run(); rc != 1 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure")) {
+	if rc, calls := run(); rc != 1 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure -cause-detail "+filepath.Join(wt, ".git", "flow-verify-failed", "test-0.log"))) {
 		t.Errorf("a failing list: exit %d, calls:\n%s", rc, calls)
 	}
 	commit("true", "two")
@@ -606,7 +606,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	list = "test"
 	run()
 	list = "lint"
-	if rc, calls := run(); rc != 1 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure")) {
+	if rc, calls := run(); rc != 1 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure -cause-detail "+filepath.Join(wt, ".git", "flow-verify-failed", "lint-0.log"))) {
 		t.Errorf("a failing lint list: exit %d, calls:\n%s", rc, calls)
 	}
 	list = "test"
@@ -634,7 +634,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n\n## test\n\n```bash\nexit 1\n```\n")
 	gitIn(t, wt, "add", "-A")
 	gitIn(t, wt, "commit", "-q", "-m", "seven")
-	if rc, calls := run(); rc != 1 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure")) {
+	if rc, calls := run(); rc != 1 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure -cause-detail "+filepath.Join(wt, ".git", "flow-verify-failed", "test-0.log"))) {
 		t.Errorf("a failing test list: exit %d, calls:\n%s", rc, calls)
 	}
 	list = "lint"

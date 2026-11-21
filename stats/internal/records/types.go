@@ -125,6 +125,7 @@ type Dispatch struct {
 	Request      *int            `json:"request,omitempty"`
 	Outcome      string          `json:"outcome,omitempty"`
 	Cause        string          `json:"cause,omitempty"`
+	CauseDetail  string          `json:"causeDetail,omitempty"`
 	SessionToken string          `json:"sessionToken,omitempty"`
 	SessionID    string          `json:"sessionId,omitempty"`
 	StartedAt    time.Time       `json:"startedAt"`
@@ -213,14 +214,17 @@ type DispatchRetime struct {
 // the caller's own statement, never verified here -- the store stamps the
 // row so a rendered ledger can say whose statement a token line is.
 type DispatchEnd struct {
-	SessionToken string       `json:"sessionToken"`
-	Key          string       `json:"key"`
-	CommitSHA    string       `json:"commitSha,omitempty"`
-	Outcome      string       `json:"outcome,omitempty"`
-	Cause        string       `json:"cause,omitempty"`
-	EndedAt      time.Time    `json:"endedAt"`
-	AgentID      string       `json:"agentId,omitempty"`
-	Tokens       *TokenReport `json:"tokens,omitempty"`
+	SessionToken string `json:"sessionToken"`
+	Key          string `json:"key"`
+	CommitSHA    string `json:"commitSha,omitempty"`
+	Outcome      string `json:"outcome,omitempty"`
+	Cause        string `json:"cause,omitempty"`
+	// CauseDetail is free text beside Cause (the red verify's log path);
+	// it follows Cause's last-write-wins and is never grouped on.
+	CauseDetail string       `json:"causeDetail,omitempty"`
+	EndedAt     time.Time    `json:"endedAt"`
+	AgentID     string       `json:"agentId,omitempty"`
+	Tokens      *TokenReport `json:"tokens,omitempty"`
 	// DiffBase corrects the HEAD(s) begin recorded, as Dispatch.DiffBase
 	// reads; empty leaves begin's value (kan-1008's self-review: a wrong
 	// visual-verify base could only be patched by a second, agentless row).

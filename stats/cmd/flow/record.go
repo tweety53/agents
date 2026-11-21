@@ -278,7 +278,7 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -key key -session-token token
        flow record dispatch end   [-addr url] [-timeout dur] [-C dir]
                              -change name -key key -session-token token
-                             [-commit sha] [-outcome outcome] [-cause cause]
+                             [-commit sha] [-outcome outcome] [-cause cause] [-cause-detail text]
                              [-agent-id id] [-tokens k=v,...] [-ended-at instant]
                              [-diff-base sha[,sha...]] [-closes-loop]
        flow record dispatch backfill [-addr url] [-timeout dur] [-C dir]
@@ -589,6 +589,9 @@ refused with any other outcome -- a cause its outcome does not explain,
 or a block whose reason survives only as prose in a verify report, are the
 same defect (KAN-510): "three environment-caused blocks in one run" must
 be a query the store answers, not a footnote in one run's ledger.
+
+-cause-detail is free text beside -cause (run-verify-list passes the red
+verify's log path); it is refused without -cause and is never grouped on.
 
 -tokens reports the token usage of a same-session (inline) dispatch
 (KAN-525). Where the harness writes a transcript, the harvester credits a
@@ -1374,6 +1377,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 	commit := fset.String("commit", "", "the commit sha this dispatch produced")
 	outcome := fset.String("outcome", "", "how the dispatch ended -- one of: "+strings.Join(recordOutcomes, ", "))
 	cause := fset.String("cause", "", "why the outcome is blocked -- one of: "+strings.Join(recordCauses, ", ")+"; required with -outcome blocked, refused with any other outcome")
+	causeDetail := fset.String("cause-detail", "", "free text beside -cause, e.g. the red verify's log path -- optional, only with -cause; never part of the closed cause vocabulary")
 	agentID := fset.String("agent-id", "", "the harness's own identifier for the dispatched subagent, where begin could not carry it -- optional, and never clears an identifier begin already recorded")
 	tokens := fset.String("tokens", "", "the token usage a same-session (inline) dispatch spent, as comma-separated key=value pairs over: input, output, cache-read, cache-creation (optional -- for a harness that writes no transcript the harvester could credit the inline row from)")
 	endedAt := fset.String("ended-at", "", "a back-filled row's real end instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it closes the row")
@@ -1402,6 +1406,10 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 	}
 	report, ok := checkDispatchEndFields(*outcome, *cause, *tokens, stderr, getenv)
 	if !ok {
+		return 2
+	}
+	if *causeDetail != "" && *cause == "" {
+		fmt.Fprintln(stderr, "flow: -cause-detail is only valid with -cause")
 		return 2
 	}
 	if *closesLoop && *outcome != "completed" {
@@ -1477,6 +1485,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 		CommitSHA:    *commit,
 		Outcome:      *outcome,
 		Cause:        *cause,
+		CauseDetail:  *causeDetail,
 		AgentID:      *agentID,
 		Tokens:       report,
 		EndedAt:      ended,
