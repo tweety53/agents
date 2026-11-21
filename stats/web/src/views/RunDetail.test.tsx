@@ -1500,6 +1500,7 @@ describe("unrecordedRole", () => {
     expect(unrecordedRole("live check re-run scenario 2 on fresh build")).toBe("live-check");
     expect(unrecordedRole("gated-status-sweep old findings F1-F48")).toBe("other");
     expect(unrecordedRole("Explore frontend screens")).toBe("explorer");
+    expect(unrecordedRole("Frontend runner gap table", "Explore")).toBe("explorer");
   });
 });
 

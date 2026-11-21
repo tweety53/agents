@@ -238,10 +238,10 @@ export function closeOpen<T extends { endedAt?: string }>(xs: T[], at: string): 
   return xs.map((x) => (x.endedAt ? x : { ...x, endedAt: at }));
 }
 
-/** The role an unrecorded agent's description names, never the description itself: its leading word says the role (`fix-visual-4 …` is a fixer), anything else is `other`. */
-export function unrecordedRole(desc: string): string {
+/** The role an unrecorded agent has, never its description: an Explore agent is an explorer, else its description's leading word says the role (`fix-visual-4 …` is a fixer), anything else is `other`. */
+export function unrecordedRole(desc: string, agentType?: string): string {
   const d = desc.trim().toLowerCase();
-  if (d.startsWith("explor")) return "explorer";
+  if (agentType === "Explore" || d.startsWith("explor")) return "explorer";
   if (/^(fix|rebaseline|recommit)\b/.test(d)) return "fixer";
   if (/^runner\b/.test(d)) return "runner";
   if (/^live[ -]check\b/.test(d)) return "live-check";
@@ -266,7 +266,7 @@ export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<str
       if (!costs.has(id) || claimed.has(id)) continue;
       const o = asObject(b);
       const desc = String(o?.description ?? id);
-      const role = unrecordedRole(desc);
+      const role = unrecordedRole(desc, typeof o?.agent_type === "string" ? o.agent_type : undefined);
       const g = byRole.get(role) ?? { count: 0, cost: 0, models: new Map<string, number>() };
       g.count += 1;
       g.cost += costs.get(id) ?? 0;
