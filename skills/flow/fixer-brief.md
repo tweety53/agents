@@ -71,6 +71,11 @@ It reads `implementer-brief.md` and then this file in full first; every paragrap
 > computes — the same numbers the renderer will paint — and your report names why the pixel
 > output itself was not asserted.
 
+> **LIVE RE-RUN:** a fix for a failure a live (browser) check or visual-verify raised re-runs
+> that failing scenario against the rebuilt stack, and your report names what it observed. A
+> unit test alone never closes such a fix: composition and lifecycle causes pass under a test
+> clock and still fail in the browser.
+
 > **FIX REPORT:** your report — the REPORT FILE your prompt names, opening with the summary head
 > of `implementer-brief.md` — names each finding you addressed and the executable
 > behaviours your fix changed. Each fixed finding carries its
