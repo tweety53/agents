@@ -80,7 +80,6 @@ flowchart TD
     pj -.-> plan
     pj -.-> build
     pj -.-> panel
-    pj -.-> vv
     pj -.-> sr
     done -.-> flowd[("flowd<br/>records every step")]:::store
 
