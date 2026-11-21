@@ -122,8 +122,8 @@ func TestGuardHealthPerGuard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GuardHealth: %v", err)
 	}
-	if len(got) != 2 {
-		t.Fatalf("GuardHealth(A) = %+v, want check-a and check-b only", got)
+	if len(got) != 3 || got[2].Guard != "project-get" || !got[2].Helper {
+		t.Fatalf("GuardHealth(A) = %+v, want check-a, check-b and the helper project-get", got)
 	}
 	a, b := got[0], got[1]
 	lastA := at(2)
@@ -141,8 +141,11 @@ func TestGuardHealthPerGuard(t *testing.T) {
 		t.Fatalf("GuardHealth(nil): %v", err)
 	}
 	for _, r := range all {
-		if r.Guard == "project-get" {
-			t.Errorf("GuardHealth(nil) carries the helper project-get: %+v", r)
+		if r.Guard == "project-get" && !r.Helper {
+			t.Errorf("GuardHealth(nil) project-get = %+v, want it marked Helper", r)
+		}
+		if r.Guard == "check-a" && r.Helper {
+			t.Errorf("GuardHealth(nil) marks the guard check-a a Helper")
 		}
 		if r.Guard == "check-a" && (r.Runs != 4 || r.Fired != 3) {
 			t.Errorf("GuardHealth(nil) check-a = %+v, want Runs 4 Fired 3 (both projects)", r)

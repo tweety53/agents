@@ -1748,12 +1748,13 @@ describe("routing", () => {
 });
 
 describe("flow health", () => {
-  const answerGuards = (rows: ReturnType<typeof gh>[], projects: { projectKey: string; runs: number }[] = []) =>
+  const answerGuards = (rows: (ReturnType<typeof gh> & { helper?: boolean })[], projects: { projectKey: string; runs: number }[] = []) =>
     fetchStatsViewMock.mockResolvedValueOnce({ ...envelope("guard-health", rows), projects });
   const names = () => [...document.querySelectorAll("tbody tr")].map((tr) => tr.querySelector(".rv-slot")!.textContent);
   const pills = () =>
     [...document.querySelectorAll("tbody tr")].filter((tr) => tr.querySelector(".lb-pill.fh-speed")).map((tr) => tr.querySelector(".rv-slot")!.textContent);
   const title = () => document.querySelector(".lb-panel-h span")!.textContent;
+  const rankLine = () => document.querySelectorAll("p.lb-sub")[1].textContent;
   const foot = () => [...document.querySelectorAll("tfoot td")].map((td) => td.textContent);
   const cells = (guard: string) => {
     const tr = [...document.querySelectorAll("tbody tr")].find((r) => r.querySelector(".rv-slot")!.textContent === guard)!;
@@ -1782,13 +1783,34 @@ describe("flow health", () => {
       gh("some-other-guard", 5, 0, 0, 10, 50, null),
     ]);
     render(<FlowHealth />);
-    await screen.findByRole("table");
+    // One panel per group: Checks, Dispatch bookkeeping and Other each hold one of the three.
+    expect(await screen.findAllByRole("table")).toHaveLength(3);
     const row = (name: string) => screen.getByText(name, { selector: "td *" }).closest("tr") as HTMLElement;
     expect(within(row("check-guard-calls")).getByText("approved")).toBeInTheDocument();
     expect(within(row("check-guard-calls")).getByText(/names a real guard/)).toBeInTheDocument();
     expect(within(row("sweep-dispatch-rows")).getByText("approved")).toBeInTheDocument();
     expect(within(row("sweep-dispatch-rows")).getByText(/stop was missed/)).toBeInTheDocument();
     expect(within(row("some-other-guard")).queryByText("approved")).not.toBeInTheDocument();
+  });
+
+  it("flow guards: one panel per group, its own tiles, and no fire columns on a panel of helpers", async () => {
+    answerGuards([
+      gh("check-guard-calls", 10, 1, 0, 100, 1000, "2026-01-10T00:00:00Z"),
+      { ...gh("project-get", 50, 0, 0, 5, 250, null), helper: true },
+      { ...gh("kickoff-worktree", 2, 0, 0, 900, 1800, null), helper: true },
+    ]);
+    render(<FlowHealth />);
+    await screen.findAllByRole("table");
+    const panel = (name: string) => screen.getByLabelText(name, { selector: ".lb-panel" });
+    expect(document.querySelectorAll(".lb-panel")).toHaveLength(2);
+    // Checks holds a real guard: fire columns and all four tiles.
+    expect(within(panel("Checks")).getByRole("columnheader", { name: "Fired" })).toBeInTheDocument();
+    expect(panel("Checks").querySelectorAll(".rv-tiles .lb-tile")).toHaveLength(4);
+    // Workspace and git holds helpers only: no fire columns, only the speed-up tile.
+    const ws = panel("Workspace and git");
+    expect(within(ws).queryByRole("columnheader", { name: "Fired" })).not.toBeInTheDocument();
+    expect(within(ws).queryByRole("columnheader", { name: "Last fired" })).not.toBeInTheDocument();
+    expect(ws.querySelectorAll(".rv-tiles .lb-tile")).toHaveLength(1);
   });
 
   it("flow health ranks by fires, fire rate, never fired and run time", async () => {
@@ -1808,7 +1830,7 @@ describe("flow health", () => {
     const expectRank = (order: string[], heading: string, header: string) => {
       expect(names()).toEqual(order);
       expect([...document.querySelectorAll("tbody tr")].map((tr) => tr.querySelector("td")!.textContent)).toEqual(["1", "2", "3", "4", "5"]);
-      expect(title()).toBe(heading);
+      expect(rankLine()).toContain(heading);
       expect(sorted()).toEqual([[header, "descending"]]);
       expect(pills()).toEqual(["echo"]);
       const muted = [...document.querySelectorAll("tbody tr.lb-muted")].map((tr) => tr.querySelector(".rv-slot")!.textContent).sort();
@@ -1855,8 +1877,8 @@ describe("flow health", () => {
     await user.click(tileButton(/^Never fired ·/));
     expect(tileButton(/^Never fired ·/)).toHaveAttribute("aria-pressed", "true");
     expect(names()).toEqual(["quiet-1", "quiet-2", "quiet-3", "quiet-4", "ca-tiny"]);
-    expect(title()).toBe("Never-fired guards, most fires first");
-    expect(foot()[1]).toBe("5 guards");
+    expect(title()).toBe("Other · Never-fired guards");
+    expect(foot()[1]).toBe("5 scripts");
     expect(foot()[8]).toBe("35%");
     expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
     expectTiles();
@@ -1956,7 +1978,7 @@ describe("flow health", () => {
     answerGuards([gh("solo", 10, 1, 0, 450, 1500, "2026-08-14T23:30:00Z")]);
     render(<FlowHealth />);
     await screen.findByRole("table");
-    expect(foot()[1]).toBe("1 guard");
+    expect(foot()[1]).toBe("1 script");
     expect(foot()[8]).toBe("100%");
   });
 

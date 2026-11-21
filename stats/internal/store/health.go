@@ -107,11 +107,13 @@ type GuardHealthRow struct {
 	MedianMs     int64
 	TotalMs      int64
 	LastFiredAt  *time.Time
+	// Helper marks a records.GuardHelpers command: it refuses nothing, so its fire columns mean nothing.
+	Helper bool
 }
 
 // GuardHealth reports one row per guard that ran in period, optionally
 // restricted to one project, ordered by guard. records.GuardHelpers are
-// left out at read time: they are helpers, not guards.
+// marked Helper; records.RetiredGuards are left out.
 func (s *Store) GuardHealth(ctx context.Context, period Period, project *string) ([]GuardHealthRow, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT guard,
@@ -120,14 +122,15 @@ func (s *Store) GuardHealth(ctx context.Context, period Period, project *string)
 			(COUNT(*) FILTER (WHERE outcome = 'cannot-answer'))::int,
 			ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY duration_ms))::bigint,
 			SUM(duration_ms)::bigint,
-			MAX(recorded_at) FILTER (WHERE outcome = 'fired')
+			MAX(recorded_at) FILTER (WHERE outcome = 'fired'),
+			guard = ANY($5::text[])
 		FROM guard_runs
 		WHERE recorded_at >= $1 AND recorded_at < $2
 		  AND ($3::text IS NULL OR project_key = $3)
 		  AND guard <> ALL($4::text[])
 		GROUP BY guard
 		ORDER BY guard
-	`, period.From, period.To, project, hiddenGuards())
+	`, period.From, period.To, project, records.RetiredGuards, records.GuardHelpers)
 	if err != nil {
 		return nil, fmt.Errorf("store: guard health: %w", err)
 	}
@@ -137,7 +140,7 @@ func (s *Store) GuardHealth(ctx context.Context, period Period, project *string)
 	for rows.Next() {
 		var row GuardHealthRow
 		if err := rows.Scan(&row.Guard, &row.Runs, &row.Fired, &row.CannotAnswer,
-			&row.MedianMs, &row.TotalMs, &row.LastFiredAt); err != nil {
+			&row.MedianMs, &row.TotalMs, &row.LastFiredAt, &row.Helper); err != nil {
 			return nil, fmt.Errorf("store: guard health: scan: %w", err)
 		}
 		out = append(out, row)

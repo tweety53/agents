@@ -399,6 +399,8 @@ export interface GuardHealthRow {
   medianMs: number;
   totalMs: number;
   lastFiredAt: string | null;
+  /** A helper command refuses nothing: its fire columns mean nothing. */
+  helper?: boolean;
 }
 
 /** Mirrors projectGuardRunsDTO: one project's guard-run count in the window. */

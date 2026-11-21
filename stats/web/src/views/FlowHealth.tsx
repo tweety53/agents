@@ -86,6 +86,26 @@ const GUARD_INFO: Record<string, { does: string; approved: boolean }> = {
   "check-loop-dispatch": { does: "Begins and ends the dispatch rows of a pipeline-fix or self-review loop under the change it belongs to", approved: true },
 };
 
+/** The panels the page draws, in order: every script of flow-guard by what it is for. A guard missing here lands in Other. */
+const GROUPS: { title: string; guards: string[] }[] = [
+  { title: "Checks", guards: ["check-guard-calls", "check-base-behind", "check-unfinished-work", "check-finish-preflight", "check-visual-trigger", "check-dev-stack-fresh", "check-workspace-isolation", "check-main-checkout-drift", "check-identical-baselines"] },
+  { title: "Dispatch bookkeeping", guards: ["end-dispatch-row", "sweep-dispatch-rows", "check-loop-dispatch"] },
+  { title: "Verify and test tooling", guards: ["run-verify-list", "recapture", "affected-specs", "capture-workers", "break-and-prove", "run-reproducer", "smoke-keep", "test-cost", "test-two-streams", "rebuild-full-app-suite-zip", "resolve-visual-screenshots", "visual-verify-pass", "measure-visual-properties", "unchanged"] },
+  { title: "Mockups and frames", guards: ["render-frames", "compose-mockup-frames", "write-panel-diff"] },
+  { title: "Workspace and git", guards: ["kickoff-worktree", "prepare-workspace", "workspace", "throwaway-worktree", "remove-change-worktrees", "resolve-base-branch", "sync-onto-base", "refresh-main-checkout", "live-store-copy", "installer-sandbox-diff", "project-get"] },
+  { title: "Pipeline orchestration", guards: ["integrate-change", "close-task", "plan-check", "plan-triage", "pair-judge", "pipeline-fix", "load-sets", "recover-guard-incident"] },
+];
+const GROUP_NOTE: Record<string, string> = {
+  Checks: "gates that can refuse",
+  "Dispatch bookkeeping": "close and open the rows a dispatch leaves in the store",
+  "Verify and test tooling": "run, scope and prove the project's tests and captures",
+  "Mockups and frames": "render and compare the design frames a plan cites",
+  "Workspace and git": "worktrees, bases and the main checkout",
+  "Pipeline orchestration": "plan, land and tidy a change",
+  Other: "",
+};
+const groupOf = (guard: string) => GROUPS.find((g) => g.guards.includes(guard))?.title ?? "Other";
+
 const byName = (a: GuardHealthRow, b: GuardHealthRow) => a.guard.localeCompare(b.guard);
 const ORDER: Record<Rank, (a: GuardHealthRow, b: GuardHealthRow) => number> = {
   fires: (a, b) => b.fired - a.fired || b.runs - a.runs,
@@ -111,8 +131,8 @@ export function speedUpCandidates(rows: GuardHealthRow[]): Set<string> {
 }
 
 const KEEP: Record<Show, (r: GuardHealthRow, cand: Set<string>) => boolean> = {
-  firing: (r) => r.fired > 0,
-  silent: (r) => r.fired === 0,
+  firing: (r) => !r.helper && r.fired > 0,
+  silent: (r) => !r.helper && r.fired === 0,
   ca: (r) => r.cannotAnswer > 0,
   speed: (r, cand) => cand.has(r.guard),
 };
@@ -140,13 +160,14 @@ function Tile({ show, k, label, val, cls = "", note, onToggle }: TileProps) {
 }
 
 function Tiles({ rows, cand, show, onToggle }: { rows: GuardHealthRow[]; cand: Set<string>; show: Show | null; onToggle: (k: Show) => void }) {
-  const firing = rows.filter((r) => r.fired > 0);
-  const silent = rows.filter((r) => r.fired === 0).sort((a, b) => b.runs - a.runs || byName(a, b));
+  const guards = rows.filter((r) => !r.helper);
+  const firing = guards.filter((r) => r.fired > 0);
+  const silent = guards.filter((r) => r.fired === 0).sort((a, b) => b.runs - a.runs || byName(a, b));
   const top = ranked(firing, "fires")[0];
-  const runs = rows.reduce((s, r) => s + r.runs, 0);
-  const ca = rows.reduce((s, r) => s + r.cannotAnswer, 0);
+  const runs = guards.reduce((s, r) => s + r.runs, 0);
+  const ca = guards.reduce((s, r) => s + r.cannotAnswer, 0);
   const all = total(rows);
-  const worstCa = rows.filter((r) => r.runs >= 20).sort((a, b) => b.cannotAnswer / b.runs - a.cannotAnswer / a.runs || byName(a, b))[0];
+  const worstCa = guards.filter((r) => r.runs >= 20).sort((a, b) => b.cannotAnswer / b.runs - a.cannotAnswer / a.runs || byName(a, b))[0];
   const cands = ranked(rows, "time").filter((r) => cand.has(r.guard));
   const more = (n: number) => (n > 3 ? `, +${n - 3} more` : "");
   const list = (rs: GuardHealthRow[], tail: (r: GuardHealthRow) => string) =>
@@ -163,13 +184,15 @@ function Tiles({ rows, cand, show, onToggle }: { rows: GuardHealthRow[]; cand: S
   );
   return (
     <div className="rv-tiles">
+      {guards.length > 0 && (
+        <>
       <Tile
         show={show}
         k="firing"
         label="Catching · fired at least once"
         val={
           <>
-            {firing.length} {of(`of ${rows.length}`)}
+            {firing.length} {of(`of ${guards.length}`)}
           </>
         }
         note={
@@ -212,6 +235,8 @@ function Tiles({ rows, cand, show, onToggle }: { rows: GuardHealthRow[]; cand: S
         }
         onToggle={onToggle}
       />
+        </>
+      )}
       <Tile
         show={show}
         k="speed"
@@ -236,6 +261,8 @@ function Tiles({ rows, cand, show, onToggle }: { rows: GuardHealthRow[]; cand: S
 }
 
 function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number; cand: Set<string>; rank: Rank }) {
+  // A panel of helpers only has no fire columns: a helper refuses nothing.
+  const fires = rows.some((r) => !r.helper);
   const sort = (k: Rank) => (k === rank ? "descending" : undefined);
   const share = (v: number) => (
     <>
@@ -256,24 +283,28 @@ function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number;
           <th>#</th>
           <th>Guard</th>
           <th className="r">Runs</th>
-          <th className="r" aria-sort={sort("fires")}>
-            Fired
-          </th>
-          <th className="r" aria-sort={sort("rate")}>
-            Fire rate
-          </th>
-          <th className="r">Cannot answer</th>
+          {fires && (
+            <>
+              <th className="r" aria-sort={sort("fires")}>
+                Fired
+              </th>
+              <th className="r" aria-sort={sort("rate")}>
+                Fire rate
+              </th>
+              <th className="r">Cannot answer</th>
+            </>
+          )}
           <th className="r">Median run</th>
           <th className="r" aria-sort={sort("time")}>
             Run time
           </th>
           <th className="r">Share of run time</th>
-          <th aria-sort={sort("silent")}>Last fired</th>
+          {fires && <th aria-sort={sort("silent")}>Last fired</th>}
         </tr>
       </thead>
       <tbody>
         {ranked(rows, rank).map((r, i) => (
-          <tr key={r.guard} className={r.fired ? undefined : "lb-muted"}>
+          <tr key={r.guard} className={r.fired || r.helper ? undefined : "lb-muted"}>
             <td className="lb-num lb-muted">{i + 1}</td>
             <td>
               <Slot name={r.guard} />
@@ -282,13 +313,17 @@ function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number;
               {GUARD_INFO[r.guard] && <div className="fh-does">{GUARD_INFO[r.guard].does}</div>}
             </td>
             <td className="r lb-num">{int(r.runs)}</td>
-            <td className="r lb-num">{r.fired ? int(r.fired) : "—"}</td>
-            <td className="r lb-num">{pct(r.fired / r.runs)}</td>
-            <td className="r lb-num">{r.cannotAnswer ? pct(r.cannotAnswer / r.runs) : "—"}</td>
+            {fires && (
+              <>
+                <td className="r lb-num">{r.helper ? "" : r.fired ? int(r.fired) : "—"}</td>
+                <td className="r lb-num">{r.helper ? "" : pct(r.fired / r.runs)}</td>
+                <td className="r lb-num">{r.helper ? "" : r.cannotAnswer ? pct(r.cannotAnswer / r.runs) : "—"}</td>
+              </>
+            )}
             <td className="r lb-num">{dur(r.medianMs)}</td>
             <td className="r lb-num">{dur(r.totalMs)}</td>
             <td className="r lb-num">{share(all ? r.totalMs / all : 0)}</td>
-            <td className="lb-num">{r.lastFiredAt ? r.lastFiredAt.slice(0, 10) : <span className="lb-muted">never</span>}</td>
+            {fires && <td className="lb-num">{r.helper ? "" : r.lastFiredAt ? r.lastFiredAt.slice(0, 10) : <span className="lb-muted">never</span>}</td>}
           </tr>
         ))}
       </tbody>
@@ -296,16 +331,20 @@ function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number;
         <tr>
           <td></td>
           <td>
-            {rows.length} {rows.length === 1 ? "guard" : "guards"}
+            {rows.length} {rows.length === 1 ? "script" : "scripts"}
           </td>
           <td className="r lb-num">{int(t.runs)}</td>
-          <td className="r lb-num">{int(t.fired)}</td>
-          <td className="r lb-num">{pct(t.runs ? t.fired / t.runs : 0)}</td>
-          <td className="r lb-num">{pct(t.runs ? t.ca / t.runs : 0)}</td>
+          {fires && (
+            <>
+              <td className="r lb-num">{int(t.fired)}</td>
+              <td className="r lb-num">{pct(t.runs ? t.fired / t.runs : 0)}</td>
+              <td className="r lb-num">{pct(t.runs ? t.ca / t.runs : 0)}</td>
+            </>
+          )}
           <td></td>
           <td className="r lb-num">{dur(t.total)}</td>
           <td className="r lb-num">{pct(all ? t.total / all : 0)}</td>
-          <td></td>
+          {fires && <td></td>}
         </tr>
       </tfoot>
     </table>
@@ -315,7 +354,7 @@ function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number;
 export function FlowHealth() {
   const [f, setF] = useState<Filters>(defaults);
   const [rank, setRank] = useState<Rank>("fires");
-  const [show, setShow] = useState<Show | null>(null);
+  const [shows, setShows] = useState<Record<string, Show | null>>({});
   const state = useStatsView<GuardHealthRow[], GuardProject>("guard-health", {
     from: f.from,
     to: f.to,
@@ -323,13 +362,13 @@ export function FlowHealth() {
     projects: true,
   });
 
-  const offDefaults = f.period !== "30d" || f.project !== null || show !== null;
+  const offDefaults = f.period !== "30d" || f.project !== null || Object.values(shows).some(Boolean);
   const ready = state.status === "ready" && state.data.recorded && !state.data.unmeasured;
   const rows = state.status === "ready" ? state.data.rows : [];
   const projects = state.status === "ready" ? (state.data.projects ?? []) : [];
-  const cand = speedUpCandidates(rows);
-  const shown = show ? rows.filter((r) => KEEP[show](r, cand)) : rows;
-  const title = show ? `${SHOW[show]}, ${TITLE[rank].replace(/^Every guard, /, "")}` : TITLE[rank];
+  const panels = [...GROUPS.map((g) => g.title), "Other"]
+    .map((title) => ({ title, rows: rows.filter((r) => groupOf(r.guard) === title) }))
+    .filter((p) => p.rows.length > 0);
 
   return (
     <section aria-label="Flow guards" className="dashboard lb sl">
@@ -369,34 +408,46 @@ export function FlowHealth() {
             className="lb-fclear"
             onClick={() => {
               setF(defaults());
-              setShow(null);
+              setShows({});
             }}
           >
             Clear filters
           </button>
         )}
       </div>
-      {ready && rows.length > 0 && <Tiles rows={rows} cand={cand} show={show} onToggle={(k) => setShow(show === k ? null : k)} />}
-      <div className="lb-panel">
-        <div className="lb-panel-h">
-          <span>{title}</span>
-          <span className="lb-panel-note">
-            fired = the guard refused; speed-up = the fewest guards that together take 80% of all guard run time; helper commands (project-get, workspace, run-verify-list, …) are not guards and are left out
-          </span>
+      {ready && rows.length > 0 && (
+        <p className="lb-sub">
+          {TITLE[rank]}. fired = the guard refused; speed-up = the fewest scripts of a panel that together take 80% of its run time; helper commands refuse nothing, so show no fire columns.
+        </p>
+      )}
+      {!ready ? (
+        // Loading, error, not-recorded and unmeasured read as Panel renders them.
+        <Panel title="Flow guards" state={state}>
+          {() => null}
+        </Panel>
+      ) : !rows.length ? (
+        <div className="lb-panel">
+          <div className="sl-empty">No guard runs in this period.</div>
         </div>
-        <div className="lb-scroll">
-          {!ready ? (
-            // Loading, error, not-recorded and unmeasured read as Panel renders them.
-            <Panel title={title} state={state}>
-              {() => null}
-            </Panel>
-          ) : !rows.length ? (
-            <div className="sl-empty">No guard runs in this period.</div>
-          ) : (
-            <Table rows={shown} all={total(rows)} cand={cand} rank={rank} />
-          )}
-        </div>
-      </div>
+      ) : (
+        panels.map((p) => {
+          const cand = speedUpCandidates(p.rows);
+          const show = shows[p.title] ?? null;
+          const shown = show ? p.rows.filter((r) => KEEP[show](r, cand)) : p.rows;
+          return (
+            <div className="lb-panel" key={p.title} aria-label={p.title}>
+              <div className="lb-panel-h">
+                <span>{show ? `${p.title} · ${SHOW[show]}` : p.title}</span>
+                <span className="lb-panel-note">{GROUP_NOTE[p.title]}</span>
+              </div>
+              <Tiles rows={p.rows} cand={cand} show={show} onToggle={(k) => setShows({ ...shows, [p.title]: show === k ? null : k })} />
+              <div className="lb-scroll">
+                <Table rows={shown} all={total(p.rows)} cand={cand} rank={rank} />
+              </div>
+            </div>
+          );
+        })
+      )}
     </section>
   );
 }
