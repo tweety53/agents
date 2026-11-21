@@ -50,11 +50,7 @@ command takes a flag.
 | `/flow-fast <name>` | Lighter: worktree, decided panel, lint and targeted tests, default landing route. No spectre artifacts |
 | `/flow-interactive [key or name]` | A conversational session: each request is implemented, verified and landed on its own; an explicit stop self-reviews and cleans up |
 | `/flow-plan` | Thinking-partner mode, no implementation; a captured session creates the change at `STARTED` |
-| `/flow-status [name]` | Read-only report of every open change |
-| `/flow-self-review <name>` | Runs a self-review pass an older run deferred |
-| `/flow-visual-tooling-analysis` | Works out why a visual verification missed a defect |
 | `/flow-learn-quiz` | Teacher mode: quizzes you on a change |
-| `/call-efficiency-audit` | Measures a dev stack's repeated reads and queries |
 
 ## The pipeline in three states
 
@@ -75,7 +71,7 @@ Canonical: `skills/flow-contracts/pipeline.md` (state machine), `finish-contract
 ### Level 1 — the stages of each command
 
 Every stage a run marks in `flowd`. `stats/internal/stages/names_test.go` parses this table and
-fails if it drifts from the code, so edit both together. `/flow-status` marks nothing; which phase
+fails if it drifts from the code, so edit both together. Which phase
 file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 
 | Key | Name | Commands |

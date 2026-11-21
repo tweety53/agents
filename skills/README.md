@@ -16,7 +16,7 @@ installed by `setup.sh global` to `~/.claude/rules/` and inlined into the manage
 `~/.claude/CLAUDE.md`. It is a **stub**: the pipeline itself lives in
 `skills/flow-contracts/pipeline.md`, loaded on demand by `/flow`.
 
-`<name>` is **optional** on `/flow` and on `/flow-status` — if omitted, the sole active
+`<name>` is **optional** on `/flow` — if omitted, the sole active
 change relevant to that state is used automatically; if there are multiple, you're
 asked which.
 
@@ -46,11 +46,8 @@ still apply.
 | *(gate)* | you | Creating run or fix that leaves a `?` in its `Decisions:`: answer it, then review the staged diff (otherwise it lands straight away). Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
 | `/flow-fast <name>` | `flow-fast` | Minimal-ceremony `/flow` variant — one invocation from Jira key to landed change: a git worktree for isolation only, implementation and review panel as a headless decider decides, project lint plus the tests the change touches, the project's default landing route, cleanup. Marks every `flow.*` stage `/flow` marks; no spectre artifacts or state file. |
 | `/flow-interactive [key or name]` | `flow-interactive` | Conversational session: one invocation is one change, one Jira issue and one worktree, and a stream of requests the main session works inline — each looked at live, implemented test-first, verified with the project's lint and targeted tests, landed by merge and push, reinstalled and, when it touches `ui paths`, checked on the live page — until an explicit stop runs one self-review pass, cleanup and `FINISHED`. Every request is recorded in flowd; no spectre artifacts or state file |
-| `/flow-status [name]` | `flow-status` | Read-only report of where every open change is |
 | `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
-| `/flow-self-review <name>` | `flow-self-review` | Runs a change's self-review pass, a one-shot dispatch whose non-big findings are planned in full, from the context bundle an older `/flow` or `/flow-fast` run saved; the same pass runs inside `/flow`'s integrate and `/flow-fast`'s verify. Standalone, not a pipeline stage. Fixes and lands every non-big finding; files the big ones. |
-| `/flow-visual-tooling-analysis` | `flow-visual-tooling-analysis` | Works out why a visual verification missed a defect and writes the sweeps that close its class to `sweeps-<n>.md`, inline in your session. Standalone, not a pipeline stage. |
-| `/call-efficiency-audit` | `call-efficiency-audit` | Measures a running dev stack's call efficiency — browser request log, per-endpoint SQL statement counts, cache `MONITOR` — and reports repeated reads, repeated queries within a request and per-item queries. Standalone, not a pipeline stage. |
+| *(run by the pipeline)* | `flow-self-review` | Runs a change's self-review pass, a one-shot dispatch whose non-big findings are planned in full, from the context bundle an older `/flow` or `/flow-fast` run saved; the same pass runs inside `/flow`'s integrate and `/flow-fast`'s verify. Standalone, not a pipeline stage. Fixes and lands every non-big finding; files the big ones. |
 
 Each row says what a command is *for*. Its stages, in order, are stated once under
 **Level 1 — the stages of each command** (`README.md`) and are deliberately not
@@ -63,11 +60,8 @@ skills/
 ├── flow/               ← /flow (brainstorm, implement behind the review panel, integrate and clean up)
 ├── flow-fast/          ← /flow-fast (worktree, implement, land, clean up)
 ├── flow-interactive/   ← /flow-interactive (a conversational session landing each request)
-├── flow-status/         ← /flow-status (read-only)
 ├── flow-plan/       ← /flow-plan
-├── flow-self-review/   ← /flow-self-review (self-review pass)
-├── flow-visual-tooling-analysis/ ← /flow-visual-tooling-analysis (sweeps for a missed visual defect)
-├── call-efficiency-audit/ ← /call-efficiency-audit (measure a dev stack's call efficiency)
+├── flow-self-review/   ← the self-review pass, run by the pipeline
 └── flow-contracts/    ← on-demand contracts; `pipeline.md` is canonical for the state machine
 ```
 
