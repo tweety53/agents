@@ -104,9 +104,10 @@ placeholder.
 | `/flow-interactive` | session start, immediately after the key resolves | **In Progress** |
 | `/flow-interactive` | the explicit stop, after cleanup | **Done** |
 | the self-review pass (`skills/flow-self-review/SKILL.md`, step 4) | immediately after it creates a self-review issue | **Self-review** — on that new issue, never the change's own |
+| `/flow`'s planning, once the plan gate passes (`skills/flow/brainstorm-planner.md`) | immediately after it creates each slice issue the plan split off | **Slice queue** — on that new issue, never the change's own |
 
-No other command transitions the issue. **Self-review** sits outside the four positions below: it
-is made only on an issue the pass has just created, so no forward-only or unrecognised-status
+No other command transitions the issue. **Self-review** and **Slice queue** sit outside the four positions below: each
+is made only on an issue just created, so no forward-only or unrecognised-status
 check applies to it; a name the issue's transitions do not offer is one `⚠ Jira: skipped —
 <reason>` line.
 

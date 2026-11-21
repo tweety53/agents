@@ -66,8 +66,9 @@ Investigate read-only, then present the design.
 - **A change too big for one plan is raised in the rounds, never after the plan is written.**
   When the design would take more than about 15 tasks or 25 mockup frames, the round asks an
   asked question naming the slices it would split into; the answer narrows this
-  change's design to the first slice, and the rest is filed as follow-up issues once planning
-  ends (**Follow-up issues**, `skills/flow-contracts/jira-followups.md`).
+  change's design to the first slice, and each other slice is filed once planning ends as
+  its own Story, its description opening `Split from <KEY>` and moved to **Slice queue** right after
+  creation (**Transitions**, `skills/flow-contracts/jira-integration.md`).
 
 - **Now or later is never asked.** Where the options are doing work the design needs in this
   change or deferring it to a later change or ticket, now is taken and recorded under
