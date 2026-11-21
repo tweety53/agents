@@ -76,6 +76,38 @@ const GUARD_INFO: Record<string, { does: string; approved: boolean }> = {
   "capture-workers": { does: "Prints how many Playwright workers a capture run takes, bounded by the machine's cores", approved: true },
   "check-dev-stack-fresh": { does: "Before a handoff prints a dev stack's URL, checks it serves the worktree's own build", approved: true },
   "check-finish-preflight": { does: "Decides whether /flow should integrate, from the worktree, its base and the recorded merge base", approved: true },
+  "check-main-checkout-drift": { does: "Names how a main checkout drifts from its expected post-merge state, before a run's preflight reaches it", approved: true },
+  "check-identical-baselines": { does: "Names the baseline PNGs of a directory that are byte-identical, so the verifier explains each group", approved: true },
+  "recapture": { does: "Records a receipt for the specs a recapture run covered, on exactly the source files the round changed", approved: true },
+  "run-reproducer": { does: "Runs a reviewer's command in a throwaway copy of the worktree, so it touches neither the worktree nor the machine", approved: true },
+  "smoke-keep": { does: "Prints the heavy tests the files a branch touched keep in a default test run", approved: true },
+  "test-cost": { does: "Reads go test -json on stdin and prints what each top-level test costs the run", approved: true },
+  "rebuild-full-app-suite-zip": { does: "Rebuilds the full-app-suite zip from exactly the PNGs the full-app suite produced", approved: true },
+  "resolve-visual-screenshots": { does: "Resolves which screenshots a visual run produced, as absolute PNG paths", approved: true },
+  "visual-verify-pass": { does: "The parent's side of a visual verification: one call before each verifier dispatch, one after", approved: true },
+  "measure-visual-properties": { does: "Measures each capture against its mockup frame and prints the differing-pixel ratio", approved: true },
+  "unchanged": { does: "Tells a test line whether the branch left every path it reads untouched, so the suite can be skipped", approved: true },
+  "compose-mockup-frames": { does: "Pairs each captured screenshot with the mockup frame it was drawn from, side by side", approved: true },
+  "write-panel-diff": { does: "Writes one review-panel diff and its touched-files list", approved: true },
+  "kickoff-worktree": { does: "Creates a change's worktree on its own branch and records its base", approved: true },
+  "prepare-workspace": { does: "Prepares a worktree for a change: its own database, cache index and ports, then its lint list", approved: true },
+  "workspace": { does: "Creates and removes a change's own database and bucket", approved: true },
+  "throwaway-worktree": { does: "Creates or removes the throwaway copy of a worktree that a review slot works in", approved: true },
+  "remove-change-worktrees": { does: "Run 2's worktree cleanup: every check first, then the worktrees and the local and remote branch", approved: true },
+  "resolve-base-branch": { does: "The single place the base branch of a worktree is resolved; prints the bare branch name", approved: true },
+  "sync-onto-base": { does: "Syncs a finishing worktree onto its base's tip, with a resume after a conflict", approved: true },
+  "refresh-main-checkout": { does: "Fast-forwards a main checkout onto origin once a change has landed, only when nothing in it can be lost", approved: true },
+  "live-store-copy": { does: "Copies the dev database into a scratch one so a live check runs on real data without touching the dev stack", approved: true },
+  "installer-sandbox-diff": { does: "Runs setup.sh global from two trees under fresh sandboxes and diffs what each installed", approved: true },
+  "project-get": { does: "Reads one section of a project's .flow/project.md", approved: true },
+  "integrate-change": { does: "The mechanical half of a bare /flow at IN_PROGRESS: integrate, then cleanup, through the guards", approved: true },
+  "close-task": { does: "Ticks and pushes every task a returning implementer committed", approved: true },
+  "plan-check": { does: "Reviews an approved plan and decides its implementer groups, review panel and visual verdict in one headless call", approved: true },
+  "pair-judge": { does: "Picks the model and effort of one judged dispatch from its role's allowed pairs", approved: true },
+  "pipeline-fix": { does: "The in-run fix loop for a pipeline defect: begin, land and end", approved: true },
+  "load-sets": { does: "Reports the static instruction bytes each /flow session loads; never a verdict", approved: true },
+  "recover-guard-incident": { does: "Aborts a stuck git revert after printing the reflog diagnosis", approved: true },
+  "run-verify-list": { does: "Runs a project's lint, test or visual list for a worktree and stamps the green commit", approved: true },
   "check-loop-dispatch": { does: "Begins and ends the dispatch rows of a pipeline-fix or self-review loop under the change it belongs to", approved: true },
 };
 
@@ -176,7 +208,11 @@ function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number;
               <Slot name={r.guard} />
               {cand.has(r.guard) && <span className="lb-pill fh-speed">speed-up</span>}
               {GUARD_INFO[r.guard]?.approved && <span className="lb-pill fh-approved">approved</span>}
-              {GUARD_INFO[r.guard] && <div className="fh-does">{GUARD_INFO[r.guard].does}</div>}
+              {GUARD_INFO[r.guard] && (
+                <span className="fh-info" role="img" tabIndex={0} title={GUARD_INFO[r.guard].does} aria-label={GUARD_INFO[r.guard].does}>
+                  i
+                </span>
+              )}
             </td>
             <td className="r lb-num">{int(r.runs)}</td>
             {fires && (
