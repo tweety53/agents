@@ -17,7 +17,7 @@ import {
   type StageRunDTO,
   type StatsResponse,
 } from "../api";
-import { RunDetail, residualCosts, unrecordedRole } from "./RunDetail";
+import { RunDetail, residualCosts, unrecordedRole, closeOpen } from "./RunDetail";
 
 const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock, decisionsMock } = vi.hoisted(() => ({
   decisionsMock: vi.fn((_project: string, _change: string) => Promise.resolve([] as unknown[])),
@@ -1500,5 +1500,12 @@ describe("unrecordedRole", () => {
     expect(unrecordedRole("live check re-run scenario 2 on fresh build")).toBe("live-check");
     expect(unrecordedRole("gated-status-sweep old findings F1-F48")).toBe("other");
     expect(unrecordedRole("Explore frontend screens")).toBe("explorer");
+  });
+});
+
+describe("closeOpen", () => {
+  it("ends the entries that are still open and keeps the ended ones", () => {
+    const r = closeOpen([{ endedAt: "t1" }, {}], "t2");
+    expect(r.map((x) => x.endedAt)).toEqual(["t1", "t2"]);
   });
 });

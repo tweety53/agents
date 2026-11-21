@@ -233,6 +233,11 @@ export function headlessRoles(rows: HeadlessRow[]): { role: string; count: numbe
 /** The agents no dispatch row claims, one row per role: an "explore…" description is an explorer, any other keeps its own name. */
 export type UnrecordedRole = { role: string; count: number; models: string; cost: number };
 
+/** `xs` with every entry still open (no `endedAt`) ended at `at`. */
+export function closeOpen<T extends { endedAt?: string }>(xs: T[], at: string): T[] {
+  return xs.map((x) => (x.endedAt ? x : { ...x, endedAt: at }));
+}
+
 /** The role an unrecorded agent's description names, never the description itself: its leading word says the role (`fix-visual-4 …` is a fixer), anything else is `other`. */
 export function unrecordedRole(desc: string): string {
   const d = desc.trim().toLowerCase();
@@ -739,7 +744,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
             listStageRuns({ filters: { project: c.projectKey, name: c.name }, limit: 500 }).catch(() => ({ total: 0, stageRuns: [] })),
             listSelfReviewFindings(c.projectKey, c.name).catch(() => []),
           ]);
-          if (live) setSub({ project: c.projectKey, name: c.name, runs: runs.stageRuns, dispatches: rec.dispatches ?? [], findings: found ?? [] });
+          // A finished change has nothing running: whatever its self-review left open is closed at the finish.
+          const close = <T extends { endedAt?: string }>(xs: T[]) => (finished ? closeOpen(xs, c.updatedAt) : xs);
+          if (live) setSub({ project: c.projectKey, name: c.name, runs: close(runs.stageRuns), dispatches: close(rec.dispatches ?? []), findings: found ?? [] });
         })
         .catch(() => live && setSub(null));
     load();
