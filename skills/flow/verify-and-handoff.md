@@ -165,6 +165,8 @@ its header canonical) — its exit 5, the load never having dropped, is re-run t
 timeout on a run started at or under the core count is the branch's own defect and takes the fix procedure. No
 timeout is raised to absorb the load (`rules/fix-determinism-at-the-source.mdc`).
 
+**Every run of the list is the runner's — the first, the one re-run, a re-run after a fix.** The parent never types `flow-guard run-verify-list` for it itself: a run it types bills the main session's model while its `verify` row records the runner's pair, and the dashboard reads that row as a runner that never ran.
+
 **Recording.** One `dispatches` row per worktree the list runs for, `-role verifier -key verify -model <runner
 model> -effort <runner effort> -agent-id inline`, suffixed `-<repository name>` when this
 run's resolved set holds more than one worktree — the same convention
