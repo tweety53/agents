@@ -1,6 +1,7 @@
 ---
 name: flow-self-review
 description: Run a change's self-review pass, a one-shot dispatch — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle flowd saved at cleanup; fix and land every flow-fix finding that is not big with one fixer, file the big ones and each other angle's findings, record each in the flow store. Standalone, not a pipeline stage. Use for /flow-self-review.
+user-invocable: false
 allowed-tools: Bash(git:*), Bash(flow:*), Bash(go:*)
 license: MIT
 compatibility: Standalone, requires the change's default branch, or its `--base` branch, to be checked out and a context bundle saved in flowd.
