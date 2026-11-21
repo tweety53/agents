@@ -551,6 +551,8 @@ func TestEnforceAgentBaselineHookBeginKeyFromKeyLine(t *testing.T) {
 			map[string]string{"-key": "fix-2-review", "-role": "reviewer", "-effort": "medium"}, true},
 		{"short planner", "plan-short-2 design round", "Role: planner-short\nplan", "flow-planner-low",
 			map[string]string{"-key": "plan-short-2", "-role": "planner", "-effort": "low"}, true},
+		{"ad-hoc key", "fix-visual-4 frame copy", "Role: panel-fix\nKey: fix-visual-4\nfix", "flow-low",
+			map[string]string{"-key": "fix-visual-4", "-role": "panel-fix", "-effort": "low"}, true},
 		{"minor fix", "panel-2-minor-fix (Minors)", "Role: minor-fix\nKey: panel-2-minor-fix\nfix", "flow-low",
 			map[string]string{"-key": "panel-2-minor-fix", "-role": "panel-fix", "-effort": "low"}, true},
 	} {

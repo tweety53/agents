@@ -158,6 +158,8 @@ def loop_key_line_reason(payload: dict, tool_input: dict, prompt: str) -> "str |
 
 # A key the hook begins a row under: a closed-list key, or a planner's Explore/Plan agent's.
 BEGIN_KEY = re.compile(r"(?:" + ROW_KEY + r"|explore-\d+|design-\d+)")
+# A `Key:` line of any slug names a row (a parent's own `fix-visual-4` too, never left unrecorded); a loop key is no row of this hook's.
+AD_HOC_KEY = re.compile(r"[a-z0-9][a-z0-9+-]*")
 KEY_LINE = re.compile(r"^Key:[ \t]*(\S+)[ \t]*$", re.M)
 ROLE_LINE = re.compile(r"^Role:[ \t]*(\S+)[ \t]*$", re.M)
 SINGLE_TASK_KEY = re.compile(r"task-(\d+)-")
@@ -224,10 +226,10 @@ def session_change(session_id: str) -> "tuple[str | None, str | None, str | None
 
 
 def begin_key(tool_input: dict, prompt: str) -> "str | None":
-    """The row key a dispatch is begun under: the prompt's column-0 `Key:` line, else the
+    """The row key a dispatch is begun under: the prompt's column-0 `Key:` line of any slug, else the
     description's first word, when it is a key the hook begins."""
     line = KEY_LINE.search(prompt)
-    if line and BEGIN_KEY.fullmatch(line.group(1)):
+    if line and AD_HOC_KEY.fullmatch(line.group(1)):
         return line.group(1)
     description = tool_input.get("description")
     words = description.split() if isinstance(description, str) else []
