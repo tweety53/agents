@@ -112,8 +112,9 @@ func (v *vvp) kickoff() {
 	}
 	if branch, _ := v.git("-C", v.canon, "symbolic-ref", "--short", "HEAD"); strings.HasPrefix(branch, "spectre/") {
 		if fb, _ := v.git("-C", v.canon, "config", "--get", "branch."+branch+".flowBase"); fb != "" {
+			named := v.linkRoots(strings.TrimPrefix(branch, "spectre/"))
 			for _, r := range roots {
-				if isDir(r) && v.inSet(r) == "" {
+				if isDir(r) && v.inSet(r) == "" && (named == nil || named[realPath(r)]) {
 					add(r)
 				}
 			}
@@ -122,6 +123,34 @@ func (v *vvp) kickoff() {
 	if len(missing) > 0 {
 		v.stop("kickoff-missing", "", "kickoff "+strings.Join(missing, " "))
 	}
+}
+
+// linkRoots is the real main checkout of every repository the change's
+// link.md names (backticked, in its `## Merge order`), resolved through
+// spectre/peers; nil when there is no link.md or peers file, so every `## apps`
+// repository is then required.
+func (v *vvp) linkRoots(name string) map[string]bool {
+	link, err := os.ReadFile(filepath.Join(v.canon, "spectre", "changes", name, "link.md"))
+	if err != nil {
+		return nil
+	}
+	peers, err := os.ReadFile(filepath.Join(v.canon, "spectre", "peers"))
+	if err != nil {
+		return nil
+	}
+	main := v.repoRoot(v.canon)
+	named := map[string]bool{main: true}
+	for _, l := range strings.Split(string(peers), "\n") {
+		f := strings.Fields(l)
+		if len(f) == 2 && strings.Contains(string(link), "`"+f[0]+"`") {
+			p := f[1]
+			if !filepath.IsAbs(p) {
+				p = filepath.Join(main, p)
+			}
+			named[realPath(p)] = true
+		}
+	}
+	return named
 }
 
 // changed is a worktree's `git diff --name-only <base>...HEAD`.

@@ -1197,3 +1197,25 @@ func TestVisualVerifyPassPrepareRunsTheSmokeRow(t *testing.T) {
 		t.Fatalf("passing smoke: exit %d\n%s", rc, out)
 	}
 }
+
+func TestVisualVerifyPassPrepareKickoffSkipsReposLinkDoesNotName(t *testing.T) {
+	t.Parallel()
+	f := vvpFixture(t, "")
+	other := filepath.Join(filepath.Dir(f.wt), "admin")
+	writeFile(t, filepath.Join(other, "README"), "x\n")
+	fixtureRepo(t, other, repoShape{Branch: "main"})
+	gitRun(t, other, "add", "-A")
+	gitRun(t, other, "commit", "-qm", "r")
+	sec, tl := vvpSectionWith("")
+	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## apps\n\n| App | Repo root |\n|-----|-----------|\n| admin | `"+other+"` |\n\n"+sec+tl)
+	writeFile(t, filepath.Join(f.wt, "spectre/peers"), "admin "+other+"\n")
+	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/link.md"), "## Merge order\n\n1. `.`\n")
+	gitRun(t, f.wt, "add", "-A")
+	gitRun(t, f.wt, "commit", "-qm", "cfg")
+	gitRun(t, f.wt, "config", "branch.spectre/demo.flowBase", "develop")
+	f.green()
+	_, out, _ := f.prepare()
+	if strings.Contains(out, "STOP: kickoff") {
+		t.Fatalf("an unnamed repository demanded a worktree\n%s", out)
+	}
+}
