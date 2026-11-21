@@ -23,7 +23,7 @@
 // (panel-note-as-prototype); formats follow flow-health-display-formats;
 // loading, error, not-recorded and an empty window read as Reviewers renders
 // them (flow-health-empty-and-loading).
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import type { GuardHealthRow, GuardProject } from "../api";
 import { Chip, ChipGroup } from "../components/Chip";
 import { Panel } from "../components/Panel";
@@ -39,13 +39,6 @@ const TITLE: Record<Rank, string> = {
   silent: "Every guard, never-fired first, most runs first",
   time: "Every guard, most run time first",
 };
-const SHOW = {
-  firing: "Catching guards",
-  silent: "Never-fired guards",
-  ca: "Guards with cannot-answer runs",
-  speed: "Speed-up candidates",
-} as const;
-type Show = keyof typeof SHOW;
 
 interface Filters {
   period: PeriodChip;
@@ -130,135 +123,8 @@ export function speedUpCandidates(rows: GuardHealthRow[]): Set<string> {
   return out;
 }
 
-const KEEP: Record<Show, (r: GuardHealthRow, cand: Set<string>) => boolean> = {
-  firing: (r) => !r.helper && r.fired > 0,
-  silent: (r) => !r.helper && r.fired === 0,
-  ca: (r) => r.cannotAnswer > 0,
-  speed: (r, cand) => cand.has(r.guard),
-};
 
 const Slot = ({ name }: { name: string }) => <span className="rv-slot">{name}</span>;
-
-interface TileProps {
-  show: Show | null;
-  k: Show;
-  label: string;
-  val: ReactNode;
-  cls?: string;
-  note?: ReactNode;
-  onToggle: (k: Show) => void;
-}
-
-function Tile({ show, k, label, val, cls = "", note, onToggle }: TileProps) {
-  return (
-    <button type="button" className="lb-tile" aria-pressed={show === k} onClick={() => onToggle(k)}>
-      <span className="lb-lbl">{label}</span>
-      <span className={`lb-val ${cls}`.trim()}>{val}</span>
-      {note && <span className="sl-note">{note}</span>}
-    </button>
-  );
-}
-
-function Tiles({ rows, cand, show, onToggle }: { rows: GuardHealthRow[]; cand: Set<string>; show: Show | null; onToggle: (k: Show) => void }) {
-  const guards = rows.filter((r) => !r.helper);
-  const firing = guards.filter((r) => r.fired > 0);
-  const silent = guards.filter((r) => r.fired === 0).sort((a, b) => b.runs - a.runs || byName(a, b));
-  const top = ranked(firing, "fires")[0];
-  const runs = guards.reduce((s, r) => s + r.runs, 0);
-  const ca = guards.reduce((s, r) => s + r.cannotAnswer, 0);
-  const all = total(rows);
-  const worstCa = guards.filter((r) => r.runs >= 20).sort((a, b) => b.cannotAnswer / b.runs - a.cannotAnswer / a.runs || byName(a, b))[0];
-  const cands = ranked(rows, "time").filter((r) => cand.has(r.guard));
-  const more = (n: number) => (n > 3 ? `, +${n - 3} more` : "");
-  const list = (rs: GuardHealthRow[], tail: (r: GuardHealthRow) => string) =>
-    rs.slice(0, 3).map((r, i) => (
-      <span key={r.guard}>
-        {i > 0 && ", "}
-        <Slot name={r.guard} /> {tail(r)}
-      </span>
-    ));
-  const of = (text: string) => (
-    <span className="lb-muted" style={{ fontSize: 14 }}>
-      {text}
-    </span>
-  );
-  return (
-    <div className="rv-tiles">
-      {guards.length > 0 && (
-        <>
-      <Tile
-        show={show}
-        k="firing"
-        label="Catching · fired at least once"
-        val={
-          <>
-            {firing.length} {of(`of ${guards.length}`)}
-          </>
-        }
-        note={
-          top && (
-            <>
-              most: <Slot name={top.guard} /> {int(top.fired)} fires
-            </>
-          )
-        }
-        onToggle={onToggle}
-      />
-      <Tile
-        show={show}
-        k="silent"
-        label="Never fired · ran, caught nothing"
-        val={String(silent.length)}
-        cls={silent.length ? "rv-worst" : ""}
-        note={
-          silent.length > 0 && (
-            <>
-              {list(silent, (r) => `(${int(r.runs)} runs)`)}
-              {more(silent.length)}
-            </>
-          )
-        }
-        onToggle={onToggle}
-      />
-      <Tile
-        show={show}
-        k="ca"
-        label="Cannot answer · share of runs"
-        val={pct(runs ? ca / runs : 0)}
-        note={
-          worstCa &&
-          worstCa.cannotAnswer > 0 && (
-            <>
-              worst: <Slot name={worstCa.guard} /> <span className="rv-worst">{pct(worstCa.cannotAnswer / worstCa.runs)}</span>
-            </>
-          )
-        }
-        onToggle={onToggle}
-      />
-        </>
-      )}
-      <Tile
-        show={show}
-        k="speed"
-        label="Speed-up candidates · 80% of run time"
-        val={
-          <>
-            {cands.length} {of(`of ${dur(all)} total`)}
-          </>
-        }
-        note={
-          cands.length > 0 && (
-            <>
-              {list(cands, (r) => pct(r.totalMs / all))}
-              {more(cands.length)}
-            </>
-          )
-        }
-        onToggle={onToggle}
-      />
-    </div>
-  );
-}
 
 function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number; cand: Set<string>; rank: Rank }) {
   // A panel of helpers only has no fire columns: a helper refuses nothing.
@@ -354,7 +220,6 @@ function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number;
 export function FlowHealth() {
   const [f, setF] = useState<Filters>(defaults);
   const [rank, setRank] = useState<Rank>("fires");
-  const [shows, setShows] = useState<Record<string, Show | null>>({});
   const state = useStatsView<GuardHealthRow[], GuardProject>("guard-health", {
     from: f.from,
     to: f.to,
@@ -362,7 +227,7 @@ export function FlowHealth() {
     projects: true,
   });
 
-  const offDefaults = f.period !== "30d" || f.project !== null || Object.values(shows).some(Boolean);
+  const offDefaults = f.period !== "30d" || f.project !== null;
   const ready = state.status === "ready" && state.data.recorded && !state.data.unmeasured;
   const rows = state.status === "ready" ? state.data.rows : [];
   const projects = state.status === "ready" ? (state.data.projects ?? []) : [];
@@ -408,7 +273,6 @@ export function FlowHealth() {
             className="lb-fclear"
             onClick={() => {
               setF(defaults());
-              setShows({});
             }}
           >
             Clear filters
@@ -432,17 +296,14 @@ export function FlowHealth() {
       ) : (
         panels.map((p) => {
           const cand = speedUpCandidates(p.rows);
-          const show = shows[p.title] ?? null;
-          const shown = show ? p.rows.filter((r) => KEEP[show](r, cand)) : p.rows;
           return (
             <div className="lb-panel" key={p.title} aria-label={p.title}>
               <div className="lb-panel-h">
-                <span>{show ? `${p.title} · ${SHOW[show]}` : p.title}</span>
+                <span>{p.title}</span>
                 <span className="lb-panel-note">{GROUP_NOTE[p.title]}</span>
               </div>
-              <Tiles rows={p.rows} cand={cand} show={show} onToggle={(k) => setShows({ ...shows, [p.title]: show === k ? null : k })} />
               <div className="lb-scroll">
-                <Table rows={shown} all={total(p.rows)} cand={cand} rank={rank} />
+                <Table rows={p.rows} all={total(p.rows)} cand={cand} rank={rank} />
               </div>
             </div>
           );

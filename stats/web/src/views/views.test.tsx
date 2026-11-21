@@ -1753,7 +1753,6 @@ describe("flow health", () => {
   const names = () => [...document.querySelectorAll("tbody tr")].map((tr) => tr.querySelector(".rv-slot")!.textContent);
   const pills = () =>
     [...document.querySelectorAll("tbody tr")].filter((tr) => tr.querySelector(".lb-pill.fh-speed")).map((tr) => tr.querySelector(".rv-slot")!.textContent);
-  const title = () => document.querySelector(".lb-panel-h span")!.textContent;
   const rankLine = () => document.querySelectorAll("p.lb-sub")[1].textContent;
   const foot = () => [...document.querySelectorAll("tfoot td")].map((td) => td.textContent);
   const cells = (guard: string) => {
@@ -1761,7 +1760,6 @@ describe("flow health", () => {
     return [...tr.querySelectorAll("td")];
   };
   const group = (name: string) => within(screen.getByRole("group", { name }));
-  const tileButton = (name: RegExp) => screen.getByRole("button", { name });
 
   it("speed-up candidates are the fewest guards reaching 80% of run time", () => {
     const six = [
@@ -1793,7 +1791,7 @@ describe("flow health", () => {
     expect(within(row("some-other-guard")).queryByText("approved")).not.toBeInTheDocument();
   });
 
-  it("flow guards: one panel per group, its own tiles, and no fire columns on a panel of helpers", async () => {
+  it("flow guards: one panel per group, no tiles, and no fire columns on a panel of helpers", async () => {
     answerGuards([
       gh("check-guard-calls", 10, 1, 0, 100, 1000, "2026-01-10T00:00:00Z"),
       { ...gh("project-get", 50, 0, 0, 5, 250, null), helper: true },
@@ -1803,14 +1801,13 @@ describe("flow health", () => {
     await screen.findAllByRole("table");
     const panel = (name: string) => screen.getByLabelText(name, { selector: ".lb-panel" });
     expect(document.querySelectorAll(".lb-panel")).toHaveLength(2);
-    // Checks holds a real guard: fire columns and all four tiles.
+    // Checks holds a real guard: fire columns.
     expect(within(panel("Checks")).getByRole("columnheader", { name: "Fired" })).toBeInTheDocument();
-    expect(panel("Checks").querySelectorAll(".rv-tiles .lb-tile")).toHaveLength(4);
-    // Workspace and git holds helpers only: no fire columns, only the speed-up tile.
+    expect(document.querySelectorAll(".rv-tiles")).toHaveLength(0);
+    // Workspace and git holds helpers only: no fire columns.
     const ws = panel("Workspace and git");
     expect(within(ws).queryByRole("columnheader", { name: "Fired" })).not.toBeInTheDocument();
     expect(within(ws).queryByRole("columnheader", { name: "Last fired" })).not.toBeInTheDocument();
-    expect(ws.querySelectorAll(".rv-tiles .lb-tile")).toHaveLength(1);
   });
 
   it("flow health ranks by fires, fire rate, never fired and run time", async () => {
@@ -1843,65 +1840,6 @@ describe("flow health", () => {
     expectRank(["echo", "delta", "charlie", "bravo", "alpha"], "Every guard, never-fired first, most runs first", "Last fired");
     await user.click(group("Rank by").getByRole("button", { name: "Run time" }));
     expectRank(["echo", "alpha", "bravo", "delta", "charlie"], "Every guard, most run time first", "Run time");
-  });
-
-  it("flow health tiles name each set and toggle the table to it", async () => {
-    const user = userEvent.setup();
-    answerGuards([
-      gh("fire-big", 1000, 50, 10, 100, 100000, "2026-01-10T00:00:00Z"),
-      gh("fire-small", 100, 5, 0, 900, 90000, "2026-01-11T00:00:00Z"),
-      // Under the 20-run floor: a higher cannot-answer share than ca-worst, never named worst.
-      gh("ca-tiny", 10, 0, 5, 8000, 80000, null),
-      gh("ca-worst", 100, 2, 20, 700, 70000, "2026-01-12T00:00:00Z"),
-      gh("quiet-1", 500, 0, 0, 120, 60000, null),
-      gh("quiet-2", 400, 0, 0, 2, 1000, null),
-      gh("quiet-3", 300, 0, 0, 3, 1000, null),
-      gh("quiet-4", 200, 0, 0, 5, 1000, null),
-    ]);
-    render(<FlowHealth />);
-    await screen.findByRole("table");
-    const tileTexts = [
-      "Catching · fired at least once3 of 8most: fire-big 50 fires",
-      "Never fired · ran, caught nothing5quiet-1 (500 runs), quiet-2 (400 runs), quiet-3 (300 runs), +2 more",
-      "Cannot answer · share of runs1.3%worst: ca-worst 20%",
-      "Speed-up candidates · 80% of run time4 of 7 min totalfire-big 25%, fire-small 22%, ca-tiny 20%, +1 more",
-    ];
-    const tiles = () => [...document.querySelectorAll<HTMLElement>(".rv-tiles .lb-tile")];
-    const expectTiles = () => tiles().forEach((t, i) => expect(t).toHaveTextContent(tileTexts[i]));
-    expect(tiles()).toHaveLength(4);
-    expectTiles();
-    expect(tiles()[1].querySelector(".lb-val")).toHaveClass("rv-worst");
-    expect(tiles().map((t) => t.getAttribute("aria-pressed"))).toEqual(["false", "false", "false", "false"]);
-    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
-
-    await user.click(tileButton(/^Never fired ·/));
-    expect(tileButton(/^Never fired ·/)).toHaveAttribute("aria-pressed", "true");
-    expect(names()).toEqual(["quiet-1", "quiet-2", "quiet-3", "quiet-4", "ca-tiny"]);
-    expect(title()).toBe("Other · Never-fired guards");
-    expect(foot()[1]).toBe("5 scripts");
-    expect(foot()[8]).toBe("35%");
-    expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
-    expectTiles();
-
-    await user.click(tileButton(/^Speed-up candidates ·/));
-    expect(tileButton(/^Speed-up candidates ·/)).toHaveAttribute("aria-pressed", "true");
-    expect(tileButton(/^Never fired ·/)).toHaveAttribute("aria-pressed", "false");
-    expect(names()).toEqual(pills());
-    expect(names().sort()).toEqual(["ca-tiny", "ca-worst", "fire-big", "fire-small"]);
-    await user.click(tileButton(/^Speed-up candidates ·/));
-    expect(names()).toHaveLength(8);
-
-    await user.click(group("Rank by").getByRole("button", { name: "Run time" }));
-    await user.click(tileButton(/^Catching ·/));
-    expect(names()).toEqual(["fire-big", "fire-small", "ca-worst"]);
-    await user.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(tileButton(/^Catching ·/)).toHaveAttribute("aria-pressed", "false");
-    expect(group("Rank by").getByRole("button", { name: "Run time" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
-    expect(names()).toHaveLength(8);
-
-    await user.click(tileButton(/^Cannot answer ·/));
-    expect(names().sort()).toEqual(["ca-tiny", "ca-worst", "fire-big"]);
   });
 
   it("flow health chips request the window and project, and Clear keeps the rank", async () => {
