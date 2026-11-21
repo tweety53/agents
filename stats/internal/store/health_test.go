@@ -112,6 +112,7 @@ func TestGuardHealthPerGuard(t *testing.T) {
 		guardRun("check-b", "cannot-answer", 2, 50, at(4)),
 		guardRun("check-b", "clear", 0, 150, at(5)),
 		guardRun("project-get", "fired", 1, 10, at(6)),
+		guardRun("check-gated-verdicts", "clear", 0, 10, at(6)),
 		guardRun("check-a", "fired", 1, 100, at(-1)),
 	)
 	recordGuardRuns(t, st, projB, guardRun("check-a", "fired", 1, 100, at(7)))

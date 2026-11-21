@@ -127,7 +127,7 @@ func (s *Store) GuardHealth(ctx context.Context, period Period, project *string)
 		  AND guard <> ALL($4::text[])
 		GROUP BY guard
 		ORDER BY guard
-	`, period.From, period.To, project, records.GuardHelpers)
+	`, period.From, period.To, project, hiddenGuards())
 	if err != nil {
 		return nil, fmt.Errorf("store: guard health: %w", err)
 	}
@@ -165,7 +165,7 @@ func (s *Store) GuardHealthProjects(ctx context.Context, period Period) ([]Proje
 		  AND guard <> ALL($3::text[])
 		GROUP BY project_key
 		ORDER BY 2 DESC, 1
-	`, period.From, period.To, records.GuardHelpers)
+	`, period.From, period.To, hiddenGuards())
 	if err != nil {
 		return nil, fmt.Errorf("store: guard health projects: %w", err)
 	}
@@ -260,4 +260,9 @@ func (s *Store) ChangeGuardRuns(ctx context.Context, ws []GuardWindow) ([]Change
 		return nil, fmt.Errorf("store: unclaimed guard runs: %w", err)
 	}
 	return out, nil
+}
+
+// hiddenGuards is every name the guard-health views leave out: the helpers and the retired guards.
+func hiddenGuards() []string {
+	return append(slices.Clone(records.GuardHelpers), records.RetiredGuards...)
 }
