@@ -16,7 +16,7 @@
 // component renders -- see hooks/useRunDetail.ts's own header comment for
 // why that matters. State, last update and session activity come from the
 // change's state board row.
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { StageRunTable, groupSessions, readDispatchRows, runEnd } from "../components/StageRunTable";
 import { StageTimeline } from "../components/StageTimeline";
 import { useRunDetail } from "../hooks/useRunDetail";
@@ -34,7 +34,7 @@ import { SR_STEPS, selfReviewNow, srStep, type SrStep } from "../lib/selfReviewN
 import { canonicalStage, stagePhase, type Phase } from "../lib/phase";
 import { mainNow, mainProgress, mainSummary, type ProgressState } from "../lib/mainNow";
 import { currentRequest, focusRequest, interactiveWaiting, isInteractive, requestStart, requestSteps } from "../lib/interactive";
-import { findChanges, getDecisions, getPolicy, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type HeadlessRow, type PlanTask, type RecordDispatch, type SelfReviewFinding, type StageRunDTO } from "../api";
+import { fetchRoles, findChanges, getDecisions, getPolicy, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type HeadlessRow, type PlanTask, type RecordDispatch, type RoleEntry, type SelfReviewFinding, type StageRunDTO } from "../api";
 
 export interface RunDetailProps {
   project: string;
@@ -252,6 +252,39 @@ export function unrecordedRole(desc: string, agentType?: string): string {
   return "other";
 }
 
+/** Each role's pipeline-stage group and the groups in the roles table's order (GET /api/v1/roles), null until it loads. */
+type RoleGroups = { groupOf: Map<string, string>; order: string[] };
+const RoleGroupsContext = createContext<RoleGroups | null>(null);
+
+function roleGroups(entries: RoleEntry[]): RoleGroups {
+  const groupOf = new Map<string, string>();
+  const order: string[] = [];
+  for (const e of entries) {
+    if (e.role === "main") continue;
+    groupOf.set(e.role, e.group);
+    if (!order.includes(e.group)) order.push(e.group);
+  }
+  return { groupOf, order };
+}
+
+/** `rows` under one heading per stage group, the way the Agent roles page groups its roles; flat while the table loads. A role the table lacks goes under "Other". */
+export function groupedRows(rows: { role: string; node: ReactNode }[], groups: RoleGroups | null): ReactNode[] {
+  if (!groups) return rows.map((r) => r.node);
+  const names = [...groups.order, "Other"];
+  const out: ReactNode[] = [];
+  for (const name of names) {
+    const inGroup = rows.filter((r) => (groups.groupOf.get(r.role) ?? "Other") === name);
+    if (inGroup.length === 0) continue;
+    out.push(
+      <li key={`grp-${name}`} data-testid="phase-group" className="lb-grp">
+        {name}
+      </li>,
+      ...inGroup.map((r) => r.node),
+    );
+  }
+  return out;
+}
+
 let policyOnce: Promise<Record<string, { base: string[] }> | null> | undefined;
 /** The allowed pairs, fetched once per page load: they give an explorer's effort, which no dispatch row records. */
 function usePolicy(): Record<string, { base: string[] }> | null {
@@ -394,6 +427,67 @@ function WorkPanel({
   const roles = roleSummary(steps, costs);
   const rest = residualCosts(runs, steps, costs, policy);
   const versionOf = versionResolver(steps, runs);
+  const groups = useContext(RoleGroupsContext);
+  const rowItems: { role: string; node: ReactNode }[] = [
+    ...roles.map((r) => ({
+      role: r.role,
+      node: (
+        <Fragment key={r.role}>
+          <li data-testid="phase-role">
+            <span className="lb-role">
+              {r.role} <span className="lb-muted">×{r.count}</span>
+            </span>
+            <span className="lb-role-models" title={r.effortUnknown ? `${r.models} -- effort unknown for some dispatches` : r.models}>
+              {r.models}
+            </span>
+            <span className="lb-num r">{r.cost !== null ? formatUsd(r.cost) : <span className="lb-muted">{UNPRICED_COST[r.unpriced]}</span>}</span>
+            <span className="lb-role-flags">
+              {r.failures.length > 0 && <span className="lb-err">{r.failures.length} failed</span>}
+              {r.running && (
+                <span className="lb-status">
+                  <span className="lb-dot running" />
+                  running
+                </span>
+              )}
+            </span>
+          </li>
+          {r.failures.map((d, i) => (
+            <li key={`${d.key ?? d.agentId}-${i}`} data-testid="phase-fail" className="lb-fail-why">
+              {d.key ?? d.role} <span className="lb-err">{d.outcome}</span>
+              {d.cause && ` (${d.cause})`}
+              {d.notes && `: ${d.notes}`}
+            </li>
+          ))}
+        </Fragment>
+      ),
+    })),
+    ...headlessRoles(headless ?? [], versionOf).map((h) => ({
+      role: h.role,
+      node: (
+        <li key={`headless-${h.role}`} data-testid="phase-role" title="Headless model calls: no agent, one `claude -p` call per guard run">
+          <span className="lb-role">
+            {h.role} <span className="lb-muted">×{h.count}</span>
+          </span>
+          <span className="lb-role-models">{h.models}</span>
+          <span className="lb-num r">{h.cost !== null ? formatUsd(h.cost) : <span className="lb-muted">unpriced</span>}</span>
+          <span />
+        </li>
+      ),
+    })),
+    ...rest.unrecorded.map((u) => ({
+      role: u.role,
+      node: (
+        <li key={u.role} data-testid="phase-role" title="Agents that ran with no recorded dispatch row">
+          <span className="lb-role">
+            {u.role} <span className="lb-muted">×{u.count}</span>
+          </span>
+          <span className="lb-role-models">{u.models}</span>
+          <span className="lb-num r">{formatUsd(u.cost)}</span>
+          <span />
+        </li>
+      ),
+    })),
+  ];
   const slug = title.toLowerCase();
   return (
     <section className={`lb-panel lb-phase ${status}`} aria-label={title} style={{ order }}>
@@ -449,56 +543,8 @@ function WorkPanel({
           </div>
           {status !== "idle" && (
             <ul className="lb-roles">
-              {roles.map((r) => (
-                <Fragment key={r.role}>
-                <li data-testid="phase-role">
-                  <span className="lb-role">
-                    {r.role} <span className="lb-muted">×{r.count}</span>
-                  </span>
-                  <span className="lb-role-models" title={r.effortUnknown ? `${r.models} -- effort unknown for some dispatches` : r.models}>
-                    {r.models}
-                  </span>
-                  <span className="lb-num r">{r.cost !== null ? formatUsd(r.cost) : <span className="lb-muted">{UNPRICED_COST[r.unpriced]}</span>}</span>
-                  <span className="lb-role-flags">
-                    {r.failures.length > 0 && <span className="lb-err">{r.failures.length} failed</span>}
-                    {r.running && (
-                      <span className="lb-status">
-                        <span className="lb-dot running" />
-                        running
-                      </span>
-                    )}
-                  </span>
-                </li>
-                {r.failures.map((d, i) => (
-                  <li key={`${d.key ?? d.agentId}-${i}`} data-testid="phase-fail" className="lb-fail-why">
-                    {d.key ?? d.role} <span className="lb-err">{d.outcome}</span>
-                    {d.cause && ` (${d.cause})`}
-                    {d.notes && `: ${d.notes}`}
-                  </li>
-                ))}
-                </Fragment>
-              ))}
               {roles.length === 0 && <li className="lb-muted">No dispatches yet.</li>}
-              {headlessRoles(headless ?? [], versionOf).map((h) => (
-                <li key={`headless-${h.role}`} data-testid="phase-role" title="Headless model calls: no agent, one `claude -p` call per guard run">
-                  <span className="lb-role">
-                    {h.role} <span className="lb-muted">×{h.count}</span>
-                  </span>
-                  <span className="lb-role-models">{h.models}</span>
-                  <span className="lb-num r">{h.cost !== null ? formatUsd(h.cost) : <span className="lb-muted">unpriced</span>}</span>
-                  <span />
-                </li>
-              ))}
-              {rest.unrecorded.map((u) => (
-                <li key={u.role} data-testid="phase-role" title="Agents that ran with no recorded dispatch row">
-                  <span className="lb-role">
-                    {u.role} <span className="lb-muted">×{u.count}</span>
-                  </span>
-                  <span className="lb-role-models">{u.models}</span>
-                  <span className="lb-num r">{formatUsd(u.cost)}</span>
-                  <span />
-                </li>
-              ))}
+              {groupedRows(rowItems, groups)}
               {rest.main !== null && (
                 <li data-testid="phase-role" className="lb-muted" title="the main session's own turns: dispatching, reading reports, acting on them">
                   <span className="lb-role">main session</span>
@@ -722,6 +768,16 @@ export function RunDetail({ project, change }: RunDetailProps) {
   const finished = board?.state === "FINISHED";
   const [dispatches, setDispatches] = useState<RecordDispatch[]>([]);
   const [headless, setHeadless] = useState<HeadlessRow[]>([]);
+  const [groups, setGroups] = useState<RoleGroups | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetchRoles()
+      .then((entries) => live && setGroups(roleGroups(entries)))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
   const [findings, setFindings] = useState<SelfReviewFinding[]>([]);
   const [decision, setDecision] = useState<Decision | null>(null);
   useEffect(() => {
@@ -825,6 +881,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
   const srPanelOpen = srToggled ?? srOpen;
 
   return (
+    <RoleGroupsContext.Provider value={groups}>
     <section aria-label={`Run detail: ${project}/${change}`} className="dashboard lb lb-run">
       <div className="lb-crumb">
         <a href="#/state-board">← Live state board</a>
@@ -1245,5 +1302,6 @@ export function RunDetail({ project, change }: RunDetailProps) {
           );
         })()}
     </section>
+    </RoleGroupsContext.Provider>
   );
 }

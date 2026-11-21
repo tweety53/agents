@@ -19,7 +19,8 @@ import {
 } from "../api";
 import { RunDetail, residualCosts, unrecordedRole, closeOpen, policyEffort, versionResolver, headlessRoles } from "./RunDetail";
 
-const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock, decisionsMock } = vi.hoisted(() => ({
+const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock, decisionsMock, fetchRolesMock } = vi.hoisted(() => ({
+  fetchRolesMock: vi.fn((): Promise<unknown[]> => Promise.reject(new Error("no roles"))),
   decisionsMock: vi.fn((_project: string, _change: string) => Promise.resolve([] as unknown[])),
   listStageRunsMock: vi.fn(),
   findChangesMock: vi.fn((_name: string) => Promise.resolve({ records: [] as unknown[] })),
@@ -31,7 +32,7 @@ const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock,
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, listStages: listStagesMock, listSelfReviewFindings: listFindingsMock, getRunRecord: runRecordMock, findChanges: findChangesMock, getDecisions: decisionsMock };
+  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, listStages: listStagesMock, listSelfReviewFindings: listFindingsMock, getRunRecord: runRecordMock, findChanges: findChangesMock, getDecisions: decisionsMock, fetchRoles: fetchRolesMock };
 });
 
 function stageRunsResponse(stageRuns: StageRunDTO[], total?: number): ListStageRunsResponse {
@@ -1015,6 +1016,29 @@ describe("the reworked run view (kan-1048)", () => {
     expect(within(sr).getByTestId("self-review-now")).toHaveTextContent(/^Now: Not started$/);
     expect(srTasks).toHaveTextContent("◻ 1. Fix the guard");
     expect(within(screen.getByRole("region", { name: "Main" })).getByTestId("main-now")).toHaveTextContent(/^Now: Implementing · 1h 00m$/);
+  });
+
+  it("run detail lists a phase's roles under the roles table's stage groups, the way the Agent roles page does", async () => {
+    fetchRolesMock.mockResolvedValueOnce([
+      { role: "main", base: [], optin: [], group: "Main", does: "" },
+      { role: "implementer", base: [], optin: [], group: "Build", does: "" },
+      { role: "runner", base: [], optin: [], group: "Verify", does: "" },
+    ]);
+    runRecordMock.mockResolvedValueOnce({
+      dispatches: [
+        { id: 1, role: "runner", key: "runner-1", model: "haiku", effort: "low", startedAt: "2026-01-01T01:11:00Z", endedAt: "2026-01-01T01:12:00Z", outcome: "completed" },
+        { id: 2, role: "implementer", key: "task-1-implementer", model: "sonnet", effort: "low", startedAt: "2026-01-01T01:05:00Z", endedAt: "2026-01-01T01:10:00Z", outcome: "completed" },
+        { id: 3, role: "stray-role", key: "x-1", model: "sonnet", effort: "low", startedAt: "2026-01-01T01:13:00Z", endedAt: "2026-01-01T01:14:00Z", outcome: "completed" },
+      ],
+    });
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = await screen.findByRole("region", { name: "Main" });
+    await waitFor(() => expect(within(main).getAllByTestId("phase-group").length).toBeGreaterThan(0));
+    const items = [...main.querySelectorAll('[data-testid="phase-group"], [data-testid="phase-role"]')].map((e) => (e.getAttribute("data-testid") === "phase-group" ? `# ${e.textContent}` : e.textContent!.split(" ×")[0]));
+    // Groups in the roles table's order, then "Other" for a role the table lacks.
+    expect(items.filter((i) => i.startsWith("#"))).toEqual(["# Build", "# Verify", "# Other"]);
+    expect(items.indexOf("implementer")).toBeLessThan(items.indexOf("# Verify"));
+    expect(items.indexOf("runner")).toBeGreaterThan(items.indexOf("# Verify"));
   });
 
   it("run detail labels models as family and version, never with a placeholder default effort", async () => {

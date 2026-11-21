@@ -647,6 +647,7 @@ th button {
 .lb-roles { grid-template-columns: max-content minmax(0, max-content) max-content max-content; column-gap: 16px; }
 .lb-roles > li { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; padding: 1px 0; }
 .lb-role { font-weight: 600; white-space: nowrap; }
+.lb-roles > li.lb-grp { display: block; margin-top: 6px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
 .lb-role-models { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lb-roles .r { text-align: right; }
 .lb-roles > li.lb-fail-why { display: block; padding-left: 16px; color: var(--text-muted); }
