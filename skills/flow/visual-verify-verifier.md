@@ -264,6 +264,9 @@ reads every number on it as an exit.
    A departure within 1dp is reported like any other, its measured value beside it: whether it
    stands is the parent's call under the Blocking paragraph of **Steps 3–13**
    (`skills/flow/visual-verify.md`), never yours.
+   **Before a departure is raised, it is checked against the frame's sidecar comment and
+   `design.md`'s `## Decisions`**: one either declares — a part named expected, a control a decision
+   gives another form — is reported as declared, citing the declaration, never as a departure.
    **A part the frame's sidecar comment declares expected until a named sibling ticket lands is
    no departure.** The line reporting the frame names that part
    `expected — <sibling ticket>, <decision ID>` and nothing blocks on it, while every part the

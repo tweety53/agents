@@ -171,6 +171,13 @@ remains, and a capture with a blob outside it is a defect per **The sweep**
 **Mockup departures are classified before the fix is written.** Where every frame that
 draws the departing component agrees, the departure is a defect this round fixes.
 
+**A departure that persists two rounds is re-judged before a third fixer opens.** Before the
+round's fix is written, each departure that stood in both previous rounds is checked against the
+frame's sidecar comment and the recorded decisions (`design.md`'s `## Decisions`), with its
+measurement beside the declaration: one a declaration covers is closed as `expected` with the
+declaration cited, one the evidence does not bear out (a mis-measurement) is dropped, and neither
+opens a fixer round.
+
 **A size the frames, or the agents reading them, disagree on is picked once, from a value a frame
 draws, and never reopened.** Where frames disagree on one element's size, position, spacing or
 radius — or two verifiers, fixers or rounds read it off the frames at different values — the
