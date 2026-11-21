@@ -11,7 +11,8 @@ defect of the review.
 
 - **Critical** — bugs, security issues, data-loss risks, broken functionality; a
   planned piece missing outright.
-- **Important** — architecture problems, poor error handling, test gaps; a task field
-  that no longer reflects the diff; a defect that produces a wrong result under a
+- **Important** — architecture problems, poor error handling, test gaps; a defect that produces a wrong result under a
   realistic input.
-- **Minor** — code style, optimization opportunities, documentation polish.
+- **Minor** — code style, optimization opportunities, documentation polish; drift in a plan
+  bookkeeping field (`**Files:**`, `**Tests:**`, `**Commit:**` of `tasks.md`), which the
+  implementer may not write and the parent re-records.

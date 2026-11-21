@@ -38,7 +38,8 @@
     **Plan alignment:**
     - Does the diff match `proposal.md` and `design.md`? Is every planned piece present?
     - Does each task's `**Files:**`, `**Tests:**` and `**Commit:**` field in `tasks.md`
-      match what the diff actually touched, tested and committed?
+      match what the diff actually touched, tested and committed? Drift there is Minor
+      (`skills/flow/reviewer-calibration.md`).
     - Are deviations justified improvements, or problematic departures? Flag each so the
       implementer can confirm it was intentional. If the plan itself is wrong, say so.
 
