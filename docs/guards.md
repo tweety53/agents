@@ -1,0 +1,30 @@
+# Guards and hooks
+
+The pipeline never relies on an agent saying it behaved.
+
+## Guards
+
+A guard is a small program whose exit code is the verdict: the diff touches the UI or it does not,
+the checks are green on this commit or they are not. Each is Go in `stats/internal/guard/` with its
+test beside it, run as `scripts/flow-guard <name>`; the header comment of a guard's source file is
+canonical for its arguments and exit codes. Nothing is installed: the first call builds the binary
+from the checkout and later calls reuse it.
+
+Every guard run is recorded, with whether it passed, fired or could not answer, and the dashboard's
+**Flow guards** view ranks them ([Dashboard](dashboard.md)).
+
+Canonical: the `## flow-guard` section of [`stats/README.md`](../stats/README.md).
+
+## Hooks
+
+Hooks run inside Claude Code itself, before or after a tool call:
+
+- `enforce-agent-baseline.py` denies a dispatch missing the baseline pointer, and records its row.
+- `enforce-loop-dispatch.py` records a pipeline-fix or self-review loop dispatch.
+- `block-unsafe-commands.py` denies edits, commits and resets on a main checkout's default branch.
+- `flow-active-change.py` routes a plain problem report to the open change as a fix run.
+- `await-own-agents.py` holds a subagent's stop while an agent it launched still runs.
+- `flow-session-activity.py` reports each session's working or waiting state to `flowd`.
+
+They live in [`hooks/`](../hooks/). `setup.sh` installs them and prints the snippet that registers
+them; it never registers them for you.

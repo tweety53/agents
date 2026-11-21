@@ -20,6 +20,9 @@ cd stats && docker compose up -d && make build              # flowd + flow CLI
    never registered for you).
 3. In any project: `/flow <name>`.
 
+**Never stop the live daemon or drop the `flow` database:** every project's runs write to it.
+`stats/README.md` covers the launchd agent, the UI-test stack and Jira credentials.
+
 Per project: `/path/to/agents/setup.sh claude-code` links skills, commands and agents into `.claude/`
 and renders the opt-in rules a project names under `## standards` in its `.flow/project.md`.
 
@@ -38,55 +41,6 @@ flowchart LR
 ```
 
 `setup.sh` installs, the harness reads, and every check and record goes through `flowd`.
-
-## Commands
-
-`<name>` is optional everywhere: with one open change it is picked, otherwise you are asked. No
-command takes a flag.
-
-| Command | What it does |
-|---------|--------------|
-| `/flow <name>` | The whole pipeline, one command, re-entrant |
-| `/flow-fast <name>` | Lighter: worktree, decided panel, lint and targeted tests, default landing route. No spectre artifacts |
-| `/flow-interactive [key or name]` | A conversational session: each request is implemented, verified and landed on its own; an explicit stop self-reviews and cleans up |
-| `/flow-plan` | Thinking-partner mode, no implementation; a captured session creates the change at `STARTED` |
-| `/flow-learn-quiz` | Teacher mode: quizzes you on a change |
-
-## The pipeline in three states
-
-| State | What happens | Your gate |
-|-------|--------------|-----------|
-| `STARTED` | Brainstorm, you answer every ambiguity and approve the design, then spectre artifacts and `tasks.md` | `/clear`, then `/flow <name>` |
-| `IN_PROGRESS` | Implement in a worktree (TDD per task), review panel, lint and tests, staged diff | Review the diff. Describe a fix and `/flow` re-runs without moving the state; "looks good" and a bare `/flow` lands it |
-| `FINISHED` | Cleanup: verify the merge, save to flowd, remove worktrees and branches, issue to Done | none |
-
-- **The gate is the state.** No command exists just to record that you reviewed something.
-- **Landing** follows the project's `## default landing route`: open a PR, merge and push, or manual.
-- **A plan check** (`flow-guard plan-check`) reads the plan cold and decides the implementer groups,
-  review panel and visual verification; nothing in a project configures them.
-
-Canonical: `skills/flow-contracts/pipeline.md` (state machine), `finish-contract-run1.md` and
-`finish-contract-run2.md` (landing and cleanup). The skill map is `skills/README.md`.
-
-### Level 1 — the stages of each command
-
-Every stage a run marks in `flowd`. `stats/internal/stages/names_test.go` parses this table and
-fails if it drifts from the code, so edit both together. Which phase
-file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
-
-| Key | Name | Commands |
-|-----|------|----------|
-| `flow.plan` | Plan — kickoff to the plan gate | `/flow`, `/flow-fast`, `/flow-interactive`, `/flow-plan` |
-| `flow.implement` | Implement | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.review` | Review | `/flow`, `/flow-fast` |
-| `flow.verify` | Verify: workspace isolation, lint and test | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.land` | Land | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.self-review` | Run the self-review pass (run 1) | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.pipeline-fix` | Pipeline fix — a fix to the flow tooling a run makes | `/flow`, `/flow-fast` |
-| `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `plan.session` | Plan session — `/flow-plan` research up to a capture's kickoff | `/flow-plan` |
-
-▸ marks a stage with substructure; its procedure lives in the phase file under `skills/flow/`.
 
 ## How a change really flows
 
@@ -137,28 +91,85 @@ flowchart TD
     classDef store fill:#eee,stroke:#666,color:#111
 ```
 
-### Review panel setup
+## The good parts
 
-The plan review picks the reviewers; a project configures nothing by hand.
+- **The plan is sized, then read cold.** A quick first call judges whether a change is easy or hard,
+  so a small change gets short planning; the finished plan is then reviewed by a model that never saw
+  the conversation, which also decides how the work is split and reviewed.
+  [Planning](docs/planning.md)
+- **A review panel picked per change.** Up to seven reviewers, each with one job; the plan review
+  picks only those the change gives something to read, and a documentation change gets one.
+  [Review panel](docs/review-panel.md)
+- **Every agent has a role, and each role its own models.** You list the model and effort pairs a
+  role may run on; a small judge call picks one for each task, so cheap work runs on a cheap model.
+  [Roles and models](docs/roles-and-models.md)
+- **Visual verify.** When a change touches the UI, an agent runs the app, screenshots it and compares
+  each screen with the mockup, side by side; a difference sends the change back to be fixed.
+  [Visual verify](docs/visual-verify.md)
+- **Each change works in its own space.** Its own git worktree, and where the project declares it,
+  its own database, storage bucket and ports, so two changes can run at once without touching each
+  other or your main checkout. [Isolation](docs/isolation.md)
+- **Guards decide, not agents.** Every check that matters is tested code whose exit code is the
+  verdict; nothing rests on an agent saying it behaved. [Guards and hooks](docs/guards.md)
+- **A dashboard of every run.** State, cost, time, reviewers and guard results for every change, in a
+  local web page. [Dashboard](docs/dashboard.md)
+- **Self-review after every change.** Once a change lands, the pipeline reviews its own run: what
+  went wrong, what went well, and which instruction would have saved a fix round. Small fixes to the
+  tooling land by themselves. [Self-review](docs/self-review.md)
+- **The pipeline repairs itself mid-run.** A run that hits a defect in the flow tooling fixes it,
+  tests it and carries on instead of stopping to ask.
+  [Self-review](docs/self-review.md#fixes-made-mid-run)
+- **A conversational mode.** `/flow-interactive` takes one request at a time; each is implemented,
+  checked and landed before the next. [/flow-interactive](docs/flow-interactive.md)
 
-| Reviewer | Looks for |
-|----------|-----------|
-| `primary` | Plan alignment and senior code review. **Always runs.** |
-| `principles` | The engineering principles: small functions, clear names, no hidden coupling. |
-| `test-sanity` | Would each test the diff adds fail if its behaviour broke? Picked only when a test is added or changed. |
-| `call-efficiency` | Second callers, a read repeated in one request, a query per list item. Picked only when the change adds a call, query or request. |
-| `failure-modes` | Error returns, timeouts, partial writes, concurrent re-entry. Picked only with I/O, persistence or concurrency. |
-| `mutation` | Breaks the code on purpose to prove the tests notice. Always a bundle alone, in its own throwaway copy of the worktree. |
-| `security` | Injection, authorisation, secrets, trust boundary. Never picked by the model: added automatically when a task's files match the project's `## security paths`. |
-| `/flow &lt;name&gt;` | The full pipeline. Re-run to resume, fix or land. |
-| `/flow-fast &lt;name&gt;` | Small change: same isolation and checks, no ceremony. |
-| `/flow-interactive` | A conversation; each message lands on its own. |
-| `/flow-plan` | Think out loud, build nothing. |
-| `/flow-learn-quiz` | Quizzes you on a change until you understand it. |
+## Commands
 
-Reviewers are grouped into **bundles** of one or two, and each bundle is one dispatch. A
-documentation-only change gets `primary` alone. After a fix round only the reviewers that raised a
-finding run again.
+`<name>` is optional everywhere: with one open change it is picked, otherwise you are asked. No
+command takes a flag.
+
+| Command | What it does |
+|---------|--------------|
+| `/flow <name>` | The whole pipeline, one command, re-entrant |
+| `/flow-fast <name>` | Lighter: worktree, decided panel, lint and targeted tests, default landing route. No spectre artifacts |
+| `/flow-interactive [key or name]` | A conversational session: each request is implemented, verified and landed on its own; an explicit stop self-reviews and cleans up |
+| `/flow-plan` | Thinking-partner mode, no implementation; a captured session creates the change at `STARTED` |
+| `/flow-learn-quiz` | Teacher mode: quizzes you on a change |
+
+## The pipeline in three states
+
+| State | What happens | Your gate |
+|-------|--------------|-----------|
+| `STARTED` | Brainstorm, you answer every ambiguity and approve the design, then spectre artifacts and `tasks.md` | `/clear`, then `/flow <name>` |
+| `IN_PROGRESS` | Implement in a worktree (TDD per task), review panel, lint and tests, staged diff | Review the diff. Describe a fix and `/flow` re-runs without moving the state; "looks good" and a bare `/flow` lands it |
+| `FINISHED` | Cleanup: verify the merge, save to flowd, remove worktrees and branches, issue to Done | none |
+
+- **The gate is the state.** No command exists just to record that you reviewed something.
+- **Landing** follows the project's `## default landing route`: open a PR, merge and push, or manual.
+- **A plan check** (`flow-guard plan-check`) reads the plan cold and decides the implementer groups,
+  review panel and visual verification; nothing in a project configures them.
+
+Canonical: `skills/flow-contracts/pipeline.md` (state machine), `finish-contract-run1.md` and
+`finish-contract-run2.md` (landing and cleanup). The skill map is `skills/README.md`.
+
+### Level 1 — the stages of each command
+
+Every stage a run marks in `flowd`. `stats/internal/stages/names_test.go` parses this table and
+fails if it drifts from the code, so edit both together. Which phase
+file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
+
+| Key | Name | Commands |
+|-----|------|----------|
+| `flow.plan` | Plan — kickoff to the plan gate | `/flow`, `/flow-fast`, `/flow-interactive`, `/flow-plan` |
+| `flow.implement` | Implement | `/flow`, `/flow-fast`, `/flow-interactive` |
+| `flow.review` | Review | `/flow`, `/flow-fast` |
+| `flow.verify` | Verify: workspace isolation, lint and test | `/flow`, `/flow-fast`, `/flow-interactive` |
+| `flow.land` | Land | `/flow`, `/flow-fast`, `/flow-interactive` |
+| `flow.self-review` | Run the self-review pass (run 1) | `/flow`, `/flow-fast`, `/flow-interactive` |
+| `flow.pipeline-fix` | Pipeline fix — a fix to the flow tooling a run makes | `/flow`, `/flow-fast` |
+| `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
+| `plan.session` | Plan session — `/flow-plan` research up to a capture's kickoff | `/flow-plan` |
+
+▸ marks a stage with substructure; its procedure lives in the phase file under `skills/flow/`.
 
 ## What is where
 
@@ -172,39 +183,9 @@ finding run again.
 | `stats/` | `flowd`, the `flow` CLI, every guard (`internal/guard/`) and the web UI (`web/`) |
 | `scripts/` | `flow-guard`, the bootstrap that builds and runs every guard |
 | `mods/` | Claude Code plugins, e.g. `flow-task-list` |
-| `docs/` | `briefs/` (lessons) and `designs/` (records of earlier changes) |
+| `docs/` | The detail pages linked above, `briefs/` (lessons) and `designs/` (records of earlier changes) |
 | `.flow/project.md` | This repository's own flow config: lint, test, run, stop |
 | `setup.sh` | The installer |
-
-## Guardrails
-
-The pipeline never relies on an agent saying it behaved. Each check is Go in `stats/internal/guard/`
-with its test beside it, run as `scripts/flow-guard <name>`. The hooks:
-
-- `enforce-agent-baseline.py` denies a dispatch missing the baseline pointer, and records its row.
-- `enforce-loop-dispatch.py` records a pipeline-fix or self-review loop dispatch.
-- `block-unsafe-commands.py` denies edits, commits and resets on a main checkout's default branch.
-- `flow-active-change.py` routes a plain problem report to the open change as a fix run.
-- `await-own-agents.py` holds a subagent's stop while an agent it launched still runs.
-- `flow-session-activity.py` reports each session's working or waiting state to `flowd`.
-
-## Stats app (`stats/`)
-
-`flowd` on `127.0.0.1:4173` with PostgreSQL behind it is the store every `/flow*` command writes
-through the `flow` CLI: change state, stage runs and cost, findings, dispatches, decisions, and Jira
-transitions (off until the three `FLOWD_JIRA_*` variables are set). When the daemon is down, writes
-go to an on-disk journal and replay later.
-
-The web UI at http://127.0.0.1:4173 has the state board, stage leaderboard, cost trends, reviewers,
-role costs, self-review fixes, flow guards and a per-run detail page.
-
-```bash
-cd stats && docker compose up -d   # PostgreSQL
-make build                          # flowd + flow CLI (builds the SPA first)
-```
-
-**Never stop the live daemon or drop the `flow` database:** every project's runs write to it.
-`stats/README.md` covers the launchd agent, the UI-test stack and Jira credentials.
 
 ## Developing this repository
 

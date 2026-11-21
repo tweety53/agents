@@ -5,8 +5,8 @@ kickoff marker, one combined review-and-test gate, and an integrate phase that m
 cleanup run cleans up.
 
 The state each phase of `/flow` ends in, and the gate that follows it, are under
-**States** (`flow-contracts/pipeline.md`); the state diagram and the per-command stage table are
-under **How the pipeline works** (`README.md`). This file copies none of them — it is read
+**States** (`flow-contracts/pipeline.md`); the pipeline diagram is under **How a change really flows** and the
+per-command stage table under **Level 1 — the stages of each command** (`README.md`). This file copies none of them — it is read
 on demand, beside the document it would be copying, exactly as `README.md` is. What does carry the
 three-line digest is the layer that is loaded into a session before anything reads the pipeline: the
 always-on rule, and a project's own `CLAUDE.md`.
