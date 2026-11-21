@@ -72,7 +72,7 @@ function lines(d: Decision, dispatches: RecordDispatch[]): Line[] {
     ...pick("Review re-run", Array.isArray(d.panel) ? undefined : d.panel?.rerun_dispatch),
     ...review(d.extra_dispatch),
     ...review(d.extra_dispatch_mutation),
-    ...(d.visual?.verify ? pick(`Visual check: ${d.visual.verify}`, { reason: d.visual.reason ?? "" }, decided(dispatches, (k) => k === "visual-verify")) : []),
+    ...(d.visual?.verify ? pick(`Visual check: ${d.visual.verify}`, { reason: d.visual.reason ?? "" }, decided(dispatches, (k) => /^visual-verify(?:-|$)/.test(k))) : []),
   ];
 }
 
