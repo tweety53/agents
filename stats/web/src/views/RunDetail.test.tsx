@@ -1514,9 +1514,9 @@ describe("residualCosts models", () => {
   it("labels an agent with no dispatch row by its model version, as a recorded row is", () => {
     const run: StageRunDTO = {
       stageRunId: 1, harness: "claude", command: "/flow", stage: "flow.review-panel", attempt: 1, startedAt: "2026-11-18T10:00:00Z",
-      metrics: { cost_usd: 1, dispatches: { a: { cost_usd: 1, description: "runner-4 x", model: "haiku", modelVersion: "claude-haiku-5-5" } } },
+      metrics: { cost_usd: 1, dispatches: { a: { cost_usd: 1, description: "runner-4 x", model: "haiku", modelVersion: "claude-haiku-5-5", agent_type: "flow-medium" } } },
     };
     const r = residualCosts([run], [], new Map([["a", 1]]));
-    expect(r.unrecorded[0].models).toBe("haiku 5.5 ×1");
+    expect(r.unrecorded[0].models).toBe("haiku 5.5 · medium ×1");
   });
 });

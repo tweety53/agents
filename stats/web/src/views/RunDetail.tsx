@@ -271,7 +271,9 @@ export function residualCosts(runs: StageRunDTO[], steps: Step[], costs: Map<str
       g.count += 1;
       g.cost += costs.get(id) ?? 0;
       const mv = [o?.modelVersion, o?.model].find((v): v is string => typeof v === "string" && v !== "");
-      const m = mv ? formatModel(mv) : "unknown";
+      // The effort rides in a flow agent's type (`flow-low`); an Explore agent's is not recorded.
+      const effort = /^flow-(?:planner-)?(low|medium|high|xhigh)$/.exec(String(o?.agent_type ?? ""))?.[1];
+      const m = mv ? `${formatModel(mv)}${effort ? ` · ${effort}` : ""}` : "unknown";
       g.models.set(m, (g.models.get(m) ?? 0) + 1);
       byRole.set(role, g);
     }
