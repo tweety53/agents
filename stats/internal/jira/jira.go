@@ -4,7 +4,7 @@
 // (KAN-571). The positions and their accepted status names are the
 // pipeline contract's own:
 //
-//	1  To Do       — "To Do", "TO DO URGENT"
+//	1  To Do       — "To Do", "TO DO URGENT", "Slice queue"
 //	2  In Progress — "In Progress", "In-Progress"
 //	3  In Review   — "In Review", "Code Review"
 //	4  Done        — "Done"
@@ -60,6 +60,7 @@ const (
 var positionByName = map[string]Position{
 	"to do":        PositionToDo,
 	"to do urgent": PositionToDo,
+	"slice queue":  PositionToDo,
 	"in progress":  PositionInProgress,
 	"in review":    PositionInReview,
 	"code review":  PositionInReview,

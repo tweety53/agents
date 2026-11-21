@@ -106,9 +106,9 @@ placeholder.
 | the self-review pass (`skills/flow-self-review/SKILL.md`, step 4) | immediately after it creates a self-review issue | **Self-review** — on that new issue, never the change's own |
 | `/flow`'s planning, once the plan gate passes (`skills/flow/brainstorm-planner.md`) | immediately after it creates each slice issue the plan split off | **Slice queue** — on that new issue, never the change's own |
 
-No other command transitions the issue. **Self-review** and **Slice queue** sit outside the four positions below: each
-is made only on an issue just created, so no forward-only or unrecognised-status
-check applies to it; a name the issue's transitions do not offer is one `⚠ Jira: skipped —
+No other command transitions the issue. **Self-review** and **Slice queue** transitions are made only on an issue just created, so no
+forward-only or unrecognised-status check applies to them; a slice issue later run by `/flow` finds
+`Slice queue` at the To Do position and moves to In Progress; a name the issue's transitions do not offer is one `⚠ Jira: skipped —
 <reason>` line.
 
 **Resolve transitions by name, never by identifier.** Transition IDs are not portable across
@@ -121,8 +121,8 @@ name that differs by more than spacing, the hyphen already shown above standing 
 
 **Transitions are forward-only.** The order is four **positions** — To Do → In Progress → In
 Review → Done — and each position is identified by the names mapped onto it, matched exactly as
-above: by name, case-insensitively, allowing the usual spellings. **The To Do position carries two
-names — `To Do` and `TO DO URGENT`.**
+above: by name, case-insensitively, allowing the usual spellings. **The To Do position carries three
+names — `To Do`, `TO DO URGENT` and `Slice queue`.**
 
 Read the issue's current status first
 (`getJiraIssue`); if the position its name maps to is already **at or past** the target, make no

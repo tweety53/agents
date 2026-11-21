@@ -36,6 +36,7 @@ func TestPositionForName(t *testing.T) {
 	}{
 		{"To Do", PositionToDo},
 		{"TO DO URGENT", PositionToDo},
+		{"Slice queue", PositionToDo},
 		{"In Progress", PositionInProgress},
 		{"In-Progress", PositionInProgress},
 		{"In Review", PositionInReview},
