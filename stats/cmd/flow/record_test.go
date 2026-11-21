@@ -1275,7 +1275,7 @@ func TestDispatchEndCauseAccepted(t *testing.T) {
 // untouched) without -cause, and carried on the wire as causeDetail with one.
 func TestDispatchEndCauseDetail(t *testing.T) {
 	t.Parallel()
-	code, _, stderr, contacted, _ := causeEndRun(t, newTestEnv(t), "-outcome", "blocked", "-cause-detail", "/tmp/verify.log")
+	code, _, stderr, contacted, _ := causeEndRun(t, newTestEnv(t), "-outcome", "completed", "-cause-detail", "/tmp/verify.log")
 	if code != 2 || contacted {
 		t.Fatalf("exit code = %d, contacted = %v, want 2 and the store untouched; stderr:\n%s", code, contacted, stderr.String())
 	}
