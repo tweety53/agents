@@ -48,8 +48,8 @@ const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] 
        flow stage keys
        flow stage completed [-addr url] [-timeout dur] [-C dir] -stage key <change>
 
--stage takes a stage KEY, not its prose name -- one of README.md's Level 1
--- the stages of each command table's Key column; an undocumented key is
+-stage takes a stage KEY, not its prose name -- one of README.md's "The steps a run marks"
+table's Key column; an undocumented key is
 rejected before it ever reaches the store.
 
 stage completed answers whether the store holds a run of -stage for

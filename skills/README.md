@@ -6,7 +6,7 @@ cleanup run cleans up.
 
 The state each phase of `/flow` ends in, and the gate that follows it, are under
 **States** (`flow-contracts/pipeline.md`); the pipeline diagram is under **How a change really flows** and the
-per-command stage table under **Level 1 — the stages of each command** (`README.md`). This file copies none of them — it is read
+step table under **The steps a run marks** (`README.md`). This file copies none of them — it is read
 on demand, beside the document it would be copying, exactly as `README.md` is. What does carry the
 three-line digest is the layer that is loaded into a session before anything reads the pipeline: the
 always-on rule, and a project's own `CLAUDE.md`.
@@ -49,8 +49,8 @@ still apply.
 | `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
 | *(run by the pipeline)* | `flow-self-review` | Runs a change's self-review pass, a one-shot dispatch whose non-big findings are planned in full, from the context bundle an older `/flow` or `/flow-fast` run saved; the same pass runs inside `/flow`'s integrate and `/flow-fast`'s verify. Standalone, not a pipeline stage. Fixes and lands every non-big finding; files the big ones. |
 
-Each row says what a command is *for*. Its stages, in order, are stated once under
-**Level 1 — the stages of each command** (`README.md`) and are deliberately not
+Each row says what a command is *for*. Its steps are stated once under
+**The steps a run marks** (`README.md`) and are deliberately not
 repeated here.
 
 ## Skills

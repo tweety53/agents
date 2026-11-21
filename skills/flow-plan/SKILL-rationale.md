@@ -14,7 +14,7 @@ during the very first flow run." A capture now plans through the same `planner` 
 `/flow`'s creating run (decision `flow-plan-plans-through-planner`); research before the capture
 stays in the session because round files need the worktree and dispatch rows need the change.
 
-The five planning rows of the Level 1 table admit `/flow-plan` (decision
+The five planning rows of the README's steps table admit `/flow-plan` (decision
 `flow-plan-marks-planning-stages`) at the operator's choice, for per-stage timings of a capture,
 over keeping `plan.session` the one mark. `plan.session` therefore ends at kickoff: a
 `stage begin` closes every open run sharing its session token as `superseded`

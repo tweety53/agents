@@ -150,23 +150,23 @@ command takes a flag.
 Canonical: `skills/flow-contracts/pipeline.md` (state machine), `finish-contract-run1.md` and
 `finish-contract-run2.md` (landing and cleanup). The skill map is `skills/README.md`.
 
-### Level 1 — the stages of each command
+### The steps a run marks
 
-Every stage a run marks in `flowd`. `stats/internal/stages/names_test.go` parses this table and
+Every step a run marks in `flowd`, by key. `stats/internal/stages/names_test.go` parses this table and
 fails if it drifts from the code, so edit both together. Which phase
 file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 
-| Key | Name | Commands |
-|-----|------|----------|
-| `flow.plan` | Plan — kickoff to the plan gate | `/flow`, `/flow-fast`, `/flow-interactive`, `/flow-plan` |
-| `flow.implement` | Implement | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.review` | Review | `/flow`, `/flow-fast` |
-| `flow.verify` | Verify: workspace isolation, lint and test | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.land` | Land | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.self-review` | Run the self-review pass (run 1) | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `flow.pipeline-fix` | Pipeline fix — a fix to the flow tooling a run makes | `/flow`, `/flow-fast` |
-| `flow.cleanup` | Cleanup (run 2) ▸ | `/flow`, `/flow-fast`, `/flow-interactive` |
-| `plan.session` | Plan session — `/flow-plan` research up to a capture's kickoff | `/flow-plan` |
+| Key | Name |
+|-----|------|
+| `flow.plan` | Plan — kickoff to the plan gate |
+| `flow.implement` | Implement |
+| `flow.review` | Review |
+| `flow.verify` | Verify: workspace isolation, lint and test |
+| `flow.land` | Land |
+| `flow.self-review` | Run the self-review pass (run 1) |
+| `flow.pipeline-fix` | Pipeline fix — a fix to the flow tooling a run makes |
+| `flow.cleanup` | Cleanup (run 2) ▸ |
+| `plan.session` | Plan session — `/flow-plan` research up to a capture's kickoff |
 
 ▸ marks a stage with substructure; its procedure lives in the phase file under `skills/flow/`.
 

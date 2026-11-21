@@ -24,17 +24,16 @@ const readmePath = "../../../README.md"
 // gate), whose header ("| Command") must not be mistaken for the stages
 // table's own.
 const (
-	levelOneHeading         = "### Level 1 — the stages of each command"
-	stagesTableHeaderMarker = "| Key | Name | Commands |"
+	levelOneHeading         = "### The steps a run marks"
+	stagesTableHeaderMarker = "| Key | Name |"
 )
 
 // extractedStage mirrors stages.Stage but keeps Commands as plain strings,
 // so this file needs no second copy of stages.Command's value set to parse
 // a table cell into it.
 type extractedStage struct {
-	Key      string
-	Name     string
-	Commands []string
+	Key  string
+	Name string
 }
 
 // extractReadmeLevelOneStages reads README.md and mechanically rebuilds the
@@ -81,7 +80,7 @@ func extractReadmeLevelOneStages(t *testing.T) []extractedStage {
 		}
 
 		cells := strings.Split(line, "|")
-		if len(cells) < 5 {
+		if len(cells) < 4 {
 			continue
 		}
 		keyCell := strings.TrimSpace(cells[1])
@@ -95,21 +94,12 @@ func extractReadmeLevelOneStages(t *testing.T) []extractedStage {
 
 		name := strings.TrimSpace(cells[2])
 
-		var commands []string
-		for _, tok := range strings.Split(cells[3], ",") {
-			tok = strings.Trim(strings.TrimSpace(tok), "`")
-			if tok == "" {
-				continue
-			}
-			commands = append(commands, tok)
-		}
-
 		if seen[key] {
 			t.Fatalf("%s: key %q appears more than once in the stages table -- a duplicate key would silently merge two stages in every statistic", readmePath, key)
 		}
 		seen[key] = true
 
-		out = append(out, extractedStage{Key: key, Name: name, Commands: commands})
+		out = append(out, extractedStage{Key: key, Name: name})
 	}
 
 	if len(out) == 0 {
@@ -124,11 +114,7 @@ func extractReadmeLevelOneStages(t *testing.T) []extractedStage {
 func stageTableAsExtracted() []extractedStage {
 	out := make([]extractedStage, len(stages.Table))
 	for i, s := range stages.Table {
-		cmds := make([]string, len(s.Commands))
-		for j, c := range s.Commands {
-			cmds[j] = string(c)
-		}
-		out[i] = extractedStage{Key: s.Key, Name: s.Name, Commands: cmds}
+		out[i] = extractedStage{Key: s.Key, Name: s.Name}
 	}
 	return out
 }
