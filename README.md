@@ -88,6 +88,78 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 
 ▸ marks a stage with substructure; its procedure lives in the phase file under `skills/flow/`.
 
+## How a change really flows
+
+Orange boxes are your decisions, blue are agents, purple are one-shot read-only model calls
+("headless"), green are guards: code whose exit code decides.
+
+```mermaid
+flowchart TD
+    triage["1 · Triage<br/>easy or hard plan?"]:::head
+    plan["2 · Plan"]:::agent
+    pc["3 · Plan review<br/>problems + how to build"]:::head
+    tri["Triage problems<br/>fix · contest · ask you"]:::agent
+    appr{{"Approve the plan"}}:::you
+    build["4 · Build<br/>TDD in a worktree"]:::agent
+    panel["5 · Review panel"]:::agent
+    lint["6 · Lint + tests"]:::guard
+    trig{"UI files changed?"}:::guard
+    vv["7 · Visual verify"]:::agent
+    diff{{"8 · Review the diff"}}:::you
+    land["9 · Land"]:::guard
+    sr["10 · Self-review"]:::agent
+    done["11 · Cleanup"]:::guard
+
+    triage --> plan --> pc
+    pc -- problems --> tri -. re-check once .-> pc
+    pc -- clean --> appr
+    tri --> appr
+    appr --> build --> panel --> lint --> trig
+    trig -- yes --> vv --> diff
+    trig -- no --> diff
+    lint -. red .-> build
+    vv -. defect .-> build
+    diff -. "describe a fix" .-> build
+    diff --> land --> sr --> done
+
+    pj["pair-judge (headless)<br/>picks model + effort<br/>for each subagent"]:::head
+    pj -.-> plan
+    pj -.-> build
+    pj -.-> panel
+    pj -.-> vv
+    pj -.-> sr
+    done -.-> flowd[("flowd<br/>records every step")]:::store
+
+    classDef you fill:#fde3cf,stroke:#c2410c,color:#111
+    classDef agent fill:#dbe7fb,stroke:#1a5fd0,color:#111
+    classDef head fill:#e6dcf7,stroke:#6d3fc0,color:#111
+    classDef guard fill:#d9f0e1,stroke:#1f7a45,color:#111
+    classDef store fill:#eee,stroke:#666,color:#111
+```
+
+### Review panel setup
+
+The plan review picks the reviewers; a project configures nothing by hand.
+
+| Reviewer | Looks for |
+|----------|-----------|
+| `primary` | Plan alignment and senior code review. **Always runs.** |
+| `principles` | The engineering principles: small functions, clear names, no hidden coupling. |
+| `test-sanity` | Would each test the diff adds fail if its behaviour broke? Picked only when a test is added or changed. |
+| `call-efficiency` | Second callers, a read repeated in one request, a query per list item. Picked only when the change adds a call, query or request. |
+| `failure-modes` | Error returns, timeouts, partial writes, concurrent re-entry. Picked only with I/O, persistence or concurrency. |
+| `mutation` | Breaks the code on purpose to prove the tests notice. Always a bundle alone, in its own throwaway copy of the worktree. |
+| `security` | Injection, authorisation, secrets, trust boundary. Never picked by the model: added automatically when a task's files match the project's `## security paths`. |
+| `/flow &lt;name&gt;` | The full pipeline. Re-run to resume, fix or land. |
+| `/flow-fast &lt;name&gt;` | Small change: same isolation and checks, no ceremony. |
+| `/flow-interactive` | A conversation; each message lands on its own. |
+| `/flow-plan` | Think out loud, build nothing. |
+| `/flow-learn-quiz` | Quizzes you on a change until you understand it. |
+
+Reviewers are grouped into **bundles** of one or two, and each bundle is one dispatch. A
+documentation-only change gets `primary` alone. After a fix round only the reviewers that raised a
+finding run again.
+
 ## What is where
 
 | Path | Holds |
