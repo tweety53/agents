@@ -221,7 +221,7 @@ var plannerKey = regexp.MustCompile(`^plan-([0-9]+)$`)
 // the token passes, so a journal replay and a re-begin stay no-ops.
 func checkPlannerKey(ctx context.Context, tx pgx.Tx, projectKey, change string, in records.Dispatch) error {
 	m := plannerKey.FindStringSubmatch(in.Key)
-	if in.Role != "planner" || m == nil {
+	if records.Class(in.Role) != "planner" || m == nil {
 		return nil
 	}
 	var next int
@@ -858,7 +858,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 	// stage's finish (kan-1075 self-review, F4). GREATEST skips a NULL.
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
 		UPDATE dispatches d
-		SET commit_sha = $5, outcome = $6, ended_at = CASE WHEN $12 THEN $7 WHEN d.agent_id = 'inline' AND d.role = 'verifier' THEN GREATEST(d.ended_at, $7) ELSE COALESCE(d.ended_at, $7) END, started_at = COALESCE($13, d.started_at), agent_id = COALESCE($8, d.agent_id),
+		SET commit_sha = $5, outcome = $6, ended_at = CASE WHEN $12 THEN $7 WHEN d.agent_id = 'inline' AND dispatch_class(d.role) = 'verifier' THEN GREATEST(d.ended_at, $7) ELSE COALESCE(d.ended_at, $7) END, started_at = COALESCE($13, d.started_at), agent_id = COALESCE($8, d.agent_id),
 		    cause = $9, cause_detail = $15, diff_base = COALESCE($11, d.diff_base), closes_loop = d.closes_loop OR $14,
 		    metrics = CASE WHEN $10::text IS NULL THEN d.metrics
 		               ELSE jsonb_set(
@@ -1665,7 +1665,7 @@ func (s *Store) SetDispatchOutcome(ctx context.Context, id int64, outcome, cause
 // changes nothing; an unknown id or a non-reviewer row is ErrDispatchNotFound.
 func (s *Store) SetDispatchSlot(ctx context.Context, id int64, slot string) error {
 	var key string
-	err := s.pool.QueryRow(ctx, `SELECT dispatch_key FROM dispatches WHERE id = $1 AND role = 'reviewer'`, id).Scan(&key)
+	err := s.pool.QueryRow(ctx, `SELECT dispatch_key FROM dispatches WHERE id = $1 AND dispatch_class(role) = 'reviewer'`, id).Scan(&key)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return fmt.Errorf("%w: %d", ErrDispatchNotFound, id)
 	}
@@ -1675,7 +1675,7 @@ func (s *Store) SetDispatchSlot(ctx context.Context, id int64, slot string) erro
 	if !records.PanelKeyNamesSlot(key, slot) {
 		return fmt.Errorf("store: reslot dispatch %d: key %q does not name slot %q", id, key, slot)
 	}
-	if _, err := s.pool.Exec(ctx, `UPDATE dispatches SET slot = $2 WHERE id = $1 AND role = 'reviewer'`, id, slot); err != nil {
+	if _, err := s.pool.Exec(ctx, `UPDATE dispatches SET slot = $2 WHERE id = $1 AND dispatch_class(role) = 'reviewer'`, id, slot); err != nil {
 		return fmt.Errorf("store: reslot dispatch %d: %w", id, err)
 	}
 	return nil

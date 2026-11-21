@@ -484,16 +484,17 @@ func TestSeedGuardRunsDrawEveryState(t *testing.T) {
 		if r.Fired == 0 {
 			neverFired++
 		}
-		if r.TotalMs > top.TotalMs {
+		if !r.Helper && r.TotalMs > top.TotalMs {
 			top = r
 		}
 	}
-	if len(rows) != 13 {
-		t.Errorf("30d guards = %d, want 13: %+v", len(rows), rows)
+	if len(rows) != 15 {
+		t.Errorf("30d guards = %d, want 15: %+v", len(rows), rows)
 	}
+	// The helpers are listed, flagged, and never the slowest guard.
 	for _, helper := range []string{"project-get", "run-verify-list"} {
-		if _, ok := byGuard[helper]; ok {
-			t.Errorf("30d rows carry the helper %s", helper)
+		if r, ok := byGuard[helper]; !ok || !r.Helper {
+			t.Errorf("30d rows lack the flagged helper %s: %+v", helper, r)
 		}
 	}
 	if neverFired != 8 {

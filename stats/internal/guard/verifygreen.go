@@ -3,6 +3,7 @@ package guard
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/records"
 	"io"
 	"os/exec"
 	"regexp"
@@ -111,7 +112,7 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	latest := map[string]int{}
 	var groups []string
 	for i, r := range rows {
-		if r.SessionToken != token || r.Role != "verifier" || (r.Key != "verify" && !strings.HasPrefix(r.Key, "verify-")) {
+		if r.SessionToken != token || records.Class(r.Role) != "verifier" || (r.Key != "verify" && !strings.HasPrefix(r.Key, "verify-")) {
 			continue
 		}
 		g := vgFixSuffix.ReplaceAllString(r.Key, "verify$2")

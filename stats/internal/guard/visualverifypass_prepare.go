@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/records"
 	"io"
 	"io/fs"
 	"net/http"
@@ -732,7 +733,7 @@ func (v *vvp) dispatch(survivors []string, stack string) {
 			}
 			heads = append(heads, h)
 		}
-		argv := []string{"record", "dispatch", "begin", "-C", v.canon, "-change", v.name, "-role", "verifier",
+		argv := []string{"record", "dispatch", "begin", "-C", v.canon, "-change", v.name, "-role", "visual-verifier",
 			"-model", model, "-effort", effort, "-key", r.key, "-session-token", v.token, "-diff-base", strings.Join(heads, ",")}
 		// The round file's instant is read right before the begin (decision
 		// round-file-per-row); a -rest key or an unscoped row has none.
@@ -812,7 +813,7 @@ func (v *vvp) greenRows() []struct{ Key, DiffBase string } {
 	}
 	var out []struct{ Key, DiffBase string }
 	for _, r := range rows {
-		if r.Role == "verifier" && r.SessionToken == v.token && (r.Key == "verify" || strings.HasPrefix(r.Key, "verify-")) &&
+		if records.Class(r.Role) == "verifier" && r.SessionToken == v.token && (r.Key == "verify" || strings.HasPrefix(r.Key, "verify-")) &&
 			(r.Outcome == "completed" || r.Outcome == "skipped") && r.DiffBase != "" {
 			out = append(out, struct{ Key, DiffBase string }{r.Key, r.DiffBase})
 		}

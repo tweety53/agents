@@ -216,13 +216,15 @@ func ApplyDispatchRecord(ctx context.Context, rw RecordWriter, projectKey, chang
 	if in.Role == "" || in.Model == "" {
 		return records.Dispatch{}, fmt.Errorf("%w: role and model are both required: a dispatch row records what ran and on what", ErrInvalidRecord)
 	}
-	if in.Role == "reviewer" && in.Slot != "" {
+	if records.Class(in.Role) == "reviewer" && in.Slot != "" {
 		for _, slot := range strings.Split(strings.ToLower(strings.TrimSpace(in.Slot)), "+") {
 			if !panelSlots[slot] && !(strings.HasPrefix(slot, "exp-") && len(slot) > len("exp-")) {
 				return records.Dispatch{}, fmt.Errorf("%w: slot %q is not a review-panel slot: name only panel slots (skills/flow/review-panel.md), and record a gated per-task or self-review reviewer without -slot", ErrInvalidRecord, slot)
 			}
 		}
 	}
+	// The row is stored under its roles-table role, whichever name the caller typed.
+	in.Role = records.StoredRole(in.Role, in.Key, in.PolicyRole)
 	if in.StartedAt.IsZero() {
 		// The caller-typed instant was an agent's approximation of the
 		// clock (KAN-324), so a zero startedAt is stamped here, at the

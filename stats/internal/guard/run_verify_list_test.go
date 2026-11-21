@@ -349,7 +349,7 @@ func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 		writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+cmds+"\n```\n")
 	}
 	rec := []string{"kan-1", "verify", "mf-k1", "opus", "low"}
-	begin := "flow record dispatch begin -C " + wt + " -change kan-1 -role verifier -model opus -effort low -agent-id inline -policy-role runner -key verify -session-token mf-k1\n"
+	begin := "flow record dispatch begin -C " + wt + " -change kan-1 -role runner -model opus -effort low -agent-id inline -key verify -session-token mf-k1\n"
 	end := "flow record dispatch end -C " + wt + " -change kan-1 -key verify -session-token mf-k1 -outcome completed\n"
 
 	project("echo first >> " + log + "\necho last >> " + log)
@@ -1891,7 +1891,7 @@ func TestRunVerifyListFullRunsEverySuite(t *testing.T) {
 		t.Errorf("-full run: exit %d, want 0, nothing skipped, QUIET-RAN and FULL=1:\n%s", rc, out)
 	}
 	calls, _ := os.ReadFile(log)
-	for _, want := range []string{"-suite quiet-full ", "-suite plain-full ", "dispatch begin", "-role verifier", "-outcome completed"} {
+	for _, want := range []string{"-suite quiet-full ", "-suite plain-full ", "dispatch begin", "-role runner", "-outcome completed"} {
 		if !strings.Contains(string(calls), want) {
 			t.Errorf("flow log lacks %q:\n%s", want, calls)
 		}

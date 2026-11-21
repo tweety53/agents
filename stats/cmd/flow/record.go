@@ -563,6 +563,7 @@ attempt inserted instead of inserting a second row for one dispatch. Write
 it as a literal, unique among the dispatches of one -session-token.
 
 -role is one of: implementer, reviewer, panel-fix, red-partner, planner, conductor, verifier, explorer, merger.
+Any role of the roles table (flow policy get) is accepted too, and the row is stored under its roles-table role.
 "flow record roles" prints that set, one per line.
 
 -agent-id is the harness's own identifier for the subagent that was
@@ -731,6 +732,28 @@ func runRecordRoles(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, role)
 	}
 	return 0
+}
+
+// roleAccepted is whether role may be recorded: a coarse name of recordRoles,
+// or a role of flowd's roles table. A daemon that cannot answer leaves the
+// roles table unread, and a well-formed role name then passes (the write
+// journals like any other).
+func roleAccepted(ctx context.Context, f recordIdentityFlags, role string) bool {
+	if slices.Contains(recordRoles, role) {
+		return true
+	}
+	raw, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (json.RawMessage, error) {
+		return cl.Policy(ctx)
+	})
+	if err != nil {
+		return regexp.MustCompile(`^[a-z][a-z0-9-]*$`).MatchString(role)
+	}
+	var roles map[string]json.RawMessage
+	if json.Unmarshal(raw, &roles) != nil {
+		return false
+	}
+	_, ok := roles[role]
+	return ok
 }
 
 // recordIdentityFlags is common to every record subcommand: the store
@@ -1120,8 +1143,8 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 		*agentID = ""
 	}
 	*model = recordModelAlias(*model)
-	if !slices.Contains(recordRoles, *role) {
-		fmt.Fprintf(stderr, "flow: -role %q is not one of: %s\n", *role, strings.Join(recordRoles, ", "))
+	if !roleAccepted(ctx, f, *role) {
+		fmt.Fprintf(stderr, "flow: -role %q is not a role of the roles table (flow policy get) or one of the coarse names: %s\n", *role, strings.Join(recordRoles, ", "))
 		return 2
 	}
 	if !slices.Contains(recordEfforts, *effort) {
@@ -1217,51 +1240,9 @@ func printLaunchLines(stdout io.Writer, dir, change, role, key string) {
 	}
 }
 
-// fixReviewKeyRE and fixImplementerKeyRE match a fix's own dispatch key, fix-<k>-review or fix-<k>-implementer
-// (skills/flow/fix.md).
-var (
-	fixReviewKeyRE      = regexp.MustCompile(`^fix-[1-9][0-9]*-review$`)
-	fixImplementerKeyRE = regexp.MustCompile(`^fix-[1-9][0-9]*-implementer$`)
-)
-
-// launchRoleID is the policy role a dispatch's -role and -key derive, or ""
-// where they derive none -- a self-review or pipeline-fix key among them. A
-// task's gated-review fixer and its re-commit run on the panel-fix pair.
-func launchRoleID(role, key string) string {
-	if m := launchTaskKey.FindStringSubmatch(key); m != nil {
-		switch {
-		case m[2] == "implementer" && (strings.HasPrefix(m[3], "-fix-") || strings.HasPrefix(m[3], "-recommit-")):
-			return "panel-fix"
-		case m[2] == "implementer":
-			return "implementer"
-		case strings.HasPrefix(m[3], "-fix-"):
-			return "gated-re-reviewer"
-		default:
-			return "gated-reviewer"
-		}
-	}
-	switch {
-	case role == "merger":
-		return "panel-merger"
-	case role == "panel-fix" && strings.HasPrefix(key, "panel-") && strings.HasSuffix(key, "-minor-fix"):
-		return "minor-fix"
-	case role == "panel-fix":
-		return "panel-fix"
-	case role == "reviewer" && fixReviewKeyRE.MatchString(key):
-		return "panel-reviewer"
-	case role == "implementer" && fixImplementerKeyRE.MatchString(key):
-		return "implementer"
-	case role == "planner" && strings.HasPrefix(key, "plan-short-"):
-		return "planner-short"
-	case role == "verifier" && strings.HasPrefix(key, "visual-verify"):
-		return "visual-verifier"
-	case role == "verifier" && strings.HasPrefix(key, "runner-"):
-		return "runner"
-	case role == "implementer" && strings.HasPrefix(key, "operator-"):
-		return "operator-asked"
-	}
-	return ""
-}
+// launchRoleID is the roles-table role a dispatch's -role and -key derive, or
+// "" where they derive none (records.LaunchRoleID).
+func launchRoleID(role, key string) string { return records.LaunchRoleID(role, key) }
 
 // roundBeyondNext refuses a -round past the run's next round,
 // highestRecordedRound+1: a mistyped -round 7 after round 0 would make
@@ -3905,7 +3886,7 @@ func commitBefore(t time.Time, roots []string) (time.Time, bool) {
 // full-suite-fix-1 claimed the whole panel wait). Any other role or key, a
 // failed record read, or no qualifying ended reviewer row has no floor.
 func panelFixFloor(ctx context.Context, f recordIdentityFlags, projectKey, role, key string, endT time.Time) (time.Time, bool) {
-	if role != "panel-fix" {
+	if records.Class(role) != "panel-fix" {
 		return time.Time{}, false
 	}
 	round := -1 // -1: a full-suite fix, any round up to endT
@@ -3957,7 +3938,7 @@ func inlineFloor(ctx context.Context, f recordIdentityFlags, projectKey, key str
 	}
 	var floor time.Time
 	for _, d := range run.Dispatches {
-		verdict := d.Role == "verifier" && strings.HasPrefix(d.Key, "visual-verify")
+		verdict := records.Class(d.Role) == "verifier" && strings.HasPrefix(d.Key, "visual-verify")
 		if (d.AgentID == "inline" || verdict) && d.Key != key && d.EndedAt != nil && !d.EndedAt.After(endT) && d.EndedAt.After(floor) {
 			floor = *d.EndedAt
 		}

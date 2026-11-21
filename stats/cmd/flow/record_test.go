@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/modelpolicy"
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
@@ -541,6 +542,33 @@ func TestRecordMissingRequiredFlagExitsTwoWithoutJournalling(t *testing.T) {
 	}
 }
 
+// A role of the roles table is a role a dispatch may record under, whichever
+// coarse name the caller could have typed instead.
+func TestRecordAcceptsARolesTableRole(t *testing.T) {
+	t.Parallel()
+	repo := recordRepo(t, "kan-258")
+	env := newTestEnv(t)
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/policy" {
+			_, _ = w.Write([]byte(`{"runner":{"base":[],"optin":[]}}`))
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
+	}))
+	defer srv.Close()
+
+	var stdout, stderr bytes.Buffer
+	code := run(context.Background(),
+		[]string{"record", "dispatch", "begin", "-effort", "default", "-agent-id", "none", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-change", "kan-258", "-role", "runner", "-model", "haiku", "-key", "runner-1",
+			"-session-token", "mf-record-roles-table"},
+		env.get, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
+	}
+}
+
 // TestRecordRejectsUnknownRoleWithoutContactingStore pins that the role
 // allowlist is checked before the network is ever touched, exactly as
 // `stage begin` checks its stage key: were it checked after, the fallback
@@ -552,6 +580,10 @@ func TestRecordRejectsUnknownRoleWithoutContactingStore(t *testing.T) {
 
 	contacted := false
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/policy" { // the roles table the role is checked against
+			_, _ = w.Write([]byte(`{"runner":{"base":[],"optin":[]}}`))
+			return
+		}
 		contacted = true
 		w.WriteHeader(http.StatusCreated)
 		_, _ = w.Write([]byte(`{"id":1,"seq":1}`))
@@ -3533,6 +3565,18 @@ func TestRunRecordRolesRejectsPositionalArgument(t *testing.T) {
 func TestSkillDocRolesAreAllServed(t *testing.T) {
 	t.Parallel()
 	root := filepath.Join("..", "..", "..", "skills")
+	table, err := os.ReadFile(filepath.Join(root, "flow-contracts", "model-policy.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := modelpolicy.Rows(table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	served := slices.Clone(recordRoles)
+	for _, e := range entries { // a roles-table role is served too
+		served = append(served, e.Role)
+	}
 	var hits []string
 	walkErr := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -3547,7 +3591,7 @@ func TestSkillDocRolesAreAllServed(t *testing.T) {
 		}
 		for _, m := range roleLiteralRe.FindAllStringSubmatchIndex(string(data), -1) {
 			for role := range strings.SplitSeq(string(data[m[2]:m[3]]), "|") {
-				if !slices.Contains(recordRoles, role) {
+				if !slices.Contains(served, role) {
 					hits = append(hits, fmt.Sprintf("%s:%d: -role %s is not a served dispatch role",
 						path, 1+bytes.Count(data[:m[0]], []byte("\n")), role))
 				}

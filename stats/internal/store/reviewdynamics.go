@@ -140,7 +140,7 @@ func (s *Store) ReviewDynamics(ctx context.Context, period Period, project *stri
 	err = s.scanRows(ctx, "projects", `
 		SELECT DISTINCT c.project_key
 		FROM dispatches d JOIN changes c ON c.id = d.change_id
-		WHERE d.role = 'reviewer' AND d.started_at >= $1 AND d.started_at < $2
+		WHERE dispatch_class(d.role) = 'reviewer' AND d.started_at >= $1 AND d.started_at < $2
 		ORDER BY 1
 	`, []any{period.From, period.To}, func(scan func(...any) error) error {
 		var p string
@@ -181,7 +181,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 		WITH cohort AS (
 			SELECT d.change_id, min(d.started_at) AS first_at
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
-			WHERE d.role = 'reviewer' AND d.slot IS NOT NULL
+			WHERE dispatch_class(d.role) = 'reviewer' AND d.slot IS NOT NULL
 			  AND ($3::text IS NULL OR c.project_key = $3)`+`
 			GROUP BY d.change_id
 			HAVING min(d.started_at) >= $1 AND min(d.started_at) < $2
@@ -245,7 +245,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 			SELECT d.id, d.started_at, model_family(`+servedModelSQL+`) AS model, `+modelVersionSQL+` AS version, `+servedEffortSQL+` AS effort,
 				unnest(string_to_array(d.slot, '+')) AS slot
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
-			WHERE d.role = 'reviewer' AND d.slot IS NOT NULL
+			WHERE dispatch_class(d.role) = 'reviewer' AND d.slot IS NOT NULL
 			  AND d.started_at >= $1 AND d.started_at < $2
 			  AND ($3::text IS NULL OR c.project_key = $3)`+`
 		)
@@ -292,7 +292,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 			SELECT d.change_id, min(d.started_at) AS first_at, count(*) AS dispatches,
 				mode() WITHIN GROUP (ORDER BY `+keyed.model+` || ' · ' || `+servedEffortSQL+`) AS series
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
-			WHERE d.role = 'implementer'
+			WHERE dispatch_class(d.role) = 'implementer'
 			  AND ($3::text IS NULL OR c.project_key = $3)`+`
 			GROUP BY d.change_id
 			HAVING min(d.started_at) >= $1 AND min(d.started_at) < $2
@@ -327,7 +327,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 		SELECT date_trunc($4::text, d.started_at AT TIME ZONE 'UTC') AS bucket,
 			count(*) FILTER (WHERE d.outcome = ANY($5)), count(*)
 		FROM dispatches d JOIN changes c ON c.id = d.change_id
-		WHERE d.role = 'implementer' AND d.started_at >= $1 AND d.started_at < $2
+		WHERE dispatch_class(d.role) = 'implementer' AND d.started_at >= $1 AND d.started_at < $2
 		  AND ($3::text IS NULL OR c.project_key = $3)`+`
 		GROUP BY bucket ORDER BY bucket
 	`, append(args, implBadOutcomes), func(scan func(...any) error) error {
@@ -350,7 +350,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 			SELECT d.change_id, min(d.started_at) AS first_at,
 				COALESCE(max(substring(d.dispatch_key FROM '^visual-verify-fix-([0-9]+)')::int), 0) AS rounds
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
-			WHERE d.role = 'verifier' AND d.dispatch_key LIKE 'visual-verify%'
+			WHERE dispatch_class(d.role) = 'verifier' AND d.dispatch_key LIKE 'visual-verify%'
 			  AND ($3::text IS NULL OR c.project_key = $3)`+`
 			GROUP BY d.change_id
 			HAVING min(d.started_at) >= $1 AND min(d.started_at) < $2

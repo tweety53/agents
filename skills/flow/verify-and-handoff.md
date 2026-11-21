@@ -167,7 +167,7 @@ timeout is raised to absorb the load (`rules/fix-determinism-at-the-source.mdc`)
 
 **Every run of the list is the runner's — the first, the one re-run, a re-run after a fix.** The parent never types `flow-guard run-verify-list` for it itself: a run it types bills the main session's model while its `verify` row records the runner's pair, and the dashboard reads that row as a runner that never ran.
 
-**Recording.** One `dispatches` row per worktree the list runs for, `-role verifier -key verify -model <runner
+**Recording.** One `dispatches` row per worktree the list runs for, `-role runner -key verify -model <runner
 model> -effort <runner effort> -agent-id inline`, suffixed `-<repository name>` when this
 run's resolved set holds more than one worktree — the same convention
 **The verifier dispatch** (`skills/flow/visual-verify.md`) uses for the verifier's rows.

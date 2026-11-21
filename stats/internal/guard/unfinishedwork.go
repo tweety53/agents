@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/records"
 	"io"
 	"os"
 	"strconv"
@@ -463,13 +464,13 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		{
 			var lastVerify int64 = -1
 			for _, d := range dispatches {
-				if d.Role == "verifier" && (d.Outcome == "completed" || d.Outcome == "skipped") && (d.Key == "verify" || strings.HasPrefix(d.Key, "verify-")) {
+				if records.Class(d.Role) == "verifier" && (d.Outcome == "completed" || d.Outcome == "skipped") && (d.Key == "verify" || strings.HasPrefix(d.Key, "verify-")) {
 					lastVerify = max(lastVerify, d.StartedAt.Unix())
 				}
 			}
 			verifierKeys := map[string]bool{}
 			for _, d := range dispatches {
-				if d.Role == "verifier" && strings.HasPrefix(d.Key, "visual-verify") {
+				if records.Class(d.Role) == "verifier" && strings.HasPrefix(d.Key, "visual-verify") {
 					verifierKeys[d.Key] = true
 				}
 			}

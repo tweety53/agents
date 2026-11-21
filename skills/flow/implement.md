@@ -40,22 +40,22 @@ These eleven rows are **every** Agent-tool dispatch the parent may make, across 
 **2** and **4** below, `skills/flow/review-panel.md`, `skills/flow/verify-and-handoff.md` and
 `skills/flow-contracts/pipeline.md`'s **Pipeline defects found mid-run**:
 
-| Site | Role | Role line | Key shape | Owning section |
-|---|---|---|---|---|
-| implementer, one per group; a fixer per fix | `implementer`; a fixer the row role its Role line records under (**Every fix is a fresh one-shot**) | `implementer`; a fixer the role whose pair **Every fix is a fresh one-shot** names | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
-| gated reviewer bundle, one per batch of returned tasks of weight 5 | `reviewer` | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
-| panel bundle, one per decided `panel` bundle | `reviewer` | `panel-reviewer` on pass 1; `panel-rerun` for a re-run | `panel-<round>-<slot\|slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
-| findings merger, one per round once its dispatches have ended | `merger` | `panel-merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
-| panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix` | `panel-fix-<round>[-<chunk>]` | `skills/flow/review-panel.md`, the fix step |
-| minor fix, one per round that raised only Minors | `panel-fix` | `minor-fix` | `panel-<round>-minor-fix` | `skills/flow/review-panel.md`, **Panel re-runs** |
-| fix implementer, one per fix | `implementer` | `implementer` | `fix-<k>-implementer` | `skills/flow/fix.md`, step 2 |
-| fix reviewer, one per fix | `reviewer` | `panel-reviewer` | `fix-<k>-review` | `skills/flow/fix.md`, step 4 |
-| verifier, one per worktree, or one per shard of a sharded pass | `verifier` | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-s<i>of<n>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
-| runner, one per test-list run | `verifier` | `runner` | `runner-<n>` | section **4** below, **The runner runs the test list**, and `skills/flow/verify-and-handoff.md`, **Inline verify** |
-| in-run pipeline fix planner, fixer and review, one each per loop step | `planner` for the plan, `implementer` for every fixer, `reviewer` for the review | none — its `Key:` line names its role | `pipeline-fix-<k>-plan`, `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
+| Site | Role | Key shape | Owning section |
+|---|---|---|---|
+| implementer, one per group; a fixer per fix | `implementer`; a fixer the role whose pair **Every fix is a fresh one-shot** names | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
+| gated reviewer bundle, one per batch of returned tasks of weight 5 | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
+| panel bundle, one per decided `panel` bundle | `panel-reviewer` on pass 1; `panel-rerun` for a re-run | `panel-<round>-<slot\|slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
+| findings merger, one per round once its dispatches have ended | `panel-merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
+| panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` | `skills/flow/review-panel.md`, the fix step |
+| minor fix, one per round that raised only Minors | `minor-fix` | `panel-<round>-minor-fix` | `skills/flow/review-panel.md`, **Panel re-runs** |
+| fix implementer, one per fix | `implementer` | `fix-<k>-implementer` | `skills/flow/fix.md`, step 2 |
+| fix reviewer, one per fix | `panel-reviewer` | `fix-<k>-review` | `skills/flow/fix.md`, step 4 |
+| verifier, one per worktree, or one per shard of a sharded pass | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-s<i>of<n>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
+| runner, one per test-list run | `runner` | `runner-<n>` | section **4** below, **The runner runs the test list**, and `skills/flow/verify-and-handoff.md`, **Inline verify** |
+| in-run pipeline fix planner, fixer and review, one each per loop step | none — its `Key:` line names its role | `pipeline-fix-<k>-plan`, `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
 
 **Every dispatch's prompt carries its Role line** — `Role: <role id>`, a line of its own, the id
-the **Role line** column names — and runs on a pair that role's rows of **Allowed pairs**
+the **Role** column names — and runs on a pair that role's rows of **Allowed pairs**
 (`skills/flow-contracts/model-policy.md`) admit. A
 no-progress escalation carries `Role: no-progress-fixer` (a pipeline-fix loop's, its loop's `Key:` line too).
 
@@ -83,7 +83,7 @@ by plan id over the plan's task count, then a few words in parentheses: `Task 3/
 for one task, `Tasks 3+4+7/22 (review)` for a group, its ids in the order its key lists them. Every other row is its key and a few
 words, with no parentheses: `panel-1-primary correctness review`. The `flow-task-list` mod
 (`mods/flow-task-list/`) reads that prefix to number its row. The daemon stamps a launch onto the
-row its description's first word names. The `Role:` line is the **Role line** column's id above.
+row its description's first word names. The `Role:` line is the **Role** column's id above.
 
 **The hook writes the row's begin.** On a flow dispatch with no open row for its key,
 `hooks/enforce-agent-baseline.py` runs `flow record dispatch begin` itself once its other checks
@@ -313,7 +313,7 @@ this worktree.
 The paragraphs that instruct an implementer in its work — FLOW — COMMIT-PER-TASK through REPORT,
 DON'T DECIDE — live in that file, which the implementer reads in full first, and the prompt never
 carries them. The prompt is these lines alone, in this order, each `<…>` filled — `<skill-dir>` the
-directory this file was read from, the `Role:` line the **Role line** column's id for
+directory this file was read from, the `Role:` line the **Role** column's id for
 the row, the `In-run fix:` line
 present only on a fix's implementer (`skills/flow/fix.md`), and the `Visual close:` line
 present only when a task of the group names a `ui paths` file in its `**Files:**`:
@@ -450,7 +450,7 @@ line `Role: gated-reviewer`. A fix re-review bundle runs on its own row instead,
 with `Role: gated-re-reviewer` (`skills/flow/gated-review-fix.md`). Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
 the working tree, which the next implementer is editing — its own verdict and its own report
-file. Record the bundle as one `dispatches` row (`-role reviewer`, `-key task-<n+n+n>-reviewer`
+file. Record the bundle as one `dispatches` row (`-role gated-reviewer`, `-key task-<n+n+n>-reviewer`
 with the task ids `+`-joined in plan order, the same convention as `panel-<round>-<slot|slot+slot+slot>`;
 `-task <n>` only on a one-task bundle, omitted otherwise) and close it with **`-outcome clean`
 when every pass is clean, `-outcome fix` when any pass is `fix`**; each pass's own verdict is

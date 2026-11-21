@@ -244,7 +244,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(array_agg(DISTINCT d.task_id), '{}') AS list
 			FROM dispatches d
-			WHERE d.change_id = c.id AND d.role = 'implementer' AND d.commit_sha IS NOT NULL AND d.task_id IS NOT NULL
+			WHERE d.change_id = c.id AND dispatch_class(d.role) = 'implementer' AND d.commit_sha IS NOT NULL AND d.task_id IS NOT NULL
 		) committed ON true
 		LEFT JOIN LATERAL (
 			SELECT MAX(h.updated_at) AS at
@@ -271,12 +271,12 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(MAX(substring(d.dispatch_key FROM '^panel-(\d+)-')::int) FILTER (WHERE NOT d.sr), 0)
 			       + COALESCE(MAX(substring(d.dispatch_key FROM '^(?:visual-)?verify-fix-(\d+)')::int) FILTER (WHERE NOT d.sr), 0)
-			       + (COUNT(*) FILTER (WHERE d.role = 'panel-fix' AND NOT d.sr AND d.dispatch_key NOT LIKE 'panel%' AND d.dispatch_key NOT LIKE '%verify-fix-%'))::int
+			       + (COUNT(*) FILTER (WHERE dispatch_class(d.role) = 'panel-fix' AND NOT d.sr AND d.dispatch_key NOT LIKE 'panel%' AND d.dispatch_key NOT LIKE '%verify-fix-%' AND d.dispatch_key !~ '^tasks?-[0-9+]+-implementer-(fix|recommit)-'))::int
 			       + (COUNT(*) FILTER (WHERE NOT d.sr AND d.dispatch_key ~ '^tasks?-[0-9+]+-implementer-fix-[0-9]+$'))::int
-			       + (COUNT(*) FILTER (WHERE d.role = 'implementer' AND NOT d.sr AND d.dispatch_key ~ '^full-suite-fix-[0-9]+$'))::int AS fix_rounds,
-			       (COUNT(*) FILTER (WHERE d.role = 'reviewer' AND NOT d.sr))::int AS reviewer_runs,
+			       + (COUNT(*) FILTER (WHERE dispatch_class(d.role) = 'implementer' AND NOT d.sr AND d.dispatch_key ~ '^full-suite-fix-[0-9]+$'))::int AS fix_rounds,
+			       (COUNT(*) FILTER (WHERE dispatch_class(d.role) = 'reviewer' AND NOT d.sr))::int AS reviewer_runs,
 			       COALESCE(MAX(substring(d.dispatch_key FROM '-(?:review-|fix-v?)(\d+)$')::int) FILTER (WHERE d.sr), 0) AS sr_fix_rounds,
-			       (COUNT(*) FILTER (WHERE d.role = 'reviewer' AND d.sr AND d.dispatch_key NOT LIKE '%-pass'))::int AS sr_reviewer_runs
+			       (COUNT(*) FILTER (WHERE dispatch_class(d.role) = 'reviewer' AND d.sr AND d.dispatch_key NOT LIKE '%-pass'))::int AS sr_reviewer_runs
 			FROM (
 				SELECT d.role, COALESCE(d.dispatch_key, '') AS dispatch_key,
 				       d.change_id <> c.id OR d.dispatch_key LIKE 'self-review-%' AS sr
@@ -291,7 +291,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 				SELECT COUNT(DISTINCT COALESCE(d.slot, regexp_replace(d.dispatch_key, '^panel-\d+-', ''))) AS slots,
 				       MAX(COUNT(DISTINCT COALESCE(d.slot, regexp_replace(d.dispatch_key, '^panel-\d+-', '')))) OVER () AS widest
 				FROM dispatches d
-				WHERE d.change_id = c.id AND d.role = 'reviewer' AND d.dispatch_key ~ '^panel-\d+-'
+				WHERE d.change_id = c.id AND dispatch_class(d.role) = 'reviewer' AND d.dispatch_key ~ '^panel-\d+-'
 				GROUP BY substring(d.dispatch_key FROM '^panel-(\d+)-')
 			) p
 		) panels ON true
@@ -315,7 +315,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			            ELSE (COUNT(DISTINCT d.task_id) FILTER (WHERE d.commit_sha IS NOT NULL AND d.task_id IS NOT NULL))::int
 			       END AS tasks
 			FROM dispatches d
-			WHERE d.change_id = c.id AND d.role = 'implementer'
+			WHERE d.change_id = c.id AND dispatch_class(d.role) = 'implementer'
 		) done ON true
 		WHERE ((c.updated_at >= $1 AND c.updated_at < $2) OR c.state <> 'FINISHED'
 		       OR EXISTS (SELECT 1 FROM stage_runs sr WHERE sr.change_id = c.id AND sr.ended_at IS NULL))

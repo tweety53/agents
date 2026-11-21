@@ -210,14 +210,13 @@ after the in-flight one ends — never a stop. A turn ends when the queue is emp
 
 When the operator asks for a subagent in their own words ("run it with an opus xhigh subagent"),
 the request dispatches it and counts it under this run: inside the request's open `flow.implement`
-stage, record the row (store role `implementer`, key `operator-<k>`, which flowd serves as the
-`operator-asked` role), dispatch, and end the row when the agent reports — never a fork.
+stage, record the row (role `operator-asked`, key `operator-<k>`), dispatch, and end the row when the agent reports — never a fork.
 Each agent gets its own row: `<k>` is one past the highest `operator-` key the change records, so
 two agents of one request never share a key. A dispatch the hook refuses ends its row `aborted` at
 once.
 
 ```bash
-flow record dispatch begin -change <name> -role implementer -model <model> -effort <level> -key operator-<k> -request <n> -session-token fi-<literal-token>
+flow record dispatch begin -change <name> -role operator-asked -model <model> -effort <level> -key operator-<k> -request <n> -session-token fi-<literal-token>
 ```
 
 The Agent call's `description` opens with `operator-<k>`, its prompt carries `Role:

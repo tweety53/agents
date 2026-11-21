@@ -164,7 +164,7 @@ launch and end it when its agent stops (**Dispatch sites — the parent's closed
 `skills/flow/implement.md`); on any other harness by the parent, with this pair:
 
 ```bash
-flow record dispatch begin -change <name> -role reviewer -slot <slot|slot+slot+slot> -model <m> -effort <e> \
+flow record dispatch begin -change <name> -role panel-reviewer -slot <slot|slot+slot+slot> -model <m> -effort <e> \
   -key panel-<round>-<slot|slot+slot+slot> \
   -session-token mf-<literal-token>
 flow record dispatch end -change <name> -key panel-<round>-<slot|slot+slot+slot> \

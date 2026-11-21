@@ -332,7 +332,7 @@ func passLogRounds(r Run) []int {
 // table); any other row -- a panel-fix-<round> fixer included -- is not one.
 // check-unfinished-work's panel-round signal reads rounds the same way.
 func PanelDispatchRound(d Dispatch) (int, bool) {
-	if d.Role != "reviewer" {
+	if Class(d.Role) != "reviewer" {
 		return 0, false
 	}
 	rest, ok := strings.CutPrefix(d.Key, "panel-")

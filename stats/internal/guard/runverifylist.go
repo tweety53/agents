@@ -307,6 +307,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/tweety53/agents/stats/internal/records"
 	"io"
 	"io/fs"
 	"os"
@@ -607,7 +608,7 @@ func rvlRoundBase(env Env, wt, change, canon, key string) func(root string) stri
 		return none
 	}
 	rows = slices.DeleteFunc(rows, func(r struct{ Key, Role, DiffBase string }) bool {
-		return r.Role != "verifier" || (r.Key != "verify" && !strings.HasPrefix(r.Key, "verify-"))
+		return records.Class(r.Role) != "verifier" || (r.Key != "verify" && !strings.HasPrefix(r.Key, "verify-"))
 	})
 	if key == "" {
 		i := len(rows) - 1
@@ -1123,7 +1124,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		record = func(verb string, flags ...string) bool {
 			argv := []string{"record", "dispatch", verb, "-C", wt, "-change", change}
 			if verb == "begin" {
-				argv = append(argv, "-role", "verifier", "-model", model, "-effort", effort, "-agent-id", "inline", "-policy-role", "runner")
+				argv = append(argv, "-role", "runner", "-model", model, "-effort", effort, "-agent-id", "inline")
 				// The verified worktree's HEAD, which check-verify-green judges
 				// the row by (decision verify-row-records-head); a worktree git
 				// cannot resolve records none, and that row is never green.
@@ -1160,7 +1161,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			group := vgFixSuffix.ReplaceAllString(key, "verify$2")
 			for _, r := range rows {
-				if r.Role != "verifier" || r.AgentID != "inline" || r.SessionToken != token || r.Outcome != "" ||
+				if records.Class(r.Role) != "verifier" || r.AgentID != "inline" || r.SessionToken != token || r.Outcome != "" ||
 					r.Key == key || vgFixSuffix.ReplaceAllString(r.Key, "verify$2") != group {
 					continue
 				}

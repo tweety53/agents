@@ -454,7 +454,7 @@ func TestVisualVerifyPassPrepareReadsThePair(t *testing.T) {
 	policy := filepath.Join(filepath.Dir(f.log), "policy.json")
 	writeFile(t, policy, `{"visual-verifier":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}}`)
 	rc, out, calls := f.prepare()
-	if rc != 0 || !strings.Contains(calls, "-role verifier -model sonnet -effort low -key visual-verify ") || !strings.Contains(out, "subagent_type flow-low, model sonnet,") {
+	if rc != 0 || !strings.Contains(calls, "-role visual-verifier -model sonnet -effort low -key visual-verify ") || !strings.Contains(out, "subagent_type flow-low, model sonnet,") {
 		t.Fatalf("sonnet row: exit %d\n%s\n%s", rc, out, calls)
 	}
 	g := vvpFixture(t, "")
@@ -529,7 +529,7 @@ func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 	f := vvpFixture(t, "")
 	head := vgHead(t, f.wt)
 	rc, out, calls := f.prepare("--round-base", f.wt+"="+f.mb)
-	begin := "record dispatch begin -C " + f.wt + " -change demo -role verifier -model opus -effort low -key visual-verify -session-token mf-tok -diff-base " + head + " -round-base " + f.mb + "\n"
+	begin := "record dispatch begin -C " + f.wt + " -change demo -role visual-verifier -model opus -effort low -key visual-verify -session-token mf-tok -diff-base " + head + " -round-base " + f.mb + "\n"
 	if rc != 0 || !strings.Contains(calls, begin) || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: dispatch 1") || !strings.Contains(f.stageFile(), "row visual-verify "+f.wt+"\n") {
 		t.Fatalf("exit %d\n%s\n%s\n%s", rc, out, calls, f.stageFile())
 	}

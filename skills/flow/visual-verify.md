@@ -60,7 +60,7 @@ its last act before that is writing that `## Verdict`, with the full `## Report`
 > found are none. Report every departure you see in this one pass.
 
 **Recording.** `flow-guard visual-verify-pass prepare` begins each dispatch's row and `close` ends it (neither makes a stage mark),
-`-role verifier`, `-task` omitted, `-model`
+`-role visual-verifier`, `-task` omitted, `-model`
 and `-effort` the `DISPATCH:` line's pair, `-key visual-verify`, suffixed `-<repository name>` when this run's resolved set holds
 more than one worktree — the worktree's main checkout's basename, the name
 `flow-guard check-visual-trigger --repo` takes, since every worktree's own basename is the change name — the pair's semantics are section 4 of `skills/flow/implement.md`, cited

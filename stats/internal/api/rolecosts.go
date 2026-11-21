@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/modelpolicy"
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -82,6 +83,9 @@ var (
 func RoleOf(stored, key string) string {
 	if stored == "headless" { // a guard's headless model call: the key is its role
 		return key
+	}
+	if stored != "" && !records.IsLegacyRole(stored) { // already a roles-table role
+		return stored
 	}
 	for _, loop := range []string{"pipeline-fix", "self-review"} {
 		if !strings.HasPrefix(key, loop+"-") {
