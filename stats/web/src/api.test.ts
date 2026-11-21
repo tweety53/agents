@@ -10,6 +10,7 @@ import {
   listChanges,
   listStageRuns,
   putChange,
+  reviewSelfReviewFinding,
   STAGE_RUN_QUERY_FIELDS,
 } from "./api";
 import { RUN_DETAIL_STAGE_RUN_SORT_FIELD } from "./hooks/useRunDetail";
@@ -209,6 +210,11 @@ describe("fetch integration", () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
+  });
+
+  it("reviewSelfReviewFinding resolves on the server's empty 204", async () => {
+    globalThis.fetch = vi.fn(async () => new Response(null, { status: 204 })) as unknown as typeof fetch;
+    await expect(reviewSelfReviewFinding("p", 7, "approved")).resolves.toBeUndefined();
   });
 
   it("fetchStatsView requests the exact URL the server expects and returns its rows", async () => {

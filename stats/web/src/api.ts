@@ -638,6 +638,9 @@ async function handleResponse<T>(res: Response): Promise<T> {
     }
     throw new ApiError(res.status, message, code);
   }
+  if (res.status === 204) {
+    return undefined as T;
+  }
   return (await res.json()) as T;
 }
 
