@@ -78,7 +78,12 @@ const GUARD_INFO: Record<string, { does: string; approved: boolean }> = {
   "check-unfinished-work": { does: "Integrate gate: reports whether the change still has unfinished work", approved: true },
   "plan-triage": { does: "One headless model call deciding full or short planning for a new change", approved: true },
   "sweep-dispatch-rows": { does: "Closes dispatch rows whose stop was missed, from the agent's hand-back report", approved: false },
-  "check-gated-verdicts": { does: "Bounces a reviewer's stop once when its report names no task verdict line", approved: false },
+  "affected-specs": { does: "Prints the capture specs a diff can move, so a fix round recaptures those and no others", approved: false },
+  "break-and-prove": { does: "Flips a file with a sed or patch, runs the test command and restores the file, proving the test fails without the fix", approved: false },
+  "capture-workers": { does: "Prints how many Playwright workers a capture run takes, bounded by the machine's cores", approved: false },
+  "check-dev-stack-fresh": { does: "Before a handoff prints a dev stack's URL, checks it serves the worktree's own build", approved: false },
+  "check-finish-preflight": { does: "Decides whether /flow should integrate, from the worktree, its base and the recorded merge base", approved: false },
+  "check-loop-dispatch": { does: "Begins and ends the dispatch rows of a pipeline-fix or self-review loop under the change it belongs to", approved: false },
 };
 
 const byName = (a: GuardHealthRow, b: GuardHealthRow) => a.guard.localeCompare(b.guard);

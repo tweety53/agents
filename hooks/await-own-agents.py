@@ -156,19 +156,6 @@ def end_row(transcript: str, payload: dict) -> None:
         pass
 
 
-def gated_report_refused(transcript: str, payload: dict) -> bool:
-    """Block a gated reviewer's stop once when its report names no verdict (flow-guard check-gated-verdicts)."""
-    try:
-        r = subprocess.run([FLOW_GUARD, "check-gated-verdicts", transcript, payload.get("last_assistant_message") or ""],
-                           capture_output=True, text=True, timeout=30)
-    except Exception:
-        return False
-    if r.returncode != 1:
-        return False
-    print(json.dumps({"decision": "block", "reason": r.stdout.strip()}))
-    return True
-
-
 def main() -> None:
     try:
         payload = json.load(sys.stdin)
@@ -199,8 +186,6 @@ def main() -> None:
         }))
         return
     if not children:
-        if not payload.get("stop_hook_active") and gated_report_refused(transcript, payload):
-            return
         end_row(transcript, payload)
         return
     ids = " ".join(children)

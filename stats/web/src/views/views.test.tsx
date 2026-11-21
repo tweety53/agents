@@ -1778,7 +1778,7 @@ describe("flow health", () => {
   it("flow guards: a known guard shows its what-it-does hint, and approved ones their badge", async () => {
     answerGuards([
       gh("check-guard-calls", 10, 1, 0, 100, 1000, "2026-01-10T00:00:00Z"),
-      gh("check-gated-verdicts", 5, 0, 0, 10, 50, null),
+      gh("sweep-dispatch-rows", 5, 0, 0, 10, 50, null),
       gh("some-other-guard", 5, 0, 0, 10, 50, null),
     ]);
     render(<FlowHealth />);
@@ -1786,8 +1786,8 @@ describe("flow health", () => {
     const row = (name: string) => screen.getByText(name, { selector: "td *" }).closest("tr") as HTMLElement;
     expect(within(row("check-guard-calls")).getByText("approved")).toBeInTheDocument();
     expect(within(row("check-guard-calls")).getByText(/names a real guard/)).toBeInTheDocument();
-    expect(within(row("check-gated-verdicts")).queryByText("approved")).not.toBeInTheDocument();
-    expect(within(row("check-gated-verdicts")).getByText(/names no task verdict line/)).toBeInTheDocument();
+    expect(within(row("sweep-dispatch-rows")).queryByText("approved")).not.toBeInTheDocument();
+    expect(within(row("sweep-dispatch-rows")).getByText(/stop was missed/)).toBeInTheDocument();
     expect(within(row("some-other-guard")).queryByText("approved")).not.toBeInTheDocument();
   });
 

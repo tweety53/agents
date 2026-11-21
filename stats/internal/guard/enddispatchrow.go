@@ -253,34 +253,3 @@ func sweepDispatchRows(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	return 0
 }
-
-// flow-guard check-gated-verdicts <agent-transcript> [<final-message>] — for a gated reviewer bundle
-// (`task-<ids>-reviewer…` key), exit 1 naming the format when its final report holds no
-// `task <n>: fix|clean` line; exit 0 for any other agent, or a report that does. hooks/await-own-agents.py
-// blocks the reviewer's stop once on exit 1, so it rewrites the report instead of the row going `aborted`.
-// Go, in flow-guard (stats/internal/guard/enddispatchrow.go).
-func init() { Registry["check-gated-verdicts"] = checkGatedVerdicts }
-
-func checkGatedVerdicts(args []string, env Env, stdout, stderr io.Writer) int {
-	if len(args) < 1 || len(args) > 2 {
-		Reason(env, "usage")
-		fmt.Fprintln(stderr, "usage: flow-guard check-gated-verdicts <agent-transcript> [<final-message>]")
-		return 2
-	}
-	prompt, final, err := edrTranscript(args[0])
-	if err != nil {
-		return 0
-	}
-	if len(args) == 2 && strings.TrimSpace(args[1]) != "" {
-		final = args[1]
-	}
-	m := edrKey.FindStringSubmatch(prompt)
-	if m == nil || !edrGatedKey.MatchString(m[1]) || strings.TrimSpace(final) == "" ||
-		edrGatedFix.MatchString(final) || edrGatedClean.MatchString(final) {
-		return 0
-	}
-	Reason(env, "no-verdict-lines")
-	fmt.Fprintln(stdout, "Your report names no verdict. Hand back again with one line per task, each starting at the line's "+
-		"first character: `task <n>: clean|fix — Critical <n> Important <n> Minor <n> — <its report path>`.")
-	return 1
-}
