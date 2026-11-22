@@ -71,6 +71,12 @@ It reads `implementer-brief.md` and then this file in full first; every paragrap
 > computes — the same numbers the renderer will paint — and your report names why the pixel
 > output itself was not asserted.
 
+> **ASYNC READ ORDER:** a fix that adds or moves a data read — a fetch, a query, a subscription —
+> states in the code's comment or your report which answer wins when two reads of it are in
+> flight (the latest request, never the latest arrival), and its test delivers the answers in the
+> opposite order: the older read resolving after the newer one, the screen still showing the
+> newer. A fix to a read with no such test is rejected at the fix step, as a **PIXEL PROBE**'s is.
+
 > **LIVE RE-RUN:** a fix for a failure a live (browser) check or visual-verify raised re-runs
 > that failing scenario against the rebuilt stack, and your report names what it observed. A
 > unit test alone never closes such a fix: composition and lifecycle causes pass under a test
