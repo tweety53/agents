@@ -224,11 +224,27 @@ finding is never recorded as a suggestion — `flow self-review finding` refuses
 left out of the report; this holds for suggestions only, and fixes are recorded as they always were. Every impactful
 `big` finding, every impactful `flow-fix` finding step 3 or **The base sync** left unfixed, and every impactful
 `flow-improvement`, `flow-prompt-tuning`, `flow-cost` and `flow-automation` finding is recorded in step 5 as `suggested`, one row each,
-carrying its full `-detail`: one markdown body with `## Why` (what was found and why it matters, with the
-evidence), `## How` (the proposed change, files and steps) and `## DoD` (how to tell it is done), and for a
-`flow-prompt-tuning` finding the trace — the prompt file, the review slot and round that raised the defect,
-and the change's fix commit sha — so a later prompt change can be tied back to the review result that
-prompted it. A `fixed` row carries a `-detail` too: what was wrong, why, what the fix changed and the
+carrying its full `-detail`, written for the operator who decides on it and has not seen the run: one markdown body
+with these headings, in this order — `## Proposal` (the one change asked for, one or two sentences), `## What happened`
+(the situation in plain words: what the run was doing, what went wrong or well, and why that matters), `## Examples`
+(the concrete incidents, one bullet each: `<where it happened> — <what happened>`), `## Current text` (the exact
+sentence of the current prompt or contract that shows the gap, quoted; omit for a finding with no such text),
+`## Proposed change` (each file and a fenced `diff` of the edit; omit when the change is not an edit),
+`## Effort and risk` (three lines, `Effort: S|M|L`, `Touches: <files>`, `Risk: <one line>`), `## Benefit` (what stops
+happening or gets cheaper), `## Done when` (a checklist, one `- [ ]` item each) and `## Trace` (the prompt file, the
+review slot and round that raised the defect, and the change's fix commit sha for a `flow-prompt-tuning` finding;
+the bundle section or log line the finding came from for any other), so a later change can be tied back to
+what prompted it.
+
+**The detail is written to be read cold.** Say what happened as a short story in everyday words — the
+situation, the thing that went wrong, what it cost — before any term of this pipeline; each pipeline term
+(a slot, a round, a gate, a shard, a theme tag) is glossed in a few words the first time it appears, and a task
+number, finding id or sha is never the only way a thing is named. Every example says what a person would have
+seen, not only which step failed. State cause and effect in one sentence each, so the reader never has to join two
+sections to see why the proposal follows from the evidence; never a finding-id-only reference to another
+finding. A reader who knows the project but not this run must be able to approve or decline from the body alone.
+
+A `fixed` row carries a `-detail` too: what was wrong, why, what the fix changed and the
 evidence it holds.
 
 ### 5. Record every finding in the flow store
