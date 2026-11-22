@@ -685,6 +685,13 @@ sampling skipped that instant is no departure.
     run's handoff, not the committed record. **One entry per motion the motion step recorded**: its
     id, its strip's directory relative to the record, its frame count, and each departing frame's
     index and what it shows — or `clean`.
+    **A scoped pass and a `-rest` pass rewrite the whole record**, never only their own slice: every
+    view and pair of the change's list, each entry carrying its latest result under the key of the pass
+    that produced it — a frame an earlier pass found departing and this pass re-checked done reads
+    `done` under this pass's key, and a frame this pass did not re-check keeps its entry with the key
+    of the pass that last checked it. The record the change lands with then never names a departure
+    the closing pass closed (KAN-1155: it named `fix-13-rest` and the back-button circle as a
+    departure after `fix-21-rest` closed `done`).
 
 **The wire-contract check — when the prompt names one.** With no `wire contract:` line, the
 report's `wire contract:` line reads n/a. Otherwise, signed in as an account
