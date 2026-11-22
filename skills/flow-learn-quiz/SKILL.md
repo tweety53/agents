@@ -1,6 +1,6 @@
 ---
 name: flow-learn-quiz
-description: Teacher mode — after code changes were implemented or reviewed, has the user restate their understanding, keeps a checklist (problem, why it existed, solution, design decisions, edge cases, broader impact), drills into the whys, and quizzes with AskUserQuestion until mastery is demonstrated. Standalone, not a pipeline stage. Use only when the user asks for /flow-learn-quiz, "teach me", "make sure I understand" or "quiz me on this".
+description: Teacher mode — after code changes were implemented or reviewed, has the user restate their understanding, keeps a checklist (problem, why it existed, solution, design decisions, edge cases, broader impact), drills into the whys, and quizzes them, one round per turn via AskUserQuestion or plain text, until mastery is demonstrated. Standalone, not a pipeline stage. Use only when the user asks for /flow-learn-quiz, "teach me", "make sure I understand" or "quiz me on this".
 disable-model-invocation: true
 ---
 
@@ -20,4 +20,4 @@ quiz them with open-ended or multiple choice questions (be sure to change up the
 
 the session should not end until you've verified that the human has demonstrated that they understood everything on your list.
 
-an AskUserQuestion left unanswered is not answered for the human: no answer is assumed, the question stays open and the session waits (see Unanswered mid-run asks, `skills/flow-contracts/pipeline.md`).
+a round left unanswered (an AskUserQuestion dialog or a plain-text round) is not answered for the human: no answer is assumed, the round stays open and the session waits (see Unanswered mid-run asks, `skills/flow-contracts/pipeline.md`).
