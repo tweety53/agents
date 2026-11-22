@@ -182,10 +182,10 @@ case — replaces each section whose heading opens with bands, seams or ink, thr
 its level or higher, with one line naming the lines it held, its heading and the record's path,
 and its `git log --stat` lines leave out every `*.png` path. A source that is absent is reported
 `skipped: <source> (absent)` inside the bundle, never fatal.
-The session writes that document to `<sr-dir>/bundle.md` (**2. Read the bundle and run the three angles**, `skills/flow-self-review/SKILL.md`), never printing it — it is never committed.
+The session writes that document to `<sr-dir>/bundle.md` (**2. Read the bundle and run the five angles**, `skills/flow-self-review/SKILL.md`), never printing it — it is never committed.
 
 Over that bundle the session runs steps 2–5 of `/flow-self-review`
-(`skills/flow-self-review/SKILL.md`), canonical for the three angles, the fix and its
+(`skills/flow-self-review/SKILL.md`), canonical for the five angles, the fix and its
 dispatch pairs, where the fixes land (always the `self-review-<name>` loop branch, landed by `flow-guard pipeline-fix land`, never onto the change's branch), the filing and the store rows — on every route, before cleanup removes the worktrees.
 No report is written: the findings live in flowd. The session then ends the stage with
 `flow stage end -command '/flow' -stage flow.self-review -outcome completed <name>`; `cleanup` checks that row

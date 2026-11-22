@@ -11,7 +11,7 @@ Run a change's self-review reasoning pass — the only one the pipeline has — 
 `/flow`'s run 1 (**Run the self-review pass**,
 `skills/flow-contracts/finish-contract-run1.md`, canonical for that bundle's shape) or **5. Verify**
 (`skills/flow-fast/SKILL.md`) assembles: inside that run, or, as this standalone command, from the
-bundle run 2's cleanup saved in flowd (`flow change save`). This file is canonical for the three angles, what is fixed, what is suggested and the store record. **Neither the pass nor its fixes run
+bundle run 2's cleanup saved in flowd (`flow change save`). This file is canonical for the five angles, what is fixed, what is suggested and the store record. **Neither the pass nor its fixes run
 in this session**: step 2 dispatches the pass, and step 3 fixes, each a one-shot
 dispatch on the pair this file names — never the model this session runs on.
 
@@ -38,7 +38,7 @@ checkout on any other branch: print the branch and stop.
 **Both refusals bind the standalone command only.** A pass run inside `/flow`'s integrate or
 `/flow-fast`'s verify has its bundle at `<sr-dir>/bundle.md`, runs on the change branch, and starts at step 2.
 
-### 2. Read the bundle and run the three angles
+### 2. Read the bundle and run the five angles
 
 **This session passes file paths, never file contents.** Every handoff between this file's steps
 is a file in `<sr-dir>`, `<state-dir>/self-review/<name>/`, `<state-dir>` being the path `flow
@@ -65,7 +65,7 @@ step 3's fixer as a non-`big` finding whose first task is the trace, never into 
 into the run's final report as an open item. An observed test failure is fixed as the fix procedure (`skills/flow/fix.md`) states
 for one that does not reproduce within its bounded runs and goes straight to code, and a fix that closes it unreproduced is sent back.
 
-The pass runs the three-angle table over the bundle, every angle explicit —
+The pass runs the five-angle table over the bundle, every angle explicit —
 present-but-empty for an angle with no findings, never omitted:
 
 | # | Angle | Label |
@@ -73,6 +73,8 @@ present-but-empty for an angle with no findings, never omitted:
 | 1 | Problems encountered, and what pipeline change would avoid them | `flow-fix` |
 | 2 | What went well, and how to reproduce it | `flow-improvement` |
 | 3 | Instruction gaps that cost review-panel or visual-verify fix rounds, and the generic implementer or reviewer prompt update that would have avoided them | `flow-prompt-tuning` |
+| 4 | Token, time and wall-clock cost the run spent working or waiting, and what pipeline change would reduce it without quality loss | `flow-cost` |
+| 5 | A guard, check, hook, refusal, lint rule, script or other automation that would have avoided a problem or removed a manual step | `flow-automation` |
 
 A silent angle and a skipped angle are indistinguishable to a reader, which is why an empty angle says so.
 
@@ -116,9 +118,9 @@ An `In-run pipeline fix:` line in the bundle (**Pipeline defects found mid-run**
 `skills/flow-contracts/pipeline.md`) that names a sha is reported under angle 1 as fixed and
 is never offered for filing; one that reads `deferred` is an angle-1 finding like any other.
 
-**A finding is fixed or suggested only from the three angles.** A `flow-fix` finding is
-fixed in step 3 unless it is `big`, and suggested under its angle when it is. A `flow-improvement` or
-`flow-prompt-tuning` finding is never fixed in the run: it is suggested, in step 4. An observation with nothing to fix is reported and recorded `noted`, never
+**A finding is fixed or suggested only from the five angles.** A `flow-fix` finding is
+fixed in step 3 unless it is `big`, and suggested under its angle when it is. A `flow-improvement`,
+`flow-prompt-tuning`, `flow-cost` or `flow-automation` finding is never fixed in the run: it is suggested, in step 4. An observation with nothing to fix is reported and recorded `noted`, never
 filed. **An observation that names
 an action the run can take is a fixable finding, never `noted`**, unless the action is `big`, reaches production
 (`rules/never-touch-production.mdc`) or deletes what cannot be restored. **The pass covers
@@ -127,7 +129,7 @@ config, guards — and nothing else.** A finding about the project's own product
 scope: it is never filed, and goes to a fix run instead — a pass inside a run stops
 here, at the end of this step (**the sweep**, `skills/flow-contracts/known-bugs.md`). A landing HEAD
 whose UI no visual verifier saw is such a finding, never a risk line. The draft carries no
-section beyond the three angles.
+section beyond the five angles.
 
 **One combined pass** — never three separate reads. The pass covers what the bundle holds and
 nothing beyond it.
@@ -141,8 +143,8 @@ reach outside `<agents repo>`, whose fix goes where that section places it. An
 `In-run pipeline fix:` line naming a sha is already fixed and is not classified again. **A `big` finding is not fixed here**: step 4 files it, and its fix is a separate flow run.
 
 **A finding whose fix would add or extend a guard, check, hook, refusal, lint rule, script or other
-automation is never built by the pass and never suggested.** It is recorded `declined` in step 5, its
-note naming the proposal.
+automation is never built by the pass.** It is a `flow-automation` finding, suggested in step 4 like any other, its
+detail naming the proposal.
 
 **Every other `flow-fix` finding that is not `big` is fixed and landed without asking**, on one branch for the
 whole pass. A pass with none creates no worktree and dispatches nothing. No scope or cost question
@@ -221,7 +223,7 @@ Only an impactful finding is suggested: a Critical or Important one (`skills/flo
 finding is never recorded as a suggestion — `flow self-review finding` refuses `suggested` with `-severity minor` — and is
 left out of the report; this holds for suggestions only, and fixes are recorded as they always were. Every impactful
 `big` finding, every impactful `flow-fix` finding step 3 or **The base sync** left unfixed, and every impactful
-`flow-improvement` and `flow-prompt-tuning` finding is recorded in step 5 as `suggested`, one row each,
+`flow-improvement`, `flow-prompt-tuning`, `flow-cost` and `flow-automation` finding is recorded in step 5 as `suggested`, one row each,
 carrying its full `-detail`: one markdown body with `## Why` (what was found and why it matters, with the
 evidence), `## How` (the proposed change, files and steps) and `## DoD` (how to tell it is done), and for a
 `flow-prompt-tuning` finding the trace — the prompt file, the review slot and round that raised the defect,
