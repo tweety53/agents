@@ -790,6 +790,10 @@ func (v *vvp) dispatch(survivors []string, stack string) {
 		} else if bf := basesFile(filepath.Join(r.w, ".superpowers", "sdd"), r.key); !vrRestSegment.MatchString(r.key) {
 			_ = os.Remove(bf) // a stale bases file would outlive its round file
 		}
+		// A new row measures into an empty manifest, never an earlier pass's or round's.
+		if err := os.Remove(filepath.Join(r.w, ".superpowers", "sdd", "visual-manifest-"+r.key+".json")); err != nil && !os.IsNotExist(err) {
+			v.die("cannot-write", "cannot remove the manifest of %s: %v", r.key, err)
+		}
 		if out, rc := v.flow(argv...); rc != 0 {
 			// End the rows already begun so none is left open in the store.
 			for _, b := range begun {

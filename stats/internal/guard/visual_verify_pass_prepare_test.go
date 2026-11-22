@@ -609,6 +609,22 @@ func TestVisualVerifyPassPrepareWritesTheRoundFile(t *testing.T) {
 	}
 }
 
+// TestVisualVerifyPassPrepareStartsAnEmptyManifest: a row prepare begins measures into a manifest
+// of its own — an earlier pass's or round's manifest under the same key is deleted, never merged into.
+func TestVisualVerifyPassPrepareStartsAnEmptyManifest(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	f := vvpFixture(t, "")
+	manifest := filepath.Join(f.wt, ".superpowers/sdd/visual-manifest-visual-verify.json")
+	writeFile(t, manifest, `{"pairs":[{"spec":"old.spec.ts","frame":"stale"}]}`)
+	if rc, out, _ := f.prepare(); rc != 0 {
+		t.Fatalf("prepare: exit %d\n%s", rc, out)
+	}
+	if _, err := os.Stat(manifest); !os.IsNotExist(err) {
+		t.Fatalf("an earlier pass's manifest survived prepare (stat err %v)", err)
+	}
+}
+
 // TestVisualVerifyPassPrepareWritesTheDefects pins decisions defects-flag and
 // defects-in-round-file: a scoped row's --defects frames are the round
 // file's third field, comma-joined (kan-1122 self-review, F1).

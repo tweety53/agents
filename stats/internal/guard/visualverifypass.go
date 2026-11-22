@@ -348,10 +348,14 @@ import (
 //      extra row lacks, and per leaf the delta the matrix row carries
 //      (vvmCells, visualverifypass_measure.go), null when the matrix did not
 //      parse; an exit is null for a step not run. `spec` is the resolved spec path the pair was measured from. A
-//      call merges into an existing manifest of its key, replacing only its
-//      own spec's pairs (and any pair of a frame it measured): `captures` and
-//      `identical` are unioned, existing lines first, and `steps` are this
-//      call's; an absent or unparsable manifest is written fresh (kan-1102
+//      call merges into an existing manifest of its key. A pair is keyed
+//      by (spec, frame, `prototype`): the call replaces its own spec's pairs
+//      (and any pair of a frame it measured) that were measured the same way —
+//      a plain run keeps the spec's `prototype` pairs, a --prototype run its
+//      plain ones — and keeps every other pair. `captures`, `identical` and
+//      `steps` are unioned, existing first, this call's step winning; an absent
+//      or unparsable manifest is written fresh, and `prepare` deletes a row's
+//      manifest, so no earlier pass or round's pairs are read (kan-1102
 //      self-review, F2).
 //   5. with <worktree>/.superpowers/sdd/visual-round-<key>.txt present
 //      (prepare's step 10), before `MANIFEST:` it prints

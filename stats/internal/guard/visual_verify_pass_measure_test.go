@@ -656,3 +656,62 @@ func TestVisualVerifyPassMeasureFrames(t *testing.T) {
 		t.Fatalf("--frames with no value: exit %d, stderr %q, want 2 naming it", rc, stderr)
 	}
 }
+
+// TestVisualVerifyPassMeasureManifestKeysPairsByPrototype pins the manifest's pair key
+// (spec, frame, prototype): a plain run then a --prototype run over one spec keeps both
+// kinds of pair, and re-measuring either kind replaces only that kind's pair.
+func TestVisualVerifyPassMeasureManifestKeysPairsByPrototype(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	f := vvmFixture(t, "a.png frame-a\n")
+	vvmPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
+	writeFile(t, filepath.Join(f.changeRoot, "visual-verification/prototype.mockups"), "frame none\na.png a-darwin\n")
+	read := func() (plain, proto int) {
+		t.Helper()
+		b, err := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/visual-manifest-k.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var m struct {
+			Pairs []struct {
+				Frame     string
+				Prototype bool
+			}
+			Steps map[string]any
+		}
+		if err := json.Unmarshal(b, &m); err != nil {
+			t.Fatal(err)
+		}
+		for _, p := range m.Pairs {
+			if p.Prototype {
+				proto++
+			} else {
+				plain++
+			}
+		}
+		if len(m.Steps) == 0 {
+			t.Fatalf("manifest carries no steps: %s", b)
+		}
+		return plain, proto
+	}
+	measure := func(extra ...string) {
+		t.Helper()
+		args := append([]string{f.wt, "demo", "k", "tests/visual/app.spec.ts"}, extra...)
+		if rc, stdout, stderr := f.run(t, args...); rc != 0 {
+			t.Fatalf("measure %v: exit %d, stdout %q, stderr %q", extra, rc, stdout, stderr)
+		}
+	}
+	measure()
+	measure("--prototype")
+	if plain, proto := read(); plain != 1 || proto != 1 {
+		t.Fatalf("plain then --prototype: %d plain and %d prototype pairs, want 1 and 1", plain, proto)
+	}
+	measure()
+	if plain, proto := read(); plain != 1 || proto != 1 {
+		t.Fatalf("re-measured plain: %d plain and %d prototype pairs, want 1 and 1", plain, proto)
+	}
+	measure("--prototype")
+	if plain, proto := read(); plain != 1 || proto != 1 {
+		t.Fatalf("re-measured --prototype: %d plain and %d prototype pairs, want 1 and 1", plain, proto)
+	}
+}

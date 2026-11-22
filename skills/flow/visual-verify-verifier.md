@@ -130,7 +130,9 @@ reads every number on it as an exit.
    runs — `flow-guard resolve-visual-screenshots`, `flow-guard check-identical-baselines`, `flow-guard compose-mockup-frames`
    and `flow-guard measure-visual-properties`'s band, seam and matrix reads on every pair — the files it
    writes and its exits; it carries on past a step's non-zero exit and records each exit and its
-   stderr in the manifest it names, `<abs-worktree>/.superpowers/sdd/visual-manifest-<key>.json`. A
+   stderr in the manifest it names, `<abs-worktree>/.superpowers/sdd/visual-manifest-<key>.json`, which
+   each call merges into as its header states — another spec, or a `--prototype` run over the same one,
+   adds its pairs and drops none — so the manifest is never edited by hand. A
    sidecar written later, or a recapture, runs it again. Then read the manifest and every image it
    names — each capture, composite and cropped frame — in one turn of parallel Read calls.
    The resolver is what selects this run's fresh output from the committed baseline PNGs already

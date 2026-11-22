@@ -28,6 +28,7 @@ type vvmExits struct {
 type vvmPair struct {
 	Spec       string            `json:"spec"`
 	Frame      string            `json:"frame"`
+	Prototype  bool              `json:"prototype,omitempty"` // measured against the approved prototype, not a mockup
 	Capture    string            `json:"capture"`
 	Mockup     string            `json:"mockup"`
 	Composite  string            `json:"composite"`
@@ -136,7 +137,7 @@ func (v *vvp) measure(args []string) {
 		mockups = cellPath(w, c)
 	}
 	if _, err := os.Stat(sidecar); err != nil && !prototype || mockups == "" {
-		v.writeManifest(sdd, key, spec, m, failed)
+		v.writeManifest(sdd, key, spec, prototype, m, failed)
 	}
 
 	// Each map line is one pair; a stale cropped frame from an earlier run
@@ -179,7 +180,7 @@ func (v *vvp) measure(args []string) {
 
 	for _, l := range lines {
 		stem := strings.TrimSuffix(l.name, ".png")
-		p := vvmPair{Spec: spec, Frame: l.frame, Mockup: filepath.Join(mockups, l.frame+".png"),
+		p := vvmPair{Spec: spec, Frame: l.frame, Prototype: prototype, Mockup: filepath.Join(mockups, l.frame+".png"),
 			Stderr: map[string]string{}, Bands: []any{}, Seams: []any{}, Over: []any{}}
 		p.Exits.Resolve, p.Exits.Identical = resolveExit, identicalExit
 		if c := cmfMatchCapture(l.name, m.Captures); len(c) == 1 {
@@ -229,7 +230,7 @@ func (v *vvp) measure(args []string) {
 		}
 		m.Pairs = append(m.Pairs, p)
 	}
-	v.writeManifest(sdd, key, spec, m, failed)
+	v.writeManifest(sdd, key, spec, prototype, m, failed)
 }
 
 func (v *vvp) writeOut(path, body string) {
@@ -243,10 +244,13 @@ func (v *vvp) writeOut(path, body string) {
 }
 
 // writeManifest merges m into the key's manifest, prints its path and exits 1
-// when any step failed, else 0. An existing manifest that parses keeps its
-// pairs of other specs whose frame m does not carry, and its captures and
-// identical lines ahead of m's; steps are m's alone (kan-1102 self-review, F2).
-func (v *vvp) writeManifest(sdd, key, spec string, m vvmManifestOut, failed bool) {
+// when any step failed, else 0. A pair is keyed by (spec, frame, prototype): an
+// existing manifest that parses keeps every pair m does not replace — m replaces
+// the pairs of its own spec, and of a frame it measured, that were measured the
+// same way (a plain run keeps a spec's prototype pairs and a --prototype run its
+// plain ones). Captures and identical lines are unioned, existing first, and so
+// are steps, m's winning where both carry one (kan-1102 self-review, F2).
+func (v *vvp) writeManifest(sdd, key, spec string, prototype bool, m vvmManifestOut, failed bool) {
 	path := filepath.Join(sdd, "visual-manifest-"+key+".json")
 	// Only this call's pairs count, so the line is read before the merge.
 	if base, _, _, ok := readRound(sdd, key); ok {
@@ -271,7 +275,7 @@ func (v *vvp) writeManifest(sdd, key, spec string, m vvmManifestOut, failed bool
 		}
 		var pairs []vvmPair
 		for _, p := range old.Pairs {
-			if p.Spec != spec && !mine[p.Frame] {
+			if p.Prototype != prototype || p.Spec != spec && !mine[p.Frame] {
 				pairs = append(pairs, p)
 			}
 		}
@@ -279,6 +283,11 @@ func (v *vvp) writeManifest(sdd, key, spec string, m vvmManifestOut, failed bool
 		m.Specs = vvmUnion(old.Specs, m.Specs)
 		m.Captures = vvmUnion(old.Captures, m.Captures)
 		m.Identical = vvmUnion(old.Identical, m.Identical)
+		for k, s := range old.Steps {
+			if _, ok := m.Steps[k]; !ok {
+				m.Steps[k] = s
+			}
+		}
 	}
 	b, _ := json.MarshalIndent(m, "", "  ")
 	v.writeOut(path, string(b)+"\n")
