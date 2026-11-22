@@ -12,7 +12,7 @@ is read.
 
 The settings table's header folds to `setting|value` before it is compared — case and internal
 whitespace do not matter, so `| setting | VALUE |` matches as readily as `| Setting | Value |`, but
-the two columns and their order do. **Its `Setting` vocabulary is closed**: a name outside the eight
+the two columns and their order do. **Its `Setting` vocabulary is closed**: a name outside the nine
 rows below is reported and its row dropped, never silently ignored.
 
 | Setting | Required | Meaning |
@@ -25,6 +25,7 @@ rows below is reported and its row dropped, never silently ignored.
 | `mockup frame` | no | `scale=<int> status=<px> border=<px> [bare]`: the mockup PNGs' scale factor, the status-line height and the border width, the last two in logical px; the optional word `bare` marks a device render with no page around it, cropped by the border on every side and the status line on top, with no bottom search. Declared, the compose step crops each frame to its content area — the sides and the top from these values, the bottom found per frame as the first row below the status line every one of whose pixels between the borders equals the page colour at (0, 0) — and reports a capture whose size differs from the cropped frame as a finding rather than composing it. Absent, frames compose at native size, uncropped, with no size check. A `<spec>.mockups` sidecar's `frame <geometry>` or `frame none` lines override this value, each for the pairs below it until the next, `none` composing them at native size, uncropped. |
 | `design repo` | no | `<clone path> <remote>`: the design repository `flow-guard render-frames` renders tagged frames from. The clone's real `origin` must equal `<remote>` — the same identity assertion as `regression repo`'s. |
 | `preflight apps` | no | Comma-separated `<app-root>=<url>` cells: the apps `flow-guard visual-verify-pass prepare` pre-flights and probes for this worktree when no `--app` names it, `<app-root>` relative to the worktree and `<url>` with each `${VAR}` replaced from `flow-guard prepare-workspace`'s output and `<name>` with the change name; a pair whose root does not exist is dropped. Absent means `--app` is required. |
+| `tolerance` | no | `<n>px at <k>x`: the length tolerance `flow-guard visual-verify-pass measure` flags by, `<n>` in capture pixels and `<k>` the capture scale it is stated at — `2px at 2x` is 1dp. Absent, the default is `2px at 2x`. A position or size delta of at most `<n>` px is not flagged: `measure` counts it on its `within-tolerance: <count>` line and lists it, with the measured value, in `<changeRoot>/visual-verification/within-tolerance.md`. It never reaches a colour, a missing or extra row, or copy, which flag as before. A value of any other shape is a usage error of `measure` (exit 2). |
 
 The commands table's header folds the same way, to `command|runs` — the same heading
 `## workspace isolation` above already establishes for a table of project-declared commands, reused
