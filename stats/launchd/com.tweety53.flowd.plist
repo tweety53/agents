@@ -34,6 +34,14 @@
 	<key>WorkingDirectory</key>
 	<string>/Users/tweety53/Projects/agents/stats</string>
 
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>FLOW_EMBED_URL</key>
+		<string>http://127.0.0.1:8099</string>
+		<key>FLOW_PGVECTOR_DSN</key>
+		<string>postgres://flow:flow@localhost:5434/flowvec?sslmode=disable</string>
+	</dict>
+
 	<key>RunAtLoad</key>
 	<true/>
 

@@ -156,6 +156,13 @@ override LIVE_PORT := 4173
 override LIVE_BIN := bin/flowd
 override LIVE_LOG := /tmp/flow-live.log
 
+# The live daemon runs hybrid self-review similarity (README: "Hybrid self-review
+# similarity"), so `restart` hands it the sidecar and pgvector addresses; a caller's
+# own value wins. A sidecar or container that is down degrades `similar` to BM25
+# with a warning, never to an error.
+export FLOW_EMBED_URL ?= http://127.0.0.1:8099
+export FLOW_PGVECTOR_DSN ?= postgres://flow:flow@localhost:5434/flowvec?sslmode=disable
+
 # `restart` touches $(LIVE_MARKER) before it kills the live daemon and removes
 # it on every exit after that: once the new daemon answers, or when the old
 # one will not exit or the new one never answers. Its reader is `do`
