@@ -45,7 +45,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > ```
 >
 > `<name>` is the last path element of your `Plan:` line's change directory. At 100% pass `-score
-> 100` alone with the first three flags: nothing is filed. **Then continue, whatever the number**
+> 100` with the first three flags and no `-gap` or `-tag`: it is kept as a plain 100%, outside the review list. **Then continue, whatever the number**
 > — a low estimate is never a question, never a `BLOCKED` and never a reason to change the plan;
 > a gap that is a question only the operator can settle still goes through **REPORT, DON'T
 > DECIDE**, as it would unestimated. A warning or a non-zero exit of either command is noted in
@@ -182,7 +182,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 >
 > ```text
 > status: DONE | BLOCKED
-> confidence: <n>% — filed | nothing to file
+> confidence: <n>% — filed
 > commit: <task-id> <full sha>
 > fixed: F<n> <full sha>
 > not-fixed: F<n> — <reason>
@@ -190,7 +190,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > report: <this report file's absolute path>
 > ```
 >
-> `status:` and `report:` appear once, and so does `confidence:` — the CONFIDENCE FIRST estimate you made, `filed` after a `flow confidence record` call below 100% and `nothing to file` at 100% (a fixer omits it); a head without it says the estimate was skipped (KAN-1156: three implementers ran no `flow confidence` call at all); every other line once per item — a `commit:` per
+> `status:` and `report:` appear once, and so does `confidence:` — the CONFIDENCE FIRST estimate you made, `filed` after your `flow confidence record` call, at 100% too (a fixer omits it); a head without it says the estimate was skipped (KAN-1156: three implementers ran no `flow confidence` call at all); every other line once per item — a `commit:` per
 > task, its sha a `<worktree>=<sha>[,<worktree>=<sha>…]` map on a change spanning repositories, a
 > `fixed:` or `not-fixed:` per finding a FIX INPUT names — and not at all when there is none.
 

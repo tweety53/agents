@@ -139,7 +139,8 @@ func TestConfidenceEstimateRefusals(t *testing.T) {
 	ok := records.ConfidenceEstimate{Change: "kan-1", Stage: "implement", Task: "1", Score: 80, Gaps: []string{"g"}, Tags: []string{"refusal-" + projectKey}}
 	for name, mutate := range map[string]func(*records.ConfidenceEstimate){
 		"no change":                func(e *records.ConfidenceEstimate) { e.Change = "" },
-		"score 100":                func(e *records.ConfidenceEstimate) { e.Score = 100 },
+		"score 101":                func(e *records.ConfidenceEstimate) { e.Score = 101 },
+		"100 with a gap":           func(e *records.ConfidenceEstimate) { e.Score = 100 },
 		"score 0":                  func(e *records.ConfidenceEstimate) { e.Score = 0 },
 		"no gap":                   func(e *records.ConfidenceEstimate) { e.Gaps = nil },
 		"blank gap":                func(e *records.ConfidenceEstimate) { e.Gaps = []string{" "} },
@@ -187,5 +188,28 @@ func TestConfidenceEstimatesForChange(t *testing.T) {
 	}
 	if none, err := st.ConfidenceEstimatesForChange(ctx, projectKey, "kan-9"); err != nil || none == nil || len(none) != 0 {
 		t.Errorf("kan-9 = %+v, %v, want an empty non-nil slice", none, err)
+	}
+}
+
+// TestConfidenceHundredIsKeptOutsideTheReviewList: a 100% estimate with no gap and no tag is stored and
+// read back for its change, and no review list or count holds it.
+func TestConfidenceHundredIsKeptOutsideTheReviewList(t *testing.T) {
+	t.Parallel()
+	st, _, projectKey := newHazardStore(t)
+	ctx := context.Background()
+	before, err := st.ConfidenceEstimatesPage(ctx, "to-review", 100, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.RecordConfidenceEstimate(ctx, projectKey, records.ConfidenceEstimate{Change: "kan-100", Stage: "implement", Task: "4", Score: 100}); err != nil {
+		t.Fatalf("a 100%% estimate with no gap and no tag: %v", err)
+	}
+	got, err := st.ConfidenceEstimatesForChange(ctx, projectKey, "kan-100")
+	if err != nil || len(got) != 1 || got[0].Score != 100 || len(got[0].Gaps) != 0 {
+		t.Fatalf("for change: %+v, %v", got, err)
+	}
+	after, err := st.ConfidenceEstimatesPage(ctx, "to-review", 100, 0)
+	if err != nil || after.ToReview != before.ToReview || after.Total != before.Total {
+		t.Errorf("the review list changed: before %+v after %+v (%v)", before.ToReview, after.ToReview, err)
 	}
 }

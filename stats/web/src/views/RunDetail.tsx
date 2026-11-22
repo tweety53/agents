@@ -605,7 +605,7 @@ function requestLook(t: PlanTask): { cls: string; mark: string } {
   return t.outcome === "dropped" ? { cls: "dropped", mark: "–" } : { cls: t.outcome ?? "landed", mark: "✓" };
 }
 
-/** The change's confidence estimates below 100% (KAN-1130): one percentage per planner and per implementer group, its gaps on hover. Absent while there are none. */
+/** The change's confidence estimates (KAN-1130), 100% ones included: one percentage per planner and per implementer group, its gaps on hover. Absent while there are none. */
 function ConfidencePanel({ rows, order }: { rows: ConfidenceRow[]; order: number }) {
   if (rows.length === 0) return null;
   return (

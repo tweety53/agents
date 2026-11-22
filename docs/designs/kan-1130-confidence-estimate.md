@@ -65,11 +65,11 @@ reads those fields: the planner reads the line, and the store keeps it verbatim)
 — migration 0098 — `review_status` (`to-review` on insert, then `approved` or `declined`) with an
 optional `review_reason`, both set from the dashboard and never by `flow confidence record`. No
 uniqueness: a re-dispatched implementer's second estimate is a second response. A 100% response
-is not stored — `flow confidence record -score 100` exits 0 and writes nothing, so an implementer
-runs the same command whatever its number.
+is stored too (migration 0099, the operator's later decision) with no gap and no tag, so a group
+that was sure shows as sure; the Confidence dashboard and its counts read only the rows below 100,
+the run page and the Decisions panel read them all.
 **Considered:** rows in `self_review_findings` under a new angle (the operator asked for a
-different table, and that one's angle, severity, effort and theme columns mean nothing here);
-storing 100% responses too (the operator asked for those below 100%).
+different table, and that one's angle, severity, effort and theme columns mean nothing here).
 
 ### Planning asks once: raise it, or later
 

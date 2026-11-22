@@ -51,7 +51,7 @@ func TestConfidenceRecordPostsTheEstimate(t *testing.T) {
 	}
 }
 
-// TestConfidenceRecordExits: 100 writes nothing and exits 0; a store refusal
+// TestConfidenceRecordExits: 100 is sent to the store like any score; a store refusal
 // is exit 2; a store that cannot take the row is one warning and exit 0, so
 // an implementer never stops on it; a missing -change is exit 2.
 func TestConfidenceRecordExits(t *testing.T) {
@@ -66,8 +66,8 @@ func TestConfidenceRecordExits(t *testing.T) {
 			_, _ = w.Write([]byte(`{"error":"no"}`))
 		}
 	}
-	if code, stdout, _ := confidenceRun(t, answer(http.StatusCreated), append(base, "-score", "100")...); code != 0 || calls != 0 || !strings.Contains(stdout, "nothing to file") {
-		t.Errorf("score 100: exit %d, %d calls, stdout %q — want exit 0, no call", code, calls, stdout)
+	if code, stdout, _ := confidenceRun(t, answer(http.StatusCreated), append(base, "-score", "100")...); code != 0 || calls != 1 {
+		t.Errorf("score 100: exit %d, %d calls, stdout %q — want exit 0, one call", code, calls, stdout)
 	}
 	if code, _, stderr := confidenceRun(t, answer(http.StatusBadRequest), append(base, "-score", "70")...); code != 2 || !strings.Contains(stderr, "refused") {
 		t.Errorf("refused: exit %d, stderr %q — want exit 2", code, stderr)

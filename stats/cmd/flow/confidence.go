@@ -28,8 +28,7 @@ Files one confidence estimate (KAN-1130): how confident the caller is, 1-100,
 that the plan is executed as written, each -gap one thing that would move it
 to 100, in full. -stage plan takes -disposition: raised when the operator had
 the gaps closed, later when they were deferred. -stage implement takes -task,
-the dispatch's task ids ("2+3"). Only an estimate below 100 is kept: -score
-100 writes nothing and exits 0. A filed estimate is always "to review": its
+the dispatch's task ids ("2+3"). At 100 pass neither -gap nor -tag: the estimate is kept as a plain 100%, outside the review list. A filed estimate is always "to review": its
 review status is set on the Confidence dashboard, never here. An unreachable
 store is a warning and exit 0; a refused estimate is exit 2.
 `
@@ -83,10 +82,6 @@ func runConfidence(ctx context.Context, args []string, getenv func(string) strin
 		projectKey, _, code := parseSelfReviewFlags(fset, &f, args[1:], getenv, stderr)
 		if code >= 0 {
 			return code
-		}
-		if in.Score == 100 {
-			fmt.Fprintln(stdout, "flow: confidence 100% — nothing to file")
-			return 0
 		}
 		_, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.ConfidenceEstimate, error) {
 			return cl.RecordConfidenceEstimate(ctx, projectKey, f.change, in)

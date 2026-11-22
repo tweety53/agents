@@ -49,7 +49,7 @@ const pick = (role: string, p: Pick | undefined, run?: string): Line[] =>
 
 const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** The lowest estimate an implementer filed for any task of a group; none when it filed nothing (100% files nothing). */
+/** The lowest estimate an implementer filed for any task of a group; none when it filed none. */
 const confidenceOf = (rows: ConfidenceRow[], ids: string[]): number | undefined => {
   const hit = rows.filter((r) => r.stage === "implement" && (r.task ?? "").split("+").some((t) => ids.includes(t)));
   return hit.length ? Math.min(...hit.map((r) => r.score)) : undefined;
@@ -86,7 +86,7 @@ function lines(d: Decision, dispatches: RecordDispatch[], confidence: Confidence
   ];
 }
 
-/** `confidence` is the change's estimates below 100% (KAN-1130): a group that filed one shows its percentage beside its pair. */
+/** `confidence` is the change's estimates (KAN-1130): a group that filed one shows its percentage beside its pair. */
 export function DecisionsPanel({ decision, dispatches = [], confidence = [] }: { decision: Decision; dispatches?: RecordDispatch[]; confidence?: ConfidenceRow[] }) {
   return (
     <section className="lb-panel" aria-label="Decisions">

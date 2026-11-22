@@ -17,8 +17,8 @@ var ErrConfidenceEstimateInvalid = errors.New("store: invalid confidence estimat
 
 var confidenceTag = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
-// validateConfidenceEstimate is the boundary: a score of 1-99 (100 has no
-// gap and is not kept), at least one non-blank gap and one kebab-case tag, a
+// validateConfidenceEstimate is the boundary: a score of 1-100; below 100 at least one non-blank gap and one
+// kebab-case tag, at 100 neither (it has nothing to close); a
 // plan row with a disposition and no task, an implement row with a task and
 // no disposition.
 func validateConfidenceEstimate(e records.ConfidenceEstimate) error {
@@ -28,10 +28,13 @@ func validateConfidenceEstimate(e records.ConfidenceEstimate) error {
 	if e.Change == "" {
 		return bad("change is required")
 	}
-	if e.Score < 1 || e.Score > 99 {
-		return bad("score must be 1-99, got %d", e.Score)
+	if e.Score < 1 || e.Score > 100 {
+		return bad("score must be 1-100, got %d", e.Score)
 	}
-	if len(e.Gaps) == 0 {
+	if e.Score == 100 && (len(e.Gaps) > 0 || len(e.Tags) > 0) {
+		return bad("a 100%% estimate carries no gap and no tag")
+	}
+	if e.Score < 100 && len(e.Gaps) == 0 {
 		return bad("at least one gap is required")
 	}
 	for _, g := range e.Gaps {
@@ -39,7 +42,7 @@ func validateConfidenceEstimate(e records.ConfidenceEstimate) error {
 			return bad("a gap is blank")
 		}
 	}
-	if len(e.Tags) == 0 {
+	if e.Score < 100 && len(e.Tags) == 0 {
 		return bad("at least one tag is required")
 	}
 	for _, t := range e.Tags {
@@ -69,6 +72,13 @@ func (s *Store) RecordConfidenceEstimate(ctx context.Context, projectKey string,
 		return records.ConfidenceEstimate{}, err
 	}
 	out := in
+	if out.Gaps == nil {
+		out.Gaps = []string{}
+	}
+	if out.Tags == nil {
+		out.Tags = []string{}
+	}
+	in = out
 	out.Project, out.Reason = projectKey, ""
 	if err := s.pool.QueryRow(ctx, `
 		INSERT INTO confidence_estimates (project_key, change, stage, task, score, gaps, tags, disposition)
@@ -135,7 +145,7 @@ func (s *Store) ReviewConfidenceEstimate(ctx context.Context, projectKey string,
 	return nil
 }
 
-// ConfidencePage is one page of the Confidence dashboard: the rows carrying
+// ConfidencePage is one page of the Confidence dashboard (estimates below 100%): the rows carrying
 // the chosen review status, how many rows that list holds in all, and the
 // count of every status (for the status chips).
 type ConfidencePage struct {
@@ -157,14 +167,14 @@ func (s *Store) ConfidenceEstimatesPage(ctx context.Context, status string, limi
 		  count(*) FILTER (WHERE review_status = 'to-review'),
 		  count(*) FILTER (WHERE review_status = 'approved'),
 		  count(*) FILTER (WHERE review_status = 'declined')
-		FROM confidence_estimates
+		FROM confidence_estimates WHERE score < 100
 	`, status).Scan(&out.Total, &out.ToReview, &out.Approved, &out.Declined); err != nil {
 		return out, fmt.Errorf("store: count confidence estimates: %w", err)
 	}
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, project_key, change, stage, COALESCE(task, ''), score, gaps, tags, COALESCE(disposition, ''), recorded_at, review_status, COALESCE(review_reason, '')
 		FROM confidence_estimates
-		WHERE review_status = $1
+		WHERE review_status = $1 AND score < 100
 		ORDER BY recorded_at DESC, id DESC
 		LIMIT $2 OFFSET $3
 	`, status, limit, offset)
