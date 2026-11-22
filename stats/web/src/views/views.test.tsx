@@ -1103,6 +1103,7 @@ describe("views render their fixture response's actual values", () => {
     await user.click(screen.getByRole("button", { name: "Copy for agent" }));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("85%"));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("- the fixture is missing"));
+    expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/Analyze what can be done and where\.$/));
 
     // Declining with a reason stores both and takes the row off the list.
     await user.type(screen.getByLabelText("Reason"), " not a real gap ");

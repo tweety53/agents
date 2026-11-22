@@ -18,7 +18,7 @@ const title = (r: ConfidenceRow) => `${r.score}% · ${r.change}`;
 
 /** The estimate, whole, for pasting to an agent: nothing here is readable by a store verb, so the text carries it. */
 const agentText = (r: ConfidenceRow) =>
-  `Confidence estimate ${r.project}/${r.change} (${r.stage}${r.task ? ` task ${r.task}` : ""}): ${r.score}%.\nWhat would move it to 100%:\n${r.gaps.map((g) => `- ${g}`).join("\n")}\nTags: ${r.tags.join(", ")}`;
+  `Confidence estimate ${r.project}/${r.change} (${r.stage}${r.task ? ` task ${r.task}` : ""}): ${r.score}%.\nWhat would move it to 100%:\n${r.gaps.map((g) => `- ${g}`).join("\n")}\nTags: ${r.tags.join(", ")}\n\nAnalyze what can be done and where.`;
 
 function Meta({ row }: { row: ConfidenceRow }) {
   return (
