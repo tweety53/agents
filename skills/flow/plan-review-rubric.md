@@ -76,3 +76,43 @@ statement the code refutes is a `blocker`: quote the statement and the code line
 Name at most three trade-offs the design accepted and, for each, a pattern that would remove the
 trade-off rather than balance it. Every entry is `advisory`. With none, write the literal line
 `No false compromise detected.`
+
+## Execution confidence
+
+Asked last, of the plan as a whole, from the seat of the implementers who are handed its tasks
+with nothing but the three artifacts and the repository:
+
+- How confident are you, 1–100%, that those implementers build this plan as written, and that the
+  check `design.md`'s `## Verification` names then passes, without a pivot, a `BLOCKED` or a
+  question back to the operator?
+- What would move that to 100%? One gap per thing, each naming the action that closes it.
+
+What this lens adds beyond the lenses above it: a premise about a tool, a library or the harness
+that the plan relies on and no task checks; something a task needs that is not there (a fixture,
+a mockup frame, a credential, a running service); a task too large for one implementer's context
+that is not marked `**Size:** big`; an ordering the `**After:**` fields do not express; a
+verification step that could pass with the behaviour broken. A gap an earlier lens already raised
+is cited by its `F<k>`, never raised a second time.
+
+The section's shape is fixed, because `flow-guard plan-check` reads it:
+
+```text
+### Execution confidence
+
+CONFIDENCE: 78%
+Lowered by: F3, F7
+**F9** [finding] tasks.md:41 — closes with: plan — Task 4 relies on a flag no task checks — stats/cmd/flow/record.go:112 parses it as a positive integer
+**F10** [finding] design.md:63 — closes with: operator — the export's column order is not stated and the ticket shows two — proposal.md:14 against the ticket's sample
+**F11** [advisory] tasks.md:58 — closes with: running it — whether the deadline holds on a cold cache is not knowable from the text — no measurement in design.md
+```
+
+- `CONFIDENCE: <n>%` — one line, `<n>` an integer 1–100.
+- `Lowered by: F<k>[, F<k>…]` — the earlier lenses' findings the number already accounts for;
+  omitted when none.
+- One finding line per new gap, in the report's own shape and numbering, its "what is wrong"
+  opening `closes with: plan|operator|running it —`: what closes the gap is an edit to the plan,
+  an answer only the operator has, or nothing short of running the work.
+- A gap that closes with `plan` or `operator` is a `finding`; one that closes only with
+  `running it` is `advisory`. The lens raises no `blocker`.
+- `CONFIDENCE: 100%` carries no gap line and no `Lowered by:`; below 100%, at least one of the
+  two is present.

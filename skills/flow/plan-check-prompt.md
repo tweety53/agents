@@ -20,7 +20,8 @@ Apply each lens of the rubric in its order. Write one `### <lens>` section per l
 order. A section holds its findings, or the literal line `No finding.`, or `not run — <why>` for
 a lens you could not apply — never `No finding.` in that case. A finding is one line,
 `**F<k>** [blocker|finding|advisory] <artifact>:<line> — <what is wrong> — <the evidence>`, `<k>`
-counting from 1 across the whole report.
+counting from 1 across the whole report. The last section, `### Execution confidence`, opens
+with its `CONFIDENCE: <n>%` line in the shape the rubric fixes for that lens.
 
 The report's last line is `PLAN-CHECK-CLEAN` when it holds no finding of any severity, else
 `PLAN-CHECK-FINDINGS <count>`.

@@ -6,7 +6,7 @@ transitions (off until the three `FLOWD_JIRA_*` variables are set). When the dae
 go to an on-disk journal and replay later.
 
 The web UI at http://127.0.0.1:4173 has the state board, stage leaderboard, cost trends, reviewers,
-role costs, self-review fixes, flow guards and a per-run detail page. The **Agent roles** view is
+role costs, self-review fixes, confidence estimates, flow guards and a per-run detail page. The **Agent roles** view is
 also where each role's models are edited ([Roles and models](roles-and-models.md)).
 
 Setup, the launchd agent, the UI-test stack, pricing and Jira credentials:

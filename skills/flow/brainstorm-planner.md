@@ -72,7 +72,8 @@ Investigate read-only, then present the design.
 
 - **Now or later is never asked.** Where the options are doing work the design needs in this
   change or deferring it to a later change or ticket, now is taken and recorded under
-  `## Decisions`.
+  `## Decisions`. The one exception is the plan check's confidence question (**Plan review**,
+  below).
 
 - **A round file opens with `## Summary`** — at most ten lines: the decisions the operator's answers settled
   and what is still open. The Summary names no auto-taken decision — an auto-taken pick lives only
@@ -295,6 +296,38 @@ beside the options. Write each finding still standing into `design.md`'s `## Ris
 `Accepted: <the finding> — <why>` — a contest of the reviewer's reading names the path:line it
 rests on — re-run `spectre validate`, and return `PLAN-WRITTEN`.
 
+**A confidence below 100% is put to the operator, before anything is triaged.** When
+`<abs-worktree>/.superpowers/sdd/confidence.json` exists and its `score` is below 100, the
+triaging dispatch's first return is `QUESTIONS`, its round file holding one question:
+`### Q<n>. The plan check is <score>% confident this plan is executed as written — raise it now?`
+Its `**Context:**` lists every entry of the file's `gaps` verbatim, each followed by the
+suggestion that closes it — the edit to the plan, the question the operator would be asked, or
+what only running the work can show. It has exactly two options, **Raise it** — apply every
+suggestion now — and **Later** — file the estimate and go on — and **no recommended option**, so
+the `## decisions: recommended` mode asks it too. A gap that closes with `operator` is not asked
+in this round: it is asked only once the answer is **Raise it**.
+
+- **Raise it** — the fresh final planner that takes the answer triages the report as above, with
+  every gap in scope: a `closes with: plan` gap is fixed in the artifacts, a `closes with:
+  operator` gap is one more `QUESTIONS` round, a `closes with: running it` gap is written into
+  `## Risks` as `Accepted: …`. It then files the estimate with `-disposition raised`.
+- **Later** — it changes nothing for the gaps: each is written into `## Risks` as
+  `Accepted: <the gap> — deferred by the operator at the confidence question`, the report's other
+  findings are triaged as above, and the estimate is filed with `-disposition later`.
+
+**Filing is list, then reuse or create.** Run `flow confidence tags`; for each kind of gap, reuse
+a printed tag that fits it, and write a new lowercase kebab-case tag only when none does — a tag
+names the kind of gap (`unchecked-premise`, `missing-fixture`), never the change. Then, once:
+
+```bash
+flow confidence record -change <name> -stage plan -score <score> -disposition <raised|later> \
+  -gap '<one entry of gaps, verbatim>' [-gap …] -tag <tag> [-tag …]
+```
+
+`<score>` is `confidence.json`'s, the cold reader's number: it is never re-estimated after the
+gaps are closed. Exit 2 is a refused estimate — correct the flag its stderr names and re-run; an
+unreachable store warns and exits 0, and the planner goes on.
+
 ### Plan check gate
 
 **One headless pass reviews the plan and decides how it is built and reviewed**, once the final
@@ -325,7 +358,9 @@ It exits 0 on a printed block and 2 on a usage error or an unreadable file.
 **The plan is never acted on unread.** Once the plan-check step has printed its `## Decision` block,
 print the plan summary — plain prose on what will be built and how: the behaviour added or changed, the approach, the seams and decisions that matter and what was left out; no per-task rows — and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The `STARTED` handoff block** (`skills/flow/brainstorm.md`) under it. The
 summary ends on two lines of their own: `**Design:** <absolute path of design.md>` and
-`**Plan check:** <absolute path of the report> — clean | <n> fixed, <n> accepted | not run`.
+`**Plan check:** <absolute path of the report> — clean | <n> fixed, <n> accepted | not run`,
+followed on the same line by ` · confidence <n>% at plan check` when the guard's stdout line
+carried a number.
 
 Then the question — `/flow-plan`'s wording is **Save the plan?**, `/flow`'s is **Proceed to
 implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs

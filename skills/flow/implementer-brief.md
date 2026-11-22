@@ -32,6 +32,25 @@ this file in full first: its prompt is a stub naming this file, never these para
 > wrote and undid before committing is never what its subject or body describes (**Revert and
 > back-out commits**, `skills/flow-contracts/git-boundaries.md`).
 
+> **CONFIDENCE FIRST:** An implementer's first act after reading its tasks and the files they
+> name, before its first edit, is one estimate, filed and never acted on. Answer for the tasks of
+> this dispatch: how confident are you, 1–100%, that you execute them as the plan writes them, and
+> what would move you to 100% — one gap per thing, each naming what would close it. Then run
+> `flow confidence tags`, reuse a printed tag that fits each kind of gap and write a new lowercase
+> kebab-case tag only when none does (a tag names the kind of gap, never the change), and file it:
+>
+> ```bash
+> flow confidence record -C <abs-worktree> -change <name> -stage implement -task '<the ids of your Key, e.g. 2+3>' \
+>   -score <n> -gap '<one gap, in full>' [-gap …] -tag <tag> [-tag …]
+> ```
+>
+> `<name>` is the last path element of your `Plan:` line's change directory. At 100% pass `-score
+> 100` alone with the first three flags: nothing is filed. **Then continue, whatever the number**
+> — a low estimate is never a question, never a `BLOCKED` and never a reason to change the plan;
+> a gap that is a question only the operator can settle still goes through **REPORT, DON'T
+> DECIDE**, as it would unestimated. A warning or a non-zero exit of either command is noted in
+> your REPORT FILE and does not stop you. A fixer skips this paragraph.
+
 > **REQUIRED SUB-SKILL:** Read and follow superpowers:test-driven-development from its file — on
 > Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/test-driven-development/SKILL.md`
 > — RED-GREEN-REFACTOR for this task. Delete any code written before its test.

@@ -324,6 +324,12 @@ flow self-review finding -change <name> -angle flow-fix -disposition fixed -ref 
 
 `-severity` grades the defect: `important` when it blocked a step of the run, `minor` otherwise.
 
+**A confidence estimate below 100% is one row of its own**, never a self-review finding:
+`flow confidence tags` lists the tags in use and `flow confidence record` files the estimate —
+by the planner triaging a plan check (**Plan review**, `skills/flow/brainstorm-planner.md`) and by
+every implementer as its first act (**CONFIDENCE FIRST**, `skills/flow/implementer-brief.md`).
+`flow confidence` with no argument prints both usages.
+
 On the merge-and-push route `flow-guard pipeline-fix land` records that row itself once its push succeeds — `<name>` read off the branch `pipeline-fix-<name>-<k>`, `-ref` the loop's first commit, `-blast-radius` the number of files the loop's diff touches, `-note` that commit's subject — in the flowd project of the directory it runs from, so the parent runs it from the running change's own working directory; on any other route the parent records the row with the command above.
 
 A deferred fix records no row here; the self-review pass records it once it decides it.

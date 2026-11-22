@@ -218,11 +218,14 @@ and the self-review planner never run it.
    ```
 
    Its header is canonical for the call, its fallback and its exits. It writes
-   `<abs-worktree>/.superpowers/sdd/plan-check.md` and the decision; exit 2 stops the run with its
-   stderr.
-2. **`PLAN-CHECK-CLEAN`** — go on.
-3. **`PLAN-CHECK-FINDINGS`** — dispatch a fresh final planner, its prompt naming the report's
-   absolute path; it triages the report per **Plan review** (`skills/flow/brainstorm-planner.md`).
+   `<abs-worktree>/.superpowers/sdd/plan-check.md`, the decision and, when the report states one,
+   the execution confidence as `<abs-worktree>/.superpowers/sdd/confidence.json`; exit 2 stops the
+   run with its stderr.
+2. **`PLAN-CHECK-CLEAN`** and no `confidence <n>%` below 100 on the guard's stdout line — go on.
+3. **`PLAN-CHECK-FINDINGS`, or a `confidence <n>%` below 100** — dispatch a fresh final planner, its prompt naming the report's
+   absolute path; it triages the report per **Plan review** (`skills/flow/brainstorm-planner.md`),
+   whose **A confidence below 100% is put to the operator** is the one question of this step that
+   is always asked.
    Its `QUESTIONS` return is relayed as step 2 of the section above relays a round, and a fresh
    final dispatch takes the answers. Its `PLAN-WRITTEN` return closes the check; nothing is
    checked a second time, and a changed `tasks.md` re-decides once (**Plan check gate**,
