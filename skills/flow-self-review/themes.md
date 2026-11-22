@@ -52,3 +52,11 @@ prefix, `uncategorized` included. Read a theme's findings back with
 | `shared-state-leak` | a test or tool that reads or writes state it does not own — the live store, the installed binary, a shared worktree, another session's files, a leftover process |
 | `worktree-sync-loss` | content lost or mis-resolved moving between trees — a sync conflict, a rebase, a cherry-pick, a throwaway copy removed with its files |
 | `live-check-evidence` | a live check against a store copy or the running app, and what its before/after evidence proved or could not |
+| `worktree-env-wiring` | an environment file, port variable or sibling repository that does not reach a worktree — an unlinked `.env`, an unexported URL or port, a frontend not found from a `<repo>-worktrees` tree |
+| `verifier-contract-gap` | a visual-verifier report, verdict or skip condition whose contract leaves a case open — an incomplete report, an invented exit code, a skip rule that hides a view |
+| `tooling-flag-misbehaviour` | a CLI, flag or script that misbehaves or lacks a capability it needs — a flag refused in one position, an add-only edit, a hand-written runner, a missing column |
+| `leftover-artifact` | a stray, unrestored or unignored file left in a worktree or copy — a zip, a vendored copy, a `.DS_Store`, a file a step should have removed |
+| `misleading-refusal-hint` | a refusal or message that names no recovery, or names the wrong command or file, so the reader fixes the wrong thing |
+| `verify-run-ordering` | a verify or visual run gated or ordered so it runs too early, too late or twice — before the stack is fresh, before a rebase, after a fix it should have followed |
+| `output-file-handling` | a generated, gitignored or output file written, kept or committed wrongly — a result file overwritten, a log committed, a path that moves between runs |
+| `cost-token-measurement` | a cost, token or timing figure measured, attributed or printed wrongly — a double count, a missing bucket, a figure no row carries |
