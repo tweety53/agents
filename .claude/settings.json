@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flow-guard:*)",
+      "Bash(flow:*)",
+      "Bash(npx playwright test:*)",
+      "Bash(./gradlew:*)",
+      "Bash(git -C * commit *)",
+      "Bash(git -C * status*)",
+      "Bash(git -C * diff*)",
+      "Bash(git -C * log*)",
+      "Bash(python3 -I /private/tmp/*)"
+    ]
+  }
+}
