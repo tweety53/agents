@@ -100,7 +100,8 @@ import (
 //      counts F, the distinct frame ids of the capture specs'
 //      sidecar lines plus the declared frames no line maps (decision
 //      shard-unscoped-single-worktree); a scoped pass (--round-base) counts
-//      the frames its --defects name instead (none named: unsharded), and
+//      the frames its --defects name instead, else every listed frame no
+//      passing round recapture (rcCaptured) stands for, and
 //      each of its shards' round files carries only the defects in its own
 //      slice (KAN-1091). Above 25 it writes one `spec <abs>`
 //      line per capture spec and one `slice s<i>of<n> <frame,…>` line per

@@ -1159,7 +1159,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		}
 	})
 
-	t.Run("a scoped pass shards only over more than 25 defects, each shard holding its own", func(t *testing.T) {
+	t.Run("a scoped pass shards over more than 25 frames, each shard holding its own defects", func(t *testing.T) {
 		t.Parallel()
 		f := vvpShardFixture(t, 60, "")
 		round := func(key string) string {
@@ -1182,9 +1182,14 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		if rc, out, _ := g.prepare("--round-base", g.wt+"="+g.mb, "--defects", g.wt+"="+strings.Join(vvpFrames("F", 1, 25), ",")); rc != 0 || strings.Contains(g.stageFile(), "slice ") || len(vvpLines(out, "DISPATCH: ")) != 1 {
 			t.Fatalf("25 defects: exit %d\n%s", rc, out)
 		}
+		// No defects named: the scoped verifier still reads every frame no passing recapture
+		// stands for, so 60 frames and no receipt shard into three, each its own round file.
 		h := vvpShardFixture(t, 60, "")
-		if rc, out, _ := h.prepare("--round-base", h.wt+"="+h.mb); rc != 0 || strings.Contains(h.stageFile(), "slice ") || len(vvpLines(out, "DISPATCH: ")) != 1 {
-			t.Fatalf("--round-base with no defects: exit %d\n%s", rc, out)
+		if rc, out, _ := h.prepare("--round-base", h.wt+"="+h.mb); rc != 0 || !strings.Contains(h.stageFile(), "slice s3of3 ") || len(vvpLines(out, "DISPATCH: ")) != 3 {
+			t.Fatalf("--round-base with no defects over 60 frames: exit %d\n%s", rc, out)
+		}
+		if b, err := os.ReadFile(filepath.Join(h.wt, ".superpowers/sdd/visual-round-visual-verify-s2of3.txt")); err != nil || len(strings.Fields(string(b))) != 2 {
+			t.Errorf("shard round file %q (%v), want `<base> <instant>` and no defects", b, err)
 		}
 	})
 
