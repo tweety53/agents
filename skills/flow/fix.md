@@ -147,7 +147,10 @@ changed screen alone to spare the others, and its steps carry two more. Every ba
 moves is recaptured: every spec `flow-guard affected-specs <worktree> <round base> <capture root>`
 prints for the fix's own diff where the capture root holds a `<spec>.sources` sidecar, else every
 spec `specs` prints for it — none when it prints
-nothing — runs through one `capture` run with `--update-snapshots=all`
+nothing — plus every capture spec the fix's task names in its `**Tests:**` line — when it fixes a shared
+component, every spec whose frames show that component, named by the planner or the finding that
+raised the fix, never left for the diff to reveal (KAN-1091: six verify breaks after fixes to a shared component whose images sat in specs the
+task never listed) — runs through one `capture` run with `--update-snapshots=all`
 appended (step 8, `skills/flow/visual-verify-verifier.md`), and every PNG whose bytes changed is
 read first, per **The sweep** (`skills/flow-contracts/known-bugs.md`), and
 committed with the fix, in the checkout step 12 of **Steps 3–13** (`skills/flow/visual-verify.md`)
