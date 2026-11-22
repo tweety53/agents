@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -33,17 +34,26 @@ import (
 // no rubric, an answer of the `===DECISION===` line and the JSON alone — writes
 // the decision alone and leaves plan-check.md untouched.
 //
+// The full mode also derives <worktree>/.superpowers/sdd/confidence.json from
+// the report (KAN-1130): `{"score": <n>, "gaps": [...]}`, the score of the
+// `CONFIDENCE: <n>%` line (1-100) under the report's `### Execution
+// confidence` heading and every non-blank line after it up to the next
+// heading or the report's last line, verbatim. A report with no such line
+// removes a confidence.json an earlier check left. -decide-only neither
+// writes nor removes it.
+//
 // The fallback is per part: no `===DECISION===` line falls back both; a report
 // ending otherwise falls back the report alone, to a one-line report
 // `PLAN-CHECK-NOT-RUN`; a decision failing its checks falls back the decision
 // alone, to dgpvFallback's. Any failed call (no decider pair, the command
 // missing or failing, the deadline) falls back both. One stderr line names the
 // cause; stdout is one line, `plan-check (judge|fallback): <report> · <n>
-// groups · panel <a+b> … · visual <verify>`.
+// groups · panel <a+b> … · visual <verify>`, and in the full mode
+// ` · confidence <n>%` or ` · confidence unknown` after it.
 //
 // Exit 0 on a written result, whatever the model did. Exit 2, nothing on
 // stdout: usage (reason usage), a tasks.md that is unreadable or holds no
-// task (plan-unreadable), or a decision or report file that cannot be written
+// task (plan-unreadable), or a decision, report or confidence file that cannot be written
 // (cannot-write-result).
 //
 // Go, in flow-guard (stats/internal/guard/plancheck.go).
@@ -56,6 +66,7 @@ const (
 
 var (
 	pcSeparator  = regexp.MustCompile(`(?m)^===DECISION===[ \t]*$`)
+	pcConfidence = regexp.MustCompile(`(?m)^CONFIDENCE: ([0-9]{1,3})%[ \t]*$`)
 	pcLastLine   = regexp.MustCompile(`^(PLAN-CHECK-CLEAN|PLAN-CHECK-FINDINGS [0-9]+)$`)
 	pcNotRunText = "plan check not run: the model answer could not be used\nPLAN-CHECK-NOT-RUN\n"
 )
@@ -106,7 +117,7 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return err
 	}
-	last := "unchanged"
+	last, confidence := "unchanged", ""
 	if !decideOnly {
 		if report == "" {
 			report = pcNotRunText
@@ -117,6 +128,23 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 		last = strings.TrimSpace(report[strings.LastIndex(strings.TrimSpace(report), "\n")+1:])
+		confPath := filepath.Join(wt, ".superpowers", "sdd", "confidence.json")
+		var err error
+		if score, gaps := pcConfidenceOf(report); score > 0 {
+			confidence = fmt.Sprintf(" · confidence %d%%", score)
+			cb, _ := json.MarshalIndent(map[string]any{"score": score, "gaps": gaps}, "", "  ")
+			err = write(confPath, append(cb, '\n'))
+		} else {
+			confidence = " · confidence unknown"
+			if err = os.Remove(confPath); os.IsNotExist(err) {
+				err = nil
+			}
+		}
+		if err != nil {
+			fmt.Fprintf(stderr, "plan-check: %v\n", err)
+			Reason(env, "cannot-write-result")
+			return 2
+		}
 	}
 	if err := write(out, append(b, '\n')); err != nil {
 		fmt.Fprintf(stderr, "plan-check: %v\n", err)
@@ -127,8 +155,38 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, p := range d.Panel {
 		bundles = append(bundles, strings.Join(p.Slots, "+"))
 	}
-	fmt.Fprintf(stdout, "plan-check (%s): %s · %d groups · panel %s · visual %s%s\n", source, last, len(d.Groups), strings.Join(bundles, " "), d.Visual.Verify, spend)
+	fmt.Fprintf(stdout, "plan-check (%s): %s · %d groups · panel %s · visual %s%s%s\n", source, last, len(d.Groups), strings.Join(bundles, " "), d.Visual.Verify, confidence, spend)
 	return 0
+}
+
+// pcConfidenceOf reads the report's `### Execution confidence` section: the
+// score of its `CONFIDENCE: <n>%` line, 1-100, and every non-blank line after
+// that one up to the next heading or the report's last line, verbatim. A
+// score of 0 means the section or a well-formed line is missing.
+func pcConfidenceOf(report string) (score int, gaps []string) {
+	gaps = []string{}
+	_, section, found := strings.Cut(report, "### Execution confidence")
+	if !found {
+		return 0, gaps
+	}
+	m := pcConfidence.FindStringSubmatchIndex(section)
+	if m == nil {
+		return 0, gaps
+	}
+	score, _ = strconv.Atoi(section[m[2]:m[3]])
+	if score < 1 || score > 100 {
+		return 0, gaps
+	}
+	for _, l := range strings.Split(section[m[1]:], "\n") {
+		l = strings.TrimSpace(l)
+		if strings.HasPrefix(l, "#") || pcLastLine.MatchString(l) {
+			break
+		}
+		if l != "" {
+			gaps = append(gaps, l)
+		}
+	}
+	return score, gaps
 }
 
 // pcAsk runs the check; a nil decision or empty report is the part to fall back.

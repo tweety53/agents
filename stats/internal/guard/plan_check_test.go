@@ -325,3 +325,83 @@ func TestPlanCheckAddsTheSecuritySlotOnAMatchingFile(t *testing.T) {
 		})
 	}
 }
+
+const pcConfReport = "**F1** [finding] tasks.md:3 — a gap\n\n### Execution confidence\n\nCONFIDENCE: 78%\nLowered by: F1\n\n" +
+	"**F2** [finding] tasks.md:9 — closes with: plan — no task checks the flag — the evidence\n" +
+	"**F3** [advisory] design.md:1 — closes with: running it — the migration is untried\n\nPLAN-CHECK-FINDINGS 3\n"
+
+// TestPlanCheckWritesConfidence: a well-formed CONFIDENCE line under the
+// report's Execution confidence section becomes confidence.json — the score
+// and every line after it, verbatim — and the stdout line names the number.
+func TestPlanCheckWritesConfidence(t *testing.T) {
+	t.Parallel()
+	args, wt, _ := pcFixture(t)
+	stub := newPJStub(t, pjJSON(pcAnswer(pcConfReport, dgpvGood), ""))
+	r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
+	if r.rc != 0 || !strings.Contains(r.stdout, " · confidence 78%") {
+		t.Fatalf("rc=%d stdout=%q err=%q", r.rc, r.stdout, r.err)
+	}
+	b, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "confidence.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Score int      `json:"score"`
+		Gaps  []string `json:"gaps"`
+	}
+	if err := json.Unmarshal(b, &got); err != nil {
+		t.Fatalf("%v: %s", err, b)
+	}
+	want := []string{"Lowered by: F1",
+		"**F2** [finding] tasks.md:9 — closes with: plan — no task checks the flag — the evidence",
+		"**F3** [advisory] design.md:1 — closes with: running it — the migration is untried"}
+	if got.Score != 78 || !slices.Equal(got.Gaps, want) {
+		t.Errorf("confidence.json = %s", b)
+	}
+}
+
+// TestPlanCheckDropsStaleConfidence: a report with no well-formed CONFIDENCE
+// line removes a confidence.json an earlier check left, says `confidence
+// unknown`, and still writes the report and exits 0.
+func TestPlanCheckDropsStaleConfidence(t *testing.T) {
+	t.Parallel()
+	for name, report := range map[string]string{
+		"no section":   pcReport,
+		"not a number": "### Execution confidence\n\nCONFIDENCE: high\nPLAN-CHECK-CLEAN\n",
+		"over 100":     "### Execution confidence\n\nCONFIDENCE: 140%\nPLAN-CHECK-CLEAN\n",
+		"zero":         "### Execution confidence\n\nCONFIDENCE: 0%\nPLAN-CHECK-CLEAN\n",
+		"no heading":   "CONFIDENCE: 80%\nPLAN-CHECK-CLEAN\n",
+	} {
+		args, wt, _ := pcFixture(t)
+		conf := filepath.Join(wt, ".superpowers", "sdd", "confidence.json")
+		writeFile(t, conf, `{"score":50,"gaps":[]}`)
+		stub := newPJStub(t, pjJSON(pcAnswer(report, dgpvGood), ""))
+		r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
+		if r.rc != 0 || !strings.Contains(r.stdout, " · confidence unknown") {
+			t.Errorf("%s: rc=%d stdout=%q err=%q", name, r.rc, r.stdout, r.err)
+		}
+		if _, err := os.Stat(conf); !os.IsNotExist(err) {
+			t.Errorf("%s: stale confidence.json survived (%v)", name, err)
+		}
+		if b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md")); string(b) != report {
+			t.Errorf("%s: report = %q", name, b)
+		}
+	}
+}
+
+// TestPlanCheckDecideOnlyLeavesConfidence: -decide-only neither rewrites nor
+// removes confidence.json and prints no confidence token.
+func TestPlanCheckDecideOnlyLeavesConfidence(t *testing.T) {
+	t.Parallel()
+	args, wt, _ := pcFixture(t)
+	conf := filepath.Join(wt, ".superpowers", "sdd", "confidence.json")
+	writeFile(t, conf, `{"score":50,"gaps":["kept"]}`)
+	stub := newPJStub(t, pjJSON(pcAnswer(pcConfReport, dgpvGood), ""))
+	r := runGuard("plan-check", append(args, "-decide-only"), pjEnv(t, pjPolicy(dgpvPolicy), stub))
+	if r.rc != 0 || strings.Contains(r.stdout, "confidence") {
+		t.Fatalf("rc=%d stdout=%q err=%q", r.rc, r.stdout, r.err)
+	}
+	if b, _ := os.ReadFile(conf); string(b) != `{"score":50,"gaps":["kept"]}` {
+		t.Errorf("confidence.json changed: %q", b)
+	}
+}
