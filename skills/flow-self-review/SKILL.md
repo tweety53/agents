@@ -230,7 +230,7 @@ with these headings, in this order — `## Proposal` (the one change asked for, 
 (the concrete incidents, one bullet each: `<where it happened> — <what happened>`), `## Current text` (the exact
 sentence of the current prompt or contract that shows the gap, quoted; omit for a finding with no such text),
 `## Proposed change` (each file and a fenced `diff` of the edit; omit when the change is not an edit),
-`## Effort and risk` (three lines, `Effort: S|M|L`, `Touches: <files>`, `Risk: <one line>`), `## Benefit` (what stops
+`## Effort and risk` (three lines, `Effort: S|M|L`, `Touches: <files>`, `Risk: <one line>`, and a fourth, `Guard: new — <the guard's name> | extends <the existing flow-guard it extends>`, on a finding about a guard — one that adds a check, a refusal or a verdict — so the operator sees at once whether it asks for a new guard or more from one that exists, by searching `guard.Registry` first), `## Benefit` (what stops
 happening or gets cheaper), `## Done when` (a checklist, one `- [ ]` item each) and `## Trace` (the prompt file, the
 review slot and round that raised the defect, and the change's fix commit sha for a `flow-prompt-tuning` finding;
 the bundle section or log line the finding came from for any other), so a later change can be tied back to

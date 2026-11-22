@@ -114,6 +114,7 @@ function Detail({ row, same }: { row: SelfReviewRow; same: SelfReviewRow[] }) {
           ["Touches", field(er, "Touches")],
           ["Seen", same.length ? `${same.length + 1}× (theme)` : "first time"],
           ["Risk", field(er, "Risk")],
+          ...(field(er, "Guard") ? [["Guard", field(er, "Guard")]] : []),
         ].map(([k, v]) => (
           <div key={k} className="sr-stat">
             <div className="sr-k">{k}</div>

@@ -393,7 +393,7 @@ const fixtures: Record<
   "self-review": envelope("self-review", [
     { id: 1, recordedAt: "2026-01-12T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-fix", note: "[theme: guard-false-pass] guard misses a case", disposition: "fixed", ref: "abc1234", blastRadius: 3, severity: "important", detail: "## Why\nthe guard skips empty input", reviewStatus: "", reason: "", theme: "guard-false-pass", effort: "", commitUrl: "https://github.com/o/r/commit/abc1234" },
     { id: 2, recordedAt: "2026-01-11T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-cost", note: "cheaper reviewer", disposition: "fixed", ref: "def5678", blastRadius: null, severity: "minor", detail: "", reviewStatus: "", commitUrl: "https://github.com/o/r/commit/def5678" },
-    { id: 3, recordedAt: "2026-01-10T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-speed", note: "[theme: guard-false-pass] cache the guard", disposition: "suggested", ref: "", blastRadius: null, severity: "minor", detail: "## Proposal\nCache the guard result.\n\n## What happened\nThe guard re-ran on every call.\n\n## Examples\n- task 3 — ran 40 times\n\n## Effort and risk\nEffort: S\nTouches: 1 file\nRisk: Low\n\n## Done when\n- [ ] faster", reviewStatus: "to-review", reason: "", theme: "guard-false-pass", effort: "S", commitUrl: "" },
+    { id: 3, recordedAt: "2026-01-10T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-speed", note: "[theme: guard-false-pass] cache the guard", disposition: "suggested", ref: "", blastRadius: null, severity: "minor", detail: "## Proposal\nCache the guard result.\n\n## What happened\nThe guard re-ran on every call.\n\n## Examples\n- task 3 — ran 40 times\n\n## Effort and risk\nEffort: S\nTouches: 1 file\nRisk: Low\nGuard: extends check-references\n\n## Done when\n- [ ] faster", reviewStatus: "to-review", reason: "", theme: "guard-false-pass", effort: "S", commitUrl: "" },
     { id: 4, recordedAt: "2026-01-09T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "split the brief", disposition: "suggested", ref: "", blastRadius: null, severity: "minor", detail: "## Why\nlong", reviewStatus: "declined", reason: "too noisy", theme: "", effort: "", commitUrl: "" },
     { id: 5, recordedAt: "2026-01-08T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "panel caught it early", disposition: "noted", ref: "", blastRadius: null, severity: "", detail: "", reviewStatus: "", commitUrl: "" },
   ]),
@@ -1017,6 +1017,7 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.getByText("Cache the guard result.")).toBeInTheDocument();
     expect(screen.getByText("The guard re-ran on every call.")).toBeInTheDocument();
     expect(screen.getByText("2× (theme)")).toBeInTheDocument();
+    expect(screen.getByText("extends check-references")).toBeInTheDocument(); // a guard finding says new or an extension
     expect(screen.getByText("guard misses a case", { exact: false })).toBeInTheDocument(); // same theme before
     expect(screen.queryByRole("link", { name: "abc1234" })).not.toBeInTheDocument();
 
