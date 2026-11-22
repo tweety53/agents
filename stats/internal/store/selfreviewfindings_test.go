@@ -467,3 +467,34 @@ func TestSelfReviewFindingThemeAndEffortColumns(t *testing.T) {
 		t.Fatalf("theme/effort = %v", got)
 	}
 }
+
+// TestSimilarSelfReviewFindings: the findings sharing the query's words come back best first with a
+// score, the theme prefix is not searched, an unrelated one is left out, and a bad query or n is invalid.
+func TestSimilarSelfReviewFindings(t *testing.T) {
+	t.Parallel()
+	st, _, projectKey := newHazardStore(t)
+	ctx := context.Background()
+	for _, f := range []records.SelfReviewFinding{
+		{Change: "kan-1", Angle: "a", Note: "[theme: guard-false-pass] guard passes on a stale cache", Disposition: "noted"},
+		{Change: "kan-2", Angle: "a", Note: "[theme: other] button colour", Disposition: "noted", Detail: "dashboard styling"},
+	} {
+		if _, err := st.RecordSelfReviewFinding(ctx, projectKey, f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := st.SimilarSelfReviewFindings(ctx, projectKey, "stale cache guard", 5)
+	if err != nil || len(got) != 1 || got[0].Change != "kan-1" || got[0].Score <= 0 || got[0].Theme != "guard-false-pass" {
+		t.Fatalf("got %+v, err %v; want only kan-1 with a score and its theme", got, err)
+	}
+	if got, err := st.SimilarSelfReviewFindings(ctx, projectKey, "theme", 5); err != nil || len(got) != 0 {
+		t.Fatalf("theme prefix searched: %+v, err %v", got, err)
+	}
+	for _, c := range []struct {
+		q string
+		n int
+	}{{"", 5}, {"x", 0}, {"x", 51}} {
+		if _, err := st.SimilarSelfReviewFindings(ctx, projectKey, c.q, c.n); !errors.Is(err, store.ErrSelfReviewFindingInvalid) {
+			t.Fatalf("%q n=%d: err = %v, want ErrSelfReviewFindingInvalid", c.q, c.n, err)
+		}
+	}
+}

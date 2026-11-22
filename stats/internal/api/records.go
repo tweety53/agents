@@ -131,6 +131,7 @@ type RecordStore interface {
 	RecordSelfReviewFinding(ctx context.Context, projectKey string, in records.SelfReviewFinding) (records.SelfReviewFinding, error)
 	ListSelfReviewFindings(ctx context.Context, projectKey, change string) ([]records.SelfReviewFinding, error)
 	GetSelfReviewFinding(ctx context.Context, projectKey string, id int64) (records.SelfReviewFinding, error)
+	SimilarSelfReviewFindings(ctx context.Context, projectKey, query string, n int) ([]records.SimilarSelfReviewFinding, error)
 	ReviewSelfReviewFinding(ctx context.Context, projectKey string, id int64, status, reason string) error
 
 	// InsertSuiteRun and ListSuiteRuns are KAN-252's suite-runtime

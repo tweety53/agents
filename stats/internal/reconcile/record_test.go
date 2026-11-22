@@ -1552,3 +1552,11 @@ func (*fakeRecordStore) ReviewSelfReviewFinding(context.Context, string, int64, 
 func (*fakeRecordStore) GetSelfReviewFinding(context.Context, string, int64) (records.SelfReviewFinding, error) {
 	return records.SelfReviewFinding{}, nil
 }
+
+func (nopRecordStore) SimilarSelfReviewFindings(context.Context, string, string, int) ([]records.SimilarSelfReviewFinding, error) {
+	return nil, nil
+}
+
+func (*fakeRecordStore) SimilarSelfReviewFindings(context.Context, string, string, int) ([]records.SimilarSelfReviewFinding, error) {
+	return nil, nil
+}

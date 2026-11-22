@@ -257,6 +257,7 @@ flow self-review finding -change <name> -angle <label> -disposition fixed|sugges
 ```
 
 `-note` opens with the finding's theme prefix, `uncategorized` for a finding no tag fits (**The theme list**, `skills/flow-self-review/themes.md`).
+Before recording an `uncategorized` finding the pass may run `flow self-review similar '<the finding in a few words>'` and read the earlier findings it prints; it ranks the project's recorded findings by their wording, and a close match shows which theme the earlier one took.
 `-ref` is the landed sha for `fixed`, and omitted for `suggested`, `declined` and `noted`; `-detail` is required for `suggested`;
 `-blast-radius` is step 3's count; `-severity` is the grade the pass gave the finding, required for `fixed` and `suggested`, which `flow self-review finding` refuses without it, and omitted for `declined` or `noted` when the pass gave none. An `In-run pipeline fix:`
 line naming a sha gets no second row when `flow self-review findings -change <name>` already

@@ -253,3 +253,51 @@ func (s *Store) GetSelfReviewFinding(ctx context.Context, projectKey string, id 
 	}
 	return f, nil
 }
+
+// SimilarSelfReviewFindings returns the project's n findings most similar to query by BM25 over
+// each finding's note (without its theme prefix) and the first 600 characters of its detail.
+func (s *Store) SimilarSelfReviewFindings(ctx context.Context, projectKey, query string, n int) ([]records.SimilarSelfReviewFinding, error) {
+	if len(bm25Tokens(query)) == 0 || n < 1 || n > 50 {
+		return nil, fmt.Errorf("%w: similar needs a non-empty query and n between 1 and 50", ErrSelfReviewFindingInvalid)
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, change, angle, note, disposition, COALESCE(ref, ''), blast_radius, COALESCE(severity, ''), COALESCE(detail, ''), COALESCE(review_status, ''), recorded_at, COALESCE(theme, '')
+		FROM self_review_findings
+		WHERE project_key = $1
+		ORDER BY id
+	`, projectKey)
+	if err != nil {
+		return nil, fmt.Errorf("store: similar self-review findings for %s: %w", projectKey, err)
+	}
+	defer rows.Close()
+	var all []records.SimilarSelfReviewFinding
+	var docs []string
+	for rows.Next() {
+		var f records.SimilarSelfReviewFinding
+		if err := rows.Scan(&f.ID, &f.Change, &f.Angle, &f.Note, &f.Disposition, &f.Ref, &f.BlastRadius, &f.Severity, &f.Detail, &f.ReviewStatus, &f.RecordedAt, &f.Theme); err != nil {
+			return nil, fmt.Errorf("store: similar self-review findings for %s: scan: %w", projectKey, err)
+		}
+		note := f.Note
+		if strings.HasPrefix(note, "[theme: ") {
+			if _, rest, ok := strings.Cut(note, "] "); ok {
+				note = rest
+			}
+		}
+		detail := []rune(f.Detail)
+		if len(detail) > 600 {
+			detail = detail[:600]
+		}
+		docs = append(docs, note+" "+string(detail))
+		all = append(all, f)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("store: similar self-review findings for %s: %w", projectKey, err)
+	}
+	out := []records.SimilarSelfReviewFinding{}
+	for _, h := range bm25Rank(query, docs, n) {
+		f := all[h.Index]
+		f.Score = h.Score
+		out = append(out, f)
+	}
+	return out, nil
+}

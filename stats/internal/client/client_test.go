@@ -1371,3 +1371,7 @@ func (stubStageStore) GetSelfReviewFinding(context.Context, string, int64) (reco
 func (stubStageStore) SelfReviewFindingsPage(context.Context, store.Period, *string, string, string, int, int) (store.SelfReviewPage, error) {
 	return store.SelfReviewPage{}, nil
 }
+
+func (stubStageStore) SimilarSelfReviewFindings(context.Context, string, string, int) ([]records.SimilarSelfReviewFinding, error) {
+	return nil, nil
+}

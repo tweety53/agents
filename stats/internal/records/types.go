@@ -864,3 +864,11 @@ func PanelFindings(fs []Finding) []Finding {
 	}
 	return out
 }
+
+// SimilarSelfReviewFinding is a self-review finding returned by the similarity read, with its
+// theme (read from the note's prefix) and its BM25 score against the query.
+type SimilarSelfReviewFinding struct {
+	SelfReviewFinding
+	Theme string  `json:"theme,omitempty"`
+	Score float64 `json:"score"`
+}

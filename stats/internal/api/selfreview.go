@@ -47,6 +47,7 @@ type selfreviewStore interface {
 	ListSelfReviewFindings(ctx context.Context, projectKey, change string) ([]records.SelfReviewFinding, error)
 	// GetSelfReviewFinding backs the by-id read the flow CLI's finding-get makes.
 	GetSelfReviewFinding(ctx context.Context, projectKey string, id int64) (records.SelfReviewFinding, error)
+	SimilarSelfReviewFindings(ctx context.Context, projectKey, query string, n int) ([]records.SimilarSelfReviewFinding, error)
 
 	// ReviewSelfReviewFinding backs the review route: the operator's approve or decline of a suggestion.
 	ReviewSelfReviewFinding(ctx context.Context, projectKey string, id int64, status, reason string) error
@@ -302,4 +303,24 @@ func (h *statsHandler) selfReviewPage(w http.ResponseWriter, r *http.Request) {
 		Total: page.Total, ToReview: page.ToReview, Approved: page.Approved, Declined: page.Declined,
 		Limit: limit, Offset: offset, Rows: toSelfReviewDTOs(page.Rows, h.commitBase),
 	})
+}
+
+// similarFindings serves GET /api/v1/self-review-similar/{project}?q=<text>&n=<N> (default 5): the
+// project's findings most similar to the text, best first, each with its score.
+func (h *selfreviewHandler) similarFindings(w http.ResponseWriter, r *http.Request) {
+	n := 5
+	if v := r.URL.Query().Get("n"); v != "" {
+		var err error
+		if n, err = strconv.Atoi(v); err != nil {
+			writeError(w, http.StatusBadRequest, "n must be a number")
+			return
+		}
+	}
+	out, err := h.store.SimilarSelfReviewFindings(r.Context(), r.PathValue("project"), r.URL.Query().Get("q"), n)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, "similar self-review findings", err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
 }

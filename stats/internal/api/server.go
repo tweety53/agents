@@ -415,6 +415,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("POST /api/v1/self-review/{project}/{change}/findings", srb.recordFinding)
 	mux.HandleFunc("GET /api/v1/self-review/{project}/{change}/findings", srb.listFindings)
 	mux.HandleFunc("GET /api/v1/self-review-finding/{project}/{id}", srb.getFinding)
+	mux.HandleFunc("GET /api/v1/self-review-similar/{project}", srb.similarFindings)
 	mux.HandleFunc("PATCH /api/v1/self-review/{project}/findings/{id}/review", srb.reviewFinding)
 	mux.HandleFunc("GET /api/v1/projects", ph.projects)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches", rh.recordDispatch)

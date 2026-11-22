@@ -611,3 +611,7 @@ func (fakeStore) GetSelfReviewFinding(context.Context, string, int64) (records.S
 func (fakeStore) SelfReviewFindingsPage(context.Context, store.Period, *string, string, string, int, int) (store.SelfReviewPage, error) {
 	return store.SelfReviewPage{}, nil
 }
+
+func (fakeStore) SimilarSelfReviewFindings(context.Context, string, string, int) ([]records.SimilarSelfReviewFinding, error) {
+	return nil, nil
+}

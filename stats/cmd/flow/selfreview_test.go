@@ -393,3 +393,41 @@ func TestSelfReviewFindingGetCLI(t *testing.T) {
 		}
 	}
 }
+
+// TestSelfReviewSimilarCLI drives `flow self-review similar <text...>`: the words join into one query,
+// the output is the short JSON array, an unreachable store is 1, and missing text or a bad -n is 2.
+func TestSelfReviewSimilarCLI(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	env := newTestEnv(t)
+
+	var gotQuery string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.URL.Query().Get("q") + "|" + r.URL.Query().Get("n")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"id":7,"change":"demo","angle":"a","note":"n","disposition":"noted","detail":"long","theme":"t","severity":"minor","score":1.5,"recordedAt":"2026-10-04T00:00:00Z"}]`))
+	}))
+	defer srv.Close()
+
+	sim := func(args ...string) (int, string) {
+		var stdout, stderr strings.Builder
+		code := run(context.Background(), append([]string{"self-review", "similar"}, args...), env.get, strings.NewReader(""), &stdout, &stderr)
+		return code, stdout.String()
+	}
+	code, stdout := sim("stale", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "cache", "-n", "3")
+	var rows []map[string]any
+	if code != 0 || json.Unmarshal([]byte(stdout), &rows) != nil || len(rows) != 1 || rows[0]["id"] != float64(7) || rows[0]["score"] != 1.5 || rows[0]["theme"] != "t" {
+		t.Errorf("exit %d, stdout %q; want the one hit", code, stdout)
+	}
+	if _, has := rows[0]["detail"]; has || gotQuery != "stale cache|3" {
+		t.Errorf("detail present %v, query %q; want no detail and %q", has, gotQuery, "stale cache|3")
+	}
+	if code, stdout := sim("-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-C", repo, "x"); code == 0 || stdout != "" {
+		t.Errorf("unreachable: exit %d, stdout %q; want non-zero and nothing", code, stdout)
+	}
+	for _, args := range [][]string{{"-C", repo}, {"-C", repo, "x", "-n", "0"}, {"-C", repo, "x", "-n", "51"}} {
+		if code, _ := sim(args...); code != 2 {
+			t.Errorf("%v: exit %d, want 2", args, code)
+		}
+	}
+}

@@ -519,3 +519,49 @@ func TestGetSelfReviewFindingRoute(t *testing.T) {
 		t.Errorf("non-numeric id: %d, want 400", code)
 	}
 }
+
+// SimilarSelfReviewFindings mirrors the store's read loosely: the project's findings whose note contains the query, best first not modelled.
+func (f *fakeStore) SimilarSelfReviewFindings(_ context.Context, projectKey, query string, n int) ([]records.SimilarSelfReviewFinding, error) {
+	if query == "" || n < 1 || n > 50 {
+		return nil, store.ErrSelfReviewFindingInvalid
+	}
+	out := []records.SimilarSelfReviewFinding{}
+	for _, r := range f.selfReviewFindings {
+		if r.projectKey == projectKey && strings.Contains(r.finding.Note, query) {
+			out = append(out, records.SimilarSelfReviewFinding{SelfReviewFinding: r.finding, Score: 1})
+		}
+	}
+	return out, nil
+}
+
+// TestSimilarSelfReviewFindingsRoute: GET /api/v1/self-review-similar/{project}?q=&n= returns the matches with a score and
+// answers 400 for an empty query or an n outside 1..50.
+func TestSimilarSelfReviewFindingsRoute(t *testing.T) {
+	t.Parallel()
+	fs := newFakeStore()
+	fs.selfReviewFindings = []selfReviewFindingRecord{
+		{projectKey: "p", finding: records.SelfReviewFinding{ID: 1, Change: "c", Note: "stale cache", Disposition: "noted"}},
+	}
+	srv := newTestServer(t, fs)
+	get := func(path string) (int, string) {
+		resp, err := http.Get(srv.URL + "/api/v1/self-review-similar/" + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b)
+	}
+	if code, body := get("p?q=stale"); code != http.StatusOK || !strings.Contains(body, `"score":1`) || !strings.Contains(body, `"id":1`) {
+		t.Errorf("match: %d %s, want 200 with the finding and its score", code, body)
+	}
+	if code, _ := get("p?q="); code != http.StatusBadRequest {
+		t.Errorf("empty query: %d, want 400", code)
+	}
+	if code, _ := get("p?q=x&n=51"); code != http.StatusBadRequest {
+		t.Errorf("n=51: %d, want 400", code)
+	}
+	if code, _ := get("p?q=x&n=abc"); code != http.StatusBadRequest {
+		t.Errorf("n=abc: %d, want 400", code)
+	}
+}

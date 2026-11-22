@@ -115,3 +115,21 @@ func (c *Client) GetSelfReviewFinding(ctx context.Context, project string, id in
 	}
 	return out, nil
 }
+
+// SimilarSelfReviewFindings fetches the n of project's self-review findings most similar to query, best first.
+func (c *Client) SimilarSelfReviewFindings(ctx context.Context, project, query string, n int) ([]records.SimilarSelfReviewFinding, error) {
+	u := c.baseURL + "/api/v1/self-review-similar/" + url.PathEscape(project) + "?q=" + url.QueryEscape(query) + "&n=" + strconv.Itoa(n)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return nil, err
+	}
+	var out []records.SimilarSelfReviewFinding
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

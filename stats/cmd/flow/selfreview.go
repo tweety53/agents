@@ -81,6 +81,15 @@ shows after the change name (<change>#<id>). A read, with the same
 contract as findings: exit 1 with nothing on stdout when the store cannot be
 reached or the project has no finding with that id; exit 2 on a missing or
 non-numeric id.
+
+usage: flow self-review similar [-addr url] [-timeout dur] [-C dir] [-n N] <text...>
+
+Prints the N (default 5) recorded self-review findings of the project most
+similar to the text, ranked by BM25 over each finding's note and detail, as a
+JSON array of {id, change, theme, severity, disposition, score, note}; [] when
+nothing matches. Run it before filing a finding to see earlier findings about
+the same thing. Exit 1 when the store cannot be reached; exit 2 on missing
+text or an N outside 1..50.
 `
 
 // runSelfReview implements `flow self-review`: `bundle`, the read run 1's
@@ -100,6 +109,8 @@ func runSelfReview(ctx context.Context, args []string, getenv func(string) strin
 		return runSelfReviewFindings(ctx, args[1:], getenv, stdout, stderr)
 	case "finding-get":
 		return runSelfReviewFindingGet(ctx, args[1:], getenv, stdout, stderr)
+	case "similar":
+		return runSelfReviewSimilar(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown self-review command %q\n", args[0])
 		fmt.Fprint(stderr, selfReviewUsage)
@@ -369,6 +380,79 @@ func runSelfReviewFindingGet(ctx context.Context, args []string, getenv func(str
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(row); err != nil {
 		fmt.Fprintf(stderr, "flow: self-review finding-get: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func runSelfReviewSimilar(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow self-review similar", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordConnFlags(fset, &f, getenv)
+	n := fset.Int("n", 5, "how many findings to print (1..50)")
+
+	// The text is every positional, accepted before or after the flags.
+	var words []string
+	rest := args
+	for {
+		if err := fset.Parse(rest); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return 0
+			}
+			fmt.Fprintf(stderr, "flow: %v\n", err)
+			fmt.Fprint(stderr, selfReviewUsage)
+			return 2
+		}
+		if fset.NArg() == 0 {
+			break
+		}
+		words, rest = append(words, fset.Arg(0)), fset.Args()[1:]
+	}
+	text := strings.Join(words, " ")
+	if strings.TrimSpace(text) == "" || *n < 1 || *n > 50 {
+		fmt.Fprint(stderr, "flow: similar needs text and an -n between 1 and 50\n")
+		fmt.Fprint(stderr, selfReviewUsage)
+		return 2
+	}
+	noteAddrUsage(fset, stderr, f.addr, getenv)
+	if f.dir == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: resolve working directory: %v\n", err)
+			return 1
+		}
+		f.dir = wd
+	}
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+	rows, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.SimilarSelfReviewFinding, error) {
+		return cl.SimilarSelfReviewFindings(ctx, projectKey, text, *n)
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: self-review similar: %v\n", err)
+		return 1
+	}
+	type hit struct {
+		ID          int64   `json:"id"`
+		Change      string  `json:"change"`
+		Theme       string  `json:"theme"`
+		Severity    string  `json:"severity"`
+		Disposition string  `json:"disposition"`
+		Score       float64 `json:"score"`
+		Note        string  `json:"note"`
+	}
+	out := []hit{}
+	for _, r := range rows {
+		out = append(out, hit{r.ID, r.Change, r.Theme, r.Severity, r.Disposition, r.Score, r.Note})
+	}
+	enc := json.NewEncoder(stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(out); err != nil {
+		fmt.Fprintf(stderr, "flow: self-review similar: %v\n", err)
 		return 1
 	}
 	return 0
