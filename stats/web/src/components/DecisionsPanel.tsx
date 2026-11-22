@@ -3,7 +3,7 @@
 // decision names no model: each line shows the pair the run's own dispatch for that point was given
 // (matched by its key), or "not run yet", with the decision's reason beneath it.
 
-import type { RecordDispatch } from "../api";
+import type { ConfidenceRow, RecordDispatch } from "../api";
 
 // Older rows hold `pairs` as prose rather than a list; this panel ignores those.
 type Override = { to?: string; pairs?: unknown; instruction?: string };
@@ -26,7 +26,7 @@ export interface Decision {
   overrides?: unknown;
 }
 
-type Line = { role: string; model: string; reason?: string; prose?: boolean };
+type Line = { role: string; model: string; reason?: string; prose?: boolean; pct?: number };
 
 /** The pair of the latest dispatch whose key `want` accepts, "not run yet" when none ran. */
 function decided(dispatches: RecordDispatch[], want: (key: string) => boolean): string {
@@ -49,7 +49,13 @@ const pick = (role: string, p: Pick | undefined, run?: string): Line[] =>
 
 const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-function lines(d: Decision, dispatches: RecordDispatch[]): Line[] {
+/** The lowest estimate an implementer filed for any task of a group; none when it filed nothing (100% files nothing). */
+const confidenceOf = (rows: ConfidenceRow[], ids: string[]): number | undefined => {
+  const hit = rows.filter((r) => r.stage === "implement" && (r.task ?? "").split("+").some((t) => ids.includes(t)));
+  return hit.length ? Math.min(...hit.map((r) => r.score)) : undefined;
+};
+
+function lines(d: Decision, dispatches: RecordDispatch[], confidence: ConfidenceRow[]): Line[] {
   const review = (p: Pick | undefined): Line[] => {
     // A multi-repository change dispatches each slot per repo: `panel-<round>-<slots>-<repo>`.
     const re = new RegExp(`^panel-\\d+-${escapeRe((p?.slots ?? []).join("+"))}(-[a-z0-9-]+)?$`);
@@ -62,7 +68,11 @@ function lines(d: Decision, dispatches: RecordDispatch[]): Line[] {
     return (Array.isArray(o.pairs) ? o.pairs : []).map((role) => ({ role: role[0].toUpperCase() + role.slice(1), model: `${model} · ${effort}`, reason: o.instruction }));
   });
   const implementers = d.groups?.length
-    ? d.groups.flatMap((g) => ((ids) => pick(`${ids.length > 1 ? "Tasks" : "Task"} ${ids.join(", ")}`, g, decided(dispatches, (k) => ranWith(k, ids))))(g.tasks ?? (g.bundles ?? []).map(String)))
+    ? d.groups.flatMap((g) =>
+        ((ids) => pick(`${ids.length > 1 ? "Tasks" : "Task"} ${ids.join(", ")}`, g, decided(dispatches, (k) => ranWith(k, ids))).map((l) => ({ ...l, pct: confidenceOf(confidence, ids) })))(
+          g.tasks ?? (g.bundles ?? []).map(String),
+        ),
+      )
     : pick("Implementer", d.implementer);
   return [
     ...overrides,
@@ -76,7 +86,8 @@ function lines(d: Decision, dispatches: RecordDispatch[]): Line[] {
   ];
 }
 
-export function DecisionsPanel({ decision, dispatches = [] }: { decision: Decision; dispatches?: RecordDispatch[] }) {
+/** `confidence` is the change's estimates below 100% (KAN-1130): a group that filed one shows its percentage beside its pair. */
+export function DecisionsPanel({ decision, dispatches = [], confidence = [] }: { decision: Decision; dispatches?: RecordDispatch[]; confidence?: ConfidenceRow[] }) {
   return (
     <section className="lb-panel" aria-label="Decisions">
       <div className="lb-panel-h">
@@ -84,11 +95,19 @@ export function DecisionsPanel({ decision, dispatches = [] }: { decision: Decisi
         {decision.class && <span className="lb-panel-note">{[decision.class, decision.execution].filter(Boolean).join(" · ")}</span>}
       </div>
       <div className="lb-panel-b">
-        {lines(decision, dispatches).map((l, i) => (
+        {lines(decision, dispatches, confidence).map((l, i) => (
           <div key={i} className={l.prose ? "lb-decision lb-decision-prose" : "lb-decision"} data-testid="decision-row" title={l.prose ? undefined : l.reason}>
             <span className="lb-decision-head">
               <span className="lb-n">{l.role}</span>
-              <span className={l.model === "not run yet" ? "lb-muted r" : "r"}>{l.model}</span>
+              <span className={l.model === "not run yet" ? "lb-muted r" : "r"}>
+                {l.model}
+                {l.pct !== undefined && (
+                  <>
+                    {" · "}
+                    <span className="lb-num" data-testid="decision-confidence">{l.pct}%</span>
+                  </>
+                )}
+              </span>
             </span>
             {l.prose && <span className="lb-decision-why">{l.reason}</span>}
           </div>

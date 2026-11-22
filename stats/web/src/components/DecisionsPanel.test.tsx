@@ -22,6 +22,15 @@ const decision = {
 };
 
 describe("DecisionsPanel", () => {
+  it("shows the lowest confidence a group filed beside its pair, and nothing for a group that filed none", () => {
+    const row = (task: string, score: number) => ({ id: score, project: "p", change: "c", stage: "implement" as const, task, score, gaps: [], tags: [], recordedAt: "2026-01-01T00:00:00Z", reviewStatus: "to-review" as const });
+    render(<DecisionsPanel decision={decision} confidence={[row("1+3", 90), row("3", 80), { ...row("2", 70), stage: "plan" }]} />);
+    const rows = screen.getAllByTestId("decision-row").map((r) => r.textContent);
+    expect(rows).toContain("Tasks 1, 3opus · low · 80%");
+    expect(rows).toContain("Task 2sonnet · medium");
+    expect(screen.getAllByTestId("decision-confidence")).toHaveLength(1);
+  });
+
   it("lists each role's model and effort, its reason as the tooltip", () => {
     render(<DecisionsPanel decision={decision} />);
     const rows = screen.getAllByTestId("decision-row").map((r) => r.textContent);
