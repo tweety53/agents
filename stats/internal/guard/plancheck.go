@@ -42,9 +42,15 @@ import (
 // removes a confidence.json an earlier check left. -decide-only neither
 // writes nor removes it.
 //
+// A report whose last line is no PLAN-CHECK-* line is not accepted at first: the judge is asked once
+// more with the terminal line named (pcRetryNote); a report still lacking it is closed from its body
+// (pcDerive: `PLAN-CHECK-FINDINGS <n>` from its finding lines, `PLAN-CHECK-CLEAN` from a confidence
+// score alone).
+//
 // The fallback is per part: no `===DECISION===` line falls back both; a report
-// ending otherwise falls back the report alone, to a one-line report
-// `PLAN-CHECK-NOT-RUN`; a decision failing its checks falls back the decision
+// holding neither a terminal line nor anything to derive one from falls back the report alone, to
+// `PLAN-CHECK-NOT-RUN` and the words `no confidence estimate exists`, stdout reading
+// `PLAN-CHECK-NOT-RUN — no confidence estimate`; a decision failing its checks falls back the decision
 // alone, to dgpvFallback's. Any failed call (no decider pair, the command
 // missing or failing, the deadline) falls back both. One stderr line names the
 // cause; stdout is one line, `plan-check (judge|fallback): <report> · <n>
@@ -68,8 +74,36 @@ var (
 	pcSeparator  = regexp.MustCompile(`(?m)^===DECISION===[ \t]*$`)
 	pcConfidence = regexp.MustCompile(`(?m)^CONFIDENCE: ([0-9]{1,3})%[ \t]*$`)
 	pcLastLine   = regexp.MustCompile(`^(PLAN-CHECK-CLEAN|PLAN-CHECK-FINDINGS [0-9]+)$`)
-	pcNotRunText = "plan check not run: the model answer could not be used\nPLAN-CHECK-NOT-RUN\n"
+	pcNotRunText = "plan check not run: the model answer could not be used — no confidence estimate exists\nPLAN-CHECK-NOT-RUN\n"
+	pcFinding    = regexp.MustCompile(`(?m)^\*\*F[0-9]+\*\* \[(?:finding|advisory|blocker)\]`)
 )
+
+// pcRetryNote is appended to the prompt of the one retry a report with no terminal line gets.
+const pcRetryNote = "\n\nYour previous answer's report did not end with a terminal line. The report's last line, before the ===DECISION=== line, must be exactly PLAN-CHECK-CLEAN or PLAN-CHECK-FINDINGS <n>, <n> the number of finding lines above it.\n"
+
+// pcHasTerminal is whether the answer's report part (all of it when no ===DECISION=== line is there)
+// ends in a PLAN-CHECK-* line.
+func pcHasTerminal(result string) bool {
+	r := result
+	if loc := pcSeparator.FindStringIndex(result); loc != nil {
+		r = result[:loc[0]]
+	}
+	r = strings.TrimSpace(r)
+	return pcLastLine.MatchString(r[strings.LastIndex(r, "\n")+1:])
+}
+
+// pcDerive closes a report that ends in no terminal line from its body: the finding lines it holds
+// make `PLAN-CHECK-FINDINGS <n>`, a CONFIDENCE line with none makes `PLAN-CHECK-CLEAN`; "" for a
+// body holding neither (nothing to derive from).
+func pcDerive(body string) string {
+	if n := len(pcFinding.FindAllString(body, -1)); n > 0 {
+		return fmt.Sprintf("PLAN-CHECK-FINDINGS %d", n)
+	}
+	if score, _ := pcConfidenceOf(body); score > 0 {
+		return "PLAN-CHECK-CLEAN"
+	}
+	return ""
+}
 
 func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 	decideOnly := len(args) == 4 && args[3] == "-decide-only"
@@ -128,6 +162,9 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 			return 2
 		}
 		last = strings.TrimSpace(report[strings.LastIndex(strings.TrimSpace(report), "\n")+1:])
+		if last == "PLAN-CHECK-NOT-RUN" {
+			last += " — no confidence estimate"
+		}
 		confPath := filepath.Join(wt, ".superpowers", "sdd", "confidence.json")
 		var err error
 		if score, gaps := pcConfidenceOf(report); score > 0 {
@@ -136,6 +173,9 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 			err = write(confPath, append(cb, '\n'))
 		} else {
 			confidence = " · confidence unknown"
+			if report == pcNotRunText {
+				confidence = ""
+			}
 			if err = os.Remove(confPath); os.IsNotExist(err) {
 				err = nil
 			}
@@ -235,6 +275,14 @@ func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []s
 	if cause != "" {
 		return "", nil, source, spend, cause
 	}
+	if !decideOnly && !pcHasTerminal(result) {
+		// The first unusable answer is not accepted: ask once more, naming the terminal line.
+		if r2, s2, c2 := pjRun(env, rows, "decider", string(prompt)+pcRetryNote, digest, tools, limit); c2 == "" {
+			result, spend = r2, spend+s2
+		} else {
+			spend += s2
+		}
+	}
 	loc := pcSeparator.FindStringIndex(result)
 	if loc == nil {
 		return "", nil, source, spend, "plan-check answer has no ===DECISION=== line: " + result + spend
@@ -243,6 +291,8 @@ func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []s
 		// the decision-only call writes no report
 	} else if pcLastLine.MatchString(r[strings.LastIndex(r, "\n")+1:]) {
 		report = r + "\n"
+	} else if last := pcDerive(r); last != "" {
+		report = r + "\n" + last + "\n"
 	} else {
 		cause = "plan-check report does not end in PLAN-CHECK-CLEAN or PLAN-CHECK-FINDINGS <n>" + spend
 	}

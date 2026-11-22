@@ -405,3 +405,76 @@ func TestPlanCheckDecideOnlyLeavesConfidence(t *testing.T) {
 		t.Errorf("confidence.json changed: %q", b)
 	}
 }
+
+// pcSeq is a judge stub answering its first call with first and every later one with then, counting calls.
+func pcSeq(t *testing.T, first, then string) pjStub {
+	t.Helper()
+	body := "n=$(cat \"$(dirname \"$0\")/count\" 2>/dev/null || echo 0)\necho $((n+1)) > \"$(dirname \"$0\")/count\"\n" +
+		"if [ \"$n\" = 0 ]; then\n" + first + "else\n" + then + "fi\n"
+	return newPJStub(t, body)
+}
+
+func (s pjStub) calls() string {
+	b, _ := os.ReadFile(s.dir + "/count")
+	return strings.TrimSpace(string(b))
+}
+
+// TestPlanCheckRetriesAReportWithNoTerminalLine (KAN-1130): the first answer whose report ends in no
+// PLAN-CHECK-* line is not accepted — the judge is asked once more with the terminal line named, and
+// a usable second answer is the result.
+func TestPlanCheckRetriesAReportWithNoTerminalLine(t *testing.T) {
+	t.Parallel()
+	args, wt, _ := pcFixture(t)
+	stub := pcSeq(t, pjJSON(pcAnswer("some prose, no terminal line\n", dgpvGood), ""), pjJSON(pcAnswer(pcConfReport, dgpvGood), ""))
+	r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
+	if r.rc != 0 || stub.calls() != "2" || !strings.Contains(strings.Join(stub.argv(t), " "), "must be exactly PLAN-CHECK-CLEAN or PLAN-CHECK-FINDINGS") ||
+		!strings.Contains(r.stdout, "plan-check (judge):") || !strings.Contains(r.stdout, " · confidence 78%") {
+		t.Fatalf("rc=%d calls=%s stdout=%q err=%q", r.rc, stub.calls(), r.stdout, r.err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md")); !strings.Contains(string(b), "CONFIDENCE: 78%") {
+		t.Errorf("report %q is not the second answer", b)
+	}
+	// A first answer that already ends right is asked once.
+	args2, _, _ := pcFixture(t)
+	one := pcSeq(t, pjJSON(pcAnswer(pcReport, dgpvGood), ""), pjJSON(pcAnswer("bad\n", dgpvGood), ""))
+	if r := runGuard("plan-check", args2, pjEnv(t, pjPolicy(dgpvPolicy), one)); r.rc != 0 || one.calls() != "1" {
+		t.Errorf("a good first answer: rc=%d calls=%s", r.rc, one.calls())
+	}
+}
+
+// TestPlanCheckDerivesTheTerminalLine: after the retry, a body that still ends in no terminal line but
+// holds finding lines or a confidence score is parsed, never discarded.
+func TestPlanCheckDerivesTheTerminalLine(t *testing.T) {
+	t.Parallel()
+	for name, c := range map[string]struct{ body, last, conf string }{
+		"findings":   {"**F1** [finding] tasks.md:3 — a gap\n**F2** [advisory] design.md:1 — a nit\n", "PLAN-CHECK-FINDINGS 2", " · confidence unknown"},
+		"confidence": {"### Execution confidence\n\nCONFIDENCE: 90%\n", "PLAN-CHECK-CLEAN", " · confidence 90%"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			args, wt, _ := pcFixture(t)
+			bad := pjJSON(pcAnswer(c.body, dgpvGood), "")
+			stub := pcSeq(t, bad, bad)
+			r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
+			b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md"))
+			if r.rc != 0 || stub.calls() != "2" || !strings.HasSuffix(strings.TrimSpace(string(b)), c.last) || !strings.Contains(r.stdout, c.last+" ") || !strings.Contains(r.stdout, c.conf) {
+				t.Fatalf("rc=%d calls=%s report=%q stdout=%q", r.rc, stub.calls(), b, r.stdout)
+			}
+		})
+	}
+}
+
+// TestPlanCheckNoEstimateLine: two answers with no terminal line and nothing to derive one from give the
+// explicit `no confidence estimate` line, in the report and on stdout, never a bare not-run.
+func TestPlanCheckNoEstimateLine(t *testing.T) {
+	t.Parallel()
+	args, wt, _ := pcFixture(t)
+	bad := pjJSON(pcAnswer("just thoughts\n", dgpvGood), "")
+	stub := pcSeq(t, bad, bad)
+	r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
+	b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md"))
+	if r.rc != 0 || stub.calls() != "2" || !strings.Contains(r.stdout, "PLAN-CHECK-NOT-RUN — no confidence estimate") || strings.Contains(r.stdout, "confidence unknown") ||
+		!strings.Contains(string(b), "no confidence estimate exists") {
+		t.Fatalf("rc=%d calls=%s stdout=%q report=%q", r.rc, stub.calls(), r.stdout, b)
+	}
+}

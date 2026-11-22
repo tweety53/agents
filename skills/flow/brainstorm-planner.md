@@ -360,7 +360,7 @@ It exits 0 on a printed block and 2 on a usage error or an unreadable file.
 **The plan is never acted on unread.** Once the plan-check step has printed its `## Decision` block,
 print the plan summary — plain prose on what will be built and how: the behaviour added or changed, the approach, the seams and decisions that matter and what was left out; no per-task rows — and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The `STARTED` handoff block** (`skills/flow/brainstorm.md`) under it. The
 summary ends on two lines of their own: `**Design:** <absolute path of design.md>` and
-`**Plan check:** <absolute path of the report> — clean | <n> fixed, <n> accepted | not run`,
+`**Plan check:** <absolute path of the report> — clean | <n> fixed, <n> accepted | not run — no confidence estimate`, the last when the report ends `PLAN-CHECK-NOT-RUN` (never a bare `not run`),
 followed on the same line by ` · confidence <n>% at plan check` when the guard's stdout line
 carried a number.
 
