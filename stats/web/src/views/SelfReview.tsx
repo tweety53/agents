@@ -21,6 +21,13 @@ const CORPUS = 100;
 const WINDOW_FROM = new Date("2000-01-01T00:00:00Z");
 const STATUS: Record<Show, string | undefined> = { "to-review": "to-review", approved: "approved", declined: "declined", fixed: undefined };
 
+/** The finding's identifier, `<change>#<id>`: what to give an agent that implements it. */
+export const findingRef = (r: SelfReviewRow) => `${r.change}#${r.id}`;
+
+/** The line to paste to an agent: the identifier and how it reads the finding. */
+export const agentPrompt = (r: SelfReviewRow) =>
+  `Implement self-review finding ${findingRef(r)}: read its full detail from \`flow self-review findings -change ${r.change}\` (the row with id ${r.id}).`;
+
 /** The theme tag a note opens with (`[theme: <tag>] `), and the note without it. */
 export function splitTheme(note: string): { theme: string; title: string } {
   const m = /^\[theme: ([a-z0-9-]+)\]\s*/.exec(note);
@@ -302,6 +309,13 @@ export function SelfReview() {
                     {sel.change} · {sel.recordedAt.slice(0, 10)}
                   </span>
                   {sel.disposition === "fixed" && (sel.commitUrl ? <a href={sel.commitUrl}>{sel.ref}</a> : <span>{sel.ref}</span>)}
+                </div>
+                <div className="sr-meta sr-id">
+                  <span className="sr-k">ID</span>
+                  <code>{findingRef(sel)}</code>
+                  <button type="button" onClick={() => void navigator.clipboard.writeText(agentPrompt(sel))}>
+                    Copy for agent
+                  </button>
                 </div>
                 <Detail row={sel} same={sameTheme(sel)} />
                 {show === "to-review" && (

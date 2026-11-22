@@ -1014,6 +1014,14 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.getByText("guard misses a case", { exact: false })).toBeInTheDocument(); // same theme before
     expect(screen.queryByRole("link", { name: "abc1234" })).not.toBeInTheDocument();
 
+    // The identifier an agent is given, and the copyable line that carries it.
+    expect(screen.getByText("kan-1#3")).toBeInTheDocument();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await user.click(screen.getByRole("button", { name: "Copy for agent" }));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("kan-1#3"));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("flow self-review findings -change kan-1"));
+
     await user.type(screen.getByLabelText("Reason"), "worth it");
     await user.click(screen.getByRole("button", { name: "Approve" }));
     expect(reviewMock).toHaveBeenCalledWith("agents", 3, "approved", "worth it");

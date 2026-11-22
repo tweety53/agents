@@ -1248,6 +1248,9 @@ td.lb-clip { max-width: 0; width: 100%; }
 .sr-seen { background: rgba(242, 204, 12, 0.18); color: var(--series-3); border-radius: 3px; padding: 1px 6px; }
 .sr-pill { border: 1px solid var(--border-strong); border-radius: 10px; padding: 0 8px; }
 .sr-pane { border: 1px solid var(--border); border-radius: 6px; padding: 18px 22px; background: var(--surface-panel); }
+.sr-id { margin: 8px 0 0; }
+.sr-id code { user-select: all; }
+.sr-id button { font: inherit; font-size: 12px; padding: 1px 8px; cursor: pointer; }
 .sr-pane h3 { margin: 0 0 6px; }
 .sr-prop { border-left: 3px solid var(--series-1); background: rgba(87, 148, 242, 0.1); padding: 8px 12px; margin: 14px 0; }
 .sr-k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
