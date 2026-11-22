@@ -16,6 +16,10 @@ const PAGE = 25;
 
 const title = (r: ConfidenceRow) => `${r.score}% · ${r.change}`;
 
+/** The estimate, whole, for pasting to an agent: nothing here is readable by a store verb, so the text carries it. */
+const agentText = (r: ConfidenceRow) =>
+  `Confidence estimate ${r.project}/${r.change} (${r.stage}${r.task ? ` task ${r.task}` : ""}): ${r.score}%.\nWhat would move it to 100%:\n${r.gaps.map((g) => `- ${g}`).join("\n")}\nTags: ${r.tags.join(", ")}`;
+
 function Meta({ row }: { row: ConfidenceRow }) {
   return (
     <span className="sr-meta">
@@ -129,6 +133,11 @@ export function Confidence() {
               <article className="sr-pane" aria-label="Estimate">
                 <h3>{title(sel)}</h3>
                 <Meta row={sel} />
+                <div className="sr-meta sr-id">
+                  <button type="button" onClick={() => void navigator.clipboard.writeText(agentText(sel))}>
+                    Copy for agent
+                  </button>
+                </div>
                 <h4 className="sr-h">What would move it to 100%</h4>
                 <ul className="sr-list">
                   {sel.gaps.map((g, i) => (

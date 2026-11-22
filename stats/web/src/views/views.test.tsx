@@ -1097,6 +1097,13 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.queryByRole("button", { name: /^missing-fixture/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^All/ })).not.toBeInTheDocument();
 
+    // The estimate copies whole, for an agent.
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await user.click(screen.getByRole("button", { name: "Copy for agent" }));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("85%"));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("- the fixture is missing"));
+
     // Declining with a reason stores both and takes the row off the list.
     await user.type(screen.getByLabelText("Reason"), " not a real gap ");
     await user.click(screen.getByRole("button", { name: "Decline" }));
