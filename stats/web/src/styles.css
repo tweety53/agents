@@ -1255,7 +1255,6 @@ td.lb-clip { max-width: 0; width: 100%; }
 .sr-stat { border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; font-size: 14px; }
 .sr-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 16px 0 4px; }
 .sr-pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
-.sr-pager button:disabled { opacity: 0.5; cursor: default; }
 .sr-list { margin: 0; padding-left: 18px; }
 .sr-check { list-style: none; padding-left: 0; }
 .sr-quote { margin: 0; padding: 2px 12px; border-left: 3px solid var(--border-strong); color: var(--text-secondary); }
@@ -1265,6 +1264,4 @@ td.lb-clip { max-width: 0; width: 100%; }
 .sr-del { color: var(--delta-up); }
 .sr-actions { display: flex; align-items: center; gap: 8px; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border); }
 .sr-actions input { flex: 1; font: inherit; padding: 5px 8px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-1); color: var(--text-primary); }
-.sr-ok { border-color: var(--status-ok); color: var(--status-ok); }
-.sr-ok:hover { background: color-mix(in srgb, var(--status-ok) 18%, transparent); }
 .sr-err { color: var(--danger, #c0392b); }

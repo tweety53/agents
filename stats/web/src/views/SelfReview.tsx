@@ -280,13 +280,13 @@ export function SelfReview() {
                 })}
                 {page.total > page.limit && (
                   <div className="sr-pager">
-                    <button type="button" className="lb-fchip" disabled={page.offset === 0} onClick={() => setOffset(Math.max(0, page.offset - page.limit))}>
+                    <button type="button" disabled={page.offset === 0} onClick={() => setOffset(Math.max(0, page.offset - page.limit))}>
                       Previous
                     </button>
                     <span className="lb-muted">
                       {page.offset + 1}–{last} of {page.total}
                     </span>
-                    <button type="button" className="lb-fchip" disabled={last >= page.total} onClick={() => setOffset(page.offset + page.limit)}>
+                    <button type="button" disabled={last >= page.total} onClick={() => setOffset(page.offset + page.limit)}>
                       Next
                     </button>
                   </div>
@@ -306,17 +306,17 @@ export function SelfReview() {
                 <Detail row={sel} same={sameTheme(sel)} />
                 {show === "to-review" && (
                   <footer className="sr-actions">
-                    <button type="button" className="lb-fchip sr-ok" onClick={() => void decide(sel, "approved")}>
+                    <button type="button" onClick={() => void decide(sel, "approved")}>
                       Approve
                     </button>
-                    <button type="button" className="lb-fchip" onClick={() => void decide(sel, "declined")}>Decline</button>
+                    <button type="button" onClick={() => void decide(sel, "declined")}>Decline</button>
                     <input aria-label="Reason" placeholder="Reason (optional, stored with the decision)" value={reason} onChange={(e) => setReason(e.target.value)} />
                   </footer>
                 )}
                 {(show === "approved" || show === "declined") && (
                   <footer className="sr-actions">
                     <span>{sel.reason ? `Reason: ${sel.reason}` : "No reason given."}</span>
-                    <button type="button" className="lb-fchip" onClick={() => void decide(sel, "to-review")}>Move back to review</button>
+                    <button type="button" onClick={() => void decide(sel, "to-review")}>Move back to review</button>
                   </footer>
                 )}
               </article>
