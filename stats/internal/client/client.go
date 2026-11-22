@@ -695,24 +695,30 @@ func restarting(port string) bool {
 // context deadline (timeout or cancellation), or a body that could not be
 // fully read.
 func (c *Client) do(req *http.Request) (body []byte, status int, fromDaemon bool, err error) {
+	body, status, fromDaemon, _, err = c.doHeader(req)
+	return
+}
+
+// doHeader is do that also returns the response headers.
+func (c *Client) doHeader(req *http.Request) (body []byte, status int, fromDaemon bool, header http.Header, err error) {
 	resp, err := c.httpClient.Do(req)
 	for err != nil && errors.Is(err, syscall.ECONNREFUSED) && restarting(req.URL.Port()) && (req.Body == nil || req.GetBody != nil) {
 		select {
 		case <-req.Context().Done():
-			return nil, 0, false, fmt.Errorf("%w: %v", ErrUnavailable, err)
+			return nil, 0, false, nil, fmt.Errorf("%w: %v", ErrUnavailable, err)
 		case <-time.After(retryInterval):
 		}
 		if req.GetBody != nil {
 			body, gerr := req.GetBody()
 			if gerr != nil {
-				return nil, 0, false, fmt.Errorf("%w: %v", ErrUnavailable, err)
+				return nil, 0, false, nil, fmt.Errorf("%w: %v", ErrUnavailable, err)
 			}
 			req.Body = body
 		}
 		resp, err = c.httpClient.Do(req)
 	}
 	if err != nil {
-		return nil, 0, false, fmt.Errorf("%w: %v", ErrUnavailable, err)
+		return nil, 0, false, nil, fmt.Errorf("%w: %v", ErrUnavailable, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -723,7 +729,7 @@ func (c *Client) do(req *http.Request) (body []byte, status int, fromDaemon bool
 	// and refusing it would call a complete answer truncated.
 	body, err = io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes+1))
 	if err != nil {
-		return nil, 0, false, fmt.Errorf("%w: read response body: %v", ErrUnavailable, err)
+		return nil, 0, false, nil, fmt.Errorf("%w: read response body: %v", ErrUnavailable, err)
 	}
 	// A body that overflows the cap was cut off mid-read: whatever the
 	// endpoint, the caller is looking at a truncated answer. Refusing it
@@ -731,9 +737,9 @@ func (c *Client) do(req *http.Request) (body []byte, status int, fromDaemon bool
 	// detection -- the decoders mostly catch it by accident, and the one
 	// raw-markdown read (the self-review bundle) would not catch it at all.
 	if len(body) > maxResponseBytes {
-		return nil, 0, false, fmt.Errorf("%w: response body overflows the %d-byte cap -- truncated, not served whole", ErrUnavailable, maxResponseBytes)
+		return nil, 0, false, nil, fmt.Errorf("%w: response body overflows the %d-byte cap -- truncated, not served whole", ErrUnavailable, maxResponseBytes)
 	}
-	return body, resp.StatusCode, fromDaemon, nil
+	return body, resp.StatusCode, fromDaemon, resp.Header, nil
 }
 
 // --- run records ----------------------------------------------------------

@@ -28,6 +28,9 @@ import (
 type fakeStore struct {
 	changes map[string]store.Change
 
+	similarMode string
+	similarErr  error
+
 	getErr   error
 	putErr   error
 	queryErr error

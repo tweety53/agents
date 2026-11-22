@@ -429,12 +429,21 @@ func runSelfReviewSimilar(ctx context.Context, args []string, getenv func(string
 		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
 		return 1
 	}
-	rows, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) ([]records.SimilarSelfReviewFinding, error) {
-		return cl.SimilarSelfReviewFindings(ctx, projectKey, text, *n)
+	type simRes struct {
+		rows         []records.SimilarSelfReviewFinding
+		mode, reason string
+	}
+	res, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (simRes, error) {
+		rows, mode, reason, err := cl.SimilarSelfReviewFindingsMode(ctx, projectKey, text, *n)
+		return simRes{rows, mode, reason}, err
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "flow: self-review similar: %v\n", err)
 		return 1
+	}
+	rows := res.rows
+	if res.mode == "bm25-fallback" {
+		fmt.Fprintf(stderr, "⚠ flow: hybrid similarity unavailable, BM25 only: %s\n", res.reason)
 	}
 	type hit struct {
 		ID          int64   `json:"id"`

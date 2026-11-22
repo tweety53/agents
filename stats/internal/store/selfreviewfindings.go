@@ -254,11 +254,26 @@ func (s *Store) GetSelfReviewFinding(ctx context.Context, projectKey string, id 
 	return f, nil
 }
 
-// SimilarSelfReviewFindings returns the project's n findings most similar to query by BM25 over
-// each finding's note (without its theme prefix) and the first 600 characters of its detail.
+// Similar modes, reported to the API's X-Similar-Mode header.
+const (
+	SimilarModeHybrid   = "hybrid"
+	SimilarModeBM25     = "bm25"
+	SimilarModeFallback = "bm25-fallback"
+)
+
+// SimilarSelfReviewFindings is SimilarSelfReviewFindingsMode without the mode.
 func (s *Store) SimilarSelfReviewFindings(ctx context.Context, projectKey, query string, n int) ([]records.SimilarSelfReviewFinding, error) {
+	out, _, _, err := s.SimilarSelfReviewFindingsMode(ctx, projectKey, query, n)
+	return out, err
+}
+
+// SimilarSelfReviewFindingsMode returns the project's n findings most similar to query by BM25 over
+// each finding's note (without its theme prefix) and the first 600 characters of its detail; when
+// hybrid is configured the BM25 list is fused with the embedding-nearest list by reciprocal rank
+// fusion. The mode says which ran; on bm25-fallback, hybridErr is why the embedding half failed.
+func (s *Store) SimilarSelfReviewFindingsMode(ctx context.Context, projectKey, query string, n int) (out []records.SimilarSelfReviewFinding, mode string, hybridErr error, err error) {
 	if len(bm25Tokens(query)) == 0 || n < 1 || n > 50 {
-		return nil, fmt.Errorf("%w: similar needs a non-empty query and n between 1 and 50", ErrSelfReviewFindingInvalid)
+		return nil, "", nil, fmt.Errorf("%w: similar needs a non-empty query and n between 1 and 50", ErrSelfReviewFindingInvalid)
 	}
 	rows, err := s.pool.Query(ctx, `
 		SELECT id, change, angle, note, disposition, COALESCE(ref, ''), blast_radius, COALESCE(severity, ''), COALESCE(detail, ''), COALESCE(review_status, ''), recorded_at, COALESCE(theme, '')
@@ -267,7 +282,7 @@ func (s *Store) SimilarSelfReviewFindings(ctx context.Context, projectKey, query
 		ORDER BY id
 	`, projectKey)
 	if err != nil {
-		return nil, fmt.Errorf("store: similar self-review findings for %s: %w", projectKey, err)
+		return nil, "", nil, fmt.Errorf("store: similar self-review findings for %s: %w", projectKey, err)
 	}
 	defer rows.Close()
 	var all []records.SimilarSelfReviewFinding
@@ -275,7 +290,7 @@ func (s *Store) SimilarSelfReviewFindings(ctx context.Context, projectKey, query
 	for rows.Next() {
 		var f records.SimilarSelfReviewFinding
 		if err := rows.Scan(&f.ID, &f.Change, &f.Angle, &f.Note, &f.Disposition, &f.Ref, &f.BlastRadius, &f.Severity, &f.Detail, &f.ReviewStatus, &f.RecordedAt, &f.Theme); err != nil {
-			return nil, fmt.Errorf("store: similar self-review findings for %s: scan: %w", projectKey, err)
+			return nil, "", nil, fmt.Errorf("store: similar self-review findings for %s: scan: %w", projectKey, err)
 		}
 		note := f.Note
 		if strings.HasPrefix(note, "[theme: ") {
@@ -291,13 +306,38 @@ func (s *Store) SimilarSelfReviewFindings(ctx context.Context, projectKey, query
 		all = append(all, f)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("store: similar self-review findings for %s: %w", projectKey, err)
+		return nil, "", nil, fmt.Errorf("store: similar self-review findings for %s: %w", projectKey, err)
 	}
-	out := []records.SimilarSelfReviewFinding{}
+	out = []records.SimilarSelfReviewFinding{}
+	if s.hybridConfigured() && len(all) > 0 {
+		ids := make([]int64, len(all))
+		for i, f := range all {
+			ids[i] = f.ID
+		}
+		vec, verr := s.vectorRank(ctx, projectKey, ids, docs, query)
+		if verr == nil {
+			var bm []int
+			for _, h := range bm25Rank(query, docs, 50) {
+				bm = append(bm, h.Index)
+			}
+			for _, h := range rrfFuse(bm, vec) {
+				if len(out) == n {
+					break
+				}
+				f := all[h.Key]
+				f.Score = h.Score
+				out = append(out, f)
+			}
+			return out, SimilarModeHybrid, nil, nil
+		}
+		mode, hybridErr = SimilarModeFallback, verr
+	} else {
+		mode = SimilarModeBM25
+	}
 	for _, h := range bm25Rank(query, docs, n) {
 		f := all[h.Index]
 		f.Score = h.Score
 		out = append(out, f)
 	}
-	return out, nil
+	return out, mode, hybridErr, nil
 }

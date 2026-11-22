@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/records"
@@ -316,11 +317,32 @@ func (h *selfreviewHandler) similarFindings(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
-	out, err := h.store.SimilarSelfReviewFindings(r.Context(), r.PathValue("project"), r.URL.Query().Get("q"), n)
+	var out []records.SimilarSelfReviewFinding
+	var err error
+	if m, ok := h.store.(similarModer); ok {
+		var mode string
+		var hybridErr error
+		out, mode, hybridErr, err = m.SimilarSelfReviewFindingsMode(r.Context(), r.PathValue("project"), r.URL.Query().Get("q"), n)
+		if err == nil {
+			w.Header().Set("X-Similar-Mode", mode)
+			if hybridErr != nil {
+				h.logger.Warn("hybrid similarity unavailable, BM25 only", "err", hybridErr)
+				w.Header().Set("X-Similar-Error", strings.NewReplacer("\r", " ", "\n", " ").Replace(hybridErr.Error()))
+			}
+		}
+	} else {
+		out, err = h.store.SimilarSelfReviewFindings(r.Context(), r.PathValue("project"), r.URL.Query().Get("q"), n)
+		w.Header().Set("X-Similar-Mode", store.SimilarModeBM25)
+	}
 	if err != nil {
 		status, msg := mapStoreError(h.logger, "similar self-review findings", err)
 		writeError(w, status, msg)
 		return
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// similarModer is the store's mode-reporting similar read; a store without it answers BM25.
+type similarModer interface {
+	SimilarSelfReviewFindingsMode(ctx context.Context, projectKey, query string, n int) ([]records.SimilarSelfReviewFinding, string, error, error)
 }

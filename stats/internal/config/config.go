@@ -36,6 +36,11 @@ type Config struct {
 	Port int
 	DSN  string
 
+	// EmbedURL (FLOW_EMBED_URL) and PgvectorDSN (FLOW_PGVECTOR_DSN) turn on hybrid
+	// self-review similarity when both are set; either empty means BM25 only.
+	EmbedURL    string
+	PgvectorDSN string
+
 	// Jira is the outbound access the pipeline-transition endpoint needs
 	// (internal/jira). Zero value means the daemon has none, which is a
 	// normal state the endpoint reports per request -- never a startup
@@ -58,7 +63,8 @@ var ErrNonLoopbackHost = errors.New("config: host must be a loopback address (12
 // ErrNonLoopbackHost exists to catch for the host.
 var ErrInvalidPort = errors.New("config: FLOWD_PORT must be a valid integer port")
 
-// FromEnv resolves Config from FLOWD_HOST, FLOWD_PORT and FLOWD_DSN,
+// FromEnv resolves Config from FLOWD_HOST, FLOWD_PORT and FLOWD_DSN (and the optional
+// FLOW_EMBED_URL and FLOW_PGVECTOR_DSN, which together enable hybrid similarity),
 // falling back to the defaults above for anything unset. A FLOWD_PORT
 // that fails to parse is refused with ErrInvalidPort rather than silently
 // falling back to DefaultPort. FromEnv does not check Host for loopback --
@@ -79,6 +85,8 @@ func FromEnv() (Config, error) {
 	if v := os.Getenv("FLOWD_DSN"); v != "" {
 		cfg.DSN = v
 	}
+	cfg.EmbedURL = os.Getenv("FLOW_EMBED_URL")
+	cfg.PgvectorDSN = os.Getenv("FLOW_PGVECTOR_DSN")
 	jira, err := resolveJira()
 	if err != nil {
 		return Config{}, err

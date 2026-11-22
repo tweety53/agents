@@ -1,0 +1,19 @@
+# Demo stack for hybrid self-review similarity: holds only finding embeddings
+# (table finding_embeddings in database flowvec) and is independent of
+# flow-postgres. Host port 5434 so it never collides with 5433 or 5432.
+services:
+  flow-pgvector:
+    image: pgvector/pgvector:0.8.7-pg18
+    container_name: flow-pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: flow
+      POSTGRES_PASSWORD: flow
+      POSTGRES_DB: flowvec
+    ports:
+      - "5434:5432"
+    volumes:
+      # postgres 18 layout: mount at /var/lib/postgresql, as docker-compose.yml does.
+      - flow-pgvector-data:/var/lib/postgresql
+volumes:
+  flow-pgvector-data:

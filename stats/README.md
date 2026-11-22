@@ -26,6 +26,19 @@ docker compose up -d
 This starts only `flow-postgres`; it does not stop or modify any other
 running container.
 
+## Hybrid self-review similarity (optional)
+
+`flow self-review similar` ranks by BM25; with an embedding sidecar and a pgvector
+database it fuses BM25 with embedding similarity (reciprocal rank fusion). Both
+`FLOW_EMBED_URL` and `FLOW_PGVECTOR_DSN` set means hybrid; either unset means BM25
+only. If the embedding half fails, the CLI prints a warning and answers BM25 only.
+
+```bash
+docker compose -f stats/docker-compose.pgvector.yml up -d
+uv run stats/embedder/server.py
+FLOW_EMBED_URL=http://127.0.0.1:8099 FLOW_PGVECTOR_DSN='postgres://flow:flow@localhost:5434/flowvec?sslmode=disable' flowd
+```
+
 ## Running the tests
 
 ```bash

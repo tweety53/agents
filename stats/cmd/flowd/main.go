@@ -271,6 +271,9 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	defer st.Close()
+	if cfg.EmbedURL != "" && cfg.PgvectorDSN != "" {
+		st.ConfigureHybrid(store.NewHTTPEmbedder(cfg.EmbedURL), cfg.PgvectorDSN)
+	}
 
 	if err := st.RunMigrations(ctx); err != nil {
 		return err

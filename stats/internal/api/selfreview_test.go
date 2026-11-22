@@ -534,6 +534,39 @@ func (f *fakeStore) SimilarSelfReviewFindings(_ context.Context, projectKey, que
 	return out, nil
 }
 
+// SimilarSelfReviewFindingsMode is the same read reporting fs.similarMode (default bm25) and fs.similarErr.
+func (f *fakeStore) SimilarSelfReviewFindingsMode(ctx context.Context, projectKey, query string, n int) ([]records.SimilarSelfReviewFinding, string, error, error) {
+	out, err := f.SimilarSelfReviewFindings(ctx, projectKey, query, n)
+	mode := f.similarMode
+	if mode == "" {
+		mode = "bm25"
+	}
+	return out, mode, f.similarErr, err
+}
+
+// TestSimilarModeHeader: the route reports the store's mode in X-Similar-Mode, and the reason on a fallback.
+func TestSimilarModeHeader(t *testing.T) {
+	t.Parallel()
+	fs := newFakeStore()
+	fs.selfReviewFindings = []selfReviewFindingRecord{{projectKey: "p", finding: records.SelfReviewFinding{ID: 1, Note: "stale cache"}}}
+	srv := newTestServer(t, fs)
+	hdr := func() http.Header {
+		resp, err := http.Get(srv.URL + "/api/v1/self-review-similar/p?q=stale")
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		return resp.Header
+	}
+	if h := hdr(); h.Get("X-Similar-Mode") != "bm25" || h.Get("X-Similar-Error") != "" {
+		t.Errorf("default: %v", h)
+	}
+	fs.similarMode, fs.similarErr = "bm25-fallback", errors.New("embedder down")
+	if h := hdr(); h.Get("X-Similar-Mode") != "bm25-fallback" || h.Get("X-Similar-Error") != "embedder down" {
+		t.Errorf("fallback: %v", h)
+	}
+}
+
 // TestSimilarSelfReviewFindingsRoute: GET /api/v1/self-review-similar/{project}?q=&n= returns the matches with a score and
 // answers 400 for an empty query or an n outside 1..50.
 func TestSimilarSelfReviewFindingsRoute(t *testing.T) {

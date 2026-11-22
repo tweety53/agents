@@ -431,3 +431,32 @@ func TestSelfReviewSimilarCLI(t *testing.T) {
 		}
 	}
 }
+
+// TestSelfReviewSimilarFallbackWarning: an X-Similar-Mode of bm25-fallback prints the one warning line on
+// stderr and still the JSON array on stdout; any other mode prints no warning.
+func TestSelfReviewSimilarFallbackWarning(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	env := newTestEnv(t)
+	mode := "bm25-fallback"
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Similar-Mode", mode)
+		w.Header().Set("X-Similar-Error", "embed: connection refused")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer srv.Close()
+	sim := func() (int, string, string) {
+		var stdout, stderr strings.Builder
+		code := run(context.Background(), []string{"self-review", "similar", "x", "-addr", srv.URL, "-timeout", "500ms", "-C", repo}, env.get, strings.NewReader(""), &stdout, &stderr)
+		return code, stdout.String(), stderr.String()
+	}
+	code, stdout, stderr := sim()
+	if code != 0 || strings.TrimSpace(stdout) != "[]" || !strings.Contains(stderr, "⚠ flow: hybrid similarity unavailable, BM25 only: embed: connection refused\n") {
+		t.Errorf("fallback: exit %d, stdout %q, stderr %q", code, stdout, stderr)
+	}
+	mode = "hybrid"
+	if _, _, stderr := sim(); strings.Contains(stderr, "hybrid similarity unavailable") {
+		t.Errorf("hybrid: stderr %q, want no warning", stderr)
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -27,6 +28,12 @@ const (
 // exposes the typed repository methods every caller uses instead of SQL.
 type Store struct {
 	pool *pgxpool.Pool
+
+	// Hybrid similarity (vectors.go); zero means BM25 only.
+	embedder Embedder
+	vecDSN   string
+	vecMu    sync.Mutex
+	vec      *pgxpool.Pool
 }
 
 // Open connects to dsn, verifies the connection with a ping, and returns a
@@ -73,6 +80,9 @@ func poolConfig(dsn string) (*pgxpool.Config, error) {
 
 // Close releases the underlying connection pool.
 func (s *Store) Close() {
+	if s.vec != nil {
+		s.vec.Close()
+	}
 	s.pool.Close()
 }
 

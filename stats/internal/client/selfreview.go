@@ -118,18 +118,27 @@ func (c *Client) GetSelfReviewFinding(ctx context.Context, project string, id in
 
 // SimilarSelfReviewFindings fetches the n of project's self-review findings most similar to query, best first.
 func (c *Client) SimilarSelfReviewFindings(ctx context.Context, project, query string, n int) ([]records.SimilarSelfReviewFinding, error) {
+	out, _, _, err := c.SimilarSelfReviewFindingsMode(ctx, project, query, n)
+	return out, err
+}
+
+// SimilarSelfReviewFindingsMode is SimilarSelfReviewFindings that also returns the daemon's
+// X-Similar-Mode and, on bm25-fallback, the reason the embedding half failed.
+func (c *Client) SimilarSelfReviewFindingsMode(ctx context.Context, project, query string, n int) (rows []records.SimilarSelfReviewFinding, mode, reason string, err error) {
 	u := c.baseURL + "/api/v1/self-review-similar/" + url.PathEscape(project) + "?q=" + url.QueryEscape(query) + "&n=" + strconv.Itoa(n)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+		return nil, "", "", fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
 	}
-	respBody, status, err := c.send(req)
+	respBody, status, fromDaemon, h, err := c.doHeader(req)
 	if err != nil {
-		return nil, err
+		return nil, "", "", err
 	}
-	var out []records.SimilarSelfReviewFinding
-	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
-		return nil, err
+	if !fromDaemon {
+		return nil, "", "", fmt.Errorf("%w: response missing %s header -- not trusted as a store answer", ErrUnavailable, daemonHeaderName)
 	}
-	return out, nil
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &rows); err != nil {
+		return nil, "", "", err
+	}
+	return rows, h.Get("X-Similar-Mode"), h.Get("X-Similar-Error"), nil
 }
