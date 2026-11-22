@@ -373,6 +373,11 @@ updates)**.
 `/flow <name>` — that message re-plans as **No** below. `/flow-plan`'s **Save the plan?** is
 still asked.
 
+**A behind base is synced at the gate, so implementation starts on a current one.** On `/flow`'s creating run, once the plan is
+accepted and before the `STARTED` handoff prints, run `flow-guard sync-base-behind <worktree>...` over the run's worktrees
+(`skills/flow/implement.md`'s base check, step 1, is the same call). Exit 0 → continue. Exit 1 or 2 → name its stderr in the
+handoff and continue; the implement run's check finds the base again. It is one command: never a raw `git push`.
+
 On **No**, take the operator's changes (a follow-up **AskUserQuestion** round when the option
 carried none), write them verbatim to the latest round file's `## Answers`, and dispatch a fresh final planner
 on them as a `QUESTIONS` return is taken (**Run brainstorming and planning through the planner

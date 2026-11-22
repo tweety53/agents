@@ -150,9 +150,10 @@ naming: nothing has been proposed under that name, so stop and suggest `/flow <n
 
 **Every recorded base is compared with the branch it tracks before task 1 runs.** Run
 `flow-guard check-base-behind <worktree>...` over the run's resolved worktree set; its header is canonical
-for its lines. Exit 0 → continue. Exit 1 → relay every `BASE-BEHIND:` block, run its two command
-lines in order as **Verify** (`skills/flow/verify-and-handoff.md`) runs them, and run the check
-again. Exit 2 → name its stderr in the handoff and continue.
+for its lines. Exit 0 → continue. Exit 1 → run `flow-guard sync-base-behind <worktree>...` over the same set — one
+command that merges the tracked branch into the base, pushes the base, fetches and syncs the
+worktree onto it (its header is canonical); never a raw `git push` — and run the check again. Its exit 1
+(a conflict) and exit 2 name its stderr in the handoff and stop. Exit 2 of the check → name its stderr in the handoff and continue.
 
 **Whether there is anything left to implement is read off the task checkboxes**, from
 `spectre list --json`'s `{"changes":[{"id","done","total"}]}` for this change.

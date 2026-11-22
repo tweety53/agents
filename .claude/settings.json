@@ -2,6 +2,7 @@
   "permissions": {
     "allow": [
       "Bash(flow-guard:*)",
+      "Bash(flow-guard sync-base-behind *)",
       "Bash(flow:*)",
       "Bash(npx playwright test:*)",
       "Bash(./gradlew:*)",

@@ -58,7 +58,7 @@ export were performed manually and why.
 flow-guard check-base-behind <worktree>...
 ```
 
-over the same resolved set; its header is canonical for its lines. Exit 0 → continue. Exit 1 → relay every `BASE-BEHIND:` block and run its two command lines in order — the first pushes the base, unasked (**What still stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`), as one Bash call, since `C` lives only in the shell that set it and the line's `${C:?}` aborts the push on an empty `C`, whose refspec would delete the remote base (kan-1087 self-review, F4) — then run **Verify** again from its `begin` mark. Exit 2 → name its stderr in the handoff and continue.
+over the same resolved set; its header is canonical for its lines. Exit 0 → continue. Exit 1 → run `flow-guard sync-base-behind <worktree>...` — the guard itself merges the tracked branch into the base, pushes the base (unasked: **What still stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`; the guard refuses an empty merge commit, whose refspec would delete the remote base, kan-1087 self-review F4), fetches and syncs the worktree onto it; never a raw `git push` — then run **Verify** again from its `begin` mark. Exit 2 → name its stderr in the handoff and continue.
 
 **This step does not call the project's `create` command.** `create` is called by whatever starts
 the project's applications, per **Project configuration**

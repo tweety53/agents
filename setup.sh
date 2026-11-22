@@ -333,6 +333,12 @@ install_hooks() {
     link_into "$hook_file" "$claude_dir/hooks/$hook_name" "$hook_name"
   done
   settings="$claude_dir/settings.json"
+  warn_unregistered_hook "$settings" 'flow-guard sync-base-behind' sync-base-behind-permission \
+    "  ⚠ The base-sync permission is not allowed, so the auto-mode classifier can stall /flow at" \
+    "    implementation start. Add this to \"permissions.allow\" in $settings:" <<'SNIPPET'
+
+    "Bash(flow-guard sync-base-behind *)"
+SNIPPET
   warn_unregistered_hook "$settings" enforce-agent-baseline agent-baseline \
     "  ⚠ The agent-baseline hook is installed but NOT registered, so nothing yet enforces" \
     "    that subagent dispatches carry the rules. Add this to \"hooks\" in $settings:" <<'SNIPPET'
