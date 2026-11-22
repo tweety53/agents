@@ -32,7 +32,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   "weekly-costs": "Weekly costs",
   reviewers: "Reviewers",
   "flow-health": "Flow guards",
-  "self-review": "Self-review fixes",
+  "self-review": "Self-review",
   "review-dynamics": "Reviewer findings",
   "role-costs": "Role costs",
   "agent-roles": "Agent roles",

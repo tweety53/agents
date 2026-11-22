@@ -73,7 +73,7 @@ function Body({ text }: { text: string }) {
       for (; i < lines.length && /^\s*[-*]\s+/.test(lines[i]); i++) items.push(lines[i].replace(/^\s*[-*]\s+/, ""));
       i--;
       parts.push(
-        <ul key={i} className="sr-list">
+        <ul key={i} className={items.every((it) => /^\[( |x)\]/.test(it)) ? "sr-list sr-check" : "sr-list"}>
           {items.map((it, j) => (
             <li key={j}>{it.replace(/^\[( |x)\]\s*/, (_m, c) => (c === "x" ? "☑ " : "☐ "))}</li>
           ))}

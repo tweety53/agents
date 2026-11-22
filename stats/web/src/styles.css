@@ -1255,6 +1255,8 @@ td.lb-clip { max-width: 0; width: 100%; }
 .sr-stat { border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; font-size: 14px; }
 .sr-h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 16px 0 4px; }
 .sr-list { margin: 0; padding-left: 18px; }
+.sr-check { list-style: none; padding-left: 0; }
+.sr-actions button { padding: 4px 14px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-2); color: var(--text-primary); font: inherit; cursor: pointer; }
 .sr-quote { margin: 0; padding: 2px 12px; border-left: 3px solid var(--border-strong); color: var(--text-secondary); }
 .sr-code, .sr-raw { white-space: pre-wrap; font-family: var(--font-mono); font-size: 12px; background: var(--surface-1); padding: 9px 12px; border-radius: 4px; margin: 4px 0; overflow: auto; }
 .sr-raw { font-family: inherit; font-size: inherit; }
