@@ -262,6 +262,14 @@ reads every number on it as an exit.
    the corrected number standing in its place. A recorded decision is a named cause only for the deltas it names, by element and property: any other delta on the same band or element is unexplained until measured.
    Every line that reports the departure names its cause or its attribution
    beside it — never a bare `departure`.
+
+   **A finding that reverses an earlier round's measured finding on the same element** — a tab bar
+   13 px high, then 20 px low; axis labels present, then absent — quotes that round's report line
+   (`.superpowers/sdd/verify-report-*.md` of the worktree) with its numbers, and names the commit or
+   edit between the two rounds that moved the element. With no such change since, the earlier
+   number stands and the new one is re-measured at 2x on the frame before either is reported; a
+   reversal that quotes no earlier numbers and names no change is not accepted (KAN-1091: rounds
+   6–14 contradicted themselves on one element for twenty rounds).
    **A departure's expected value cites the mockup's source wherever the handoff ships one, never a
    rule inferred from the pixels**: where the frame was drawn from HTML or CSS in the tree — beside
    the mockups or cited by `design.md` — the line names the declaration the expected layout, size or
