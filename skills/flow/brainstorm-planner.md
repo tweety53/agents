@@ -89,6 +89,17 @@ Investigate read-only, then present the design.
   section (**Project configuration — visual verification**,
   `skills/flow-contracts/project-configuration-visual.md`), never copied into an app repository; a
   design specified by a mockup that is not there yet is not approvable until it is.
+- **Shared constants are listed before any frame is approved.** For a change that carries UI, read
+  the constants its frames share — bar heights, the title's y, rail colours, row heights, greys,
+  label wording — from the app's own token file, and list them in `design.md` under
+  `## Shared constants`, one per item: ``- `<name>`: <value> — <token and file it was read from>``.
+  A frame that disagrees with the list is corrected in the frame, or the list is changed by an
+  explicit decision recorded in `design.md` — never left for `flow.verify` to find (kan-1155:
+  contradictory frames cost 14 verify rounds). Each frame states the listed constants it draws —
+  a sidecar `<frame id>.constants` beside it, one `<name>: <value>` per line, or
+  `data-const-<name>="<value>"` attributes in an HTML frame — and
+  `flow-guard check-frame-constants <design.md> <frames dir>` exits 0 before the design is
+  approved; it exits 1 naming each constant two frames draw differently.
 - **A visible change is prototyped before its design is approved** (`plan-visual-prototype`). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
   no mockup frame already specifies it, build a clickable prototype of the proposed result with
   sample data as a single HTML file under `<project>-worktrees/<name>/.superpowers/sdd/`, and

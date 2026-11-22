@@ -221,7 +221,11 @@ reads every number on it as an exit.
    frame draws, paired with the capture's in order, a text or data difference never unpairing
    one. **The length and colour tolerances are `mvpOverLength` and `mvpOverColour`
    (`<agents repo>/stats/internal/guard/measurevisualproperties.go`)** — `measure` flags by them, and nothing here
-   restates their values. **Every `missing` band, every `extra` band, and every pair whose `since_pair`,
+   restates their values; the project's `tolerance` row (**Project configuration — visual
+   verification**, `skills/flow-contracts/project-configuration-visual.md`) replaces the length one.
+   What the length tolerance let through is not yours to explain: `measure` prints
+   `within-tolerance: <n>` and writes the rows to `<changeRoot>/visual-verification/within-tolerance.md`,
+   the appendix `visual-verification.md` points at. **Every `missing` band, every `extra` band, and every pair whose `since_pair`,
    `gap_above` or `height` delta exceeds the length tolerance or whose `edge` or `colour` distance exceeds the colour tolerance is
    a departure until a cause is named that a band cannot carry** — a wrapped label (a `height`
    delta on a text band, confirmed by transcription), a frame annotation outside the app's own
@@ -478,7 +482,19 @@ reads every number on it as an exit.
       the mockups or cited by `design.md` — and the capture's is the script's where its own
       image measures, else the value the app's source draws the element with; the row's
       `over-tolerance:` item names its source.
-   3. **Explain every row the matrix's `over` list names.** The manifest carries each composed
+   3. **Read every flagged frame's composite before naming a cause.** A frame with any `over` row
+      carries a line `- <frame id> viewed: yes — <what the composite shows>`, written after its
+      composite was opened with the Read tool; the report check refuses a `done` step 10 without it.
+      **A row is never labelled by rule**: each `over-tolerance:` item names one row, `#<row>: <cause>
+      — <figures>`, and its cause comes from what the composite shows at that row — never a range
+      (`#3-#40: annotation`), a list of rows under one cause, or a selector (`rows 3 to 40`, `all`,
+      `the rest`). The check refuses such an item (kan-1155: 192 rows were labelled by a key-to-cause
+      rule over 14 rounds with no composite read). When `measure` printed `shift: dy=<px> rows=<n>
+      frame=<frame id>`, more than 20 of the frame's rows sit one constant offset low or high: they
+      are one defect, the manifest's `shift` names it, and the one row left on `over` stands for
+      all of them — find what moved the whole frame (a bar height, a scroll position, a status
+      line) rather than explaining rows.
+   4. **Explain every row the matrix's `over` list names.** The manifest carries each composed
       frame's `over` rows by their 1-based index — every matrix row `missing`, `extra` or
       `unresolved`, or paired over the length or colour tolerance. The report's `- <frame id>
       over-tolerance: <n> — #<row>: <cause>; …` line names every one, `<n>` the frame's count, each
@@ -679,7 +695,8 @@ frame's spot-check written, and every sweep on each `sweeps:` line `done` or
 n/a — `<why it does not apply>` — a sweep or a spot-check left for time, context or a
 measurement the pixels could not give is step 10 undone.
 Each composed frame carries its own `- <frame id> spot-check:` line, never one line for a range of frames: the report check refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none.
-It refuses one the same way for a missing `over-tolerance:` line, a manifest cell left empty or
+It refuses one the same way for a missing `over-tolerance:` line, a frame with `over` rows and no
+`viewed: yes` line, an `over-tolerance:` item labelling rows by rule, a manifest cell left empty or
 n/a in a column that applies to its row's class, a spot-check row short, off the cells or on the
 `over` list, a `script` figure its cell does not carry, and a sweep item reading neither `done`
 nor n/a — `<why it does not apply>`.
@@ -725,6 +742,7 @@ attribution beside it — one cause drawn on 34 frames is one line, never one li
   ink — the same sweep line at capture scope; `order` carries its containment half's
   outcome beside n/a — no frame; `rows` and `ink` read n/a — no frame
 - <frame id> spot-check: #<row> <column> script <x> hand <y>; … <at least 3 rows off the `over` list, or every one when fewer, one a `control` or `fill band` row where the frame has one>
+- <frame id> viewed: yes — <what the composite shows; required for every frame with a row on the manifest's `over` list>
 - <frame id> over-tolerance: <n> — #<row>: <cause>; … <every row the manifest's `over` list names for the frame, each with one cause from step 10's closed list>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - motion: <named motions recorded>/<named> — <each motion id: its strip directory, frame count, and `clean` or each departing frame's index and what it shows> | n/a — no motions named

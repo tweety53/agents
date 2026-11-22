@@ -68,6 +68,15 @@ this file in full first: its prompt is a stub naming this file, never these para
 > measure contradicts the plan, stop and report the measurement: see **When a measurement
 > contradicts the plan** (`skills/flow-contracts/plan-amendment.md`).
 
+> **MEASURE A UI TASK BEFORE YOU REPORT:** when a file under your task's `**Files:**` matches the
+> project's `ui paths` (`## visual verification`, `.flow/project.md`), commit, then run
+> `flow-guard visual-verify-pass measure <canonical-worktree> <name> task-<task-id> <the task's capture spec>`
+> and fix every row it flags at its source — commit and re-run until none is left. It writes
+> `<changeRoot>/visual-verification/task-<task-id>-measure.json`; `flow-guard close-task` refuses
+> the task (`flow-guard check-ui-task-measured <canonical-worktree> <task-id>`) while that record is
+> missing, older than your last commit to the task's files, or carries a flagged row, and prints
+> this command. A length delta within the project's `tolerance` is not flagged.
+
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to
 > completion, before you stop. A `flow-guard` run counts: write your report file last, after

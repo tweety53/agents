@@ -360,6 +360,7 @@ seed hides.
 when all of these hold:** a fix round has already tried to close it at its source; the run records
 why no easy fix exists, such as a font's glyph metrics; `visual-verification.md` carries it beside
 the frame with its measured value and that reason; and the handoff's `**Decisions:**` lines name it.
+**`measure` applies that tolerance itself**: a length delta within the project's `tolerance` row (default `2px at 2x`) is never on the `over` list — it is counted on `within-tolerance: <n>` and listed with its measured value in `<changeRoot>/visual-verification/within-tolerance.md`, which `visual-verification.md` cites as its appendix.
 It is never the first answer, and colour, a missing or extra element, and copy get no tolerance (the operator states this approximation as the requirement, the one widening `rules/fix-determinism-at-the-source.mdc` admits).
 
 **Every blocking item but the pre-flight and a stack that could not be started
