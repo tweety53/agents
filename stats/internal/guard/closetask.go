@@ -25,6 +25,10 @@ import (
 //     commit that does not is refused (exit 1) before anything is ticked or
 //     pushed, so a task never ticks over work that would not leave the
 //     machine.
+//     A task whose **Files:** touch the project's `ui paths` is refused the
+//     same way (exit 1) unless check-ui-task-measured passes it: its
+//     task-<id>-measure.json exists, is no older than its last source commit
+//     and carries no flagged row. The refusal prints the command to run.
 //  2. `flow tasks tick -C <canonical> <name> <id>` for every task.
 //  3. `git -C <worktree> push origin spectre/<name>` once per distinct
 //     worktree, in first-named order.
@@ -32,7 +36,7 @@ import (
 // A failed tick or push is exit 2; every tick and push is still attempted.
 //
 // Exit 0 closed; 1 a commit is missing or off the branch — commit it, then
-// re-run; 2 a tick or push failed, or a usage error.
+// re-run — or a UI task is unmeasured, stale or flagged; 2 a tick or push failed, or a usage error.
 //
 // A call that times out is inspected before it is retried: `git status
 // --porcelain=v2 --branch` and `git stash list` in the worktree first. A
@@ -51,7 +55,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 	canonical, name, mergeBase := args[0], args[1], args[2]
 	git := envGit(env)
 	var ids, worktrees []string // worktrees: distinct, in first-named order — one push each
-	refused := false
+	refused, unmeasured := false, false
 	for _, a := range args[3:] {
 		id, commit, given := strings.Cut(a, ":")
 		if id == "" || given && commit == "" {
@@ -71,8 +75,12 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 		if strings.Contains(commit, "=") {
 			pairs = strings.Split(commit, ",")
 		}
+		measured := []string{pcAbs(env, canonical)} // the canonical worktree, then the task's others
 		for _, p := range pairs {
 			wt, sha, _ := strings.Cut(strings.TrimSpace(p), "=")
+			if abs := pcAbs(env, wt); !slices.Contains(measured, abs) {
+				measured = append(measured, abs)
+			}
 			if _, ok := capture(git("-C", wt, "merge-base", "--is-ancestor", sha, "HEAD")); !ok {
 				fmt.Fprintf(stderr, "close-task: task %s: %s is not a commit on %s's HEAD — commit the task there, then re-run\n", id, sha, wt)
 				refused = true
@@ -81,6 +89,15 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 				worktrees = append(worktrees, wt)
 			}
 		}
+		if why, msg := utmJudge(env, measured, name, id); why == "measure-missing" || why == "measure-stale" || why == "measure-not-clean" {
+			fmt.Fprintf(stderr, "UI-TASK-UNMEASURED: %s — %s\n", id, msg)
+			unmeasured = true
+		}
+	}
+	if unmeasured {
+		Reason(env, "ui-task-not-measured")
+		fmt.Fprintln(stderr, "close-task: MEASURE — nothing was ticked or pushed")
+		return 1
 	}
 	if refused {
 		Reason(env, "commit-not-on-branch")

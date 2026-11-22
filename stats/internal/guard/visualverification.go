@@ -502,13 +502,14 @@ var vvMockupFrame = regexp.MustCompile(`^scale=[1-9][0-9]* status=[0-9]+ border=
 // are pinned in one order so a declared geometry is greppable, though the
 // compose step itself accepts any. `preflight apps` is optional, its cells
 // read by visual-verify-pass prepare (kan-1086 self-review, F10). `design repo`
-// is optional, `<clone> <remote>`, read by flow-guard render-frames.
+// is optional, `<clone> <remote>`, read by flow-guard render-frames. `tolerance`
+// is optional, `<n>px at <scale>x`, read by visual-verify-pass measure.
 func (v *vvValidation) settingRow(line int, cells []string) {
 	disp, key := vtTrimCell(cells[0]), vtFoldCell(cells[0])
 	switch key {
-	case "ui paths", "screenshots", "regression checkout", "regression repo", "mockups", "mockup frame", "preflight apps", "design repo":
+	case "ui paths", "screenshots", "regression checkout", "regression repo", "mockups", "mockup frame", "preflight apps", "design repo", "tolerance":
 	default:
-		v.addv(line, "Setting `"+disp+"` is not one of `ui paths`, `screenshots`, `regression checkout`, `regression repo`, `mockups`, `mockup frame`, `preflight apps` or `design repo` — the vocabulary is closed, so the row is dropped")
+		v.addv(line, "Setting `"+disp+"` is not one of `ui paths`, `screenshots`, `regression checkout`, `regression repo`, `mockups`, `mockup frame`, `preflight apps`, `design repo` or `tolerance` — the vocabulary is closed, so the row is dropped")
 		return
 	}
 	if f, seen := v.set[key]; seen {
@@ -520,7 +521,29 @@ func (v *vvValidation) settingRow(line int, cells []string) {
 		v.addv(line, "Setting `mockup frame` must be `scale=<int> status=<px> border=<px>`, got `"+val+"`")
 		return
 	}
+	if _, ok := vvTolerance(val); key == "tolerance" && !ok {
+		v.addv(line, "Setting `tolerance` must be `<n>px at <scale>x`, got `"+val+"`")
+		return
+	}
 	v.set[key] = vvField{line, val}
+}
+
+var vvToleranceRE = regexp.MustCompile("^`?([0-9]+(?:\\.[0-9]+)?)px at [1-9][0-9]*x`?$")
+
+// vvTolerance is a `tolerance` cell's length tolerance in capture pixels —
+// `<n>px at <scale>x`, the scale naming the device scale the captures are
+// taken at, so the unit is stated — and false for any other shape. An absent
+// row is mvpOverLength: 2px at 2x, 1dp.
+func vvTolerance(cell string) (float64, bool) {
+	if cell == "" {
+		return mvpOverLength, true
+	}
+	m := vvToleranceRE.FindStringSubmatch(cell)
+	if m == nil {
+		return 0, false
+	}
+	f, err := strconv.ParseFloat(m[1], 64)
+	return f, err == nil
 }
 
 // commandRow checks one row of the commands table. The `Command` vocabulary

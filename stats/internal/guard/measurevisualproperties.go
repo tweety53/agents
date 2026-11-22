@@ -39,6 +39,9 @@ import (
 //                           that counts as a hard edge (default 24)
 //     --noise <n>           colour distance to background below which a pixel
 //                           is background (default 8)
+//     --tolerance <px>      the length tolerance of `--props matrix`'s
+//                           `summary.over` (default 2, mvpOverLength); never
+//                           applied to a colour, a missing or an extra row
 //
 //   With two images one calibration input is mandatory — `--scale` or the
 //   `--ref-*` pair; a cross-image comparison with neither is refused, because an
@@ -218,8 +221,10 @@ import (
 //            entry per matrix row, `row` its 1-based index in `matrix`, that
 //            is `missing` or `extra`, carries `unresolved`, or is paired with
 //            a scaled numeric leaf of its pairing or its `measured.delta`
-//            whose `abs` is over 2px (mvpOverLength) or a colour `distance`
+//            whose `abs` is over `--tolerance` px or a colour `distance`
 //            over 12 (mvpOverColour) — step 10's band and seam tolerances.
+//            `within` lists every other paired row carrying a non-zero length
+//            delta, as `{row, values}`, `values` its `<leaf>=<abs>` deltas.
 //            A leaf under an unscaled key (`ratio`, `approx_opacity`,
 //            `peak_delta`, `share`) is never over. `keys` names the leaves
 //            over, `, `-separated (`unresolved` for an unresolved row, empty
@@ -294,7 +299,9 @@ func (e mvpUnresolved) Error() string { return string(e) }
 
 // mvpHelp is what argparse prints for -h with stdout not a terminal (80
 // columns) and prog "flow-guard measure-visual-properties": the port prints
-// the same text wherever it runs.
+// the same text wherever it runs. `--tolerance` is the port's own option, added
+// after the Python it is pinned against, and is documented in the header
+// above alone.
 const mvpHelp = `usage: flow-guard measure-visual-properties [-h] [--region-a REGION_A]
                                             [--region-b REGION_B]
                                             [--scale SCALE] [--ref-a REF_A]
@@ -318,7 +325,7 @@ options:
   --noise NOISE
 `
 
-var mvpOptions = []string{"-h", "--help", "--region-a", "--region-b", "--scale", "--ref-a", "--ref-b", "--props", "--edge", "--noise"}
+var mvpOptions = []string{"-h", "--help", "--region-a", "--region-b", "--scale", "--ref-a", "--ref-b", "--props", "--edge", "--noise", "--tolerance"}
 
 type mvpArgs struct {
 	images                       []string
@@ -326,7 +333,8 @@ type mvpArgs struct {
 	scale                        *float64
 	props                        string
 	edge, noise                  float64
-	edgeText                     string // str(edge): argparse left the default an int
+	tolerance                    float64 // --tolerance: the length tolerance of summary.over, mvpOverLength by default
+	edgeText                     string  // str(edge): argparse left the default an int
 }
 
 func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) int {
@@ -446,7 +454,7 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 // missing image and an unrecognized argument are reported after the scan.
 // code is -1 when the arguments parsed.
 func mvpParse(args []string, env Env, stdout, stderr io.Writer) (a mvpArgs, code int) {
-	a = mvpArgs{props: strings.Join(mvpAllProps, ","), edge: 24, noise: 8, edgeText: "24"}
+	a = mvpArgs{props: strings.Join(mvpAllProps, ","), edge: 24, noise: 8, edgeText: "24", tolerance: mvpOverLength}
 	usage := func(msg string) (mvpArgs, int) {
 		fmt.Fprintln(stderr, mvpPrefix+msg)
 		Reason(env, "usage")
@@ -521,7 +529,7 @@ func (a *mvpArgs) set(name, val string) string {
 		a.props = val
 		return ""
 	}
-	if name == "--scale" || name == "--edge" || name == "--noise" { // type=float
+	if name == "--scale" || name == "--edge" || name == "--noise" || name == "--tolerance" { // type=float
 		f, ok := mvpParseFloat(val)
 		if !ok {
 			return "invalid float value: " + ppRepr(val)
@@ -531,6 +539,11 @@ func (a *mvpArgs) set(name, val string) string {
 			a.scale = &f
 		case "--edge":
 			a.edge, a.edgeText = f, pyFloat(f)
+		case "--tolerance":
+			if f < 0 {
+				return "must not be negative"
+			}
+			a.tolerance = f
 		default:
 			a.noise = f
 		}
@@ -1618,7 +1631,8 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 		rows = append(rows, append(row, pyKV{"measured", pyObj{{"a", ma.out}, {"b", mb.out}, {"delta", mvpDelta(ma, mb, props, scale)}}}))
 	}
 	paired, missing, extra := mvpCountStatus(pairs)
-	return pyObj{{"scale", scale}, {"matrix", rows}, {"summary", pyObj{{"paired", paired}, {"missing", missing}, {"extra", extra}, {"over", mvpOver(rows)}}}}, nil
+	over, within := mvpOver(rows, a.tolerance)
+	return pyObj{{"scale", scale}, {"matrix", rows}, {"summary", pyObj{{"paired", paired}, {"missing", missing}, {"extra", extra}, {"over", over}, {"within", within}}}}, nil
 }
 
 // Step 10's band and seam tolerances (skills/flow/visual-verify-verifier.md
@@ -1632,12 +1646,16 @@ const (
 // mvpOver is summary.over (decision over-list): one {row, status, keys}
 // entry per matrix row, row its 1-based index, that is missing or extra,
 // carries `unresolved`, or is paired with a scaled numeric leaf of its
-// pairing or its measured.delta over mvpOverLength, or a colour distance
-// over mvpOverColour; keys names the leaves over, comma-separated.
-func mvpOver(rows []pyObj) []pyObj {
-	over := []pyObj{}
+// pairing or its measured.delta over tol — `--tolerance`, mvpOverLength by
+// default — or a colour distance over mvpOverColour; keys names the leaves
+// over, comma-separated. The length tolerance never reaches a colour, a
+// missing or an extra row. within is summary.within: one {row, values} entry
+// per paired row off the over list that carries a non-zero length delta, every
+// one of them inside tol, values its `<leaf>=<abs>` deltas comma-separated.
+func mvpOver(rows []pyObj, tol float64) (over, within []pyObj) {
+	over, within = []pyObj{}, []pyObj{}
 	for i, row := range rows {
-		status, keys := "", []string{}
+		status, keys, inside := "", []string{}, []string{}
 		judge := func(key string, v any) {
 			d, ok := v.(pyObj)
 			if !ok {
@@ -1647,9 +1665,13 @@ func mvpOver(rows []pyObj) []pyObj {
 				switch {
 				case kv.k == "distance" && kv.v != nil && mvpF(kv.v) > mvpOverColour:
 					keys = append(keys, key)
-				case kv.k == "abs" && kv.v != nil && math.Abs(mvpF(kv.v)) > mvpOverLength &&
+				case kv.k == "abs" && kv.v != nil && mvpF(kv.v) != 0 &&
 					!slices.ContainsFunc(strings.Split(key, "."), func(seg string) bool { return slices.Contains(mvpUnscaled, seg) }):
-					keys = append(keys, key)
+					if math.Abs(mvpF(kv.v)) > tol {
+						keys = append(keys, key)
+					} else {
+						inside = append(inside, key+"="+strconv.FormatFloat(mvpF(kv.v), 'f', -1, 64))
+					}
 				}
 			}
 		}
@@ -1674,9 +1696,11 @@ func mvpOver(rows []pyObj) []pyObj {
 		}
 		if status == "missing" || status == "extra" || len(keys) > 0 {
 			over = append(over, pyObj{{"row", i + 1}, {"status", status}, {"keys", strings.Join(keys, ", ")}})
+		} else if len(inside) > 0 {
+			within = append(within, pyObj{{"row", i + 1}, {"values", strings.Join(inside, ", ")}})
 		}
 	}
-	return over
+	return over, within
 }
 
 func mvpElementRecs(elems []mvpElement) []mvpRec {

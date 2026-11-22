@@ -467,7 +467,7 @@ func TestCheckVisualVerification(t *testing.T) {
 			"| Command | Runs |\r\n| `verify` | v |\r\n")
 		out, rc := vvGuard(t, vvEnv(root), ".")
 		c := "./.flow/project.md"
-		want := c + ":6: Setting `bogus\\x1b[1m` is not one of `ui paths`, `screenshots`, `regression checkout`, `regression repo`, `mockups`, `mockup frame`, `preflight apps` or `design repo` — the vocabulary is closed, so the row is dropped\n" +
+		want := c + ":6: Setting `bogus\\x1b[1m` is not one of `ui paths`, `screenshots`, `regression checkout`, `regression repo`, `mockups`, `mockup frame`, `preflight apps`, `design repo` or `tolerance` — the vocabulary is closed, so the row is dropped\n" +
 			c + ":7: a second `ui paths` row, the first being at line 5 — the row is dropped\n" +
 			c + ":9: a setting row with 1 cell(s) where its header has 2 (expected 2) — the row does not line up with its header, so it is dropped rather than read against the wrong columns\n" +
 			c + ":10: a second table header (`command|runs`) begins here, inside the table that started at line 3 — two tables written with no blank line or prose between them are one block to this parser, so it read only the first header and stopped here rather than reading the rows below against the wrong columns; separate the two tables with a blank line\n" +

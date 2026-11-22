@@ -838,7 +838,8 @@ func TestMeasureVisualPropertiesMatrixOver(t *testing.T) {
 		{{"kind", "rule"}, {"status", "paired"}, {"colour", pyObj{{"a", "#000000"}, {"b", "#ffffff"}, {"distance", 441.7}}}},
 	}
 	got = nil
-	for _, o := range mvpOver(rows) {
+	synthetic, _ := mvpOver(rows, mvpOverLength)
+	for _, o := range synthetic {
 		got = append(got, pyDump(o))
 	}
 	if s := strings.Join(got, "|"); strings.Contains(s, `"row": 1`) || !strings.Contains(s, `"row": 2`) || !strings.Contains(s, `"keys": "unresolved"`) || !strings.Contains(s, `"row": 3`) || !strings.Contains(s, `"keys": "colour"`) {

@@ -78,6 +78,12 @@ import (
 // count, an unnamed row or a cause off the list is undone.
 // Each item whose manifest row carries figures quotes one as <key> a=<a> b=<b>;
 // an item quoting none of its row's figures is undone (kan-1057 self-review, F20).
+// A frame whose manifest `over` list is not empty also needs its own
+// `- <frame id> viewed: yes — <what its composite shows at the flagged rows>`
+// line: its rows are explained from the composite, read, never from their
+// keys. An over-tolerance item that labels rows by rule — a range or a list
+// (`#9-#17:`, `#9, #10:`) or a selector with no row (`all ink.width rows:`,
+// `rest:`) — is undone (kan-1155: 192 rows were given causes by key).
 //
 // The same manifest pair's `cells` (decision cells-in-measure) are checked
 // for every such frame: absent cells, an empty cell — null, an empty string,
@@ -159,6 +165,10 @@ var (
 	vrSpotItem = regexp.MustCompile(`^#(\d+) (\S+) script (\S+) hand \S`)
 	vrSweeps   = regexp.MustCompile(`\bsweeps:\s*(.*)$`)
 	vrOverItem = regexp.MustCompile(`^#(\d+):\s*(.*)$`)
+	// An over-tolerance item naming more than one row, or none: a rule, not a reading.
+	vrRuleItem = regexp.MustCompile(`^(#\d+\s*([-–,&]|to\b|and\b)|(?i:rows?|all|every|each|the rest|rest|others?|remaining|same)\b)`)
+	// A flagged frame's `viewed: yes` line.
+	vrViewedLine = regexp.MustCompile(`^\s*- (\S+) viewed:\s*yes\b`)
 	// A `-rest` or `-rest-<n>` segment of a report's key: its manifest is the key's without it.
 	vrRestSegment = regexp.MustCompile(`-rest(-\d+)?\b`)
 	// Step 10's matrix columns (skills/flow/visual-verify-verifier.md), in order.
@@ -224,6 +234,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	spec := ""
 	var reportLines []string
 	over, spot := map[string]string{}, map[string]string{}
+	viewed := map[string]bool{}
 	var badSweeps []string
 	for _, line := range strings.Split(string(data), "\n") {
 		// Every line is read from `## Report` to the next `## ` heading alone:
@@ -256,6 +267,9 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if m := vrSpotLine.FindStringSubmatch(line); m != nil {
 			spot[m[1]] = m[2]
+		}
+		if m := vrViewedLine.FindStringSubmatch(line); m != nil {
+			viewed[m[1]] = true
 		}
 		if m := vrSweeps.FindStringSubmatch(line); m != nil {
 			for _, item := range strings.Split(m[1], " | ") {
@@ -341,7 +355,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	mpath := filepath.Join(filepath.Dir(args[0]), "visual-manifest-"+vrRestSegment.ReplaceAllString(strings.TrimSuffix(strings.TrimPrefix(filepath.Base(args[0]), "verify-report-"), ".md"), "")+".json")
 	mbody, merr := os.ReadFile(mpath)
 	if status["10"] == "done" && len(frames) > 0 {
-		undone = append(undone, vrOverTolerance(mpath, mbody, merr, frames, over, spot, string(designBody))...)
+		undone = append(undone, vrOverTolerance(mpath, mbody, merr, frames, over, spot, viewed, string(designBody))...)
 	}
 	if spec != "" && !noView {
 		key := vrRestSegment.ReplaceAllString(strings.TrimSuffix(strings.TrimPrefix(filepath.Base(args[0]), "verify-report-"), ".md"), "")
@@ -421,7 +435,7 @@ type vrOverRow struct {
 // committed matrix JSON, so a pass that skipped `measure` cannot stand on last
 // round's numbers. The manifest sits beside the report as
 // visual-manifest-<key>.json, <key> the report's own less any `-rest[-<n>]`.
-func vrOverTolerance(path string, body []byte, err error, frames []string, lines, spot map[string]string, design string) []string {
+func vrOverTolerance(path string, body []byte, err error, frames []string, lines, spot map[string]string, viewed map[string]bool, design string) []string {
 	var m struct {
 		Pairs []struct {
 			Frame string           `json:"frame"`
@@ -453,6 +467,9 @@ func vrOverTolerance(path string, body []byte, err error, frames []string, lines
 			continue
 		}
 		undone = append(undone, vrCells(f, cells, rows, spot)...)
+		if len(rows) > 0 && !viewed[f] {
+			undone = append(undone, fmt.Sprintf("%s has %d over rows and no `- %s viewed: yes` line — read its composite before naming a cause", f, len(rows), f))
+		}
 		line, ok := lines[f]
 		switch {
 		case !ok:
@@ -467,6 +484,9 @@ func vrOverTolerance(path string, body []byte, err error, frames []string, lines
 		for _, item := range strings.Split(items, "; ") {
 			mm := vrOverItem.FindStringSubmatch(strings.TrimSpace(item))
 			if mm == nil {
+				if vrRuleItem.MatchString(strings.TrimSpace(item)) {
+					undone = append(undone, fmt.Sprintf("%s over-tolerance item %q labels rows by rule — each row is `#<row>: <cause>`, read from the composite", f, strings.TrimSpace(item)))
+				}
 				continue
 			}
 			n, _ := strconv.Atoi(mm[1])

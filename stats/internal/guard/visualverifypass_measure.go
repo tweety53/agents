@@ -2,7 +2,9 @@ package guard
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -40,8 +42,23 @@ type vvmPair struct {
 	Bands      []any             `json:"bands"`
 	Seams      []any             `json:"seams"`
 	Over       []any             `json:"over"`
+	Within     []any             `json:"within,omitempty"` // rows moved by at most the declared tolerance: recorded, never flagged
+	Shift      *vvmShift         `json:"shift,omitempty"`
 	Cells      []any             `json:"cells"`
 }
+
+// vvmShift is one whole-frame offset: Rows over rows whose only over keys are
+// vertical positions and whose elements all sit Dy px (within 1px of each
+// other) from the frame's. Row is the one of them left on the pair's `over`
+// list to stand for the defect.
+type vvmShift struct {
+	Dy   float64 `json:"dy"`
+	Rows int     `json:"rows"`
+	Row  int     `json:"row"`
+}
+
+// vvmShiftRows is how many rows must share one dy before they are one defect.
+const vvmShiftRows = 20
 
 type vvmManifestOut struct {
 	Specs     []string           `json:"specs"` // every spec a measure ran over, pairs or none
@@ -84,6 +101,11 @@ func (v *vvp) measure(args []string) {
 		v.usage("change name '" + name + "' or key '" + key + "' is not plain")
 	}
 	spec = cellPath(w, spec)
+	tol, ok := vvTolerance(v.cells(w)["tolerance"])
+	if !ok {
+		v.usage("`tolerance` row '" + v.cells(w)["tolerance"] + "' is not `<n>px at <scale>x`")
+	}
+	tolArg := strconv.FormatFloat(tol, 'f', -1, 64)
 	// A spec that is not there measures nothing, and the merge would keep the
 	// last run's pairs under a manifest that reads as this run's.
 	if !vvmExists(spec) {
@@ -137,7 +159,7 @@ func (v *vvp) measure(args []string) {
 		mockups = cellPath(w, c)
 	}
 	if _, err := os.Stat(sidecar); err != nil && !prototype || mockups == "" {
-		v.writeManifest(sdd, key, spec, prototype, m, failed)
+		v.writeManifest(sdd, vvDir, key, spec, prototype, m, failed)
 	}
 
 	// Each map line is one pair; a stale cropped frame from an earlier run
@@ -203,7 +225,7 @@ func (v *vvp) measure(args []string) {
 			p.Mockup = frame
 		}
 
-		rc, out, serr := run(measureVisualProperties, "", p.Mockup, p.Capture, "--scale", "1", "--props", "bands,seams")
+		rc, out, serr := run(measureVisualProperties, "", p.Mockup, p.Capture, "--scale", "1", "--props", "bands,seams", "--tolerance", tolArg)
 		p.Exits.Bands, p.Stderr["bands"] = note(rc), serr
 		p.BandsFile = filepath.Join(bandsDir, l.frame+".json")
 		v.writeOut(p.BandsFile, out)
@@ -211,16 +233,19 @@ func (v *vvp) measure(args []string) {
 		if json.Unmarshal([]byte(out), &bs) == nil {
 			// measure-visual-properties nests the page props under `delta`.
 			d, _ := bs["delta"].(map[string]any)
-			p.Bands, p.Seams = vvmFlagged(d["bands"]), vvmFlagged(d["seams"])
+			p.Bands, p.Seams = vvmFlagged(d["bands"], tol), vvmFlagged(d["seams"], tol)
 		}
 
-		rc, out, serr = run(measureVisualProperties, "", p.Mockup, p.Capture, "--scale", "1", "--props", "matrix")
+		rc, out, serr = run(measureVisualProperties, "", p.Mockup, p.Capture, "--scale", "1", "--props", "matrix", "--tolerance", tolArg)
 		p.Exits.Matrix, p.Stderr["matrix"] = note(rc), serr
 		p.MatrixFile = filepath.Join(matrixDir, l.frame+".json")
 		v.writeOut(p.MatrixFile, out)
 		var mx struct {
-			Matrix  []map[string]any                `json:"matrix"`
-			Summary struct{ Over []map[string]any } `json:"summary"`
+			Matrix  []map[string]any `json:"matrix"`
+			Summary struct {
+				Over   []map[string]any
+				Within []any
+			} `json:"summary"`
 		}
 		if json.Unmarshal([]byte(out), &mx) == nil && mx.Summary.Over != nil {
 			for _, r := range mx.Summary.Over {
@@ -228,10 +253,14 @@ func (v *vvp) measure(args []string) {
 				p.Over = append(p.Over, r)
 			}
 			p.Cells = vvmCells(mx.Matrix)
+			p.Within = mx.Summary.Within
+			if p.Shift = vvmFoldShift(mx.Matrix, &p.Over, tol); p.Shift != nil {
+				v.say("shift: dy=%s rows=%d frame=%s", strconv.FormatFloat(p.Shift.Dy, 'f', -1, 64), p.Shift.Rows, p.Frame)
+			}
 		}
 		m.Pairs = append(m.Pairs, p)
 	}
-	v.writeManifest(sdd, key, spec, prototype, m, failed)
+	v.writeManifest(sdd, vvDir, key, spec, prototype, m, failed)
 }
 
 func (v *vvp) writeOut(path, body string) {
@@ -251,7 +280,7 @@ func (v *vvp) writeOut(path, body string) {
 // same way (a plain run keeps a spec's prototype pairs and a --prototype run its
 // plain ones). Captures and identical lines are unioned, existing first, and so
 // are steps, m's winning where both carry one (kan-1102 self-review, F2).
-func (v *vvp) writeManifest(sdd, key, spec string, prototype bool, m vvmManifestOut, failed bool) {
+func (v *vvp) writeManifest(sdd, vvDir, key, spec string, prototype bool, m vvmManifestOut, failed bool) {
 	path := filepath.Join(sdd, "visual-manifest-"+key+".json")
 	// Only this call's pairs count, so the line is read before the merge.
 	if base, _, _, ok := readRound(sdd, key); ok {
@@ -292,6 +321,27 @@ func (v *vvp) writeManifest(sdd, key, spec string, prototype bool, m vvmManifest
 	}
 	b, _ := json.MarshalIndent(m, "", "  ")
 	v.writeOut(path, string(b)+"\n")
+	// The appendix visual-verification.md cites: every row the declared
+	// tolerance leaves off the over list, with its measured value.
+	within, appendix := 0, "# Within tolerance\n\nRows `visual-verify-pass measure` left off the `over` list because every position or size delta is inside the declared `tolerance` (`## visual verification`), each with its measured deltas in capture px.\n\n"
+	for _, p := range m.Pairs {
+		for _, r := range p.Within {
+			if row, ok := r.(map[string]any); ok {
+				within++
+				appendix += fmt.Sprintf("- %s #%v: %v\n", p.Frame, row["row"], row["values"])
+			}
+		}
+	}
+	if within > 0 {
+		v.writeOut(filepath.Join(vvDir, "within-tolerance.md"), appendix)
+	} else {
+		os.Remove(filepath.Join(vvDir, "within-tolerance.md"))
+	}
+	v.say("within-tolerance: %d", within)
+	// A task's own measure (key `task-<id>`) is the record check-ui-task-measured reads.
+	if strings.HasPrefix(key, "task-") {
+		v.writeOut(filepath.Join(vvDir, key+"-measure.json"), string(b)+"\n")
+	}
 	v.say("MANIFEST: %s", path)
 	if failed {
 		Reason(v.env, "measure-failed")
@@ -510,27 +560,89 @@ func vvmFigure(v any) (string, bool) {
 	return "", false
 }
 
+// vvmShiftKeys are the over keys a constant vertical offset alone can raise.
+var vvmShiftKeys = []string{"gap", "since_pair", "gap.top", "gap.bottom", "box.top", "box.bottom", "ink.top"}
+
+// vvmFoldShift folds a whole-frame shift into one over row: when more than
+// vvmShiftRows paired over rows carry only vvmShiftKeys and sit the same dy
+// (b.top − a.top, within 1px of each other, beyond tol) from the frame's, a
+// constant offset is one defect — a shared bar, a scroll position — not one
+// per row. The first of them stays on over, the rest leave it, and the
+// returned shift names dy and their count; nil when no such run exists. A row
+// over on a colour, a size, a horizontal leaf, or missing, extra or
+// unresolved is never folded.
+func vvmFoldShift(matrix []map[string]any, over *[]any, tol float64) *vvmShift {
+	type cand struct {
+		row int
+		dy  float64
+	}
+	var cands []cand
+	for _, o := range *over {
+		r, _ := o.(map[string]any)
+		row, _ := r["row"].(float64)
+		keys, _ := r["keys"].(string)
+		i := int(row) - 1
+		if r["status"] != "paired" || keys == "" || i < 0 || i >= len(matrix) ||
+			slices.ContainsFunc(strings.Split(keys, ", "), func(k string) bool { return !slices.Contains(vvmShiftKeys, k) }) {
+			continue
+		}
+		a, _ := matrix[i]["a"].(map[string]any)
+		b, _ := matrix[i]["b"].(map[string]any)
+		at, okA := a["top"].(float64)
+		bt, okB := b["top"].(float64)
+		if dy := bt - at; okA && okB && (dy > tol || dy < -tol) {
+			cands = append(cands, cand{int(row), dy})
+		}
+	}
+	slices.SortStableFunc(cands, func(x, y cand) int { return cmp.Compare(x.dy, y.dy) })
+	lo, hi := 0, 0 // the widest window of dys within 1px of each other
+	for i, j := 0, 0; j < len(cands); j++ {
+		for cands[j].dy-cands[i].dy > 1 {
+			i++
+		}
+		if j+1-i > hi-lo {
+			lo, hi = i, j+1
+		}
+	}
+	if hi-lo <= vvmShiftRows {
+		return nil
+	}
+	run := cands[lo:hi]
+	folded := map[int]bool{}
+	first := run[0].row
+	for _, c := range run {
+		folded[c.row] = true
+		first = min(first, c.row)
+	}
+	*over = slices.DeleteFunc(*over, func(o any) bool {
+		r, _ := o.(map[string]any)
+		row, _ := r["row"].(float64)
+		return folded[int(row)] && int(row) != first
+	})
+	return &vvmShift{Dy: run[len(run)/2].dy, Rows: len(run), Row: first}
+}
+
 func vvmExists(p string) bool { _, err := os.Stat(p); return err == nil }
 
 // vvmFlagged keeps the band or seam entries measure-visual-properties'
 // tolerances flag: a missing or extra record, or a length delta over
-// mvpOverLength or colour distance over mvpOverColour anywhere inside it.
-func vvmFlagged(list any) []any {
+// tol or colour distance over mvpOverColour anywhere inside it.
+func vvmFlagged(list any, tol float64) []any {
 	out := []any{}
 	l, _ := list.([]any)
 	for _, e := range l {
-		if vvmOver(e) {
+		if vvmOver(e, tol) {
 			out = append(out, e)
 		}
 	}
 	return out
 }
 
-func vvmOver(v any) bool {
+func vvmOver(v any, tol float64) bool {
 	switch t := v.(type) {
 	case []any:
 		for _, e := range t {
-			if vvmOver(e) {
+			if vvmOver(e, tol) {
 				return true
 			}
 		}
@@ -538,14 +650,14 @@ func vvmOver(v any) bool {
 		if s := t["status"]; s == "missing" || s == "extra" {
 			return true
 		}
-		if d, ok := t["abs"].(float64); ok && (d > mvpOverLength || d < -mvpOverLength) {
+		if d, ok := t["abs"].(float64); ok && (d > tol || d < -tol) {
 			return true
 		}
 		if d, ok := t["distance"].(float64); ok && d > mvpOverColour {
 			return true
 		}
 		for k, e := range t {
-			if k != "a" && k != "b" && vvmOver(e) {
+			if k != "a" && k != "b" && vvmOver(e, tol) {
 				return true
 			}
 		}

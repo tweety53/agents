@@ -327,7 +327,7 @@ const vrtDone = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done 
 
 // vrtFrame is one composed frame's full set of lines but its over-tolerance one.
 func vrtFrame(id string) string {
-	return "- " + id + ": /c/" + id + ".png diff=0.1 — match\n- " + id + " sweeps: text done | order n/a — one column\n" + vrtSpot(id)
+	return "- " + id + ": /c/" + id + ".png diff=0.1 — match\n- " + id + " sweeps: text done | order n/a — one column\n" + vrtSpot(id) + "- " + id + " viewed: yes — composite read\n"
 }
 
 // vrtSpot is a spot-check: line over vrtCells' three rows, each script figure its row's b box.width.
@@ -531,7 +531,7 @@ func TestCheckVerifyReportSpotCheck(t *testing.T) {
 		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
 		vrtManifest(t, sdd, "visual-verify", "W1", tc.over...)
 		path := filepath.Join(sdd, "verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+vrtDone+"- W1: /c/W1.png diff=0.1 — match\n- W1 spot-check: "+tc.line+"\n- W1 over-tolerance: "+tc.overLine+"\n")
+		writeFile(t, path, "## Report\n"+vrtDone+"- W1: /c/W1.png diff=0.1 — match\n- W1 viewed: yes\n- W1 spot-check: "+tc.line+"\n- W1 over-tolerance: "+tc.overLine+"\n")
 		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
 		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
 			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
@@ -651,5 +651,40 @@ func TestCheckVerifyReportFrames(t *testing.T) {
 	}
 	if r := runGuard("check-verify-report", []string{filepath.Join(sdd, "verify-report-visual-verify-s2of2.md"), "0", "--frames"}, Env{Getenv: os.Getenv}); r.rc != 2 {
 		t.Errorf("--frames with no value: rc=%d out=%q; want exit 2", r.rc, r.out)
+	}
+}
+
+// TestCheckVerifyReportFlaggedFrameIsViewed: a frame with any over row needs
+// its own `viewed: yes` line, and an over-tolerance item that labels rows by
+// rule is refused by name (kan-1155: causes given by key, composites unread).
+func TestCheckVerifyReportFlaggedFrameIsViewed(t *testing.T) {
+	t.Parallel()
+	frame := "- W1: /c/W1.png diff=0.1 — match\n- W1 sweeps: text done | order n/a — one column\n" + vrtSpot("W1")
+	const named = "- W1 over-tolerance: 2 — #1: departure; #3: annotation\n"
+	for _, tc := range []struct {
+		name, body string
+		over       bool
+		rc         int
+		want       string
+	}{
+		{"flagged and viewed", frame + "- W1 viewed: yes — the header sits one row low\n" + named, true, 0, "COMPLETE"},
+		{"flagged, no viewed line", frame + named, true, 1, "W1 has 2 over rows and no `- W1 viewed: yes` line"},
+		{"flagged, viewed: no", frame + "- W1 viewed: no\n" + named, true, 1, "no `- W1 viewed: yes` line"},
+		{"clean frame owes none", frame + "- W1 over-tolerance: 0\n", false, 0, "COMPLETE"},
+		{"a range of rows", frame + "- W1 viewed: yes\n- W1 over-tolerance: 2 — #1: departure; #3: annotation; #1-#3: text width\n", true, 1, `item "#1-#3: text width" labels rows by rule`},
+		{"a selector with no row", frame + "- W1 viewed: yes\n- W1 over-tolerance: 2 — #1: departure; #3: annotation; all ink.width rows: text width\n", true, 1, "labels rows by rule"},
+	} {
+		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
+		if tc.over {
+			vrtManifest(t, sdd, "visual-verify", "W1", vrtOver(1, "missing", ""), vrtOver(3, "paired", "box.width"))
+		} else {
+			vrtManifest(t, sdd, "visual-verify", "W1")
+		}
+		path := filepath.Join(sdd, "verify-report-visual-verify.md")
+		writeFile(t, path, "## Report\n"+vrtDone+tc.body)
+		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
+		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		}
 	}
 }
