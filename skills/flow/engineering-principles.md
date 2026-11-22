@@ -174,6 +174,16 @@ the schema could enforce — an ordered pair, a non-negative amount — held in 
 alone, with no check constraint to refuse a bad insert where it happens — a test's own setup
 included — rather than let it surface later as a wrong read or an intermittent failure.
 
+### Scope lifetime
+
+Work started by an affordance — a button, a toast action, a notification — runs in a scope that
+lives at least as long as the affordance, never in the scope of the screen that happened to create it.
+
+**Violation looks like:** an Undo run in a screen's scope while its toast lives at the app shell, so
+Undo does nothing after the user navigates away; a scope obtained after an early return, so the
+work is cancelled together with the screen; background work cancelled silently because the
+component that started it was left.
+
 ### Principle of Least Astonishment / Surprise
 
 A component behaves the way its name, signature, and neighbours lead a reader to expect.

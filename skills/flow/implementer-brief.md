@@ -81,7 +81,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 
 > **REQUIRED READING:** `engineering-principles.md` beside this file — your
 > implementation must satisfy these principles; the panel's principles reviewer checks the diff
-> against them.
+> against them. **Scope lifetime** is the one that bites async work a control starts.
 
 > **PLAN AMENDMENT:** When what you
 > measure contradicts the plan, stop and report the measurement: see **When a measurement
