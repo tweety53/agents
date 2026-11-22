@@ -270,6 +270,14 @@ reads every number on it as an exit.
    number stands and the new one is re-measured at 2x on the frame before either is reported; a
    reversal that quotes no earlier numbers and names no change is not accepted (KAN-1091: rounds
    6–14 contradicted themselves on one element for twenty rounds).
+
+   **A fill that looks like a hover is not recorded as a departure until the pointer is shown to be
+   outside every control.** A grey disc, tint or ring on a control that the mockup draws plain is
+   first checked against where the capture left the pointer — the last `page.mouse.move`, and every
+   control under that point, a corner chevron under `(0, 0)` included. With the pointer on the
+   control, recapture that frame with the pointer off the viewport (`page.mouse.move(-1, -1)`) and
+   judge the recapture; the report names the pointer position it checked (KAN-1155: a parked pointer's
+   hover disc behind every pushed page's back chevron cost fix 17 to fix 20).
    **A departure's expected value cites the mockup's source wherever the handoff ships one, never a
    rule inferred from the pixels**: where the frame was drawn from HTML or CSS in the tree — beside
    the mockups or cited by `design.md` — the line names the declaration the expected layout, size or
