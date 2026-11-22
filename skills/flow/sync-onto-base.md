@@ -59,6 +59,14 @@ and the base-moved check performs no fetch of its own.
   4. `git add` every recaptured PNG and the zip, stop the stack if step 1 started it, then continue the
      rebase as above.
 
+  **A UI file whose piece-by-piece resolution has already cost a visual round is restored whole.**
+  Once a conflict in a screen file, resolved by hand, has left a visual difference that took a
+  fix round, the next resolution of that file restores this change's own version whole (`git
+  checkout <pre-rebase sha> -- <path>`) and re-applies on top of it the one behaviour the base
+  introduced there — a port, never a drop of the base's side, so the rule above stands. Before any
+  such round the file is resolved piece by piece as above (KAN-1091: three visual rounds of
+  piece-by-piece fixes on one file, then one restore-and-port that converged at once).
+
   A spec outside the named ones failing on a screenshot mismatch in any later run of this sync is a
   stale baseline on the base: re-baselined per **the sweep**
   (`skills/flow-contracts/known-bugs.md`), never asked.
