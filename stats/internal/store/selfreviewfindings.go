@@ -237,14 +237,16 @@ func (s *Store) SelfReviewFindingsPage(ctx context.Context, period Period, proje
 // ErrSelfReviewFindingNotFound reports a read of a finding id the project has no row for.
 var ErrSelfReviewFindingNotFound = errors.New("store: no such self-review finding")
 
-// GetSelfReviewFinding reads one finding of the project by its id.
-func (s *Store) GetSelfReviewFinding(ctx context.Context, projectKey string, id int64) (records.SelfReviewFinding, error) {
+// GetSelfReviewFinding reads one finding by its id. The id is global to the table, so the
+// project the caller resolved from its directory does not narrow the read: a finding filed under
+// another project (the dashboard's "Copy for agent" is run from any repository) is found all the same.
+func (s *Store) GetSelfReviewFinding(ctx context.Context, _ string, id int64) (records.SelfReviewFinding, error) {
 	var f records.SelfReviewFinding
 	err := s.pool.QueryRow(ctx, `
 		SELECT id, change, angle, note, disposition, COALESCE(ref, ''), blast_radius, COALESCE(severity, ''), COALESCE(detail, ''), COALESCE(review_status, ''), recorded_at
 		FROM self_review_findings
-		WHERE project_key = $1 AND id = $2
-	`, projectKey, id).Scan(&f.ID, &f.Change, &f.Angle, &f.Note, &f.Disposition, &f.Ref, &f.BlastRadius, &f.Severity, &f.Detail, &f.ReviewStatus, &f.RecordedAt)
+		WHERE id = $1
+	`, id).Scan(&f.ID, &f.Change, &f.Angle, &f.Note, &f.Disposition, &f.Ref, &f.BlastRadius, &f.Severity, &f.Detail, &f.ReviewStatus, &f.RecordedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return records.SelfReviewFinding{}, fmt.Errorf("%w: %d", ErrSelfReviewFindingNotFound, id)
 	}

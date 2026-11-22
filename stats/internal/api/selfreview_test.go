@@ -437,9 +437,9 @@ func TestSelfReviewBundleReadsRequests(t *testing.T) {
 }
 
 // GetSelfReviewFinding mirrors store.Store.GetSelfReviewFinding: one row by id, or ErrSelfReviewFindingNotFound.
-func (f *fakeStore) GetSelfReviewFinding(_ context.Context, projectKey string, id int64) (records.SelfReviewFinding, error) {
+func (f *fakeStore) GetSelfReviewFinding(_ context.Context, _ string, id int64) (records.SelfReviewFinding, error) {
 	for _, r := range f.selfReviewFindings {
-		if r.projectKey == projectKey && r.finding.ID == id {
+		if r.finding.ID == id {
 			return r.finding, nil
 		}
 	}
@@ -488,8 +488,8 @@ func TestReviewSelfReviewFindingRoute(t *testing.T) {
 	}
 }
 
-// TestGetSelfReviewFindingRoute: GET /api/v1/self-review-finding/{project}/{id} returns the project's finding with its detail,
-// 404 for an id it has none of and 400 for a non-numeric one.
+// TestGetSelfReviewFindingRoute: GET /api/v1/self-review-finding/{project}/{id} returns the finding by id with its detail, whatever project
+// key the path carries, 404 for an id with none and 400 for a non-numeric one.
 func TestGetSelfReviewFindingRoute(t *testing.T) {
 	t.Parallel()
 	fs := newFakeStore()
@@ -512,8 +512,8 @@ func TestGetSelfReviewFindingRoute(t *testing.T) {
 	if code, _ := get("p", "2"); code != http.StatusNotFound {
 		t.Errorf("unknown id: %d, want 404", code)
 	}
-	if code, _ := get("other", "1"); code != http.StatusNotFound {
-		t.Errorf("another project's id: %d, want 404", code)
+	if code, _ := get("other", "1"); code != http.StatusOK {
+		t.Errorf("another project's key: %d, want 200 (the id is global)", code)
 	}
 	if code, _ := get("p", "x"); code != http.StatusBadRequest {
 		t.Errorf("non-numeric id: %d, want 400", code)

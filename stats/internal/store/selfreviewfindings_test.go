@@ -419,8 +419,8 @@ func TestSelfReviewFindingsPagePagesAndCounts(t *testing.T) {
 	}
 }
 
-// TestGetSelfReviewFinding: a finding reads back by id with its detail, and an id the project has no row for
-// is ErrSelfReviewFindingNotFound.
+// TestGetSelfReviewFinding: a finding reads back by id with its detail, from any project's key, and an id no row
+// has is ErrSelfReviewFindingNotFound.
 func TestGetSelfReviewFinding(t *testing.T) {
 	t.Parallel()
 	st, _, projectKey := newHazardStore(t)
@@ -436,8 +436,9 @@ func TestGetSelfReviewFinding(t *testing.T) {
 	if _, err := st.GetSelfReviewFinding(ctx, projectKey, got.ID+1000000); !errors.Is(err, store.ErrSelfReviewFindingNotFound) {
 		t.Fatalf("unknown id: err = %v, want ErrSelfReviewFindingNotFound", err)
 	}
-	if _, err := st.GetSelfReviewFinding(ctx, projectKey+"-other", got.ID); !errors.Is(err, store.ErrSelfReviewFindingNotFound) {
-		t.Fatalf("another project's id: err = %v, want ErrSelfReviewFindingNotFound", err)
+	// The id is global: a read from another project's directory finds it (the dashboard's Copy for agent).
+	if other, err := st.GetSelfReviewFinding(ctx, projectKey+"-other", got.ID); err != nil || other.ID != got.ID {
+		t.Fatalf("another project's read = %+v, err %v, want the finding", other, err)
 	}
 }
 
