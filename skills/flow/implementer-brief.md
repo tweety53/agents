@@ -49,7 +49,13 @@ this file in full first: its prompt is a stub naming this file, never these para
 > — a low estimate is never a question, never a `BLOCKED` and never a reason to change the plan;
 > a gap that is a question only the operator can settle still goes through **REPORT, DON'T
 > DECIDE**, as it would unestimated. A warning or a non-zero exit of either command is noted in
-> your REPORT FILE and does not stop you. A fixer skips this paragraph.
+> your REPORT FILE and does not stop you. **A gap a command inside your tasks can settle is settled by
+> running it** — a test, a query against real data, a build — and is never left to stand as a gap
+> because the run has not happened yet (KAN-1156: "native SQL is unverified until the integration
+> test runs"). **Once your tests are green, file what you now hold**, at 100% too:
+> `flow confidence after -C <abs-worktree> -change <name> -task '<the ids of your Key>' -score <n>`;
+> the first estimate stays as filed, and the pair shows beside your group. Skip it only when you
+> filed no estimate. A fixer skips this paragraph.
 
 > **REQUIRED SUB-SKILL:** Read and follow superpowers:test-driven-development from its file — on
 > Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/test-driven-development/SKILL.md`

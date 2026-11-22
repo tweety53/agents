@@ -20,6 +20,7 @@ type confidenceStore interface {
 	ConfidenceEstimatesPage(ctx context.Context, status string, limit, offset int) (store.ConfidencePage, error)
 	ConfidenceEstimatesForChange(ctx context.Context, projectKey, change string) ([]records.ConfidenceEstimate, error)
 	ReviewConfidenceEstimate(ctx context.Context, projectKey string, id int64, status, reason string) error
+	SetConfidenceAfter(ctx context.Context, projectKey, change, task string, score int) error
 }
 
 var _ confidenceStore = (*store.Store)(nil)
@@ -62,7 +63,28 @@ func (h *confidenceHandler) forChange(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// tags serves GET /api/v1/confidence-tags: every tag in use, most used first.
+// after serves PATCH /api/v1/confidence/{project}/{change}/after: the estimate an implementer holds once its
+// tests are green, set on the latest estimate of its task. 204; 404 when the task filed none; 400 for a score
+// outside 1-100.
+func (h *confidenceHandler) after(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+	var in struct {
+		Task  string `json:"task"`
+		Score int    `json:"score"`
+	}
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := h.store.SetConfidenceAfter(r.Context(), project, change, in.Task, in.Score); err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("set confidence after for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// tags serves GET /api/v1/confidence-tags: every tag in use, alphabetically.
 func (h *confidenceHandler) tags(w http.ResponseWriter, r *http.Request) {
 	out, err := h.store.ConfidenceTags(r.Context())
 	if err != nil {

@@ -77,6 +77,8 @@ statement the code refutes is a `blocker`: quote the statement and the code line
 repository's full-HTTP tests live, a unit test in the module under test — named in the plan; a test
 path in a module that holds no test of that kind, and so cannot host it, is a `finding` (KAN-1156: an
 integration test was planned into a module whose tests are not full-HTTP).
+A task that adds native SQL, a migration or a query has a `**Tests:**` entry that executes it
+against real or seeded data; with none, nothing in the plan can verify it, and that is a `finding`.
 
 ## Inventive catalyst
 

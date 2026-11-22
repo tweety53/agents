@@ -26,7 +26,7 @@ export interface Decision {
   overrides?: unknown;
 }
 
-type Line = { role: string; model: string; reason?: string; prose?: boolean; pct?: number };
+type Line = { role: string; model: string; reason?: string; prose?: boolean; pct?: string };
 
 /** The pair of the latest dispatch whose key `want` accepts, "not run yet" when none ran. */
 function decided(dispatches: RecordDispatch[], want: (key: string) => boolean): string {
@@ -49,10 +49,12 @@ const pick = (role: string, p: Pick | undefined, run?: string): Line[] =>
 
 const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** The lowest estimate an implementer filed for any task of a group; none when it filed none. */
-const confidenceOf = (rows: ConfidenceRow[], ids: string[]): number | undefined => {
+/** The lowest estimate an implementer filed for any task of a group, "70% → 95%" once its tests were green; none when it filed none. */
+const confidenceOf = (rows: ConfidenceRow[], ids: string[]): string | undefined => {
   const hit = rows.filter((r) => r.stage === "implement" && (r.task ?? "").split("+").some((t) => ids.includes(t)));
-  return hit.length ? Math.min(...hit.map((r) => r.score)) : undefined;
+  if (hit.length === 0) return undefined;
+  const low = hit.reduce((a, b) => (b.score < a.score ? b : a));
+  return low.scoreAfter ? `${low.score}% → ${low.scoreAfter}%` : `${low.score}%`;
 };
 
 function lines(d: Decision, dispatches: RecordDispatch[], confidence: ConfidenceRow[]): Line[] {
@@ -104,7 +106,7 @@ export function DecisionsPanel({ decision, dispatches = [], confidence = [] }: {
                 {l.pct !== undefined && (
                   <>
                     {" · "}
-                    <span className="lb-num" data-testid="decision-confidence">{l.pct}%</span>
+                    <span className="lb-num" data-testid="decision-confidence">{l.pct}</span>
                   </>
                 )}
               </span>

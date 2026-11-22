@@ -617,7 +617,7 @@ function ConfidencePanel({ rows, order }: { rows: ConfidenceRow[]; order: number
         <ul className="lb-steps">
           {rows.map((r) => (
             <li key={r.id} data-testid="confidence-row" title={r.gaps.join("\n")}>
-              {r.stage === "plan" ? "Planner" : `Task ${r.task}`} · <span className="lb-num">{r.score}%</span>
+              {r.stage === "plan" ? "Planner" : `Task ${r.task}`} · <span className="lb-num">{r.scoreAfter ? `${r.score}% → ${r.scoreAfter}%` : `${r.score}%`}</span>
             </li>
           ))}
         </ul>

@@ -883,12 +883,14 @@ type SimilarSelfReviewFinding struct {
 // to-review from the insert on, then approved or declined, with an optional
 // Reason; neither is ever set by the caller that records the estimate.
 type ConfidenceEstimate struct {
-	ID          int64     `json:"id"`
-	Project     string    `json:"project,omitempty"`
-	Change      string    `json:"change"`
-	Stage       string    `json:"stage"`
-	Task        string    `json:"task,omitempty"`
-	Score       int       `json:"score"`
+	ID      int64  `json:"id"`
+	Project string `json:"project,omitempty"`
+	Change  string `json:"change"`
+	Stage   string `json:"stage"`
+	Task    string `json:"task,omitempty"`
+	Score   int    `json:"score"`
+	// ScoreAfter is the estimate once the group's tests were green; nil until `flow confidence after` sets it.
+	ScoreAfter  *int      `json:"scoreAfter,omitempty"`
 	Gaps        []string  `json:"gaps"`
 	Tags        []string  `json:"tags"`
 	Disposition string    `json:"disposition,omitempty"`

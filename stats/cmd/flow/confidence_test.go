@@ -98,3 +98,23 @@ func TestConfidenceTagsPrintsCountAndTag(t *testing.T) {
 		t.Errorf("store down: exit %d, want 1", code)
 	}
 }
+
+// TestConfidenceAfterPatchesTheTask: -task and -score reach the change's after route; a task that filed no
+// estimate (404) is exit 2.
+func TestConfidenceAfterPatchesTheTask(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	var gotPath, gotBody string
+	code, _, stderr := confidenceRun(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.Method + " " + r.URL.Path
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		w.WriteHeader(http.StatusNoContent)
+	}, "after", "-C", repo, "-change", "kan-1", "-task", "9+12", "-score", "95")
+	if code != 0 || !strings.HasPrefix(gotPath, "PATCH /api/v1/confidence/") || !strings.HasSuffix(gotPath, "/kan-1/after") || !strings.Contains(gotBody, `"task":"9+12"`) || !strings.Contains(gotBody, `"score":95`) {
+		t.Fatalf("exit %d, request %s %s, stderr %s", code, gotPath, gotBody, stderr)
+	}
+	if code, _, _ := confidenceRun(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) }, "after", "-C", repo, "-change", "kan-1", "-task", "3", "-score", "95"); code != 2 {
+		t.Errorf("a task with no estimate: exit %d, want 2", code)
+	}
+}

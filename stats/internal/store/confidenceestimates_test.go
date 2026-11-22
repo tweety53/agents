@@ -213,3 +213,29 @@ func TestConfidenceHundredIsKeptOutsideTheReviewList(t *testing.T) {
 		t.Errorf("the review list changed: before %+v after %+v (%v)", before.ToReview, after.ToReview, err)
 	}
 }
+
+// TestSetConfidenceAfter: the estimate held after the tests lands on the task's latest row and is read back
+// with the change's rows; a task that filed none is not found; a score outside 1-100 is refused.
+func TestSetConfidenceAfter(t *testing.T) {
+	t.Parallel()
+	st, _, projectKey := newHazardStore(t)
+	ctx := context.Background()
+	for _, score := range []int{70, 60} {
+		if _, err := st.RecordConfidenceEstimate(ctx, projectKey, records.ConfidenceEstimate{Change: "kan-after", Stage: "implement", Task: "9+12", Score: score, Gaps: []string{"g"}, Tags: []string{"after-" + projectKey}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "9+12", 95); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.ConfidenceEstimatesForChange(ctx, projectKey, "kan-after")
+	if err != nil || len(got) != 2 || got[0].ScoreAfter != nil || got[1].ScoreAfter == nil || *got[1].ScoreAfter != 95 {
+		t.Fatalf("rows %+v (%v), want only the latest to carry 95", got, err)
+	}
+	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "3", 90); !errors.Is(err, store.ErrConfidenceEstimateNotFound) {
+		t.Errorf("a task with no estimate: %v", err)
+	}
+	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "9+12", 101); !errors.Is(err, store.ErrConfidenceEstimateInvalid) {
+		t.Errorf("score 101: %v", err)
+	}
+}

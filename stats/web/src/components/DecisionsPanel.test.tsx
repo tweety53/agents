@@ -1,6 +1,6 @@
 // The run's latest recorded decision, one line per role: the model and
 // effort it was given, its reason on hover.
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DecisionsPanel } from "./DecisionsPanel";
 
@@ -28,6 +28,9 @@ describe("DecisionsPanel", () => {
     const rows = screen.getAllByTestId("decision-row").map((r) => r.textContent);
     expect(rows).toContain("Tasks 1, 3opus · low · 80%");
     expect(rows).toContain("Task 2sonnet · medium");
+    cleanup();
+    render(<DecisionsPanel decision={decision} confidence={[{ ...row("3", 70), scoreAfter: 95 }]} />);
+    expect(screen.getAllByTestId("decision-confidence")[0]).toHaveTextContent("70% → 95%");
     expect(screen.getAllByTestId("decision-confidence")).toHaveLength(1);
   });
 
