@@ -314,3 +314,15 @@ change's specs and the specs outside the `specs` row's output. Two consecutive r
 **No round count ends the loop.** **Fewest operator actions** (`skills/flow-contracts/pipeline.md`)
 is canonical for that, for a round that makes no progress, and for **Three failed rounds** of this
 procedure — a round being one fix.
+
+## The late review
+
+**A loop that ran more than one fix round ends on one late review before the stage hands off.**
+Once the last round is green, the parent dispatches one reviewer over the union of the loop's fix
+diffs — `<first fix round's base>..HEAD` — reading for what no single round's reviewer saw because
+each saw its own slice: a value hard-coded or drawn from a frame that no model holds, a branch
+without a test, a baseline moved without a reason. The dispatch takes its pair from the role the
+reviewer's work falls under in `flow policy get`, never a pair named here. What it finds takes
+this procedure as any defect does, and the late review runs again only if that fix round added
+more than one commit (KAN-1155: `fix-late-review`, run once at the end of 20 rounds, found Settings
+values hard-coded that 18 rounds had missed).
