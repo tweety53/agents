@@ -303,16 +303,18 @@ triaging dispatch's first return is `QUESTIONS`, its round file holding one ques
 Its `**Context:**` lists every entry of the file's `gaps` verbatim, each followed by the
 suggestion that closes it — the edit to the plan, the question the operator would be asked, or
 what only running the work can show. It has exactly two options, **Raise it** — apply every
-suggestion now — and **Later** — file the estimate and go on — and **no recommended option**, so
-the `## decisions: recommended` mode asks it too. A gap that closes with `operator` is not asked
-in this round: it is asked only once the answer is **Raise it**.
+suggestion now — and **Later** *(recommended)* — file the estimate and go on. Under the
+`## decisions: recommended` mode (**Auto-resolution**,
+`skills/flow-contracts/operator-prompts-auto-resolution.md`) the question is not asked and
+**Later** is taken. A gap that closes with `operator` is not asked in this round: it is asked
+only once the answer is **Raise it**.
 
 - **Raise it** — the fresh final planner that takes the answer triages the report as above, with
   every gap in scope: a `closes with: plan` gap is fixed in the artifacts, a `closes with:
   operator` gap is one more `QUESTIONS` round, a `closes with: running it` gap is written into
   `## Risks` as `Accepted: …`. It then files the estimate with `-disposition raised`.
 - **Later** — it changes nothing for the gaps: each is written into `## Risks` as
-  `Accepted: <the gap> — deferred by the operator at the confidence question`, the report's other
+  `Accepted: <the gap> — deferred at the confidence question`, the report's other
   findings are triaged as above, and the estimate is filed with `-disposition later`.
 
 **Filing is list, then reuse or create.** Run `flow confidence tags`; for each kind of gap, reuse
