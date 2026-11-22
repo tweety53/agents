@@ -832,7 +832,7 @@ func TestMeasureVisualPropertiesMatrixOver(t *testing.T) {
 	// within both tolerances, are absent; an unresolved row is named.
 	within := pyObj{{"a", 10}, {"a_scaled", 10.0}, {"b", 12}, {"abs", 2.0}, {"pct", 20.0}}
 	rows := []pyObj{
-		{{"kind", "rule"}, {"status", "paired"}, {"gap", within}, {"colour", pyObj{{"a", "#000000"}, {"b", "#0a0000"}, {"distance", 10.0}}},
+		{{"kind", "rule"}, {"status", "paired"}, {"gap", within}, {"colour", pyObj{{"a", "#000000"}, {"b", "#030000"}, {"distance", 3.0}}},
 			{"measured", pyObj{{"delta", pyObj{{"ink.ratio", pyObj{{"a", 1}, {"a_scaled", 1}, {"b", 9}, {"abs", 8}, {"pct", 800.0}}}}}}}},
 		{{"kind", "rule"}, {"status", "paired"}, {"unresolved", "no box"}},
 		{{"kind", "rule"}, {"status", "paired"}, {"colour", pyObj{{"a", "#000000"}, {"b", "#ffffff"}, {"distance", 441.7}}}},

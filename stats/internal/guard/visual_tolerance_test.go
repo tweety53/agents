@@ -1,9 +1,15 @@
 package guard
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/png"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -152,5 +158,75 @@ func TestVvmFoldShift(t *testing.T) {
 	}
 	if shift := vvmFoldShift(matrix, &over, mvpOverLength); shift != nil {
 		t.Fatalf("rows with differing offsets folded: %+v", shift)
+	}
+}
+
+// vvmRowsPNG paints dark rows on a white 400×1000 page, each `{top, height,
+// left, width}`.
+func vvmRowsPNG(t *testing.T, path string, rows [][4]int) {
+	t.Helper()
+	im := image.NewRGBA(image.Rect(0, 0, 400, 1000))
+	draw.Draw(im, im.Bounds(), image.White, image.Point{}, draw.Src)
+	for _, r := range rows {
+		draw.Draw(im, image.Rect(r[2], r[0], r[2]+r[3], r[0]+r[1]), image.NewUniform(color.RGBA{0x22, 0x22, 0x22, 0xff}), image.Point{}, draw.Src)
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, im); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, path, b.String())
+}
+
+// kan-1155's WU10, reduced: the capture is the frame scrolled 54px — every
+// row and rule 54px low — with a tick the frame lacks above the first row, the
+// first two text lines touching where the frame parts them, and the bottom bar
+// pinned where it was. Pairing by gap paired the pinned bar alone and listed
+// every other row twice, missing and extra; measure names the shift once and
+// pairs the rows under it.
+func TestVisualVerifyPassMeasureNamesAWholeFrameShiftOnce(t *testing.T) {
+	t.Parallel()
+	rule := func(top int) [4]int { return [4]int{top, 2, 8, 384} }
+	moved := [][4]int{rule(98), {128, 71, 38, 300}, rule(218), {272, 24, 38, 117}, {342, 43, 38, 300}, {388, 26, 38, 200},
+		rule(434), {462, 71, 38, 300}, rule(554), {606, 21, 38, 82}, rule(700), {730, 40, 38, 300}, rule(800)}
+	bar := [4]int{900, 60, 30, 300}
+	frame := append([][4]int{{8, 43, 38, 300}, {52, 26, 38, 200}}, append(slices.Clone(moved), bar)...)
+	capture := [][4]int{{7, 4, 115, 170}, {62, 70, 38, 300}}
+	for _, r := range moved {
+		capture = append(capture, [4]int{r[0] + 54, r[1], r[2], r[3]})
+	}
+	capture = append(capture, bar)
+
+	f := vvmFixture(t, "s.png frame-s\n")
+	vvmRowsPNG(t, filepath.Join(f.wt, "design/frames/frame-s.png"), frame)
+	vvmRowsPNG(t, filepath.Join(f.wt, "tests/visual/app.spec.ts-snapshots/s-darwin.png"), capture)
+	rc, stdout, stderr := f.run(t, f.wt, "demo", "visual-verify", "tests/visual/app.spec.ts")
+	if rc != 0 {
+		t.Fatalf("exit %d, stdout %q, stderr %q", rc, stdout, stderr)
+	}
+	if strings.Count(stdout, "shift: ") != 1 || !strings.Contains(stdout, "shift: dy=54 rows=14 frame=frame-s\n") {
+		t.Fatalf("stdout %q, want one `shift: dy=54 rows=14 frame=frame-s` line", stdout)
+	}
+	unpaired := 0
+	for _, o := range f.manifest(t, "visual-verify").Pairs[0].Over {
+		if s := o.(map[string]any)["status"]; s == "missing" || s == "extra" {
+			unpaired++
+		}
+	}
+	// The frame's two parted lines, and the capture's tick and joined lines.
+	if unpaired != 4 {
+		t.Fatalf("%d missing or extra rows under the shift, want 4 — the rows that moved must pair", unpaired)
+	}
+}
+
+// The colour line sits between what rendering does to one colour and two
+// different greys, as measured on kan-1155's captures: 3.5 passes, 5.2 flags.
+func TestMvpOverColourThreshold(t *testing.T) {
+	t.Parallel()
+	colour := func(a, b string, d float64) pyObj {
+		return pyObj{{"kind", "rule"}, {"status", "paired"}, {"colour", pyObj{{"a", a}, {"b", b}, {"distance", d}}}}
+	}
+	over, _ := mvpOver([]pyObj{colour("#ebebeb", "#ededed", 3.5), colour("#e9e9ec", "#e6e6e9", 5.2)}, mvpOverLength)
+	if len(over) != 1 || mvpDigObj(over[0], "row") != 2 {
+		t.Fatalf("over %v, want row 2 alone — a 5.2 grey mismatch flags and 3.5 of rendering noise does not", over)
 	}
 }

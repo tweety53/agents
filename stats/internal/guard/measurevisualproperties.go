@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -222,7 +223,13 @@ import (
 //            is `missing` or `extra`, carries `unresolved`, or is paired with
 //            a scaled numeric leaf of its pairing or its `measured.delta`
 //            whose `abs` is over `--tolerance` px or a colour `distance`
-//            over 12 (mvpOverColour) — step 10's band and seam tolerances.
+//            over 4 (mvpOverColour) — step 10's band and seam tolerances.
+//            `shift` is present only for a frame moved whole — `{dy, rows}`:
+//            the elements voted one vertical offset over 8px and pairing by
+//            position under it paired more rows than pairing by gap, at
+//            least half of the shorter side; the matrix is then that
+//            pairing's, `rows` its paired count, and the first paired row
+//            carries `dy` on `since_pair`.
 //            `within` lists every other paired row carrying a non-zero length
 //            delta, as `{row, values}`, `values` its `<leaf>=<abs>` deltas.
 //            A leaf under an unscaled key (`ratio`, `approx_opacity`,
@@ -1593,7 +1600,22 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 		}
 		return r.measure(props)
 	}
-	pairs := mvpPairInOrder(mvpElementRecs(ea), mvpElementRecs(eb), scale, "gap", "height", []string{"colour"})
+	ra, rb := mvpElementRecs(ea), mvpElementRecs(eb)
+	pairs := mvpPairInOrder(ra, rb, scale, nil, "gap", "height", []string{"colour"})
+	// A whole-frame shift — a scroll position, a bar the capture has and the
+	// frame lacks — breaks the gap pairing above into missing and extra rows
+	// (kan-1155 WU10: 24 missing, 19 extra, 3 paired). When the elements vote
+	// for one offset and pairing by position under it pairs more of them — and
+	// at least half of the shorter side, or it is another page, not this one
+	// moved — that pairing stands and the summary names the shift once.
+	var shift pyObj
+	if dy, ok := mvpShiftDy(ra, rb, scale); ok {
+		alt := mvpPairInOrder(ra, rb, scale, &dy, "gap", "height", []string{"colour"})
+		was, _, _ := mvpCountStatus(pairs)
+		if n, _, _ := mvpCountStatus(alt); n > was && 2*n >= min(len(ra), len(rb)) {
+			pairs, shift = alt, pyObj{{"dy", dy}, {"rows", n}}
+		}
+	}
 	rows := []pyObj{}
 	for _, p := range pairs {
 		if p.status != "paired" {
@@ -1632,15 +1654,76 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 	}
 	paired, missing, extra := mvpCountStatus(pairs)
 	over, within := mvpOver(rows, a.tolerance)
-	return pyObj{{"scale", scale}, {"matrix", rows}, {"summary", pyObj{{"paired", paired}, {"missing", missing}, {"extra", extra}, {"over", over}, {"within", within}}}}, nil
+	summary := pyObj{{"paired", paired}, {"missing", missing}, {"extra", extra}, {"over", over}, {"within", within}}
+	if shift != nil {
+		summary = append(summary, pyKV{"shift", shift})
+	}
+	return pyObj{{"scale", scale}, {"matrix", rows}, {"summary", summary}}, nil
+}
+
+// mvpShiftMin is the offset below which the gap pairing's own 8px tolerance
+// already holds, and mvpShiftVotes how many elements must agree on one.
+const (
+	mvpShiftMin   = 8
+	mvpShiftVotes = 3
+)
+
+// mvpShiftDy is the vertical offset most of a's elements sit from b's: every
+// (a, b) couple whose sizes match within the pairing tolerance votes its
+// b.pos − a.pos×scale, and the widest run of votes within 4px of each other
+// wins, its median the offset. ok only when at least mvpShiftVotes distinct a
+// elements are in the run and the offset is over mvpShiftMin either way.
+func mvpShiftDy(a, b []mvpRec, scale float64) (float64, bool) {
+	type vote struct {
+		dy float64
+		i  int
+	}
+	var votes []vote
+	for i, ra := range a {
+		for _, rb := range b {
+			sa := float64(ra.size) * scale
+			if math.Abs(float64(rb.size)-sa) <= 8+math.Max(sa, float64(rb.size))/4 {
+				votes = append(votes, vote{float64(rb.pos) - float64(ra.pos)*scale, i})
+			}
+		}
+	}
+	slices.SortFunc(votes, func(x, y vote) int { return cmp.Compare(x.dy, y.dy) })
+	distinct := func(run []vote) int {
+		seen := map[int]bool{}
+		for _, v := range run {
+			seen[v.i] = true
+		}
+		return len(seen)
+	}
+	var best []vote
+	n := 0
+	for lo, hi := 0, 0; hi < len(votes); hi++ {
+		for votes[hi].dy-votes[lo].dy > 4 {
+			lo++
+		}
+		if d := distinct(votes[lo : hi+1]); d > n {
+			best, n = votes[lo:hi+1], d
+		}
+	}
+	if n < mvpShiftVotes {
+		return 0, false
+	}
+	dy := best[len(best)/2].dy
+	return dy, math.Abs(dy) > mvpShiftMin
 }
 
 // Step 10's band and seam tolerances (skills/flow/visual-verify-verifier.md
 // cites them): a scaled length delta over mvpOverLength px, or a colour
 // distance over mvpOverColour, puts a paired matrix row on the `over` list.
+//
+// mvpOverColour is 4, measured on kan-1155's 87 frame/capture pairs (2,884
+// paired colour deltas): rendering noise — one unit a channel, #6c6c70 against
+// #6b6b70, and an antialiased hairline's blend — reached 3.5 and no further,
+// while two different greys (#e9e9ec against #e6e6e9) started at 5.2. The
+// earlier 12 let those through; 0 would flag the noise.
 const (
 	mvpOverLength = 2
-	mvpOverColour = 12
+	mvpOverColour = 4
 )
 
 // mvpOver is summary.over (decision over-list): one {row, status, keys}
@@ -1825,7 +1908,14 @@ func mvpSeamRecs(seams []mvpSeam) []mvpRec {
 // unpairs one record and resyncs on the next — enough for a page of rows,
 // replace with sequence alignment if frames with many near-identical bands
 // mis-pair.
-func mvpPairInOrder(a, b []mvpRec, scale float64, gapKey, sizeKey string, colourKeys []string) []mvpPair {
+//
+// A non-nil shift pairs by position instead: a record pairs when it sits
+// *shift from its counterpart, within the same tolerance, and its size
+// matches — mvpMatrix's second pairing for a frame moved whole, where one
+// record the gap pairing cannot place unpairs every record after it. A record
+// within mvpOverLength of its counterpart's own position pairs too: a bar
+// pinned to the frame's edge, which a scrolled page leaves where it was.
+func mvpPairInOrder(a, b []mvpRec, scale float64, shift *float64, gapKey, sizeKey string, colourKeys []string) []mvpPair {
 	var out []mvpPair
 	missing := func(i int) mvpPair {
 		return mvpPair{"missing", i, -1, pyObj{{"status", "missing"}, {"a", a[i].obj}, {"b", nil}}}
@@ -1841,7 +1931,16 @@ func mvpPairInOrder(a, b []mvpRec, scale float64, gapKey, sizeKey string, colour
 			ga := float64(a[i].pos-aAnchor-1) * scale
 			gb := b[j].pos - bAnchor - 1
 			tol := 8 + math.Max(float64(a[i].size)*scale, float64(b[j].size))/4
-			if math.Abs(float64(gb)-ga) <= tol && math.Abs(float64(b[j].size)-float64(a[i].size)*scale) <= tol {
+			off, first := float64(gb)-ga, ga < float64(gb)
+			if shift != nil {
+				pa := float64(a[i].pos)*scale + *shift
+				off, first = float64(b[j].pos)-pa, pa < float64(b[j].pos)
+				// A bar pinned to the frame's edge did not move with the rest.
+				if pinned := float64(b[j].pos) - float64(a[i].pos)*scale; math.Abs(pinned) <= mvpOverLength {
+					off = pinned
+				}
+			}
+			if math.Abs(off) <= tol && math.Abs(float64(b[j].size)-float64(a[i].size)*scale) <= tol {
 				obj := pyObj{{"status", "paired"}, {"a", a[i].obj}, {"b", b[j].obj}, {gapKey, mvpNumberDelta(a[i].gap, b[j].gap, scale)},
 					// Distance from the last PAIRED record, so a padding lost
 					// around a missing divider still reads as one number here.
@@ -1853,7 +1952,7 @@ func mvpPairInOrder(a, b []mvpRec, scale float64, gapKey, sizeKey string, colour
 				out = append(out, mvpPair{"paired", i, j, obj})
 				aAnchor, bAnchor = a[i].pos+a[i].size-1, b[j].pos+b[j].size-1
 				i, j = i+1, j+1
-			} else if ga < float64(gb) {
+			} else if first {
 				out, i = append(out, missing(i)), i+1
 			} else {
 				out, j = append(out, extra(j)), j+1
@@ -1895,7 +1994,7 @@ func mvpCountStatus(pairs []mvpPair) (paired, missing, extra int) {
 func mvpPairSeams(a, b []mvpBand, scale float64) ([]pyObj, pyObj) {
 	var out []pyObj
 	var paired, missing, extra, bandsUnpaired, linesPaired, linesUnpaired int
-	for _, band := range mvpPairInOrder(mvpBandRecs(a), mvpBandRecs(b), scale, "gap_above", "height", []string{"edge", "colour"}) {
+	for _, band := range mvpPairInOrder(mvpBandRecs(a), mvpBandRecs(b), scale, nil, "gap_above", "height", []string{"edge", "colour"}) {
 		var ea, eb any
 		if band.i >= 0 {
 			ea = pyObj{{"top", a[band.i].top}, {"height", a[band.i].height}}
@@ -1910,7 +2009,7 @@ func mvpPairSeams(a, b []mvpBand, scale float64) ([]pyObj, pyObj) {
 			continue
 		}
 		ba, bb := a[band.i], b[band.j]
-		seams := mvpPairInOrder(mvpSeamRecs(ba.seams), mvpSeamRecs(bb.seams), scale, "gap_left", "width", []string{"colour"})
+		seams := mvpPairInOrder(mvpSeamRecs(ba.seams), mvpSeamRecs(bb.seams), scale, nil, "gap_left", "width", []string{"colour"})
 		p, m, e := mvpCountStatus(seams)
 		paired, missing, extra = paired+p, missing+m, extra+e
 		var idx [][2]int // each paired seam's index in its own list, in order
@@ -1959,7 +2058,7 @@ func mvpPairSeams(a, b []mvpBand, scale float64) ([]pyObj, pyObj) {
 func mvpDelta(a, b mvpMeasured, props []string, scale float64) pyObj {
 	out := pyObj{}
 	if slices.Contains(props, "bands") {
-		pairs := mvpPairInOrder(mvpBandRecs(a.bands), mvpBandRecs(b.bands), scale, "gap_above", "height", []string{"edge", "colour"})
+		pairs := mvpPairInOrder(mvpBandRecs(a.bands), mvpBandRecs(b.bands), scale, nil, "gap_above", "height", []string{"edge", "colour"})
 		p, m, e := mvpCountStatus(pairs)
 		out = append(out, pyKV{"bands", mvpPairObjs(pairs)}, pyKV{"bands_summary", pyObj{{"paired", p}, {"missing", m}, {"extra", e}}})
 	}
@@ -1968,7 +2067,7 @@ func mvpDelta(a, b mvpMeasured, props []string, scale float64) pyObj {
 		out = append(out, pyKV{"seams", seams}, pyKV{"seams_summary", summary})
 	}
 	if slices.Contains(props, "elements") {
-		pairs := mvpPairInOrder(mvpElementRecs(a.elements), mvpElementRecs(b.elements), scale, "gap", "height", []string{"colour"})
+		pairs := mvpPairInOrder(mvpElementRecs(a.elements), mvpElementRecs(b.elements), scale, nil, "gap", "height", []string{"colour"})
 		for k, p := range pairs {
 			if p.status == "paired" {
 				pairs[k].obj = append(p.obj, pyKV{"top", mvpNumberDelta(a.elements[p.i].top, b.elements[p.j].top, scale)})

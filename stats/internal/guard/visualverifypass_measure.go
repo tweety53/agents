@@ -47,10 +47,12 @@ type vvmPair struct {
 	Cells      []any             `json:"cells"`
 }
 
-// vvmShift is one whole-frame offset: Rows over rows whose only over keys are
-// vertical positions and whose elements all sit Dy px (within 1px of each
-// other) from the frame's. Row is the one of them left on the pair's `over`
-// list to stand for the defect.
+// vvmShift is one whole-frame offset, found one of two ways. `--props matrix`
+// paired the frame by position under Dy (its `summary.shift`): Rows is the rows
+// it paired and Row the first of them. Or vvmFoldShift folded Rows over rows
+// whose only over keys are vertical positions and whose elements all sit Dy px
+// (within 1px of each other) from the frame's: Row is the one of them left on
+// the pair's `over` list to stand for the defect.
 type vvmShift struct {
 	Dy   float64 `json:"dy"`
 	Rows int     `json:"rows"`
@@ -245,6 +247,7 @@ func (v *vvp) measure(args []string) {
 			Summary struct {
 				Over   []map[string]any
 				Within []any
+				Shift  *vvmShift
 			} `json:"summary"`
 		}
 		if json.Unmarshal([]byte(out), &mx) == nil && mx.Summary.Over != nil {
@@ -254,7 +257,14 @@ func (v *vvp) measure(args []string) {
 			}
 			p.Cells = vvmCells(mx.Matrix)
 			p.Within = mx.Summary.Within
-			if p.Shift = vvmFoldShift(mx.Matrix, &p.Over, tol); p.Shift != nil {
+			// The matrix's own shift pairing names a frame moved whole; its first
+			// paired row carries the offset on `since_pair` and stands for it.
+			if p.Shift = mx.Summary.Shift; p.Shift != nil {
+				p.Shift.Row = 1 + slices.IndexFunc(mx.Matrix, func(r map[string]any) bool { return r["status"] == "paired" })
+			} else {
+				p.Shift = vvmFoldShift(mx.Matrix, &p.Over, tol)
+			}
+			if p.Shift != nil {
 				v.say("shift: dy=%s rows=%d frame=%s", strconv.FormatFloat(p.Shift.Dy, 'f', -1, 64), p.Shift.Rows, p.Frame)
 			}
 		}
