@@ -34,7 +34,7 @@ import { SR_STEPS, selfReviewNow, srStep, type SrStep } from "../lib/selfReviewN
 import { canonicalStage, stagePhase, type Phase } from "../lib/phase";
 import { mainNow, mainProgress, mainSummary, type ProgressState } from "../lib/mainNow";
 import { currentRequest, focusRequest, interactiveWaiting, isInteractive, requestStart, requestSteps } from "../lib/interactive";
-import { fetchRoles, findChanges, getDecisions, getPolicy, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type HeadlessRow, type PlanTask, type RecordDispatch, type RoleEntry, type SelfReviewFinding, type StageRunDTO } from "../api";
+import { fetchRoles, findChanges, listConfidence, type ConfidenceRow, getDecisions, getPolicy, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type HeadlessRow, type PlanTask, type RecordDispatch, type RoleEntry, type SelfReviewFinding, type StageRunDTO } from "../api";
 
 export interface RunDetailProps {
   project: string;
@@ -605,6 +605,27 @@ function requestLook(t: PlanTask): { cls: string; mark: string } {
   return t.outcome === "dropped" ? { cls: "dropped", mark: "–" } : { cls: t.outcome ?? "landed", mark: "✓" };
 }
 
+/** The change's confidence estimates below 100% (KAN-1130): one percentage per planner and per implementer group, its gaps on hover. Absent while there are none. */
+function ConfidencePanel({ rows, order }: { rows: ConfidenceRow[]; order: number }) {
+  if (rows.length === 0) return null;
+  return (
+    <section className="lb-panel" aria-label="Confidence" style={{ order }}>
+      <div className="lb-panel-h">
+        <span>Confidence</span>
+      </div>
+      <div className="lb-panel-b">
+        <ul className="lb-steps">
+          {rows.map((r) => (
+            <li key={r.id} data-testid="confidence-row" title={r.gaps.join("\n")}>
+              {r.stage === "plan" ? "Planner" : `Task ${r.task}`} · <span className="lb-num">{r.score}%</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 /** An interactive session's requests in the Tasks slot (KAN-1061): each with its mark, its short commit or outcome, and its brainstorm reason under it. */
 function RequestsPanel({ tasks, order }: { tasks: PlanTask[]; order: number }) {
   return (
@@ -779,6 +800,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
     };
   }, []);
   const [findings, setFindings] = useState<SelfReviewFinding[]>([]);
+  const [confidence, setConfidence] = useState<ConfidenceRow[]>([]);
   const [decision, setDecision] = useState<Decision | null>(null);
   useEffect(() => {
     let live = true;
@@ -800,6 +822,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
       listSelfReviewFindings(project, change)
         .then((r) => live && setFindings(r ?? []))
         .catch(() => live && setFindings([]));
+      listConfidence(project, change)
+        .then((r) => live && setConfidence(r ?? []))
+        .catch(() => live && setConfidence([]));
     };
     load();
     // A finished change's record no longer moves: read it once.
@@ -1279,6 +1304,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   {!isSub && board?.selfReviewTasks && (
                     <TasksPanel title="Self-review tasks" tasks={board.selfReviewTasks} current={[srView.currentTask ?? 0]} open={srPanelOpen} order={4} />
                   )}
+                  <ConfidencePanel rows={confidence} order={3} />
                   {interactive && requestCostPanel}
                   {interactive && costPanel}
                 </div>

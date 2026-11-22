@@ -420,6 +420,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	if cst, ok := rs.(confidenceStore); ok {
 		ch := &confidenceHandler{store: cst, logger: logger}
 		mux.HandleFunc("POST /api/v1/confidence/{project}/{change}", ch.record)
+		mux.HandleFunc("GET /api/v1/confidence/{project}/{change}", ch.forChange)
 		mux.HandleFunc("GET /api/v1/confidence-tags", ch.tags)
 		mux.HandleFunc("PATCH /api/v1/confidence/{project}/estimates/{id}/review", ch.review)
 		mux.Handle("GET /api/v1/stats/confidence-estimates", http.TimeoutHandler(http.HandlerFunc(ch.page), so.statsTimeout, statsTimeoutMessage))

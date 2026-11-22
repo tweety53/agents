@@ -18,6 +18,7 @@ type confidenceStore interface {
 	RecordConfidenceEstimate(ctx context.Context, projectKey string, in records.ConfidenceEstimate) (records.ConfidenceEstimate, error)
 	ConfidenceTags(ctx context.Context) ([]records.ConfidenceTag, error)
 	ConfidenceEstimatesPage(ctx context.Context, status string, limit, offset int) (store.ConfidencePage, error)
+	ConfidenceEstimatesForChange(ctx context.Context, projectKey, change string) ([]records.ConfidenceEstimate, error)
 	ReviewConfidenceEstimate(ctx context.Context, projectKey string, id int64, status, reason string) error
 }
 
@@ -46,6 +47,19 @@ func (h *confidenceHandler) record(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, out)
+}
+
+// forChange serves GET /api/v1/confidence/{project}/{change}: the change's
+// estimates, oldest first, for the run page.
+func (h *confidenceHandler) forChange(w http.ResponseWriter, r *http.Request) {
+	project, change := r.PathValue("project"), r.PathValue("change")
+	out, err := h.store.ConfidenceEstimatesForChange(r.Context(), project, change)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("confidence estimates for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // tags serves GET /api/v1/confidence-tags: every tag in use, most used first.

@@ -1060,6 +1060,11 @@ export function fetchConfidencePage(p: { status: ConfidenceStatus; limit: number
   return getJSON<ConfidencePage>(`/api/v1/stats/confidence-estimates?${q}`, init);
 }
 
+/** GET /api/v1/confidence/{project}/{change} -- the change's estimates, oldest first, whatever their review status. */
+export function listConfidence(project: string, change: string, init?: RequestInit): Promise<ConfidenceRow[]> {
+  return getJSON<ConfidenceRow[]>(`/api/v1/confidence/${encodeURIComponent(project)}/${encodeURIComponent(change)}`, init);
+}
+
 /** PATCH /api/v1/confidence/{project}/estimates/{id}/review -- approve or decline an estimate, or move it back. */
 export function reviewConfidenceEstimate(project: string, id: number, status: ConfidenceStatus, reason = ""): Promise<void> {
   return sendJSON("PATCH", `/api/v1/confidence/${encodeURIComponent(project)}/estimates/${id}/review`, { status, reason });

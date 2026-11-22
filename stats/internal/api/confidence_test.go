@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/records"
@@ -47,6 +48,16 @@ func (f *fakeStore) ConfidenceEstimatesPage(_ context.Context, status string, li
 	return p, nil
 }
 
+func (f *fakeStore) ConfidenceEstimatesForChange(_ context.Context, projectKey, change string) ([]records.ConfidenceEstimate, error) {
+	out := []records.ConfidenceEstimate{}
+	for _, e := range f.confidence {
+		if e.Project == projectKey && e.Change == change {
+			out = append(out, e)
+		}
+	}
+	return out, nil
+}
+
 func (f *fakeStore) ReviewConfidenceEstimate(_ context.Context, projectKey string, id int64, status, reason string) error {
 	for i, e := range f.confidence {
 		if e.Project == projectKey && e.ID == id {
@@ -79,6 +90,13 @@ func TestConfidenceRoutes(t *testing.T) {
 	}
 	if resp, raw := postJSON(t, post, map[string]any{"stage": "implement", "task": "1", "score": 100, "gaps": []string{"g"}, "tags": []string{"x"}}); resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("POST score 100 = %d (%s), want 400", resp.StatusCode, raw)
+	}
+
+	if code, body := doGet(t, ts, "/api/v1/confidence/proj/kan-1"); code != http.StatusOK || !strings.Contains(body, `"score":80`) {
+		t.Errorf("GET change estimates = %d %q, want the recorded row", code, body)
+	}
+	if code, body := doGet(t, ts, "/api/v1/confidence/proj/other"); code != http.StatusOK || body != "[]\n" {
+		t.Errorf("GET another change's estimates = %d %q, want []", code, body)
 	}
 
 	if code, body := doGet(t, ts, "/api/v1/confidence-tags"); code != http.StatusOK || body != `[{"tag":"missing-fixture","count":1}]`+"\n" {

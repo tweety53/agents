@@ -19,7 +19,8 @@ import {
 } from "../api";
 import { RunDetail, residualCosts, unrecordedRole, closeOpen, policyEffort, versionResolver, headlessRoles } from "./RunDetail";
 
-const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock, decisionsMock, fetchRolesMock } = vi.hoisted(() => ({
+const { listConfidenceMock, listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock, decisionsMock, fetchRolesMock } = vi.hoisted(() => ({
+  listConfidenceMock: vi.fn((_project: string, _change: string) => Promise.resolve([] as unknown[])),
   fetchRolesMock: vi.fn((): Promise<unknown[]> => Promise.reject(new Error("no roles"))),
   decisionsMock: vi.fn((_project: string, _change: string) => Promise.resolve([] as unknown[])),
   listStageRunsMock: vi.fn(),
@@ -32,7 +33,7 @@ const { listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock,
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, listStages: listStagesMock, listSelfReviewFindings: listFindingsMock, getRunRecord: runRecordMock, findChanges: findChangesMock, getDecisions: decisionsMock, fetchRoles: fetchRolesMock };
+  return { ...actual, listStageRuns: listStageRunsMock, fetchStatsView: fetchStatsViewMock, listStages: listStagesMock, listSelfReviewFindings: listFindingsMock, listConfidence: listConfidenceMock, getRunRecord: runRecordMock, findChanges: findChangesMock, getDecisions: decisionsMock, fetchRoles: fetchRolesMock };
 });
 
 function stageRunsResponse(stageRuns: StageRunDTO[], total?: number): ListStageRunsResponse {
@@ -1573,5 +1574,30 @@ describe("the model · effort label", () => {
     expect(headlessRoles(rows, versionResolver([] as never))[0].models).toBe("opus · low ×1");
     const run = { stageRunId: 1, harness: "claude", command: "/flow", stage: "flow.plan", attempt: 1, startedAt: "t", metrics: { dispatches: { a: { modelVersion: "claude-sonnet-5-5" } } } } as StageRunDTO;
     expect(headlessRoles([{ ...rows[0], model: "sonnet" }], versionResolver([] as never, [run]))[0].models).toBe("sonnet 5.5 · low ×1");
+  });
+});
+
+describe("a change with confidence estimates below 100%", () => {
+  it("shows one percentage per planner and per implementer group, the gaps on hover, and no panel without any", async () => {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([]));
+    fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
+    listConfidenceMock.mockResolvedValue([
+      { id: 1, project: PROJECT, change: CHANGE, stage: "plan", score: 78, gaps: ["no task checks the flag", "column order"], tags: ["t"], recordedAt: "2026-01-01T00:00:00Z", reviewStatus: "to-review" },
+      { id: 2, project: PROJECT, change: CHANGE, stage: "implement", task: "2+3", score: 90, gaps: ["fixture missing"], tags: ["t"], recordedAt: "2026-01-01T00:10:00Z", reviewStatus: "to-review" },
+    ]);
+    const { unmount } = render(<RunDetail project={PROJECT} change={CHANGE} />);
+
+    const panel = await screen.findByRole("region", { name: "Confidence" });
+    const rows = within(panel).getAllByTestId("confidence-row");
+    expect(rows[0]).toHaveTextContent(/^Planner · 78%$/);
+    expect(rows[0]).toHaveAttribute("title", "no task checks the flag\ncolumn order");
+    expect(rows[1]).toHaveTextContent(/^Task 2\+3 · 90%$/);
+    expect(rows[1]).toHaveAttribute("title", "fixture missing");
+    unmount();
+
+    listConfidenceMock.mockResolvedValue([]);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    await screen.findByRole("region", { name: "Stage runs" });
+    expect(screen.queryByRole("region", { name: "Confidence" })).not.toBeInTheDocument();
   });
 });

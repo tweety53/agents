@@ -162,3 +162,30 @@ func TestConfidenceEstimateRefusals(t *testing.T) {
 		t.Errorf("after refusals: %+v, want no row", rows)
 	}
 }
+
+// TestConfidenceEstimatesForChange reads one change's estimates, oldest first,
+// whatever their review status, and none of another change's or project's.
+func TestConfidenceEstimatesForChange(t *testing.T) {
+	t.Parallel()
+	st, _, projectKey := newHazardStore(t)
+	ctx := context.Background()
+	for _, e := range []records.ConfidenceEstimate{
+		{Change: "kan-7", Stage: "plan", Score: 70, Disposition: "later", Gaps: []string{"a"}, Tags: []string{"fc-" + projectKey}},
+		{Change: "kan-7", Stage: "implement", Task: "1", Score: 90, Gaps: []string{"b"}, Tags: []string{"fc-" + projectKey}},
+		{Change: "kan-8", Stage: "plan", Score: 50, Disposition: "later", Gaps: []string{"c"}, Tags: []string{"fc-" + projectKey}},
+	} {
+		if _, err := st.RecordConfidenceEstimate(ctx, projectKey, e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := st.ConfidenceEstimatesForChange(ctx, projectKey, "kan-7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].Stage != "plan" || got[0].Score != 70 || got[1].Task != "1" || got[1].Score != 90 {
+		t.Errorf("kan-7 = %+v, want the plan row then the implement row", got)
+	}
+	if none, err := st.ConfidenceEstimatesForChange(ctx, projectKey, "kan-9"); err != nil || none == nil || len(none) != 0 {
+		t.Errorf("kan-9 = %+v, %v, want an empty non-nil slice", none, err)
+	}
+}

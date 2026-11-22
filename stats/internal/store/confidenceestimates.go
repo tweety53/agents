@@ -182,3 +182,27 @@ func (s *Store) ConfidenceEstimatesPage(ctx context.Context, status string, limi
 	}
 	return out, rows.Err()
 }
+
+// ConfidenceEstimatesForChange reads one change's estimates, oldest first,
+// whatever their review status -- what the run page shows.
+func (s *Store) ConfidenceEstimatesForChange(ctx context.Context, projectKey, change string) ([]records.ConfidenceEstimate, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT id, project_key, change, stage, COALESCE(task, ''), score, gaps, tags, COALESCE(disposition, ''), recorded_at, review_status, COALESCE(review_reason, '')
+		FROM confidence_estimates
+		WHERE project_key = $1 AND change = $2
+		ORDER BY recorded_at, id
+	`, projectKey, change)
+	if err != nil {
+		return nil, fmt.Errorf("store: confidence estimates for %s/%s: %w", projectKey, change, err)
+	}
+	defer rows.Close()
+	out := []records.ConfidenceEstimate{}
+	for rows.Next() {
+		var e records.ConfidenceEstimate
+		if err := rows.Scan(&e.ID, &e.Project, &e.Change, &e.Stage, &e.Task, &e.Score, &e.Gaps, &e.Tags, &e.Disposition, &e.RecordedAt, &e.ReviewStatus, &e.Reason); err != nil {
+			return nil, fmt.Errorf("store: confidence estimates for %s/%s: scan: %w", projectKey, change, err)
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
