@@ -280,7 +280,7 @@ recommended
 | `url` | `FLOW_RECORDS_ADDR` | `http://127.0.0.1:4173` | `http://127.0.0.1:4173` |
 
 **The `FLOW_RECORDS_ADDR` row is deliberately not isolated, and its token-free workspace cell is
-the statement of that.** The record family (`flow record`, `flow stage`, `flow state`, `flow policy`, `flow jira`, `flow self-review finding`, `flow self-review findings`, `flow self-review bundle`, `flow suite record`, `flow suite list`, `flow change save`, `flow change file`, `flow interactive land`) resolves
+the statement of that.** The record family (`flow record`, `flow stage`, `flow state`, `flow policy`, `flow jira`, `flow self-review finding`, `flow self-review findings`, `flow self-review bundle`, `flow confidence record`, `flow confidence tags`, `flow suite record`, `flow suite list`, `flow change save`, `flow change file`, `flow interactive land`) resolves
 its store address from it, so an apply worktree's dispatch, finding and suite-runtime rows land in the
 persistent store the main checkout serves, and a deferred self-review bundle still finds them
 after `scripts/flow-guard workspace remove` has dropped the `database` row's resource; stage marks, state

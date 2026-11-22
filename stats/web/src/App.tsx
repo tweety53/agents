@@ -17,6 +17,7 @@ import { RunTimings } from "./views/RunTimings";
 import { ReviewDynamics } from "./views/ReviewDynamics";
 import { Reviewers } from "./views/Reviewers";
 import { SelfReview } from "./views/SelfReview";
+import { Confidence } from "./views/Confidence";
 import { StageLeaderboard } from "./views/StageLeaderboard";
 import { StateBoard } from "./views/StateBoard";
 import { Trend } from "./views/Trend";
@@ -33,6 +34,7 @@ const VIEW_LABELS: Record<ViewName, string> = {
   reviewers: "Reviewers",
   "flow-health": "Flow guards",
   "self-review": "Self-review",
+  confidence: "Confidence",
   "review-dynamics": "Reviewer findings",
   "role-costs": "Role costs",
   "agent-roles": "Agent roles",
@@ -46,6 +48,7 @@ const VIEW_COMPONENTS: Record<ViewName, () => ReactElement> = {
   reviewers: Reviewers,
   "flow-health": FlowHealth,
   "self-review": SelfReview,
+  confidence: Confidence,
   "review-dynamics": ReviewDynamics,
   "role-costs": RoleCosts,
   "agent-roles": AgentRoles,

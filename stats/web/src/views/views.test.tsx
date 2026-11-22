@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import type {
   SelfReviewRow,
+  ConfidenceRow,
   TrendChange,
   HealthViewSlug,
   StageLeaderboardRow,
@@ -22,12 +23,14 @@ import { FlowHealth, speedUpCandidates } from "./FlowHealth";
 import { ReviewDynamics } from "./ReviewDynamics";
 import { Reviewers } from "./Reviewers";
 import { SelfReview } from "./SelfReview";
+import { Confidence } from "./Confidence";
 import { StageLeaderboard } from "./StageLeaderboard";
 import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
 import { WeeklyCosts } from "./WeeklyCosts";
 
-const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, postRolesEditMock, reviewMock, pageMock } = vi.hoisted(() => ({
+const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, postRolesEditMock, reviewMock, pageMock, confidenceMock } = vi.hoisted(() => ({
+  confidenceMock: vi.fn(),
   reviewMock: vi.fn(() => Promise.resolve()),
   pageMock: vi.fn(),
   postRolesEditMock: vi.fn(),
@@ -46,6 +49,7 @@ vi.mock("../api", async (importOriginal) => {
     postRolesEdit: postRolesEditMock,
     reviewSelfReviewFinding: reviewMock,
     fetchSelfReviewPage: pageMock,
+    fetchConfidencePage: confidenceMock,
   };
 });
 
@@ -247,7 +251,7 @@ const REVIEWER_PROJECTS = [
 ];
 
 const fixtures: Record<
-  Exclude<ViewName, "flow-health" | "agent-roles" | "role-costs"> | HealthViewSlug | WeeklyModelEffortViewSlug,
+  Exclude<ViewName, "flow-health" | "agent-roles" | "role-costs" | "confidence"> | HealthViewSlug | WeeklyModelEffortViewSlug,
   StatsResponse<unknown, unknown>
 > = {
   "state-board": envelope("state-board", [
@@ -1057,6 +1061,42 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.queryByRole("button", { name: /suggestion number 0(?!\d)/ })).not.toBeInTheDocument();
     expect(screen.getByText("26–30 of 30")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+  });
+
+  it("confidence: lists the estimates in the self-review layout, grouped by tag chips, 25 a page", async () => {
+    const rows: ConfidenceRow[] = [
+      { id: 2, project: "agents", change: "kan-9", stage: "implement", task: "2+3", score: 85, gaps: ["the fixture is missing", "task 3 states no order"], tags: ["missing-fixture"], recordedAt: "2026-11-20T10:00:00Z" },
+      { id: 1, project: "agents", change: "kan-9", stage: "plan", score: 70, gaps: ["closes with: operator — column order"], tags: ["open-decision"], disposition: "later", recordedAt: "2026-11-19T10:00:00Z" },
+      ...Array.from({ length: 28 }, (_, i) => ({ id: 10 + i, project: "agents", change: `kan-${100 + i}`, stage: "implement" as const, task: "1", score: 90, gaps: ["g"], tags: ["missing-fixture"], recordedAt: "2026-11-01T10:00:00Z" })),
+    ];
+    confidenceMock.mockImplementation(async (q: { tag: string; limit: number; offset: number }) => {
+      const list = rows.filter((r) => !q.tag || r.tags.includes(q.tag));
+      return { total: list.length, limit: q.limit, offset: q.offset, tags: [{ tag: "missing-fixture", count: 29 }, { tag: "open-decision", count: 1 }], rows: list.slice(q.offset, q.offset + q.limit) };
+    });
+    const user = userEvent.setup();
+    render(<Confidence />);
+
+    // The newest estimate is open: its gaps in full, its task and stage.
+    expect(await screen.findByRole("heading", { name: "85% · kan-9" })).toBeInTheDocument();
+    expect(screen.getByText("the fixture is missing")).toBeInTheDocument();
+    expect(screen.getByText("task 3 states no order")).toBeInTheDocument();
+    expect(confidenceMock).toHaveBeenCalledWith({ tag: "", limit: 25, offset: 0 });
+    expect(screen.getByText("1–25 of 30")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "All 30" })).toBeInTheDocument();
+
+    // A tag chip reads that tag's rows alone.
+    await user.click(screen.getByRole("button", { name: "open-decision 1" }));
+    expect(await screen.findByRole("heading", { name: "70% · kan-9" })).toBeInTheDocument();
+    expect(confidenceMock).toHaveBeenLastCalledWith({ tag: "open-decision", limit: 25, offset: 0 });
+    expect(screen.getByText("closes with: operator — column order")).toBeInTheDocument();
+    expect(screen.getAllByText("later").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/of 30/)).not.toBeInTheDocument();
+  });
+
+  it("confidence: no rows says so", async () => {
+    confidenceMock.mockResolvedValue({ total: 0, limit: 25, offset: 0, tags: [], rows: [] });
+    render(<Confidence />);
+    expect(await screen.findByText("Nothing here.")).toBeInTheDocument();
   });
 
   it("self-review: no rows says so", async () => {

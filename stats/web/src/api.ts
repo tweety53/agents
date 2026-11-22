@@ -46,6 +46,7 @@ export type ViewName =
   | "reviewers"
   | "flow-health"
   | "self-review"
+  | "confidence"
   | "review-dynamics"
   | "role-costs"
   | "agent-roles";
@@ -58,6 +59,7 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "reviewers",
   "flow-health",
   "self-review",
+  "confidence",
   "review-dynamics",
   "role-costs",
   "agent-roles",
@@ -80,7 +82,7 @@ export type WeeklyModelEffortViewSlug = "weekly-model-effort-costs";
 
 /** Every slug GET /api/v1/stats/{view} is called with from this client. */
 /** Agent roles reads its own endpoint (fetchRoles), never /api/v1/stats/{view}. */
-export type StatsViewSlug = Exclude<ViewName, "agent-roles"> | CostPerChangeViewSlug | HealthViewSlug | WeeklyModelEffortViewSlug;
+export type StatsViewSlug = Exclude<ViewName, "agent-roles" | "confidence"> | CostPerChangeViewSlug | HealthViewSlug | WeeklyModelEffortViewSlug;
 
 /**
  * Parameters every statistics view accepts. "from" and "to" are both
@@ -1020,6 +1022,36 @@ export function fetchSelfReviewPage(
   if (p.project) q.set("project", p.project);
   if (p.status) q.set("status", p.status);
   return getJSON<SelfReviewPage>(`/api/v1/stats/self-review-findings?${q}`, init);
+}
+
+/** One confidence estimate below 100% (records.ConfidenceEstimate). */
+export interface ConfidenceRow {
+  id: number;
+  project: string;
+  change: string;
+  stage: "plan" | "implement";
+  task?: string;
+  score: number;
+  gaps: string[];
+  tags: string[];
+  disposition?: "raised" | "later";
+  recordedAt: string;
+}
+
+/** One page of the Confidence dashboard's list, with the list's total and every tag's row count. */
+export interface ConfidencePage {
+  total: number;
+  limit: number;
+  offset: number;
+  tags: { tag: string; count: number }[];
+  rows: ConfidenceRow[];
+}
+
+/** GET /api/v1/stats/confidence-estimates -- one page only; `tag` empty reads every row. */
+export function fetchConfidencePage(p: { tag: string; limit: number; offset: number }, init?: RequestInit): Promise<ConfidencePage> {
+  const q = new URLSearchParams({ limit: String(p.limit), offset: String(p.offset) });
+  if (p.tag) q.set("tag", p.tag);
+  return getJSON<ConfidencePage>(`/api/v1/stats/confidence-estimates?${q}`, init);
 }
 
 /** PATCH /api/v1/self-review/{project}/findings/{id}/review -- approve or decline a suggested finding. */

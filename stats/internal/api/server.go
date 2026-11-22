@@ -417,6 +417,12 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("GET /api/v1/self-review-finding/{project}/{id}", srb.getFinding)
 	mux.HandleFunc("GET /api/v1/self-review-similar/{project}", srb.similarFindings)
 	mux.HandleFunc("PATCH /api/v1/self-review/{project}/findings/{id}/review", srb.reviewFinding)
+	if cst, ok := rs.(confidenceStore); ok {
+		ch := &confidenceHandler{store: cst, logger: logger}
+		mux.HandleFunc("POST /api/v1/confidence/{project}/{change}", ch.record)
+		mux.HandleFunc("GET /api/v1/confidence-tags", ch.tags)
+		mux.Handle("GET /api/v1/stats/confidence-estimates", http.TimeoutHandler(http.HandlerFunc(ch.page), so.statsTimeout, statsTimeoutMessage))
+	}
 	mux.HandleFunc("GET /api/v1/projects", ph.projects)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches", rh.recordDispatch)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/end", rh.endDispatch)
@@ -684,7 +690,7 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 		return http.StatusConflict, err.Error()
 	case errors.Is(err, store.ErrFindingPatternInvalid):
 		return http.StatusBadRequest, err.Error()
-	case errors.Is(err, store.ErrSelfReviewFindingInvalid):
+	case errors.Is(err, store.ErrSelfReviewFindingInvalid), errors.Is(err, store.ErrConfidenceEstimateInvalid):
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrDispatchNotFound), errors.Is(err, store.ErrSelfReviewFindingNotSuggested), errors.Is(err, store.ErrSelfReviewFindingNotFound):
 		return http.StatusNotFound, err.Error()

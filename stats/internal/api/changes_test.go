@@ -120,6 +120,9 @@ type fakeStore struct {
 	// fakeStore methods operate on these) ---
 	selfReviewFindings []selfReviewFindingRecord
 
+	// --- confidence estimates (KAN-1130, internal/api/confidence_test.go) ---
+	confidence []records.ConfidenceEstimate
+
 	// --- suite-run bookkeeping (KAN-252, internal/api/suites_test.go's
 	// fakeStore methods operate on these) ---
 	suiteRuns         []suiteRunRecord

@@ -539,8 +539,9 @@ describe("a stage run that dispatched three subagents (kan-201)", () => {
     // (cache efficiency and runs cut by KAN-989) plus `weekly-costs`,
     // `reviewers`, `decisions`, `flow-health`, `self-review` and
     // `review-dynamics` (KAN-1046), `agent-roles` (KAN-1067) and Run costs,
-    // and Role costs, `role-costs` (KAN-1130); Run costs (KAN-1132) was deleted.
-    expect(VIEW_NAMES).toHaveLength(10);
+    // and Role costs, `role-costs` (KAN-1130), and `confidence` (KAN-1130);
+    // Run costs (KAN-1132) was deleted.
+    expect(VIEW_NAMES).toHaveLength(11);
     // Per-dispatch rows appear only under an expanded stage run.
     expect(screen.queryByTestId("dispatch-row")).not.toBeInTheDocument();
   });

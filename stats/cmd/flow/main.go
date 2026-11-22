@@ -57,6 +57,7 @@ commands:
   change save <name>   keep a change's tasks.md, self-review bundle and run reports in flowd (see: flow change)
   change file <name> <path>  print one saved file of a change
   self-review bundle   print a finished change's self-review context bundle (see: flow self-review)
+  confidence tags|record  list the confidence-estimate tags in use; file one estimate below 100% (see: flow confidence)
   jira transition      move an issue to a pipeline position via flowd (see: flow jira)
   workspace-id <name>  print a change's workspace id, derived from its name
 `
@@ -112,6 +113,8 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdin i
 		return runChange(ctx, args[1:], getenv, stdout, stderr)
 	case "self-review":
 		return runSelfReview(ctx, args[1:], getenv, stdout, stderr)
+	case "confidence":
+		return runConfidence(ctx, args[1:], getenv, stdout, stderr)
 	case "jira":
 		return runJira(ctx, args[1:], getenv, stdout, stderr)
 	case "workspace-id":

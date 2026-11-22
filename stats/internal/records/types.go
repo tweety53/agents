@@ -872,3 +872,30 @@ type SimilarSelfReviewFinding struct {
 	Theme string  `json:"theme,omitempty"`
 	Score float64 `json:"score"`
 }
+
+// ConfidenceEstimate is one confidence estimate below 100% (KAN-1130): how
+// confident an agent was, 1-99, that the plan is executed as written, and
+// what would move it to 100. Stage is plan or implement. A plan row carries
+// Disposition (raised or later) and no Task; an implement row carries Task --
+// the dispatch's task ids -- and no Disposition. Gaps is the gap list
+// verbatim; Tags are free-form kebab-case labels. Project is set on reads
+// that span projects.
+type ConfidenceEstimate struct {
+	ID          int64     `json:"id"`
+	Project     string    `json:"project,omitempty"`
+	Change      string    `json:"change"`
+	Stage       string    `json:"stage"`
+	Task        string    `json:"task,omitempty"`
+	Score       int       `json:"score"`
+	Gaps        []string  `json:"gaps"`
+	Tags        []string  `json:"tags"`
+	Disposition string    `json:"disposition,omitempty"`
+	RecordedAt  time.Time `json:"recordedAt"`
+}
+
+// ConfidenceTag is one tag in use on the recorded confidence estimates and
+// how many rows carry it.
+type ConfidenceTag struct {
+	Tag   string `json:"tag"`
+	Count int    `json:"count"`
+}
