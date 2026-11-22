@@ -182,6 +182,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 >
 > ```text
 > status: DONE | BLOCKED
+> confidence: <n>% — filed | nothing to file
 > commit: <task-id> <full sha>
 > fixed: F<n> <full sha>
 > not-fixed: F<n> — <reason>
@@ -189,7 +190,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > report: <this report file's absolute path>
 > ```
 >
-> `status:` and `report:` appear once; every other line once per item — a `commit:` per
+> `status:` and `report:` appear once, and so does `confidence:` — the CONFIDENCE FIRST estimate you made, `filed` after a `flow confidence record` call below 100% and `nothing to file` at 100% (a fixer omits it); a head without it says the estimate was skipped (KAN-1156: three implementers ran no `flow confidence` call at all); every other line once per item — a `commit:` per
 > task, its sha a `<worktree>=<sha>[,<worktree>=<sha>…]` map on a change spanning repositories, a
 > `fixed:` or `not-fixed:` per finding a FIX INPUT names — and not at all when there is none.
 

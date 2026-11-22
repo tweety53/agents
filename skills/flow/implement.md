@@ -387,7 +387,10 @@ of `skills/flow/visual-verify.md`.
 entry. At each boundary, in this order:
 
 1. **The returned group's implementer commits**, writes its report and ends; its completion notification
-   wakes the parent with its summary head (`skills/flow/implementer-brief.md`).
+   wakes the parent with its summary head (`skills/flow/implementer-brief.md`). **A `status: DONE` head of an
+   implementer (not a fixer's) with no `confidence:` line skipped CONFIDENCE FIRST: the parent sends that agent one message —
+   estimate now, from what you know of the tasks, per your brief's CONFIDENCE FIRST, file it and answer with the `confidence:` line —
+   and continues on its answer, never blocking the group on it.**
 2. **One Bash call closes the returned group**, its verdict echoed:
    `flow-guard close-task`.
 
