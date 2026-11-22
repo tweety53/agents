@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  User launchd agent for the embedding sidecar behind hybrid self-review
+  similarity (stats/README.md, "Hybrid self-review similarity"): serves
+  POST /embed and GET /healthz on 127.0.0.1:8099 via stats/embedder/server.py.
+
+  Starts at login and restarts if it exits with a non-zero status. While it
+  is down `flow self-review similar` falls back to BM25 with a warning.
+  Loading is an operator step, like the flowd agent beside it:
+
+      cp stats/launchd/com.tweety53.flow-embedder.plist ~/Library/LaunchAgents/
+      launchctl load ~/Library/LaunchAgents/com.tweety53.flow-embedder.plist
+
+  The flow-pgvector container needs no agent: its compose file sets
+  `restart: unless-stopped`.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.tweety53.flow-embedder</string>
+
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/tweety53/.local/bin/uv</string>
+		<string>run</string>
+		<string>/Users/tweety53/Projects/agents/stats/embedder/server.py</string>
+	</array>
+
+	<key>WorkingDirectory</key>
+	<string>/Users/tweety53/Projects/agents</string>
+
+	<key>RunAtLoad</key>
+	<true/>
+
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+
+	<key>StandardOutPath</key>
+	<string>/Users/tweety53/Library/Logs/flow-embedder.log</string>
+
+	<key>StandardErrorPath</key>
+	<string>/Users/tweety53/Library/Logs/flow-embedder.log</string>
+
+	<key>ProcessType</key>
+	<string>Background</string>
+</dict>
+</plist>

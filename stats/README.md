@@ -31,8 +31,12 @@ running container.
 `flow self-review similar` ranks by BM25; with an embedding sidecar and a pgvector
 database it fuses BM25 with embedding similarity (reciprocal rank fusion). Both
 `FLOW_EMBED_URL` and `FLOW_PGVECTOR_DSN` set means hybrid; either unset means BM25
-only. `make restart` and the launchd agent (`stats/launchd/`) set both for the live daemon; the sidecar
-and the pgvector container are started by hand, and while either is down `similar` falls back to BM25. If the embedding half fails, the CLI prints a warning and answers BM25 only.
+only. If the embedding half fails, the CLI prints a warning and answers BM25 only.
+
+`make restart` and the flowd launchd agent set both variables for the live daemon. The sidecar has its own
+agent, `stats/launchd/com.tweety53.flow-embedder.plist` (copy it to `~/Library/LaunchAgents/` and
+`launchctl load` it, like the flowd one); the container restarts itself (`restart: unless-stopped`). The
+commands below are for running them by hand without the agents.
 
 ```bash
 docker compose -f stats/docker-compose.pgvector.yml up -d
