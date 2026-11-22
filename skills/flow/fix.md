@@ -45,6 +45,13 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    border", "flush", "reaches" is an edge alignment (`runs` through the container) — so the
    measurement answers the property named, never the screen area the complaint sits in.
 
+   **Every fix task for a visual mismatch starts with the measurement, disputed or not.** The
+   first step of the task is the `Measured:` line above for the reported element on both sides; when
+   the numbers show no difference, the task's result is `not a departure: <the measured numbers, both
+   sides>` and no code changes, and in every case the measured numbers are in the task's result, so
+   a later round that contradicts it must quote them (KAN-1091: a tab bar reported 13 px high, then
+   20 px low, settled only by measuring both sides).
+
 2. **Fix it test-first**, under `flow.implement` (`flow stage begin -command '/flow' -stage
    flow.implement <name>` when no `flow.implement` mark is open). One fresh implementer, role
    `implementer`, key `fix-<k>-implementer`, its pair from `flow-guard pair-judge implementer`,
