@@ -1,190 +1,293 @@
-// SelfReview -- what the self-review pass did, in two read views: Fixed (every
-// finding it landed a fix for, with its full detail, read only) and To review
-// (the improvements it suggests, each approved or declined here; a Status chip
-// keeps decided ones out of the way). Its Period and Project chips are its own,
-// like the other dashboards'. Tasks are the operator's to create and plan.
-import { useEffect, useState } from "react";
+// SelfReview -- the self-review pass's findings, To review first: a list of the improvements it
+// suggests with the selected one's structured detail beside it, each approved or declined here with
+// an optional reason. Auto-fixed, Approved and Declined are one chip away. No Period or Project
+// filter: every finding is loaded once (newest 100 of each list) and the page derives the rest --
+// a theme's recurrence is a count of the loaded rows that share its `[theme: <tag>]` note prefix.
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Chip, ChipGroup } from "../components/Chip";
 import { ViewFrame } from "../components/ViewFrame";
-import { fetchProjects, fetchSelfReviewPage, reviewSelfReviewFinding, type SelfReviewPage, type SelfReviewRow } from "../api";
-import { PERIOD_DAYS, windowFor, type PeriodChip } from "../format";
-import { projectLabel } from "../lib/projectLabel";
+import { fetchSelfReviewPage, reviewSelfReviewFinding, type SelfReviewRow } from "../api";
 
-type Show = "fixed" | "to-review";
-type Status = "to-review" | "approved" | "declined";
-const PERIOD_LABELS: Record<PeriodChip, string> = { "7d": "7 days", "30d": "30 days", "90d": "90 days" };
-const STATUS_LABEL: Record<Status, string> = { "to-review": "To review", approved: "Approved", declined: "Declined" };
+type Show = "to-review" | "fixed" | "approved" | "declined";
+const SHOWS: { key: Show; label: string }[] = [
+  { key: "to-review", label: "To review" },
+  { key: "fixed", label: "Auto-fixed" },
+  { key: "approved", label: "Approved" },
+  { key: "declined", label: "Declined" },
+];
+const PAGE = 100;
+const WINDOW_FROM = new Date("2000-01-01T00:00:00Z");
 
-const PAGE_SIZE = 25;
+interface Loaded {
+  toReview: SelfReviewRow[];
+  approved: SelfReviewRow[];
+  declined: SelfReviewRow[];
+  fixed: SelfReviewRow[];
+}
 
-/** Prev / Next under a list, with the range it shows. */
-function Pager({ page, onPage }: { page: SelfReviewPage; onPage: (offset: number) => void }) {
-  if (page.total <= page.limit) return null;
-  const last = Math.min(page.offset + page.rows.length, page.total);
+/** The theme tag a note opens with (`[theme: <tag>] `), and the note without it. */
+export function splitTheme(note: string): { theme: string; title: string } {
+  const m = /^\[theme: ([a-z0-9-]+)\]\s*/.exec(note);
+  return m ? { theme: m[1], title: note.slice(m[0].length) } : { theme: "", title: note };
+}
+
+/** A body's `## Heading` sections by heading; null when it has no `## Proposal`, i.e. an older, free-form detail. */
+export function parseSections(detail: string): Map<string, string> | null {
+  const out = new Map<string, string>();
+  let name = "";
+  for (const line of detail.split("\n")) {
+    const h = /^##\s+(.+?)\s*$/.exec(line);
+    if (h) {
+      name = h[1];
+      out.set(name, "");
+    } else if (name) out.set(name, out.get(name) + line + "\n");
+  }
+  return out.has("Proposal") ? new Map([...out].map(([k, v]) => [k, v.trim()])) : null;
+}
+
+function field(block: string | undefined, key: string): string {
+  const m = block && new RegExp(`^${key}:\\s*(.+)$`, "m").exec(block);
+  return m ? m[1].trim() : "";
+}
+
+/** Minimal markdown: fenced blocks, bullets (a `- [ ]` item is a checklist entry) and paragraphs. */
+function Body({ text }: { text: string }) {
+  const parts: ReactNode[] = [];
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.startsWith("```")) {
+      const code: string[] = [];
+      for (i++; i < lines.length && !lines[i].startsWith("```"); i++) code.push(lines[i]);
+      parts.push(
+        <pre key={i} className="sr-code">
+          {code.map((l, j) => (
+            <span key={j} className={l.startsWith("+") ? "sr-add" : l.startsWith("-") ? "sr-del" : ""}>
+              {l + "\n"}
+            </span>
+          ))}
+        </pre>,
+      );
+    } else if (/^\s*[-*]\s+/.test(line)) {
+      const items: string[] = [];
+      for (; i < lines.length && /^\s*[-*]\s+/.test(lines[i]); i++) items.push(lines[i].replace(/^\s*[-*]\s+/, ""));
+      i--;
+      parts.push(
+        <ul key={i} className="sr-list">
+          {items.map((it, j) => (
+            <li key={j}>{it.replace(/^\[( |x)\]\s*/, (_m, c) => (c === "x" ? "☑ " : "☐ "))}</li>
+          ))}
+        </ul>,
+      );
+    } else if (line.trim()) parts.push(<p key={i}>{line}</p>);
+  }
+  return <>{parts}</>;
+}
+
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="sr-pager">
-      <button disabled={page.offset === 0} onClick={() => onPage(Math.max(0, page.offset - page.limit))}>
-        Previous
-      </button>
-      <span className="lb-muted">
-        {page.offset + 1}–{last} of {page.total}
-      </span>
-      <button disabled={last >= page.total} onClick={() => onPage(page.offset + page.limit)}>
-        Next
-      </button>
-    </div>
+    <>
+      <h4 className="sr-h">{title}</h4>
+      {children}
+    </>
+  );
+}
+
+function Detail({ row, same }: { row: SelfReviewRow; same: SelfReviewRow[] }) {
+  const s = parseSections(row.detail);
+  if (!s) return <pre className="sr-raw">{row.detail}</pre>;
+  const er = s.get("Effort and risk");
+  const gap = s.get("Current text");
+  const change = s.get("Proposed change");
+  return (
+    <>
+      <div className="sr-prop">
+        <div className="sr-k">Proposal</div>
+        {s.get("Proposal")}
+      </div>
+      <div className="sr-strip">
+        {[
+          ["Effort", field(er, "Effort")],
+          ["Touches", field(er, "Touches")],
+          ["Seen", same.length ? `${same.length + 1}× (theme)` : "first time"],
+          ["Risk", field(er, "Risk")],
+        ].map(([k, v]) => (
+          <div key={k} className="sr-stat">
+            <div className="sr-k">{k}</div>
+            <div>{v || "—"}</div>
+          </div>
+        ))}
+      </div>
+      <Section title="What happened">
+        <Body text={s.get("What happened") ?? ""} />
+      </Section>
+      {s.get("Examples") && (
+        <Section title="Examples">
+          <Body text={s.get("Examples")!} />
+        </Section>
+      )}
+      {gap && (
+        <Section title="Current text that shows the gap">
+          <blockquote className="sr-quote">{gap}</blockquote>
+        </Section>
+      )}
+      {change && (
+        <Section title="Proposed change">
+          <Body text={change} />
+        </Section>
+      )}
+      {s.get("Benefit") && (
+        <Section title="Benefit">
+          <Body text={s.get("Benefit")!} />
+        </Section>
+      )}
+      {same.length > 0 && (
+        <Section title="Same theme before">
+          <ul className="sr-list">
+            {same.slice(0, 5).map((r) => (
+              <li key={r.id}>
+                {splitTheme(r.note).title} <span className="lb-muted">· {r.change} · {r.disposition === "fixed" ? "fixed" : r.reviewStatus}</span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+      {s.get("Done when") && (
+        <Section title="Done when">
+          <Body text={s.get("Done when")!} />
+        </Section>
+      )}
+      {s.get("Trace") && (
+        <Section title="Trace">
+          <span className="lb-muted">{s.get("Trace")}</span>
+        </Section>
+      )}
+    </>
   );
 }
 
 export function SelfReview() {
-  const [win, setWin] = useState(() => windowFor("30d"));
-  const [project, setProject] = useState<string | undefined>(undefined);
-  const [projects, setProjects] = useState<string[]>([]);
-  const [show, setShow] = useState<Show>("fixed");
-  const [status, setStatus] = useState<Status>("to-review");
-  const [offset, setOffset] = useState(0);
+  const [show, setShow] = useState<Show>("to-review");
+  const [selId, setSelId] = useState<number | null>(null);
+  const [reason, setReason] = useState("");
   const [reload, setReload] = useState(0);
-  const [page, setPage] = useState<SelfReviewPage | null>(null);
+  const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState("");
   const [failed, setFailed] = useState("");
 
   useEffect(() => {
-    fetchProjects().then(setProjects, () => setProjects([]));
-  }, []);
-
-  // One page at a time: the filters, the page and a decision made here each refetch just that page.
-  useEffect(() => {
     let live = true;
     setError("");
-    fetchSelfReviewPage({ from: win.from, to: win.to, project, show, status: show === "to-review" ? status : undefined, limit: PAGE_SIZE, offset }).then(
-      (p) => live && setPage(p),
+    const q = { from: WINDOW_FROM, to: new Date(Date.now() + 86400000), limit: PAGE, offset: 0 };
+    Promise.all([
+      fetchSelfReviewPage({ ...q, show: "to-review", status: "to-review" }),
+      fetchSelfReviewPage({ ...q, show: "to-review", status: "approved" }),
+      fetchSelfReviewPage({ ...q, show: "to-review", status: "declined" }),
+      fetchSelfReviewPage({ ...q, show: "fixed" }),
+    ]).then(
+      ([toReview, approved, declined, fixed]) => live && setData({ toReview: toReview.rows, approved: approved.rows, declined: declined.rows, fixed: fixed.rows }),
       (e: unknown) => live && setError(e instanceof Error ? e.message : String(e)),
     );
     return () => {
       live = false;
     };
-  }, [win, project, show, status, offset, reload]);
+  }, [reload]);
 
-  const filter = <T,>(set: (v: T) => void) => (v: T) => {
-    setOffset(0);
-    set(v);
+  const lists = data && { "to-review": data.toReview, fixed: data.fixed, approved: data.approved, declined: data.declined };
+  const rows = lists ? lists[show] : [];
+  const sel = rows.find((r) => r.id === selId) ?? rows[0];
+  const all = useMemo(() => (data ? [...data.toReview, ...data.approved, ...data.declined, ...data.fixed] : []), [data]);
+  const sameTheme = (r: SelfReviewRow) => {
+    const t = splitTheme(r.note).theme;
+    return t ? all.filter((o) => o.id !== r.id && splitTheme(o.note).theme === t) : [];
   };
 
-  const decide = (row: SelfReviewRow, to: Status) =>
-    reviewSelfReviewFinding(row.project, row.id, to).then(
+  const decide = (row: SelfReviewRow, to: "to-review" | "approved" | "declined") =>
+    reviewSelfReviewFinding(row.project, row.id, to, to === "to-review" ? "" : reason.trim()).then(
       () => {
         setFailed("");
+        setReason("");
+        setSelId(null);
         setReload((n) => n + 1);
       },
       (err: unknown) => setFailed(err instanceof Error ? err.message : String(err)),
     );
 
   return (
-    <ViewFrame title="Self-review" description="What each self-review pass fixed, and the improvements it suggests for you to approve or decline.">
+    <ViewFrame title="Self-review" description="Improvements the self-review pass suggests for you to approve or decline, and what it fixed on its own.">
       <div className="lb-fbar">
-        <ChipGroup name="Period">
-          {(Object.keys(PERIOD_DAYS) as PeriodChip[]).map((p) => (
-            <Chip key={p} on={win.period === p} onClick={() => filter(setWin)(windowFor(p))}>
-              {PERIOD_LABELS[p]}
-            </Chip>
-          ))}
-        </ChipGroup>
-        <ChipGroup name="Project">
-          <Chip on={project === undefined} onClick={() => filter(setProject)(undefined)}>
-            All
-          </Chip>
-          {projects.map((p) => (
-            <Chip key={p} on={project === p} onClick={() => filter(setProject)(p)} title={p}>
-              {projectLabel(p)}
-            </Chip>
-          ))}
-        </ChipGroup>
         <ChipGroup name="Show">
-          <Chip on={show === "fixed"} onClick={() => filter(setShow)("fixed")}>
-            Fixed
-          </Chip>
-          <Chip on={show === "to-review"} onClick={() => filter(setShow)("to-review")}>
-            To review
-          </Chip>
+          {SHOWS.map(({ key, label }) => (
+            <Chip
+              key={key}
+              on={show === key}
+              onClick={() => {
+                setShow(key);
+                setSelId(null);
+              }}
+            >
+              {label} {lists ? lists[key].length : 0}
+            </Chip>
+          ))}
         </ChipGroup>
-        {show === "to-review" && page && (
-          <ChipGroup name="Status">
-            {(Object.keys(STATUS_LABEL) as Status[]).map((s) => (
-              <Chip key={s} on={status === s} onClick={() => filter(setStatus)(s)}>
-                {STATUS_LABEL[s]} {s === "to-review" ? page.toReview : s === "approved" ? page.approved : page.declined}
-              </Chip>
-            ))}
-          </ChipGroup>
-        )}
       </div>
-      <section className="lb-panel" aria-label={show === "fixed" ? "Fixed" : "To review"}>
-        <div className="lb-panel-h">
-          <span>{show === "fixed" ? "Fixed" : "To review"}</span>
-        </div>
+      <section className="lb-panel" aria-label={SHOWS.find((s) => s.key === show)!.label}>
         <div className="lb-panel-b">
           {error && <p className="sr-err">{error}</p>}
           {failed && <p className="sr-err">Could not save: {failed}</p>}
-          {!page && !error && <p className="lb-muted">Loading…</p>}
-          {page && page.rows.length === 0 && (
-            <p className="lb-muted">{show === "fixed" ? "No fixed findings in this period." : `Nothing ${STATUS_LABEL[status].toLowerCase()}.`}</p>
-          )}
-          {page && page.rows.length > 0 && show === "fixed" && (
-            <div className="lb-scroll">
-              <table className="lb-table sr-table">
-                <thead>
-                  <tr>
-                    <th>Recorded</th>
-                    <th>Change</th>
-                    <th>Angle</th>
-                    <th>Severity</th>
-                    <th>Finding</th>
-                    <th>Fix</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {page.rows.map((r) => (
-                    <tr key={r.id}>
-                      <td>{r.recordedAt.slice(0, 10)}</td>
-                      <td className="sr-wrap sr-narrow">{r.change}</td>
-                      <td>{r.angle}</td>
-                      <td>{r.severity}</td>
-                      <td className="sr-wrap">
-                        <div>{r.note}</div>
-                        {r.detail && (
-                          <details className="sr-detail">
-                            <summary>Details</summary>
-                            <pre>{r.detail}</pre>
-                          </details>
-                        )}
-                      </td>
-                      <td>{r.commitUrl ? <a href={r.commitUrl}>{r.ref}</a> : r.ref}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {page &&
-            show === "to-review" &&
-            page.rows.map((row) => (
-              <article key={row.id} className="sr-card" data-testid="suggestion">
-                <header>
-                  <strong>{row.note}</strong>
+          {!data && !error && <p className="lb-muted">Loading…</p>}
+          {data && rows.length === 0 && <p className="lb-muted">Nothing here.</p>}
+          {data && sel && (
+            <div className="sr-split">
+              <div className="sr-listcol">
+                {rows.map((r) => {
+                  const { theme, title } = splitTheme(r.note);
+                  const seen = sameTheme(r).length + 1;
+                  return (
+                    <button key={r.id} className={`sr-item${r.id === sel.id ? " on" : ""}`} data-testid="suggestion" onClick={() => setSelId(r.id)}>
+                      <strong>{title}</strong>
+                      <span className="sr-meta">
+                        {theme && <code className="sr-theme">{theme}</code>}
+                        {seen > 1 && <span className="sr-seen">seen {seen}×</span>}
+                        {r.severity && <span className="sr-pill">{r.severity}</span>}
+                        <span className="lb-muted">
+                          {r.angle} · {r.recordedAt.slice(0, 10)}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <article className="sr-pane" aria-label="Finding">
+                <h3>{splitTheme(sel.note).title}</h3>
+                <div className="sr-meta">
+                  {splitTheme(sel.note).theme && <code className="sr-theme">{splitTheme(sel.note).theme}</code>}
+                  {sel.severity && <span className="sr-pill">{sel.severity}</span>}
+                  <span className="sr-pill">{sel.angle}</span>
                   <span className="lb-muted">
-                    {row.change} · {row.angle}
-                    {row.severity && ` · ${row.severity}`} · {row.recordedAt.slice(0, 10)}
+                    {sel.change} · {sel.recordedAt.slice(0, 10)}
                   </span>
-                </header>
-                <pre>{row.detail}</pre>
-                {status === "to-review" && (
-                  <footer>
-                    <button onClick={() => void decide(row, "approved")}>Approve</button>
-                    <button onClick={() => void decide(row, "declined")}>Decline</button>
+                  {sel.disposition === "fixed" && (sel.commitUrl ? <a href={sel.commitUrl}>{sel.ref}</a> : <span>{sel.ref}</span>)}
+                </div>
+                <Detail row={sel} same={sameTheme(sel)} />
+                {show === "to-review" && (
+                  <footer className="sr-actions">
+                    <button className="sr-ok" onClick={() => void decide(sel, "approved")}>
+                      Approve
+                    </button>
+                    <button onClick={() => void decide(sel, "declined")}>Decline</button>
+                    <input aria-label="Reason" placeholder="Reason (optional, stored with the decision)" value={reason} onChange={(e) => setReason(e.target.value)} />
+                  </footer>
+                )}
+                {(show === "approved" || show === "declined") && (
+                  <footer className="sr-actions">
+                    <span>{sel.reason ? `Reason: ${sel.reason}` : "No reason given."}</span>
+                    <button onClick={() => void decide(sel, "to-review")}>Move back to review</button>
                   </footer>
                 )}
               </article>
-            ))}
-          {page && <Pager page={page} onPage={setOffset} />}
+            </div>
+          )}
         </div>
       </section>
     </ViewFrame>

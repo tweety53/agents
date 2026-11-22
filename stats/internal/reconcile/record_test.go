@@ -1537,10 +1537,10 @@ func TestReplayRequestEntries(t *testing.T) {
 	}
 }
 
-func (nopRecordStore) ReviewSelfReviewFinding(context.Context, string, int64, string) error {
+func (nopRecordStore) ReviewSelfReviewFinding(context.Context, string, int64, string, string) error {
 	return nil
 }
 
-func (*fakeRecordStore) ReviewSelfReviewFinding(context.Context, string, int64, string) error {
+func (*fakeRecordStore) ReviewSelfReviewFinding(context.Context, string, int64, string, string) error {
 	return nil
 }

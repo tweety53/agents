@@ -114,6 +114,8 @@ func (s *Store) ListSelfReviewFindings(ctx context.Context, projectKey, change s
 // with the project it was recorded under.
 type SelfReviewFindingRow struct {
 	ProjectKey string
+	// Reason is the operator's note on an approve or decline; read by the page query only.
+	Reason string
 	records.SelfReviewFinding
 }
 
@@ -151,17 +153,17 @@ func (s *Store) SelfReviewFindingsInPeriod(ctx context.Context, period Period, p
 var ErrSelfReviewFindingNotSuggested = errors.New("store: no such suggested self-review finding")
 
 // ReviewSelfReviewFinding sets a suggested finding's review status: to-review, approved or
-// declined. Nothing else about the row changes.
-func (s *Store) ReviewSelfReviewFinding(ctx context.Context, projectKey string, id int64, status string) error {
+// declined, with the operator's optional reason (empty clears it). Nothing else about the row changes.
+func (s *Store) ReviewSelfReviewFinding(ctx context.Context, projectKey string, id int64, status, reason string) error {
 	switch status {
 	case "to-review", "approved", "declined":
 	default:
 		return fmt.Errorf("%w: review status must be to-review, approved or declined, got %q", ErrSelfReviewFindingInvalid, status)
 	}
 	tag, err := s.pool.Exec(ctx, `
-		UPDATE self_review_findings SET review_status = $3
+		UPDATE self_review_findings SET review_status = $3, review_reason = NULLIF($4, '')
 		WHERE project_key = $1 AND id = $2 AND disposition = 'suggested'
-	`, projectKey, id, status)
+	`, projectKey, id, status, reason)
 	if err != nil {
 		return fmt.Errorf("store: review self-review finding %d: %w", id, err)
 	}
@@ -207,7 +209,7 @@ func (s *Store) SelfReviewFindingsPage(ctx context.Context, period Period, proje
 		return out, fmt.Errorf("store: count self-review findings: %w", err)
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT project_key, id, change, angle, note, disposition, COALESCE(ref, ''), blast_radius, COALESCE(severity, ''), COALESCE(detail, ''), COALESCE(review_status, ''), recorded_at
+		SELECT project_key, id, change, angle, note, disposition, COALESCE(ref, ''), blast_radius, COALESCE(severity, ''), COALESCE(detail, ''), COALESCE(review_status, ''), recorded_at, COALESCE(review_reason, '')
 		FROM self_review_findings
 		WHERE recorded_at >= $1 AND recorded_at < $2 AND ($3::text IS NULL OR project_key = $3)
 		  AND disposition = $4 AND ($5 = '' OR review_status = $5)
@@ -221,7 +223,7 @@ func (s *Store) SelfReviewFindingsPage(ctx context.Context, period Period, proje
 	out.Rows = []SelfReviewFindingRow{}
 	for rows.Next() {
 		var r SelfReviewFindingRow
-		if err := rows.Scan(&r.ProjectKey, &r.ID, &r.Change, &r.Angle, &r.Note, &r.Disposition, &r.Ref, &r.BlastRadius, &r.Severity, &r.Detail, &r.ReviewStatus, &r.RecordedAt); err != nil {
+		if err := rows.Scan(&r.ProjectKey, &r.ID, &r.Change, &r.Angle, &r.Note, &r.Disposition, &r.Ref, &r.BlastRadius, &r.Severity, &r.Detail, &r.ReviewStatus, &r.RecordedAt, &r.Reason); err != nil {
 			return out, fmt.Errorf("store: self-review findings page: scan: %w", err)
 		}
 		out.Rows = append(out.Rows, r)

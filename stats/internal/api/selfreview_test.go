@@ -437,7 +437,7 @@ func TestSelfReviewBundleReadsRequests(t *testing.T) {
 }
 
 // ReviewSelfReviewFinding mirrors store.Store.ReviewSelfReviewFinding: a suggested row's status.
-func (f *fakeStore) ReviewSelfReviewFinding(_ context.Context, projectKey string, id int64, status string) error {
+func (f *fakeStore) ReviewSelfReviewFinding(_ context.Context, projectKey string, id int64, status, reason string) error {
 	for i, r := range f.selfReviewFindings {
 		if r.projectKey == projectKey && r.finding.ID == id && r.finding.Disposition == "suggested" {
 			f.selfReviewFindings[i].finding.ReviewStatus = status

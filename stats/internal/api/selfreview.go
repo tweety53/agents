@@ -47,7 +47,7 @@ type selfreviewStore interface {
 	ListSelfReviewFindings(ctx context.Context, projectKey, change string) ([]records.SelfReviewFinding, error)
 
 	// ReviewSelfReviewFinding backs the review route: the operator's approve or decline of a suggestion.
-	ReviewSelfReviewFinding(ctx context.Context, projectKey string, id int64, status string) error
+	ReviewSelfReviewFinding(ctx context.Context, projectKey string, id int64, status, reason string) error
 }
 
 // selfreviewHandler serves GET
@@ -212,12 +212,13 @@ func (h *selfreviewHandler) reviewFinding(w http.ResponseWriter, r *http.Request
 	}
 	var in struct {
 		Status string `json:"status"`
+		Reason string `json:"reason"`
 	}
 	if err := decodeJSONBody(w, r, &in); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := h.store.ReviewSelfReviewFinding(r.Context(), project, id, in.Status); err != nil {
+	if err := h.store.ReviewSelfReviewFinding(r.Context(), project, id, in.Status, in.Reason); err != nil {
 		status, msg := mapStoreError(h.logger, fmt.Sprintf("review self-review finding %d", id), err)
 		writeError(w, status, msg)
 		return

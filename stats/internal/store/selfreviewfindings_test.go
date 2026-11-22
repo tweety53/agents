@@ -353,18 +353,28 @@ func TestSelfReviewSuggestionsAreReviewed(t *testing.T) {
 	if got.ReviewStatus != "to-review" || got.Detail == "" {
 		t.Fatalf("recorded = %+v, want to-review with its detail", got)
 	}
-	if err := st.ReviewSelfReviewFinding(ctx, projectKey, got.ID, "approved"); err != nil {
+	if err := st.ReviewSelfReviewFinding(ctx, projectKey, got.ID, "approved", "cheap and visible"); err != nil {
 		t.Fatalf("approve: %v", err)
 	}
 	list, _ := st.ListSelfReviewFindings(ctx, projectKey, "kan-1")
 	if len(list) != 1 || list[0].ReviewStatus != "approved" || list[0].Detail != got.Detail {
 		t.Fatalf("listed = %+v, want the approved suggestion with its detail", list)
 	}
+	pg, err := st.SelfReviewFindingsPage(ctx, store.Period{From: time.Now().Add(-time.Hour), To: time.Now().Add(time.Hour)}, nil, "to-review", "approved", 10, 0)
+	if err != nil || len(pg.Rows) != 1 || pg.Rows[0].Reason != "cheap and visible" {
+		t.Fatalf("approved page = %+v, err %v, want the row with reason %q", pg.Rows, err, "cheap and visible")
+	}
+	if err := st.ReviewSelfReviewFinding(ctx, projectKey, got.ID, "to-review", ""); err != nil {
+		t.Fatalf("move back: %v", err)
+	}
+	if pg, _ = st.SelfReviewFindingsPage(ctx, store.Period{From: time.Now().Add(-time.Hour), To: time.Now().Add(time.Hour)}, nil, "to-review", "to-review", 10, 0); len(pg.Rows) != 1 || pg.Rows[0].Reason != "" {
+		t.Fatalf("moved back page = %+v, want the row with its reason cleared", pg.Rows)
+	}
 	fixed, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{Change: "kan-1", Angle: "flow-fix", Note: "f", Disposition: "fixed", Ref: "abc1234", Severity: "minor", Detail: "d"})
 	if err != nil {
 		t.Fatalf("record fixed: %v", err)
 	}
-	if err := st.ReviewSelfReviewFinding(ctx, projectKey, fixed.ID, "approved"); !errors.Is(err, store.ErrSelfReviewFindingNotSuggested) {
+	if err := st.ReviewSelfReviewFinding(ctx, projectKey, fixed.ID, "approved", ""); !errors.Is(err, store.ErrSelfReviewFindingNotSuggested) {
 		t.Fatalf("review of a fixed finding: err = %v, want ErrSelfReviewFindingNotSuggested", err)
 	}
 }
@@ -386,7 +396,7 @@ func TestSelfReviewFindingsPagePagesAndCounts(t *testing.T) {
 			t.Fatal(err)
 		}
 		if i == 0 {
-			_ = st.ReviewSelfReviewFinding(ctx, projectKey, f.ID, "approved")
+			_ = st.ReviewSelfReviewFinding(ctx, projectKey, f.ID, "approved", "")
 		}
 	}
 	period := store.Period{From: time.Now().Add(-time.Hour), To: time.Now().Add(time.Hour)}

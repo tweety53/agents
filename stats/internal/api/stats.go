@@ -1386,6 +1386,8 @@ type selfReviewRowDTO struct {
 	// Detail is the finding's full markdown body; ReviewStatus is a suggestion's to-review, approved or declined.
 	Detail       string `json:"detail"`
 	ReviewStatus string `json:"reviewStatus"`
+	// Reason is the operator's note on an approve or decline.
+	Reason string `json:"reason"`
 	// CommitURL links a fixed finding's sha under commitBase; "" for a
 	// filed, declined or noted finding, or when the daemon has no commit base.
 	CommitURL string `json:"commitUrl"`
@@ -1399,6 +1401,7 @@ func toSelfReviewDTOs(rows []store.SelfReviewFindingRow, commitBase string) []se
 			Severity:     r.Severity,
 			Detail:       r.Detail,
 			ReviewStatus: r.ReviewStatus,
+			Reason:       r.Reason,
 			RecordedAt:   r.RecordedAt.UTC().Format(time.RFC3339Nano),
 			Project:      r.ProjectKey,
 			Change:       r.Change,

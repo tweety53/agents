@@ -426,6 +426,8 @@ export interface SelfReviewRow {
   detail: string;
   /** A suggestion's review state; empty on every other disposition. */
   reviewStatus: "" | "to-review" | "approved" | "declined";
+  /** The operator's note on an approve or decline; empty when none. */
+  reason: string;
   commitUrl: string;
 }
 
@@ -1018,8 +1020,8 @@ export function fetchSelfReviewPage(
 }
 
 /** PATCH /api/v1/self-review/{project}/findings/{id}/review -- approve or decline a suggested finding. */
-export function reviewSelfReviewFinding(project: string, id: number, status: "to-review" | "approved" | "declined"): Promise<void> {
-  return sendJSON("PATCH", `/api/v1/self-review/${encodeURIComponent(project)}/findings/${id}/review`, { status });
+export function reviewSelfReviewFinding(project: string, id: number, status: "to-review" | "approved" | "declined", reason = ""): Promise<void> {
+  return sendJSON("PATCH", `/api/v1/self-review/${encodeURIComponent(project)}/findings/${id}/review`, { status, reason });
 }
 
 /** POST /api/v1/policy/roles -- saves several roles' pairs at once. */

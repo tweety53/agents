@@ -385,10 +385,10 @@ const fixtures: Record<
     gh("check-no-bash", 35, 0, 0, 95, 3421, null),
   ]),
   "self-review": envelope("self-review", [
-    { id: 1, recordedAt: "2026-01-12T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-fix", note: "guard misses a case", disposition: "fixed", ref: "abc1234", blastRadius: 3, severity: "important", detail: "## Why\nthe guard skips empty input", reviewStatus: "", commitUrl: "https://github.com/o/r/commit/abc1234" },
+    { id: 1, recordedAt: "2026-01-12T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-fix", note: "[theme: guard-false-pass] guard misses a case", disposition: "fixed", ref: "abc1234", blastRadius: 3, severity: "important", detail: "## Why\nthe guard skips empty input", reviewStatus: "", commitUrl: "https://github.com/o/r/commit/abc1234" },
     { id: 2, recordedAt: "2026-01-11T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-cost", note: "cheaper reviewer", disposition: "fixed", ref: "def5678", blastRadius: null, severity: "minor", detail: "", reviewStatus: "", commitUrl: "https://github.com/o/r/commit/def5678" },
-    { id: 3, recordedAt: "2026-01-10T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-speed", note: "cache the guard", disposition: "suggested", ref: "", blastRadius: null, severity: "minor", detail: "## Why\nslow\n## How\ncache\n## DoD\nfaster", reviewStatus: "to-review", commitUrl: "" },
-    { id: 4, recordedAt: "2026-01-09T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "split the brief", disposition: "suggested", ref: "", blastRadius: null, severity: "minor", detail: "## Why\nlong", reviewStatus: "declined", commitUrl: "" },
+    { id: 3, recordedAt: "2026-01-10T10:00:00Z", project: "agents", change: "kan-1", angle: "flow-speed", note: "[theme: guard-false-pass] cache the guard", disposition: "suggested", ref: "", blastRadius: null, severity: "minor", detail: "## Proposal\nCache the guard result.\n\n## What happened\nThe guard re-ran on every call.\n\n## Examples\n- task 3 — ran 40 times\n\n## Effort and risk\nEffort: S\nTouches: 1 file\nRisk: Low\n\n## Done when\n- [ ] faster", reviewStatus: "to-review", reason: "", commitUrl: "" },
+    { id: 4, recordedAt: "2026-01-09T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "split the brief", disposition: "suggested", ref: "", blastRadius: null, severity: "minor", detail: "## Why\nlong", reviewStatus: "declined", reason: "too noisy", commitUrl: "" },
     { id: 5, recordedAt: "2026-01-08T10:00:00Z", project: "agents", change: "kan-2", angle: "flow-improvement", note: "panel caught it early", disposition: "noted", ref: "", blastRadius: null, severity: "", detail: "", reviewStatus: "", commitUrl: "" },
   ]),
   "review-dynamics": envelope("review-dynamics", reviewDynamicsRows()),
@@ -992,60 +992,51 @@ describe("views render their fixture response's actual values", () => {
     expect(document.querySelector(".rv-tiles")).toBeNull();
   });
 
-  // The server's paging, over the fixture rows: the list for `show`/`status`, `limit` rows from `offset`.
+  // The server's lists over the fixture rows: `show`/`status` pick the list, newest first.
   const servePages = (rows: SelfReviewRow[]) =>
     pageMock.mockImplementation(async (q: { show: string; status?: string; limit: number; offset: number }) => {
       const list = rows.filter((r) => (q.show === "fixed" ? r.disposition === "fixed" : r.reviewStatus === q.status));
-      const n = (s: string) => rows.filter((r) => r.reviewStatus === s).length;
-      return { total: list.length, toReview: n("to-review"), approved: n("approved"), declined: n("declined"), limit: q.limit, offset: q.offset, rows: list.slice(q.offset, q.offset + q.limit) };
+      return { total: list.length, toReview: 0, approved: 0, declined: 0, limit: q.limit, offset: q.offset, rows: list.slice(q.offset, q.offset + q.limit) };
     });
   const fixtureRows = () => (fixtures["self-review"].rows as unknown as SelfReviewRow[]);
 
-  it("self-review: Fixed tab is read only with the finding's detail; To review approves and declines under a status filter", async () => {
+  it("self-review: opens on To review with the structured detail; approve sends the reason", async () => {
     servePages(fixtureRows());
     const user = userEvent.setup();
     render(<SelfReview />);
 
-    // Fixed: only fixed findings, the fix linked to its commit, the detail one click away, no buttons.
-    expect(await screen.findByRole("link", { name: "abc1234" })).toHaveAttribute("href", "https://github.com/o/r/commit/abc1234");
-    expect(screen.getByText("the guard skips empty input", { exact: false })).toBeInTheDocument();
-    expect(screen.queryByText("cache the guard")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+    // The open suggestion, theme split off its title, its sections laid out, the theme seen twice (one fixed row shares it).
+    expect(await screen.findByRole("heading", { name: "cache the guard" })).toBeInTheDocument();
+    expect(screen.getByText("Cache the guard result.")).toBeInTheDocument();
+    expect(screen.getByText("The guard re-ran on every call.")).toBeInTheDocument();
+    expect(screen.getByText("2× (theme)")).toBeInTheDocument();
+    expect(screen.getByText("guard misses a case", { exact: false })).toBeInTheDocument(); // same theme before
+    expect(screen.queryByRole("link", { name: "abc1234" })).not.toBeInTheDocument();
 
-    // To review: the open suggestion with its whole detail; the declined one sits under its filter.
-    await user.click(screen.getByRole("button", { name: "To review" }));
-    expect(await screen.findByText("cache the guard")).toBeInTheDocument();
-    expect(screen.getByText("faster", { exact: false })).toBeInTheDocument();
-    expect(screen.queryByText("split the brief")).not.toBeInTheDocument();
-    pageMock.mockImplementationOnce(async () => ({ total: 0, toReview: 0, approved: 1, declined: 1, limit: 25, offset: 0, rows: [] }));
+    await user.type(screen.getByLabelText("Reason"), "worth it");
     await user.click(screen.getByRole("button", { name: "Approve" }));
-    expect(reviewMock).toHaveBeenCalledWith("agents", 3, "approved");
-    await waitFor(() => expect(screen.queryByText("cache the guard")).not.toBeInTheDocument());
-    await user.click(screen.getByRole("button", { name: /^Declined/ }));
-    expect(await screen.findByText("split the brief")).toBeInTheDocument();
+    expect(reviewMock).toHaveBeenCalledWith("agents", 3, "approved", "worth it");
   });
 
-  it("self-review: an empty period says so on the Fixed tab", async () => {
-    servePages([]);
-    render(<SelfReview />);
-    expect(await screen.findByText("No fixed findings in this period.")).toBeInTheDocument();
-  });
-
-  it("self-review: loads one page at a time and Next/Previous move through the rest", async () => {
-    const many = Array.from({ length: 30 }, (_, i) => ({ ...fixtureRows()[0], id: 100 + i, note: `fix number ${i}` }));
-    servePages(many);
+  it("self-review: Auto-fixed is read only; Declined shows its reason and moves back to review", async () => {
+    servePages(fixtureRows());
     const user = userEvent.setup();
     render(<SelfReview />);
-    expect(await screen.findByText("fix number 0")).toBeInTheDocument();
-    expect(pageMock).toHaveBeenLastCalledWith(expect.objectContaining({ show: "fixed", limit: 25, offset: 0 }));
-    expect(screen.queryByText("fix number 25")).not.toBeInTheDocument();
-    expect(screen.getByText("1–25 of 30")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(await screen.findByText("fix number 25")).toBeInTheDocument();
-    expect(screen.queryByText("fix number 0")).not.toBeInTheDocument();
-    expect(screen.getByText("26–30 of 30")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+    await user.click(await screen.findByRole("button", { name: /^Auto-fixed/ }));
+    expect(await screen.findByRole("link", { name: "abc1234" })).toHaveAttribute("href", "https://github.com/o/r/commit/abc1234");
+    expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Declined/ }));
+    expect(await screen.findByText("Reason: too noisy")).toBeInTheDocument();
+    expect(document.querySelector(".sr-raw")).toHaveTextContent("## Why long"); // an older free-form detail stays raw
+    await user.click(screen.getByRole("button", { name: "Move back to review" }));
+    expect(reviewMock).toHaveBeenCalledWith("agents", 4, "to-review", "");
+  });
+
+  it("self-review: no rows says so", async () => {
+    servePages([]);
+    render(<SelfReview />);
+    expect(await screen.findByText("Nothing here.")).toBeInTheDocument();
   });
 });
 

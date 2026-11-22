@@ -1360,7 +1360,7 @@ func TestGetChangeIgnoresStaleRestartMarker(t *testing.T) {
 	}
 }
 
-func (stubStageStore) ReviewSelfReviewFinding(context.Context, string, int64, string) error {
+func (stubStageStore) ReviewSelfReviewFinding(context.Context, string, int64, string, string) error {
 	return nil
 }
 
