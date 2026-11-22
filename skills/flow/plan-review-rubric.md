@@ -72,7 +72,11 @@ entries to rows by position and the plan never said which sort).
 
 Check every statement the artifacts make about existing code, a guard's behaviour or a file's
 content against the repository, and check that every path and symbol they name exists. A
-statement the code refutes is a `blocker`: quote the statement and the code line.
+statement the code refutes is a `blocker`: quote the statement and the code line. A task's
+`**Tests:**` file sits beside an existing test of the same kind — a full-HTTP test where the
+repository's full-HTTP tests live, a unit test in the module under test — named in the plan; a test
+path in a module that holds no test of that kind, and so cannot host it, is a `finding` (KAN-1156: an
+integration test was planned into a module whose tests are not full-HTTP).
 
 ## Inventive catalyst
 

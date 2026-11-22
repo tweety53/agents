@@ -36,7 +36,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > name, before its first edit, is one estimate, filed and never acted on. Answer for the tasks of
 > this dispatch: how confident are you, 1–100%, that you execute them as the plan writes them, and
 > what would move you to 100% — one gap per thing, each naming what would close it. Then run
-> `flow confidence tags`, reuse a printed tag that fits each kind of gap and write a new lowercase
+> `flow confidence tags`, reuse a printed tag only when it names the same kind of gap — a near fit hides two unrelated gaps under one name — and write a new lowercase
 > kebab-case tag only when none does (a tag names the kind of gap, never the change), and file it:
 >
 > ```bash
@@ -198,7 +198,11 @@ this file in full first: its prompt is a stub naming this file, never these para
 > decision covers, a recorded decision the plan appears to contradict, a scope the plan does not
 > name — is reported, never decided in code. Where the plan can proceed, implement it as written
 > and carry the question in your REPORT FILE; where it cannot proceed without the answer, report
-> BLOCKED. A decision you make silently is a decision nobody recorded.
+> BLOCKED. A decision you make silently is a decision nobody recorded. **The mechanism the design
+> states is the one you build.** One you judge better, or one that suits a single code path, is not
+> yours to substitute: build the design's, or report BLOCKED naming why it cannot work, never both
+> change it and carry on (KAN-1156: a rewrite the design places before delegating was applied to
+> the saved workout instead).
 
 > **A FLOW TOOLING DEFECT IS REPORTED, NEVER FIXED HERE:** a guard, hook, script, skill or contract
 > of the `agents` repository that wrongly blocks your task is named in your REPORT FILE — the
