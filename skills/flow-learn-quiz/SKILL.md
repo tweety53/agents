@@ -16,6 +16,8 @@ to get a sense of where they're at, proactively have them restate their understa
 
 quiz them with open-ended or multiple choice questions with AskUserQuestion (be sure to change up the order of the correct answer, and to not reveal the answer until after the questions are submitted). show them code or have them use the debugger if necessary!
 
+**Interactive rounds.** Ask four questions per AskUserQuestion call, one round at a time, and grade each round the moment its answers arrive, before the next round: never queue several rounds and grade at the end. The round's result is written into the reply the user sees, since the dialog disappears once submitted. Per question, in this order: the question and its options as asked, the user's answer, the right answer, and one or two sentences of why. Tick the checklist doc, append the round to a running quiz log beside it, and name both files by absolute path. A wrong answer is explained with a concrete example from the session's own code or data, never by repeating the first explanation in other words. The next round re-tests the wrong answers in new wording, mixed with checklist items not yet tested.
+
 the session should not end until you've verified that the human has demonstrated that they understood everything on your list.
 
 an AskUserQuestion left unanswered is not answered for the human: no answer is assumed, the question stays open and the session waits (see Unanswered mid-run asks, `skills/flow-contracts/pipeline.md`).
