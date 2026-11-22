@@ -428,6 +428,9 @@ export interface SelfReviewRow {
   reviewStatus: "" | "to-review" | "approved" | "declined";
   /** The operator's note on an approve or decline; empty when none. */
   reason: string;
+  /** The finding's theme tag and S/M/L effort, empty when it carries none. */
+  theme: string;
+  effort: string;
   commitUrl: string;
 }
 

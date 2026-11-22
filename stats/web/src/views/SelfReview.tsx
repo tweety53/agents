@@ -110,7 +110,7 @@ function Detail({ row, same }: { row: SelfReviewRow; same: SelfReviewRow[] }) {
       </div>
       <div className="sr-strip">
         {[
-          ["Effort", field(er, "Effort")],
+          ["Effort", row.effort || field(er, "Effort")],
           ["Touches", field(er, "Touches")],
           ["Seen", same.length ? `${same.length + 1}× (theme)` : "first time"],
           ["Risk", field(er, "Risk")],
@@ -221,8 +221,8 @@ export function SelfReview() {
   const sel = rows.find((r) => r.id === selId) ?? rows[0];
   const all = useMemo(() => [...corpus, ...rows], [corpus, rows]);
   const sameTheme = (r: SelfReviewRow) => {
-    const t = splitTheme(r.note).theme;
-    return t ? all.filter((o, i) => o.id !== r.id && all.findIndex((x) => x.id === o.id) === i && splitTheme(o.note).theme === t) : [];
+    const t = r.theme;
+    return t ? all.filter((o, i) => o.id !== r.id && all.findIndex((x) => x.id === o.id) === i && o.theme === t) : [];
   };
   const counts: Record<Show, number> = { "to-review": page?.toReview ?? 0, approved: page?.approved ?? 0, declined: page?.declined ?? 0, fixed: fixedTotal };
 
@@ -269,7 +269,8 @@ export function SelfReview() {
             <div className="sr-split">
               <div className="sr-listcol">
                 {rows.map((r) => {
-                  const { theme, title } = splitTheme(r.note);
+                  const { title } = splitTheme(r.note);
+                  const theme = r.theme;
                   const seen = sameTheme(r).length + 1;
                   return (
                     <button key={r.id} className={`sr-item${r.id === sel.id ? " on" : ""}`} data-testid="suggestion" onClick={() => setSelId(r.id)}>
@@ -302,7 +303,7 @@ export function SelfReview() {
               <article className="sr-pane" aria-label="Finding">
                 <h3>{splitTheme(sel.note).title}</h3>
                 <div className="sr-meta">
-                  {splitTheme(sel.note).theme && <code className="sr-theme">{splitTheme(sel.note).theme}</code>}
+                  {sel.theme && <code className="sr-theme">{sel.theme}</code>}
                   {sel.severity && <span className="sr-pill">{sel.severity}</span>}
                   <span className="sr-pill">{sel.angle}</span>
                   <span className="lb-muted">

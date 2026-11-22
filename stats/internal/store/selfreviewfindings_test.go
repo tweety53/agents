@@ -440,3 +440,30 @@ func TestGetSelfReviewFinding(t *testing.T) {
 		t.Fatalf("another project's id: err = %v, want ErrSelfReviewFindingNotFound", err)
 	}
 }
+
+// TestSelfReviewFindingThemeAndEffortColumns: the theme and effort columns are read from the note's
+// theme prefix and the detail's Effort line, and are empty when the text carries neither.
+func TestSelfReviewFindingThemeAndEffortColumns(t *testing.T) {
+	t.Parallel()
+	st, _, projectKey := newHazardStore(t)
+	ctx := context.Background()
+	for _, f := range []records.SelfReviewFinding{
+		{Change: "kan-1", Angle: "flow-improvement", Note: "[theme: guard-false-pass] cache it", Disposition: "suggested", Severity: "important", Detail: "## Effort and risk\nEffort: M\nTouches: x"},
+		{Change: "kan-1", Angle: "flow-improvement", Note: "no prefix", Disposition: "suggested", Severity: "important", Detail: "## Why\nlong"},
+	} {
+		if _, err := st.RecordSelfReviewFinding(ctx, projectKey, f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page, err := st.SelfReviewFindingsPage(ctx, store.Period{From: time.Now().Add(-time.Hour), To: time.Now().Add(time.Hour)}, nil, "to-review", "to-review", 10, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string][2]string{}
+	for _, r := range page.Rows {
+		got[r.Note] = [2]string{r.Theme, r.Effort}
+	}
+	if got["[theme: guard-false-pass] cache it"] != [2]string{"guard-false-pass", "M"} || got["no prefix"] != [2]string{"", ""} {
+		t.Fatalf("theme/effort = %v", got)
+	}
+}

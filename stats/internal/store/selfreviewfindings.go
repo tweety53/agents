@@ -117,6 +117,8 @@ type SelfReviewFindingRow struct {
 	ProjectKey string
 	// Reason is the operator's note on an approve or decline; read by the page query only.
 	Reason string
+	// Theme and Effort are the generated columns read from the note's theme prefix and the detail's Effort line; empty when absent.
+	Theme, Effort string
 	records.SelfReviewFinding
 }
 
@@ -210,7 +212,7 @@ func (s *Store) SelfReviewFindingsPage(ctx context.Context, period Period, proje
 		return out, fmt.Errorf("store: count self-review findings: %w", err)
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT project_key, id, change, angle, note, disposition, COALESCE(ref, ''), blast_radius, COALESCE(severity, ''), COALESCE(detail, ''), COALESCE(review_status, ''), recorded_at, COALESCE(review_reason, '')
+		SELECT project_key, id, change, angle, note, disposition, COALESCE(ref, ''), blast_radius, COALESCE(severity, ''), COALESCE(detail, ''), COALESCE(review_status, ''), recorded_at, COALESCE(review_reason, ''), COALESCE(theme, ''), COALESCE(effort, '')
 		FROM self_review_findings
 		WHERE recorded_at >= $1 AND recorded_at < $2 AND ($3::text IS NULL OR project_key = $3)
 		  AND disposition = $4 AND ($5 = '' OR review_status = $5)
@@ -224,7 +226,7 @@ func (s *Store) SelfReviewFindingsPage(ctx context.Context, period Period, proje
 	out.Rows = []SelfReviewFindingRow{}
 	for rows.Next() {
 		var r SelfReviewFindingRow
-		if err := rows.Scan(&r.ProjectKey, &r.ID, &r.Change, &r.Angle, &r.Note, &r.Disposition, &r.Ref, &r.BlastRadius, &r.Severity, &r.Detail, &r.ReviewStatus, &r.RecordedAt, &r.Reason); err != nil {
+		if err := rows.Scan(&r.ProjectKey, &r.ID, &r.Change, &r.Angle, &r.Note, &r.Disposition, &r.Ref, &r.BlastRadius, &r.Severity, &r.Detail, &r.ReviewStatus, &r.RecordedAt, &r.Reason, &r.Theme, &r.Effort); err != nil {
 			return out, fmt.Errorf("store: self-review findings page: scan: %w", err)
 		}
 		out.Rows = append(out.Rows, r)
