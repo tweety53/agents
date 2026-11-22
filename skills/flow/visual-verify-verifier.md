@@ -22,7 +22,7 @@ the stack — a submitted form, data seeded to reach a comparison branch — run
 account the shard registers fresh for it, as a capture spec that registers fresh does, never the
 seeded account the other shards' captures read; a check that only reads, or types without
 submitting, stays on the seeded account. Step 11 writes
-`<changeRoot>/visual-verification/record-s<i>of<n>.md`, never `visual-verification.md`, which
+`<changeRoot>/visual-verification/record-s<i>of<n>.md`, opening with `Pass: <the key less its shard segment>`, never `visual-verification.md`, which
 `close` rebuilds from every shard's part. The `exits:` line never names the shard's key: `close`
 reads every number on it as an exit.
 
@@ -664,7 +664,7 @@ against the tap it replaces — record the sibling in the same session by the sa
 and compare the two strips by their `<ms>` offsets; a frame one strip lacks only because its
 sampling skipped that instant is no departure.
 
-11. **Write `<changeRoot>/visual-verification.md`** whenever any view was captured — one entry per view: its screenshot
+11. **Write `<changeRoot>/visual-verification.md`**, opening with the line `Pass: <this row's key>` (the key less any shard segment; `close` refuses a record naming another pass), whenever any view was captured — one entry per view: its screenshot
     path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
     pair, the composite's path in `<changeRoot>/visual-verification/`, the frame id, its `diff=`
     ratio, what was seen, its

@@ -55,6 +55,9 @@ func (v *vvp) close() {
 		mockups = cellPath(w, m)
 	}
 	verdicts, judgeGap := v.reportChecks(report, design, mockups, frames)
+	if l := v.recordPassCheck(changeRoot); l != "" {
+		verdicts = append(verdicts, l)
+	}
 	if len(verdicts) > 0 {
 		v.endRow("aborted")
 		for _, l := range verdicts {
@@ -480,6 +483,36 @@ func (v *vvp) escalate(w, changeRoot string, departures int) {
 	if why != "" {
 		v.say("ESCALATE: %s — the next round is a No-progress escalation", why)
 	}
+}
+
+// vvcRecordPass is the line a record opens with: the key of the pass that wrote it.
+var vvcRecordPass = regexp.MustCompile(`(?m)^Pass: *(\S+) *$`)
+
+// recordPassCheck refuses a record a pass leaves stale (KAN-1155: the change
+// landed with a visual-verification.md naming fix-13-rest after fix-21-rest
+// closed done). The record this row owns — visual-verification.md, or its
+// record-s<i>of<n>.md part on a shard — must carry a `Pass: <key>` line naming
+// this row's key less its shard segment; one that names another pass, or none,
+// is the verdict line an incomplete report is. No record file at all is no
+// verdict: step 11 writes it only when a view was captured.
+func (v *vvp) recordPassCheck(changeRoot string) string {
+	rec := filepath.Join(changeRoot, "visual-verification.md")
+	if m := vvpShardSeg.FindStringSubmatch(v.key); m != nil {
+		rec = filepath.Join(changeRoot, "visual-verification", fmt.Sprintf("record-s%sof%s.md", m[1], m[2]))
+	}
+	b, err := os.ReadFile(rec)
+	if err != nil {
+		return ""
+	}
+	want := vvpShardSeg.ReplaceAllString(v.key, "")
+	got := "no pass"
+	if m := vvcRecordPass.FindSubmatch(b); m != nil {
+		got = string(m[1])
+	}
+	if got == want {
+		return ""
+	}
+	return fmt.Sprintf("RECORD-STALE: %s names %s, not this pass %s — rewrite it whole under this pass's key, opening with `Pass: %s` (step 11 of skills/flow/visual-verify-verifier.md)", rec, got, want, want)
 }
 
 // joinRecords rewrites <changeRoot>/visual-verification.md as the shards' record-s<i>of<n>.md parts that exist, in shard order, on a

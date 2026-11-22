@@ -671,8 +671,8 @@ func TestVisualVerifyPassCloseShards(t *testing.T) {
 	writeFile(t, filepath.Join(g.wt, "spectre/changes/demo/design.md"), "# design\n\nFrames f1 and f2.\n")
 	writeFile(t, filepath.Join(g.wt, "design/mockups/f2.png"), "png\n")
 	writeFile(t, filepath.Join(g.wt, "tests/visual/home.spec.ts.mockups"), "one.png f1\ntwo.png f2\n")
-	writeFile(t, filepath.Join(vv, "record-s1of2.md"), "# s1\n")
-	writeFile(t, filepath.Join(vv, "record-s2of2.md"), "# s2\n")
+	writeFile(t, filepath.Join(vv, "record-s1of2.md"), "Pass: visual-verify\n# s1\n")
+	writeFile(t, filepath.Join(vv, "record-s2of2.md"), "Pass: visual-verify-rest\n# s2\n")
 	writeFile(t, g.stagePath(), strings.Replace(g.stageFile(), "row visual-verify "+g.wt+"\n", "", 1)+
 		"slice s1of2 f1\nslice s2of2 f2\nrow visual-verify-s1of2 "+g.wt+"\nrow visual-verify-s2of2 "+g.wt+"\n")
 	undone := strings.Replace(vvcSteps, "10 done", "10 not done", 1)
@@ -691,7 +691,7 @@ func TestVisualVerifyPassCloseShards(t *testing.T) {
 	if rc != 0 || !strings.Contains(out, "STAGE: completed") || strings.Contains(calls, "stage ") {
 		t.Fatalf("every index closed: exit %d\n%s\n%s", rc, out, calls)
 	}
-	if b, _ := os.ReadFile(filepath.Join(filepath.Dir(vv), "visual-verification.md")); string(b) != "# s1\n\n# s2\n" {
+	if b, _ := os.ReadFile(filepath.Join(filepath.Dir(vv), "visual-verification.md")); string(b) != "Pass: visual-verify\n# s1\n\nPass: visual-verify-rest\n# s2\n" {
 		t.Fatalf("visual-verification.md = %q, want the parts joined in shard order", b)
 	}
 }
@@ -1020,5 +1020,31 @@ func TestCloseCheckOnlyMockupsNeedsDesign(t *testing.T) {
 	rc, out, _ := f.run("close", "--check-only", path, "0", "--mockups", f.wt)
 	if rc != 2 || !strings.Contains(out, "--mockups needs --design") {
 		t.Fatalf("exit %d, want usage exit 2\n%s", rc, out)
+	}
+}
+
+// TestVisualVerifyPassCloseRefusesAStaleRecord (KAN-1155): a record naming another pass, or none, is
+// a remainder with a RECORD-STALE verdict; one naming this pass, or no record file at all, closes done.
+func TestVisualVerifyPassCloseRefusesAStaleRecord(t *testing.T) {
+	t.Parallel()
+	record := func(f *vvpFix) string { return filepath.Join(f.wt, "spectre/changes/demo/visual-verification.md") }
+	for _, c := range []struct{ name, record, want string }{
+		{"another pass", "Pass: fix-13-rest\n\n# views\n", "NEXT: rest visual-verify-rest"},
+		{"no pass line", "# views\n", "NEXT: rest visual-verify-rest"},
+		{"this pass", "Pass: visual-verify\n\n# views\n", "NEXT: done"},
+		{"no record", "", "NEXT: done"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			f := vvcFixture(t, "")
+			if c.record != "" {
+				writeFile(t, record(f), c.record)
+			}
+			f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
+			rc, out, _ := f.close("visual-verify")
+			if rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), c.want) || (c.want != "NEXT: done") != strings.Contains(out, "RECORD-STALE: ") {
+				t.Fatalf("exit %d, want %s\n%s", rc, c.want, out)
+			}
+		})
 	}
 }

@@ -224,8 +224,13 @@ import (
 //      the in-process frame-list check (visual-verify-pass close) <changeRoot>/design.md <mockups root> <report>, in
 //      process (exit 2 from either is this call's exit 2); on a shard key both
 //      are passed `--frames` with the stage file's `slice` of the key's shard
-//      segment. A check-verify-report exit 1, or a check-frame-list exit 1 naming any gap
-//      other than `no sidecar line`, ends the row `-outcome aborted`, appends
+//      segment. The record the row owns — <changeRoot>/visual-verification.md, or on a shard
+//      its visual-verification/record-s<i>of<n>.md — must open with a `Pass: <key>` line, the
+//      key less any shard segment (KAN-1155: a record naming fix-13-rest after fix-21-rest
+//      closed done landed unnoticed); another key or none is the one line
+//      `RECORD-STALE: <record> names <key>, not this pass <key> — …`, and no record file is
+//      no line. A check-verify-report exit 1, a check-frame-list exit 1 naming any gap
+//      other than `no sidecar line`, or a `RECORD-STALE:` line, ends the row `-outcome aborted`, appends
 //      each guard verdict line to the stage file as `verdict <key> <line>`
 //      (the remainder's bundle reads them), prints them, then one
 //        NEXT: rest <key>-rest[-<n>][-<repository name>]       exit 0
