@@ -490,10 +490,11 @@ reads every number on it as an exit.
       (`#3-#40: annotation`), a list of rows under one cause, or a selector (`rows 3 to 40`, `all`,
       `the rest`). The check refuses such an item (kan-1155: 192 rows were labelled by a key-to-cause
       rule over 14 rounds with no composite read). When `measure` printed `shift: dy=<px> rows=<n>
-      frame=<frame id>`, more than 20 of the frame's rows sit one constant offset low or high: they
-      are one defect, the manifest's `shift` names it, and the one row left on `over` stands for
-      all of them — find what moved the whole frame (a bar height, a scroll position, a status
-      line) rather than explaining rows.
+      frame=<frame id>`, `<n>` of the frame's rows sit one constant offset low or high: they
+      are one defect, the manifest's `shift` names it, and its `row` stands for
+      all of them on `over` — find what moved the whole frame (a bar height, a scroll position, a status
+      line) rather than explaining rows. The frame's rows are then paired under that offset, so every
+      other `over` row is a departure of its own, read as if the shift were already fixed.
    4. **Explain every row the matrix's `over` list names.** The manifest carries each composed
       frame's `over` rows by their 1-based index — every matrix row `missing`, `extra` or
       `unresolved`, or paired over the length or colour tolerance. The report's `- <frame id>

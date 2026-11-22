@@ -412,7 +412,13 @@ entry. At each boundary, in this order:
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
    never stashes, reverts or resets. Every verdict is printed and read before anything
    launches: **exit 1** is a re-commit, with nothing ticked or pushed — the re-commit row of **Every fix is a
-   fresh one-shot** (below) — and `flow-guard close-task` re-runs before anything below; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it
+   fresh one-shot** (below) — and `flow-guard close-task` re-runs before anything below. **Exit 1 with a
+   `UI-TASK-UNMEASURED: <task-id> — <reason> — run: <command>` line and `close-task: MEASURE` is the
+   other exit-1 cause, and no re-commit repairs it**: a task whose **Files:** touch the project's
+   `ui paths` has no `task-<task-id>-measure.json`, one older than its last source commit, or one
+   carrying a flagged row. The same re-commit row's fresh one-shot takes the printed line instead:
+   it runs the printed command and, where the record is flagged, fixes what the rows name, commits
+   and measures again, before `flow-guard close-task` re-runs; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it
    cannot resolve, a commit range git cannot resolve, a usage error), or a failed tick or push —
    stops the run**: re-committing cannot repair an inability, so it is never folded into
    the re-commit loop.

@@ -95,11 +95,17 @@ Investigate read-only, then present the design.
   `## Shared constants`, one per item: ``- `<name>`: <value> — <token and file it was read from>``.
   A frame that disagrees with the list is corrected in the frame, or the list is changed by an
   explicit decision recorded in `design.md` — never left for `flow.verify` to find (kan-1155:
-  contradictory frames cost 14 verify rounds). Each frame states the listed constants it draws —
-  a sidecar `<frame id>.constants` beside it, one `<name>: <value>` per line, or
-  `data-const-<name>="<value>"` attributes in an HTML frame — and
-  `flow-guard check-frame-constants <design.md> <frames dir>` exits 0 before the design is
-  approved; it exits 1 naming each constant two frames draw differently.
+  contradictory frames cost 14 verify rounds). Each frame of the change states every listed
+  constant — the value it draws, or `n/a` where it does not draw it — in
+  a sidecar `<frame id>.constants` beside it, one `<name>: <value>` per line, or in
+  `data-const-<name>="<value>"` attributes in an HTML frame. A sidecar's value is read off that
+  frame — measured on its PNG with `flow-guard measure-visual-properties`, or read from the design
+  source at the frame's tag — never copied from the list, which is what it is checked against.
+  `flow-guard check-frame-constants <design.md> <frames dir or frame file>...`, given the change's
+  frames, exits 0 before the design is approved; it exits 1 naming each frame that leaves a listed
+  constant unstated and each constant two frames draw differently. A rendered frame's sidecar sits
+  in its tag's directory, which is never committed: the check is this gate's, re-stated if the
+  frames are rendered afresh.
 - **A visible change is prototyped before its design is approved** (`plan-visual-prototype`). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
   no mockup frame already specifies it, build a clickable prototype of the proposed result with
   sample data as a single HTML file under `<project>-worktrees/<name>/.superpowers/sdd/`, and
