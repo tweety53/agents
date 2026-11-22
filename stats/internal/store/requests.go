@@ -125,7 +125,7 @@ func (s *Store) BeginRequest(ctx context.Context, projectKey, change string, in 
 	if ok && stored.Outcome != "" {
 		fill := stored.Title == "" && in.Title != ""
 		if (in.Title != "" && in.Title != stored.Title && !fill) || (in.BrainstormReason != "" && in.BrainstormReason != stored.BrainstormReason) {
-			return records.Request{}, fmt.Errorf("%w: %s/%s request %d ended %s; a begin may not change its title or reason", ErrRequestEnded, projectKey, change, in.N, stored.Outcome)
+			return records.Request{}, fmt.Errorf("%w: %s/%s request %d ended %s; a begin may not change its title or reason (highest recorded: %d)", ErrRequestEnded, projectKey, change, in.N, stored.Outcome, highestRequestN(ctx, tx, projectKey, change))
 		}
 		if !fill {
 			return stored, nil
@@ -327,4 +327,17 @@ func (s *Store) ListRequests(ctx context.Context, projectKey, change string) ([]
 		return nil, fmt.Errorf("store: list requests for %s/%s: %w", projectKey, change, err)
 	}
 	return out, nil
+}
+
+// highestRequestN is the change's highest recorded request number, 0 when
+// none or unreadable: it only decorates a refusal, so a failed read never
+// replaces the refusal itself.
+func highestRequestN(ctx context.Context, tx pgx.Tx, projectKey, change string) int {
+	var n int
+	_ = tx.QueryRow(ctx, `
+		SELECT COALESCE(MAX(requests.n), 0)
+		FROM requests JOIN changes c ON c.id = requests.change_id
+		WHERE c.project_key = $1 AND c.name = $2
+	`, projectKey, change).Scan(&n)
+	return n
 }

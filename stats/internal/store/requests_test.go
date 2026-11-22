@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -298,6 +299,8 @@ func TestRequestWritesRefuseChangingAnEndedRequest(t *testing.T) {
 
 	if _, err := st.BeginRequest(ctx, projectKey, "kan-1070", records.RequestBegin{N: 1, Title: "b"}); !errors.Is(err, store.ErrRequestEnded) {
 		t.Errorf("begin with a new title: err = %v, want ErrRequestEnded", err)
+	} else if !strings.Contains(err.Error(), "highest recorded: 1") {
+		t.Errorf("begin with a new title: err = %v, want it to name the highest recorded request, 1", err)
 	}
 	unchanged("begin with a new title")
 	for _, in := range []records.RequestEnd{
