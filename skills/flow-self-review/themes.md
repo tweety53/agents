@@ -11,18 +11,19 @@ names the finding's cause — the cause, never the file, the guard or the angle 
 theme names a subject, not a verdict: a `flow-improvement` finding about something that went well
 takes the same tag a `flow-fix` finding about its absence would.
 
-**A finding that fits no tag is recorded with no theme, never under an invented one**, and never
+**A finding that fits no tag is recorded as `uncategorized`, never under an invented one**, and never
 under the nearest tag that does not name its cause. The pass's hand-back lists each such finding
 as a theme miss, with the tag it would have wanted and that tag's one-line meaning, and step 7's
 report carries those lines, so the list grows by an edit to this file and never by a pass.
 
 **The theme is stored as a prefix of the note**: `-note '[theme: <tag>] <the finding, one line>'`,
-ahead of everything else the note carries, an angle-3 note's trace included. A finding with no
-theme carries no prefix. Read a theme's findings back with
+ahead of everything else the note carries, an angle-3 note's trace included. Every finding carries a
+prefix, `uncategorized` included. Read a theme's findings back with
 `flow self-review findings -change <name>` and a match on that prefix.
 
 | Tag | Meaning — the finding's cause is … |
 |-----|-----------------------------------|
+| `uncategorized` | no tag below names the cause — the pass also hands the finding back as a theme miss, so the operator can ask for a new tag; never a tag the pass invents |
 | `async-scope-lifetime` | async work run in a scope that ends before the work does — a cancelled coroutine, a disposed view, an affordance that left the screen |
 | `async-ordering-race` | an async read or write not ordered against another one in flight, so the later result is overwritten by the earlier |
 | `stale-derived-value` | a stored value derived from other data that not every writer of that data recomputes — a cached total, a fingerprint, a copied field |

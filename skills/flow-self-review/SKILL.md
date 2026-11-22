@@ -51,7 +51,7 @@ Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, o
 of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), its prompt naming the bundle's path — `<bundle>`
 standalone, `<sr-dir>/bundle.md` in-run — and `<sr-dir>`, and carrying this step's rules and step 3's classification, the
 dispatch paragraphs step 3 names and READ-ONLY REVIEW. It hands back the full content of `<sr-dir>/findings.md`: every finding under an `F<n>` id, with its angle, its
-evidence, its severity, its theme or `none` (**The theme list**, `skills/flow-self-review/themes.md`, which the pass reads) and its classification — `noted` or fixable, in or out of scope, and for a fixable one its
+evidence, its severity, its theme, `uncategorized` when none fits (**The theme list**, `skills/flow-self-review/themes.md`, which the pass reads) and its classification — `noted` or fixable, in or out of scope, and for a fixable one its
 counted blast radius and whether it is `big`.
 Beside that content it hands back its per-angle counts, the non-`big` finding ids, one line per `big` finding, and whether it met a product defect. Before step 3, this session writes the returned file to its target path, byte for byte. This session keeps the filing and the
 store rows. The pass's dispatch row is opened under `<name>` by the hook;
@@ -238,7 +238,7 @@ off `<agents-base>` after step 3's landing:
 flow self-review finding -change <name> -angle <label> -disposition fixed|suggested|declined|noted [-ref <sha>] [-blast-radius <N>] [-severity critical|important|minor] -note '<the finding, one line>' [-detail '<markdown>']
 ```
 
-`-note` opens with the finding's theme prefix, and with none for a finding the pass gave no theme (**The theme list**, `skills/flow-self-review/themes.md`).
+`-note` opens with the finding's theme prefix, `uncategorized` for a finding no tag fits (**The theme list**, `skills/flow-self-review/themes.md`).
 `-ref` is the landed sha for `fixed`, and omitted for `suggested`, `declined` and `noted`; `-detail` is required for `suggested`;
 `-blast-radius` is step 3's count; `-severity` is the grade the pass gave the finding, required for `fixed` and `suggested`, which `flow self-review finding` refuses without it, and omitted for `declined` or `noted` when the pass gave none. An `In-run pipeline fix:`
 line naming a sha gets no second row when `flow self-review findings -change <name>` already
