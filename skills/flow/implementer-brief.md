@@ -96,6 +96,14 @@ this file in full first: its prompt is a stub naming this file, never these para
 > missing, older than your last commit to the task's files, or carries a flagged row, and prints
 > this command. A length delta within the project's `tolerance` is not flagged.
 
+> **NO FRAME VALUE WITHOUT A MODEL:** a mockup frame's value — a setting's current value, a count,
+> a name, a date — is drawn only where a model, store or API field holds it. A frame element whose
+> value no model holds is never drawn with the frame's literal value: a control behind it then
+> shows made-up data that nothing changes (KAN-1155: Settings Training goal, Training days and
+> Notifications rows, drawn from the frame for ten fix rounds). Report it as a departure, or as a
+> question under **REPORT, DON'T DECIDE**, and leave the element out of the code until the
+> operator settles it.
+
 > **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
 > command still executing in the background. Run it in the foreground, or poll it to
 > completion, before you stop. A `flow-guard` run counts: write your report file last, after

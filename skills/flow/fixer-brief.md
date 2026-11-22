@@ -77,6 +77,10 @@ It reads `implementer-brief.md` and then this file in full first; every paragrap
 > opposite order: the older read resolving after the newer one, the screen still showing the
 > newer. A fix to a read with no such test is rejected at the fix step, as a **PIXEL PROBE**'s is.
 
+> **FRAME VALUES:** a fix to match a frame binds to **NO FRAME VALUE WITHOUT A MODEL**
+> (`implementer-brief.md`): a frame element whose value no model holds is raised as a recorded
+> departure or question, never drawn with the frame's literal value to close the finding.
+
 > **LIVE RE-RUN:** a fix for a failure a live (browser) check or visual-verify raised re-runs
 > that failing scenario against the rebuilt stack, and your report names what it observed. A
 > unit test alone never closes such a fix: composition and lifecycle causes pass under a test
