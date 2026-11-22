@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+contracts/chunks.json
+contracts/chunks_all.json
+contracts/emb.npy
+contracts/emb.npy.key
+contracts/dup_pairs.json
