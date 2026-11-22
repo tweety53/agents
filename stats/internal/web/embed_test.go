@@ -604,6 +604,10 @@ func (fakeStore) ReviewSelfReviewFinding(context.Context, string, int64, string,
 	return nil
 }
 
+func (fakeStore) GetSelfReviewFinding(context.Context, string, int64) (records.SelfReviewFinding, error) {
+	return records.SelfReviewFinding{}, nil
+}
+
 func (fakeStore) SelfReviewFindingsPage(context.Context, store.Period, *string, string, string, int, int) (store.SelfReviewPage, error) {
 	return store.SelfReviewPage{}, nil
 }

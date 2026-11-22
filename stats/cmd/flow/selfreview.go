@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -71,6 +72,15 @@ Prints the change's recorded self-review findings as a JSON array on
 stdout, in the order they were recorded. A read, with the bundle's
 contract: a store that cannot be reached exits non-zero with nothing on
 stdout.
+
+usage: flow self-review finding-get [-addr url] [-timeout dur] [-C dir] <id>
+
+Prints one self-review finding of the project as a JSON object on stdout,
+its full detail included; <id> is the number the Self-review dashboard
+shows after the change name (<change>#<id>). A read, with the same
+contract as findings: exit 1 with nothing on stdout when the store cannot be
+reached or the project has no finding with that id; exit 2 on a missing or
+non-numeric id.
 `
 
 // runSelfReview implements `flow self-review`: `bundle`, the read run 1's
@@ -88,6 +98,8 @@ func runSelfReview(ctx context.Context, args []string, getenv func(string) strin
 		return runSelfReviewFinding(ctx, args[1:], getenv, stderr)
 	case "findings":
 		return runSelfReviewFindings(ctx, args[1:], getenv, stdout, stderr)
+	case "finding-get":
+		return runSelfReviewFindingGet(ctx, args[1:], getenv, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "flow: unknown self-review command %q\n", args[0])
 		fmt.Fprint(stderr, selfReviewUsage)
@@ -293,6 +305,70 @@ func runSelfReviewFindings(ctx context.Context, args []string, getenv func(strin
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(rows); err != nil {
 		fmt.Fprintf(stderr, "flow: self-review findings: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func runSelfReviewFindingGet(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow self-review finding-get", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordConnFlags(fset, &f, getenv)
+
+	// The id is the one positional, accepted before or after the flags.
+	var idArg string
+	rest := args
+	for {
+		if err := fset.Parse(rest); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return 0
+			}
+			fmt.Fprintf(stderr, "flow: %v\n", err)
+			fmt.Fprint(stderr, selfReviewUsage)
+			return 2
+		}
+		if fset.NArg() == 0 {
+			break
+		}
+		if idArg != "" {
+			fmt.Fprint(stderr, "flow: expected one finding id\n")
+			fmt.Fprint(stderr, selfReviewUsage)
+			return 2
+		}
+		idArg, rest = fset.Arg(0), fset.Args()[1:]
+	}
+	id, err := strconv.ParseInt(idArg, 10, 64)
+	if err != nil || id <= 0 {
+		fmt.Fprint(stderr, "flow: a finding id (a positive number) is required\n")
+		fmt.Fprint(stderr, selfReviewUsage)
+		return 2
+	}
+	noteAddrUsage(fset, stderr, f.addr, getenv)
+	if f.dir == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: resolve working directory: %v\n", err)
+			return 1
+		}
+		f.dir = wd
+	}
+	projectKey, _, err := fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return 1
+	}
+	row, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.SelfReviewFinding, error) {
+		return cl.GetSelfReviewFinding(ctx, projectKey, id)
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: self-review finding-get: %v\n", err)
+		return 1
+	}
+	enc := json.NewEncoder(stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(row); err != nil {
+		fmt.Fprintf(stderr, "flow: self-review finding-get: %v\n", err)
 		return 1
 	}
 	return 0

@@ -1364,6 +1364,10 @@ func (stubStageStore) ReviewSelfReviewFinding(context.Context, string, int64, st
 	return nil
 }
 
+func (stubStageStore) GetSelfReviewFinding(context.Context, string, int64) (records.SelfReviewFinding, error) {
+	return records.SelfReviewFinding{}, nil
+}
+
 func (stubStageStore) SelfReviewFindingsPage(context.Context, store.Period, *string, string, string, int, int) (store.SelfReviewPage, error) {
 	return store.SelfReviewPage{}, nil
 }

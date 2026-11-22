@@ -418,3 +418,25 @@ func TestSelfReviewFindingsPagePagesAndCounts(t *testing.T) {
 		t.Errorf("bogus show: err = %v, want ErrSelfReviewFindingInvalid", err)
 	}
 }
+
+// TestGetSelfReviewFinding: a finding reads back by id with its detail, and an id the project has no row for
+// is ErrSelfReviewFindingNotFound.
+func TestGetSelfReviewFinding(t *testing.T) {
+	t.Parallel()
+	st, _, projectKey := newHazardStore(t)
+	ctx := context.Background()
+	got, err := st.RecordSelfReviewFinding(ctx, projectKey, records.SelfReviewFinding{Change: "kan-1", Angle: "flow-improvement", Note: "cache the guard", Disposition: "suggested", Severity: "important", Detail: "## Proposal\nx"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	read, err := st.GetSelfReviewFinding(ctx, projectKey, got.ID)
+	if err != nil || read.ID != got.ID || read.Detail != "## Proposal\nx" || read.Change != "kan-1" {
+		t.Fatalf("read = %+v, err %v, want the recorded finding with its detail", read, err)
+	}
+	if _, err := st.GetSelfReviewFinding(ctx, projectKey, got.ID+1000000); !errors.Is(err, store.ErrSelfReviewFindingNotFound) {
+		t.Fatalf("unknown id: err = %v, want ErrSelfReviewFindingNotFound", err)
+	}
+	if _, err := st.GetSelfReviewFinding(ctx, projectKey+"-other", got.ID); !errors.Is(err, store.ErrSelfReviewFindingNotFound) {
+		t.Fatalf("another project's id: err = %v, want ErrSelfReviewFindingNotFound", err)
+	}
+}

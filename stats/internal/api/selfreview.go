@@ -45,6 +45,8 @@ type selfreviewStore interface {
 	// route: one row per self-review finding and its outcome (KAN-875).
 	RecordSelfReviewFinding(ctx context.Context, projectKey string, in records.SelfReviewFinding) (records.SelfReviewFinding, error)
 	ListSelfReviewFindings(ctx context.Context, projectKey, change string) ([]records.SelfReviewFinding, error)
+	// GetSelfReviewFinding backs the by-id read the flow CLI's finding-get makes.
+	GetSelfReviewFinding(ctx context.Context, projectKey string, id int64) (records.SelfReviewFinding, error)
 
 	// ReviewSelfReviewFinding backs the review route: the operator's approve or decline of a suggestion.
 	ReviewSelfReviewFinding(ctx context.Context, projectKey string, id int64, status, reason string) error
@@ -195,6 +197,24 @@ func (h *selfreviewHandler) listFindings(w http.ResponseWriter, r *http.Request)
 	out, err := h.store.ListSelfReviewFindings(r.Context(), project, change)
 	if err != nil {
 		status, msg := mapStoreError(h.logger, fmt.Sprintf("list self-review findings for %s/%s", project, change), err)
+		writeError(w, status, msg)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// getFinding serves GET /api/v1/self-review-finding/{project}/{id} (a root of its own: under
+// /self-review/{project}/ it would clash with the {change}/bundle route): one finding by its id.
+func (h *selfreviewHandler) getFinding(w http.ResponseWriter, r *http.Request) {
+	project := r.PathValue("project")
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "finding id must be a number")
+		return
+	}
+	out, err := h.store.GetSelfReviewFinding(r.Context(), project, id)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("read self-review finding %d", id), err)
 		writeError(w, status, msg)
 		return
 	}

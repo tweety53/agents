@@ -1020,7 +1020,7 @@ describe("views render their fixture response's actual values", () => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     await user.click(screen.getByRole("button", { name: "Copy for agent" }));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("kan-1#3"));
-    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("flow self-review findings -change kan-1"));
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("flow self-review finding-get 3"));
 
     await user.type(screen.getByLabelText("Reason"), "worth it");
     await user.click(screen.getByRole("button", { name: "Approve" }));

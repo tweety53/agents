@@ -26,7 +26,7 @@ export const findingRef = (r: SelfReviewRow) => `${r.change}#${r.id}`;
 
 /** The line to paste to an agent: the identifier and how it reads the finding. */
 export const agentPrompt = (r: SelfReviewRow) =>
-  `Implement self-review finding ${findingRef(r)}: read its full detail from \`flow self-review findings -change ${r.change}\` (the row with id ${r.id}).`;
+  `Implement self-review finding ${findingRef(r)}: read it with \`flow self-review finding-get ${r.id}\`.`;
 
 /** The theme tag a note opens with (`[theme: <tag>] `), and the note without it. */
 export function splitTheme(note: string): { theme: string; title: string } {

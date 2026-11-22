@@ -436,6 +436,16 @@ func TestSelfReviewBundleReadsRequests(t *testing.T) {
 	}
 }
 
+// GetSelfReviewFinding mirrors store.Store.GetSelfReviewFinding: one row by id, or ErrSelfReviewFindingNotFound.
+func (f *fakeStore) GetSelfReviewFinding(_ context.Context, projectKey string, id int64) (records.SelfReviewFinding, error) {
+	for _, r := range f.selfReviewFindings {
+		if r.projectKey == projectKey && r.finding.ID == id {
+			return r.finding, nil
+		}
+	}
+	return records.SelfReviewFinding{}, store.ErrSelfReviewFindingNotFound
+}
+
 // ReviewSelfReviewFinding mirrors store.Store.ReviewSelfReviewFinding: a suggested row's status.
 func (f *fakeStore) ReviewSelfReviewFinding(_ context.Context, projectKey string, id int64, status, reason string) error {
 	for i, r := range f.selfReviewFindings {
@@ -475,5 +485,37 @@ func TestReviewSelfReviewFindingRoute(t *testing.T) {
 	}
 	if got := patch("2", "approved"); got != http.StatusNotFound {
 		t.Errorf("review a fixed finding: %d, want 404", got)
+	}
+}
+
+// TestGetSelfReviewFindingRoute: GET /api/v1/self-review-finding/{project}/{id} returns the project's finding with its detail,
+// 404 for an id it has none of and 400 for a non-numeric one.
+func TestGetSelfReviewFindingRoute(t *testing.T) {
+	t.Parallel()
+	fs := newFakeStore()
+	fs.selfReviewFindings = []selfReviewFindingRecord{
+		{projectKey: "p", finding: records.SelfReviewFinding{ID: 1, Change: "c", Disposition: "suggested", Detail: "## Proposal\nx"}},
+	}
+	srv := newTestServer(t, fs)
+	get := func(project, id string) (int, string) {
+		resp, err := http.Get(srv.URL + "/api/v1/self-review-finding/" + project + "/" + id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b)
+	}
+	if code, body := get("p", "1"); code != http.StatusOK || !strings.Contains(body, `"detail":"## Proposal\nx"`) {
+		t.Errorf("known id: %d %s, want 200 with the detail", code, body)
+	}
+	if code, _ := get("p", "2"); code != http.StatusNotFound {
+		t.Errorf("unknown id: %d, want 404", code)
+	}
+	if code, _ := get("other", "1"); code != http.StatusNotFound {
+		t.Errorf("another project's id: %d, want 404", code)
+	}
+	if code, _ := get("p", "x"); code != http.StatusBadRequest {
+		t.Errorf("non-numeric id: %d, want 400", code)
 	}
 }

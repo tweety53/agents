@@ -1541,6 +1541,14 @@ func (nopRecordStore) ReviewSelfReviewFinding(context.Context, string, int64, st
 	return nil
 }
 
+func (nopRecordStore) GetSelfReviewFinding(context.Context, string, int64) (records.SelfReviewFinding, error) {
+	return records.SelfReviewFinding{}, nil
+}
+
 func (*fakeRecordStore) ReviewSelfReviewFinding(context.Context, string, int64, string, string) error {
 	return nil
+}
+
+func (*fakeRecordStore) GetSelfReviewFinding(context.Context, string, int64) (records.SelfReviewFinding, error) {
+	return records.SelfReviewFinding{}, nil
 }

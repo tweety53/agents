@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/tweety53/agents/stats/internal/records"
 )
@@ -92,6 +93,25 @@ func (c *Client) ListSelfReviewFindings(ctx context.Context, project, change str
 	var out []records.SelfReviewFinding
 	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
 		return nil, err
+	}
+	return out, nil
+}
+
+// GetSelfReviewFinding fetches one of project's self-review findings by its id; an id the
+// project has no row for is ErrRecordRejected.
+func (c *Client) GetSelfReviewFinding(ctx context.Context, project string, id int64) (records.SelfReviewFinding, error) {
+	u := c.baseURL + "/api/v1/self-review-finding/" + url.PathEscape(project) + "/" + strconv.FormatInt(id, 10)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return records.SelfReviewFinding{}, fmt.Errorf("%w: build request: %v", ErrUnavailable, err)
+	}
+	respBody, status, err := c.send(req)
+	if err != nil {
+		return records.SelfReviewFinding{}, err
+	}
+	var out records.SelfReviewFinding
+	if _, err := classifyRecordResponse(respBody, status, map[int]bool{http.StatusOK: true}, &out); err != nil {
+		return records.SelfReviewFinding{}, err
 	}
 	return out, nil
 }

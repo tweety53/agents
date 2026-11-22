@@ -344,3 +344,52 @@ func TestSelfReviewFindingSendsItsDetail(t *testing.T) {
 		t.Errorf("exit %d (stderr %q), sent %+v; want 0 and the detail %q", code, stderr.String(), got, detail)
 	}
 }
+
+// TestSelfReviewFindingGetCLI drives `flow self-review finding-get <id>`: the one finding prints as a
+// JSON object with its detail, the id may come before or after the flags, an id the project does not
+// have or an unreachable store is non-zero with nothing on stdout, and a missing or non-numeric id is 2.
+func TestSelfReviewFindingGetCLI(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	env := newTestEnv(t)
+
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/7"):
+			_, _ = w.Write([]byte(`{"id":7,"change":"demo","angle":"flow-fix","note":"n","disposition":"suggested","detail":"## Proposal\nx","recordedAt":"2026-10-04T00:00:00Z"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"error":"no such self-review finding"}`))
+		}
+	}))
+	defer srv.Close()
+
+	get := func(args ...string) (int, string) {
+		var stdout, stderr strings.Builder
+		code := run(context.Background(), append([]string{"self-review", "finding-get"}, args...), env.get, strings.NewReader(""), &stdout, &stderr)
+		return code, stdout.String()
+	}
+
+	for _, args := range [][]string{
+		{"-addr", srv.URL, "-timeout", "500ms", "-C", repo, "7"},
+		{"7", "-addr", srv.URL, "-timeout", "500ms", "-C", repo},
+	} {
+		code, stdout := get(args...)
+		var row map[string]any
+		if code != 0 || json.Unmarshal([]byte(stdout), &row) != nil || row["id"] != float64(7) || row["detail"] != "## Proposal\nx" {
+			t.Errorf("%v: exit %d, stdout %q; want the finding's JSON with its detail", args, code, stdout)
+		}
+	}
+	if code, stdout := get("-addr", srv.URL, "-timeout", "500ms", "-C", repo, "8"); code != 1 || stdout != "" {
+		t.Errorf("unknown id: exit %d, stdout %q; want 1 and nothing", code, stdout)
+	}
+	if code, stdout := get("-addr", "http://127.0.0.1:1", "-timeout", "500ms", "-C", repo, "7"); code == 0 || stdout != "" {
+		t.Errorf("unreachable: exit %d, stdout %q; want non-zero and nothing", code, stdout)
+	}
+	for _, args := range [][]string{{"-C", repo}, {"-C", repo, "abc"}, {"-C", repo, "0"}, {"-C", repo, "1", "2"}} {
+		if code, _ := get(args...); code != 2 {
+			t.Errorf("%v: exit %d, want 2", args, code)
+		}
+	}
+}
