@@ -149,7 +149,8 @@ func (v *vvp) measure(args []string) {
 	body, readErr := os.ReadFile(sidecar)
 	type line struct{ name, frame string }
 	var lines []line
-	own := "frame none\n"
+	// A prototype frame carries the 52px status line the capture does not: crop it, keep the rest at 1x.
+	own := "frame scale=1 status=52 border=0 bare\n"
 	for _, f := range mockupsLines(body) {
 		if prototype && len(cmfMatchCapture(f[0], m.Captures)) == 0 || frames != nil && !slices.Contains(frames, f[1]) {
 			continue

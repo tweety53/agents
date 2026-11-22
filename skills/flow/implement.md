@@ -344,6 +344,8 @@ it fixes, and two lines before its REPORT FILE line: `Fix brief: <skill-dir>/fix
 Every fixer of every stage — this file's rows below, the review panel's chunks and Minors fix,
 `skills/flow/fix.md`'s verify fix — takes this one shape.
 
+**A blocked agent reports BLOCKED, never routes around.** No prompt tells an agent to change guard-written output (a manifest, a ledger, a state file) except by re-running its guard, or to get past a blocking hook or guard another way. The agent reports `BLOCKED` naming the hook or guard, and its parent fixes the tooling in the run.
+
 **The runner runs the test list — never an implementer, never the parent.** Once the plan-last
 group — the group holding the plan's last task — has passed the guard, by its commit, the parent
 dispatches one runner per worktree in this run's resolved set, one worktree after another, in the

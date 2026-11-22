@@ -188,10 +188,10 @@ reads every number on it as an exit.
    `<screenshot name> <screenshot stem>` line per capture, and run step 9's `measure` with
    `--prototype`, which composes with that map in place of `<spec>.mockups` and
    `<changeRoot>/visual-verification/prototype` in place of `<abs-worktree>/<mockups>`.
-   Under that `frame none` line the compose step pairs each capture with its frame at native size,
-   prints each pair's `diff=` ratio as n/a and writes no `<stem>.frame.png` — by design, never a
-   defect — so `measure` reads bands, seams and the matrix on the prototype PNG and the capture
-   directly.
+   `measure --prototype` composes from its own copy of that map under a `frame scale=1 status=52
+   border=0 bare` line: the prototype frame's 52px status line is cropped, so a correct capture
+   compares at zero offset, and `<stem>.frame.png` is written as for a mockup. `measure` reads bands,
+   seams and the matrix on that cropped frame and the capture.
    Every frame-bound reading below then runs on those pairs as on a
    mockup's. A state the prototype draws that no capture test drives is a missing capture, and
    blocks.

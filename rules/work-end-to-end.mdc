@@ -25,6 +25,8 @@ proved by a test that fails without it, pushed to `main` and the run continued, 
 as a question; the user's opt-in to this run is the confirmation that push needs. Stay inside your
 dispatch's remit: a read-only role reports, and its dispatcher fixes.
 
+**A blocked agent reports BLOCKED, never routes around.** No prompt tells an agent to change guard-written output (a manifest, a ledger, a state file) except by re-running its guard, or to get past a blocking hook or guard another way. The agent reports `BLOCKED` naming the hook or guard, and its parent fixes the tooling in the run.
+
 <!-- /core -->
 
 ## How `/flow` applies it

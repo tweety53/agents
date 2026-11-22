@@ -37,6 +37,8 @@ a path with unstaged edits: the restore reverts it to its index state and an unc
 with it. The reason points at flow-guard break-and-prove, which restores from a
 byte snapshot.
 
+A worktree listed in its change's state record (`flow state get`) is exempt from that denial.
+
 It denies `git stash pop`, `apply`, `drop` and `branch` unless the stash entry they act on was made
 on the current branch. A stash list is shared by every worktree of a repository, so a bare
 `git stash pop` after a failed `git stash push` pops another change's work into this worktree
@@ -735,6 +737,21 @@ def default_branch(cwd):
 
 
 SEPARATORS = ("&&", "||", ";", "|")
+def in_change_state(target):
+    """True when target's worktree is a key of `worktrees` in the state record of the change named
+    by its directory (`<project>-worktrees/<change>`), read with `flow state get`. Fails closed."""
+    top = git(target, "rev-parse", "--show-toplevel")
+    if not top:
+        return False
+    try:
+        out = subprocess.run(["flow", "state", "get", "-C", top, os.path.basename(top)],
+                             capture_output=True, text=True, timeout=5).stdout
+        keys = json.loads(out[out.index("{"):]).get("worktrees") or {}
+    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+        return False
+    return os.path.realpath(top) in {os.path.realpath(k) for k in keys}
+
+
 def discards_unstaged(verb, args, target):
     """The deny reason when `git checkout … -- <path>` or `git restore <path>` in a linked worktree
     names a path carrying unstaged edits, else None. Either restore reverts the file to its index
@@ -777,6 +794,8 @@ def discards_unstaged(verb, args, target):
         common = os.path.join(target, common)
     if os.path.realpath(git_dir) == os.path.realpath(common):
         return None  # not a linked worktree
+    if in_change_state(target):
+        return None  # a change's own worktree: its fixer restores stray baselines
     # a tree-ish or --source overwrites the index too, so staged edits are lost as well
     dirty = git(target, "diff", "--name-only", *(["HEAD"] if tree_ish else []), "--", *paths)
     if not dirty:

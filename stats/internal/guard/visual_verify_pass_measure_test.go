@@ -40,6 +40,23 @@ func vvmPage(dy int) func(x, y int) color.RGBA {
 	}
 }
 
+// vvmProtoPNG is vvmPNG under a 52px status line the capture does not have.
+func vvmProtoPNG(t *testing.T, path string, dy int) {
+	t.Helper()
+	im := image.NewRGBA(image.Rect(0, 0, 200, 352))
+	px := vvmPage(dy + 52)
+	for y := 0; y < 352; y++ {
+		for x := 0; x < 200; x++ {
+			im.Set(x, y, px(x, y))
+		}
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, im); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, path, b.String())
+}
+
 func vvmPNG(t *testing.T, path string, dy int) {
 	t.Helper()
 	im := image.NewRGBA(image.Rect(0, 0, 200, 300))
@@ -144,13 +161,13 @@ func TestVisualVerifyPassMeasureManifest(t *testing.T) {
 	}
 
 	// --prototype composes against <changeRoot>/visual-verification/prototype/.
-	vvmPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
+	vvmProtoPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
 	writeFile(t, filepath.Join(f.changeRoot, "visual-verification/prototype.mockups"), "frame none\na.png a-darwin\n")
 	if rc, _, stderr := f.run(t, f.wt, "demo", "proto", "tests/visual/app.spec.ts", "--prototype"); rc != 0 {
 		t.Fatalf("--prototype: exit %d, stderr %q", rc, stderr)
 	}
 	pm := f.manifest(t, "proto")
-	if len(pm.Pairs) != 1 || pm.Pairs[0].Mockup != filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png") {
+	if len(pm.Pairs) != 1 || pm.Pairs[0].Mockup != filepath.Join(f.changeRoot, "visual-verification/a.frame.png") {
 		t.Fatalf("--prototype pairs %+v, want one against the prototype frame", pm.Pairs)
 	}
 	if len(pm.Pairs[0].Bands)+len(pm.Pairs[0].Over) != 0 {
@@ -231,8 +248,8 @@ func TestVisualVerifyPassMeasurePrototypeKeepsOtherSpec(t *testing.T) {
 	f := vvmFixture(t, "a.png frame-a\n")
 	writeFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts"), "// spec\n")
 	vvmPNG(t, filepath.Join(f.wt, "tests/visual/other.spec.ts-snapshots/c-darwin.png"), 0)
-	vvmPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
-	vvmPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/c-darwin.png"), 0)
+	vvmProtoPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
+	vvmProtoPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/c-darwin.png"), 0)
 	sidecar := filepath.Join(f.changeRoot, "visual-verification/prototype.mockups")
 	const body = "frame none\na.png a-darwin\nc.png c-darwin\n"
 	writeFile(t, sidecar, body)
@@ -269,7 +286,7 @@ func TestVisualVerifyPassMeasurePrototypeKeepsOtherSpec(t *testing.T) {
 func TestVisualVerifyPassMeasurePrototypeMissingMap(t *testing.T) {
 	t.Parallel()
 	f := vvmFixture(t, "a.png frame-a\n")
-	vvmPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
+	vvmProtoPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
 	rc, stdout, stderr := f.run(t, f.wt, "demo", "proto", "tests/visual/app.spec.ts", "--prototype")
 	if rc == 0 {
 		t.Fatalf("exit 0 with no prototype.mockups, stdout %q, stderr %q", stdout, stderr)
@@ -664,7 +681,7 @@ func TestVisualVerifyPassMeasureManifestKeysPairsByPrototype(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	f := vvmFixture(t, "a.png frame-a\n")
-	vvmPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
+	vvmProtoPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
 	writeFile(t, filepath.Join(f.changeRoot, "visual-verification/prototype.mockups"), "frame none\na.png a-darwin\n")
 	read := func() (plain, proto int) {
 		t.Helper()
@@ -713,5 +730,21 @@ func TestVisualVerifyPassMeasureManifestKeysPairsByPrototype(t *testing.T) {
 	measure("--prototype")
 	if plain, proto := read(); plain != 1 || proto != 1 {
 		t.Fatalf("re-measured --prototype: %d plain and %d prototype pairs, want 1 and 1", plain, proto)
+	}
+}
+
+// A prototype frame carries the 52px status line the capture lacks; measure crops it, so a
+// correct capture compares at zero offset.
+func TestVisualVerifyPassMeasurePrototypeCropsStatusLine(t *testing.T) {
+	t.Parallel()
+	f := vvmFixture(t, "a.png frame-a\n")
+	vvmProtoPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
+	writeFile(t, filepath.Join(f.changeRoot, "visual-verification/prototype.mockups"), "frame none\na.png a-darwin\n")
+	if rc, _, stderr := f.run(t, f.wt, "demo", "proto", "tests/visual/app.spec.ts", "--prototype"); rc != 0 {
+		t.Fatalf("--prototype: exit %d, stderr %q", rc, stderr)
+	}
+	pm := f.manifest(t, "proto")
+	if len(pm.Pairs) != 1 || len(pm.Pairs[0].Bands)+len(pm.Pairs[0].Over) != 0 {
+		t.Fatalf("a status-line-offset prototype flagged at nonzero offset: %+v", pm.Pairs)
 	}
 }

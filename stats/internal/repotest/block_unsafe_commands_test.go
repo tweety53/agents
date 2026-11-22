@@ -370,6 +370,12 @@ func TestBlockUnsafeCommands(t *testing.T) {
 	f.git("-C", wt, "add", "f.txt")
 	f.bash("158 checkout HEAD -- of a staged-only edit", "deny", "{ROOT}", `git -C {WT} checkout HEAD -- f.txt`)
 	f.bash("159 restore --source=HEAD --staged --worktree of a staged-only edit", "deny", "{ROOT}", `git -C {WT} restore --source=HEAD --staged --worktree f.txt`)
+	f.git("-C", wt, "reset", "-q", "f.txt")
+	// kan-1155: a worktree the change's state record lists may restore its tracked paths
+	stub := root + "/bin"
+	f.write(stub+"/flow", "#!/bin/sh\necho '{\"worktrees\":{\""+wt+"\":null}}'\n")
+	f.bash("160 restore in a worktree the change state lists", "allow", "{ROOT}", `git -C {WT} restore f.txt`, "PATH="+stub+":"+os.Getenv("PATH"))
+	f.bash("161 restore in the main checkout stays denied", "deny", "{ROOT}", `git -C {MAIN} restore f.txt`, "PATH="+stub+":"+os.Getenv("PATH"))
 	f.git("-C", wt, "checkout", "HEAD", "--", "f.txt")
 	f.bash("155 checkout -- of a clean path", "allow", "{ROOT}", `git -C {WT} checkout -- f.txt`)
 
