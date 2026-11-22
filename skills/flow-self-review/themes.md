@@ -21,6 +21,10 @@ ahead of everything else the note carries, an angle-3 note's trace included. Eve
 prefix, `uncategorized` included. Read a theme's findings back with
 `flow self-review findings -change <name>` and a match on that prefix.
 
+**`legacy` is not a tag the pass picks.** It marks findings recorded before themes existed whose cause
+no tag below names — one-off defects, feature additions, display issues; an analysis of themes leaves
+`legacy` and `uncategorized` rows out, and a new finding that fits no tag is `uncategorized`, never `legacy`.
+
 | Tag | Meaning — the finding's cause is … |
 |-----|-----------------------------------|
 | `uncategorized` | no tag below names the cause — the pass also hands the finding back as a theme miss, so the operator can ask for a new tag; never a tag the pass invents |
