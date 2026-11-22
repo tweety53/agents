@@ -1,12 +1,13 @@
 // SelfReview -- the self-review pass's findings, To review first: a list of the improvements it
 // suggests with the selected one's structured detail beside it, each approved or declined here with
 // an optional reason. Auto-fixed, Approved and Declined are one chip away. No Period or Project
-// filter: every finding is loaded once (newest 100 of each list) and the page derives the rest --
-// a theme's recurrence is a count of the loaded rows that share its `[theme: <tag>]` note prefix.
+// filter, and every list pages 25 rows at a time. A theme's recurrence is a count of the rows
+// loaded for it -- the newest 100 of each list plus the page on screen -- that share its
+// `[theme: <tag>]` note prefix.
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Chip, ChipGroup } from "../components/Chip";
 import { ViewFrame } from "../components/ViewFrame";
-import { fetchSelfReviewPage, reviewSelfReviewFinding, type SelfReviewRow } from "../api";
+import { fetchSelfReviewPage, reviewSelfReviewFinding, type SelfReviewPage, type SelfReviewRow } from "../api";
 
 type Show = "to-review" | "fixed" | "approved" | "declined";
 const SHOWS: { key: Show; label: string }[] = [
@@ -15,15 +16,10 @@ const SHOWS: { key: Show; label: string }[] = [
   { key: "approved", label: "Approved" },
   { key: "declined", label: "Declined" },
 ];
-const PAGE = 100;
+const PAGE = 25;
+const CORPUS = 100;
 const WINDOW_FROM = new Date("2000-01-01T00:00:00Z");
-
-interface Loaded {
-  toReview: SelfReviewRow[];
-  approved: SelfReviewRow[];
-  declined: SelfReviewRow[];
-  fixed: SelfReviewRow[];
-}
+const STATUS: Record<Show, string | undefined> = { "to-review": "to-review", approved: "approved", declined: "declined", fixed: undefined };
 
 /** The theme tag a note opens with (`[theme: <tag>] `), and the note without it. */
 export function splitTheme(note: string): { theme: string; title: string } {
@@ -168,39 +164,60 @@ function Detail({ row, same }: { row: SelfReviewRow; same: SelfReviewRow[] }) {
 
 export function SelfReview() {
   const [show, setShow] = useState<Show>("to-review");
+  const [offset, setOffset] = useState(0);
   const [selId, setSelId] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const [reload, setReload] = useState(0);
-  const [data, setData] = useState<Loaded | null>(null);
+  const [page, setPage] = useState<SelfReviewPage | null>(null);
+  const [fixedTotal, setFixedTotal] = useState(0);
+  const [corpus, setCorpus] = useState<SelfReviewRow[]>([]);
   const [error, setError] = useState("");
   const [failed, setFailed] = useState("");
 
+  const q = () => ({ from: WINDOW_FROM, to: new Date(Date.now() + 86400000) });
+
+  // The list on screen, one page; a decision made here refetches it.
   useEffect(() => {
     let live = true;
     setError("");
-    const q = { from: WINDOW_FROM, to: new Date(Date.now() + 86400000), limit: PAGE, offset: 0 };
-    Promise.all([
-      fetchSelfReviewPage({ ...q, show: "to-review", status: "to-review" }),
-      fetchSelfReviewPage({ ...q, show: "to-review", status: "approved" }),
-      fetchSelfReviewPage({ ...q, show: "to-review", status: "declined" }),
-      fetchSelfReviewPage({ ...q, show: "fixed" }),
-    ]).then(
-      ([toReview, approved, declined, fixed]) => live && setData({ toReview: toReview.rows, approved: approved.rows, declined: declined.rows, fixed: fixed.rows }),
+    fetchSelfReviewPage({ ...q(), show: show === "fixed" ? "fixed" : "to-review", status: STATUS[show], limit: PAGE, offset }).then(
+      (p) => {
+        if (!live) return;
+        if (p.rows.length === 0 && offset > 0) setOffset(Math.max(0, offset - PAGE));
+        else setPage(p);
+      },
       (e: unknown) => live && setError(e instanceof Error ? e.message : String(e)),
+    );
+    return () => {
+      live = false;
+    };
+  }, [show, offset, reload]);
+
+  // What the chips count and the themes compare against, whichever list is on screen.
+  useEffect(() => {
+    let live = true;
+    const ask = (status: string) => fetchSelfReviewPage({ ...q(), show: "to-review", status, limit: CORPUS, offset: 0 });
+    Promise.all([ask("to-review"), ask("approved"), ask("declined"), fetchSelfReviewPage({ ...q(), show: "fixed", limit: CORPUS, offset: 0 })]).then(
+      ([a, b, c, f]) => {
+        if (!live) return;
+        setCorpus([...a.rows, ...b.rows, ...c.rows, ...f.rows]);
+        setFixedTotal(f.total);
+      },
+      () => undefined,
     );
     return () => {
       live = false;
     };
   }, [reload]);
 
-  const lists = data && { "to-review": data.toReview, fixed: data.fixed, approved: data.approved, declined: data.declined };
-  const rows = lists ? lists[show] : [];
+  const rows = page?.rows ?? [];
   const sel = rows.find((r) => r.id === selId) ?? rows[0];
-  const all = useMemo(() => (data ? [...data.toReview, ...data.approved, ...data.declined, ...data.fixed] : []), [data]);
+  const all = useMemo(() => [...corpus, ...rows], [corpus, rows]);
   const sameTheme = (r: SelfReviewRow) => {
     const t = splitTheme(r.note).theme;
-    return t ? all.filter((o) => o.id !== r.id && splitTheme(o.note).theme === t) : [];
+    return t ? all.filter((o, i) => o.id !== r.id && all.findIndex((x) => x.id === o.id) === i && splitTheme(o.note).theme === t) : [];
   };
+  const counts: Record<Show, number> = { "to-review": page?.toReview ?? 0, approved: page?.approved ?? 0, declined: page?.declined ?? 0, fixed: fixedTotal };
 
   const decide = (row: SelfReviewRow, to: "to-review" | "approved" | "declined") =>
     reviewSelfReviewFinding(row.project, row.id, to, to === "to-review" ? "" : reason.trim()).then(
@@ -213,6 +230,8 @@ export function SelfReview() {
       (err: unknown) => setFailed(err instanceof Error ? err.message : String(err)),
     );
 
+  const last = page ? Math.min(page.offset + rows.length, page.total) : 0;
+
   return (
     <ViewFrame title="Self-review" description="Improvements the self-review pass suggests for you to approve or decline, and what it fixed on its own.">
       <div className="lb-fbar">
@@ -223,10 +242,12 @@ export function SelfReview() {
               on={show === key}
               onClick={() => {
                 setShow(key);
+                setOffset(0);
                 setSelId(null);
+                setPage(null);
               }}
             >
-              {label} {lists ? lists[key].length : 0}
+              {label} {counts[key]}
             </Chip>
           ))}
         </ChipGroup>
@@ -235,9 +256,9 @@ export function SelfReview() {
         <div className="lb-panel-b">
           {error && <p className="sr-err">{error}</p>}
           {failed && <p className="sr-err">Could not save: {failed}</p>}
-          {!data && !error && <p className="lb-muted">Loading…</p>}
-          {data && rows.length === 0 && <p className="lb-muted">Nothing here.</p>}
-          {data && sel && (
+          {!page && !error && <p className="lb-muted">Loading…</p>}
+          {page && rows.length === 0 && <p className="lb-muted">Nothing here.</p>}
+          {page && sel && (
             <div className="sr-split">
               <div className="sr-listcol">
                 {rows.map((r) => {
@@ -257,6 +278,19 @@ export function SelfReview() {
                     </button>
                   );
                 })}
+                {page.total > page.limit && (
+                  <div className="sr-pager">
+                    <button type="button" className="lb-fchip" disabled={page.offset === 0} onClick={() => setOffset(Math.max(0, page.offset - page.limit))}>
+                      Previous
+                    </button>
+                    <span className="lb-muted">
+                      {page.offset + 1}–{last} of {page.total}
+                    </span>
+                    <button type="button" className="lb-fchip" disabled={last >= page.total} onClick={() => setOffset(page.offset + page.limit)}>
+                      Next
+                    </button>
+                  </div>
+                )}
               </div>
               <article className="sr-pane" aria-label="Finding">
                 <h3>{splitTheme(sel.note).title}</h3>

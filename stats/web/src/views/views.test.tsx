@@ -996,7 +996,8 @@ describe("views render their fixture response's actual values", () => {
   const servePages = (rows: SelfReviewRow[]) =>
     pageMock.mockImplementation(async (q: { show: string; status?: string; limit: number; offset: number }) => {
       const list = rows.filter((r) => (q.show === "fixed" ? r.disposition === "fixed" : r.reviewStatus === q.status));
-      return { total: list.length, toReview: 0, approved: 0, declined: 0, limit: q.limit, offset: q.offset, rows: list.slice(q.offset, q.offset + q.limit) };
+      const n = (s: string) => rows.filter((r) => r.reviewStatus === s).length;
+      return { total: list.length, toReview: n("to-review"), approved: n("approved"), declined: n("declined"), limit: q.limit, offset: q.offset, rows: list.slice(q.offset, q.offset + q.limit) };
     });
   const fixtureRows = () => (fixtures["self-review"].rows as unknown as SelfReviewRow[]);
 
@@ -1031,6 +1032,23 @@ describe("views render their fixture response's actual values", () => {
     expect(document.querySelector(".sr-raw")).toHaveTextContent("## Why long"); // an older free-form detail stays raw
     await user.click(screen.getByRole("button", { name: "Move back to review" }));
     expect(reviewMock).toHaveBeenCalledWith("agents", 4, "to-review", "");
+  });
+
+  it("self-review: every list pages 25 rows at a time", async () => {
+    const many = Array.from({ length: 30 }, (_, i) => ({ ...fixtureRows()[2], id: 100 + i, note: `suggestion number ${i}` }));
+    servePages(many);
+    const user = userEvent.setup();
+    render(<SelfReview />);
+    expect(await screen.findByRole("button", { name: /suggestion number 0(?!\d)/ })).toBeInTheDocument();
+    expect(pageMock).toHaveBeenCalledWith(expect.objectContaining({ show: "to-review", status: "to-review", limit: 25, offset: 0 }));
+    expect(screen.queryByRole("button", { name: /suggestion number 25(?!\d)/ })).not.toBeInTheDocument();
+    expect(screen.getByText("1–25 of 30")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(await screen.findByRole("button", { name: /suggestion number 25(?!\d)/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /suggestion number 0(?!\d)/ })).not.toBeInTheDocument();
+    expect(screen.getByText("26–30 of 30")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   });
 
   it("self-review: no rows says so", async () => {
