@@ -63,7 +63,7 @@ one `⚠ Jira: skipped — <reason>` line of **Never blocking**.
 `interactive-<YYYYMMDD-HHMM>` (UTC). **An open `/flow-interactive` change whose name is, or starts
 with `<lowercased key>-`, the resolved issue's key is resumed whatever its slug** (**Resume**, below) —
 the reused `Interactive session` issue's included, so a topic-slugged request never opens a second
-change on the same issue — never a new session numbering from 1. Find it with `flow state list`: every record whose name is, or starts with `<lowercased key>-`, and whose state is not `FINISHED` — the most recently updated when several. (`flow state find` takes one exact name and never matches by key.) Looking before creating is not optional: a session whose worktree is not the one found is a second session on the issue.
+change on the same issue — never a new session numbering from 1. Find it with `flow state list`: every record whose name is, or starts with `<lowercased key>-`, and whose state is not `FINISHED` — the most recently updated when several. (`flow state find` takes one exact name and never matches by key.) **Whatever state the record shows is open: a `STARTED` row whose `updatedBy` is `flow stage begin (synthetic)` is a session's own row — a stage mark creates it, as no state write exists before the stop — so it is resumed, never judged another command's and never left beside a new name** (KAN-1130: `kan-1130-confidence-estimate` was opened beside the unfinished `kan-1130-prompt-tuning-files`, two cards for one issue). Looking before creating is not optional: a session whose worktree is not the one found is a second session on the issue.
 
 ```bash
 flow stage mark  -command '/flow-interactive' -stages flow.plan -harness <harness> <name>
@@ -290,7 +290,12 @@ as a request and the session stays open, saying so in one line. Stop:
 5. Jira: the description gains a `## Session summary` section — one line per request: number,
    title, outcome, commit — per **Description sync** (`skills/flow-contracts/jira-integration.md`);
    the issue moves to **Done**.
-6. Move the change to `FINISHED`.
+6. Move the change to `FINISHED` — the one state write a session makes, from the row the stage marks
+   created, with the synthetic marker the read adds dropped (`state set` refuses it): `flow state get
+   <name> | jq '.state="FINISHED" | .updatedBy="/flow-interactive close" | del(.synthetic)' | flow state
+   set <name>`, then `flow state get <name>` printing `"state":"FINISHED"`. A stop that ends without
+   it leaves a closed session's card on the board as `STARTED` for good (KAN-1130:
+   `kan-1130-prompt-tuning-files`).
 
 ## Resume
 
