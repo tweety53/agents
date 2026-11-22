@@ -306,10 +306,12 @@ export function SelfReview() {
                 <Detail row={sel} same={sameTheme(sel)} />
                 {show === "to-review" && (
                   <footer className="sr-actions">
-                    <button type="button" onClick={() => void decide(sel, "approved")}>
+                    <button type="button" className="sr-approve" onClick={() => void decide(sel, "approved")}>
                       Approve
                     </button>
-                    <button type="button" onClick={() => void decide(sel, "declined")}>Decline</button>
+                    <button type="button" className="sr-decline" onClick={() => void decide(sel, "declined")}>
+                      Decline
+                    </button>
                     <input aria-label="Reason" placeholder="Reason (optional, stored with the decision)" value={reason} onChange={(e) => setReason(e.target.value)} />
                   </footer>
                 )}

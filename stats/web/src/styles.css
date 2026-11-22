@@ -1263,5 +1263,8 @@ td.lb-clip { max-width: 0; width: 100%; }
 .sr-add { color: var(--series-2); }
 .sr-del { color: var(--delta-up); }
 .sr-actions { display: flex; align-items: center; gap: 8px; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--border); }
+.sr-approve, .sr-decline { font: inherit; font-size: 14px; padding: 6px 16px; border-radius: 4px; cursor: pointer; }
+.sr-approve { background: var(--status-ok); border: 1px solid var(--status-ok); color: #fff; }
+.sr-decline { background: transparent; border: 1px solid color-mix(in srgb, var(--delta-up) 45%, transparent); color: var(--delta-up); }
 .sr-actions input { flex: 1; font: inherit; padding: 5px 8px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-1); color: var(--text-primary); }
 .sr-err { color: var(--danger, #c0392b); }
