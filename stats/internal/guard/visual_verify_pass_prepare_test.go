@@ -1159,12 +1159,37 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		}
 	})
 
-	t.Run("a scoped pass and a set with two survivors never shard", func(t *testing.T) {
+	t.Run("a scoped pass shards only over more than 25 defects, each shard holding its own", func(t *testing.T) {
 		t.Parallel()
 		f := vvpShardFixture(t, 60, "")
-		if rc, out, _ := f.prepare("--round-base", f.wt+"="+f.mb); rc != 0 || strings.Contains(f.stageFile(), "slice ") || len(vvpLines(out, "DISPATCH: ")) != 1 {
-			t.Fatalf("--round-base: exit %d\n%s", rc, out)
+		round := func(key string) string {
+			b, _ := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/visual-round-"+key+".txt"))
+			return string(b)
 		}
+		rc, out, _ := f.prepare("--round-base", f.wt+"="+f.mb, "--defects", f.wt+"="+strings.Join(vvpFrames("F", 1, 30), ","))
+		s := f.stageFile()
+		d := vvpLines(out, "DISPATCH: ")
+		if rc != 0 || len(d) != 2 || !strings.HasPrefix(d[0], "DISPATCH: visual-verify-s1of2 ") || !strings.HasPrefix(d[1], "DISPATCH: visual-verify-s2of2 ") ||
+			!strings.Contains(s, "slice s1of2 "+strings.Join(vvpFrames("F", 1, 15), ",")+"\n") {
+			t.Fatalf("30 defects: exit %d\n%s\n%s", rc, out, s)
+		}
+		for key, want := range map[string]string{"visual-verify-s1of2": strings.Join(vvpFrames("F", 1, 15), ","), "visual-verify-s2of2": strings.Join(vvpFrames("F", 16, 30), ",")} {
+			if f := strings.Fields(round(key)); len(f) != 3 || f[2] != want {
+				t.Errorf("round file of %s = %q, want defects %s", key, round(key), want)
+			}
+		}
+		g := vvpShardFixture(t, 60, "")
+		if rc, out, _ := g.prepare("--round-base", g.wt+"="+g.mb, "--defects", g.wt+"="+strings.Join(vvpFrames("F", 1, 25), ",")); rc != 0 || strings.Contains(g.stageFile(), "slice ") || len(vvpLines(out, "DISPATCH: ")) != 1 {
+			t.Fatalf("25 defects: exit %d\n%s", rc, out)
+		}
+		h := vvpShardFixture(t, 60, "")
+		if rc, out, _ := h.prepare("--round-base", h.wt+"="+h.mb); rc != 0 || strings.Contains(h.stageFile(), "slice ") || len(vvpLines(out, "DISPATCH: ")) != 1 {
+			t.Fatalf("--round-base with no defects: exit %d\n%s", rc, out)
+		}
+	})
+
+	t.Run("a set with two survivors never shards", func(t *testing.T) {
+		t.Parallel()
 		g := vvpShardFixture(t, 60, "")
 		w, mb := g.sibling("gymie-frontend")
 		if rc, out, _ := g.prepare("--worktree", w, "--merge-base", w+"="+mb, "--app", w+":.="+g.app.URL); rc != 0 || strings.Contains(g.stageFile(), "slice ") {

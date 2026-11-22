@@ -94,12 +94,15 @@ import (
 //      collected; then one line names them all (no stage mark is ended):
 //        STOP: preflight — <guard>: <evidence>[; <guard>: <evidence>…]   exit 1
 //      No verifier row is begun on any STOP.
-//  6a. with no failing check, an unscoped pass (no --round-base) with one
+//  6a. with no failing check, a pass with one
 //      surviving worktree — the set's other worktrees, a regression
 //      checkout's among them, dispatch no verifier — and `mockups` declared
 //      counts F, the distinct frame ids of the capture specs'
 //      sidecar lines plus the declared frames no line maps (decision
-//      shard-unscoped-single-worktree). Above 25 it writes one `spec <abs>`
+//      shard-unscoped-single-worktree); a scoped pass (--round-base) counts
+//      the frames its --defects name instead (none named: unsharded), and
+//      each of its shards' round files carries only the defects in its own
+//      slice (KAN-1091). Above 25 it writes one `spec <abs>`
 //      line per capture spec and one `slice s<i>of<n> <frame,…>` line per
 //      slice vvpSlices cuts (decisions four-shards-slices-grow,
 //      slice-by-frame-id), and deletes every

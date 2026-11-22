@@ -350,15 +350,23 @@ func (v *vvp) preflight(survivors []string) {
 
 // shard writes a sharded pass's `spec` and `slice` lines to the stage file
 // and deletes every earlier record part (decisions
-// shard-unscoped-single-worktree, four-shards-slices-grow): only an unscoped
-// pass with one surviving worktree, with `mockups` declared and more than 25
-// frames on the change's list, shards — a set of several worktrees included,
-// since its one survivor is still one verifier.
+// shard-unscoped-single-worktree, four-shards-slices-grow): a pass with one
+// surviving worktree, with `mockups` declared and more than 25 frames to
+// check, shards — a set of several worktrees included, since its one survivor
+// is still one verifier. An unscoped pass checks the change's list; a scoped
+// one (--round-base) checks the frames its --defects name and shards only when
+// they are more than 25 (KAN-1091: a partial check over 25 screenshots ran as
+// one reviewer that named its own batches s1, s2, s3); with none named it
+// runs unsharded.
 func (v *vvp) shard(survivors, specs, sidecars []string) {
-	if len(survivors) != 1 || len(v.roundBase) > 0 {
+	if len(survivors) != 1 {
 		return
 	}
 	w := survivors[0]
+	scoped := len(v.roundBase) > 0
+	if scoped && len(v.defects[w]) <= 25 {
+		return
+	}
 	mock := v.cells(w)["mockups"]
 	if mock == "" {
 		return
@@ -368,6 +376,9 @@ func (v *vvp) shard(survivors, specs, sidecars []string) {
 	for _, sc := range sidecars {
 		body, _ := os.ReadFile(sc)
 		for _, f := range mockupsLines(body) {
+			if scoped && !slices.Contains(v.defects[w], f[1]) {
+				continue
+			}
 			lines = append(lines, [3]string{strings.TrimSuffix(sc, ".mockups"), f[0], f[1]})
 			listed[f[1]] = true
 		}
@@ -376,7 +387,13 @@ func (v *vvp) shard(survivors, specs, sidecars []string) {
 	var extra []string
 	design, derr := os.ReadFile(filepath.Join(changeRoot, "design.md"))
 	entries, eerr := os.ReadDir(cellPath(w, mock))
-	if derr == nil && eerr == nil {
+	if scoped {
+		for _, id := range v.defects[w] {
+			if !listed[id] && !slices.Contains(extra, id) {
+				extra = append(extra, id)
+			}
+		}
+	} else if derr == nil && eerr == nil {
 		for _, id := range flDeclared(design, cellPath(w, mock), entries) {
 			if !listed[id] {
 				extra = append(extra, id)
@@ -773,7 +790,12 @@ func (v *vvp) dispatch(survivors []string, stack string) {
 		}
 		if rb != "" && !vrRestSegment.MatchString(r.key) {
 			line := rb + " " + time.Now().UTC().Format(time.RFC3339Nano)
-			if d := v.defects[r.w]; len(d) > 0 {
+			d := v.defects[r.w]
+			if slice := vvpSlice(stage, r.key); slice != "" {
+				// A shard re-checks, and answers for, only the defects in its own slice.
+				d = slices.DeleteFunc(slices.Clone(d), func(id string) bool { return !slices.Contains(strings.Split(slice, ","), id) })
+			}
+			if len(d) > 0 {
 				line += " " + strings.Join(d, ",")
 			}
 			v.writeOut(rf, line+"\n")
