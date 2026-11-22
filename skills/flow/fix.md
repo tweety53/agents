@@ -63,7 +63,14 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    one-shot**, `skills/flow/implement.md`); the fix closes when the
    re-run of step 3 passes. **A verifier's report naming many departures is split from the first
    dispatch**: one fixer per family (a frame group or a screen), dispatched in series, each its own
-   `fix-<k>`, never one fixer handed the whole list.
+   `fix-<k>`, never one fixer handed the whole list. **A large fix task — one fix whose family
+   touches more than one implementation group of files — runs one group at a time by default,
+   each group amended into the fix's one commit** (`git commit --amend --no-edit -- <the group's
+   files>`, its trailers kept), so a fixer that runs out of working memory part-way leaves a commit
+   holding every finished group. The fix's next dispatch resumes from that commit: it reads
+   `git -C <abs-worktree> show --stat HEAD` for the groups done, takes the first group the fix
+   instructions name that the commit does not yet touch, and redoes nothing (KAN-1091: a large fix
+   task ran out of context mid-way and resumed from the amended commit with no work lost).
 
 3. **Re-run the failing check**, under `flow.verify`. In-run: the stage that reported the defect,
    re-run as `skills/flow/verify-and-handoff.md`'s Verify and Visual verification
