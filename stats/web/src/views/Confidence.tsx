@@ -1,12 +1,17 @@
 // Confidence -- every confidence estimate below 100% an agent filed (KAN-1130): how confident it
 // was that the plan is executed as written, and what would move it to 100%. Self-review's layout
-// as is: a chip per tag where Self-review has its Show chips, the list paged 25 rows at a time,
-// and the selected estimate's gaps in full beside it. Read only.
+// as is: its To review / Approved / Declined chips, the list paged 25 rows at a time, and the
+// selected estimate's gaps in full beside it, approved or declined here with an optional reason.
 import { useEffect, useState } from "react";
 import { Chip, ChipGroup } from "../components/Chip";
 import { ViewFrame } from "../components/ViewFrame";
-import { fetchConfidencePage, type ConfidencePage, type ConfidenceRow } from "../api";
+import { fetchConfidencePage, reviewConfidenceEstimate, type ConfidencePage, type ConfidenceRow, type ConfidenceStatus } from "../api";
 
+const SHOWS: { key: ConfidenceStatus; label: string }[] = [
+  { key: "to-review", label: "To review" },
+  { key: "approved", label: "Approved" },
+  { key: "declined", label: "Declined" },
+];
 const PAGE = 25;
 
 const title = (r: ConfidenceRow) => `${r.score}% · ${r.change}`;
@@ -30,56 +35,72 @@ function Meta({ row }: { row: ConfidenceRow }) {
 }
 
 export function Confidence() {
-  const [tag, setTag] = useState("");
+  const [show, setShow] = useState<ConfidenceStatus>("to-review");
   const [offset, setOffset] = useState(0);
   const [selId, setSelId] = useState<number | null>(null);
+  const [reason, setReason] = useState("");
+  const [reload, setReload] = useState(0);
   const [page, setPage] = useState<ConfidencePage | null>(null);
-  const [allTotal, setAllTotal] = useState(0);
   const [error, setError] = useState("");
+  const [failed, setFailed] = useState("");
 
+  // The list on screen, one page; a decision made here refetches it.
   useEffect(() => {
     let live = true;
     setError("");
-    fetchConfidencePage({ tag, limit: PAGE, offset }).then(
+    fetchConfidencePage({ status: show, limit: PAGE, offset }).then(
       (p) => {
         if (!live) return;
-        setPage(p);
-        if (!tag) setAllTotal(p.total);
+        if (p.rows.length === 0 && offset > 0) setOffset(Math.max(0, offset - PAGE));
+        else setPage(p);
       },
       (e: unknown) => live && setError(e instanceof Error ? e.message : String(e)),
     );
     return () => {
       live = false;
     };
-  }, [tag, offset]);
+  }, [show, offset, reload]);
 
   const rows = page?.rows ?? [];
   const sel = rows.find((r) => r.id === selId) ?? rows[0];
   const last = page ? Math.min(page.offset + rows.length, page.total) : 0;
-  const pick = (t: string) => {
-    setTag(t);
-    setOffset(0);
-    setSelId(null);
-    setPage(null);
-  };
+  const counts: Record<ConfidenceStatus, number> = { "to-review": page?.toReview ?? 0, approved: page?.approved ?? 0, declined: page?.declined ?? 0 };
+
+  const decide = (row: ConfidenceRow, to: ConfidenceStatus) =>
+    reviewConfidenceEstimate(row.project, row.id, to, to === "to-review" ? "" : reason.trim()).then(
+      () => {
+        setFailed("");
+        setReason("");
+        setSelId(null);
+        setReload((n) => n + 1);
+      },
+      (err: unknown) => setFailed(err instanceof Error ? err.message : String(err)),
+    );
 
   return (
-    <ViewFrame title="Confidence" description="Every estimate below 100% an agent gave of executing the plan as written, and what it said would raise it.">
+    <ViewFrame title="Confidence" description="Every estimate below 100% an agent gave of executing the plan as written, and what it said would raise it, for you to approve or decline.">
       <div className="lb-fbar">
-        <ChipGroup name="Tag">
-          <Chip on={tag === ""} onClick={() => pick("")}>
-            All {allTotal}
-          </Chip>
-          {(page?.tags ?? []).map((t) => (
-            <Chip key={t.tag} on={tag === t.tag} onClick={() => pick(t.tag)}>
-              {t.tag} {t.count}
+        <ChipGroup name="Show">
+          {SHOWS.map(({ key, label }) => (
+            <Chip
+              key={key}
+              on={show === key}
+              onClick={() => {
+                setShow(key);
+                setOffset(0);
+                setSelId(null);
+                setPage(null);
+              }}
+            >
+              {label} {counts[key]}
             </Chip>
           ))}
         </ChipGroup>
       </div>
-      <section className="lb-panel" aria-label={tag || "All"}>
+      <section className="lb-panel" aria-label={SHOWS.find((s) => s.key === show)!.label}>
         <div className="lb-panel-b">
           {error && <p className="sr-err">{error}</p>}
+          {failed && <p className="sr-err">Could not save: {failed}</p>}
           {!page && !error && <p className="lb-muted">Loading…</p>}
           {page && rows.length === 0 && <p className="lb-muted">Nothing here.</p>}
           {page && sel && (
@@ -114,6 +135,22 @@ export function Confidence() {
                     <li key={i}>{g}</li>
                   ))}
                 </ul>
+                {show === "to-review" ? (
+                  <footer className="sr-actions">
+                    <button type="button" className="sr-approve" onClick={() => void decide(sel, "approved")}>
+                      Approve
+                    </button>
+                    <button type="button" className="sr-decline" onClick={() => void decide(sel, "declined")}>
+                      Decline
+                    </button>
+                    <input aria-label="Reason" placeholder="Reason (optional, stored with the decision)" value={reason} onChange={(e) => setReason(e.target.value)} />
+                  </footer>
+                ) : (
+                  <footer className="sr-actions">
+                    <span>{sel.reason ? `Reason: ${sel.reason}` : "No reason given."}</span>
+                    <button type="button" onClick={() => void decide(sel, "to-review")}>Move back to review</button>
+                  </footer>
+                )}
               </article>
             </div>
           )}

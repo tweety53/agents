@@ -10,10 +10,31 @@ import (
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
+// pageOf reads the status's whole list and keeps the rows of one project:
+// the table is read across projects, so a test looks only at its own.
+func pageOf(t *testing.T, st *store.Store, status, projectKey string) []records.ConfidenceEstimate {
+	t.Helper()
+	var out []records.ConfidenceEstimate
+	for offset := 0; ; offset += 100 {
+		p, err := st.ConfidenceEstimatesPage(context.Background(), status, 100, offset)
+		if err != nil {
+			t.Fatalf("ConfidenceEstimatesPage(%s): %v", status, err)
+		}
+		for _, r := range p.Rows {
+			if r.Project == projectKey {
+				out = append(out, r)
+			}
+		}
+		if len(p.Rows) < 100 {
+			return out
+		}
+	}
+}
+
 // TestConfidenceEstimatesRoundTrip records a plan row and an implement row
-// and reads them back, newest first, every field intact; the tag filter
-// keeps only the rows carrying the tag, and the tag list counts each tag.
-// Tags are unique to this test: the table is read across projects.
+// and reads them back, newest first, every field intact and both to-review
+// whatever the caller sent; the tag list counts each tag. Tags are unique to
+// this test: the table is read across projects.
 func TestConfidenceEstimatesRoundTrip(t *testing.T) {
 	t.Parallel()
 	st, _, projectKey := newHazardStore(t)
@@ -22,40 +43,31 @@ func TestConfidenceEstimatesRoundTrip(t *testing.T) {
 
 	plan := records.ConfidenceEstimate{Change: "kan-1", Stage: "plan", Score: 78, Disposition: "later",
 		Gaps: []string{"F9 — closes with: plan — no task checks the flag", "F10 — closes with: operator — column order"}, Tags: []string{shared}}
-	impl := records.ConfidenceEstimate{Change: "kan-1", Stage: "implement", Task: "2+3", Score: 90,
+	impl := records.ConfidenceEstimate{Change: "kan-1", Stage: "implement", Task: "2+3", Score: 90, ReviewStatus: "approved", Reason: "sent by the caller",
 		Gaps: []string{"the fixture the test needs does not exist"}, Tags: []string{shared, only}}
 	for _, e := range []records.ConfidenceEstimate{plan, impl} {
 		got, err := st.RecordConfidenceEstimate(ctx, projectKey, e)
 		if err != nil {
 			t.Fatalf("RecordConfidenceEstimate(%+v): %v", e, err)
 		}
-		if got.ID == 0 || got.RecordedAt.IsZero() || got.Project != projectKey {
-			t.Errorf("recorded row lacks id, time or project: %+v", got)
+		if got.ID == 0 || got.RecordedAt.IsZero() || got.Project != projectKey || got.ReviewStatus != "to-review" || got.Reason != "" {
+			t.Errorf("recorded row lacks id, time or project, or is not to-review with no reason: %+v", got)
 		}
 	}
 
-	rows, total, err := st.ConfidenceEstimatesPage(ctx, shared, 10, 0)
-	if err != nil {
-		t.Fatalf("ConfidenceEstimatesPage: %v", err)
+	rows := pageOf(t, st, "to-review", projectKey)
+	if len(rows) != 2 {
+		t.Fatalf("to-review: %d rows, want 2: %+v", len(rows), rows)
 	}
-	if total != 2 || len(rows) != 2 {
-		t.Fatalf("tag %s: total %d, %d rows, want 2 and 2", shared, total, len(rows))
-	}
-	if g := rows[0]; g.Stage != "implement" || g.Task != "2+3" || g.Score != 90 || g.Disposition != "" ||
-		!slices.Equal(g.Gaps, impl.Gaps) || !slices.Equal(g.Tags, impl.Tags) || g.Project != projectKey {
-		t.Errorf("newest row = %+v, want the implement row", g)
+	if g := rows[0]; g.Stage != "implement" || g.Task != "2+3" || g.Score != 90 || g.Disposition != "" || g.ReviewStatus != "to-review" || g.Reason != "" ||
+		!slices.Equal(g.Gaps, impl.Gaps) || !slices.Equal(g.Tags, impl.Tags) {
+		t.Errorf("newest row = %+v, want the implement row, to-review", g)
 	}
 	if g := rows[1]; g.Stage != "plan" || g.Task != "" || g.Disposition != "later" || !slices.Equal(g.Gaps, plan.Gaps) {
 		t.Errorf("second row = %+v, want the plan row", g)
 	}
-	if rows, total, err := st.ConfidenceEstimatesPage(ctx, only, 10, 0); err != nil || total != 1 || len(rows) != 1 || rows[0].Stage != "implement" {
-		t.Errorf("tag %s: rows %+v total %d err %v, want the implement row alone", only, rows, total, err)
-	}
-	if rows, total, err := st.ConfidenceEstimatesPage(ctx, shared, 1, 1); err != nil || total != 2 || len(rows) != 1 || rows[0].Stage != "plan" {
-		t.Errorf("page 2 of 1: rows %+v total %d err %v, want the plan row and total 2", rows, total, err)
-	}
-	if _, total, err := st.ConfidenceEstimatesPage(ctx, "", 1, 0); err != nil || total < 2 {
-		t.Errorf("no tag: total %d err %v, want every row", total, err)
+	if p, err := st.ConfidenceEstimatesPage(ctx, "to-review", 1, 0); err != nil || len(p.Rows) != 1 || p.Total < 2 || p.ToReview != p.Total {
+		t.Errorf("limit 1: %+v err %v, want one row, a total of 2 or more and the to-review count equal to it", p, err)
 	}
 
 	tags, err := st.ConfidenceTags(ctx)
@@ -68,6 +80,54 @@ func TestConfidenceEstimatesRoundTrip(t *testing.T) {
 	}
 	if counts[shared] != 2 || counts[only] != 1 {
 		t.Errorf("tag counts = %v, want %s 2 and %s 1", counts, shared, only)
+	}
+}
+
+// TestReviewConfidenceEstimate: a review moves the row between the status
+// lists and keeps its reason; moving it back clears the reason; an unknown
+// status is invalid and another project's id is not found.
+func TestReviewConfidenceEstimate(t *testing.T) {
+	t.Parallel()
+	st, _, projectKey := newHazardStore(t)
+	ctx := context.Background()
+	row, err := st.RecordConfidenceEstimate(ctx, projectKey, records.ConfidenceEstimate{Change: "kan-1", Stage: "implement", Task: "1", Score: 80, Gaps: []string{"g"}, Tags: []string{"rv-" + projectKey}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before, err := st.ConfidenceEstimatesPage(ctx, "declined", 1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := st.ReviewConfidenceEstimate(ctx, projectKey, row.ID, "declined", "not a real gap"); err != nil {
+		t.Fatalf("decline: %v", err)
+	}
+	if rows := pageOf(t, st, "to-review", projectKey); len(rows) != 0 {
+		t.Errorf("to-review after a decline = %+v, want none", rows)
+	}
+	if rows := pageOf(t, st, "declined", projectKey); len(rows) != 1 || rows[0].ReviewStatus != "declined" || rows[0].Reason != "not a real gap" {
+		t.Errorf("declined = %+v, want the row with its reason", rows)
+	}
+	// Other tests record in parallel, never decline: the declined count moved by this row at least.
+	if after, err := st.ConfidenceEstimatesPage(ctx, "to-review", 1, 0); err != nil || after.Declined < before.Declined+1 {
+		t.Errorf("declined count %d (err %v), want at least %d", after.Declined, err, before.Declined+1)
+	}
+
+	if err := st.ReviewConfidenceEstimate(ctx, projectKey, row.ID, "to-review", ""); err != nil {
+		t.Fatalf("move back: %v", err)
+	}
+	if rows := pageOf(t, st, "to-review", projectKey); len(rows) != 1 || rows[0].Reason != "" {
+		t.Errorf("to-review after moving back = %+v, want the row with no reason", rows)
+	}
+
+	if err := st.ReviewConfidenceEstimate(ctx, projectKey, row.ID, "fixed", ""); !errors.Is(err, store.ErrConfidenceEstimateInvalid) {
+		t.Errorf("unknown status: err = %v, want ErrConfidenceEstimateInvalid", err)
+	}
+	if err := st.ReviewConfidenceEstimate(ctx, "no-such-project", row.ID, "approved", ""); !errors.Is(err, store.ErrConfidenceEstimateNotFound) {
+		t.Errorf("another project's id: err = %v, want ErrConfidenceEstimateNotFound", err)
+	}
+	if _, err := st.ConfidenceEstimatesPage(ctx, "", 10, 0); !errors.Is(err, store.ErrConfidenceEstimateInvalid) {
+		t.Errorf("page with no status: err = %v, want ErrConfidenceEstimateInvalid", err)
 	}
 }
 
@@ -98,7 +158,7 @@ func TestConfidenceEstimateRefusals(t *testing.T) {
 			t.Errorf("%s: err = %v, want ErrConfidenceEstimateInvalid", name, err)
 		}
 	}
-	if _, total, err := st.ConfidenceEstimatesPage(context.Background(), ok.Tags[0], 10, 0); err != nil || total != 0 {
-		t.Errorf("after refusals: total %d err %v, want 0", total, err)
+	if rows := pageOf(t, st, "to-review", projectKey); len(rows) != 0 {
+		t.Errorf("after refusals: %+v, want no row", rows)
 	}
 }

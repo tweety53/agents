@@ -1036,22 +1036,33 @@ export interface ConfidenceRow {
   tags: string[];
   disposition?: "raised" | "later";
   recordedAt: string;
+  reviewStatus: ConfidenceStatus;
+  /** The operator's reason for the decision, when one was given. */
+  reason?: string;
 }
 
-/** One page of the Confidence dashboard's list, with the list's total and every tag's row count. */
+export type ConfidenceStatus = "to-review" | "approved" | "declined";
+
+/** One page of the Confidence dashboard's list, with the list's total and every review status's row count. */
 export interface ConfidencePage {
   total: number;
+  toReview: number;
+  approved: number;
+  declined: number;
   limit: number;
   offset: number;
-  tags: { tag: string; count: number }[];
   rows: ConfidenceRow[];
 }
 
-/** GET /api/v1/stats/confidence-estimates -- one page only; `tag` empty reads every row. */
-export function fetchConfidencePage(p: { tag: string; limit: number; offset: number }, init?: RequestInit): Promise<ConfidencePage> {
-  const q = new URLSearchParams({ limit: String(p.limit), offset: String(p.offset) });
-  if (p.tag) q.set("tag", p.tag);
+/** GET /api/v1/stats/confidence-estimates -- one page only, of the estimates carrying `status`. */
+export function fetchConfidencePage(p: { status: ConfidenceStatus; limit: number; offset: number }, init?: RequestInit): Promise<ConfidencePage> {
+  const q = new URLSearchParams({ status: p.status, limit: String(p.limit), offset: String(p.offset) });
   return getJSON<ConfidencePage>(`/api/v1/stats/confidence-estimates?${q}`, init);
+}
+
+/** PATCH /api/v1/confidence/{project}/estimates/{id}/review -- approve or decline an estimate, or move it back. */
+export function reviewConfidenceEstimate(project: string, id: number, status: ConfidenceStatus, reason = ""): Promise<void> {
+  return sendJSON("PATCH", `/api/v1/confidence/${encodeURIComponent(project)}/estimates/${id}/review`, { status, reason });
 }
 
 /** PATCH /api/v1/self-review/{project}/findings/{id}/review -- approve or decline a suggested finding. */

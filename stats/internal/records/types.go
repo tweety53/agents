@@ -879,7 +879,9 @@ type SimilarSelfReviewFinding struct {
 // Disposition (raised or later) and no Task; an implement row carries Task --
 // the dispatch's task ids -- and no Disposition. Gaps is the gap list
 // verbatim; Tags are free-form kebab-case labels. Project is set on reads
-// that span projects.
+// that span projects. ReviewStatus is the operator's review on the dashboard:
+// to-review from the insert on, then approved or declined, with an optional
+// Reason; neither is ever set by the caller that records the estimate.
 type ConfidenceEstimate struct {
 	ID          int64     `json:"id"`
 	Project     string    `json:"project,omitempty"`
@@ -891,6 +893,9 @@ type ConfidenceEstimate struct {
 	Tags        []string  `json:"tags"`
 	Disposition string    `json:"disposition,omitempty"`
 	RecordedAt  time.Time `json:"recordedAt"`
+	// ReviewStatus and Reason are the dashboard's review of the estimate.
+	ReviewStatus string `json:"reviewStatus,omitempty"`
+	Reason       string `json:"reason,omitempty"`
 }
 
 // ConfidenceTag is one tag in use on the recorded confidence estimates and

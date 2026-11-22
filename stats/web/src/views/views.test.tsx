@@ -29,8 +29,9 @@ import { StateBoard } from "./StateBoard";
 import { Trend } from "./Trend";
 import { WeeklyCosts } from "./WeeklyCosts";
 
-const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, postRolesEditMock, reviewMock, pageMock, confidenceMock } = vi.hoisted(() => ({
+const { fetchStatsViewMock, fetchProjectsMock, fetchRolesMock, postRolesEditMock, reviewMock, pageMock, confidenceMock, confidenceReviewMock } = vi.hoisted(() => ({
   confidenceMock: vi.fn(),
+  confidenceReviewMock: vi.fn(),
   reviewMock: vi.fn(() => Promise.resolve()),
   pageMock: vi.fn(),
   postRolesEditMock: vi.fn(),
@@ -50,6 +51,7 @@ vi.mock("../api", async (importOriginal) => {
     reviewSelfReviewFinding: reviewMock,
     fetchSelfReviewPage: pageMock,
     fetchConfidencePage: confidenceMock,
+    reviewConfidenceEstimate: confidenceReviewMock,
   };
 });
 
@@ -1063,38 +1065,62 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
   });
 
-  it("confidence: lists the estimates in the self-review layout, grouped by tag chips, 25 a page", async () => {
+  it("confidence: lists the estimates to review, 25 a page, and approves, declines and moves one back", async () => {
     const rows: ConfidenceRow[] = [
-      { id: 2, project: "agents", change: "kan-9", stage: "implement", task: "2+3", score: 85, gaps: ["the fixture is missing", "task 3 states no order"], tags: ["missing-fixture"], recordedAt: "2026-11-20T10:00:00Z" },
-      { id: 1, project: "agents", change: "kan-9", stage: "plan", score: 70, gaps: ["closes with: operator — column order"], tags: ["open-decision"], disposition: "later", recordedAt: "2026-11-19T10:00:00Z" },
-      ...Array.from({ length: 28 }, (_, i) => ({ id: 10 + i, project: "agents", change: `kan-${100 + i}`, stage: "implement" as const, task: "1", score: 90, gaps: ["g"], tags: ["missing-fixture"], recordedAt: "2026-11-01T10:00:00Z" })),
+      { id: 2, project: "agents", change: "kan-9", stage: "implement", task: "2+3", score: 85, gaps: ["the fixture is missing", "task 3 states no order"], tags: ["missing-fixture"], recordedAt: "2026-11-20T10:00:00Z", reviewStatus: "to-review" },
+      { id: 1, project: "agents", change: "kan-9", stage: "plan", score: 70, gaps: ["closes with: operator — column order"], tags: ["open-decision"], disposition: "later", recordedAt: "2026-11-19T10:00:00Z", reviewStatus: "to-review" },
+      ...Array.from({ length: 28 }, (_, i) => ({ id: 10 + i, project: "agents", change: `kan-${100 + i}`, stage: "implement" as const, task: "1", score: 90, gaps: ["g"], tags: ["missing-fixture"], recordedAt: "2026-11-01T10:00:00Z", reviewStatus: "to-review" as const })),
     ];
-    confidenceMock.mockImplementation(async (q: { tag: string; limit: number; offset: number }) => {
-      const list = rows.filter((r) => !q.tag || r.tags.includes(q.tag));
-      return { total: list.length, limit: q.limit, offset: q.offset, tags: [{ tag: "missing-fixture", count: 29 }, { tag: "open-decision", count: 1 }], rows: list.slice(q.offset, q.offset + q.limit) };
+    confidenceMock.mockImplementation(async (q: { status: string; limit: number; offset: number }) => {
+      const count = (s: string) => rows.filter((r) => r.reviewStatus === s).length;
+      const list = rows.filter((r) => r.reviewStatus === q.status);
+      return { total: list.length, toReview: count("to-review"), approved: count("approved"), declined: count("declined"), limit: q.limit, offset: q.offset, rows: list.slice(q.offset, q.offset + q.limit) };
+    });
+    confidenceReviewMock.mockImplementation(async (_project: string, id: number, status: ConfidenceRow["reviewStatus"], reason: string) => {
+      const row = rows.find((r) => r.id === id)!;
+      row.reviewStatus = status;
+      row.reason = reason || undefined;
     });
     const user = userEvent.setup();
     render(<Confidence />);
 
-    // The newest estimate is open: its gaps in full, its task and stage.
+    // To review is the list on screen; the newest estimate is open: its gaps in full, its tag.
     expect(await screen.findByRole("heading", { name: "85% · kan-9" })).toBeInTheDocument();
     expect(screen.getByText("the fixture is missing")).toBeInTheDocument();
     expect(screen.getByText("task 3 states no order")).toBeInTheDocument();
-    expect(confidenceMock).toHaveBeenCalledWith({ tag: "", limit: 25, offset: 0 });
+    expect(confidenceMock).toHaveBeenCalledWith({ status: "to-review", limit: 25, offset: 0 });
     expect(screen.getByText("1–25 of 30")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "All 30" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "To review 30" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByText("missing-fixture").length).toBeGreaterThan(0);
+    // Tags are data on a row, never a filter.
+    expect(screen.queryByRole("button", { name: /^missing-fixture/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^All/ })).not.toBeInTheDocument();
 
-    // A tag chip reads that tag's rows alone.
-    await user.click(screen.getByRole("button", { name: "open-decision 1" }));
+    // Declining with a reason stores both and takes the row off the list.
+    await user.type(screen.getByLabelText("Reason"), " not a real gap ");
+    await user.click(screen.getByRole("button", { name: "Decline" }));
+    expect(confidenceReviewMock).toHaveBeenCalledWith("agents", 2, "declined", "not a real gap");
     expect(await screen.findByRole("heading", { name: "70% · kan-9" })).toBeInTheDocument();
-    expect(confidenceMock).toHaveBeenLastCalledWith({ tag: "open-decision", limit: 25, offset: 0 });
-    expect(screen.getByText("closes with: operator — column order")).toBeInTheDocument();
-    expect(screen.getAllByText("later").length).toBeGreaterThan(0);
-    expect(screen.queryByText(/of 30/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "To review 29" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Declined 1" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+    expect(confidenceReviewMock).toHaveBeenLastCalledWith("agents", 1, "approved", "");
+    expect(await screen.findByRole("button", { name: "Approved 1" })).toBeInTheDocument();
+
+    // The Declined chip reads that list: the reason, and the way back.
+    await user.click(screen.getByRole("button", { name: "Declined 1" }));
+    expect(await screen.findByText("Reason: not a real gap")).toBeInTheDocument();
+    expect(confidenceMock).toHaveBeenLastCalledWith({ status: "declined", limit: 25, offset: 0 });
+    expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Move back to review" }));
+    expect(confidenceReviewMock).toHaveBeenLastCalledWith("agents", 2, "to-review", "");
+    expect(await screen.findByText("Nothing here.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "To review 29" })).toBeInTheDocument();
   });
 
   it("confidence: no rows says so", async () => {
-    confidenceMock.mockResolvedValue({ total: 0, limit: 25, offset: 0, tags: [], rows: [] });
+    confidenceMock.mockResolvedValue({ total: 0, toReview: 0, approved: 0, declined: 0, limit: 25, offset: 0, rows: [] });
     render(<Confidence />);
     expect(await screen.findByText("Nothing here.")).toBeInTheDocument();
   });

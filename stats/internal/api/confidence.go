@@ -17,7 +17,8 @@ import (
 type confidenceStore interface {
 	RecordConfidenceEstimate(ctx context.Context, projectKey string, in records.ConfidenceEstimate) (records.ConfidenceEstimate, error)
 	ConfidenceTags(ctx context.Context) ([]records.ConfidenceTag, error)
-	ConfidenceEstimatesPage(ctx context.Context, tag string, limit, offset int) ([]records.ConfidenceEstimate, int, error)
+	ConfidenceEstimatesPage(ctx context.Context, status string, limit, offset int) (store.ConfidencePage, error)
+	ReviewConfidenceEstimate(ctx context.Context, projectKey string, id int64, status, reason string) error
 }
 
 var _ confidenceStore = (*store.Store)(nil)
@@ -58,17 +59,47 @@ func (h *confidenceHandler) tags(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-type confidencePageDTO struct {
-	Total  int                          `json:"total"`
-	Limit  int                          `json:"limit"`
-	Offset int                          `json:"offset"`
-	Tags   []records.ConfidenceTag      `json:"tags"`
-	Rows   []records.ConfidenceEstimate `json:"rows"`
+// review serves PATCH /api/v1/confidence/{project}/estimates/{id}/review:
+// the operator's approve or decline of an estimate, or its move back to
+// to-review, with an optional reason. 204 on success, 404 for an id the
+// project has no estimate for, 400 for a status outside the three.
+func (h *confidenceHandler) review(w http.ResponseWriter, r *http.Request) {
+	project := r.PathValue("project")
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "estimate id must be a number")
+		return
+	}
+	var in struct {
+		Status string `json:"status"`
+		Reason string `json:"reason"`
+	}
+	if err := decodeJSONBody(w, r, &in); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := h.store.ReviewConfidenceEstimate(r.Context(), project, id, in.Status, in.Reason); err != nil {
+		status, msg := mapStoreError(h.logger, fmt.Sprintf("review confidence estimate %d", id), err)
+		writeError(w, status, msg)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
-// page serves GET /api/v1/stats/confidence-estimates[?tag][&limit][&offset]:
-// one page of the dashboard's list, newest first, with the list's total and
-// every tag's count for the tag chips.
+type confidencePageDTO struct {
+	Total    int                          `json:"total"`
+	ToReview int                          `json:"toReview"`
+	Approved int                          `json:"approved"`
+	Declined int                          `json:"declined"`
+	Limit    int                          `json:"limit"`
+	Offset   int                          `json:"offset"`
+	Rows     []records.ConfidenceEstimate `json:"rows"`
+}
+
+// page serves GET /api/v1/stats/confidence-estimates?status[&limit][&offset]:
+// one page of the dashboard's list -- the estimates carrying the review
+// status, newest first -- with the list's total and every status's count for
+// the status chips. A status outside the three is 400.
 func (h *confidenceHandler) page(w http.ResponseWriter, r *http.Request) {
 	values := r.URL.Query()
 	limit, offset := 25, 0
@@ -82,14 +113,11 @@ func (h *confidenceHandler) page(w http.ResponseWriter, r *http.Request) {
 			*dst = n
 		}
 	}
-	rows, total, err := h.store.ConfidenceEstimatesPage(r.Context(), values.Get("tag"), limit, offset)
-	if err == nil {
-		var tags []records.ConfidenceTag
-		if tags, err = h.store.ConfidenceTags(r.Context()); err == nil {
-			writeJSON(w, http.StatusOK, confidencePageDTO{Total: total, Limit: limit, Offset: offset, Tags: tags, Rows: rows})
-			return
-		}
+	p, err := h.store.ConfidenceEstimatesPage(r.Context(), values.Get("status"), limit, offset)
+	if err != nil {
+		status, msg := mapStoreError(h.logger, "confidence estimates page", err)
+		writeError(w, status, msg)
+		return
 	}
-	status, msg := mapStoreError(h.logger, "confidence estimates page", err)
-	writeError(w, status, msg)
+	writeJSON(w, http.StatusOK, confidencePageDTO{Total: p.Total, ToReview: p.ToReview, Approved: p.Approved, Declined: p.Declined, Limit: limit, Offset: offset, Rows: p.Rows})
 }

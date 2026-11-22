@@ -61,12 +61,14 @@ reads those fields: the planner reads the line, and the store keeps it verbatim)
 **Status:** active
 **Chosen:** `confidence_estimates` (migration 0097): project, change, `stage` (`plan` or
 `implement`), `task` (an implementer's task ids, implement rows only), `score` 1–99, `gaps` and
-`tags` as text arrays, `disposition` (`raised` or `later`, plan rows only), `recorded_at`. No
+`tags` as text arrays, `disposition` (`raised` or `later`, plan rows only), `recorded_at`, and
+— migration 0098 — `review_status` (`to-review` on insert, then `approved` or `declined`) with an
+optional `review_reason`, both set from the dashboard and never by `flow confidence record`. No
 uniqueness: a re-dispatched implementer's second estimate is a second response. A 100% response
 is not stored — `flow confidence record -score 100` exits 0 and writes nothing, so an implementer
 runs the same command whatever its number.
 **Considered:** rows in `self_review_findings` under a new angle (the operator asked for a
-different table, and that one's review status, effort and theme columns mean nothing here);
+different table, and that one's angle, severity, effort and theme columns mean nothing here);
 storing 100% responses too (the operator asked for those below 100%).
 
 ### Planning asks once: raise it, or later
@@ -75,14 +77,15 @@ storing 100% responses too (the operator asked for those below 100%).
 **Status:** active
 **Chosen:** when `confidence.json`'s score is below 100, the planner triaging the report first
 returns `QUESTIONS` with one question listing every gap beside the suggestion that closes it,
-and two options, **Raise it** and **Later**. On **Raise it** the next planner closes each gap by
+and two options, **Raise it** and **Later** *(recommended)*. On **Raise it** the next planner closes each gap by
 its kind and files the estimate with `-disposition raised`; on **Later** every gap goes to
-`## Risks` as accepted and the estimate is filed with `-disposition later`. The question carries
-no recommended option, so it is asked under `## decisions: recommended` as well, and it is the
-one exception to **Now or later is never asked**. The filed score is the cold reader's and is not
+`## Risks` as accepted and the estimate is filed with `-disposition later`. Under
+`## decisions: recommended` Auto-resolution takes **Later** and the question is not asked; off
+that mode it is asked, the one exception to **Now or later is never asked**. The filed score is the cold reader's and is not
 re-estimated after the gaps are closed, because the plan is never checked a second time.
-**Considered:** a recommended **Raise it** (the recommended mode would auto-take it and the
-dialog the operator asked for would never appear there); asking each `closes with: operator` gap
+**Considered:** a recommended **Raise it** (the recommended mode would auto-take it and every
+plan would stop to close gaps unasked); no recommended option, so that the recommended mode asks
+it too (the first build; the operator had **Later** auto-picked there instead); asking each `closes with: operator` gap
 in the same round (a "later" answer would have made the operator read questions it then
 defers); re-running the plan check to measure the raised score (a second ten-minute read per
 plan, for a number nothing acts on).
@@ -116,11 +119,15 @@ vocabulary is what makes rows comparable).
 **ID:** confidence-view-mirrors-self-review
 **Status:** active
 **Chosen:** `stats/web/src/views/Confidence.tsx` reuses the Self-review view's frame, chip bar,
-paged list (25), selected-row pane and `sr-*` classes as they are: a chip per tag, with its
-count, where Self-review has its Show chips, and the selected estimate's gaps in full in the
-pane. Read only. It is served by `GET /api/v1/stats/confidence-estimates[?tag][&limit][&offset]`.
+paged list (25), selected-row pane and `sr-*` classes as they are: the **To review** (selected
+on open), **Approved** and **Declined** chips with their counts, the selected estimate's gaps in
+full in the pane, **Approve** and **Decline** with an optional reason on a row to review, and the
+reason beside **Move back to review** on a decided one. A row's tags show on it and in the pane.
+It is served by `GET /api/v1/stats/confidence-estimates?status[&limit][&offset]` and
+`PATCH /api/v1/confidence/{project}/estimates/{id}/review`.
 **Considered:** a table with a group header per tag (a new layout, which the operator ruled
-out).
+out); a chip per tag filtering the list (the first build; the operator had the status chips take
+their place).
 
 ## Not covered
 

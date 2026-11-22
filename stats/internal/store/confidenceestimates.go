@@ -62,19 +62,20 @@ func validateConfidenceEstimate(e records.ConfidenceEstimate) error {
 	return nil
 }
 
-// RecordConfidenceEstimate validates and records one confidence estimate.
+// RecordConfidenceEstimate validates and records one confidence estimate. Its
+// review status is always to-review: whatever the caller sent is not read.
 func (s *Store) RecordConfidenceEstimate(ctx context.Context, projectKey string, in records.ConfidenceEstimate) (records.ConfidenceEstimate, error) {
 	if err := validateConfidenceEstimate(in); err != nil {
 		return records.ConfidenceEstimate{}, err
 	}
 	out := in
-	out.Project = projectKey
+	out.Project, out.Reason = projectKey, ""
 	if err := s.pool.QueryRow(ctx, `
 		INSERT INTO confidence_estimates (project_key, change, stage, task, score, gaps, tags, disposition)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, recorded_at
+		RETURNING id, recorded_at, review_status
 	`, projectKey, in.Change, in.Stage, nullIfEmpty(in.Task), in.Score, in.Gaps, in.Tags, nullIfEmpty(in.Disposition),
-	).Scan(&out.ID, &out.RecordedAt); err != nil {
+	).Scan(&out.ID, &out.RecordedAt, &out.ReviewStatus); err != nil {
 		return records.ConfidenceEstimate{}, fmt.Errorf("store: record confidence estimate for %s/%s: %w", projectKey, in.Change, err)
 	}
 	return out, nil
@@ -102,32 +103,82 @@ func (s *Store) ConfidenceTags(ctx context.Context) ([]records.ConfidenceTag, er
 	return out, rows.Err()
 }
 
+// ErrConfidenceEstimateNotFound reports a review of an estimate id the
+// project has no row for; the handler maps it to 404.
+var ErrConfidenceEstimateNotFound = errors.New("store: no such confidence estimate")
+
+func validConfidenceReviewStatus(status string) error {
+	switch status {
+	case "to-review", "approved", "declined":
+		return nil
+	}
+	return fmt.Errorf("%w: review status must be to-review, approved or declined, got %q", ErrConfidenceEstimateInvalid, status)
+}
+
+// ReviewConfidenceEstimate sets an estimate's review status: to-review,
+// approved or declined, with the operator's optional reason (empty clears
+// it). Nothing else about the row changes.
+func (s *Store) ReviewConfidenceEstimate(ctx context.Context, projectKey string, id int64, status, reason string) error {
+	if err := validConfidenceReviewStatus(status); err != nil {
+		return err
+	}
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE confidence_estimates SET review_status = $3, review_reason = NULLIF($4, '')
+		WHERE project_key = $1 AND id = $2
+	`, projectKey, id, status, reason)
+	if err != nil {
+		return fmt.Errorf("store: review confidence estimate %d: %w", id, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("%w: %d", ErrConfidenceEstimateNotFound, id)
+	}
+	return nil
+}
+
+// ConfidencePage is one page of the Confidence dashboard: the rows carrying
+// the chosen review status, how many rows that list holds in all, and the
+// count of every status (for the status chips).
+type ConfidencePage struct {
+	Rows                         []records.ConfidenceEstimate
+	Total                        int
+	ToReview, Approved, Declined int
+}
+
 // ConfidenceEstimatesPage reads one page of the estimates across all
-// projects, newest first, restricted to those carrying tag unless it is
-// empty, and how many rows that list holds in all.
-func (s *Store) ConfidenceEstimatesPage(ctx context.Context, tag string, limit, offset int) ([]records.ConfidenceEstimate, int, error) {
-	var total int
-	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM confidence_estimates WHERE $1 = '' OR $1 = ANY(tags)`, tag).Scan(&total); err != nil {
-		return nil, 0, fmt.Errorf("store: count confidence estimates: %w", err)
+// projects carrying the review status, newest first. Only limit rows are read.
+func (s *Store) ConfidenceEstimatesPage(ctx context.Context, status string, limit, offset int) (ConfidencePage, error) {
+	var out ConfidencePage
+	if err := validConfidenceReviewStatus(status); err != nil {
+		return out, err
+	}
+	if err := s.pool.QueryRow(ctx, `
+		SELECT
+		  count(*) FILTER (WHERE review_status = $1),
+		  count(*) FILTER (WHERE review_status = 'to-review'),
+		  count(*) FILTER (WHERE review_status = 'approved'),
+		  count(*) FILTER (WHERE review_status = 'declined')
+		FROM confidence_estimates
+	`, status).Scan(&out.Total, &out.ToReview, &out.Approved, &out.Declined); err != nil {
+		return out, fmt.Errorf("store: count confidence estimates: %w", err)
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, project_key, change, stage, COALESCE(task, ''), score, gaps, tags, COALESCE(disposition, ''), recorded_at
+		SELECT id, project_key, change, stage, COALESCE(task, ''), score, gaps, tags, COALESCE(disposition, ''), recorded_at, review_status, COALESCE(review_reason, '')
 		FROM confidence_estimates
-		WHERE $1 = '' OR $1 = ANY(tags)
+		WHERE review_status = $1
 		ORDER BY recorded_at DESC, id DESC
 		LIMIT $2 OFFSET $3
-	`, tag, limit, offset)
+	`, status, limit, offset)
 	if err != nil {
-		return nil, 0, fmt.Errorf("store: confidence estimates page: %w", err)
+		return out, fmt.Errorf("store: confidence estimates page: %w", err)
 	}
 	defer rows.Close()
-	out := []records.ConfidenceEstimate{}
+	out.Rows = []records.ConfidenceEstimate{}
 	for rows.Next() {
 		var e records.ConfidenceEstimate
-		if err := rows.Scan(&e.ID, &e.Project, &e.Change, &e.Stage, &e.Task, &e.Score, &e.Gaps, &e.Tags, &e.Disposition, &e.RecordedAt); err != nil {
-			return nil, 0, fmt.Errorf("store: confidence estimates page: scan: %w", err)
+		if err := rows.Scan(&e.ID, &e.Project, &e.Change, &e.Stage, &e.Task, &e.Score, &e.Gaps, &e.Tags, &e.Disposition, &e.RecordedAt, &e.ReviewStatus, &e.Reason); err != nil {
+			return out, fmt.Errorf("store: confidence estimates page: scan: %w", err)
 		}
-		out = append(out, e)
+		out.Rows = append(out.Rows, e)
 	}
-	return out, total, rows.Err()
+	return out, rows.Err()
 }

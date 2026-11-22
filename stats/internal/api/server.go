@@ -421,6 +421,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 		ch := &confidenceHandler{store: cst, logger: logger}
 		mux.HandleFunc("POST /api/v1/confidence/{project}/{change}", ch.record)
 		mux.HandleFunc("GET /api/v1/confidence-tags", ch.tags)
+		mux.HandleFunc("PATCH /api/v1/confidence/{project}/estimates/{id}/review", ch.review)
 		mux.Handle("GET /api/v1/stats/confidence-estimates", http.TimeoutHandler(http.HandlerFunc(ch.page), so.statsTimeout, statsTimeoutMessage))
 	}
 	mux.HandleFunc("GET /api/v1/projects", ph.projects)
@@ -692,7 +693,7 @@ func mapStoreError(logger *slog.Logger, action string, err error) (status int, m
 		return http.StatusBadRequest, err.Error()
 	case errors.Is(err, store.ErrSelfReviewFindingInvalid), errors.Is(err, store.ErrConfidenceEstimateInvalid):
 		return http.StatusBadRequest, err.Error()
-	case errors.Is(err, store.ErrDispatchNotFound), errors.Is(err, store.ErrSelfReviewFindingNotSuggested), errors.Is(err, store.ErrSelfReviewFindingNotFound):
+	case errors.Is(err, store.ErrDispatchNotFound), errors.Is(err, store.ErrSelfReviewFindingNotSuggested), errors.Is(err, store.ErrSelfReviewFindingNotFound), errors.Is(err, store.ErrConfidenceEstimateNotFound):
 		return http.StatusNotFound, err.Error()
 	case errors.Is(err, store.ErrAgentIDInvalid), errors.Is(err, store.ErrInvalidRetime):
 		return http.StatusBadRequest, err.Error()
