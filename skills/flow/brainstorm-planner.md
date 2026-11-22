@@ -20,7 +20,7 @@ Investigate read-only, then present the design.
 
 - **Every ambiguity is either asked or auto-taken — asked only in `/flow`'s planning up to its
   plan gate and in a `/flow-plan` session, and nowhere else.** An ambiguity is any requirement,
-  scenario, name, format, state, edge case, ordering, error behaviour or scope boundary of the
+  scenario, name, format, state, edge case, ordering — the key or sort that pairs two collections by position included — error behaviour or scope boundary of the
   change that the request, the ticket, a mockup and the code leave open — any point two competent
   implementers could read differently. It is asked, as `### Q<n>. <question>` under the round
   file's `## Questions`, when the operator would care about the pick: the options are different

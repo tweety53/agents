@@ -148,6 +148,16 @@ exactly one place; everything else derives from it.
 value hardcoded in both code and config, or a computed total persisted alongside the rows
 it is computed from with nothing keeping them consistent.
 
+### Pair by key, not by position
+
+Entries of one collection are matched to those of another by a stored key, never by their
+position in two lists — unless the order is stated in the design and guaranteed by what writes
+and reads it.
+
+**Violation looks like:** a restore that walks the rows and the saved entries side by side taking
+the next of each, a merge that zips two lists, or a result that changes when a row is removed or
+re-sorted between the write and the read.
+
 ### Idempotency
 
 Performing the same operation twice produces the same result as performing it once — the

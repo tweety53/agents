@@ -63,7 +63,10 @@ Four questions, asked of `proposal.md`. Cost and timeline are not asked.
 Asked of each task in `tasks.md`: from this text alone, do I know exactly what to write, where
 and how? Any choice left to the implementer is a `finding` naming the choice — the ambiguity
 rule of **The checklist** (`skills/flow/brainstorm-planner.md`), tested from a fresh reader's
-seat.
+seat. A task that pairs, merges, restores or diffs two collections, or whose result depends on
+an iteration order, names the key or the sort that decides the pairing; a positional match with
+none stated is a `finding` closed by a line in `design.md` (KAN-1156: a restore matched stored
+entries to rows by position and the plan never said which sort).
 
 ## Codebase details
 
