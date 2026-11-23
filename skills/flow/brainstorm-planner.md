@@ -201,15 +201,21 @@ designer:
    render tool — gymie-design's is a local node server and Playwright), from its worktree, on a
    port of its own and never touching a server the operator runs. Its server is left running for
    the operator's review (**The designer review**, below), and the report **must** give the stack's
-   base URL and a **Pages to check** list: one full URL per page the operator must open, each
-   drawn frame's page URL with its frame id as the anchor, one line each with the frame's title; a
+   base URL and a **Pages to check** list: the review page's full URL first, then one full URL per
+   drawn frame on its current page with its frame id as the anchor, one line each with the frame's
+   title; a
    report without them is incomplete and the planner sends the designer back for them. A
    repository with no stack gives no URLs;
 4. draws each listed item as frames in that repository's own frame format, its copy in the voice
    those instructions set, and where they give no answer the simplest plausible copy, listed in
    its report — it never asks. Every frame it draws carries the description that repository's frames
    carry, in the same form (gymie-design's: id, title, a behaviour caption, a LINKED line) — never
-   fewer than the frames beside it have. Where the stack renders, it renders every drawn frame,
+   fewer than the frames beside it have. **Every drawn frame is part of the repository's current
+   pages** — placed on the existing page and section its instructions say such a frame belongs to,
+   never an orphan file — **and every new thing is also collected on one separate review page** for
+   the change, in the repository's own page format, named after the change: each new frame with its
+   description and a link to where it lives in the current pages, so the operator opens one page and
+   searches for nothing. Where the stack renders, it renders every drawn frame,
    reads each image and fixes what the instructions' own checks would flag before it reports;
 5. commits on the branch, tags that commit `<change name>-designer-<k>` (`<k>` the dispatch's) and
    pushes the branch and the tag — `flow-guard render-frames` resolves a frame at a tag only
