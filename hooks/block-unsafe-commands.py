@@ -807,6 +807,8 @@ def discards_unstaged(verb, args, target):
     dirty = git(target, "diff", "--name-only", *(["HEAD"] if tree_ish else []), "--", *paths)
     if not dirty:
         return None
+    if all(d.lower().endswith(".png") for d in dirty.splitlines()):
+        return None  # drifted visual-capture baselines: regenerable bytes, restored to base
     files = ", ".join(dirty.splitlines())
     return (
         f"Blocked: this `git {verb}` would discard the uncommitted edits on {files} — it reverts the "

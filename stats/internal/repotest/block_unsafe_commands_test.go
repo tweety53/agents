@@ -382,6 +382,12 @@ func TestBlockUnsafeCommands(t *testing.T) {
 	f.write(stub+"/flow", "#!/bin/sh\n[ \"$4\" = \""+root+"/other-worktrees/sib\" ] && echo '{\"worktrees\":{\""+root+"/main-worktrees/sib\":null}}'\n")
 	f.bash("162 restore in a sibling worktree the change state lists under another project", "allow", "{ROOT}", `git -C {SIB} restore f.txt`, "PATH="+stub+":"+os.Getenv("PATH"))
 	f.git("-C", wt, "checkout", "HEAD", "--", "f.txt")
+	// a drifted PNG capture baseline restores to base even outside the change's state
+	f.write(wt+"/b.png", "base\n")
+	f.git("-C", wt, "add", "b.png")
+	f.git("-C", wt, "commit", "-q", "-m", "baseline")
+	f.write(wt+"/b.png", "drifted\n")
+	f.bash("162 restore of a drifted PNG baseline", "allow", "{ROOT}", `git -C {WT} restore b.png`)
 	f.bash("155 checkout -- of a clean path", "allow", "{ROOT}", `git -C {WT} checkout -- f.txt`)
 
 	// 3 last: moving the main checkout off main lifts the protection
