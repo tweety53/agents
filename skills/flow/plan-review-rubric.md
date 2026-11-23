@@ -86,6 +86,10 @@ Every scenario `design.md` states has a `**Tests:**` entry that names it, or the
 checked by hand or on screen; a scenario no entry names is a `finding`, since the implementer can
 only carry it as an open gap (KAN-1156: a lift sheet and a fold toast had no named test).
 
+A UI task has a `**Tests:**` entry that captures what it builds against its frame, and builds
+nothing `design.md`'s `## Undrawn` still lists; a UI element, state, icon or copy string the tasks
+need that no frame draws and `## Undrawn` omits is a `finding`.
+
 ## Inventive catalyst
 
 Name at most three trade-offs the design accepted and, for each, a pattern that would remove the

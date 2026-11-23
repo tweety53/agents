@@ -107,6 +107,18 @@ Investigate read-only, then present the design.
   constant unstated and each constant two frames draw differently. A rendered frame's sidecar sits
   in its tag's directory, which is never committed: the check is this gate's, re-stated if the
   frames are rendered afresh.
+- **Every visible element a task builds is drawn before the design is approved, and an undrawn one
+  is always asked.** For a change that carries UI, list in `design.md` under `## Undrawn`, from the
+  tasks as written, each element, state, icon, copy string, alignment and chrome variant (title
+  placement, close control) that no cited frame draws, and each icon the project's icon set lacks.
+  Every item is put to the operator through **AskUserQuestion** during planning, never inferred
+  from a design template, a sibling screen or the nearest component, and carries no recommended
+  option, so **Auto-resolution** never takes it: the operator draws it (a frame or the prototype
+  below) or rules that it is not built. The design is not approvable while `## Undrawn` holds an
+  item neither drawn nor ruled out (KAN-1156: copy for undrawn cases was invented from templates, a
+  title's alignment and close button departed from the frame, two icons had to be drawn by the
+  implementer). Planning is the only phase that stops for this; an implementer meeting an element
+  the plan missed reports it in its REPORT FILE and builds the nearest drawn pattern.
 - **A visible change is prototyped before its design is approved** (`plan-visual-prototype`). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
   no mockup frame already specifies it, build a clickable prototype of the proposed result with
   sample data as a single HTML file under `<project>-worktrees/<name>/.superpowers/sdd/`, and
@@ -277,7 +289,9 @@ steps are `  - [ ] **Step N: …**` lines indented two columns beneath it.
 - A changed rule whose reasoning lives in a `*-rationale.md` appendix lists that appendix in its
   task's `**Files:**`.
 - A view a mockup specifies gets a full-page capture for every frame `design.md` cites, its
-  fixture seeding every element and state the frame shows.
+  fixture seeding every element and state the frame shows. A task that builds a drawn element on a
+  native screen has a `**Tests:**` entry that compiles it and captures it against its frame; a
+  capture no task creates leaves every implementer holding the same "unverified until run" gap.
 
 Before returning, run `spectre validate "<name>"` and repair any exit-1 finding; its exit 2 is
 reported and stops the plan.
