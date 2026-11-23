@@ -197,10 +197,17 @@ designer:
    as it stands when present;
 2. reads that repository's own instructions first — its `CLAUDE.md`, `AGENTS.md`, README, style
    guide and tokens — and follows them exactly, inventing no style they do not state;
-3. draws each listed item as frames in that repository's own frame format, its copy in the voice
+3. runs that repository's own stack where its instructions name one (a local server, a build, a
+   render tool — gymie-design's is a local node server and Playwright), from its worktree, on a
+   port of its own and never touching a server the operator runs, and stops what it started when it
+   is done;
+4. draws each listed item as frames in that repository's own frame format, its copy in the voice
    those instructions set, and where they give no answer the simplest plausible copy, listed in
-   its report — it never asks;
-4. commits on the branch, tags that commit `<change name>-designer-<k>` (`<k>` the dispatch's) and
+   its report — it never asks. Every frame it draws carries the description that repository's frames
+   carry, in the same form (gymie-design's: id, title, a behaviour caption, a LINKED line) — never
+   fewer than the frames beside it have. Where the stack renders, it renders every drawn frame,
+   reads each image and fixes what the instructions' own checks would flag before it reports;
+5. commits on the branch, tags that commit `<change name>-designer-<k>` (`<k>` the dispatch's) and
    pushes the branch and the tag — `flow-guard render-frames` resolves a frame at a tag only
    (`skills/flow-contracts/project-configuration-visual.md`, **Frames at a design-repo tag**) — and
    reports each frame id and path drawn, the copy it wrote without a rule, the tag and the commit
