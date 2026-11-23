@@ -15,9 +15,6 @@
 //
 // Every rank, tile, share and footer total is derived here from the rows
 // (candidates-derived-in-spa): ties break by guard name (ties-by-guard-name);
-// the speed-up candidates are the fewest guards that together take 80% of
-// all run time, over every row of the response (speed-up-candidate-rule),
-// shown as a pill, a share column and a tile (speed-up-shown-pill-share-tile).
 // Each tile is a toggle filtering the table to its set
 // (tiles-toggle-table-filter). The panel note is the prototype's text
 // (panel-note-as-prototype); formats follow flow-health-display-formats;
@@ -152,22 +149,6 @@ const ORDER: Record<Rank, (a: GuardHealthRow, b: GuardHealthRow) => number> = {
 };
 const ranked = (rows: GuardHealthRow[], rank: Rank) => [...rows].sort((a, b) => ORDER[rank](a, b) || byName(a, b));
 
-/** The fewest guards, by summed run time, that together take 80% of all guard run time:
- * each is added while the running sum is below 80% of the total, so the one crossing the line
- * is a candidate, and a zero total marks none. */
-export function speedUpCandidates(rows: GuardHealthRow[]): Set<string> {
-  const all = total(rows);
-  const out = new Set<string>();
-  let acc = 0;
-  for (const r of ranked(rows, "time")) {
-    if (acc >= 0.8 * all) break;
-    out.add(r.guard);
-    acc += r.totalMs;
-  }
-  return out;
-}
-
-
 /** Each guard that ran inside another guard of the same panel sits right under its caller, ranked order kept otherwise. */
 export function nested(rows: GuardHealthRow[]): GuardHealthRow[] {
   const here = new Set(rows.map((r) => r.guard));
@@ -180,7 +161,7 @@ export function nested(rows: GuardHealthRow[]): GuardHealthRow[] {
 
 const Slot = ({ name }: { name: string }) => <span className="rv-slot">{name}</span>;
 
-function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number; cand: Set<string>; rank: Rank }) {
+function Table({ rows, all, rank }: { rows: GuardHealthRow[]; all: number; rank: Rank }) {
   // A panel of helpers only has no fire columns: a helper refuses nothing.
   const fires = rows.some((r) => !r.helper);
   const sort = (k: Rank) => (k === rank ? "descending" : undefined);
@@ -229,7 +210,6 @@ function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number;
             <td style={r.parent && rows.some((p) => p.guard === r.parent) ? { paddingLeft: 24 } : undefined}>
               {r.parent && rows.some((p) => p.guard === r.parent) && <span className="lb-muted" title={`runs inside ${r.parent}`}>↳ </span>}
               <Slot name={r.guard} />
-              {cand.has(r.guard) && <span className="lb-pill fh-speed">speed-up</span>}
               {GUARD_INFO[r.guard]?.approved && <span className="lb-pill fh-approved">approved</span>}
               {GUARD_INFO[r.guard] && (
                 <span className="fh-info" role="img" tabIndex={0} title={GUARD_INFO[r.guard].does} aria-label={GUARD_INFO[r.guard].does}>
@@ -340,7 +320,7 @@ export function FlowHealth() {
       </div>
       {ready && rows.length > 0 && (
         <p className="lb-sub">
-          {TITLE[rank]}. fired = the guard refused; speed-up = the fewest scripts of a panel that together take 80% of its run time; helper commands refuse nothing, so show no fire columns.
+          {TITLE[rank]}. fired = the guard refused; helper commands refuse nothing, so show no fire columns.
         </p>
       )}
       {!ready ? (
@@ -354,7 +334,6 @@ export function FlowHealth() {
         </div>
       ) : (
         panels.map((p) => {
-          const cand = speedUpCandidates(p.rows);
           return (
             <div className="lb-panel" key={p.title} aria-label={p.title}>
               <div className="lb-panel-h">
@@ -362,7 +341,7 @@ export function FlowHealth() {
                 <span className="lb-panel-note">{GROUP_NOTE[p.title]}</span>
               </div>
               <div className="lb-scroll">
-                <Table rows={p.rows} all={total(p.rows)} cand={cand} rank={rank} />
+                <Table rows={p.rows} all={total(p.rows)} rank={rank} />
               </div>
             </div>
           );

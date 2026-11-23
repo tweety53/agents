@@ -19,7 +19,7 @@ import type {
 } from "../api";
 import { App } from "../App";
 import { AgentRoles } from "./AgentRoles";
-import { FlowHealth, nested, panelOf, speedUpCandidates } from "./FlowHealth";
+import { FlowHealth, nested, panelOf } from "./FlowHealth";
 import { ReviewDynamics } from "./ReviewDynamics";
 import { Reviewers } from "./Reviewers";
 import { SelfReview } from "./SelfReview";
@@ -1843,8 +1843,6 @@ describe("flow health", () => {
   const answerGuards = (rows: (ReturnType<typeof gh> & { helper?: boolean })[], projects: { projectKey: string; runs: number }[] = []) =>
     fetchStatsViewMock.mockResolvedValueOnce({ ...envelope("guard-health", rows), projects });
   const names = () => [...document.querySelectorAll("tbody tr")].map((tr) => tr.querySelector(".rv-slot")!.textContent);
-  const pills = () =>
-    [...document.querySelectorAll("tbody tr")].filter((tr) => tr.querySelector(".lb-pill.fh-speed")).map((tr) => tr.querySelector(".rv-slot")!.textContent);
   const rankLine = () => document.querySelectorAll("p.lb-sub")[1].textContent;
   const foot = () => [...document.querySelectorAll("tfoot td")].map((td) => td.textContent);
   const cells = (guard: string) => {
@@ -1852,19 +1850,6 @@ describe("flow health", () => {
     return [...tr.querySelectorAll("td")];
   };
   const group = (name: string) => within(screen.getByRole("group", { name }));
-
-  it("speed-up candidates are the fewest guards reaching 80% of run time", () => {
-    const six = [
-      gh("zeta", 1, 0, 0, 300, 15000, null),
-      gh("a", 1, 0, 0, 100, 40000, null),
-      gh("f", 1, 0, 0, 600, 2000, null),
-      gh("alpha", 1, 0, 0, 300, 15000, null),
-      gh("b", 1, 0, 0, 200, 25000, null),
-      gh("e", 1, 0, 0, 500, 3000, null),
-    ];
-    expect(speedUpCandidates(six)).toEqual(new Set(["a", "b", "alpha"]));
-    expect(speedUpCandidates(six.map((g) => ({ ...g, totalMs: 0 })))).toEqual(new Set());
-  });
 
   it("flow guards: a known guard shows its what-it-does hint, and approved ones their badge", async () => {
     answerGuards([
@@ -1921,7 +1906,6 @@ describe("flow health", () => {
       expect([...document.querySelectorAll("tbody tr")].map((tr) => tr.querySelector("td")!.textContent)).toEqual(["1", "2", "3", "4", "5"]);
       expect(rankLine()).toContain(heading);
       expect(sorted()).toEqual([[header, "descending"]]);
-      expect(pills()).toEqual(["echo"]);
       const muted = [...document.querySelectorAll("tbody tr.lb-muted")].map((tr) => tr.querySelector(".rv-slot")!.textContent).sort();
       expect(muted).toEqual(["delta", "echo"]);
     };

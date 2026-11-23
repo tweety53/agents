@@ -49,7 +49,6 @@ async function openAndAssert(page: Page) {
 
   await expect(page.getByText("Which guards catch something, which never fire, and what does each cost in run time?")).toBeVisible();
   for (const t of TILES) await expect(tile(page, t)).toBeVisible();
-  await expect(page.getByText("speed-up", { exact: true }).first()).toBeVisible();
   await expect(page.getByRole("cell", { name: /^project-get/ })).toHaveCount(0);
   await expect(page.getByRole("cell", { name: /^run-verify-list/ })).toHaveCount(0);
 
