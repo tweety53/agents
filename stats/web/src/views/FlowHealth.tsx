@@ -156,6 +156,16 @@ export function speedUpCandidates(rows: GuardHealthRow[]): Set<string> {
 }
 
 
+/** Each guard that ran inside another guard of the same panel sits right under its caller, ranked order kept otherwise. */
+export function nested(rows: GuardHealthRow[]): GuardHealthRow[] {
+  const here = new Set(rows.map((r) => r.guard));
+  const kids = (g: string) => rows.filter((r) => r.parent === g);
+  const top = rows.filter((r) => !r.parent || !here.has(r.parent));
+  const walk = (r: GuardHealthRow, seen: Set<string>): GuardHealthRow[] =>
+    seen.has(r.guard) ? [] : [r, ...kids(r.guard).flatMap((k) => walk(k, new Set([...seen, r.guard])))];
+  return top.flatMap((r) => walk(r, new Set()));
+}
+
 const Slot = ({ name }: { name: string }) => <span className="rv-slot">{name}</span>;
 
 function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number; cand: Set<string>; rank: Rank }) {
@@ -201,10 +211,11 @@ function Table({ rows, all, cand, rank }: { rows: GuardHealthRow[]; all: number;
         </tr>
       </thead>
       <tbody>
-        {ranked(rows, rank).map((r, i) => (
+        {nested(ranked(rows, rank)).map((r, i) => (
           <tr key={r.guard} className={r.fired || r.helper ? undefined : "lb-muted"}>
             <td className="lb-num lb-muted">{i + 1}</td>
-            <td>
+            <td style={r.parent && rows.some((p) => p.guard === r.parent) ? { paddingLeft: 24 } : undefined}>
+              {r.parent && rows.some((p) => p.guard === r.parent) && <span className="lb-muted" title={`runs inside ${r.parent}`}>↳ </span>}
               <Slot name={r.guard} />
               {cand.has(r.guard) && <span className="lb-pill fh-speed">speed-up</span>}
               {GUARD_INFO[r.guard]?.approved && <span className="lb-pill fh-approved">approved</span>}

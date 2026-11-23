@@ -310,3 +310,28 @@ func TestChangeGuardRunsMatchesTheWorktreeSegment(t *testing.T) {
 		t.Errorf("unclaimed = %d, want 1 (the main-checkout run of %s)", unclaimed, p)
 	}
 }
+
+// TestGuardHealthParent: a guard whose runs mostly sit inside another guard's run in the same worktree
+// names that guard as its Parent; one that mostly ran alone names none.
+func TestGuardHealthParent(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	proj := fmt.Sprintf("proj-gh-par-%d", time.Now().UnixNano())
+	seedChange(t, st, proj, "kan-1")
+	day := time.Date(2033, 5, 10, 0, 0, 0, 0, time.UTC)
+	outer := guardRun("outer", "clear", 0, 1000, day.Add(time.Hour))
+	inner := guardRun("inner", "clear", 0, 100, day.Add(time.Hour-300*time.Millisecond))
+	alone := guardRun("alone", "clear", 0, 100, day.Add(3*time.Hour))
+	recordGuardRuns(t, st, proj, outer, inner, alone)
+	got, err := st.GuardHealth(context.Background(), store.Period{From: day, To: day.Add(24 * time.Hour)}, &proj)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parent := map[string]string{}
+	for _, r := range got {
+		parent[r.Guard] = r.Parent
+	}
+	if parent["inner"] != "outer" || parent["outer"] != "" || parent["alone"] != "" {
+		t.Errorf("parents = %v, want inner under outer only", parent)
+	}
+}

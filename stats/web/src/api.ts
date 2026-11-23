@@ -403,6 +403,8 @@ export interface GuardHealthRow {
   lastFiredAt: string | null;
   /** A helper command refuses nothing: its fire columns mean nothing. */
   helper?: boolean;
+  /** The guard that mostly ran this one inside its own run, if any. */
+  parent?: string;
 }
 
 /** Mirrors projectGuardRunsDTO: one project's guard-run count in the window. */

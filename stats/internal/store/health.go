@@ -109,6 +109,9 @@ type GuardHealthRow struct {
 	LastFiredAt  *time.Time
 	// Helper marks a records.GuardHelpers command: it refuses nothing, so its fire columns mean nothing.
 	Helper bool
+	// Parent names the guard that most often ran this one inside its own run (same worktree, the
+	// run's interval inside the caller's), "" when it mostly ran alone. Derived, never stored.
+	Parent string
 }
 
 // GuardHealth reports one row per guard that ran in period, optionally
@@ -147,6 +150,44 @@ func (s *Store) GuardHealth(ctx context.Context, period Period, project *string)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("store: guard health: %w", err)
+	}
+	rows.Close()
+
+	parents, err := s.pool.Query(ctx, `
+		WITH r AS (
+			SELECT id, guard, worktree, duration_ms, recorded_at AS e,
+				recorded_at - duration_ms * interval '1 ms' AS s
+			FROM guard_runs
+			WHERE recorded_at >= $1 AND recorded_at < $2 AND ($3::text IS NULL OR project_key = $3)
+		), c AS (
+			SELECT c.guard AS child, (
+				SELECT p.guard FROM r p
+				WHERE p.worktree = c.worktree AND p.guard <> c.guard AND p.duration_ms > c.duration_ms
+				  AND p.s <= c.s AND p.e >= c.e
+				ORDER BY p.duration_ms LIMIT 1) AS parent
+			FROM r c
+		)
+		SELECT child, mode() WITHIN GROUP (ORDER BY parent)
+		FROM c GROUP BY child
+		HAVING COUNT(parent) * 2 > COUNT(*)
+	`, period.From, period.To, project)
+	if err != nil {
+		return nil, fmt.Errorf("store: guard health: parents: %w", err)
+	}
+	defer parents.Close()
+	byGuard := map[string]string{}
+	for parents.Next() {
+		var child, parent string
+		if err := parents.Scan(&child, &parent); err != nil {
+			return nil, fmt.Errorf("store: guard health: parents: scan: %w", err)
+		}
+		byGuard[child] = parent
+	}
+	if err := parents.Err(); err != nil {
+		return nil, fmt.Errorf("store: guard health: parents: %w", err)
+	}
+	for i := range out {
+		out[i].Parent = byGuard[out[i].Guard]
 	}
 	return out, nil
 }

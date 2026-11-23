@@ -58,6 +58,7 @@ type guardHealthDTO struct {
 	TotalMs      int64   `json:"totalMs"`
 	LastFiredAt  *string `json:"lastFiredAt"`
 	Helper       bool    `json:"helper"`
+	Parent       string  `json:"parent,omitempty"`
 }
 
 // toGuardHealthDTOs maps rows to their DTOs -- a non-nil slice, so a window
@@ -66,7 +67,7 @@ func toGuardHealthDTOs(rows []store.GuardHealthRow) []guardHealthDTO {
 	out := make([]guardHealthDTO, len(rows))
 	for i, r := range rows {
 		out[i] = guardHealthDTO{Guard: r.Guard, Runs: r.Runs, Fired: r.Fired, CannotAnswer: r.CannotAnswer,
-			MedianMs: r.MedianMs, TotalMs: r.TotalMs, Helper: r.Helper}
+			MedianMs: r.MedianMs, TotalMs: r.TotalMs, Helper: r.Helper, Parent: r.Parent}
 		if r.LastFiredAt != nil {
 			at := r.LastFiredAt.UTC().Format(time.RFC3339)
 			out[i].LastFiredAt = &at

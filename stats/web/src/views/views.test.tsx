@@ -19,7 +19,7 @@ import type {
 } from "../api";
 import { App } from "../App";
 import { AgentRoles } from "./AgentRoles";
-import { FlowHealth, speedUpCandidates } from "./FlowHealth";
+import { FlowHealth, nested, speedUpCandidates } from "./FlowHealth";
 import { ReviewDynamics } from "./ReviewDynamics";
 import { Reviewers } from "./Reviewers";
 import { SelfReview } from "./SelfReview";
@@ -2209,5 +2209,13 @@ describe("AgentRoles", () => {
     render(<App />);
     expect(await screen.findByRole("link", { name: "Agent roles" })).toHaveAttribute("aria-current", "page");
     expect(await screen.findByRole("region", { name: "Current roles" })).toBeInTheDocument();
+  });
+});
+
+describe("nested guards", () => {
+  it("sit under their caller, and stay in place when the caller is not in the panel", () => {
+    const g = (guard: string, parent?: string) => ({ guard, parent, runs: 1, fired: 0, cannotAnswer: 0, medianMs: 1, totalMs: 1, lastFiredAt: null });
+    const rows = [g("a"), g("kid", "b"), g("b"), g("orphan", "elsewhere"), g("grandkid", "kid")];
+    expect(nested(rows).map((r) => r.guard)).toEqual(["a", "b", "kid", "grandkid", "orphan"]);
   });
 });
