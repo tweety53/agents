@@ -74,3 +74,18 @@ func TestUITaskMeasuredMatchesAPeerRepositorysFile(t *testing.T) {
 		t.Fatalf("with the peer worktree: exit %d, want 1\n%s", r.rc, r.out+r.err)
 	}
 }
+
+// A sample or fake file under `ui paths` draws no frame: its task is no UI
+// task, while a sibling task with a real ui file still is.
+func TestUITaskMeasuredSkipsSamplesAndFakes(t *testing.T) {
+	t.Parallel()
+	fx := ctFixture(t, false, "0")
+	writeFile(t, fx.wt+"/.flow/project.md", "# project\n\n## visual verification\n\n| Setting | Value |\n|---|---|\n| `ui paths` | `web/**` |\n")
+	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", "# demo\n\n- [ ] 1. samples\n\n**Files:** `web/WorkoutSamples.kt`, `web/FakeApi.kt`\n**Tests:** none\n**After:** none\n**Size:** small\n\n- [ ] 2. screen\n\n**Files:** `web/Screen.kt`\n**Tests:** none\n**After:** none\n**Size:** small\n")
+	if r := runGuard("check-ui-task-measured", []string{fx.wt, "1"}, fx.env); r.rc != 0 {
+		t.Fatalf("samples/fake task: exit %d, want 0\n%s", r.rc, r.out+r.err)
+	}
+	if r := runGuard("check-ui-task-measured", []string{fx.wt, "2"}, fx.env); r.rc != 1 {
+		t.Fatalf("real ui task: exit %d, want 1\n%s", r.rc, r.out+r.err)
+	}
+}

@@ -27,6 +27,8 @@ import (
 // files are relative to their own worktree, and the globs name that
 // repository by its main checkout's basename.
 //
+// A file named `*Samples.kt` or `Fake*` draws no frame and never makes a task a UI task.
+//
 // The record is <changeRoot>/visual-verification/task-<task-id>-measure.json,
 // the manifest `flow-guard visual-verify-pass measure <worktree> <name>
 // task-<task-id> <capture spec>` writes there beside its own. It must
@@ -112,6 +114,9 @@ func utmJudge(env Env, worktrees []string, name, taskID string) (id, msg string)
 	ui := false
 	for _, f := range task.files {
 		f = strings.TrimPrefix(f, "./")
+		if b := filepath.Base(f); strings.HasSuffix(b, "Samples.kt") || strings.HasPrefix(b, "Fake") {
+			continue // a sample or fake draws no frame
+		}
 		names := []string{f}
 		for _, w := range worktrees {
 			if _, err := os.Stat(filepath.Join(w, f)); err != nil {
