@@ -116,10 +116,9 @@ Investigate read-only, then present the design.
   alignment and close button departed from the frame, two icons had to be drawn by the
   implementer). Then dispatch one `designer` (**The designer**, below) for the whole list, and
   replace each `## Undrawn` item with the frame id it returned. The operator never answers an item
-  on its own: the drawn result is shown with the convergence confirm, whose **approve the design
-  and move on** approves it and whose **Another round** answer, where it asks for adjustments, is
-  one more `designer` dispatch on the same worktree (**Convergence**, below). The design is not
-  approvable while `## Undrawn` holds an item. A project with no `design repo` row
+  on its own: the drawn result is reviewed in **The designer review**, below, an interactive step
+  of its own that ends before the convergence confirm (**Convergence**, below) is asked. The
+  design is not approvable while `## Undrawn` holds an item. A project with no `design repo` row
   (`skills/flow-contracts/project-configuration-visual.md`) gets no designer: each item is put to
   the operator through **AskUserQuestion**, with no recommended option, to draw (a frame or the
   prototype below) or rule out. Planning is the only phase that stops for this; an implementer
@@ -206,12 +205,17 @@ designer:
 
 The planner copies that report into its round file's `## Summary` (a final dispatch: its return). The designer is outside **The cap** above.
 
-**The operator sees the drawn result with the confirm** that round asks (**Convergence**, below): the
-session that dispatched the planner prints the design repo branch and commit, and publishes the drawn frames rendered as one page with
-the Artifact tool and prints its URL, or where the harness has no Artifact tool prints the frames'
-absolute paths and says they could not be published — as it does for the prototype (**A visible
-change is prototyped**, above). Where the confirm is not asked (`## decisions: recommended`, the
-self-review planner) the drawn frames stand without an approval round.
+**The designer review** is an interactive pre-step of the approval, run by the session that
+dispatched the planner after every return that drew or changed frames. That session publishes the
+drawn frames with the Artifact tool as it does a prototype (and prints the design-repo branch and
+commit; where the harness has no Artifact tool it prints the frames' absolute paths and says it
+could not publish), then asks through **AskUserQuestion**: **Continue with the planning**
+*(recommended)* or the operator's own words on what to change. Words naming a change are one more
+`designer` dispatch on the same worktree, carrying them verbatim, then the review runs again on its
+return; **Continue with the planning** ends the review and planning goes on. No convergence confirm
+is asked while a review is open, and the confirm never carries the drawn frames.
+
+Where the confirm is not asked (`## decisions: recommended`, the self-review planner) the review is not asked either: the drawn frames stand.
 
 ### Convergence
 
