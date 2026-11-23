@@ -39,7 +39,11 @@ import (
 //                 a listener `lsof -nP -iTCP:<port> -sTCP:LISTEN` reports fails
 //                 only when its probe goes unanswered (an HTTP GET of the app
 //                 URL the port came through, any response within 5 s; else a
-//                 TCP connect to 127.0.0.1 or ::1).
+//                 TCP connect to 127.0.0.1 or ::1). An answering listener whose
+//                 working directory (`lsof -a -p <pid> -d cwd -Fn`) lies in a
+//                 sibling of <worktree> under its `<repo>-worktrees` directory
+//                 fails too: another change's server (KAN-1156). A cwd that
+//                 cannot be read, or lies elsewhere, passes.
 //   2. base-url — for each `## workspace isolation` row whose exported value
 //                 differs from its Default, a non-Markdown text file under an
 //                 app root naming the Default (a `port` row: `:<default>` not
@@ -258,14 +262,25 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		default:
 			return refuse("lsof-failed", "lsof -nP -iTCP:%s -sTCP:LISTEN failed (%v) — cannot tell whether the port is held", p.port, err)
 		}
-		if vpAnswers(p.port, p.url) {
-			continue // the already-running stack steps 5 and 6 probe
-		}
-		var holder []string
+		var holder, pids []string
 		for _, l := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 			if !strings.HasPrefix(l, "COMMAND") {
 				holder = append(holder, strings.TrimSpace(l))
+				if f := strings.Fields(l); len(f) > 1 {
+					pids = append(pids, f[1])
+				}
 			}
+		}
+		if vpAnswers(p.port, p.url) {
+			// An answering server must not run from another worktree of the repository (KAN-1156: a
+			// verifier spent 56m on a wrong server). A holder whose cwd cannot be read passes.
+			for _, pid := range pids {
+				if cwd := vpHolderCwd(lsof, pid); cwd != "" && vpOtherWorktree(cwd, dirs) {
+					fails = append(fails, fmt.Sprintf("FAIL: port %s — answered by pid %s running from %s, another worktree of this repository", p.port, pid, cwd))
+					break
+				}
+			}
+			continue // the already-running stack steps 5 and 6 probe
 		}
 		pr := "GET " + p.url
 		if p.url == "" {
@@ -436,6 +451,36 @@ func vpStart(body []byte) (string, string) {
 
 // vpAnswers is whether a held port answers its probe: an HTTP GET of the
 // app URL the port came through (any response), else a TCP connect.
+// vpHolderCwd is the working directory `lsof` reports for pid, "" when it cannot say.
+func vpHolderCwd(lsof, pid string) string {
+	out, err := exec.Command(lsof, "-a", "-p", pid, "-d", "cwd", "-Fn").Output()
+	if err != nil {
+		return ""
+	}
+	for _, l := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(l, "n/") {
+			return l[1:]
+		}
+	}
+	return ""
+}
+
+// vpOtherWorktree reports whether cwd lies in a sibling of one of the checks' worktrees under its
+// `<repo>-worktrees` directory, and in none of the worktrees themselves.
+func vpOtherWorktree(cwd string, dirs []string) bool {
+	in := func(dir string) bool { return cwd == dir || strings.HasPrefix(cwd, dir+"/") }
+	sibling := false
+	for _, b := range dirs {
+		if in(b) {
+			return false
+		}
+		if d := filepath.Dir(b); strings.HasSuffix(d, "-worktrees") && in(d) {
+			sibling = true
+		}
+	}
+	return sibling
+}
+
 func vpAnswers(port, rawURL string) bool {
 	if rawURL != "" {
 		c := &http.Client{

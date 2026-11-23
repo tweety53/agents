@@ -238,7 +238,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    worktree whose branch records a flowBase while an `## apps` repository holds no
    `<repo>-worktrees/<name>` worktree.
 
-   `prepare` then runs the four checks — ports held only by their own app, the base-URL
+   `prepare` then runs the four checks — ports held only by their own app (an answering server running from another worktree of the repository fails), the base-URL
    configuration resolving to the workspace's values, origin allowed, one Playwright checkout per
    workspace — against each surviving worktree, given
    the pre-flight check's arguments: <worktree> and `<app-root>=<resolved-url> ...`

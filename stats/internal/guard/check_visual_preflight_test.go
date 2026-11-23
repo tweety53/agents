@@ -504,3 +504,35 @@ func TestCheckVisualPreflightBaseURLSkipsTestsAndComments(t *testing.T) {
 		vpWant{code: 1, contains: []string{"FAIL: base-url — web/src/main/resources/application.yml:2:"}}.check(t, code, out, errOut)
 	})
 }
+
+// KAN-1156: a server that answers its port but runs from another worktree of the repository fails the
+// preflight; one running from this worktree, or whose cwd cannot be read, passes.
+func TestCheckVisualPreflightWrongWorktreeServer(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+	defer srv.Close()
+	port := vpPort(t, srv.URL)
+	for _, c := range []struct {
+		name, cwd string
+		code      int
+	}{{"another worktree", "other/web", 1}, {"this worktree", "mine/web", 0}, {"unreadable", "", 0}, {"outside any worktree", "../elsewhere", 0}} {
+		t.Run(c.name, func(t *testing.T) {
+			wts := filepath.Join(t.TempDir(), "proj-worktrees")
+			wt := filepath.Join(wts, "mine")
+			mkdir(t, filepath.Join(wt, "web"))
+			cwd := ""
+			if c.cwd != "" {
+				cwd = filepath.Join(wts, c.cwd)
+			}
+			bin := t.TempDir()
+			script := fmt.Sprintf("#!/bin/sh\ncase \" $* \" in\n*\" -d cwd \"*) [ -n %q ] && printf 'p4242\\nn%%s\\n' %q; exit 0;;\n*\" -iTCP:%d \"*) printf 'COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME\\nholder 4242 me 3u IPv4 0x0 0t0 TCP 127.0.0.1:%d (LISTEN)\\n'; exit 0;;\nesac\nexit 1\n", cwd, cwd, port, port)
+			writeExec(t, filepath.Join(bin, "lsof"), script)
+			code, out, errOut := vpRun(t, wt, []string{"web=" + srv.URL}, "", bin)
+			want := vpWant{code: c.code}
+			if c.code == 1 {
+				want.contains = []string{"another worktree of this repository"}
+			}
+			want.check(t, code, out, errOut)
+		})
+	}
+}
