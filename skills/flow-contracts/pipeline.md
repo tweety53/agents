@@ -181,6 +181,21 @@ later one, is the fresh dispatch above — the loop's planner where it has one, 
 on the `no-progress-fixer` role — a loop's planner on its own role — carrying every earlier round's report
 verbatim and naming the approach that failed. It is never a stop and never an ask.
 
+**A `no-progress-fixer` dispatch carries one defect family.** Where the reports name several
+independent families, each gets its own fixer, dispatched in parallel, and each commits its own
+work — a WIP commit counts — before it reports, so a stalled fixer resumes from committed work
+(KAN-1157: one brief bundling three families ran 451 tool calls and never closed).
+
+**A fixer that never reported has its row ended before it is resumed or replaced.** When the
+parent gives up on or resumes any fixer whose dispatch row is still open, it first ends that row
+with `flow record dispatch end -change <name> -key <key> -outcome aborted`, so no row stays open with no outcome.
+
+**A verify round whose backend is down is no round.** Before each verify or visual-verify round,
+`flow-guard check-verify-env <url>...` dials every backend URL the project's `## run` starts; exit
+1 is an environment failure, cured by starting or restarting that backend before the round runs,
+and never counted as a failed round (KAN-1157: rounds 4 and 5 failed 15+ unrelated specs on
+`ECONNREFUSED`).
+
 **A visual round whose report names more departures than the visual report that opened its round
 is a round without progress too.** The visual stage's `close` prints `ESCALATE:` for it and for
 every failed round from the third on (`flow-guard visual-verify-pass`'s header canonical), and the

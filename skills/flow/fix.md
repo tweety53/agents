@@ -185,6 +185,11 @@ stops at its first failing capture, so the run repeats until no failure inside t
 remains, and a capture with a blob outside it is a defect per **The sweep**
 (`skills/flow-contracts/known-bugs.md`), never copied.
 
+**A fix round from the second on carries the full departure list.** Its prompt carries every
+departure of the report that opened the loop plus every earlier round's report, never the latest
+report alone, and the fixer compares every frame row and departure of that list before it reports
+done (KAN-1157: each round saw only the latest report, fixed a few departures and exposed others).
+
 **Mockup departures are classified before the fix is written.** Where every frame that
 draws the departing component agrees, the departure is a defect this round fixes.
 
