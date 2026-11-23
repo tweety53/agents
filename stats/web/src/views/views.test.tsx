@@ -473,7 +473,7 @@ describe("views render their fixture response's actual values", () => {
   it("state board running now cards", async () => {
     render(<StateBoard />);
     const cards = await screen.findAllByTestId("running-card");
-    // One card per unfinished change or change with an open stage; the one
+    // One card per unfinished change; the one
     // awaiting an answer comes first and is marked as needing the operator.
     expect(cards).toHaveLength(3);
     expect(cards[0]).toHaveTextContent("kan-29-never-observed");

@@ -17,6 +17,8 @@ describe("sessionAlive", () => {
     expect(sessionAlive({ ...base, sessionSeenAt: new Date(NOW - ALIVE_MS - 1000).toISOString() }, NOW)).toBe(false));
   it("is closed once its session ended, however fresh its last write", () =>
     expect(sessionAlive({ ...base, activity: "ended", sessionSeenAt: new Date(NOW - 1000).toISOString() }, NOW)).toBe(false));
+  it("is closed once the change is FINISHED, whatever stage it left open", () =>
+    expect(sessionAlive({ ...base, state: "FINISHED", currentStage: "flow.land" }, NOW)).toBe(false));
   it("is paused with nothing at all", () => expect(sessionAlive(base, NOW)).toBe(false));
 });
 

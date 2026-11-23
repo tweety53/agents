@@ -400,8 +400,9 @@ export function StateBoard() {
       (!query || r.name.toLowerCase().includes(query)),
   );
   const shown = base.filter((r) => filters.states.size === 0 || filters.states.has(r.state));
+  // A FINISHED change is closed: a stage run it left open (a land that never ended) is stale, never active.
   const running = rows
-    .filter((r) => r.currentStage !== undefined || r.state !== "FINISHED")
+    .filter((r) => r.state !== "FINISHED")
     .sort((a, b) => Number(!needsOperator(a)) - Number(!needsOperator(b)));
   const maxCost = Math.max(0, ...rows.map((r) => r.costUsd));
   const projects = [...new Set(inPeriod.map((r) => r.projectKey).concat(filters.project ?? []))];
