@@ -35,7 +35,7 @@ the planning asks the Planning bullet of **What still stops** below names
 are auto-resolved exactly as the phases past planning are. The key absent, or a head that
 resolves to nothing, leaves the scope exactly as the paragraph above states it. The remaining
 **What still stops** bullets are the mode's limits: the manual testing the operator asked for, a
-prompt with no recommended option (an undrawn visible element, asked in planning per **Every visible element a task builds is drawn before the design is approved**, `skills/flow/brainstorm-planner.md`, is one), a cause out of the run's reach and anything outward-facing or
+prompt with no recommended option (an undrawn visible element of a project with no `design repo`, asked in planning per **Every visible element a task builds is drawn before the design is approved**, `skills/flow/brainstorm-planner.md`, is one; with a `design repo` the `designer` draws it and its approval is the planning confirm's), a cause out of the run's reach and anything outward-facing or
 irreversible stop under the mode exactly as off it.
 
 **A blocked verify or visual-verify is never turned into questions.** Each class below has one

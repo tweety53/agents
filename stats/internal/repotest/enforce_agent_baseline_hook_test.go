@@ -623,6 +623,8 @@ func TestPlannerDispatchAllowedUnderFlowPlan(t *testing.T) {
 			map[string]string{"-role": "explorer", "-effort": "low", "-key": "explore-3", "-model": "opus"}},
 		{"Plan", "Plan", "design-1 options", "plan-designer", "c1", "",
 			map[string]string{"-role": "planner", "-effort": "low", "-key": "design-1"}},
+		{"designer", "flow-medium", "designer-1 undrawn", "designer", "c1", "",
+			map[string]string{"-role": "planner", "-effort": "medium", "-key": "designer-1"}},
 		{"loop worktree", "Explore", "explore-3 hooks", "explorer", "pipeline-fix-c1-2/hooks", "", nil},
 		{"a longer change name", "Explore", "explore-3 hooks", "explorer", "c10 hooks", "", nil},
 		{"loop planner in the run's worktree", "Explore", "explore-3 hooks", "explorer", "c1/hooks", "flow.self-review", nil},

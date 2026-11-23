@@ -46,6 +46,7 @@ func TestRoleOf(t *testing.T) {
 		{"verifier", "visual-verify-fix-2-gymie", "visual-verifier"},
 		{"planner", "plan-1", "planner"},
 		{"planner", "design-1", "plan-designer"},
+		{"planner", "designer-1", "designer"},
 		{"explorer", "explore-4", "explorer"},
 		{"planner", "pipeline-fix-3-plan", "pipeline-fix-plan"},
 		{"implementer", "pipeline-fix-3-fix-g2", "pipeline-fix-fix"},

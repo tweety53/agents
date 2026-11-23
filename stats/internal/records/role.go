@@ -31,7 +31,7 @@ var roleClass = map[string]string{
 	"minor-fix":      "panel-fix",
 	"operator-asked": "implementer", "self-review-fix": "implementer", "pipeline-fix-fix": "implementer",
 	"no-progress-fixer": "implementer",
-	"planner-short":     "planner", "plan-designer": "planner", "self-review-plan": "planner", "pipeline-fix-plan": "planner",
+	"planner-short":     "planner", "plan-designer": "planner", "designer": "planner", "self-review-plan": "planner", "pipeline-fix-plan": "planner",
 	"runner": "verifier", "visual-verifier": "verifier",
 }
 
@@ -102,6 +102,8 @@ func LaunchRoleID(role, key string) string {
 		return "planner-short"
 	case role == "planner" && strings.HasPrefix(key, "design-"):
 		return "plan-designer"
+	case role == "planner" && strings.HasPrefix(key, "designer-"):
+		return "designer"
 	case role == "verifier" && strings.HasPrefix(key, "visual-verify"):
 		return "visual-verifier"
 	case role == "verifier" && (strings.HasPrefix(key, "runner-") || key == "verify" || strings.HasPrefix(key, "verify-")):

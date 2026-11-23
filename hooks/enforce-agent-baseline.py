@@ -110,7 +110,7 @@ DENY_REASON = (
 
 # A key the hook begins a row under, by a Key shape the closed list names (**Dispatch sites -- the
 # parent's closed list**, skills/flow/implement.md) -- `panel-4-primary`, `visual-verify-fix-11-gymie`,
-# `full-suite-fix-2`, a fix's implementer `fix-2-implementer` or reviewer `fix-2-review`, a planner's `plan-2` or `plan-short-3`, a /flow-interactive
+# `full-suite-fix-2`, a fix's implementer `fix-2-implementer` or reviewer `fix-2-review`, a planner's `plan-2` or `plan-short-3`, its designer's `designer-1`, a /flow-interactive
 # request's operator-asked `operator-58`.
 ROW_KEY = (
     r"task-\d+(?:\+\d+)*-(?:implementer|reviewer)(?:-[a-z0-9-]+)?"
@@ -122,6 +122,7 @@ ROW_KEY = (
     r"|visual-verify(?:-[a-z0-9][a-z0-9-]*)?"
     r"|pipeline-fix-[a-z0-9][a-z0-9-]*"
     r"|plan-\d+"
+    r"|designer-\d+"
     r"|plan-short-\d+"
     r"|operator-\d+(?:-[a-z0-9][a-z0-9-]*)?"
 )
@@ -173,7 +174,7 @@ ROW_ROLE = {
     "panel-merger": "merger",
     "panel-fix": "panel-fix", "minor-fix": "panel-fix", "no-progress-fixer": "panel-fix",
     "visual-verifier": "verifier", "runner": "verifier",
-    "planner": "planner", "plan-designer": "planner",
+    "planner": "planner", "plan-designer": "planner", "designer": "planner",
     "planner-short": "planner",
     "explorer": "explorer",
 }

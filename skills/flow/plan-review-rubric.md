@@ -88,7 +88,7 @@ only carry it as an open gap (KAN-1156: a lift sheet and a fold toast had no nam
 
 A UI task has a `**Tests:**` entry that captures what it builds against its frame, and builds
 nothing `design.md`'s `## Undrawn` still lists; a UI element, state, icon or copy string the tasks
-need that no frame draws and `## Undrawn` omits is a `finding`.
+need that no cited frame draws and `## Undrawn` omits is a `finding`.
 
 ## Inventive catalyst
 

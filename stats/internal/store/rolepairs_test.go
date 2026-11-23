@@ -12,7 +12,8 @@ import (
 // TestRolePairsSeedMatchesTable pins 0061's seed to the Allowed pairs table
 // of skills/flow-contracts/model-policy.md as it stood when the pairs moved
 // into the store, every list in table order -- as later migrations left it:
-// 0085 dropped the marked escalation pairs for the no-progress-fixer role.
+// 0085 dropped the marked escalation pairs for the no-progress-fixer role,
+// 0102 added the designer role.
 func TestRolePairsSeedMatchesTable(t *testing.T) {
 	t.Parallel()
 	st := newTestStore(t)
@@ -50,6 +51,7 @@ func TestRolePairsSeedMatchesTable(t *testing.T) {
 		"pipeline-fix-review-1": {Base: []string{"opus/flow-medium", "opus/flow-low"}, Optin: []string{}},
 		"pipeline-fix-review-r": {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
 		"no-progress-fixer":     {Base: []string{"opus/flow-high"}, Optin: []string{}},
+		"designer":              {Base: []string{"opus/flow-medium", "opus/flow-low", "opus/flow-high"}, Optin: []string{"fable/flow-xhigh", "fable/flow-high", "fable/flow-medium"}},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("seed = %#v\nwant %#v", got, want)

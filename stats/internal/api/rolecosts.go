@@ -135,6 +135,9 @@ func RoleOf(stored, key string) string {
 		if strings.HasPrefix(key, "design-") {
 			return "plan-designer"
 		}
+		if strings.HasPrefix(key, "designer-") {
+			return "designer"
+		}
 		return "planner"
 	case "reviewer":
 		if strings.HasPrefix(key, "task-") {

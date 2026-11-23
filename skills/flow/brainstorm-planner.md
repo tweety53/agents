@@ -107,18 +107,24 @@ Investigate read-only, then present the design.
   constant unstated and each constant two frames draw differently. A rendered frame's sidecar sits
   in its tag's directory, which is never committed: the check is this gate's, re-stated if the
   frames are rendered afresh.
-- **Every visible element a task builds is drawn before the design is approved, and an undrawn one
-  is always asked.** For a change that carries UI, list in `design.md` under `## Undrawn`, from the
-  tasks as written, each element, state, icon, copy string, alignment and chrome variant (title
-  placement, close control) that no cited frame draws, and each icon the project's icon set lacks.
-  Every item is put to the operator through **AskUserQuestion** during planning, never inferred
-  from a design template, a sibling screen or the nearest component, and carries no recommended
-  option, so **Auto-resolution** never takes it: the operator draws it (a frame or the prototype
-  below) or rules that it is not built. The design is not approvable while `## Undrawn` holds an
-  item neither drawn nor ruled out (KAN-1156: copy for undrawn cases was invented from templates, a
-  title's alignment and close button departed from the frame, two icons had to be drawn by the
-  implementer). Planning is the only phase that stops for this; an implementer meeting an element
-  the plan missed reports it in its REPORT FILE and builds the nearest drawn pattern.
+- **Every visible element a task builds is drawn before the design is approved, and the
+  `designer` draws what the mockups leave undrawn.** For a change that carries UI, list in
+  `design.md` under `## Undrawn`, from the tasks as written, each element, state, icon, copy string,
+  alignment and chrome variant (title placement, close control) that no cited frame draws, and each
+  icon the project's icon set lacks — never inferred from a design template, a sibling screen or
+  the nearest component (KAN-1156: copy for undrawn cases was invented from templates, a title's
+  alignment and close button departed from the frame, two icons had to be drawn by the
+  implementer). Then dispatch one `designer` (**The designer**, below) for the whole list, and
+  replace each `## Undrawn` item with the frame id it returned. The operator never answers an item
+  on its own: the drawn result is shown with the convergence confirm, whose **approve the design
+  and move on** approves it and whose **Another round** answer, where it asks for adjustments, is
+  one more `designer` dispatch on the same worktree (**Convergence**, below). The design is not
+  approvable while `## Undrawn` holds an item. A project with no `design repo` row
+  (`skills/flow-contracts/project-configuration-visual.md`) gets no designer: each item is put to
+  the operator through **AskUserQuestion**, with no recommended option, to draw (a frame or the
+  prototype below) or rule out. Planning is the only phase that stops for this; an implementer
+  meeting an element the plan missed reports it in its REPORT FILE and builds the nearest drawn
+  pattern.
 - **A visible change is prototyped before its design is approved** (`plan-visual-prototype`). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
   no mockup frame already specifies it, build a clickable prototype of the proposed result with
   sample data as a single HTML file under `<project>-worktrees/<name>/.superpowers/sdd/`, and
@@ -177,6 +183,35 @@ In `/flow` and `/flow-plan` the recommendation goes to the operator as part of t
 alternatives shown only when they help the operator decide. The self-review planner
 take the recommendation without asking, per **Auto-resolution**
 (`skills/flow-contracts/operator-prompts-auto-resolution.md`).
+
+### The designer
+
+**One `designer` dispatch draws every `## Undrawn` item** (**Every visible element a task builds is
+drawn**, above), key `designer-<k>`, `<k>` counting from 1 per change, on its role's pair (**Model
+and effort** below), on a `flow-*` agent type, since it writes. Its prompt carries the two
+agent-baseline sentences, the report-tersely line, `Role: designer`, the `## Undrawn` list
+verbatim, the frames already cited, and on an adjustment the operator's words verbatim. The
+designer:
+
+1. works in a git worktree of the project's `design repo` clone, `<design clone>-worktrees/<change
+   name>` on branch `<change name>` — created from the clone's default branch when absent, reused
+   as it stands when present;
+2. reads that repository's own instructions first — its `CLAUDE.md`, `AGENTS.md`, README, style
+   guide and tokens — and follows them exactly, inventing no style they do not state;
+3. draws each listed item as frames in that repository's own frame format, its copy in the voice
+   those instructions set, and where they give no answer the simplest plausible copy, listed in
+   its report — it never asks;
+4. commits on the branch and pushes it, and reports each frame id and path drawn, the copy it
+   wrote without a rule, and the commit sha.
+
+The planner copies that report into its round file's `## Summary` (a final dispatch: its return). The designer is outside **The cap** above.
+
+**The operator sees the drawn result with the confirm** that round asks (**Convergence**, below): the
+session that dispatched the planner prints the design repo branch and commit, and publishes the drawn frames rendered as one page with
+the Artifact tool and prints its URL, or where the harness has no Artifact tool prints the frames'
+absolute paths and says they could not be published — as it does for the prototype (**A visible
+change is prototyped**, above). Where the confirm is not asked (`## decisions: recommended`, the
+self-review planner) the drawn frames stand without an approval round.
 
 ### Convergence
 

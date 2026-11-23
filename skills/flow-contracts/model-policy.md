@@ -73,6 +73,7 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 |---|---|
 | `explorer` | Reads the codebase to answer a planner's question. |
 | `plan-designer` | Proposes a design or plan for the planner to choose from. |
+| `designer` | Draws, in a worktree of the project's design repo and in its own style, every element the planner's design lists as undrawn. |
 | `plan-triage` | Judges whether a new change is easy (short planning) or hard (full planning) (headless). |
 | `planner` | Writes the design and the task plan. |
 | `planner-short` | Does all planning of a change judged easy — rounds, artifacts and plan — reading the code itself and sending Explore agents only when that is not enough. |
