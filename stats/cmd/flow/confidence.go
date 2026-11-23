@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/records"
@@ -38,6 +39,20 @@ the dispatch's task ids ("2+3"). At 100 pass neither -gap nor -tag: the estimate
 review status is set on the Confidence dashboard, never here. An unreachable
 store is a warning and exit 0; a refused estimate is exit 2.
 `
+
+// changeProject is the project key the store holds change under: an estimate from a worktree of another
+// repository of a multi-repository change resolves its own repository's key from -C, a key the run page never
+// reads (KAN-1156: a frontend implementer's row sat under the frontend key). Exactly one record named change
+// is authoritative; none or several, or a store that cannot answer, keeps the key -C gave.
+func changeProject(ctx context.Context, addr string, timeout time.Duration, change, dirKey string) string {
+	found, err := callRecord(ctx, addr, timeout, func(ctx context.Context, cl *client.Client) ([]client.StateChange, error) {
+		return cl.FindState(ctx, change)
+	})
+	if err == nil && len(found) == 1 {
+		return found[0].ProjectKey
+	}
+	return dirKey
+}
 
 // runConfidence implements `flow confidence`: `tags`, the vocabulary read,
 // and `record`, the write.
@@ -80,6 +95,7 @@ func runConfidence(ctx context.Context, args []string, getenv func(string) strin
 		if code >= 0 {
 			return code
 		}
+		projectKey = changeProject(ctx, f.addr, f.timeout, f.change, projectKey)
 		if task == "" {
 			fmt.Fprintln(stderr, "flow: confidence after needs -task")
 			return 2
@@ -116,6 +132,7 @@ func runConfidence(ctx context.Context, args []string, getenv func(string) strin
 		if code >= 0 {
 			return code
 		}
+		projectKey = changeProject(ctx, f.addr, f.timeout, f.change, projectKey)
 		_, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.ConfidenceEstimate, error) {
 			return cl.RecordConfidenceEstimate(ctx, projectKey, f.change, in)
 		})

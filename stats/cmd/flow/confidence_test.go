@@ -60,7 +60,11 @@ func TestConfidenceRecordExits(t *testing.T) {
 	base := []string{"record", "-C", repo, "-change", "kan-1", "-stage", "plan", "-disposition", "later", "-gap", "g", "-tag", "t"}
 	calls := 0
 	answer := func(status int) http.HandlerFunc {
-		return func(w http.ResponseWriter, _ *http.Request) {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/api/v1/changes/find") { // the project lookup, not a write
+				_, _ = w.Write([]byte(`{"source":"store","complete":true,"records":[]}`))
+				return
+			}
 			calls++
 			w.WriteHeader(status)
 			_, _ = w.Write([]byte(`{"error":"no"}`))
@@ -116,5 +120,25 @@ func TestConfidenceAfterPatchesTheTask(t *testing.T) {
 	}
 	if code, _, _ := confidenceRun(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) }, "after", "-C", repo, "-change", "kan-1", "-task", "3", "-score", "95"); code != 2 {
 		t.Errorf("a task with no estimate: exit %d, want 2", code)
+	}
+}
+
+// TestConfidenceRecordUsesTheChangesProject: a worktree of another repository resolves another project key
+// from -C; the estimate goes under the key the store holds the change under.
+func TestConfidenceRecordUsesTheChangesProject(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	var posted string
+	code, _, stderr := confidenceRun(t, func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/v1/changes/find") {
+			_, _ = w.Write([]byte(`{"source":"store","complete":true,"records":[{"projectKey":"main-key","name":"kan-1","state":"STARTED"}]}`))
+			return
+		}
+		posted = r.URL.Path
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1}`))
+	}, "record", "-C", repo, "-change", "kan-1", "-stage", "implement", "-task", "2", "-score", "100")
+	if code != 0 || posted != "/api/v1/confidence/main-key/kan-1" {
+		t.Fatalf("exit %d, posted %q, stderr %s", code, posted, stderr)
 	}
 }
