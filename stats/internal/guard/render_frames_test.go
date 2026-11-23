@@ -196,6 +196,18 @@ func TestRenderFramesFindings(t *testing.T) {
 			t.Errorf("rc=%d out=%q, want 1", rc, out)
 		}
 	})
+	t.Run("a review page redrawing a canonical frame is not ambiguous", func(t *testing.T) {
+		t.Parallel()
+		design, root := rfFixture(t, "/nowhere")
+		writeFile(t, filepath.Join(design, "X Changes.dc.html"), rfPage)
+		gitRun(t, design, "add", "-A")
+		gitRun(t, design, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "review")
+		gitRun(t, design, "tag", "t3")
+		f := rfCite(t, root, "see docs/design/mockups/t3/F1.png.")
+		if out, _ := rfRun(t, env, root, f); strings.Contains(out, "not unique") {
+			t.Errorf("out=%q, want the canonical page chosen", out)
+		}
+	})
 	t.Run("already rendered references render nothing", func(t *testing.T) {
 		t.Parallel()
 		_, root := rfFixture(t, "/nowhere")

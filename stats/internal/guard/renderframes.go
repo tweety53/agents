@@ -49,7 +49,8 @@ import (
 // are never touched. The frame is found by its id alone: exactly one
 // `id="<id>" data-frame` across the tree's top-level `*.html` pages
 // (`_gen/` and other sub-directories hold generator sources that repeat
-// ids). The renderer runs `node` with the program below on the `regression
+// ids). A review page (`<name> Changes.dc.html`) redraws canonical frames: an
+// id found in exactly one other page renders from that page, never refused. The renderer runs `node` with the program below on the `regression
 // checkout`'s own `@playwright/test` (the in-process visual-preflight check (visual-verify-pass prepare)'s
 // precedent): one page at DPR 2, requests to http://design.local/ fulfilled
 // from the exported tree (no server process), the frame scrolled into view
@@ -250,13 +251,20 @@ func rfRenderTag(env Env, stderr io.Writer, clone, remote, checkout, tag, out st
 		if queued[frame] {
 			continue
 		}
-		var in []string
-		count := 0
+		var in, canon []string
+		count, canonCount := 0, 0
 		for _, p := range pages {
 			if c := bytes.Count(texts[p], []byte(`id="`+frame+`" data-frame`)); c > 0 {
 				count += c
 				in = append(in, filepath.Base(p))
+				if !strings.HasSuffix(p, " Changes.dc.html") {
+					canonCount += c
+					canon = append(canon, filepath.Base(p))
+				}
 			}
+		}
+		if count > 1 && canonCount == 1 {
+			count, in = 1, canon // a review page only redraws a canonical page's frame
 		}
 		switch {
 		case count == 0:
