@@ -82,6 +82,9 @@ against real or seeded data; with none, nothing in the plan can verify it, and t
 A task that changes a symbol's signature or behaviour has a `**Files:**` entry for the places that
 use it, or says why none need editing; a definition listed alone leaves its call sites to be found
 while editing (KAN-1156: replay sites of a sync engine were found only once the task was under way).
+Every scenario `design.md` states has a `**Tests:**` entry that names it, or the plan says it is
+checked by hand or on screen; a scenario no entry names is a `finding`, since the implementer can
+only carry it as an open gap (KAN-1156: a lift sheet and a fold toast had no named test).
 
 ## Inventive catalyst
 

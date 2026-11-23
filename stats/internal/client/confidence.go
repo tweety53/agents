@@ -24,9 +24,9 @@ func (c *Client) RecordConfidenceEstimate(ctx context.Context, project, change s
 
 // ConfidenceAfter sets the estimate an implementer holds once its tests are green on the latest estimate of
 // project/change's task; ErrNotFound when the task filed none.
-func (c *Client) ConfidenceAfter(ctx context.Context, project, change, task string, score int) error {
+func (c *Client) ConfidenceAfter(ctx context.Context, project, change, task string, score int, gaps []string) error {
 	u := c.baseURL + "/api/v1/confidence/" + url.PathEscape(project) + "/" + url.PathEscape(change) + "/after"
-	_, err := c.writeRecord(ctx, http.MethodPatch, u, map[string]any{"task": task, "score": score}, map[int]bool{http.StatusNoContent: true}, nil)
+	_, err := c.writeRecord(ctx, http.MethodPatch, u, map[string]any{"task": task, "score": score, "gaps": gaps}, map[int]bool{http.StatusNoContent: true}, nil)
 	return err
 }
 

@@ -890,7 +890,9 @@ type ConfidenceEstimate struct {
 	Task    string `json:"task,omitempty"`
 	Score   int    `json:"score"`
 	// ScoreAfter is the estimate once the group's tests were green; nil until `flow confidence after` sets it.
-	ScoreAfter  *int      `json:"scoreAfter,omitempty"`
+	ScoreAfter *int `json:"scoreAfter,omitempty"`
+	// GapsAfter are the gaps still open at ScoreAfter; empty at 100%.
+	GapsAfter   []string  `json:"gapsAfter"`
 	Gaps        []string  `json:"gaps"`
 	Tags        []string  `json:"tags"`
 	Disposition string    `json:"disposition,omitempty"`

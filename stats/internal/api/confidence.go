@@ -20,7 +20,7 @@ type confidenceStore interface {
 	ConfidenceEstimatesPage(ctx context.Context, status string, limit, offset int) (store.ConfidencePage, error)
 	ConfidenceEstimatesForChange(ctx context.Context, projectKey, change string) ([]records.ConfidenceEstimate, error)
 	ReviewConfidenceEstimate(ctx context.Context, projectKey string, id int64, status, reason string) error
-	SetConfidenceAfter(ctx context.Context, projectKey, change, task string, score int) error
+	SetConfidenceAfter(ctx context.Context, projectKey, change, task string, score int, gaps []string) error
 }
 
 var _ confidenceStore = (*store.Store)(nil)
@@ -69,14 +69,15 @@ func (h *confidenceHandler) forChange(w http.ResponseWriter, r *http.Request) {
 func (h *confidenceHandler) after(w http.ResponseWriter, r *http.Request) {
 	project, change := r.PathValue("project"), r.PathValue("change")
 	var in struct {
-		Task  string `json:"task"`
-		Score int    `json:"score"`
+		Task  string   `json:"task"`
+		Score int      `json:"score"`
+		Gaps  []string `json:"gaps"`
 	}
 	if err := decodeJSONBody(w, r, &in); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := h.store.SetConfidenceAfter(r.Context(), project, change, in.Task, in.Score); err != nil {
+	if err := h.store.SetConfidenceAfter(r.Context(), project, change, in.Task, in.Score, in.Gaps); err != nil {
 		status, msg := mapStoreError(h.logger, fmt.Sprintf("set confidence after for %s/%s", project, change), err)
 		writeError(w, status, msg)
 		return

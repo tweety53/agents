@@ -225,17 +225,28 @@ func TestSetConfidenceAfter(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "9+12", 95); err != nil {
+	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "9+12", 95, []string{"fold toast unread"}); err != nil {
 		t.Fatal(err)
 	}
 	got, err := st.ConfidenceEstimatesForChange(ctx, projectKey, "kan-after")
-	if err != nil || len(got) != 2 || got[0].ScoreAfter != nil || got[1].ScoreAfter == nil || *got[1].ScoreAfter != 95 {
+	if err != nil || len(got) != 2 || got[0].ScoreAfter != nil || got[1].ScoreAfter == nil || *got[1].ScoreAfter != 95 || len(got[1].GapsAfter) != 1 {
 		t.Fatalf("rows %+v (%v), want only the latest to carry 95", got, err)
 	}
-	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "3", 90); !errors.Is(err, store.ErrConfidenceEstimateNotFound) {
+	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "3", 90, []string{"g"}); !errors.Is(err, store.ErrConfidenceEstimateNotFound) {
 		t.Errorf("a task with no estimate: %v", err)
 	}
-	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "9+12", 101); !errors.Is(err, store.ErrConfidenceEstimateInvalid) {
+	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "9+12", 101, nil); !errors.Is(err, store.ErrConfidenceEstimateInvalid) {
 		t.Errorf("score 101: %v", err)
+	}
+	for _, c := range []struct {
+		score int
+		gaps  []string
+	}{{90, nil}, {90, []string{" "}}, {100, []string{"g"}}} {
+		if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "9+12", c.score, c.gaps); !errors.Is(err, store.ErrConfidenceEstimateInvalid) {
+			t.Errorf("score %d gaps %q: %v, want invalid", c.score, c.gaps, err)
+		}
+	}
+	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "9+12", 100, nil); err != nil {
+		t.Errorf("100 with no gap: %v", err)
 	}
 }

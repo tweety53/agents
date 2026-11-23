@@ -18,7 +18,7 @@ const title = (r: ConfidenceRow) => `${r.scoreAfter ? `${r.score}% → ${r.score
 
 /** The estimate, whole, for pasting to an agent: nothing here is readable by a store verb, so the text carries it. */
 const agentText = (r: ConfidenceRow) =>
-  `Confidence estimate ${r.project}/${r.change} (${r.stage}${r.task ? ` task ${r.task}` : ""}): ${r.score}%${r.scoreAfter ? `, ${r.scoreAfter}% once its tests were green` : ""}.\nWhat would move it to 100%:\n${r.gaps.map((g) => `- ${g}`).join("\n")}\nTags: ${r.tags.join(", ")}\n\nAnalyze what can be done and where, and say what generic fix would prevent this kind of gap in any future task — a fix specific to this task is useless.`;
+  `Confidence estimate ${r.project}/${r.change} (${r.stage}${r.task ? ` task ${r.task}` : ""}): ${r.score}%${r.scoreAfter ? `, ${r.scoreAfter}% once its tests were green` : ""}.\nWhat would move it to 100%:\n${r.gaps.map((g) => `- ${g}`).join("\n")}${r.gapsAfter?.length ? `\nStill open once its tests were green:\n${r.gapsAfter.map((g) => `- ${g}`).join("\n")}` : ""}\nTags: ${r.tags.join(", ")}\n\nAnalyze what can be done and where, and say what generic fix would prevent this kind of gap in any future task — a fix specific to this task is useless.`;
 
 function Meta({ row }: { row: ConfidenceRow }) {
   return (

@@ -69,10 +69,11 @@ func (f *fakeStore) ReviewConfidenceEstimate(_ context.Context, projectKey strin
 	return store.ErrConfidenceEstimateNotFound
 }
 
-func (f *fakeStore) SetConfidenceAfter(_ context.Context, projectKey, change, task string, score int) error {
+func (f *fakeStore) SetConfidenceAfter(_ context.Context, projectKey, change, task string, score int, gaps []string) error {
 	for i := len(f.confidence) - 1; i >= 0; i-- {
 		if e := f.confidence[i]; e.Project == projectKey && e.Change == change && e.Task == task {
 			f.confidence[i].ScoreAfter = &score
+			f.confidence[i].GapsAfter = gaps
 			return nil
 		}
 	}
@@ -171,7 +172,7 @@ func TestConfidenceAfterRoute(t *testing.T) {
 		t.Fatalf("POST = %d (%s)", resp.StatusCode, raw)
 	}
 	patch := func(task string) int {
-		b, _ := json.Marshal(map[string]any{"task": task, "score": 95})
+		b, _ := json.Marshal(map[string]any{"task": task, "score": 95, "gaps": []string{"g"}})
 		req, _ := http.NewRequest(http.MethodPatch, post+"/after", bytes.NewReader(b))
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
