@@ -47,17 +47,17 @@ import (
 // (pcDerive: `PLAN-CHECK-FINDINGS <n>` from its finding lines, `PLAN-CHECK-CLEAN` from a confidence
 // score alone).
 //
-// The fallback is per part: no `===DECISION===` line falls back both; a report
-// holding neither a terminal line nor anything to derive one from falls back the report alone, to
-// `PLAN-CHECK-NOT-RUN` and the words `no confidence estimate exists`, stdout reading
-// `PLAN-CHECK-NOT-RUN — no confidence estimate`; a decision failing its checks falls back the decision
-// alone, to dgpvFallback's. Any failed call (no decider pair, the command
-// missing or failing, the deadline) falls back both. One stderr line names the
-// cause; stdout is one line, `plan-check (judge|fallback): <report> · <n>
+// A report holding neither a terminal line nor anything to derive one from falls back the report
+// alone, to `PLAN-CHECK-NOT-RUN` and the words `no confidence estimate exists`, stdout reading
+// `PLAN-CHECK-NOT-RUN — no confidence estimate`. The decision has no fallback: one failing its
+// checks, a failed call (no decider pair, the command missing or failing, the deadline) or a missing
+// separator is asked once more and then BLOCKS — exit 1, one stderr line naming the cause, reason
+// decision-unusable, nothing written — since a run on a made-up decision is an unplanned run.
+// Otherwise stdout is one line, `plan-check (judge): <report> · <n>
 // groups · panel <a+b> … · visual <verify>`, and in the full mode
 // ` · confidence <n>%` or ` · confidence unknown` after it.
 //
-// Exit 0 on a written result, whatever the model did. Exit 2, nothing on
+// Exit 0 on a written result. Exit 1 on no usable decision. Exit 2, nothing on
 // stdout: usage (reason usage), a tasks.md that is unreadable or holds no
 // task (plan-unreadable), or a decision, report or confidence file that cannot be written
 // (cannot-write-result).
@@ -128,18 +128,16 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 	visual := dgpvVisualHeading.Match(project)
 
 	report, d, source, spend, cause := pcAsk(env, wt, root, lines, tasks, pdgRepositories(env, planPath, lines), visual, decideOnly)
-	if cause != "" {
-		part := "decision"
-		if source == "fallback" {
-			part = "decision and report"
-		} else if d != nil {
-			part = "report"
-		}
-		fmt.Fprintf(stderr, "plan-check: judge answer unusable, using the fallback %s — %s\n", part, strings.TrimSpace(pjSpace.ReplaceAllString(cause, " ")))
+	if d == nil { // a decision no run goes on without: ask once more, then block
+		report, d, source, spend, cause = pcAsk(env, wt, root, lines, tasks, pdgRepositories(env, planPath, lines), visual, decideOnly)
 	}
 	if d == nil {
-		fb := dgpvFallback(tasks, visual, cause)
-		d = &fb
+		fmt.Fprintf(stderr, "plan-check: no usable decision after two asks, the run is blocked — %s\n", strings.TrimSpace(pjSpace.ReplaceAllString(cause, " ")))
+		Reason(env, "decision-unusable")
+		return 1
+	}
+	if cause != "" {
+		fmt.Fprintf(stderr, "plan-check: judge answer unusable, using the fallback report — %s\n", strings.TrimSpace(pjSpace.ReplaceAllString(cause, " ")))
 	}
 	spAddSecurity(d, filepath.Join(wt, ".flow", "project.md"), tasks)
 	d.Overrides = []json.RawMessage{}
@@ -402,28 +400,4 @@ func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, catalog map[s
 		return fmt.Sprintf("visual.verify %q disagrees with the project's `## visual verification`", v)
 	}
 	return ""
-}
-
-// dgpvFallback is the decision taken when the decider's answer cannot be used; each reason is
-// `fallback` and, when the cause is known, its first 200 characters, so the stored decision says why.
-func dgpvFallback(tasks []pdbTask, visual bool, cause string) dgpvDecision {
-	why := "fallback"
-	if cause = strings.TrimSpace(pjSpace.ReplaceAllString(cause, " ")); cause != "" {
-		if r := []rune(cause); len(r) > 200 {
-			cause = string(r[:200]) + "…"
-		}
-		why = "fallback: " + cause
-	}
-	var d dgpvDecision
-	for _, t := range tasks {
-		d.Groups = append(d.Groups, dgpvEntry{Tasks: []string{t.id}, Reason: why})
-	}
-	for _, s := range [][]string{{"primary", "principles"}, {"test-sanity", "call-efficiency"}, {"failure-modes"}, {"mutation"}} {
-		d.Panel = append(d.Panel, dgpvEntry{Slots: s, Reason: why})
-	}
-	d.Visual.Verify, d.Visual.Reason = "not configured", why
-	if visual {
-		d.Visual.Verify = "required"
-	}
-	return d
 }

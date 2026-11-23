@@ -432,7 +432,8 @@ Its header is canonical for the call, its checks, its fallback and its exits;
 `skills/flow/plan-check-prompt.md` is canonical for the lenses, the rules and the shape. It
 writes `<abs-worktree>/.superpowers/sdd/plan-check.md`, whose last line is `PLAN-CHECK-CLEAN`,
 `PLAN-CHECK-FINDINGS <n>` or `PLAN-CHECK-NOT-RUN`, and the decision. Exit 2 stops the run with its
-stderr. Gate **No** re-runs it as `plan-check … -decide-only`, which rewrites
+stderr, and so does exit 1: the decider's decision was unusable twice and none is written — there is no
+fallback decision, the run is never planned by a made-up one. Gate **No** re-runs it as `plan-check … -decide-only`, which rewrites
 `decision.json` and leaves `plan-check.md` as it is. **That re-run is the only one: it happens
 once whenever `tasks.md` changed after the check — a triage fix or a gate **No** — and the decision
 is recorded again.**

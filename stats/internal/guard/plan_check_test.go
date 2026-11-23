@@ -75,35 +75,26 @@ func TestPlanCheckWritesReportAndDecision(t *testing.T) {
 	}
 }
 
-// TestPlanCheckFallsBackOnTimeout: a runner past the limit writes the fixed
-// decision and a NOT-RUN report, exit 0.
-func TestPlanCheckFallsBackOnTimeout(t *testing.T) {
+// TestPlanCheckBlocksOnTimeout: a runner past the limit, asked twice, blocks: exit 1, one stderr line, nothing written.
+func TestPlanCheckBlocksOnTimeout(t *testing.T) {
 	t.Parallel()
 	args, wt, out := pcFixture(t)
 	stub := newPJStub(t, "exec sleep 5\n")
 	env := pjEnv(t, pjPolicy(dgpvPolicy), stub)
 	env.PairJudgeTimeout = 200_000_000
 	r := runGuard("plan-check", args, env)
-	if r.rc != 0 {
-		t.Fatalf("rc=%d err=%q", r.rc, r.err)
+	if r.rc != 1 || r.stdout != "" || !strings.Contains(r.err, "the run is blocked") {
+		t.Fatalf("rc=%d stdout=%q err=%q, want 1, nothing on stdout and the block named", r.rc, r.stdout, r.err)
 	}
-	b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md"))
-	if lines := strings.Split(strings.TrimSpace(string(b)), "\n"); lines[len(lines)-1] != "PLAN-CHECK-NOT-RUN" {
-		t.Errorf("report %q", b)
-	}
-	if d := dgpvRead(t, out); !strings.HasPrefix(d.Groups[0].Reason, "fallback") {
-		t.Errorf("decision %+v", d)
-	}
-	if !strings.Contains(r.err, "using the fallback decision") {
-		t.Errorf("stderr %q does not say the fallback decision is used", r.err)
-	}
-	if d := dgpvRead(t, out); d.Groups[0].Reason == "fallback" || d.Visual.Reason == "fallback" {
-		t.Errorf("fallback reasons %q / %q carry no cause, so the stored decision cannot say why", d.Groups[0].Reason, d.Visual.Reason)
+	for _, p := range []string{out, filepath.Join(wt, ".superpowers", "sdd", "plan-check.md")} {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Errorf("a blocked check wrote %s", p)
+		}
 	}
 }
 
 // TestPlanCheckPartialFallbacks: a bad last report line falls back the report
-// alone; a rejected decision falls back the decision alone; no separator both.
+// alone; a rejected decision or no separator blocks.
 func TestPlanCheckPartialFallbacks(t *testing.T) {
 	t.Parallel()
 	for name, c := range map[string]struct {
@@ -119,15 +110,19 @@ func TestPlanCheckPartialFallbacks(t *testing.T) {
 			t.Parallel()
 			args, wt, out := pcFixture(t)
 			stub := newPJStub(t, pjJSON(c.answer, ""))
-			if r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub)); r.rc != 0 {
+			r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
+			if c.decisionFallbk { // a bad decision blocks, never falls back
+				if _, err := os.Stat(out); r.rc != 1 || !os.IsNotExist(err) {
+					t.Errorf("rc=%d err=%q, want 1 and no decision written", r.rc, r.err)
+				}
+				return
+			}
+			if r.rc != 0 {
 				t.Fatalf("rc=%d err=%q", r.rc, r.err)
 			}
 			b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md"))
 			if got := strings.HasSuffix(strings.TrimSpace(string(b)), "PLAN-CHECK-NOT-RUN"); got != c.reportNotRun {
 				t.Errorf("not-run=%v, want %v: %q", got, c.reportNotRun, b)
-			}
-			if got := strings.HasPrefix(dgpvRead(t, out).Groups[0].Reason, "fallback"); got != c.decisionFallbk {
-				t.Errorf("decision fallback=%v, want %v", got, c.decisionFallbk)
 			}
 		})
 	}
@@ -188,7 +183,7 @@ func TestPlanCheckRunsWithReadOnlyTools(t *testing.T) {
 }
 
 // TestPlanCheckDecisionChecks: through plan-check -decide-only, a failed call or a decision breaking
-// a rule writes the fallback decision, exit 0, one stderr line naming why.
+// a rule blocks: exit 1, nothing written, one stderr line naming why.
 func TestPlanCheckDecisionChecks(t *testing.T) {
 	t.Parallel()
 	swap := func(old, new string) string {
@@ -216,12 +211,11 @@ func TestPlanCheckDecisionChecks(t *testing.T) {
 			t.Parallel()
 			wt, root, out := dgpvFixture(t)
 			r := runGuard("plan-check", []string{wt, root, out, "-decide-only"}, pjEnv(t, c.policy, newPJStub(t, c.answer)))
-			if r.rc != 0 || !strings.Contains(r.stdout, "): unchanged · 3 groups · panel primary+principles test-sanity+call-efficiency failure-modes mutation · visual required") ||
-				!strings.Contains(r.err, c.cause) || strings.Count(r.err, "\n") != 1 {
-				t.Fatalf("rc=%d stdout=%q err=%q, want the fallback and one stderr line naming %q", r.rc, r.stdout, r.err, c.cause)
+			if r.rc != 1 || r.stdout != "" || !strings.Contains(r.err, c.cause) || strings.Count(r.err, "\n") != 1 {
+				t.Fatalf("rc=%d stdout=%q err=%q, want a block and one stderr line naming %q", r.rc, r.stdout, r.err, c.cause)
 			}
-			if d := dgpvRead(t, out); d.Groups[2].Tasks[0] != "3" || d.Panel[3].Slots[0] != "mutation" || !strings.HasPrefix(d.Visual.Reason, "fallback") {
-				t.Errorf("fallback decision %+v", d)
+			if _, err := os.Stat(out); !os.IsNotExist(err) {
+				t.Errorf("a blocked check wrote %s", out)
 			}
 		})
 	}
