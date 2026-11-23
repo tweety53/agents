@@ -1061,17 +1061,20 @@ const reviewerScopeSQL = `
 // bucket instead of each claiming all of it. A row with no such bucket has a
 // NULL cost and is unpriced.
 const reviewerPricingSQL = `,
+		agent_cost AS (
+			SELECT sr.change_id, e.key AS agent_id, SUM((e.value->>'cost_usd')::numeric) AS cost
+			FROM stage_runs sr
+			CROSS JOIN LATERAL jsonb_each(CASE WHEN jsonb_typeof(sr.metrics->'dispatches') = 'object'
+				THEN sr.metrics->'dispatches' ELSE '{}'::jsonb END) e
+			WHERE sr.change_id IN (SELECT change_id FROM scoped_dispatches)
+			  AND e.value ? 'cost_usd'
+			GROUP BY sr.change_id, e.key
+		),
 		priced_dispatches AS (
 			SELECT sd.slot, sd.change_id,
-				p.cost / COUNT(*) OVER (PARTITION BY sd.change_id, sd.agent_id) AS cost
+				ac.cost / COUNT(*) OVER (PARTITION BY sd.change_id, sd.agent_id) AS cost
 			FROM scoped_dispatches sd
-			CROSS JOIN LATERAL (
-				SELECT SUM((sr.metrics->'dispatches'->sd.agent_id->>'cost_usd')::numeric) AS cost
-				FROM stage_runs sr
-				WHERE sr.change_id = sd.change_id
-				  AND jsonb_typeof(sr.metrics->'dispatches') = 'object'
-				  AND sr.metrics->'dispatches'->sd.agent_id ? 'cost_usd'
-			) p
+			LEFT JOIN agent_cost ac ON ac.change_id = sd.change_id AND ac.agent_id = sd.agent_id
 		),
 		dispatch_agg AS (
 			SELECT slot, COUNT(*) AS dispatches, COUNT(DISTINCT change_id) AS changes,
