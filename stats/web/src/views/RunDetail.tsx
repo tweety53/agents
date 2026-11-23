@@ -1306,9 +1306,10 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   {!isSub && board?.selfReviewTasks && (
                     <TasksPanel title="Self-review tasks" tasks={board.selfReviewTasks} current={[srView.currentTask ?? 0]} open={srPanelOpen} order={4} />
                   )}
+                  {!interactive && costPanel}
                   <ConfidencePanel rows={confidence} order={3} />
                   {interactive && requestCostPanel}
-                  {costPanel}
+                  {interactive && costPanel}
                 </div>
               </div>
 
