@@ -200,8 +200,12 @@ designer:
 3. draws each listed item as frames in that repository's own frame format, its copy in the voice
    those instructions set, and where they give no answer the simplest plausible copy, listed in
    its report — it never asks;
-4. commits on the branch and pushes it, and reports each frame id and path drawn, the copy it
-   wrote without a rule, and the commit sha.
+4. commits on the branch, tags that commit `<change name>-designer-<k>` (`<k>` the dispatch's) and
+   pushes the branch and the tag — `flow-guard render-frames` resolves a frame at a tag only
+   (`skills/flow-contracts/project-configuration-visual.md`, **Frames at a design-repo tag**) — and
+   reports each frame id and path drawn, the copy it wrote without a rule, the tag and the commit
+   sha. The planner cites each frame as `<mockups root>/<tag>/<frame id>.png` with that tag; an
+   adjustment's dispatch cites its own, newer tag.
 
 The planner copies that report into its round file's `## Summary` (a final dispatch: its return). The designer is outside **The cap** above.
 
