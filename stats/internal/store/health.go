@@ -153,39 +153,28 @@ func (s *Store) GuardHealth(ctx context.Context, period Period, project *string)
 	}
 	rows.Close()
 
-	parents, err := s.pool.Query(ctx, `
-		WITH r AS (
-			SELECT id, guard, worktree, duration_ms, recorded_at AS e,
-				recorded_at - duration_ms * interval '1 ms' AS s
-			FROM guard_runs
-			WHERE recorded_at >= $1 AND recorded_at < $2 AND ($3::text IS NULL OR project_key = $3)
-		), c AS (
-			SELECT c.guard AS child, (
-				SELECT p.guard FROM r p
-				WHERE p.worktree = c.worktree AND p.guard <> c.guard AND p.duration_ms > c.duration_ms
-				  AND p.s <= c.s AND p.e >= c.e
-				ORDER BY p.duration_ms LIMIT 1) AS parent
-			FROM r c
-		)
-		SELECT child, mode() WITHIN GROUP (ORDER BY parent)
-		FROM c GROUP BY child
-		HAVING COUNT(parent) * 2 > COUNT(*)
+	runs, err := s.pool.Query(ctx, `
+		SELECT guard, worktree, duration_ms, recorded_at FROM guard_runs
+		WHERE recorded_at >= $1 AND recorded_at < $2 AND ($3::text IS NULL OR project_key = $3)
+		ORDER BY worktree, recorded_at
 	`, period.From, period.To, project)
 	if err != nil {
 		return nil, fmt.Errorf("store: guard health: parents: %w", err)
 	}
-	defer parents.Close()
-	byGuard := map[string]string{}
-	for parents.Next() {
-		var child, parent string
-		if err := parents.Scan(&child, &parent); err != nil {
+	defer runs.Close()
+	var all []guardSpan
+	for runs.Next() {
+		var g guardSpan
+		if err := runs.Scan(&g.guard, &g.worktree, &g.ms, &g.end); err != nil {
 			return nil, fmt.Errorf("store: guard health: parents: scan: %w", err)
 		}
-		byGuard[child] = parent
+		g.start = g.end.Add(-time.Duration(g.ms) * time.Millisecond)
+		all = append(all, g)
 	}
-	if err := parents.Err(); err != nil {
+	if err := runs.Err(); err != nil {
 		return nil, fmt.Errorf("store: guard health: parents: %w", err)
 	}
+	byGuard := nestedParents(all)
 	for i := range out {
 		out[i].Parent = byGuard[out[i].Guard]
 	}
@@ -309,4 +298,68 @@ func (s *Store) ChangeGuardRuns(ctx context.Context, ws []GuardWindow) ([]Change
 // hiddenGuards is every name the guard-health views leave out: the helpers and the retired guards.
 func hiddenGuards() []string {
 	return append(slices.Clone(records.GuardHelpers), records.RetiredGuards...)
+}
+
+// guardSpan is one guard run as an interval: it ended at end and began ms earlier.
+type guardSpan struct {
+	guard, worktree string
+	ms              int
+	start, end      time.Time
+}
+
+// maxGuardNesting bounds how long after a run ends its caller can end: no guard runs longer.
+const maxGuardNesting = 2 * time.Hour
+
+// nestedParents maps each guard to the caller whose run most often held its runs (the narrowest
+// holder per run), for guards whose runs were mostly held by one. spans are ordered by worktree,
+// then end.
+func nestedParents(spans []guardSpan) map[string]string {
+	votes := map[string]map[string]int{}
+	total := map[string]int{}
+	held := map[string]int{}
+	for i, c := range spans {
+		total[c.guard]++
+		best := -1
+		for j := i - 1; j >= 0 && spans[j].worktree == c.worktree && spans[j].end.Equal(c.end); j-- {
+			best = holder(spans, best, j, c)
+		}
+		for j := i + 1; j < len(spans) && spans[j].worktree == c.worktree && spans[j].end.Sub(c.end) <= maxGuardNesting; j++ {
+			best = holder(spans, best, j, c)
+		}
+		if best < 0 {
+			continue
+		}
+		held[c.guard]++
+		if votes[c.guard] == nil {
+			votes[c.guard] = map[string]int{}
+		}
+		votes[c.guard][spans[best].guard]++
+	}
+	out := map[string]string{}
+	for g, v := range votes {
+		if held[g]*2 <= total[g] {
+			continue
+		}
+		top, n := "", 0
+		for p, k := range v {
+			if k > n || (k == n && p < top) {
+				top, n = p, k
+			}
+		}
+		out[g] = top
+	}
+	return out
+}
+
+// holder returns j when span j holds c (another guard, longer, c's interval inside it) and is
+// narrower than the current best, else best.
+func holder(spans []guardSpan, best, j int, c guardSpan) int {
+	p := spans[j]
+	if p.guard == c.guard || p.ms <= c.ms || p.start.After(c.start) || p.end.Before(c.end) {
+		return best
+	}
+	if best < 0 || p.ms < spans[best].ms {
+		return j
+	}
+	return best
 }
