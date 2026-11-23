@@ -1076,7 +1076,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
           </section>
           );
           const costPanel = (
-          <section className="lb-panel" aria-label="Cost by stage" style={interactive ? { order: 7 } : undefined}>
+          <section className="lb-panel" aria-label="Cost by stage" style={{ order: interactive ? 7 : 3 }}>
             <div className="lb-panel-h">
               <span>Cost by stage</span>
             </div>
@@ -1308,14 +1308,13 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   )}
                   <ConfidencePanel rows={confidence} order={3} />
                   {interactive && requestCostPanel}
-                  {interactive && costPanel}
+                  {costPanel}
                 </div>
               </div>
 
               {!interactive && (
                 <>
                   {decision && <DecisionsPanel decision={decision} dispatches={dispatches} confidence={confidence} />}
-                  {costPanel}
                   {timelinePanel}
                   {stageRunsPanel}
                 </>

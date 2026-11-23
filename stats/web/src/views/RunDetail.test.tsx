@@ -807,6 +807,7 @@ describe("the reworked run view (kan-1048)", () => {
       ["Main", "1"],
       ["Self-review", "3"],
       ["Tasks", "2"],
+      ["Cost by stage", "3"],
     ]);
     expect(within(tasks).getByText("Tasks").parentElement).toHaveTextContent(/^Tasks1\/3$/);
     expect(tasks).toHaveTextContent("✔ 1. Schema");
@@ -1225,14 +1226,13 @@ describe("the reworked run view (kan-1048)", () => {
     expect(findChangesMock.mock.calls.length).toBe(finds);
   });
 
-  it("run detail shows the latest decision's roles above the timeline, with Cost by stage next", async () => {
+  it("run detail shows the latest decision's roles above the timeline", async () => {
     decisionsMock.mockResolvedValueOnce([{ decision: { class: "big", execution: "sdd", fixer: { model: "opus", effort: "low", reason: "r" } } }]);
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const panel = await screen.findByRole("region", { name: "Decisions" });
     expect(decisionsMock).toHaveBeenCalledWith(PROJECT, CHANGE);
     expect(panel).toHaveTextContent("Fixeropus · low");
-    expect(panel.nextElementSibling).toBe(screen.getByRole("region", { name: "Cost by stage" }));
-    expect(screen.getByRole("region", { name: "Cost by stage" }).nextElementSibling).toBe(screen.getByRole("region", { name: "Timeline" }));
+    expect(panel.nextElementSibling).toBe(screen.getByRole("region", { name: "Timeline" }));
   });
 
   it("run detail marks main as waiting while only its subagents work", async () => {

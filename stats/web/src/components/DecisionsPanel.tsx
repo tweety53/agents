@@ -96,7 +96,7 @@ export function DecisionsPanel({ decision, dispatches = [], confidence = [] }: {
         <span>Decisions</span>
         {decision.class && <span className="lb-panel-note">{[decision.class, decision.execution].filter(Boolean).join(" · ")}</span>}
       </div>
-      <div className="lb-panel-b">
+      <div className="lb-panel-b lb-decisions">
         {lines(decision, dispatches, confidence).map((l, i) => (
           <div key={i} className={l.prose ? "lb-decision lb-decision-prose" : "lb-decision"} data-testid="decision-row" title={l.prose ? undefined : l.reason}>
             <span className="lb-decision-head">
@@ -111,7 +111,7 @@ export function DecisionsPanel({ decision, dispatches = [], confidence = [] }: {
                 )}
               </span>
             </span>
-            {l.prose && <span className="lb-decision-why">{l.reason}</span>}
+            {l.prose && <span className="lb-decision-why" title={l.reason}>{l.reason}</span>}
           </div>
         ))}
       </div>
