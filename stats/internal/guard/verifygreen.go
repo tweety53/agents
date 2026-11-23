@@ -88,7 +88,7 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	raw, err := pfdRead(env, env.Dispatches, "dispatches", name, pcAbs(env, wt))
-	var rows []struct{ Key, Role, SessionToken, Outcome, DiffBase string }
+	var rows []struct{ Key, Role, SessionToken, Outcome, DiffBase, AgentID string }
 	if err == nil {
 		err = json.Unmarshal(raw, &rows)
 	}
@@ -112,7 +112,9 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	latest := map[string]int{}
 	var groups []string
 	for i, r := range rows {
-		if r.SessionToken != token || records.Class(r.Role) != "verifier" || (r.Key != "verify" && !strings.HasPrefix(r.Key, "verify-")) {
+		// A runner subagent's own dispatch row (agentId set, not `inline`) is
+		// not this run's inline verify: it carries no HEAD, so it never counts.
+		if r.SessionToken != token || (r.AgentID != "" && r.AgentID != "inline") || records.Class(r.Role) != "verifier" || (r.Key != "verify" && !strings.HasPrefix(r.Key, "verify-")) {
 			continue
 		}
 		g := vgFixSuffix.ReplaceAllString(r.Key, "verify$2")

@@ -152,3 +152,20 @@ func TestCheckVerifyGreen(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckVerifyGreenIgnoresARunnerAgentRow: a runner subagent's own dispatch
+// row (agentId set, not `inline`) carries no HEAD and an odd key; it must not
+// void the green inline rows beside it, nor count as this run's inline verify
+// on its own (kan-1157).
+func TestCheckVerifyGreenIgnoresARunnerAgentRow(t *testing.T) {
+	t.Parallel()
+	wa, a := vgRepo(t)
+	inline := `{"key":"verify-fix-1-gymie","role":"verifier","sessionToken":"mf-tok","outcome":"completed","diffBase":"` + a + `","agentId":"inline"}`
+	agent := `{"key":"verify-2-fix-1","role":"runner","sessionToken":"mf-tok","outcome":"completed","agentId":"af3f10ca894ef1664"}`
+	if rc, out := vgRun(t, "["+inline+","+agent+"]", wa, "demo", "mf-tok"); rc != 0 || !strings.Contains(out, "VERIFY-GREEN:") {
+		t.Fatalf("runner agent row beside green inline rows: exit %d\n%s", rc, out)
+	}
+	if rc, out := vgRun(t, "["+agent+"]", wa, "demo", "mf-tok"); rc != 1 || !strings.Contains(out, "no inline verify") {
+		t.Fatalf("runner agent row alone: exit %d\n%s", rc, out)
+	}
+}
