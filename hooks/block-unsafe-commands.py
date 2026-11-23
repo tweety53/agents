@@ -64,6 +64,7 @@ command text only, values kept literal, within-line use before an assignment lef
 never environment state, which a one-shot hook process cannot know.
 """
 
+import glob
 import json
 import os
 import re
@@ -739,17 +740,23 @@ def default_branch(cwd):
 SEPARATORS = ("&&", "||", ";", "|")
 def in_change_state(target):
     """True when target's worktree is a key of `worktrees` in the state record of the change named
-    by its directory (`<project>-worktrees/<change>`), read with `flow state get`. Fails closed."""
+    by its directory (`<project>-worktrees/<change>`), read with `flow state get`. A change spans
+    sibling repos' worktrees (`<other>-worktrees/<change>`) but its record lives under one project,
+    so each sibling checkout is asked in turn. Fails closed."""
     top = git(target, "rev-parse", "--show-toplevel")
     if not top:
         return False
-    try:
-        out = subprocess.run(["flow", "state", "get", "-C", top, os.path.basename(top)],
-                             capture_output=True, text=True, timeout=5).stdout
-        keys = json.loads(out[out.index("{"):]).get("worktrees") or {}
-    except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
-        return False
-    return os.path.realpath(top) in {os.path.realpath(k) for k in keys}
+    top, name = os.path.realpath(top), os.path.basename(top)
+    for c in [top] + sorted(glob.glob(os.path.join(os.path.dirname(os.path.dirname(top)), "*-worktrees", name))):
+        try:
+            out = subprocess.run(["flow", "state", "get", "-C", c, name],
+                                 capture_output=True, text=True, timeout=5).stdout
+            keys = json.loads(out[out.index("{"):]).get("worktrees") or {}
+        except (OSError, subprocess.SubprocessError, ValueError, AttributeError):
+            continue
+        if top in {os.path.realpath(k) for k in keys}:
+            return True
+    return False
 
 
 def discards_unstaged(verb, args, target):
