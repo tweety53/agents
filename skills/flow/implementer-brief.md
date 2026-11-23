@@ -64,7 +64,10 @@ this file in full first: its prompt is a stub naming this file, never these para
 > you wrote and have not run (run it; if it cannot run here the task is `BLOCKED` naming the command and
 > why, never `DONE`), and a seam you left inert — a default no-op, a stub or a placeholder that nothing
 > in your tasks replaces (wire the real one inside your task, or carry it as a question in your REPORT
-> FILE for the plan). Below 100, `-gap` is required, once per gap still open, and a
+> FILE for the plan), a guard, gate, branch or condition you added that no test fails without
+> (write the test, delete the guard, watch it fail, restore it — KAN-1157: a write-access gate with no
+> such test), and work a later task of the plan names — a capture run, a wiring step — which your
+> REPORT FILE carries as `owned by Task <n>` and your estimate leaves out. Below 100, `-gap` is required, once per gap still open, and a
 > gap there is one no command or file read in your tasks could settle, the REPORT FILE saying why; at
 > 100 pass none. Skip it only when you
 > filed no estimate. A fixer skips this paragraph.
