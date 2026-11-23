@@ -19,7 +19,7 @@ import type {
 } from "../api";
 import { App } from "../App";
 import { AgentRoles } from "./AgentRoles";
-import { FlowHealth, nested, speedUpCandidates } from "./FlowHealth";
+import { FlowHealth, nested, panelOf, speedUpCandidates } from "./FlowHealth";
 import { ReviewDynamics } from "./ReviewDynamics";
 import { Reviewers } from "./Reviewers";
 import { SelfReview } from "./SelfReview";
@@ -2217,5 +2217,12 @@ describe("nested guards", () => {
     const g = (guard: string, parent?: string) => ({ guard, parent, runs: 1, fired: 0, cannotAnswer: 0, medianMs: 1, totalMs: 1, lastFiredAt: null });
     const rows = [g("a"), g("kid", "b"), g("b"), g("orphan", "elsewhere"), g("grandkid", "kid")];
     expect(nested(rows).map((r) => r.guard)).toEqual(["a", "b", "kid", "grandkid", "orphan"]);
+  });
+
+  it("move into their caller's panel", () => {
+    const g = (guard: string, parent?: string) => ({ guard, parent, runs: 1, fired: 0, cannotAnswer: 0, medianMs: 1, totalMs: 1, lastFiredAt: null });
+    const rows = [g("run-verify-list"), g("project-get", "run-verify-list"), g("loner", "absent")];
+    expect(panelOf(rows[1], rows)).toBe(panelOf(rows[0], rows));
+    expect(panelOf(rows[2], rows)).toBe("Other");
   });
 });

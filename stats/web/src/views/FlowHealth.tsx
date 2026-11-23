@@ -131,6 +131,18 @@ const GROUP_NOTE: Record<string, string> = {
 };
 const groupOf = (guard: string) => GROUPS.find((g) => g.guards.includes(guard))?.title ?? "Other";
 
+/** A guard that ran inside another guard's run belongs to its caller's panel, nested under it. */
+export function panelOf(r: GuardHealthRow, rows: GuardHealthRow[]): string {
+  let cur = r;
+  for (const seen = new Set([r.guard]); cur.parent; ) {
+    const p = rows.find((x) => x.guard === cur.parent);
+    if (!p || seen.has(p.guard)) break;
+    seen.add(p.guard);
+    cur = p;
+  }
+  return groupOf(cur.guard);
+}
+
 const byName = (a: GuardHealthRow, b: GuardHealthRow) => a.guard.localeCompare(b.guard);
 const ORDER: Record<Rank, (a: GuardHealthRow, b: GuardHealthRow) => number> = {
   fires: (a, b) => b.fired - a.fired || b.runs - a.runs,
@@ -279,7 +291,7 @@ export function FlowHealth() {
   const rows = state.status === "ready" ? state.data.rows : [];
   const projects = state.status === "ready" ? (state.data.projects ?? []) : [];
   const panels = [...GROUPS.map((g) => g.title), "Other"]
-    .map((title) => ({ title, rows: rows.filter((r) => groupOf(r.guard) === title) }))
+    .map((title) => ({ title, rows: rows.filter((r) => panelOf(r, rows) === title) }))
     .filter((p) => p.rows.length > 0);
 
   return (
