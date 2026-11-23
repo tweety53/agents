@@ -1035,7 +1035,7 @@ export interface ConfidenceRow {
   /** The estimate once the group's tests were green; absent until set. */
   scoreAfter?: number;
   /** The gaps still open at scoreAfter. */
-  gapsAfter: string[];
+  gapsAfter?: string[];
   gaps: string[];
   tags: string[];
   disposition?: "raised" | "later";
