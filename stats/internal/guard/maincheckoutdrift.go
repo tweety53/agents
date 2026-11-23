@@ -122,9 +122,9 @@ func checkMainCheckoutDrift(args []string, env Env, stdout, stderr io.Writer) in
 		branch = "(detached HEAD)"
 	}
 
-	// WHY THE STATUS SHAPE IS THE CONTENT MARKER: one cheap read, untracked
-	// files hidden exactly as the KAN-546 guard's identical read hides them.
-	status, ok := capture(git("-C", root, "status", "--porcelain"))
+	// WHY THE STATUS SHAPE IS THE CONTENT MARKER: one cheap read; untracked
+	// files count as drift, so the flag is pinned against status.showUntrackedFiles.
+	status, ok := capture(git("-C", root, "status", "--porcelain", "--untracked-files=normal"))
 	if !ok {
 		return die("cannot-read-the-status", "cannot read the status of %s", root)
 	}
