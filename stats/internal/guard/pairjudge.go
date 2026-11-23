@@ -29,13 +29,8 @@ import (
 // hooks/enforce-agent-baseline.py reads as the row's -pair-pick (decision
 // pair-pick-file); a failed save is one stderr line and leaves the exit 0.
 //
-// The judged set (decisions judged-set, judged-set-by-function): planner,
-// planner-short, self-review-plan, pipeline-fix-plan, implementer, panel-fix,
-// minor-fix, self-review-fix, pipeline-fix-fix, gated-reviewer,
-// gated-re-reviewer, panel-reviewer, panel-rerun, self-review-pass,
-// self-review-review-1, self-review-review-r, pipeline-fix-review-1,
-// pipeline-fix-review-r, explorer, plan-designer and designer. Every other role keeps
-// the rule it had and is refused.
+// Every role with base pairs in flowd is judged, bar pair-judge itself, which is refused (exit 2).
+// A role with no base pair is refused as candidates-empty.
 //
 // The candidates (decision judge-candidates-capped) are the role's base
 // pairs, read with `flow policy get` (policyTable), in row order, each parsed into model and effort --
@@ -112,18 +107,6 @@ func init() {
 	Registry["pair-judge"] = pairJudge
 }
 
-// pjJudged is the judged set.
-var pjJudged = map[string]bool{
-	"planner": true, "planner-short": true, "self-review-plan": true, "pipeline-fix-plan": true,
-	"implementer": true,
-	"panel-fix":   true, "minor-fix": true, "no-progress-fixer": true, "self-review-fix": true, "pipeline-fix-fix": true,
-	"gated-reviewer": true, "gated-re-reviewer": true, "panel-reviewer": true,
-	"panel-rerun":      true,
-	"self-review-pass": true, "self-review-review-1": true, "self-review-review-r": true,
-	"pipeline-fix-review-1": true, "pipeline-fix-review-r": true,
-	"explorer": true, "plan-designer": true, "designer": true,
-}
-
 var (
 	pjPairShape = regexp.MustCompile(`^([^/]+)/(?:[A-Za-z]+@|[a-z-]*-)(low|medium|high|xhigh|max)$`)
 	pjSpace     = regexp.MustCompile(`\s+`)
@@ -183,13 +166,8 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 	if err := os.Remove(strings.TrimSuffix(args[1], filepath.Ext(args[1])) + ".pick"); err != nil && !errors.Is(err, os.ErrNotExist) {
 		fmt.Fprintf(stderr, "pair-judge: %v\n", err)
 	}
-	if !pjJudged[role] {
-		judged := make([]string, 0, len(pjJudged))
-		for r := range pjJudged {
-			judged = append(judged, r)
-		}
-		slices.Sort(judged)
-		fmt.Fprintf(stderr, "pair-judge: role %q is not judged; the judged roles are %s\n", role, strings.Join(judged, ", "))
+	if role == "pair-judge" { // the judge's own pair is never judged: it would pick itself
+		fmt.Fprintln(stderr, "pair-judge: the pair-judge role is not judged")
 		Reason(env, "role-not-judged")
 		return 2
 	}

@@ -699,8 +699,7 @@ func TestEnforceAgentBaselineHookRecordsThePairPick(t *testing.T) {
 }
 
 // TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick: a dispatch of a role the pair judge covers is
-// denied until `pair-judge/<key>.pick` exists (it never blocks, so a pick is always obtainable), and a
-// role it does not cover is let through.
+// denied until `pair-judge/<key>.pick` exists (it never blocks, so a pick is always obtainable).
 func TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
@@ -711,7 +710,6 @@ func TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick(t *testing.T) {
 		{"no pick", "panel-fix", "panel-fix-2", false, true},
 		{"implementer, no pick", "implementer", "task-1-implementer", false, true},
 		{"pick saved", "panel-fix", "panel-fix-2", true, false},
-		{"unjudged role", "panel-merger", "panel-merger-1", false, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			main, wt := beginRepo(t)

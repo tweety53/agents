@@ -180,8 +180,8 @@ ROW_ROLE = {
 }
 
 
-# The roles flow-guard pair-judge picks a pair for; the rest keep the pair their row names.
-JUDGED_ROLES = set(ROW_ROLE) - {"operator-asked", "panel-merger", "visual-verifier", "runner"}
+# Every role a begun row maps takes the pair judge's pick.
+JUDGED_ROLES = set(ROW_ROLE)
 
 
 def bound(seconds: float) -> "float | None":

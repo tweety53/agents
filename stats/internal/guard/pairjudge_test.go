@@ -139,7 +139,7 @@ func TestPairJudgeRefusalSavesNoPick(t *testing.T) {
 		t.Fatal(err)
 	}
 	stub := newPJStub(t, pjAnswer)
-	if r := runGuard("pair-judge", []string{"visual-verifier", digest}, pjEnv(t, testPolicy, stub)); r.rc != 2 {
+	if r := runGuard("pair-judge", []string{"pair-judge", digest}, pjEnv(t, testPolicy, stub)); r.rc != 2 {
 		t.Fatalf("rc=%d out=%q, want 2", r.rc, r.out)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "x.pick")); !errors.Is(err, os.ErrNotExist) {
@@ -315,7 +315,7 @@ func TestPairJudgeRefuses(t *testing.T) {
 		"no candidates": {[]string{"implementer", digest}, pjEnv(t,
 			pjPolicy(`"implementer":{"base":[],"optin":["opus/flow-high"],"marked":[]}`), stub)},
 	}
-	for _, role := range []string{"visual-verifier", "operator-asked", "panel-merger"} {
+	for _, role := range []string{"pair-judge", "no-such-role"} {
 		cases["role "+role] = struct {
 			args []string
 			env  Env
