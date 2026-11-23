@@ -505,7 +505,8 @@ func (v *vvp) taskCaptured(w string) []string {
 // prepare-captures-sharded, capture-failure-falls-back-serial): `setup`, then
 // one `capture <spec> --workers=<flow-guard capture-workers> --retries=1 --update-snapshots=all` with every `spec` line's path
 // for `<spec>`, space-joined, once per pass; a
-// non-zero exit drops the slices and the pass runs one verifier.
+// non-zero exit drops the slices and the pass runs one verifier. The flags sit
+// right after the specs, inside the row, so a row ending `; }` still parses.
 func (v *vvp) captureShards(survivors []string) {
 	var specs []string
 	sliced, captured := false, false
@@ -534,7 +535,7 @@ func (v *vvp) captureShards(survivors []string) {
 	}
 	// One run for every other spec, across capture-workers' count of workers.
 	if len(specs) > 0 {
-		cmds = append(cmds, strings.ReplaceAll(cells["capture"], "<spec>", strings.Join(specs, " "))+fmt.Sprintf(" --workers=%d --retries=1 --update-snapshots=all", captureWorkers(runtime.NumCPU())))
+		cmds = append(cmds, strings.ReplaceAll(cells["capture"], "<spec>", strings.Join(specs, " ")+fmt.Sprintf(" --workers=%d --retries=1 --update-snapshots=all", captureWorkers(runtime.NumCPU()))))
 	}
 	for _, c := range cmds {
 		if rc, _ := kwRun(v.env, v.captureRoot(w), "sh", "-c", c); rc != 0 {

@@ -1083,6 +1083,20 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		}
 	})
 
+	t.Run("a capture row ending in a block takes the flags inside it", func(t *testing.T) {
+		t.Parallel()
+		f := vvpShardFixture(t, 60, "")
+		pm := filepath.Join(f.wt, ".flow/project.md")
+		b, _ := os.ReadFile(pm)
+		writeFile(t, pm, strings.Replace(string(b), "`./cap <spec>`", "`true && { ./cap <spec>; }`", 1))
+		gitRun(t, f.wt, "add", "-A")
+		gitRun(t, f.wt, "commit", "-qm", "block row")
+		f.green()
+		if rc, out, _ := f.prepare(); rc != 0 || strings.Contains(out, "SHARDS: none") || runLog(f) != "setup\ncapture "+spec(f)+" "+vvpWorkersFlag+"--update-snapshots=all\n" {
+			t.Fatalf("exit %d, run log %q\n%s", rc, runLog(f), out)
+		}
+	})
+
 	t.Run("a failed capture falls back to one verifier", func(t *testing.T) {
 		t.Parallel()
 		f := vvpShardFixture(t, 60, "exit 1\n")

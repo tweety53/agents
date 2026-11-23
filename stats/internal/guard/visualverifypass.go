@@ -127,7 +127,9 @@ import (
 //      every `spec` line's path a task's capture does not stand for
 //      (rcTaskCaptured) space-joined (kan-1087: its verifier ran 4
 //      specs, 70 tests, as one run of 8.5 minutes),
-//      run from the capture root, then `captured` is appended; a non-zero
+//      run from the capture root (the flags follow the specs inside the row, so a
+//      row of any shape parses; a `capture` row must not carry its own
+//      `--update-snapshots`, a row's later flag wins in Playwright), then `captured` is appended; a non-zero
 //      exit prints `SHARDS: none — <command> exit <n>`, drops the `slice`
 //      lines and continues unsharded (decision
 //      capture-failure-falls-back-serial).
