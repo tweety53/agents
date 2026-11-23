@@ -180,6 +180,10 @@ ROW_ROLE = {
 }
 
 
+# The roles flow-guard pair-judge picks a pair for; the rest keep the pair their row names.
+JUDGED_ROLES = set(ROW_ROLE) - {"operator-asked", "panel-merger", "visual-verifier", "runner"}
+
+
 def bound(seconds: float) -> "float | None":
     """A store or subprocess call's wall-clock bound. FLOW_HOOK_UNBOUNDED=1 lifts it: the hook's
     tests inject that so a deny case never fails open because the full -race suite starved its
@@ -241,8 +245,9 @@ def names_worktree(prompt: str, worktree: str) -> bool:
     return re.search(re.escape(worktree) + r"(?:/|\s|$)", prompt) is not None
 
 
-def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | None":
-    """The begin argv to write once every deny check has passed, or
+def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | str | None":
+    """The begin argv to write once every deny check has passed, a deny reason (str) when a judged
+    role's dispatch has no saved pair-judge pick, or
     None: a row already open, a dispatch with no key or no mapped role, or an unanswered store.
     The hook writes the begin; the row's end stays the parent's."""
     if LOOP_KEY_LINE.search(prompt) or loop_word(tool_input):
@@ -295,6 +300,13 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | None":
     pick = read_pick(os.path.join(worktree, ".superpowers", "sdd", "pair-judge", key + ".pick"))
     if pick:
         args += ["-pair-pick", pick]
+    elif role_id in JUDGED_ROLES and os.environ.get("FLOW_HOOK_ROLE_CHECK") != "off":
+        return (f"Dispatch blocked: `{role_id}` dispatches take the pair judge's pick, and "
+                f"`.superpowers/sdd/pair-judge/{key}.pick` is not there.\n\n"
+                f"Write the dispatch's prompt to `{worktree}/.superpowers/sdd/pair-judge/{key}.md`, run\n"
+                f"flow-guard pair-judge {role_id} {worktree}/.superpowers/sdd/pair-judge/{key}.md\n"
+                "(it never blocks: a judge that cannot answer prints the role's first pair), then send the "
+                "dispatch on the pair it prints (`skills/flow/brainstorm-planner.md`, **Model and effort**).")
     return args
 
 
@@ -518,7 +530,9 @@ def main() -> int:
         deny(reason)
         return 0
     begin = begin_row(payload, tool_input, prompt)
-    if begin:
+    if isinstance(begin, str):
+        deny(begin)
+    elif begin:
         write_begin(begin)
     return 0
 

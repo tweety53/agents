@@ -698,6 +698,49 @@ func TestEnforceAgentBaselineHookRecordsThePairPick(t *testing.T) {
 	}
 }
 
+// TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick: a dispatch of a role the pair judge covers is
+// denied until `pair-judge/<key>.pick` exists (it never blocks, so a pick is always obtainable), and a
+// role it does not cover is let through.
+func TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	for _, c := range []struct {
+		name, role, key string
+		pick, wantDeny  bool
+	}{
+		{"no pick", "panel-fix", "panel-fix-2", false, true},
+		{"implementer, no pick", "implementer", "task-1-implementer", false, true},
+		{"pick saved", "panel-fix", "panel-fix-2", true, false},
+		{"unjudged role", "panel-merger", "panel-merger-1", false, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			main, wt := beginRepo(t)
+			if c.pick {
+				dir := filepath.Join(wt, ".superpowers", "sdd", "pair-judge")
+				if err := os.MkdirAll(dir, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, c.key+".pick"), []byte("opus low judge r\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			env, _ := beginEnv(t, `[]`)
+			env = append(env, "FLOW_HOOK_ROLE_CHECK=on")
+			model := "opus"
+			if c.role == "panel-merger" {
+				model = "sonnet"
+			}
+			denied, out := runBegin(t, beginPayload(t, main, c.key+" x", "Role: "+c.role+"\nx", "flow-low", model, ""), env...)
+			if denied != c.wantDeny {
+				t.Errorf("denied = %v (%s), want %v", denied, out, c.wantDeny)
+			}
+			if c.wantDeny && !strings.Contains(out, "pair-judge "+c.role) {
+				t.Errorf("reason = %q, want the pair-judge command for %s", out, c.role)
+			}
+		})
+	}
+}
+
 // roleCheckPayload is a flow-session dispatch carrying the baseline pointer and, when role is set,
 // its Role line.
 func roleCheckPayload(t *testing.T, role, model, agent string) []byte {
