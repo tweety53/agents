@@ -965,9 +965,8 @@ export function RunDetail({ project, change }: RunDetailProps) {
           const mainMetrics = [mainRun, ...[...runs].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))].find((r) => r && readMainModels(r.metrics))?.metrics;
           const mainAgent = mainRun && {
             what: waitingNext ? "waiting for the next request" : inline ? inlineWhat(inline, board?.tasks) : openRun ? `${stageLabel(openRun.stage)}${board && mainAction(board) ? ` · ${mainAction(board)}` : board && agentsDone(board) ? ", wrapping up after its agents" : ""}` : (board?.activity === "working" && board.activityDetail ? board.activityDetail : `between stages, after ${stageLabel(mainRun.stage)}`),
-            model: inline
-              ? formatModel(inline.modelVersion ?? inline.model)
-              : (readMainModels(mainMetrics)?.map(formatModel).join(", ") ?? "—"),
+            // The inline dispatch's pair is the one it was asked for, not the main session's own: measured models lead.
+            model: readMainModels(mainMetrics)?.map(formatModel).join(", ") ?? (inline ? formatModel(inline.modelVersion ?? inline.model) : "—"),
             effort: readEffort(mainMetrics) ?? undefined,
             since: inline?.startedAt ?? (openRun ? openRun.startedAt : (mainRun.endedAt ?? mainRun.startedAt)),
           };
