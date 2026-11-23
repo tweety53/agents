@@ -38,6 +38,10 @@ import (
 //   - carry no flagged band, seam or `over` row and no failed compose, after
 //     the declared tolerance and the whole-frame shift fold.
 //
+// A UI task is not measured per task when a LATER task of the plan lists a
+// `*.mockups` capture-spec sidecar in its **Files:** — no capture spec exists
+// until then, and flow.verify's visual stage measures the frames.
+//
 // Prints ONE verdict line:
 //
 //	UI-TASK-MEASURED: <task-id> — <why it passes>            (stdout)
@@ -137,6 +141,25 @@ func utmJudge(env Env, worktrees []string, name, taskID string) (id, msg string)
 	}
 	if !ui {
 		return "", "no file of the task matches `ui paths`"
+	}
+
+	// A plan that adds its capture spec (a `.mockups` sidecar) in a later task
+	// leaves nothing to measure against yet; flow.verify measures these frames.
+	after := false
+	for _, t := range tcfIterTasks(lines) {
+		if t.id == taskID {
+			after = true
+			continue
+		}
+		if !after {
+			continue
+		}
+		later, _ := tcfParseTask(lines, t.id)
+		for _, f := range later.files {
+			if strings.HasSuffix(f, ".mockups") {
+				return "", "the plan adds its capture spec in task " + t.id + "; flow.verify measures this task's frames"
+			}
+		}
 	}
 
 	record := filepath.Join(changeRoot, "visual-verification", "task-"+taskID+"-measure.json")

@@ -89,3 +89,32 @@ func TestUITaskMeasuredSkipsSamplesAndFakes(t *testing.T) {
 		t.Fatalf("real ui task: exit %d, want 1\n%s", r.rc, r.out+r.err)
 	}
 }
+
+func utmCaptureLaterPlan(t *testing.T, laterFiles string) *ctFx {
+	t.Helper()
+	fx := ctFixture(t, true, "0")
+	writeFile(t, fx.wt+"/.flow/project.md", "# project\n\n## visual verification\n\n| Setting | Value |\n|---|---|\n| `ui paths` | `web/**` |\n")
+	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", "# demo\n\n- [ ] 1. screen\n\n**Files:** `web/a.css`\n**Tests:** none\n**After:** none\n**Size:** small\n\n- [ ] 2. capture\n\n**Files:** "+laterFiles+"\n**Tests:** none\n**After:** none\n**Size:** small\n")
+	fx.commit(t, fx.wt, "one", "1", "web/a.css", "a\n")
+	return fx
+}
+
+func TestUITaskMeasuredWaitsForALaterCaptureSpec(t *testing.T) {
+	t.Parallel()
+	fx := utmCaptureLaterPlan(t, "`e2e/x.spec.ts`, `e2e/x.spec.ts.mockups`")
+	if r := runGuard("check-ui-task-measured", []string{fx.wt, "1"}, fx.env); r.rc != 0 || !strings.Contains(r.out, "adds its capture spec in task 2") {
+		t.Fatalf("later capture task: exit %d\n%s", r.rc, r.out+r.err)
+	}
+	// The capture task itself is not exempted by its own sidecar.
+	if r := runGuard("check-ui-task-measured", []string{fx.wt, "2"}, fx.env); strings.Contains(r.out, "adds its capture spec") {
+		t.Fatalf("capture task exempted itself\n%s", r.out+r.err)
+	}
+}
+
+func TestUITaskMeasuredWithoutALaterCaptureSpecStaysUnmeasured(t *testing.T) {
+	t.Parallel()
+	fx := utmCaptureLaterPlan(t, "`core/b.go`")
+	if r := runGuard("check-ui-task-measured", []string{fx.wt, "1"}, fx.env); r.rc != 1 || !strings.Contains(r.err, "UI-TASK-UNMEASURED: 1") {
+		t.Fatalf("no later capture task: exit %d\n%s", r.rc, r.out+r.err)
+	}
+}
