@@ -833,7 +833,7 @@ export interface RecordDispatch {
   startedAt: string;
   endedAt?: string;
   /** The harvester's figures: the exact model, and an inline row's real effort (its own column records "default"). */
-  metrics?: { modelVersion?: string; effort?: string };
+  metrics?: { modelVersion?: string; effort?: string; cost_usd?: number };
 }
 
 /** GET /api/v1/records/{project}/{change} -- the change's run record; the run view reads its dispatches. */

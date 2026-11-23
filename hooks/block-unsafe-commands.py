@@ -117,6 +117,27 @@ def full_go_test(command):
     return False
 
 
+# The recording form of `flow-guard run-verify-list` — the one carrying the literal `mf-<token>` — is the
+# runner's: every run of the list is a `runner` subagent's (skills/flow/verify-and-handoff.md, **Every run of
+# the list is the runner's**). Typed by the main session it bills the main session's model while its `verify`
+# row records the runner's pair (KAN-1156: 13 rows). The bare `run-verify-list <worktree> <group>` that
+# /flow-fast and /flow-interactive type is not the recording form.
+VERIFY_LIST_RECORDED_RE = re.compile(r"\brun-verify-list\b[^;&|\n]*\bmf-[A-Za-z0-9]")
+VERIFY_LIST_REASON = (
+    "`flow-guard run-verify-list` with a session token records a `verify` row for the runner's pair, so only a "
+    "`runner` subagent types it — the parent dispatches the runner (skills/flow/verify-and-handoff.md, **Every "
+    "run of the list is the runner's**) and never runs the list itself."
+)
+
+
+def verify_list_by_main_session(command, payload):
+    if not VERIFY_LIST_RECORDED_RE.search(command):
+        return False
+    transcript = payload.get("transcript_path")
+    in_subagent = bool(payload.get("agent_id")) or (isinstance(transcript, str) and "/subagents/" in transcript)
+    return not in_subagent
+
+
 _git_cache = {}
 
 
@@ -1038,6 +1059,8 @@ def main():
                 landings.append(BARE_CAT_REASON)
             if full_go_test(command):
                 landings.append(FULL_GO_TEST_REASON)
+            if verify_list_by_main_session(command, payload):
+                landings.append(VERIFY_LIST_REASON)
             stash = stash_denial(command, cwd)
             if stash:
                 landings.append(stash)

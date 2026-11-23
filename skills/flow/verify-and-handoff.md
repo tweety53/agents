@@ -368,12 +368,17 @@ and nothing the ledger or panel record already holds. The abandoned approaches a
 reasons are recorded because the diff shows only the winning shape — a deferred self-review pass
 reads the narrative, and the negative results live nowhere else in the change's record. The narrative itself is gitignored, written on disk and nothing else; nothing stages it.
 
-**The hooks have ended every row whose agent stopped**; before the state is
-written, list the rows still open and end each `-outcome aborted` — its agent is gone:
+**The hooks have ended every row whose agent stopped, bar one whose final message they could not read yet**; before the state is
+written, list the rows still open:
 
 ```bash
 flow record dispatches -change <name> -C <canonical-worktree> \
   | jq -r '.[] | select((.outcome // "") == "") | "\(.key) \(.sessionToken) \(.agentId // "inline")"'
+```
+
+**A row whose agent returned is never aborted** (KAN-1156: eight rows, each with its handback and $0.19–3.90 of spend, were ended `aborted`). A row with an agent id whose transcript (`<session folder>/subagents/agent-<agent id>.jsonl`) exists is closed from that transcript, which is complete by now: `flow-guard end-dispatch-row <that transcript> <session id> <canonical-worktree>`, which prints `END-DISPATCH-ROW-OK` and ends the row on its real final message. Only a row that guard prints `END-DISPATCH-ROW-NA` for, or that has no transcript, is ended `-outcome aborted` — its agent is gone:
+
+```bash
 flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome aborted
 ```
 

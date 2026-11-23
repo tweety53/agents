@@ -1098,6 +1098,16 @@ describe("the reworked run view (kan-1048)", () => {
     expect(within(rail).queryByTestId("stage-cost-rest")).toBeNull();
   });
 
+  it("run detail prices a dispatch no stage run's bucket holds from its own cost_usd", async () => {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([...planning, implementation[0]]));
+    const rev = { id: 4, agentId: "r4", role: "reviewer", key: "panel-1-r4", model: "sonnet", effort: "low", startedAt: "2026-01-01T01:05:00Z", endedAt: "2026-01-01T01:06:00Z", outcome: "clean", metrics: { cost_usd: 0.75 } };
+    runRecordMock.mockResolvedValueOnce({ dispatches: [rev] });
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = await screen.findByRole("region", { name: "Main" });
+    const line = await waitFor(() => within(main).getAllByTestId("phase-role").find((r) => r.textContent?.startsWith("reviewer"))!);
+    expect(line.querySelector(".lb-role-models")!.textContent).toBe("sonnet · low ×1 ($0.75)");
+  });
+
   it("run detail counts each role's dispatches per model · effort, the counts summing to the role's and the costs to its cost", async () => {
     const priced = { ...implementation[0], metrics: { ...(implementation[0].metrics as object), dispatches: { r1: { cost_usd: 1 }, r2: { cost_usd: 2 }, r3: { cost_usd: 0.5 } } } };
     listStageRunsMock.mockResolvedValue(stageRunsResponse([...planning, priced]));

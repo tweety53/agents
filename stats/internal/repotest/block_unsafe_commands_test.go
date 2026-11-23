@@ -340,6 +340,23 @@ func TestBlockUnsafeCommands(t *testing.T) {
 	f.bash("112 go test of the guard package naming its tests", "allow", "{ROOT}", `cd {SIB}/stats && go test ./internal/guard/ -run 'PairJudge|PjSample'`)
 	f.bash("113 go test of a light package", "allow", "{ROOT}", `cd {SIB}/stats && go test ./internal/modelpolicy/`)
 
+	// 143-145: the recording form of run-verify-list is a runner subagent's, never the main session's.
+	rec := `{SIB}/scripts/flow-guard run-verify-list {SIB} lint kan-1 verify mf-abc123 haiku low`
+	f.bash("143 run-verify-list recording form from the main session", "deny", "{ROOT}", rec)
+	f.bash("144 run-verify-list bare form from the main session", "allow", "{ROOT}", `{SIB}/scripts/flow-guard run-verify-list {SIB} lint`)
+	for _, c := range []struct{ n, key, val string }{{"145 recording form from a subagent (agent_id)", "agent_id", "a1b2c3"}, {"146 recording form from a subagent (transcript)", "transcript_path", "/x/s/subagents/agent-a1.jsonl"}} {
+		f.check(c.n, func(t *testing.T) {
+			var buf bytes.Buffer
+			if err := json.NewEncoder(&buf).Encode(map[string]any{"tool_name": "Bash", "tool_input": map[string]string{"command": f.x(rec)}, "cwd": f.x("{ROOT}"), c.key: c.val}); err != nil {
+				t.Fatal(err)
+			}
+			out, stderr, rc := runHook(t, "block-unsafe-commands.py", buf.Bytes())
+			if rc != 0 || decision(out) != "allow" {
+				t.Errorf("wanted allow, got rc %d out %q %s", rc, out, stderr)
+			}
+		})
+	}
+
 	// 138-142: a `>` inside quotes is data, never a redirect (kan-1003's self-review); every
 	// operator that writes a file is still judged.
 	f.bash("138 a quoted '>Save<' argument, cwd = main", "allow", "{MAIN}", `python3 grab.py "{SIB}/a.html" '>Save<' 1 1200`)

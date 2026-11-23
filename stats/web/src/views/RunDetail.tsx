@@ -108,7 +108,7 @@ const INTERACTIVE_RUNS = 6;
 /** The outcomes a dispatch ends on without finishing its work. */
 const FAILED_OUTCOMES = new Set(["failed", "blocked", "aborted", "timed-out", "cancelled", "stopped"]);
 
-type Step = ActiveSubagent & { policyRole?: string; phase: Phase; agentId?: string; endedAt?: string; outcome?: string; cause?: string; notes?: string };
+type Step = ActiveSubagent & { policyRole?: string; phase: Phase; agentId?: string; endedAt?: string; outcome?: string; cause?: string; notes?: string; ownCostUsd?: number };
 
 /** Each dispatch as a step of the phase whose stage run was the latest to start at or before it (production dispatches carry no stage run id). */
 function phaseSteps(runs: StageRunDTO[], dispatches: RecordDispatch[]): Step[] {
@@ -135,6 +135,7 @@ function phaseSteps(runs: StageRunDTO[], dispatches: RecordDispatch[]): Step[] {
       outcome: d.outcome,
       cause: d.cause,
       notes: d.notes,
+      ownCostUsd: typeof d.metrics?.cost_usd === "number" ? d.metrics.cost_usd : undefined,
     });
   }
   return out;
@@ -167,7 +168,8 @@ function roleSummary(steps: Step[], costs: Map<string, number>) {
   const byRole = new Map<string, Step[]>();
   // The roles table names a role finer than the store's coarse one (a runner is not a visual verifier).
   for (const d of steps) byRole.set(d.policyRole ?? d.role, [...(byRole.get(d.policyRole ?? d.role) ?? []), d]);
-  const costOf = (ds: Step[]) => measuredSum(ds.map((d) => (d.agentId ? costs.get(d.agentId) : undefined)));
+  // A dispatch no stage run's bucket priced still carries its own `cost_usd` (KAN-1156: gated reviewers read "—").
+  const costOf = (ds: Step[]) => measuredSum(ds.map((d) => (d.agentId ? costs.get(d.agentId) : undefined) ?? d.ownCostUsd));
   // The main session ran an inline dispatch itself: its cost is in the "main session" line, never a bucket of its own.
   // An unpriced group says why: run inline, never run (failed before any agent id), or no agent id to match a bucket by.
   const unpriced = (ds: Step[]) =>
