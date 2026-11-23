@@ -221,7 +221,8 @@ func edrSessionChange(env Env, sessionID string) (change, token string) {
 // flow-guard sweep-dispatch-rows <subagents-dir> <session-id> <cwd> — close the rows of agents whose
 // stop never closed them. For each agent transcript in the dir that is 30 minutes to 24 hours
 // old, holds a SubagentHandback report and carries no `.swept` sidecar, it runs end-dispatch-row
-// on it (the guard reads the report) and writes the sidecar so it is tried once. hooks/await-own-agents.py
+// on it (the guard reads the report) and writes the sidecar so it is tried once, unless the end
+// failed for a transient reason (no flow change for the session, a refused end). hooks/await-own-agents.py
 // runs it after each stop. An agent with no report is never swept: a quiet long build looks the same.
 // Exit 0 always. Go, in flow-guard (stats/internal/guard/enddispatchrow.go).
 func init() { Registry["sweep-dispatch-rows"] = sweepDispatchRows }
@@ -248,7 +249,14 @@ func sweepDispatchRows(args []string, env Env, stdout, stderr io.Writer) int {
 		if b, err := os.ReadFile(f); err != nil || !bytes.Contains(b, []byte(`"SubagentHandback"`)) {
 			continue
 		}
-		endDispatchRow([]string{f, args[1], args[2]}, env, stdout, stderr)
+		var out bytes.Buffer
+		endDispatchRow([]string{f, args[1], args[2]}, env, &out, stderr)
+		_, _ = stdout.Write(out.Bytes())
+		// A transient miss (flowd down, no change for the session yet, a refused end) leaves no
+		// sidecar, so the next stop retries; otherwise the parent's handoff would end the row aborted.
+		if strings.Contains(out.String(), "no flow change") || strings.Contains(out.String(), "flow record dispatch end exit") {
+			continue
+		}
 		_ = os.WriteFile(f+".swept", nil, 0o644)
 	}
 	return 0

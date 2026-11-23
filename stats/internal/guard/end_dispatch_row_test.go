@@ -156,6 +156,35 @@ func TestSweepDispatchRows(t *testing.T) {
 	}
 }
 
+// TestSweepRetriesATransientMiss: flowd naming no change for the session leaves no sidecar, so
+// a later sweep still closes the row.
+func TestSweepRetriesATransientMiss(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"stageRuns":[]}`))
+	}))
+	t.Cleanup(srv.Close)
+	tmp := t.TempDir()
+	f := filepath.Join(tmp, "agent-a.jsonl")
+	writeFile(t, f, `{"type":"user","message":{"role":"user","content":"Key: panel-0-x\n"}}`+"\n"+
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"SubagentHandback","input":{"message":"done"}}]}}`+"\n")
+	old := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(f, old, old); err != nil {
+		t.Fatal(err)
+	}
+	env := Env{Getenv: func(k string) string {
+		if k == "FLOW_ADDR" {
+			return srv.URL
+		}
+		return os.Getenv(k)
+	}, Dir: tmp}
+	var o, e bytes.Buffer
+	sweepDispatchRows([]string{tmp, "s1", tmp}, env, &o, &e)
+	if _, err := os.Stat(f + ".swept"); err == nil {
+		t.Error("a transient miss wrote the .swept sidecar; the row would never be retried")
+	}
+}
+
 func jsonString(s string) string {
 	b, _ := json.Marshal(s)
 	return string(b)
