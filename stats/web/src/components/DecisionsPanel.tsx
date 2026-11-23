@@ -26,7 +26,7 @@ export interface Decision {
   overrides?: unknown;
 }
 
-type Line = { role: string; model: string; reason?: string; prose?: boolean; pct?: string };
+type Line = { role: string; model: string; reason?: string; prose?: boolean; pct?: string; why?: string };
 
 /** The pair of the latest dispatch whose key `want` accepts, "not run yet" when none ran. */
 function decided(dispatches: RecordDispatch[], want: (key: string) => boolean): string {
@@ -50,11 +50,11 @@ const pick = (role: string, p: Pick | undefined, run?: string): Line[] =>
 const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** The lowest estimate an implementer filed for any task of a group, "70% → 95%" once its tests were green; none when it filed none. */
-const confidenceOf = (rows: ConfidenceRow[], ids: string[]): string | undefined => {
+const confidenceOf = (rows: ConfidenceRow[], ids: string[]): { pct: string; why: string } | undefined => {
   const hit = rows.filter((r) => r.stage === "implement" && (r.task ?? "").split("+").some((t) => ids.includes(t)));
   if (hit.length === 0) return undefined;
   const low = hit.reduce((a, b) => (b.score < a.score ? b : a));
-  return low.scoreAfter ? `${low.score}% → ${low.scoreAfter}%` : `${low.score}%`;
+  return { pct: low.scoreAfter ? `${low.score}% → ${low.scoreAfter}%` : `${low.score}%`, why: (low.scoreAfter ? (low.gapsAfter ?? []) : low.gaps).join("\n") };
 };
 
 function lines(d: Decision, dispatches: RecordDispatch[], confidence: ConfidenceRow[]): Line[] {
@@ -71,7 +71,7 @@ function lines(d: Decision, dispatches: RecordDispatch[], confidence: Confidence
   });
   const implementers = d.groups?.length
     ? d.groups.flatMap((g) =>
-        ((ids) => pick(`${ids.length > 1 ? "Tasks" : "Task"} ${ids.join(", ")}`, g, decided(dispatches, (k) => ranWith(k, ids))).map((l) => ({ ...l, pct: confidenceOf(confidence, ids) })))(
+        ((ids) => pick(`${ids.length > 1 ? "Tasks" : "Task"} ${ids.join(", ")}`, g, decided(dispatches, (k) => ranWith(k, ids))).map((l) => ({ ...l, ...confidenceOf(confidence, ids) })))(
           g.tasks ?? (g.bundles ?? []).map(String),
         ),
       )
@@ -106,7 +106,7 @@ export function DecisionsPanel({ decision, dispatches = [], confidence = [] }: {
                 {l.pct !== undefined && (
                   <>
                     {" · "}
-                    <span className="lb-num" data-testid="decision-confidence">{l.pct}</span>
+                    <span className="lb-num" data-testid="decision-confidence" title={l.why || undefined}>{l.pct}</span>
                   </>
                 )}
               </span>

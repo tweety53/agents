@@ -144,6 +144,16 @@ export function Confidence() {
                     <li key={i}>{g}</li>
                   ))}
                 </ul>
+                {sel.gapsAfter && sel.gapsAfter.length > 0 && (
+                  <>
+                    <h4 className="sr-h">Still open once its tests were green</h4>
+                    <ul className="sr-list">
+                      {sel.gapsAfter.map((g, i) => (
+                        <li key={i}>{g}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
                 {show === "to-review" ? (
                   <footer className="sr-actions">
                     <button type="button" className="sr-approve" onClick={() => void decide(sel, "approved")}>

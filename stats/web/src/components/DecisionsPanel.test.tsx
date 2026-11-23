@@ -29,9 +29,11 @@ describe("DecisionsPanel", () => {
     expect(rows).toContain("Tasks 1, 3opus · low · 80%");
     expect(rows).toContain("Task 2sonnet · medium");
     cleanup();
-    render(<DecisionsPanel decision={decision} confidence={[{ ...row("3", 70), scoreAfter: 95 }]} />);
+    render(<DecisionsPanel decision={decision} confidence={[{ ...row("3", 70), scoreAfter: 95, gapsAfter: ["the fixture is missing"] }]} />);
     expect(screen.getAllByTestId("decision-confidence")[0]).toHaveTextContent("70% → 95%");
     expect(screen.getAllByTestId("decision-confidence")).toHaveLength(1);
+    // The reason is the gaps still open once the tests were green, on hover.
+    expect(screen.getAllByTestId("decision-confidence")[0]).toHaveAttribute("title", "the fixture is missing");
   });
 
   it("lists each role's model and effort, its reason as the tooltip", () => {
