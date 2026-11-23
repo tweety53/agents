@@ -79,6 +79,9 @@ path in a module that holds no test of that kind, and so cannot host it, is a `f
 integration test was planned into a module whose tests are not full-HTTP).
 A task that adds native SQL, a migration or a query has a `**Tests:**` entry that executes it
 against real or seeded data; with none, nothing in the plan can verify it, and that is a `finding`.
+A task that changes a symbol's signature or behaviour has a `**Files:**` entry for the places that
+use it, or says why none need editing; a definition listed alone leaves its call sites to be found
+while editing (KAN-1156: replay sites of a sync engine were found only once the task was under way).
 
 ## Inventive catalyst
 

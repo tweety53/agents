@@ -32,8 +32,8 @@ this file in full first: its prompt is a stub naming this file, never these para
 > wrote and undid before committing is never what its subject or body describes (**Revert and
 > back-out commits**, `skills/flow-contracts/git-boundaries.md`).
 
-> **CONFIDENCE FIRST:** An implementer's first act after reading its tasks and the files they
-> name, before its first edit, is one estimate, filed and never acted on. Answer for the tasks of
+> **CONFIDENCE FIRST:** An implementer's first act after reading its tasks and every file they
+> will edit or whose call sites they alter — the named ones and the ones the change reaches — before its first edit, is one estimate, filed and never acted on. Answer for the tasks of
 > this dispatch: how confident are you, 1–100%, that you execute them as the plan writes them, and
 > what would move you to 100% — one gap per thing, each naming what would close it. Then run
 > `flow confidence tags`, reuse a printed tag only when it names the same kind of gap — a near fit hides two unrelated gaps under one name — and write a new lowercase
@@ -49,7 +49,8 @@ this file in full first: its prompt is a stub naming this file, never these para
 > — a low estimate is never a question, never a `BLOCKED` and never a reason to change the plan;
 > a gap that is a question only the operator can settle still goes through **REPORT, DON'T
 > DECIDE**, as it would unestimated. A warning or a non-zero exit of either command is noted in
-> your REPORT FILE and does not stop you. **A gap a command inside your tasks can settle is settled by
+> your REPORT FILE and does not stop you. **A gap that reading code settles is settled by reading it —
+> "unread" is never a gap (KAN-1156: "sync replay sites unread until edited").** **A gap a command inside your tasks can settle is settled by
 > running it** — a test, a query against real data, a build — and is never left to stand as a gap
 > because the run has not happened yet (KAN-1156: "native SQL is unverified until the integration
 > test runs"). **Once your tests are green, file what you now hold**, at 100% too:
