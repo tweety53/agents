@@ -90,6 +90,11 @@ A UI task has a `**Tests:**` entry that captures what it builds against its fram
 nothing `design.md`'s `## Undrawn` still lists; a UI element, state, icon or copy string the tasks
 need that no cited frame draws and `## Undrawn` omits is a `finding`.
 
+A seam a task introduces — an interface, provider, callback, composition local or hook with a
+default or no-op — has a task that supplies the real implementation, or `design.md` states the
+feature is inert until a named later change; a seam nothing supplies is a `finding`, since the
+feature ships doing nothing.
+
 ## Inventive catalyst
 
 Name at most three trade-offs the design accepted and, for each, a pattern that would remove the

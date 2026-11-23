@@ -58,7 +58,13 @@ this file in full first: its prompt is a stub naming this file, never these para
 > the first estimate stays as filed, and the pair shows beside your group. **Before filing it, take
 > each gap of the first estimate in turn and close it:** read the file or run the command that
 > settles it, and name that file or command in your REPORT FILE. A scenario no test covers is closed
-> by writing the test inside your task. Below 100, `-gap` is required, once per gap still open, and a
+> by writing the test inside your task. **A gap is never one of these, whatever the number:** existing
+> code that contradicts a recorded decision or the plan (the plan's decision is applied, or the task
+> reports BLOCKED — **REPORT, DON'T DECIDE**; "kept existing" is a silent decision, KAN-1157), a test
+> you wrote and have not run (run it; if it cannot run here the task is `BLOCKED` naming the command and
+> why, never `DONE`), and a seam you left inert — a default no-op, a stub or a placeholder that nothing
+> in your tasks replaces (wire the real one inside your task, or carry it as a question in your REPORT
+> FILE for the plan). Below 100, `-gap` is required, once per gap still open, and a
 > gap there is one no command or file read in your tasks could settle, the REPORT FILE saying why; at
 > 100 pass none. Skip it only when you
 > filed no estimate. A fixer skips this paragraph.
