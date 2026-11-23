@@ -524,7 +524,7 @@ func pfVerify(env Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 			red++
 			fmt.Fprint(stdout, "red: visual verify — no merge base to scope the specs row to\n")
 		case specs != "":
-			src, out := kwRun(env, dir, "bash", "-c", specs)
+			src, out := kwStdout(env, dir, "bash", "-c", specs)
 			paths := strings.Fields(out)
 			switch {
 			case src != 0:

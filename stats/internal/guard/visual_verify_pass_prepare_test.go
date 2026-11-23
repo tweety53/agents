@@ -840,6 +840,12 @@ func TestVisualVerifyPassPrepareChecksOnlyCapturedSidecars(t *testing.T) {
 			t.Fatalf("exit %d\n%s", rc, out)
 		}
 	})
+	t.Run("stderr diagnostics are not specs", func(t *testing.T) {
+		t.Parallel()
+		if rc, out, _ := setup(t, "echo a.spec.ts\necho 'specs-for-diff: skipped foreign.spec.ts not selected' >&2\n").prepare(); rc != 0 || strings.Contains(out, "STOP:") {
+			t.Fatalf("exit %d\n%s", rc, out)
+		}
+	})
 	t.Run("a failing specs command", func(t *testing.T) {
 		t.Parallel()
 		if rc, out, _ := setup(t, "exit 1\n").prepare(); rc != 1 || !strings.Contains(out, "specs-since") {

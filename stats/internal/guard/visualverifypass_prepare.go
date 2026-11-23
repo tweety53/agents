@@ -306,7 +306,7 @@ func (v *vvp) preflight(survivors []string) {
 			root := v.captureRoot(w)
 			targets := []string{root}
 			if cmd := v.specsCommand(w); cmd != "" {
-				rc, out := kwRun(v.env, root, "sh", "-c", cmd)
+				rc, out := kwStdout(v.env, root, "sh", "-c", cmd)
 				if rc != 0 {
 					collect("specs", "", cmd+" exited "+fmt.Sprint(rc)+": "+out)
 					continue

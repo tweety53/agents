@@ -128,6 +128,24 @@ func kwCombined(cmd *exec.Cmd) (int, string) {
 	return exitCode(cmd.Run()), out.String()
 }
 
+// kwStdout runs name args like kwRun but returns stdout alone on exit 0, so
+// a list a command prints is never mixed with its stderr diagnostics; on a
+// failure the output is both streams, for the message.
+func kwStdout(env Env, dir, name string, args ...string) (int, string) {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = env.Dir
+	if dir != "" {
+		cmd.Dir = dir
+	}
+	var out, errb bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &errb
+	rc := exitCode(cmd.Run())
+	if rc != 0 {
+		return rc, out.String() + errb.String()
+	}
+	return rc, out.String()
+}
+
 // kwFenced is every line inside a ``` fence of body, in order: the commands
 // of a `## worktree setup` section, never its fence markers or prose.
 func kwFenced(body string) []string {
