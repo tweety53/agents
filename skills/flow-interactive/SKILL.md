@@ -119,8 +119,13 @@ flow stage end   -command '/flow-interactive' -stage flow.plan -outcome complete
 one small step: it restructures how a module works, spans several modules, adds a stage or a
 schema, or needs a plan of its own to be done well. A big request is put to the operator through
 **AskUserQuestion**, one line saying why it reads as big, with two options and neither recommended
-— **Run it here** or **File a Jira task** — so **Auto-resolution** never takes it. A request whose
-work lands outside this session's repository cannot run here and is filed without the ask. Filed,
+— **Run it here** or **File a Jira task** — so **Auto-resolution** never takes it. **A Jira task is
+never filed unprompted:** only the operator's answer or words create one. A request whose work lands
+in another repository of the operator's (gymie's `.flow/project.md`, say) is not big for that reason:
+it is done there in a short-lived git worktree of that repository, off its base, committed with the
+module as scope, tested as that repository's own instructions say, pushed to its base and the
+worktree removed — the one push this session makes outside `<name>`; the report names the repository
+and commit. Filed,
 it is one Task, created and labelled as **Session start**'s **Jira** paragraph creates one, its
 description the ask and what the look found; the request ends `answered`, naming the key. Run
 here, it continues at step 2.
