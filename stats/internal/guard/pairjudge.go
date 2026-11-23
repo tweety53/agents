@@ -34,7 +34,7 @@ import (
 // minor-fix, self-review-fix, pipeline-fix-fix, gated-reviewer,
 // gated-re-reviewer, panel-reviewer, panel-rerun, self-review-pass,
 // self-review-review-1, self-review-review-r, pipeline-fix-review-1,
-// pipeline-fix-review-r, explorer and plan-designer. Every other role keeps
+// pipeline-fix-review-r, explorer, plan-designer and designer. Every other role keeps
 // the rule it had and is refused.
 //
 // The candidates (decision judge-candidates-capped) are the role's base
@@ -121,7 +121,7 @@ var pjJudged = map[string]bool{
 	"panel-rerun":      true,
 	"self-review-pass": true, "self-review-review-1": true, "self-review-review-r": true,
 	"pipeline-fix-review-1": true, "pipeline-fix-review-r": true,
-	"explorer": true, "plan-designer": true,
+	"explorer": true, "plan-designer": true, "designer": true,
 }
 
 var (

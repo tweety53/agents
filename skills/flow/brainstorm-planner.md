@@ -186,8 +186,10 @@ take the recommendation without asking, per **Auto-resolution**
 ### The designer
 
 **One `designer` dispatch draws every `## Undrawn` item** (**Every visible element a task builds is
-drawn**, above), key `designer-<k>`, `<k>` counting from 1 per change, on its role's pair (**Model
-and effort** below), on a `flow-*` agent type, since it writes. Its prompt carries the two
+drawn**, above), key `designer-<k>`, `<k>` counting from 1 per change, on the pair the pair judge picks for it
+(**Model and effort** below, the prompt saved as `pair-judge/designer-<k>.md` first — a small
+adjustment round is judged on its own prompt, never given the role's first pair by default), on a
+`flow-*` agent type, since it writes. Its prompt carries the two
 agent-baseline sentences, the report-tersely line, `Role: designer`, the `## Undrawn` list
 verbatim, the frames already cited, and on an adjustment the operator's words verbatim. The
 designer:

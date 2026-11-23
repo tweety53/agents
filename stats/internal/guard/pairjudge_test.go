@@ -72,6 +72,18 @@ func TestPairJudgeCandidates(t *testing.T) {
 	}
 }
 
+// TestPairJudgeJudgesTheDesigner: a designer dispatch is judged among its role's base pairs, never refused (a small
+// adjustment round got the role's first pair every time while the role stood outside the judged set).
+func TestPairJudgeJudgesTheDesigner(t *testing.T) {
+	t.Parallel()
+	stub := newPJStub(t, pjJSON("PAIR: opus/flow-low\nREASON: a small adjustment", ""))
+	policy := pjPolicy(`"designer":{"base":["opus/flow-medium","opus/flow-low"],"optin":[],"marked":[]}`)
+	r := runGuard("pair-judge", []string{"designer", pjDigest(t, "move one icon")}, pjEnv(t, policy, stub))
+	if r.rc != 0 || !strings.HasPrefix(r.stdout, "opus low judge ") || !stub.ran() {
+		t.Errorf("rc=%d stdout=%q ran=%v, want 0, `opus low judge …` and the judge run", r.rc, r.stdout, stub.ran())
+	}
+}
+
 // TestPairJudgeSingle: a role with one candidate prints it as `single` and
 // never runs the judge.
 func TestPairJudgeSingle(t *testing.T) {
