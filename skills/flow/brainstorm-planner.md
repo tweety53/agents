@@ -237,8 +237,19 @@ It then asks through **AskUserQuestion**: **Continue with the planning** *(recom
 operator's own words on what to change. Words naming a change are one more `designer` dispatch on
 the same worktree, carrying them verbatim and again reporting the stack URL, then the review runs
 again on its return; **Continue with the planning** ends the review, the session stops the stack the
-designer left running, and planning goes on. No convergence confirm is asked while a review is open,
-and the confirm never carries the drawn frames.
+designer left running, **lands the design branch** and planning goes on. No convergence confirm is
+asked while a review is open, and the confirm never carries the drawn frames.
+
+**Landing the design branch is the approval's own step, unasked.** From the designer's worktree the
+session pushes `HEAD:<default branch>` of the `design repo` clone — a fast-forward, the default
+branch being what `git symbolic-ref --short refs/remotes/origin/HEAD` names with its `origin/` prefix
+dropped — after rebasing the branch onto a fresher `origin/<default branch>` where the push is
+refused as non-fast-forward, then runs `git -C <design clone> pull --ff-only`. The branch and its
+`<change name>-designer-<k>` tags stay pushed, so `flow-guard render-frames` still resolves each
+frame at its tag. A rebase conflict or any other refusal is a defect fixed in the run, never a stop.
+The unapproved branch is never landed: a review that never reaches **Continue with the planning**
+lands nothing. Where the review is not asked (below) the drawn frames stand and the same landing
+runs once the plan is written.
 
 Where the confirm is not asked (`## decisions: recommended`, the self-review planner) the review is not asked either: the drawn frames stand.
 
