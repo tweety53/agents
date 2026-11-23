@@ -352,6 +352,7 @@ a non-zero exit stops the run, removing nothing:
 
 ```bash
 flow change save -C <worktree> <name>
+<agents repo>/scripts/flow-guard stop-worktree-processes <project>-worktrees/<name>
 git -C <project> worktree remove <project>-worktrees/<name>
 git -C <project> branch -D <name>
 git -C <project> push origin --delete <name>

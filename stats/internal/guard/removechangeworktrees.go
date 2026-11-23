@@ -38,6 +38,8 @@ import (
 //     resolved fresh for THIS worktree, in-process as flow-guard resolve-base-branch
 //     does). Ignored files go with `--force`, never asked about: everything
 //     the run needs was committed earlier in it.
+//   every process whose working directory lies inside one of them is stopped
+//     (`STOPPED: <pid> <worktree> — <command>` lines, `flow-guard stop-worktree-processes`);
 //   `worktree remove --force` for each copy, then `branch -D
 //     flow-copy/<its last path element>` when that branch exists, then each
 //     apply worktree;
@@ -171,7 +173,9 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		return 1
 	}
 
-	// Then, and only then: copies before the worktree they were copied from.
+	// Then, and only then: every process running from a worktree stops first (a dev stack, a Gradle
+	// daemon), then copies before the worktree they were copied from.
+	swpStop(env, append(slices.Clone(copies), wts...), stdout)
 	for _, wt := range append(slices.Clone(copies), wts...) {
 		if out, err := git("-C", repo, "worktree", "remove", "--force", wt).CombinedOutput(); err != nil {
 			failed = true
