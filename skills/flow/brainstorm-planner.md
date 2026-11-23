@@ -199,8 +199,10 @@ designer:
    guide and tokens — and follows them exactly, inventing no style they do not state;
 3. runs that repository's own stack where its instructions name one (a local server, a build, a
    render tool — gymie-design's is a local node server and Playwright), from its worktree, on a
-   port of its own and never touching a server the operator runs, and stops what it started when it
-   is done;
+   port of its own and never touching a server the operator runs. Its server is left running for
+   the operator's review (**The designer review**, below), and the report **must** give the stack's
+   URL — the page URL of each drawn frame on it; a report without one is incomplete and the
+   planner sends the designer back for it. A repository with no stack gives no URL;
 4. draws each listed item as frames in that repository's own frame format, its copy in the voice
    those instructions set, and where they give no answer the simplest plausible copy, listed in
    its report — it never asks. Every frame it draws carries the description that repository's frames
@@ -210,21 +212,23 @@ designer:
 5. commits on the branch, tags that commit `<change name>-designer-<k>` (`<k>` the dispatch's) and
    pushes the branch and the tag — `flow-guard render-frames` resolves a frame at a tag only
    (`skills/flow-contracts/project-configuration-visual.md`, **Frames at a design-repo tag**) — and
-   reports each frame id and path drawn, the copy it wrote without a rule, the tag and the commit
-   sha. The planner cites each frame as `<mockups root>/<tag>/<frame id>.png` with that tag; an
+   reports the stack URL, each frame id and path drawn, the copy it wrote without a rule, the tag
+   and the commit sha. The planner cites each frame as `<mockups root>/<tag>/<frame id>.png` with that tag; an
    adjustment's dispatch cites its own, newer tag.
 
 The planner copies that report into its round file's `## Summary` (a final dispatch: its return). The designer is outside **The cap** above.
 
 **The designer review** is an interactive pre-step of the approval, run by the session that
-dispatched the planner after every return that drew or changed frames. That session publishes the
-drawn frames with the Artifact tool as it does a prototype (and prints the design-repo branch and
-commit; where the harness has no Artifact tool it prints the frames' absolute paths and says it
-could not publish), then asks through **AskUserQuestion**: **Continue with the planning**
-*(recommended)* or the operator's own words on what to change. Words naming a change are one more
-`designer` dispatch on the same worktree, carrying them verbatim, then the review runs again on its
-return; **Continue with the planning** ends the review and planning goes on. No convergence confirm
-is asked while a review is open, and the confirm never carries the drawn frames.
+dispatched the planner after every return that drew or changed frames. That session prints the
+designer's stack URL first — the operator reviews on that live stack — then the design-repo branch
+and commit, and publishes the drawn frames with the Artifact tool as it does a prototype (where the
+harness has no Artifact tool it prints the frames' absolute paths and says it could not publish).
+It then asks through **AskUserQuestion**: **Continue with the planning** *(recommended)* or the
+operator's own words on what to change. Words naming a change are one more `designer` dispatch on
+the same worktree, carrying them verbatim and again reporting the stack URL, then the review runs
+again on its return; **Continue with the planning** ends the review, the session stops the stack the
+designer left running, and planning goes on. No convergence confirm is asked while a review is open,
+and the confirm never carries the drawn frames.
 
 Where the confirm is not asked (`## decisions: recommended`, the self-review planner) the review is not asked either: the drawn frames stand.
 
