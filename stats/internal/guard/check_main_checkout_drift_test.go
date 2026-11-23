@@ -101,7 +101,7 @@ func TestCheckMainCheckoutDrift(t *testing.T) {
 		{"untracked-only repo", func(t *testing.T, r string) string {
 			writeFile(t, r+"/stray.txt", "stray\n")
 			return r
-		}, func(r string) string { return "DRIFT-CLEAN: " + r + " — main\n" }},
+		}, func(r string) string { return "DRIFT-DIRTY: " + r + " — 1 entries\n" }},
 		{"foreign branch", func(t *testing.T, r string) string {
 			gitRun(t, r, "checkout", "-qb", "feature")
 			return r
@@ -113,19 +113,19 @@ func TestCheckMainCheckoutDrift(t *testing.T) {
 		{"unstaged drift", func(t *testing.T, r string) string {
 			writeFile(t, r+"/base.txt", "base\nreverted\n")
 			return r
-		}, func(r string) string { return "DRIFT-DIRTY: " + r + " — 1 tracked entries\n" }},
+		}, func(r string) string { return "DRIFT-DIRTY: " + r + " — 1 entries\n" }},
 		{"staged + unstaged mix", func(t *testing.T, r string) string {
 			writeFile(t, r+"/staged.txt", "staged\n")
 			gitRun(t, r, "add", "staged.txt")
 			writeFile(t, r+"/base.txt", "base\nreverted\n")
 			return r
-		}, func(r string) string { return "DRIFT-DIRTY: " + r + " — 2 tracked entries\n" }},
+		}, func(r string) string { return "DRIFT-DIRTY: " + r + " — 2 entries\n" }},
 		{"foreign branch + reverted content", func(t *testing.T, r string) string {
 			gitRun(t, r, "checkout", "-qb", "kan-527")
 			writeFile(t, r+"/base.txt", "base\nreverted\n")
 			return r
 		}, func(r string) string {
-			return "DRIFT-BRANCH: " + r + " — on kan-527, not main\nDRIFT-DIRTY: " + r + " — 1 tracked entries\n"
+			return "DRIFT-BRANCH: " + r + " — on kan-527, not main\nDRIFT-DIRTY: " + r + " — 1 entries\n"
 		}},
 		// A symlinked argument resolves to the real path in the verdict.
 		{"physical path", func(t *testing.T, r string) string {

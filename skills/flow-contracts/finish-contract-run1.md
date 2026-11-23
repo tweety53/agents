@@ -41,14 +41,14 @@ run exactly as **Resolving a change's worktrees** requires, never a vacuous `RUN
 **There must be no staged or dirty work in a main checkout — everything is done in worktrees.**
 Before `flow-guard check-finish-preflight` runs for any worktree, the run surfaces each affected
 main checkout's drift from its expected post-merge state — on the repository's default branch with
-nothing tracked modified, staged or unmerged.
+nothing tracked modified, staged or unmerged and no untracked file.
 
 The affected repositories are resolved from the worktree set: for each worktree, the main checkout
 `git rev-parse --git-common-dir` resolves, made absolute and physical, deduplicated.
 `flow-guard check-main-checkout-drift` runs once per distinct main checkout, and its header is
 canonical for the verdict grammar it prints: a `DRIFT-BRANCH` line names a checkout on any other
-branch than the one `refs/remotes/origin/HEAD` points at, a `DRIFT-DIRTY` line counts tracked
-entries, staged ones included. On `DRIFT-CLEAN` from every repository the run continues with
+branch than the one `refs/remotes/origin/HEAD` points at, a `DRIFT-DIRTY` line counts
+entries, staged and untracked ones included. On `DRIFT-CLEAN` from every repository the run continues with
 nothing more said. **A clean checkout on another branch is switched back, never asked about.** When
 a repository's only finding is `DRIFT-BRANCH` — no `DRIFT-DIRTY` printed —
 `flow-guard integrate-change prepare` runs `git -C <main-checkout> switch <default>`, prints one

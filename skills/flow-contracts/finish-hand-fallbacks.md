@@ -38,7 +38,7 @@ script — but signals 1 and 3 still run, and still run in this order.
 **When the script is absent** — a repository that does not carry it — read each main
 checkout by hand in the same shape its header's hand-verification procedure gives: the current
 branch against the branch `refs/remotes/origin/HEAD` names with its prefix stripped, and
-`git status --porcelain --untracked-files=no`, stopping over what those find, and
+`git status --porcelain`, stopping over what those find, and
 say in the handoff that the surfacing was done manually; it is never skipped for want of the
 script. A checkout whose only finding is its branch is switched back by hand with
 `git -C <main-checkout> switch <default>` under the same four exclusions, per **Surface main-checkout

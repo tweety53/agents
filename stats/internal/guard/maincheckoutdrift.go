@@ -19,7 +19,7 @@ import (
 //
 // Prints its findings, then at most one verdict line, all to stdout:
 //   DRIFT-BRANCH: <path> — on <branch>, not <default>   not on the default branch
-//   DRIFT-DIRTY: <path> — <n> tracked entries            tracked changes present
+//   DRIFT-DIRTY: <path> — <n> entries                    tracked changes or untracked files present
 //   DRIFT-CLEAN: <path> — <default>                      neither finding
 //
 // DRIFT-BRANCH and DRIFT-DIRTY are findings: either or both may print, in
@@ -41,15 +41,13 @@ import (
 // feature branch; both were discovered ad hoc, mid-run. This guard names
 // both shapes before any work starts.
 //
-// WHY THE STATUS SHAPE IS THE CONTENT MARKER. `git status --porcelain
-// --untracked-files=no` is the cheap read: one invocation, no object
-// database walk. A checkout that is clean but BEHIND its default branch is
+// WHY THE STATUS SHAPE IS THE CONTENT MARKER. `git status --porcelain`
+// is the cheap read: one invocation, no object database walk. A checkout that is clean but BEHIND its default branch is
 // ordinary not-pulled state, indistinguishable from benign by any local
 // marker and never this guard's finding — the cleanup run's own refresh step
-// owns bringing the checkout forward. Untracked files are hidden from the
-// read entirely, exactly as the KAN-546 guard's identical read hides them:
-// the pipeline never creates them in a main checkout, and the operator's
-// own residue is not drift this gate stops for.
+// owns bringing the checkout forward. Untracked files count as
+// dirty: every pipeline run works in a worktree, so a stray file in a main
+// checkout is residue, never state to tolerate.
 //
 // THE DEFAULT BRANCH is what `refs/remotes/origin/HEAD` points at — the
 // repository's own answer, not a name invented here. A repository without
@@ -63,7 +61,7 @@ import (
 // `git -C <main-checkout> branch --show-current` against the branch
 // `git -C <main-checkout> symbolic-ref refs/remotes/origin/HEAD` names with
 // its `refs/remotes/origin/` prefix stripped, and
-// `git -C <main-checkout> status --porcelain --untracked-files=no` — those,
+// `git -C <main-checkout> status --porcelain` — those,
 // and only those, are the inputs the findings report. A main checkout
 // mid-rebase or carrying an unrelated staged file is a typical structural
 // cause — fix the cause, never the verdict.
@@ -126,7 +124,7 @@ func checkMainCheckoutDrift(args []string, env Env, stdout, stderr io.Writer) in
 
 	// WHY THE STATUS SHAPE IS THE CONTENT MARKER: one cheap read, untracked
 	// files hidden exactly as the KAN-546 guard's identical read hides them.
-	status, ok := capture(git("-C", root, "status", "--porcelain", "--untracked-files=no"))
+	status, ok := capture(git("-C", root, "status", "--porcelain"))
 	if !ok {
 		return die("cannot-read-the-status", "cannot read the status of %s", root)
 	}
@@ -139,7 +137,7 @@ func checkMainCheckoutDrift(args []string, env Env, stdout, stderr io.Writer) in
 		fmt.Fprintf(stdout, "DRIFT-BRANCH: %s — on %s, not %s\n", root, branch, def)
 	}
 	if entries != 0 {
-		fmt.Fprintf(stdout, "DRIFT-DIRTY: %s — %d tracked entries\n", root, entries)
+		fmt.Fprintf(stdout, "DRIFT-DIRTY: %s — %d entries\n", root, entries)
 	}
 	if branch == def && entries == 0 {
 		fmt.Fprintf(stdout, "DRIFT-CLEAN: %s — %s\n", root, def)
