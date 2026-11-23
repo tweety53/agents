@@ -2,6 +2,7 @@ package guard
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -63,5 +64,51 @@ func TestCheckBaseBehind(t *testing.T) {
 	}
 	if r := run(wt); r.rc != 0 || r.stdout != "BASE-CURRENT: "+wt+" — origin/feature/x holds every commit of origin/main\n" {
 		t.Fatalf("(f) synced: rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
+	}
+}
+
+// TestCheckBaseBehindFetchesOncePerRepository: two worktrees of one repository share an origin,
+// so the guard fetches it once, never once per worktree.
+func TestCheckBaseBehindFetchesOncePerRepository(t *testing.T) {
+	t.Parallel()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var g fxGit
+	seed, origin, a, b := root+"/seed", root+"/origin.git", root+"/a", root+"/b"
+	g.copyShape(seed, repoShape{Branch: "main", Commit: "one"})
+	g.git("", "clone", "-q", "--bare", seed, origin)
+	g.git("", "clone", "-q", origin, a)
+	g.git(a, "worktree", "add", "-q", "-b", "c1", b)
+	g.git(a, "config", "branch.c1.flowBase", "main")
+	g.git(a, "checkout", "-q", "-b", "c2")
+	g.git(a, "config", "branch.c2.flowBase", "main")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	real, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin, log := root+"/bin", root+"/fetches"
+	if err := os.Mkdir(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	wrapper := "#!/bin/sh\ncase \" $* \" in *\" fetch \"*) echo f >> " + log + " ;; esac\nexec " + real + " \"$@\"\n"
+	if err := os.WriteFile(bin+"/git", []byte(wrapper), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	env := Env{Getenv: func(k string) string {
+		if k == "PATH" {
+			return bin + ":" + os.Getenv("PATH")
+		}
+		return os.Getenv(k)
+	}}
+	if r := runGuard("check-base-behind", []string{a, b}, env); r.rc != 0 {
+		t.Fatalf("rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
+	}
+	if got, _ := os.ReadFile(log); strings.Count(string(got), "f") != 1 {
+		t.Fatalf("fetches = %q, want exactly one", got)
 	}
 }

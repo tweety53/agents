@@ -19,7 +19,7 @@ import (
 //
 // Per worktree: the recorded base is `branch.<current branch>.flowBase`; the
 // tracked branch is the branch `refs/remotes/origin/HEAD` names. Once a base is
-// recorded, the guard runs `git fetch -q origin`; a failing fetch is ignored and
+// recorded, the guard runs `git fetch -q origin`, once per repository; a failing fetch is ignored and
 // the refs already on hand are compared.
 //
 // Prints to stdout, one block per worktree in argument order:
@@ -51,6 +51,7 @@ func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 	git := envGit(env)
 	var out strings.Builder
 	rc := 0
+	fetched := map[string]bool{}
 	for _, wt := range args {
 		if _, ok := capture(git("-C", wt, "rev-parse", "--is-inside-work-tree")); !ok {
 			fmt.Fprintf(stderr, "%s: not a git worktree: %s\n", prog, wt)
@@ -66,7 +67,12 @@ func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 			fmt.Fprintf(&out, "BASE-CURRENT: %s — no recorded base\n", wt)
 			continue
 		}
-		_ = git("-C", wt, "fetch", "-q", "origin").Run() // a failed fetch compares the refs on hand
+		// Worktrees of one repository share their origin: fetch it once. A failed fetch compares the refs on hand.
+		common, _ := capture(git("-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+		if !fetched[common] {
+			_ = git("-C", wt, "fetch", "-q", "origin").Run()
+			fetched[common] = true
+		}
 		head, ok := capture(git("-C", wt, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"))
 		if !ok {
 			fmt.Fprintf(stderr, "%s: %s has no origin/HEAD\n", prog, wt)
