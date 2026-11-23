@@ -509,7 +509,10 @@ reads every number on it as an exit.
       frame=<frame id>`, `<n>` of the frame's rows sit one constant offset low or high: they
       are one defect, the manifest's `shift` names it, and its `row` stands for
       all of them on `over` — find what moved the whole frame (a bar height, a scroll position, a status
-      line) rather than explaining rows. The frame's rows are then paired under that offset, so every
+      line) rather than explaining rows. What moved it is itself a departure, listed on the
+      report's departures lines unless a recorded decision covers it (KAN-1157: round 1 named a
+      `· 2 min rest` header subline as nine frames' shift cause and listed no departure for it, so
+      round 4 reported it as new). The frame's rows are then paired under that offset, so every
       other `over` row is a departure of its own, read as if the shift were already fixed.
    4. **Explain every row the matrix's `over` list names.** The manifest carries each composed
       frame's `over` rows by their 1-based index — every matrix row `missing`, `extra` or

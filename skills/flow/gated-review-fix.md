@@ -30,6 +30,10 @@ diff, its findings file `findings-gated-<n+n>-fix-<k>.jsonl`. The re-dispatched 
 its prompt opening with the line `Role: gated-re-reviewer` in place of the original bundle's.
 The re-dispatched bundle's Agent-tool `description` is `Tasks <ids>/<N> (re-review)` — `Task <x>/<N> (re-review)`
 for one task — so the `flow-task-list` mod shows its row as a re-review.
+Each pass also carries every earlier round's findings of its task, not the latest round's alone, and
+checks each against the task's code at the fix commit, together with every caller of the code the
+fix diff changed; a finding a fix closed and the next fix reopened is raised again (KAN-1157: task
+12's fix-1 closed two Importants and left an unused-import lint failure its fix-2 then fixed).
 
 A clean re-review pass closes each finding its task's earlier pass raised, `flow record status
 -change <name> -ref F<n> -status fixed`; a finding a re-review pass raises is

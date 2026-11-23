@@ -190,6 +190,15 @@ departure of the report that opened the loop plus every earlier round's report, 
 report alone, and the fixer compares every frame row and departure of that list before it reports
 done (KAN-1157: each round saw only the latest report, fixed a few departures and exposed others).
 
+**A fixer checks every consumer of what it changed before it reports done.** It lists every view
+and frame that draws a component, copy or style its diff changed — the listed departures' siblings
+included — reads each one's recaptured PNG against its frame, and fixes in the same round any it
+no longer matches (KAN-1157: fix-4 changed the shared fold and dropped CQ17's and CQ21's next-copy
+line, which round 5 then reported). A departure whose frame contradicts older spec text is fixed to
+the frame and the spec text updated in the same round, never handed back as an open question
+(KAN-1157: fix-3 left three such frame-versus-spec departures "open for parent", and fix-4 was
+opened for them alone).
+
 **Mockup departures are classified before the fix is written.** Where every frame that
 draws the departing component agrees, the departure is a defect this round fixes.
 
