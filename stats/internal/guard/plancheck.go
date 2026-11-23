@@ -138,7 +138,7 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "plan-check: judge answer unusable, using the fallback %s — %s\n", part, strings.TrimSpace(pjSpace.ReplaceAllString(cause, " ")))
 	}
 	if d == nil {
-		fb := dgpvFallback(tasks, visual)
+		fb := dgpvFallback(tasks, visual, cause)
 		d = &fb
 	}
 	spAddSecurity(d, filepath.Join(wt, ".flow", "project.md"), tasks)
@@ -404,16 +404,24 @@ func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, catalog map[s
 	return ""
 }
 
-// dgpvFallback is the decision taken when the decider's answer cannot be used.
-func dgpvFallback(tasks []pdbTask, visual bool) dgpvDecision {
+// dgpvFallback is the decision taken when the decider's answer cannot be used; each reason is
+// `fallback` and, when the cause is known, its first 200 characters, so the stored decision says why.
+func dgpvFallback(tasks []pdbTask, visual bool, cause string) dgpvDecision {
+	why := "fallback"
+	if cause = strings.TrimSpace(pjSpace.ReplaceAllString(cause, " ")); cause != "" {
+		if r := []rune(cause); len(r) > 200 {
+			cause = string(r[:200]) + "…"
+		}
+		why = "fallback: " + cause
+	}
 	var d dgpvDecision
 	for _, t := range tasks {
-		d.Groups = append(d.Groups, dgpvEntry{Tasks: []string{t.id}, Reason: "fallback"})
+		d.Groups = append(d.Groups, dgpvEntry{Tasks: []string{t.id}, Reason: why})
 	}
 	for _, s := range [][]string{{"primary", "principles"}, {"test-sanity", "call-efficiency"}, {"failure-modes"}, {"mutation"}} {
-		d.Panel = append(d.Panel, dgpvEntry{Slots: s, Reason: "fallback"})
+		d.Panel = append(d.Panel, dgpvEntry{Slots: s, Reason: why})
 	}
-	d.Visual.Verify, d.Visual.Reason = "not configured", "fallback"
+	d.Visual.Verify, d.Visual.Reason = "not configured", why
 	if visual {
 		d.Visual.Verify = "required"
 	}

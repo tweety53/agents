@@ -91,11 +91,14 @@ func TestPlanCheckFallsBackOnTimeout(t *testing.T) {
 	if lines := strings.Split(strings.TrimSpace(string(b)), "\n"); lines[len(lines)-1] != "PLAN-CHECK-NOT-RUN" {
 		t.Errorf("report %q", b)
 	}
-	if d := dgpvRead(t, out); d.Groups[0].Reason != "fallback" {
+	if d := dgpvRead(t, out); !strings.HasPrefix(d.Groups[0].Reason, "fallback") {
 		t.Errorf("decision %+v", d)
 	}
 	if !strings.Contains(r.err, "using the fallback decision") {
 		t.Errorf("stderr %q does not say the fallback decision is used", r.err)
+	}
+	if d := dgpvRead(t, out); d.Groups[0].Reason == "fallback" || d.Visual.Reason == "fallback" {
+		t.Errorf("fallback reasons %q / %q carry no cause, so the stored decision cannot say why", d.Groups[0].Reason, d.Visual.Reason)
 	}
 }
 
@@ -123,7 +126,7 @@ func TestPlanCheckPartialFallbacks(t *testing.T) {
 			if got := strings.HasSuffix(strings.TrimSpace(string(b)), "PLAN-CHECK-NOT-RUN"); got != c.reportNotRun {
 				t.Errorf("not-run=%v, want %v: %q", got, c.reportNotRun, b)
 			}
-			if got := dgpvRead(t, out).Groups[0].Reason == "fallback"; got != c.decisionFallbk {
+			if got := strings.HasPrefix(dgpvRead(t, out).Groups[0].Reason, "fallback"); got != c.decisionFallbk {
 				t.Errorf("decision fallback=%v, want %v", got, c.decisionFallbk)
 			}
 		})
@@ -144,7 +147,7 @@ func TestPlanCheckDecideOnlyLeavesReport(t *testing.T) {
 	if b, _ := os.ReadFile(report); string(b) != "kept\nPLAN-CHECK-CLEAN\n" {
 		t.Errorf("report changed: %q", b)
 	}
-	if d := dgpvRead(t, out); d.Groups[0].Reason == "fallback" {
+	if d := dgpvRead(t, out); strings.HasPrefix(d.Groups[0].Reason, "fallback") {
 		t.Errorf("decision %+v", d)
 	}
 	a := stub.argv(t)
@@ -217,7 +220,7 @@ func TestPlanCheckDecisionChecks(t *testing.T) {
 				!strings.Contains(r.err, c.cause) || strings.Count(r.err, "\n") != 1 {
 				t.Fatalf("rc=%d stdout=%q err=%q, want the fallback and one stderr line naming %q", r.rc, r.stdout, r.err, c.cause)
 			}
-			if d := dgpvRead(t, out); d.Groups[2].Tasks[0] != "3" || d.Panel[3].Slots[0] != "mutation" || d.Visual.Reason != "fallback" {
+			if d := dgpvRead(t, out); d.Groups[2].Tasks[0] != "3" || d.Panel[3].Slots[0] != "mutation" || !strings.HasPrefix(d.Visual.Reason, "fallback") {
 				t.Errorf("fallback decision %+v", d)
 			}
 		})
