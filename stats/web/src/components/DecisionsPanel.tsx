@@ -111,7 +111,7 @@ export function DecisionsPanel({ decision, dispatches = [], confidence = [] }: {
                 )}
               </span>
             </span>
-            {l.prose && <span className="lb-decision-why" title={l.reason}>{l.reason}</span>}
+            {l.prose && <span className="lb-decision-why">{l.reason}</span>}
           </div>
         ))}
       </div>

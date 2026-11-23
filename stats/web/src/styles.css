@@ -582,7 +582,7 @@ th button {
 .lb-decision-head { display: flex; justify-content: space-between; gap: 8px; }
 .lb-decision .lb-n { flex: none; }
 .lb-decision-prose { gap: 2px; }
-.lb-decision-why { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-decision-why { color: var(--text-muted); }
 .lb-decisions { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); column-gap: 24px; }
 .lb-t { height: 10px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
 .lb-t > span { display: block; height: 100%; background: var(--series-1); }
