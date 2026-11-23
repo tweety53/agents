@@ -107,7 +107,10 @@ this file in full first: its prompt is a stub naming this file, never these para
 > the task (`flow-guard check-ui-task-measured <canonical-worktree> <task-id>`) while that record is
 > missing, older than your last commit to the task's files, or carries a flagged row, and prints
 > this command. A length delta within the project's `tolerance` is not flagged. A task whose plan
-> adds the capture spec in a later task is not measured per task.
+> adds the capture spec in a later task is not measured per task; **the task that adds that spec
+> measures every earlier UI task's frame** with it, on the same command, and fixes each flagged row at
+> the earlier task's source before it reports (KAN-1156: task 19's frame departures surfaced only at
+> gated review and visual verification, four fix rounds).
 
 > **NO FRAME VALUE WITHOUT A MODEL:** a mockup frame's value — a setting's current value, a count,
 > a name, a date — is drawn only where a model, store or API field holds it. A frame element whose
