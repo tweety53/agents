@@ -213,7 +213,7 @@ the executor opens it with the project's own installed Playwright through Bash �
 run `-outcome completed`. That end carries `-screenshot <path>`, the screenshot just read, saved
 under `<changeRoot>`. A defect ends it `-outcome failed` with `-reason` naming the defect, and is a fix commit and steps 4–7
 again inside the same request. The stage's end is its own call, made after the screenshot is read —
-never chained to its begin.
+never chained to its begin. The order is fixed: the stage's begin is made first, the page opened and the screenshot taken only after it, the screenshot read, and the end made last; a screenshot taken before the begin, or an end made before the screenshot, is refused by the Request-end guard (check 3) and the check is redone.
 
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -harness <harness> -session-token mf-<literal-token> <name>
@@ -286,7 +286,7 @@ flow record dispatch end -change <name> -key operator-<k> -session-token fi-<lit
 Exit codes, those of every record verb: 0 written or journalled; 1 refused, one line naming the
 failed check; 2 usage. `-commit` and `-base` are required with `landed` and refused with
 `answered` and `dropped`; an `-outcome` outside the three is a usage error. A refusal is fixed —
-land the commit, run the verify and the UI check and end each `completed` — and the end re-run, never worked around.
+land the commit, run the verify and the UI check and end each `completed` — and the end re-run, never worked around. The coordinator never repairs a refusal itself: a `flow record request end` refusal (verify or UI-check evidence, lint-green, ancestry) is sent back to the executor that ran the request — SendMessage to its agent id while it is still addressable, else a fresh `operator-asked` dispatch whose brief is the refusal text — and the end is re-run on its new report.
 
 ## Explicit stop
 
