@@ -2120,7 +2120,7 @@ describe("daily costs", () => {
     fetchStatsViewMock.mockImplementation((_v: string, p: { from: Date; to: Date }) => Promise.resolve(envelope("daily-costs", dailyRows(p))));
     render(<DailyCosts />);
     await screen.findAllByTestId("dc-day");
-    await screen.findByTestId("dc-total");
+    await screen.findAllByTestId("dc-avg");
   };
   const range = () => screen.getByRole("group", { name: "Range" });
   const press = (name: string) => userEvent.click(within(range()).getByRole("button", { name }));
@@ -2149,18 +2149,13 @@ describe("daily costs", () => {
     await waitFor(() => expect(lastParams().to.getTime()).toBe(now.to.getTime()));
   });
 
-  it("daily costs shows the all-time total, whatever the window", async () => {
+  it("daily costs has no total block and names its average block plainly", async () => {
     await renderDaily();
+    expect(screen.queryByTestId("dc-total")).toBeNull();
+    expect(screen.queryByText("All time")).toBeNull();
+    expect(screen.getByText("Average per weekday")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/all[- ]time/i);
     expect(screen.getAllByTestId("dc-day").map((e) => e.textContent)).toContain("$19.00");
-    expect(screen.getByText("All time")).toBeInTheDocument();
-    // 06-01 .. 06-19 less the empty 06-10: 190 - 10.
-    const total = () => [screen.getByTestId("dc-total").textContent, screen.getByTestId("dc-total-planning").textContent];
-    expect(total()).toEqual(["$180.00", "$18.00"]);
-    await press("14 days");
-    await waitFor(() => expect(screen.getAllByTestId("dc-day")).toHaveLength(14));
-    await press("Earlier");
-    await waitFor(() => expect(screen.getAllByTestId("dc-day").map((e) => e.textContent)).not.toContain("$19.00"));
-    expect(total()).toEqual(["$180.00", "$18.00"]);
   });
 
   it("daily costs averages each weekday over the recorded span, an empty day counting as 0", async () => {
@@ -2173,6 +2168,51 @@ describe("daily costs", () => {
     await press("14 days");
     await waitFor(() => expect(screen.getAllByTestId("dc-day")).toHaveLength(14));
     expect(avg("Wed")).toBe("$6.67");
+  });
+
+  const heights = (bar: HTMLElement) => within(bar).getAllByTestId("dc-seg").map((e) => Number(e.getAttribute("height")));
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+
+  it("daily costs charts a stacked bar per day of the window, in proportion to its cost", async () => {
+    await renderDaily();
+    expect(screen.getByRole("img", { name: /^Daily costs, / })).toBeInTheDocument();
+    const bars = screen.getAllByTestId("dc-bar");
+    expect(bars).toHaveLength(7);
+    // 06-13 costs $13 (planning 1 + implementation 12), 06-19 $19.
+    expect(bars[0]).toHaveTextContent("$13.00");
+    expect(heights(bars[0])).toHaveLength(2);
+    expect(sum(heights(bars[6])) / sum(heights(bars[0]))).toBeCloseTo(19 / 13, 5);
+    const [plan, impl] = heights(bars[6]);
+    expect(plan / (plan + impl)).toBeCloseTo(1 / 19, 5);
+    expect(screen.getAllByTestId("dc-grid").length).toBeGreaterThanOrEqual(2);
+    await press("14 days");
+    await waitFor(() => expect(screen.getAllByTestId("dc-bar")).toHaveLength(14));
+  });
+
+  it("daily costs charts each weekday's mean over the recorded span, a dash for one without data", async () => {
+    await renderDaily();
+    const wd = screen.getAllByTestId("dc-wbar");
+    expect(wd.map((e) => e.getAttribute("data-weekday"))).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    expect(wd[0]).toHaveTextContent("$8.00");
+    expect(screen.getByRole("img", { name: /^Average cost per weekday/ })).toBeInTheDocument();
+  });
+
+  it("daily costs leaves a weekday without data an empty slot with a dash", async () => {
+    vi.useFakeTimers({ now: DC_NOW, toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    // The all-time span holds a Monday and a Tuesday only.
+    fetchStatsViewMock.mockImplementation((_v: string, p: { from: Date; to: Date }) =>
+      Promise.resolve(envelope("daily-costs", p.to.getTime() - p.from.getTime() > 15 * 86400000 ? dailyRows(p).filter((r) => [15, 16].includes(new Date(r.week).getDate())) : dailyRows(p))),
+    );
+    render(<DailyCosts />);
+    await screen.findAllByTestId("dc-avg");
+    const wd = screen.getAllByTestId("dc-wbar");
+    expect(wd).toHaveLength(7);
+    expect(wd[2]).toHaveTextContent("—");
+    expect(within(wd[2]).queryAllByTestId("dc-seg")).toHaveLength(0);
+    expect(wd[0]).toHaveTextContent("$15.00");
   });
 });
 

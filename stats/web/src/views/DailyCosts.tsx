@@ -1,9 +1,9 @@
 // Daily costs -- "which day cost how much": Weekly costs' categories per
 // 24-hour day, the days starting at the client's local midnight. The Range
 // control mirrors Reviewer findings': 7 or 14 days, stepped earlier and
-// later by its own length, never past now. Below the days, an all-time total
-// and each weekday's mean, both from one daily-costs fetch over the whole
-// recorded span, so neither moves with Range.
+// later by its own length, never past now. Below the days, each weekday's mean
+// from one daily-costs fetch over the whole recorded span, so it does not move
+// with Range.
 import { useState } from "react";
 import type { WeeklyCostPoint } from "../api";
 import { formatUsd } from "../format";
@@ -36,6 +36,64 @@ const label = (iso: string) => {
 };
 const usd = (v: number | null | undefined) => formatUsd(v ?? 0);
 
+type Bar = { key: string; label: string; testid: string; weekday?: string; total: number | null; segs: { name: string; v: number; color: string }[] };
+const CW = 1140, CH = 220, L = 60, T = 24, B = 28, PH = CH - T - B, PW = CW - L - 10;
+// The smallest 1, 2 or 5 times a power of ten that holds max, so the plot is scaled to the tallest bar.
+const niceTop = (max: number) => {
+  const m = 10 ** Math.floor(Math.log10(max || 1));
+  return ([1, 2, 5, 10].find((f) => f * m >= max) ?? 10) * m;
+};
+
+// Hand-drawn SVG bars: stacked segments, the value above each bar, two gridlines labelled in $.
+function BarChart({ bars, aria }: { bars: Bar[]; aria: string }) {
+  const top = niceTop(Math.max(0, ...bars.map((b) => b.segs.reduce((a, s) => a + s.v, 0))));
+  const y = (v: number) => T + PH - (PH * v) / top;
+  const bw = PW / bars.length;
+  return (
+    <div className="wc-plot wc-chart lb-panel">
+      <svg viewBox={`0 0 ${CW} ${CH}`} width={CW} height={CH} role="img" aria-label={aria}>
+        <g className="grid">
+          {[top / 2, top].map((v) => (
+            <g key={v} data-testid="dc-grid">
+              <line x1={L} x2={L + PW} y1={y(v)} y2={y(v)} />
+              <text x={L - 6} y={y(v) + 4} textAnchor="end">
+                {formatUsd(v)}
+              </text>
+            </g>
+          ))}
+        </g>
+        {bars.map((b, i) => {
+          const x = L + i * bw + bw * 0.18;
+          const w = bw * 0.64;
+          let acc = 0;
+          const sum = b.segs.reduce((a, s) => a + s.v, 0);
+          return (
+            <g key={b.key} data-testid={b.testid} data-weekday={b.weekday}>
+              {b.segs.map((s) => {
+                if (!s.v) return null;
+                const t = y(acc + s.v);
+                const h = y(acc) - t;
+                acc += s.v;
+                return (
+                  <rect key={s.name} data-testid="dc-seg" x={x} width={w} y={t} height={h} fill={s.color}>
+                    <title>{`${s.name}: ${formatUsd(s.v)}`}</title>
+                  </rect>
+                );
+              })}
+              <text x={x + w / 2} y={y(sum) - 5} textAnchor="middle" className="wc-total">
+                {b.total === null ? "—" : formatUsd(b.total)}
+              </text>
+              <text x={x + w / 2} y={CH - B + 16} textAnchor="middle">
+                {b.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 export function DailyCosts() {
   // end is when the view opened, as in Reviewer findings.
   const [end] = useState(() => Date.now());
@@ -50,11 +108,26 @@ export function DailyCosts() {
   const span = all.status === "ready" ? all.data.rows : null;
   const first = span ? span.findIndex((r) => r.overallUsd) : -1;
   const recorded = span && first >= 0 ? span.slice(first) : [];
-  const total = (key: keyof Omit<WeeklyCostPoint, "week">) => recorded.reduce((a, r) => a + (r[key] ?? 0), 0);
-  const mean = (wd: string) => {
+  const meanOf = (wd: string) => {
     const mine = recorded.filter((r) => weekday(r.week) === wd);
-    return mine.length ? usd(mine.reduce((a, r) => a + (r.overallUsd ?? 0), 0) / mine.length) : "—";
+    return mine.length ? mine.reduce((a, r) => a + (r.overallUsd ?? 0), 0) / mine.length : null;
   };
+  const mean = (wd: string) => {
+    const m = meanOf(wd);
+    return m === null ? "—" : usd(m);
+  };
+  const parts = CATEGORIES.slice(1);
+  const dayBars: Bar[] = (rows ?? []).map((r) => ({
+    key: r.week,
+    label: label(r.week),
+    testid: "dc-bar",
+    total: r.overallUsd ?? 0,
+    segs: parts.map(({ key, name }, i) => ({ name, v: r[key] ?? 0, color: `var(--series-${i + 1})` })),
+  }));
+  const weekdayBars: Bar[] = WEEKDAYS.map((w) => {
+    const m = meanOf(w);
+    return { key: w, label: w, testid: "dc-wbar", weekday: w, total: m, segs: m ? [{ name: w, v: m, color: "var(--series-1)" }] : [] };
+  });
 
   return (
     <section aria-label="Daily costs" className="dashboard lb">
@@ -88,6 +161,12 @@ export function DailyCosts() {
       {state.status === "loading" && <p role="status">Loading…</p>}
       {state.status === "error" && <p role="alert">Failed to load: {state.message}</p>}
       {rows && (
+        <BarChart
+          bars={dayBars}
+          aria={`Daily costs, ${label(rows[0]?.week ?? from.toISOString())} to ${label(rows.at(-1)?.week ?? to.toISOString())}, stacked by ${parts.map((c) => c.name).join(", ")}: ${dayBars.map((b) => `${b.label} ${usd(b.total)}`).join(", ")}`}
+        />
+      )}
+      {rows && (
         <div className="lb-panel">
           <div className="lb-scroll">
             <table className="lb-table">
@@ -119,34 +198,10 @@ export function DailyCosts() {
       )}
       {span && (
         <>
+          <BarChart bars={weekdayBars} aria={`Average cost per weekday: ${WEEKDAYS.map((w) => `${w} ${mean(w)}`).join(", ")}`} />
           <div className="lb-panel">
             <div className="lb-panel-h">
-              <span>All time</span>
-            </div>
-            <div className="lb-scroll">
-              <table className="lb-table">
-                <thead>
-                  <tr>
-                    {CATEGORIES.map(({ name }) => (
-                      <th key={name}>{name}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    {CATEGORIES.map(({ key }) => (
-                      <td key={key} data-testid={key === "overallUsd" ? "dc-total" : `dc-total-${key.replace("Usd", "")}`}>
-                        {usd(total(key))}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div className="lb-panel">
-            <div className="lb-panel-h">
-              <span>Average per day of week, all time</span>
+              <span>Average per weekday</span>
             </div>
             <div className="lb-scroll">
               <table className="lb-table">
