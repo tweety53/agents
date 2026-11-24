@@ -136,8 +136,9 @@ func TestAwaitOwnAgentsHookWaitsOnBackgroundBash(t *testing.T) {
 		return out
 	}
 
+	bg1, bg2 := holdOutput(t, dir, "bg1"), holdOutput(t, dir, "bg2")
 	call("t1", "Bash")
-	appendLine(result("Command running in background with ID: bg1. Output is being written to: /x/bg1.output."))
+	appendLine(result("Command running in background with ID: bg1. Output is being written to: " + bg1 + "."))
 	if out := run(); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "bg1") {
 		t.Errorf("(a) running bg1: out %q; want a block naming bg1", out)
 	}
@@ -146,7 +147,7 @@ func TestAwaitOwnAgentsHookWaitsOnBackgroundBash(t *testing.T) {
 		t.Errorf("(b) bg1 notified: out %q; want allow", out)
 	}
 	call("t1", "Bash")
-	appendLine(result("1 2 3\nCommand did not complete within its 600s timeout and was moved to the background (ID: bg2). Output is being written to: /x/bg2.output."))
+	appendLine(result("1 2 3\nCommand did not complete within its 600s timeout and was moved to the background (ID: bg2). Output is being written to: " + bg2 + "."))
 	if out := run(); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "bg2") {
 		t.Errorf("(c) running bg2: out %q; want a block naming bg2", out)
 	}
@@ -209,8 +210,9 @@ func TestAwaitOwnAgentsHookTaskStopEndsBackground(t *testing.T) {
 		return out
 	}
 
+	bg1, bg2 := holdOutput(t, dir, "bg1"), holdOutput(t, dir, "bg2")
 	call("b1", "Bash")
-	resultOf("b1", "Command running in background with ID: bg1. Output is being written to: /x/bg1.output.")
+	resultOf("b1", "Command running in background with ID: bg1. Output is being written to: "+bg1+".")
 	if out := run(); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "bg1") {
 		t.Errorf("(a) running bg1: out %q; want a block naming bg1", out)
 	}
@@ -220,7 +222,7 @@ func TestAwaitOwnAgentsHookTaskStopEndsBackground(t *testing.T) {
 		t.Errorf("(b) bg1 stopped with TaskStop: out %q; want allow", out)
 	}
 	call("b2", "Bash")
-	resultOf("b2", "Command running in background with ID: bg2.")
+	resultOf("b2", "Command running in background with ID: bg2. Output is being written to: "+bg2+".")
 	call("r1", "Read")
 	resultOf("r1", "Successfully stopped task: bg2 (sleep 3000)")
 	call("b3", "Bash")
@@ -295,5 +297,82 @@ func TestAwaitOwnAgentsHookKillsLeftoverBackground(t *testing.T) {
 	}
 	if sibling.ProcessState != nil {
 		t.Error("a sibling's background command was killed")
+	}
+}
+
+// holdOutput starts a process holding <dir>/<name>.output open, as a live background command does,
+// and returns the path.
+func holdOutput(t *testing.T, dir, name string) string {
+	t.Helper()
+	out := filepath.Join(dir, name+".output")
+	f, err := os.Create(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	c := exec.Command("sleep", "120")
+	c.Stdout = f
+	if err := c.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = c.Process.Kill(); _, _ = c.Process.Wait() })
+	return out
+}
+
+// TestAwaitOwnAgentsHookBackgroundLiveness pins the liveness rule: a launched background command
+// blocks a stop with no final message only while a process holds its output file open; lsof
+// failing falls back to the file's mtime (120 s).
+func TestAwaitOwnAgentsHookBackgroundLiveness(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "sess", "subagents")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	live := holdOutput(t, dir, "bglive")
+	dead := filepath.Join(dir, "bgdead.output") // never created: the shell died
+	quiet := filepath.Join(dir, "bgquiet.output")
+	if err := os.WriteFile(quiet, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	launch := func(id, path string) string {
+		call, _ := json.Marshal(map[string]any{"type": "assistant", "message": map[string]any{"role": "assistant", "content": []any{map[string]any{"type": "tool_use", "id": "t-" + id, "name": "Bash", "input": map[string]any{}}}}})
+		res, _ := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": []any{map[string]any{"type": "tool_result", "tool_use_id": "t-" + id, "content": "Command running in background with ID: " + id + ". Output is being written to: " + path}}}})
+		tr := filepath.Join(dir, "agent-"+id+".jsonl")
+		if err := os.WriteFile(tr, append(append(call, '\n'), append(res, '\n')...), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return tr
+	}
+	run := func(tr string, env ...string) string {
+		t.Helper()
+		p, _ := json.Marshal(map[string]any{"hook_event_name": "SubagentStop", "agent_id": "impl", "agent_transcript_path": tr})
+		out, _, rc := runHook(t, "await-own-agents.py", p, env...)
+		if rc != 0 {
+			t.Fatalf("rc %d, out %q", rc, out)
+		}
+		return out
+	}
+	noLsof := "PATH=" + t.TempDir()
+	age := func(path string, d time.Duration) {
+		t.Helper()
+		when := time.Now().Add(-d)
+		if err := os.Chtimes(path, when, when); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if out := run(launch("bgdead", dead)); out != "" {
+		t.Errorf("no live holder: out %q; want allow", out)
+	}
+	if out := run(launch("bglive", live)); !strings.Contains(out, `"decision": "block"`) {
+		t.Errorf("live holder: out %q; want a block", out)
+	}
+	tr := launch("bgquiet", quiet)
+	age(quiet, 10*time.Second)
+	if out := run(tr, noLsof); !strings.Contains(out, `"decision": "block"`) {
+		t.Errorf("lsof missing, file modified 10 s ago: out %q; want a block", out)
+	}
+	age(quiet, 10*time.Minute)
+	if out := run(tr, noLsof); out != "" {
+		t.Errorf("lsof missing, file modified 10 min ago: out %q; want allow", out)
 	}
 }

@@ -30,7 +30,11 @@ is written, so a background command it still holds is no work anyone waits for. 
 every process holding that command's `<id>.output` file open, found with `lsof`, so only that agent's own
 task is touched, never the parent's or a sibling's -- and lets the stop through instead of blocking on a
 notification that may never come (kan-1092 task 19: a hung build left the agent "waiting on 1 shell" until
-its parent stopped it by hand). A stop with no final message still blocks, as above.
+its parent stopped it by hand). A stop with no final message blocks only on a background command that is
+still alive: one with a process holding its `<id>.output` file open (the same `lsof` lookup). A command whose
+output file is gone or has no holder has ended -- a shell that died, or finished with its notification lost --
+and never blocks, so no notification is needed. When `lsof` is missing or fails, a command counts as alive
+only if its output file exists and was modified within the last 120 seconds.
 
 A stop it lets through -- no child and no background command left -- closes the agent's flow
 dispatch row: `flow-guard end-dispatch-row` reads the transcript's `Key:` line and final message
@@ -80,19 +84,48 @@ TASK_ID = re.compile(r"<task-id>([A-Za-z0-9]+)</task-id>")
 STOPPED = re.compile(r"Successfully stopped task: ([A-Za-z0-9]+)")
 
 
+LSOF_FALLBACK_SECONDS = 120
+
+
+def output_paths(text: str, task: str) -> "set[str]":
+    return set(re.findall(r"(/[^\s\"']*/" + re.escape(task) + r"\.output)", text))
+
+
+def holders(path: str) -> "list[int] | None":
+    """Pids holding `path` open, or None when lsof is missing or fails."""
+    try:
+        r = subprocess.run(["lsof", "-t", "--", path], capture_output=True, text=True, timeout=10)
+    except Exception:
+        return None
+    if r.returncode > 1:
+        return None
+    return [int(p) for p in r.stdout.split() if p.isdigit() and int(p) != os.getpid()]
+
+
+def alive(text: str, task: str) -> bool:
+    """A background command lives while a process holds its output file; without lsof, while the file is fresh."""
+    for path in output_paths(text, task):
+        if not os.path.exists(path):
+            continue
+        pids = holders(path)
+        if pids is None:
+            if time.time() - os.path.getmtime(path) <= LSOF_FALLBACK_SECONDS:
+                return True
+        elif pids:
+            return True
+    return False
+
+
 def kill_background(transcript: str, ids: "list[str]") -> None:
     """SIGTERM every process holding an `<id>.output` file of the given background commands open."""
     with open(transcript, encoding="utf-8", errors="replace") as f:
         text = f.read()
     for task in ids:
-        for path in set(re.findall(r"(/[^\s\"']*/" + re.escape(task) + r"\.output)", text)):
-            if not os.path.exists(path):
-                continue
-            out = subprocess.run(["lsof", "-t", "--", path], capture_output=True, text=True, timeout=10).stdout
-            for pid in out.split():
-                if pid.isdigit() and int(pid) != os.getpid():
+        for path in output_paths(text, task):
+            if os.path.exists(path):
+                for pid in holders(path) or []:
                     try:
-                        os.kill(int(pid), 15)
+                        os.kill(pid, 15)
                     except OSError:
                         pass
 
@@ -166,6 +199,10 @@ def main() -> None:
         transcript = os.path.expanduser(transcript)
         children = running_children(agent_id, os.path.dirname(transcript))
         background = running_background(transcript) if os.path.exists(transcript) else []
+        if background:
+            with open(transcript, encoding="utf-8", errors="replace") as f:
+                text = f.read()
+            background = [t for t in background if alive(text, t)]
     except Exception:  # fail open: a bug here must never trap a subagent
         return
     if background and (payload.get("last_assistant_message") or "").strip():
