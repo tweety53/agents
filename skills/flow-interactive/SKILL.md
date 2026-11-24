@@ -63,6 +63,14 @@ is recorded. A turn that has answered the argument without a session behind it h
 skill (KAN-1130: the first message's question was answered inline, then a key-less change was
 resumed beside the open `kan-1130-confidence-estimate`).
 
+The invocation's first tool call is the open-session lookup (`flow state list`); no answer, look,
+edit or other tool call comes before the `flow.plan` mark and the recorded request row. A session
+started late is never repaired backwards — no hand-made worktree, no backfilled marks, no direct
+push to the base: stop and run **Session start** from its beginning. A plain message mid-session is
+recorded as a request before anything else, and code changes go to the executor, never the
+coordinator (2026-11-24: a question answered inline, edits made in the main checkout, a worktree
+built by hand, marks backfilled).
+
 **Jira.** Resolve the issue per **Resolution (how `jiraIssue` is decided)**
 (`skills/flow-contracts/jira-integration.md`): with no key given, reuse the In Progress `Interactive session` issue, whoever it is assigned to, when one exists, else file a Task through its creation
 path, summary `Interactive session <YYYY-MM-DD>`, labelled per **Labels and body of issues the pipeline
