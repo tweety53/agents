@@ -158,12 +158,12 @@ needing no code — a question, a lookup — ends `answered` with no dispatch an
 
 The coordinator writes the brief to `<abs-worktree>/.superpowers/sdd/pair-judge/operator-<k>.md`
 (the ask, what step 1 found, the paths to touch, `<name>`, `<n>`, the `fi-` token, and "execute steps
-3a–7 of `skills/flow-interactive/SKILL.md`"), runs `flow-guard pair-judge operator-asked <that file>`
+3a–7 of `skills/flow-interactive/SKILL.md`", and the report shape: Verdict, Findings, Decisions, Not done, the last landed sha, the base sha, and one `Red:` line per test added or changed), runs `flow-guard pair-judge operator-asked <that file>`
 and dispatches on the pair it prints (**Model and effort**, `skills/flow/brainstorm-planner.md`; no
 pair is written into this skill), recorded and dispatched as **Operator-asked subagents** below says.
 
 **3a. Implement** (the subagent). Rebase the worktree onto `origin/<base>` on a clean tree; a failing
-test first for each behaviour change, seen to fail; edits through the Edit tool, or a script written
+test first for each behaviour change, seen to fail: for every test the request adds or changes, the executor runs it before the fix, and its final report carries one line per test, `Red: <test name> — <the failure line it printed before the fix>`; a test that cannot fail first (a pure deletion, a test of already-existing behaviour) is listed as `Red: none — <why>`; edits through the Edit tool, or a script written
 to `<changeRoot>` and run by path that asserts each anchor matched exactly once; never a symlinked
 build input (`make -s web-dist` runs `npm ci` itself); one commit with the module as scope, no
 trailer, no `Task-Id:`; push the branch. Fixes of a red step 4 or a step 7 defect are its own commits
@@ -230,6 +230,8 @@ flow record request end -change <name> -n <n> -outcome dropped
 ```
 
 `landed` runs the **Request-end guard**, below. Then a short report.
+
+Before `landed`, when `git diff --name-only <base>..<commit>` matches `_test.go`, `.test.ts` or `.test.tsx`, the coordinator checks the executor's report carries the `Red:` lines of step 3a. A report without them is sent back to the executor exactly as the Request-end guard's refusal text says (SendMessage to its agent id, else a fresh `operator-asked` dispatch), never accepted and never worked around by the coordinator.
 
 A resumed request whose base was never noted passes the parent of its earliest commit found on
 `origin/<base>`, or any older ancestor: a wider range can only demand a UI check, never skip one.
