@@ -329,7 +329,7 @@ const pcConfReport = "**F1** [finding] tasks.md:3 — a gap\n\n### Execution con
 
 // TestPlanCheckWritesConfidence: a well-formed CONFIDENCE line under the
 // report's Execution confidence section becomes confidence.json — the score
-// and every line after it, verbatim — and the stdout line names the number.
+// and every line after it — a `Lowered by: F<k>` line spelled out as the finding it cites, the rest verbatim — and the stdout line names the number.
 func TestPlanCheckWritesConfidence(t *testing.T) {
 	t.Parallel()
 	args, wt, _ := pcFixture(t)
@@ -349,7 +349,7 @@ func TestPlanCheckWritesConfidence(t *testing.T) {
 	if err := json.Unmarshal(b, &got); err != nil {
 		t.Fatalf("%v: %s", err, b)
 	}
-	want := []string{"Lowered by: F1",
+	want := []string{"Lowered by F1 — tasks.md:3 — a gap",
 		"**F2** [finding] tasks.md:9 — closes with: plan — no task checks the flag — the evidence",
 		"**F3** [advisory] design.md:1 — closes with: running it — the migration is untried"}
 	if got.Score != 78 || !slices.Equal(got.Gaps, want) {

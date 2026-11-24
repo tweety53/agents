@@ -138,5 +138,8 @@ Lowered by: F3, F7
   an answer only the operator has, or nothing short of running the work.
 - A gap that closes with `plan` or `operator` is a `finding`; one that closes only with
   `running it` is `advisory`. The lens raises no `blocker`.
+- The Confidence page shows these lines without the report around them, so each gap line reads on its
+  own: the task or file it concerns and what is unknown, in words, never a bare `F<k>` or "see
+  above". `flow-guard plan-check` spells each `Lowered by:` finding out from the report's own line.
 - `CONFIDENCE: 100%` carries no gap line and no `Lowered by:`; below 100%, at least one of the
   two is present.

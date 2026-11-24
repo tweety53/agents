@@ -220,11 +220,32 @@ func pcConfidenceOf(report string) (score int, gaps []string) {
 		if strings.HasPrefix(l, "#") || pcLastLine.MatchString(l) {
 			break
 		}
-		if l != "" {
+		if ids, ok := strings.CutPrefix(l, "Lowered by:"); ok {
+			// F<k> alone means nothing outside the report: spell each cited finding out.
+			for _, id := range strings.Split(ids, ",") {
+				id = strings.TrimSpace(id)
+				if id != "" {
+					gaps = append(gaps, "Lowered by "+id+pcFindingText(report, id))
+				}
+			}
+		} else if l != "" {
 			gaps = append(gaps, l)
 		}
 	}
 	return score, gaps
+}
+
+// pcFindingText is " — <where> — <what>" of the report's `**<id>** [<kind>] <where> — <what>`
+// line, "" when the report has none.
+func pcFindingText(report, id string) string {
+	for _, l := range strings.Split(report, "\n") {
+		if rest, ok := strings.CutPrefix(strings.TrimSpace(l), "**"+id+"** "); ok {
+			if _, text, ok := strings.Cut(rest, "] "); ok {
+				return " — " + text
+			}
+		}
+	}
+	return ""
 }
 
 // pcAsk runs the check; a nil decision or empty report is the part to fall back.
