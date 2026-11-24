@@ -182,7 +182,8 @@ on the `no-progress-fixer` role — a loop's planner on its own role — carryin
 verbatim and naming the approach that failed. It is never a stop and never an ask.
 
 **A `no-progress-fixer` dispatch carries one defect family.** Where the reports name several
-independent families, each gets its own fixer, dispatched in parallel, and each commits its own
+independent families, each gets its own fixer, dispatched one after another — the next only
+once the previous has reported, so no two fixers' changes intersect — and each commits its own
 work — a WIP commit counts — before it reports, so a stalled fixer resumes from committed work
 (KAN-1157: one brief bundling three families ran 451 tool calls and never closed).
 
