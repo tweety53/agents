@@ -115,6 +115,21 @@ describe("DecisionsPanel with a plan-check decision", () => {
     ]);
   });
 
+  it("a review slot the run regrouped shows the pair of every dispatch that covered it", () => {
+    const run = (key: string, effort: string) => ({ id: 1, key, role: "x", model: "opus", effort, startedAt: "2026-01-01T00:00:00Z" });
+    render(
+      <DecisionsPanel
+        decision={{ panel: [{ slots: ["test-sanity", "failure-modes"], reason: "r1" }, { slots: ["call-efficiency"], reason: "r2" }, { slots: ["mutation"], reason: "r3" }] }}
+        dispatches={[run("panel-0-test-sanity+call-efficiency", "medium"), run("panel-0-failure-modes", "high"), run("panel-0-mutation", "high")]}
+      />,
+    );
+    expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual([
+      "Review: test-sanity, failure-modesopus · medium / opus · highr1",
+      "Review: call-efficiencyopus · mediumr2",
+      "Review: mutationopus · highr3",
+    ]);
+  });
+
   it("the visual check shows the pair of a verifier dispatched per repository", () => {
     const run = (key: string, startedAt: string) => ({ id: 1, key, role: "verifier", model: "sonnet", effort: "low", startedAt });
     render(<DecisionsPanel decision={{ visual: { verify: "required", reason: "UI" } }} dispatches={[run("visual-verify-gymie", "2026-01-01T00:00:00Z")]} />);

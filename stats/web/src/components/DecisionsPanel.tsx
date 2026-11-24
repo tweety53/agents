@@ -28,10 +28,25 @@ export interface Decision {
 
 type Line = { role: string; model: string; reason?: string; prose?: boolean; pct?: string; why?: string };
 
+const pairOf = (d: RecordDispatch) => (d.effort && d.effort !== "default" ? `${d.model} · ${d.effort}` : d.model);
+
 /** The pair of the latest dispatch whose key `want` accepts, "not run yet" when none ran. */
 function decided(dispatches: RecordDispatch[], want: (key: string) => boolean): string {
   const d = dispatches.filter((x) => x.key && want(x.key)).sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt))[0];
-  return d ? (d.effort && d.effort !== "default" ? `${d.model} · ${d.effort}` : d.model) : "not run yet";
+  return d ? pairOf(d) : "not run yet";
+}
+
+/** The pairs of the dispatches that covered any of a review's slots, one per slot group the run dispatched (the run may regroup the slots the plan listed), "not run yet" when none ran. */
+function reviewed(dispatches: RecordDispatch[], slots: string[]): string {
+  const covers = slots.map((s) => new RegExp(`^panel-\\d+-(?:[^+]+\\+)*${escapeRe(s)}(?:\\+|-[a-z0-9-]+$|$)`));
+  const latest = new Map<string, RecordDispatch>();
+  for (const d of dispatches) {
+    if (!d.key || !covers.some((re) => re.test(d.key!))) continue;
+    const group = d.key.replace(/^panel-\d+-/, "");
+    const have = latest.get(group);
+    if (!have || Date.parse(d.startedAt) > Date.parse(have.startedAt)) latest.set(group, d);
+  }
+  return latest.size ? [...new Set([...latest.values()].map(pairOf))].join(" / ") : "not run yet";
 }
 
 /** An implementer dispatch covers a group's tasks when its key `task-<ids>-implementer` names every one: the run may bundle tasks the plan listed apart. */
@@ -60,8 +75,7 @@ const confidenceOf = (rows: ConfidenceRow[], ids: string[]): { pct: string; why:
 function lines(d: Decision, dispatches: RecordDispatch[], confidence: ConfidenceRow[]): Line[] {
   const review = (p: Pick | undefined): Line[] => {
     // A multi-repository change dispatches each slot per repo: `panel-<round>-<slots>-<repo>`.
-    const re = new RegExp(`^panel-\\d+-${escapeRe((p?.slots ?? []).join("+"))}(-[a-z0-9-]+)?$`);
-    return pick(`Review: ${p?.slots?.join(", ") ?? ""}`, p, decided(dispatches, (k) => re.test(k)));
+    return pick(`Review: ${p?.slots?.join(", ") ?? ""}`, p, reviewed(dispatches, p?.slots ?? []));
   };
   // An override names its pair as "<model>/<agent definition>", the definition ending in its effort.
   const overrides = (Array.isArray(d.overrides) ? (d.overrides as Override[]) : []).flatMap((o) => {
