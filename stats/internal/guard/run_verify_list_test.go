@@ -2374,3 +2374,46 @@ func TestRunVerifyListRecordsItsFlakyCount(t *testing.T) {
 		}
 	}
 }
+
+// TestRunVerifyListPadsAFastCompletedRow pins the store's inline window: a
+// list that runs in milliseconds still ends its completed row no sooner than
+// the three seconds the store demands, or the end is refused (kan-1157).
+func TestRunVerifyListPadsAFastCompletedRow(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	dir := t.TempDir()
+	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\n[ \"$3\" = begin ] && touch "+dir+"/begin\n[ \"$3\" = end ] && touch "+dir+"/end\nexit 0\n")
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixtureRepo(t, wt, repoShape{})
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\ntrue\n```\n")
+	if out, err := exec.Command(fixtureGit, "-C", wt, "add", "-A").CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, out)
+	}
+	if out, err := exec.Command(fixtureGit, "-C", wt, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "x").CombinedOutput(); err != nil {
+		t.Fatalf("git commit: %v\n%s", err, out)
+	}
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	var o, e bytes.Buffer
+	if rc := runVerifyList([]string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e); rc != 0 {
+		t.Fatalf("exit %d:\n%s%s", rc, o.String(), e.String())
+	}
+	b, err1 := os.Stat(filepath.Join(dir, "begin"))
+	en, err2 := os.Stat(filepath.Join(dir, "end"))
+	if err1 != nil || err2 != nil {
+		t.Fatalf("begin/end marks: %v, %v", err1, err2)
+	}
+	if d := en.ModTime().Sub(b.ModTime()); d < 3*time.Second {
+		t.Errorf("a fast completed row closed %s after its begin, want at least 3s", d)
+	}
+}

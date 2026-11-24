@@ -354,7 +354,7 @@ import (
 // With the recording arguments the list ends the row it began with one of
 // three outcomes: blocked with cause test-failure when a command failed,
 // skipped when every command of a test list was skipped, and completed
-// otherwise. The begin carries `-diff-base <sha>`, the HEAD of <worktree> (the
+// otherwise, a completed end held until three seconds after the begin (the store's inline window). The begin carries `-diff-base <sha>`, the HEAD of <worktree> (the
 // verified worktree, never <canonical-worktree>), which the in-process verify-green check (visual-verify-pass close)
 // judges the row by; a <worktree> git cannot resolve a HEAD in records none,
 // and that row is never green (decision verify-row-records-head). Lint and
@@ -1367,6 +1367,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	abortSuperseded()
+	beganAt := time.Now()
 	if !record("begin") {
 		Reason(env, "record-failed")
 		return 4
@@ -1691,6 +1692,10 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		// A lint list never ends skipped.
 		record("end", "-outcome", "skipped")
 	default:
+		// A list that ran in under the store's inline window (a cached lint, a
+		// warm build) is padded to it: the store refuses a completed inline row
+		// closing sooner as an unmeasured begin-and-end pair.
+		time.Sleep(3100*time.Millisecond - time.Since(beganAt))
 		record("end", "-outcome", "completed")
 	}
 	return failed
