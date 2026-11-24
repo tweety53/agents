@@ -760,6 +760,8 @@ func (v *vvp) captureIsCommitted(path string) bool {
 	return ok && out == ""
 }
 
+var vvcFrameID = regexp.MustCompile(`[A-Za-z0-9][\w.-]*/[A-Za-z0-9][\w.-]*`)
+
 // vvcReportFrames is the comma-joined frame ids of a report's `- frames:` line
 // (`<n>/<m> — <id>; <id>: <reason>`), "" when it names none.
 func vvcReportFrames(report []byte) string {
@@ -769,12 +771,7 @@ func vvcReportFrames(report []byte) string {
 		if m == nil {
 			continue
 		}
-		_, list, _ := strings.Cut(m[3], "—")
-		for _, e := range strings.Split(list, ";") {
-			if id, _, _ := strings.Cut(strings.TrimSpace(e), ":"); strings.Contains(id, "/") && !strings.ContainsAny(id, " ,") {
-				ids = append(ids, id)
-			}
-		}
+		ids = append(ids, vvcFrameID.FindAllString(m[3], -1)...)
 	}
 	return strings.Join(ids, ",")
 }
