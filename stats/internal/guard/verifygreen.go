@@ -26,7 +26,7 @@ import (
 // recorded from; each further <worktree> is another worktree of the set.
 //
 // Reads `flow record dispatches -change <change-name> -C <worktree>` and
-// judges this session token's inline verify rows — role `verifier`, key
+// judges the change's inline verify rows, whatever session token recorded them (a resumed run's token differs; the HEAD rule below voids a stale one) — role `verifier`, key
 // `verify` or `verify-<repository name>`; the visual verifier's
 // `visual-verify…` rows never count. Only the latest such row per worktree is
 // judged: rows group by key with a `-fix-<k>` suffix removed
@@ -73,7 +73,7 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "usage")
 		return 2
 	}
-	wt, name, token := args[0], args[1], args[2]
+	wt, name := args[0], args[1]
 	worktrees := append([]string{wt}, args[3:]...)
 	for _, w := range worktrees {
 		if !isDir(pcAbs(env, w)) {
@@ -114,7 +114,7 @@ func checkVerifyGreen(args []string, env Env, stdout, stderr io.Writer) int {
 	for i, r := range rows {
 		// A runner subagent's own dispatch row (agentId set, not `inline`) is
 		// not this run's inline verify: it carries no HEAD, so it never counts.
-		if r.SessionToken != token || (r.AgentID != "" && r.AgentID != "inline") || records.Class(r.Role) != "verifier" || (r.Key != "verify" && !strings.HasPrefix(r.Key, "verify-")) {
+		if (r.AgentID != "" && r.AgentID != "inline") || records.Class(r.Role) != "verifier" || (r.Key != "verify" && !strings.HasPrefix(r.Key, "verify-")) {
 			continue
 		}
 		g := vgFixSuffix.ReplaceAllString(r.Key, "verify$2")

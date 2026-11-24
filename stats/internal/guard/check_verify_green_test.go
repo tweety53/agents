@@ -137,7 +137,8 @@ func TestCheckVerifyGreen(t *testing.T) {
 		{"a re-run of a digit-led repository's blocked verify is green", "[" + row("verify-3d-viewer", "mf-tok", "blocked") + "," + row("verify-2-3d-viewer", "mf-tok", "completed") + "]", nil, 0, "1 inline verify row(s) green"},
 		{"a re-run judged per worktree", "[" + row("verify-fe", "mf-tok", "blocked") + "," + row("verify-2-fe", "mf-tok", "completed") + "]", nil, 0, "1 inline verify row(s) green"},
 		{"a fix round's blocked verify after a green one", "[" + row("verify", "mf-tok", "completed") + "," + row("verify-fix-1", "mf-tok", "blocked") + "]", nil, 1, "verify-fix-1 (blocked)"},
-		{"another run's green and a visual verifier do not count", "[" + row("verify", "mf-old", "completed") + "," + row("visual-verify", "mf-tok", "completed") + "]", nil, 1, "no inline verify"},
+		{"a green verify of an earlier session token counts at the same HEAD", "[" + row("verify", "mf-old", "completed") + "]", nil, 0, "VERIFY-GREEN"},
+		{"a visual verifier does not count", "[" + row("visual-verify", "mf-tok", "completed") + "]", nil, 1, "no inline verify"},
 		{"an unreadable store cannot answer", "", errors.New("down"), 2, "cannot answer"},
 		{"no row for the change names the canonical worktree", "[]", nil, 2, "pass the change's canonical worktree"},
 	} {
