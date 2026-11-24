@@ -2119,21 +2119,21 @@ describe("daily costs", () => {
     });
     fetchStatsViewMock.mockImplementation((_v: string, p: { from: Date; to: Date }) => Promise.resolve(envelope("daily-costs", dailyRows(p))));
     render(<DailyCosts />);
-    await screen.findAllByTestId("dc-day");
-    await screen.findAllByTestId("dc-avg");
+    await screen.findAllByTestId("dc-bar");
+    await screen.findAllByTestId("dc-wbar");
   };
   const range = () => screen.getByRole("group", { name: "Range" });
   const press = (name: string) => userEvent.click(within(range()).getByRole("button", { name }));
-  const avg = (weekday: string) => screen.getAllByTestId("dc-avg").find((e) => e.getAttribute("data-weekday") === weekday)!.textContent;
+  const avg = (weekday: string) => screen.getAllByTestId("dc-wbar").find((e) => e.getAttribute("data-key") === weekday)!.querySelector("[data-testid=wc-total]")!.textContent;
 
   it("daily costs opens on 7 days with a column per day and offers 7 and 14 days only", async () => {
     await renderDaily();
-    expect(screen.getAllByTestId("dc-day")).toHaveLength(7);
+    expect(screen.getAllByTestId("dc-bar")).toHaveLength(7);
     expect(lastParams().from).toEqual(new Date(2026, 5, 13));
     expect(within(range()).getAllByRole("button", { pressed: true }).map((b) => b.textContent)).toEqual(["7 days"]);
     expect(within(range()).getAllByRole("button", { pressed: false }).map((b) => b.textContent)).toEqual(["14 days"]);
     await press("14 days");
-    await waitFor(() => expect(screen.getAllByTestId("dc-day")).toHaveLength(14));
+    await waitFor(() => expect(screen.getAllByTestId("dc-bar")).toHaveLength(14));
   });
 
   it("daily costs steps a window earlier and later, never past now", async () => {
@@ -2143,7 +2143,7 @@ describe("daily costs", () => {
     const now = lastParams();
     await press("Earlier");
     await waitFor(() => expect(lastParams().to.getTime()).toBe(now.from.getTime()));
-    expect(screen.getAllByTestId("dc-day")).toHaveLength(7);
+    expect(screen.getAllByTestId("dc-bar")).toHaveLength(7);
     expect(later).toBeEnabled();
     await userEvent.click(later);
     await waitFor(() => expect(lastParams().to.getTime()).toBe(now.to.getTime()));
@@ -2155,22 +2155,38 @@ describe("daily costs", () => {
     expect(screen.queryByText("All time")).toBeNull();
     expect(screen.getByText("Average per weekday")).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/all[- ]time/i);
-    expect(screen.getAllByTestId("dc-day").map((e) => e.textContent)).toContain("$19.00");
+    expect(screen.getAllByTestId("dc-bar")[6]).toHaveTextContent("$19.00");
+  });
+
+  it("daily costs labels each day with its date and its weekday, for 7 and 14 days", async () => {
+    await renderDaily();
+    expect(screen.getAllByTestId("wc-week").slice(0, 7).map((e) => e.textContent)).toEqual(["06-13", "06-14", "06-15", "06-16", "06-17", "06-18", "06-19"]);
+    expect(screen.getAllByTestId("wc-sub").slice(0, 7).map((e) => e.textContent)).toEqual(["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"]);
+    await press("14 days");
+    await waitFor(() => expect(screen.getAllByTestId("dc-bar")).toHaveLength(14));
+    expect(screen.getAllByTestId("wc-sub").slice(0, 14).map((e) => e.textContent).slice(0, 2)).toEqual(["Sat", "Sun"]);
+  });
+
+  it("daily costs has no numeric day table", async () => {
+    await renderDaily();
+    expect(screen.queryByTestId("dc-day")).toBeNull();
+    expect(screen.queryByTestId("dc-day-label")).toBeNull();
+    expect(screen.queryByRole("table")).toBeNull();
   });
 
   it("daily costs averages each weekday over the recorded span, an empty day counting as 0", async () => {
     await renderDaily();
-    expect(screen.getAllByTestId("dc-avg").map((e) => e.getAttribute("data-weekday"))).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    expect(screen.getAllByTestId("dc-wbar").map((e) => e.getAttribute("data-key"))).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
     expect(avg("Mon")).toBe("$8.00"); // 06-01, 08, 15
     expect(avg("Wed")).toBe("$6.67"); // 06-03, 10 (empty), 17
     expect(avg("Fri")).toBe("$12.00"); // 06-05, 12, 19
     expect(avg("Sat")).toBe("$9.50"); // 06-06, 13
     await press("14 days");
-    await waitFor(() => expect(screen.getAllByTestId("dc-day")).toHaveLength(14));
+    await waitFor(() => expect(screen.getAllByTestId("dc-bar")).toHaveLength(14));
     expect(avg("Wed")).toBe("$6.67");
   });
 
-  const heights = (bar: HTMLElement) => within(bar).getAllByTestId("dc-seg").map((e) => Number(e.getAttribute("height")));
+  const heights = (bar: HTMLElement) => within(bar).getAllByTestId("wc-segment").map((e) => Number(e.getAttribute("height")));
   const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
   it("daily costs charts a stacked bar per day of the window, in proportion to its cost", async () => {
@@ -2184,7 +2200,7 @@ describe("daily costs", () => {
     expect(sum(heights(bars[6])) / sum(heights(bars[0]))).toBeCloseTo(19 / 13, 5);
     const [plan, impl] = heights(bars[6]);
     expect(plan / (plan + impl)).toBeCloseTo(1 / 19, 5);
-    expect(screen.getAllByTestId("dc-grid").length).toBeGreaterThanOrEqual(2);
+    expect(within(bars[0].parentElement!).getAllByTestId("wc-week")).toHaveLength(7);
     await press("14 days");
     await waitFor(() => expect(screen.getAllByTestId("dc-bar")).toHaveLength(14));
   });
@@ -2192,7 +2208,7 @@ describe("daily costs", () => {
   it("daily costs charts each weekday's mean over the recorded span, a dash for one without data", async () => {
     await renderDaily();
     const wd = screen.getAllByTestId("dc-wbar");
-    expect(wd.map((e) => e.getAttribute("data-weekday"))).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    expect(wd.map((e) => e.getAttribute("data-key"))).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
     expect(wd[0]).toHaveTextContent("$8.00");
     expect(screen.getByRole("img", { name: /^Average cost per weekday/ })).toBeInTheDocument();
   });
@@ -2207,11 +2223,11 @@ describe("daily costs", () => {
       Promise.resolve(envelope("daily-costs", p.to.getTime() - p.from.getTime() > 15 * 86400000 ? dailyRows(p).filter((r) => [15, 16].includes(new Date(r.week).getDate())) : dailyRows(p))),
     );
     render(<DailyCosts />);
-    await screen.findAllByTestId("dc-avg");
+    await screen.findAllByTestId("dc-wbar");
     const wd = screen.getAllByTestId("dc-wbar");
     expect(wd).toHaveLength(7);
-    expect(wd[2]).toHaveTextContent("—");
-    expect(within(wd[2]).queryAllByTestId("dc-seg")).toHaveLength(0);
+    expect(wd[2]).toHaveTextContent("no data");
+    expect(within(wd[2]).queryAllByTestId("wc-segment")).toHaveLength(0);
     expect(wd[0]).toHaveTextContent("$15.00");
   });
 });

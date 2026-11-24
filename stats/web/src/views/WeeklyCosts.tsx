@@ -28,6 +28,7 @@ import { useState } from "react";
 import type { WeeklyCostPoint, WeeklyModelEffortPoint } from "../api";
 import { Chip, ChipGroup } from "../components/Chip";
 import { Panel } from "../components/Panel";
+import { StackedBars, Swatch, type Series } from "../components/StackedBars";
 import { DAY_MS, formatUsd } from "../format";
 import { useStatsView, type StatsViewState } from "../hooks/useStatsView";
 import { projectLabel } from "../lib/projectLabel";
@@ -60,13 +61,6 @@ const phases: { key: keyof Omit<WeeklyCostPoint, "week" | "overallUsd">; name: s
   { key: "visualVerifyUsd", name: "Visual verify" },
   { key: "otherUsd", name: "Other" },
 ];
-
-/** One series: a name, its colour and its cost per week of the window. */
-interface Series {
-  name: string;
-  color: string;
-  v: number[];
-}
 
 const colored = (series: Omit<Series, "color">[]): Series[] => series.map((s, i) => ({ ...s, color: `var(--series-${(i % 7) + 1})` }));
 const sum = (xs: number[]) => xs.reduce((a, x) => a + x, 0);
@@ -101,14 +95,6 @@ function modelEffortSeries(weeks: string[], rows: WeeklyModelEffortPoint[]): Ser
   return colored(kept);
 }
 
-/** The Y axis' tick step: the smallest 1, 2, 2.5 or 5 times a power of ten
- * whose five steps reach `max`, so a $3 week fills the plot as a $300 one does. */
-function tickStep(max: number): number {
-  const raw = max / 5 || 1;
-  const magnitude = 10 ** Math.floor(Math.log10(raw));
-  return [1, 2, 2.5, 5, 10].find((m) => m * magnitude >= raw)! * magnitude;
-}
-
 /** A change from `b` to `a`: ▲ / ▼ with its $ size and, when `b` cost
  * something, its whole percentage; — when nothing changed. */
 function Delta({ a, b }: { a: number; b: number }) {
@@ -117,130 +103,6 @@ function Delta({ a, b }: { a: number; b: number }) {
   const s = d > 0 ? "+" : "−";
   const pct = b ? ` (${s}${Math.round(Math.abs((d / b) * 100))}%)` : "";
   return <span className={d > 0 ? "up" : "down"}>{`${d > 0 ? "▲" : "▼"} ${s}${formatUsd(Math.abs(d))}${pct}`}</span>;
-}
-
-const Swatch = ({ color }: { color: string }) => <span className="wc-sw" style={{ background: color }} />;
-
-// Chart geometry, as the prototype draws it.
-const CW = 1140,
-  CH = 300,
-  L = 60,
-  R = 10,
-  T = 10,
-  B = 34,
-  PW = CW - L - R,
-  PH = CH - T - B;
-
-function Chart({ weeks, series, totals }: { weeks: string[]; series: Series[]; totals: number[] }) {
-  const [hover, setHover] = useState<number | null>(null);
-  const cur = weeks.length - 1;
-  const step = tickStep(Math.max(0, ...totals) * 1.08);
-  const y = (v: number) => T + PH - (PH * v) / (step * 5);
-  const bw = PW / weeks.length;
-  const so = (w: number) => (w === cur ? " (so far)" : "");
-
-  return (
-    <div className="wc-plot">
-      <svg viewBox={`0 0 ${CW} ${CH}`} width={CW} height={CH}>
-        <g className="grid">
-          {Array.from({ length: 6 }, (_, i) => (
-            <g key={i}>
-              <line x1={L} x2={L + PW} y1={y(i * step)} y2={y(i * step)} />
-              <text x={L - 6} y={y(i * step) + 4} textAnchor="end">
-                {formatUsd(i * step)}
-              </text>
-            </g>
-          ))}
-        </g>
-        {weeks.map((wk, w) => {
-          const x = L + w * bw + bw * 0.18;
-          const ww = bw * 0.64;
-          let acc = 0;
-          return (
-            <g key={wk}>
-              {!totals[w] && (
-                <text x={x + ww / 2} y={y(0) - 6} textAnchor="middle">
-                  no data
-                </text>
-              )}
-              {series.map((s) => {
-                const v = s.v[w];
-                if (!v) return null;
-                const top = y(acc + v);
-                const height = y(acc) - top;
-                acc += v;
-                return (
-                  <rect
-                    key={s.name}
-                    className="wc-bar"
-                    tabIndex={0}
-                    data-testid="wc-segment"
-                    data-week={wk}
-                    data-series={s.name}
-                    aria-label={`${s.name}, week of ${wk}${so(w)}: ${formatUsd(v)}`}
-                    x={x}
-                    width={ww}
-                    y={top}
-                    height={height}
-                    fill={s.color}
-                    {...(w === cur ? { fillOpacity: ".45", stroke: s.color, strokeDasharray: "3 2" } : {})}
-                    onMouseEnter={() => setHover(w)}
-                    onMouseLeave={() => setHover(null)}
-                    onFocus={() => setHover(w)}
-                    onBlur={() => setHover(null)}
-                  />
-                );
-              })}
-              {totals[w] > 0 && (
-                <text x={x + ww / 2} y={y(acc) - 5} textAnchor="middle" className="wc-total" data-testid="wc-total" data-week={wk}>
-                  {formatUsd(acc)}
-                </text>
-              )}
-              <text x={x + ww / 2} y={CH - B + 16} textAnchor="middle" data-testid="wc-week">
-                {wk.slice(5) + so(w)}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-      {hover !== null && (
-        <div
-          className="wc-tip"
-          role="tooltip"
-          // The last two weeks open the tip leftwards, so it stays inside the plot.
-          style={{ left: L + (hover + 0.85) * bw - (hover >= weeks.length - 2 ? 260 : 0), top: 40 }}
-        >
-          <strong>
-            Week of {weeks[hover]}
-            {so(hover)}
-          </strong>
-          <table>
-            <tbody>
-              {series
-                .filter((s) => s.v[hover])
-                .map((s) => (
-                  <tr key={s.name}>
-                    <td>
-                      <Swatch color={s.color} />
-                      {s.name}
-                    </td>
-                    <td>{formatUsd(s.v[hover])}</td>
-                  </tr>
-                ))}
-              <tr>
-                <td>
-                  <strong>Total</strong>
-                </td>
-                <td>
-                  <strong>{formatUsd(totals[hover])}</strong>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
 }
 
 export function WeeklyCosts() {
@@ -265,6 +127,7 @@ export function WeeklyCosts() {
         : phaseSeries(weeks, state.data.rows);
   const totals = weeks.map((_, w) => sum(series.map((s) => s.v[w])));
   const cur = weeks.length - 1;
+  const so = (w: number) => (w === cur ? " (so far)" : "");
   const last = cur - 1;
   const prev = cur - 2;
   const day = Math.floor((f.to.getTime() - Date.parse(weeks[cur] + "T00:00:00Z")) / DAY_MS) + 1;
@@ -340,22 +203,15 @@ export function WeeklyCosts() {
             </div>
           </div>
           <div className="wc-row">
-            <div className="lb-panel wc-chartpanel">
-              <div className="lb-panel-h">
-                <span>{title}</span>
-              </div>
-              <div className="lb-panel-b wc-chart">
-                <div className="wc-legend">
-                  {series.map((s) => (
-                    <span key={s.name}>
-                      <Swatch color={s.color} />
-                      {s.name}
-                    </span>
-                  ))}
-                </div>
-                <Chart weeks={weeks} series={series} totals={totals} />
-              </div>
-            </div>
+            <StackedBars
+              title={title}
+              slots={weeks.map((wk, w) => ({ key: wk, label: wk.slice(5) + so(w) }))}
+              series={series}
+              totals={totals}
+              partial={cur}
+              segLabel={(name, w) => `${name}, week of ${weeks[w]}${so(w)}`}
+              tipTitle={(w) => `Week of ${weeks[w]}${so(w)}`}
+            />
             <div className="lb-panel wc-moved">
               <div className="lb-panel-h">
                 <span>
