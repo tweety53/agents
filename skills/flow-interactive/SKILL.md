@@ -1,6 +1,6 @@
 ---
 name: flow-interactive
-description: Conversational /flow session — one invocation is one change, one Jira issue and one worktree, and a stream of requests the main session coordinates. Each request is looked at live by the coordinator, then one pair-judged operator-asked subagent implements it test-first, verifies it through a nested runner, lands it by merge and push, reinstalls and, when it touches ui paths, checks the live page; an explicit stop runs one self-review pass, cleanup and FINISHED. Every request is recorded in flowd; no spectre artifacts or state file. Use for /flow-interactive.
+description: Conversational /flow session — one invocation is one change, one Jira issue and one worktree, and a stream of requests the main session coordinates. Each request is looked at live by the coordinator, then one pair-judged operator-asked subagent implements it test-first, verifies it, lands it by merge and push, reinstalls and, when it touches ui paths, checks the live page; an explicit stop runs one self-review pass, cleanup and FINISHED. Every request is recorded in flowd; no spectre artifacts or state file. Use for /flow-interactive.
 allowed-tools: Bash(flow:*)
 license: MIT
 ---
@@ -12,7 +12,7 @@ do for `/flow` and `/flow-fast`. Each request is a row the store keeps (`flow re
 and every stage run made for it carries its request number (`-request <n>`). The main session is
 the **coordinator**: it looks, records, dispatches and reports, and does nothing else. A request that
 changes code is executed whole — implement, verify, land, reinstall, UI check — by one
-`operator-asked` subagent with a nested `runner` (**3. Execute**). No review panel per request, no
+`operator-asked` subagent (**3. Execute**). No review panel per request, no
 spectre artifacts, no plan file, no decision, no state file, and no workspace isolation beyond the
 worktree.
 
@@ -28,7 +28,7 @@ token generated once per invocation, shaped as **Stage marks** (`skills/flow-con
 states, and typed the same in every `flow record` command — never a shell substitution, per the
 CLI's own usage text. A mark carries none. `<n>` is the request's number in the session.
 
-**Guardrails, the whole list.** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output. Never dispatch a subagent, save the request's own executor and its nested runner
+**Guardrails, the whole list.** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output. Never dispatch a subagent, save the request's own executor
 (**3. Execute**), the self-review pass's own
 dispatches (`skills/flow-self-review/SKILL.md`), the in-run fix loop of **Pipeline defects found
 mid-run** (`skills/flow-contracts/pipeline.md`), and a subagent the operator asks for in their
@@ -161,9 +161,6 @@ The coordinator writes the brief to `<abs-worktree>/.superpowers/sdd/pair-judge/
 3a–7 of `skills/flow-interactive/SKILL.md`"), runs `flow-guard pair-judge operator-asked <that file>`
 and dispatches on the pair it prints (**Model and effort**, `skills/flow/brainstorm-planner.md`; no
 pair is written into this skill), recorded and dispatched as **Operator-asked subagents** below says.
-The pair's agent type must carry the Agent tool, or the nested runner cannot be dispatched: when the
-judge's pair does not, the coordinator reports BLOCKED naming the `operator-asked` row of **Allowed
-pairs** (`skills/flow-contracts/model-policy.md`) as the fix, and works nothing inline.
 
 **3a. Implement** (the subagent). Rebase the worktree onto `origin/<base>` on a clean tree; a failing
 test first for each behaviour change, seen to fail; edits through the Edit tool, or a script written
@@ -178,8 +175,7 @@ flow stage begin -command '/flow-interactive' -stage flow.implement -request <n>
 flow stage end   -command '/flow-interactive' -stage flow.implement -outcome completed <name>
 ```
 
-**4. Verify** (a nested `runner`: the subagent dispatches one, `Role: runner`, key `runner-<n>`,
-`skills/flow/runner-brief.md`, its pair from `flow-guard pair-judge runner`, and acts on its verdict).
+**4. Verify** (the subagent runs it itself).
 `<agents repo>/scripts/flow-guard run-verify-list <worktree> lint`, the `## test` commands
 scoped to the packages and files the request touched, and `<agents repo>/scripts/flow-guard run-verify-list <worktree> visual` — as section 5 of `/flow-fast` states them. The request never lands red. The `lint` list,
 exiting 0 on a tree clean before and after it, writes `HEAD` to the worktree's `git rev-parse
