@@ -148,6 +148,12 @@ describe("DecisionsPanel with a plan-check decision", () => {
     expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual(["Task 21sonnet · lowa", "Task 22sonnet · lowb", "Task 2not run yetc"]);
   });
 
+  it("a group bundled under a dash-joined key shows its pair, and a fix dispatch does not count", () => {
+    const run = (key: string) => ({ id: 1, key, role: "x", model: "sonnet", effort: "low", startedAt: "2026-01-01T00:00:00Z" });
+    render(<DecisionsPanel decision={{ groups: [{ tasks: ["3", "4"], reason: "g" }, { tasks: ["1", "2"], reason: "h" }] }} dispatches={[run("task-3-4-implementer"), run("task-1-2-implementer-fix-1")]} />);
+    expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual(["Tasks 3, 4sonnet · lowg", "Tasks 1, 2not run yeth"]);
+  });
+
   it("a review slot dispatched per repository shows its pair", () => {
     const run = (key: string, model: string) => ({ id: 1, key, role: "x", model, effort: "high", startedAt: "2026-01-01T00:00:00Z" });
     render(

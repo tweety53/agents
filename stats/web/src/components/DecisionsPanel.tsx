@@ -53,8 +53,8 @@ function reviewed(dispatches: RecordDispatch[], slots: string[]): string {
 function implemented(dispatches: RecordDispatch[], ids: string[]): string {
   const latest = new Map<string, RecordDispatch>();
   for (const d of dispatches) {
-    const m = d.key ? /^task-(\d+(?:\+\d+)*)-implementer$/.exec(d.key) : null;
-    if (!m || !m[1].split("+").some((i) => ids.includes(i))) continue;
+    const m = d.key ? /^task-(\d+(?:[+-]\d+)*)-implementer$/.exec(d.key) : null;
+    if (!m || !m[1].split(/[+-]/).some((i) => ids.includes(i))) continue;
     const have = latest.get(d.key!);
     if (!have || Date.parse(d.startedAt) > Date.parse(have.startedAt)) latest.set(d.key!, d);
   }
