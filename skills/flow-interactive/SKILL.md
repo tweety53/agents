@@ -208,6 +208,7 @@ check, the request stays open (⛔ blocked), since the live page cannot show the
 **7. UI check**, when `flow-guard check-visual-trigger <worktree>` matches the request's diff (`git diff
 --name-only <base>..HEAD` on its stdin): open the live page — the link the operator gave, else the
 URL `## run` serves, by the app's own run-view route, keyed by the project key and `<name>`, never a display name —
+the executor opens it with the project's own installed Playwright through Bash — a short Node script written under `<changeRoot>` that navigates, reloads, takes the screenshot into `<changeRoot>` and exits — never an MCP browser tool, which a `flow-*` subagent does not carry —
 `location.reload()`, screenshot, and read the screenshot against the ask. A pass ends the stage
 run `-outcome completed`. That end carries `-screenshot <path>`, the screenshot just read, saved
 under `<changeRoot>`. A defect ends it `-outcome failed` with `-reason` naming the defect, and is a fix commit and steps 4–7

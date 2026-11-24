@@ -182,10 +182,7 @@ const EFFORTS = ["low", "medium", "high", "xhigh"];
 // Every model x effort the role's agent can run, so a pair nobody has used yet can be ticked.
 const optionsFor = (r: RoleEntry): string[] => {
   const a = agentOf(r);
-  if (!a || !a.sep) return [];
-  // A role on the plain `flow-<effort>` types may also run their browser variants, `flow-ui-<effort>`.
-  const agents = a.agent === "flow" ? ["flow", "flow-ui"] : [a.agent];
-  return agents.flatMap((g) => MODELS.flatMap((m) => EFFORTS.map((e) => `${m}/${g}${a.sep}${e}`)));
+  return a && a.sep ? MODELS.flatMap((m) => EFFORTS.map((e) => `${m}/${a.agent}${a.sep}${e}`)) : [];
 };
 
 type Draft = { base: string[]; optin: string[] };

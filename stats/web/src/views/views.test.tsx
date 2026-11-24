@@ -2180,14 +2180,6 @@ describe("AgentRoles", () => {
     await waitFor(() => expect(fetchRolesMock).toHaveBeenCalledTimes(2));
   });
 
-  it("Agent roles offers the browser flow-ui types beside a role's plain flow types", async () => {
-    render(<AgentRoles />);
-    const table = await screen.findByRole("region", { name: "Current roles" });
-    await userEvent.click(within(table).getByRole("button", { name: "Choose main pairs for implementer" }));
-    expect(within(table).getByRole("checkbox", { name: "opus/flow-ui-xhigh" })).toBeInTheDocument();
-    expect(within(table).getByRole("checkbox", { name: "sonnet/flow-ui-low" })).toBeInTheDocument();
-  });
-
   it("Agent roles shows a refused save", async () => {
     postRolesEditMock.mockReset().mockRejectedValue(new Error("role pair \"x\" is not <model>/<type>[@<effort>]"));
     render(<AgentRoles />);
