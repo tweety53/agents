@@ -439,6 +439,22 @@ func TestEnforceAgentBaselineHookBeginsTheRow(t *testing.T) {
 	}
 }
 
+// TestEnforceAgentBaselineHookBeginsTheRowOfAFlowUIType: a flow-ui-<effort> agent type, the
+// flow-<effort> tools plus a browser, begins its row at that effort.
+func TestEnforceAgentBaselineHookBeginsTheRowOfAFlowUIType(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	main, _ := beginRepo(t)
+	want := "record dispatch begin -C " + main + " -change c1 -role implementer -model opus -effort high -key operator-1 -session-token mf-t1 -policy-role operator-asked"
+	env, log := beginEnv(t, `[]`)
+	if denied, out := runBegin(t, beginPayload(t, main, "operator-1 execute", "Role: operator-asked\nexecute", "flow-ui-high", "opus", ""), env...); denied {
+		t.Fatalf("denied: %s", out)
+	}
+	if got := flowCalls(t, log, "record dispatch begin"); len(got) != 1 || got[0] != want {
+		t.Errorf("begins = %q, want [%q]", got, want)
+	}
+}
+
 // TestEnforceAgentBaselineHookReadsTheOpenStageRun pins kan-1099 self-review F12: a session whose
 // latest stage run is another project's run, already ended, inside its still-open run of change
 // c1 has its dispatch begun under c1 -- the open run names the session's change, not the later

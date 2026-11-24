@@ -164,7 +164,7 @@ AD_HOC_KEY = re.compile(r"[a-z0-9][a-z0-9+-]*")
 KEY_LINE = re.compile(r"^Key:[ \t]*(\S+)[ \t]*$", re.M)
 ROLE_LINE = re.compile(r"^Role:[ \t]*(\S+)[ \t]*$", re.M)
 SINGLE_TASK_KEY = re.compile(r"task-(\d+)-")
-FLOW_EFFORT = re.compile(r"flow-(?:planner-)?([a-z]+)")
+FLOW_EFFORT = re.compile(r"flow-(?:planner-|ui-)?([a-z]+)")
 # A prompt's `Role:` id -> the row role `flow record dispatch begin -role` takes: the inverse of
 # launchRoleID (stats/cmd/flow/record.go).
 ROW_ROLE = {
