@@ -44,6 +44,7 @@ var reasonIDAllowed = map[string]string{
 	"untasked":     "a commit carries no Task-Id",
 	"unverifiable": "the verdict cannot be established",
 	"changed":      "a tree that must stay unchanged changed",
+	"lost":         "a detached run died without recording its exit code",
 }
 
 // idShapeRE matches a kebab-case reason id.
