@@ -790,6 +790,11 @@ writes its prompt cache at the one-hour rate, measured on a main transcript, so 
 hour re-reads 150–340K of context at the cache rate, where a wake after it rewrites the whole of it
 — and a poll turn every four minutes paid a cache read of that context each time for nothing.
 
+*Superseded by KAN-1130.* A notification wait was lost when the parent's turn ended (gymie
+kan-1158: zombie "waiting on shells" rows, a verify list launched three times). The parent now waits
+inside one `flow-guard await-rows` call bounded under the ten-minute cap, which also sweeps
+finished-but-never-ended rows on each pass.
+
 ### implement.md — Read discipline (KAN-857)
 
 The parent does a large amount of reading across one long-lived context, so keeping that context small is what keeps a warm call cheap.

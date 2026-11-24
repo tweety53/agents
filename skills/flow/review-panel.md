@@ -172,7 +172,7 @@ flow record dispatch end -change <name> -key panel-<round>-<slot|slot+slot+slot>
   [-ended-at "$(date -u -r <report-file> +%Y-%m-%dT%H:%M:%SZ)"]
 ```
 
-Every dispatch of the round is launched in one message; the round's wait is the harness's completion notifications, never a poll (the turn discipline of **4. Execute
+Every dispatch of the round is launched in one message; the round's wait is `flow-guard await-rows` on the round's keys (the turn discipline of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`).
 A parent-recorded `end` — any harness but claude-code, whose daemon reads no agent transcript — passes its own slot's report-file modification time as `-ended-at`; a bundled dispatch's `<report-file>` is the newest of its slots' reports.
 

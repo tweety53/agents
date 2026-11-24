@@ -150,8 +150,8 @@ this rule broken. Ending on
 "the turn has been long", "each step is a real dispatch or build", "send `/flow` to continue" or
 any status report that offers to continue is this rule broken too (kan-1099).
 
-**A wait on background subagents is the one turn end inside a phase.** The parent ends its turn on
-the one-shots it launched, and the harness's completion notifications resume it — never a poll.
+**A wait on background subagents is one `flow-guard await-rows` call, never a turn end** (**Turn
+discipline**, `skills/flow/implement.md`).
 
 **No round count ends a re-review or a re-verification.** A review-panel fix round, a gated
 per-task re-review, a verify stage's fix loop, a verifier re-dispatch, the implement phase's

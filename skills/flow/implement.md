@@ -31,8 +31,8 @@ Read the decision JSON
 dispatches by.
 
 **Never report a stage boundary or ask the operator with a child in flight** — wait for every
-implementer, reviewer, slot or fix subagent launched first. Ending the turn while a child launched
-in the background still runs is that wait (**Turn discipline**, below).
+implementer, reviewer, slot or fix subagent launched first, by the wait of **Turn discipline**
+(below).
 
 ### Dispatch sites — the parent's closed list
 
@@ -120,7 +120,7 @@ panel-fix and gated per-task reviewer rows. The verifier
 row dispatches on the `visual-verifier` role's pair (`skills/flow/visual-verify.md`),
 a `flow-<effort>` definition, so it is structurally fork-free too. Every row takes the effort its role's pair names; the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`) is the `no-progress-fixer` role's.
 
-**The return.** Once a dispatch's completion notification arrives, read its verdict from its final
+**The return.** Once `await-rows` reports a dispatch's key `ENDED` (**Turn discipline**), read its verdict from its final
 message and continue to the next stage.
 
 **A dispatch whose agent dies is ended `aborted` by the hook, reported, and not retried**: print
@@ -383,11 +383,11 @@ committed PNGs are deleted and `capture` runs with `<spec>` substituted for its 
 as PNGs that do not yet exist, and they are committed by the regression checkout's rules, step 12
 of `skills/flow/visual-verify.md`.
 
-**A group boundary is one wake, one Bash call and one launch message.** The unit is the group — the decision's `groups`
+**A group boundary is one `ENDED`, one Bash call and one launch message.** The unit is the group — the decision's `groups`
 entry. At each boundary, in this order:
 
-1. **The returned group's implementer commits**, writes its report and ends; its completion notification
-   wakes the parent with its summary head (`skills/flow/implementer-brief.md`). **A `status: DONE` head of an
+1. **The returned group's implementer commits**, writes its report and ends; the parent's `await-rows`
+   reports it `ENDED` and the parent reads its summary head (`skills/flow/implementer-brief.md`). **A `status: DONE` head of an
    implementer (not a fixer's) with no `confidence:` line skipped CONFIDENCE FIRST: the parent sends that agent one message —
    estimate now, from what you know of the tasks, per your brief's CONFIDENCE FIRST, file it and answer with the `confidence:` line —
    and continues on its answer, never blocking the group on it.**
@@ -429,8 +429,8 @@ entry. At each boundary, in this order:
 
 3. **A second Bash call readies the due reviewer bundle's diffs**, when a batch is due (**The
    gated per-task reviewer**, below), and **the next message launches the next group's implementer
-   and the due reviewer bundle**, each with `run_in_background: true`, and the turn ends — the wait
-   of **Turn discipline** (below). After the last group, the due reviewer bundle goes out alone.
+   and the due reviewer bundle**, each with `run_in_background: true`, then waits on them with
+   `await-rows` (**Turn discipline**, below). After the last group, the due reviewer bundle goes out alone.
 
 **The guard's pass ticks the task.** Mark a **task's** checkbox `[x]` (`flow tasks tick`)
 once `flow-guard close-task`'s checks pass on its commit. A step's checkbox tracks
@@ -529,9 +529,12 @@ panel verdict is taken, and no round after pass 1 is dispatched, on a red branch
 
 **Turn discipline.** Calls that do not depend on one another share one Bash call, and launches
 that do not depend on one another share one message; a stage's `flow stage begin` rides its first
-command and its `flow stage end` its last. **A wait on a child is the end of the turn, never a call:**
-every child goes out with `run_in_background: true`, and the completion notification wakes the
-parent — no `sleep` poll and no `until test -s …` loop. On the notification one `test -s` settles a
+command and its `flow stage end` its last. **A wait on children is one bounded call, never the end of the
+turn:** every child goes out with `run_in_background: true`, so children run in parallel, and the
+parent then waits with `<agents repo>/scripts/flow-guard await-rows <abs-worktree> <key> [<key>…]`
+— one foreground call that returns `ENDED <key> <outcome>` per key, re-issued on `WAITING` — never a
+`sleep` or `until` loop and never by ending its turn. A child's completion notification arriving
+meanwhile is harmless. Once a key is `ENDED`, one `test -s` settles its
 report; an absent file takes that dispatch's no-report path (**The return**), and a child still
 `running` after its report exists is stopped with `TaskStop`, its row ended by hand — its own leftover
 background shell is already killed when it stops (`hooks/await-own-agents.py`), so this is the rare child that stalled without one. A finished

@@ -202,8 +202,8 @@ this file in full first: its prompt is a stub naming this file, never these para
 > **REPORT FILE:** write your report to
 > `<abs-worktree>/.superpowers/sdd/implementer-report-<k>.md` as your **last** act — after your
 > commit and your final test run — carrying each commit's sha and the failing RED output you saw. The report opens with this
-> summary head, and your final message is the head alone — the dispatcher reads it from your
-> completion notification and never opens the report body:
+> summary head, and your final message is the head alone — the dispatcher reads the head alone
+> and never opens the report body:
 >
 > ```text
 > status: DONE | BLOCKED
