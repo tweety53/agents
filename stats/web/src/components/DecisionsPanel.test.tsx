@@ -130,6 +130,12 @@ describe("DecisionsPanel with a plan-check decision", () => {
     ]);
   });
 
+  it("a group the run split into one dispatch per task shows their pair", () => {
+    const run = (key: string, effort: string) => ({ id: 1, key, role: "x", model: "sonnet", effort, startedAt: "2026-01-01T00:00:00Z" });
+    render(<DecisionsPanel decision={{ groups: [{ tasks: ["1", "2"], reason: "g" }] }} dispatches={[run("task-1-implementer", "low"), run("task-2-implementer", "low")]} />);
+    expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual(["Tasks 1, 2sonnet · lowg"]);
+  });
+
   it("the visual check shows the pair of a verifier dispatched per repository", () => {
     const run = (key: string, startedAt: string) => ({ id: 1, key, role: "verifier", model: "sonnet", effort: "low", startedAt });
     render(<DecisionsPanel decision={{ visual: { verify: "required", reason: "UI" } }} dispatches={[run("visual-verify-gymie", "2026-01-01T00:00:00Z")]} />);

@@ -49,11 +49,17 @@ function reviewed(dispatches: RecordDispatch[], slots: string[]): string {
   return latest.size ? [...new Set([...latest.values()].map(pairOf))].join(" / ") : "not run yet";
 }
 
-/** An implementer dispatch covers a group's tasks when its key `task-<ids>-implementer` names every one: the run may bundle tasks the plan listed apart. */
-const ranWith = (key: string, ids: string[]) => {
-  const m = /^task-(\d+(?:\+\d+)*)-implementer$/.exec(key);
-  return !!m && ids.every((i) => m[1].split("+").includes(i));
-};
+/** The pairs of the implementer dispatches whose key `task-<ids>-implementer` names any task of a group: the run may bundle the plan's groups together or split them. */
+function implemented(dispatches: RecordDispatch[], ids: string[]): string {
+  const latest = new Map<string, RecordDispatch>();
+  for (const d of dispatches) {
+    const m = d.key ? /^task-(\d+(?:\+\d+)*)-implementer$/.exec(d.key) : null;
+    if (!m || !m[1].split("+").some((i) => ids.includes(i))) continue;
+    const have = latest.get(d.key!);
+    if (!have || Date.parse(d.startedAt) > Date.parse(have.startedAt)) latest.set(d.key!, d);
+  }
+  return latest.size ? [...new Set([...latest.values()].map(pairOf))].join(" / ") : "not run yet";
+}
 
 const pick = (role: string, p: Pick | undefined, run?: string): Line[] =>
   p?.model
@@ -85,7 +91,7 @@ function lines(d: Decision, dispatches: RecordDispatch[], confidence: Confidence
   });
   const implementers = d.groups?.length
     ? d.groups.flatMap((g) =>
-        ((ids) => pick(`${ids.length > 1 ? "Tasks" : "Task"} ${ids.join(", ")}`, g, decided(dispatches, (k) => ranWith(k, ids))).map((l) => ({ ...l, ...confidenceOf(confidence, ids) })))(
+        ((ids) => pick(`${ids.length > 1 ? "Tasks" : "Task"} ${ids.join(", ")}`, g, implemented(dispatches, ids)).map((l) => ({ ...l, ...confidenceOf(confidence, ids) })))(
           g.tasks ?? (g.bundles ?? []).map(String),
         ),
       )
