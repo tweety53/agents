@@ -43,6 +43,7 @@ export type ViewName =
   | "stage-leaderboard"
   | "trend"
   | "weekly-costs"
+  | "daily-costs"
   | "reviewers"
   | "flow-health"
   | "self-review"
@@ -56,6 +57,7 @@ export const VIEW_NAMES: readonly ViewName[] = [
   "stage-leaderboard",
   "trend",
   "weekly-costs",
+  "daily-costs",
   "reviewers",
   "flow-health",
   "self-review",

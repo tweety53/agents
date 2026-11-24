@@ -80,7 +80,7 @@ describe("route resolution ignores the query string (task 1)", () => {
 });
 
 it("no view renders a dashboard bar: every one carries its own chips", async () => {
-  for (const [hash, heading] of [["#/weekly-costs", "Weekly costs"], ["#/trend", "Trend over time"]] as const) {
+  for (const [hash, heading] of [["#/weekly-costs", "Weekly costs"], ["#/daily-costs", "Daily costs"], ["#/trend", "Trend over time"]] as const) {
     window.location.hash = hash;
     const { unmount } = render(<App />);
     expect(await screen.findByRole("heading", { name: heading })).toBeInTheDocument();

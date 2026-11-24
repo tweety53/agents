@@ -378,6 +378,9 @@ func (fakeStore) StageLeaderboardProjects(context.Context, store.Period) ([]stor
 func (fakeStore) WeeklyModelEffortCosts(context.Context, store.Period, *string) ([]store.WeeklyModelEffortPoint, error) {
 	return nil, nil
 }
+func (fakeStore) DailyCosts(context.Context, store.Period, *string, *string) ([]store.WeeklyCostPoint, error) {
+	return nil, nil
+}
 func (fakeStore) WeeklyCosts(context.Context, store.Period, *string, *string) ([]store.WeeklyCostPoint, error) {
 	return nil, nil
 }

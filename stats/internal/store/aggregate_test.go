@@ -2938,3 +2938,50 @@ func TestLiveStateBoardOmitsADispatchOfAnEndedStage(t *testing.T) {
 		}
 	}
 }
+
+// TestDailyCostsBucketsFromTheCallersMidnight: the day is the 24 hours from
+// period.From (a client-local midnight, here UTC+3's), so a run at 23:30
+// local is in its day and one at 00:10 local the next; a day with no run is
+// present with zero.
+func TestDailyCostsBucketsFromTheCallersMidnight(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	projectKey := fmt.Sprintf("proj-daily-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	local := time.FixedZone("local", 3*3600)
+	from := time.Date(2026, 6, 10, 0, 0, 0, 0, local)
+	runs := []struct {
+		stage string
+		at    time.Time
+		cost  float64
+	}{
+		{"flow.implement", time.Date(2026, 6, 10, 23, 30, 0, 0, local), 5},
+		{"flow.review", time.Date(2026, 6, 11, 0, 10, 0, 0, local), 7},
+		{"flow.implement", time.Date(2026, 6, 13, 12, 0, 0, 0, local), 2},
+	}
+	for i, r := range runs {
+		in := baseBeginInput(projectKey, "kan-1", "/flow", r.stage)
+		in.SessionID = ptr(fmt.Sprintf("daily-%d", i))
+		in.StartedAt = r.at
+		costRun(t, st, in, r.cost)
+	}
+	points, err := st.DailyCosts(context.Background(), store.Period{From: from, To: from.Add(4 * 24 * time.Hour)}, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("DailyCosts: %v", err)
+	}
+	wantOverall := []float64{5, 7, 0, 2}
+	if len(points) != len(wantOverall) {
+		t.Fatalf("DailyCosts returned %d points, want %d", len(points), len(wantOverall))
+	}
+	for i, want := range wantOverall {
+		if wantDay := from.Add(time.Duration(i) * 24 * time.Hour); !points[i].Week.Equal(wantDay) {
+			t.Errorf("points[%d].Week = %v, want %v", i, points[i].Week, wantDay)
+		}
+		if got := points[i].OverallUSD; got == nil || *got != want {
+			t.Errorf("points[%d].OverallUSD = %v, want %v", i, got, want)
+		}
+	}
+	if got := points[1].ReviewUSD; got == nil || *got != 7 {
+		t.Errorf("points[1].ReviewUSD = %v, want 7", got)
+	}
+}

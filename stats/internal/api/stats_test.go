@@ -53,6 +53,9 @@ func (f *fakeStore) StageLeaderboardProjects(context.Context, store.Period) ([]s
 func (f *fakeStore) TrendFinishedChanges(context.Context, store.Period) ([]store.TrendChange, error) {
 	return f.trendFinishedChanges, f.trendFinishedChangesErr
 }
+func (f *fakeStore) DailyCosts(context.Context, store.Period, *string, *string) ([]store.WeeklyCostPoint, error) {
+	return nil, nil
+}
 func (f *fakeStore) WeeklyCosts(_ context.Context, _ store.Period, project, _ *string) ([]store.WeeklyCostPoint, error) {
 	f.lastStatsProject = project
 	return nil, nil
@@ -127,6 +130,7 @@ type statsFake struct {
 	trendChanges     []store.TrendChange
 	trendCalled      bool
 	weeklyCosts      []store.WeeklyCostPoint
+	dailyCosts       []store.WeeklyCostPoint
 	reviewers        []store.ReviewerRow
 	// stageLeaderboardProjects backs StageLeaderboardProjects; the method
 	// takes no project, so projectsCalled is all a test can observe of it.
@@ -220,6 +224,9 @@ func (f *statsFake) StageLeaderboardProjects(context.Context, store.Period) ([]s
 func (f *statsFake) TrendFinishedChanges(context.Context, store.Period) ([]store.TrendChange, error) {
 	f.trendCalled = true
 	return f.trendChanges, f.aggErr
+}
+func (f *statsFake) DailyCosts(context.Context, store.Period, *string, *string) ([]store.WeeklyCostPoint, error) {
+	return f.dailyCosts, f.aggErr
 }
 func (f *statsFake) WeeklyCosts(_ context.Context, _ store.Period, p, m *string) ([]store.WeeklyCostPoint, error) {
 	f.lastProject, f.lastModel = p, m
@@ -450,7 +457,7 @@ func periodPath(view string) string {
 func TestEveryViewAcceptsAPeriod(t *testing.T) {
 	t.Parallel()
 	views := []string{
-		"state-board", "cost-per-change", "stage-leaderboard", "trend", "weekly-costs",
+		"state-board", "cost-per-change", "stage-leaderboard", "trend", "weekly-costs", "daily-costs",
 	}
 	for _, view := range views {
 		t.Run(view, func(t *testing.T) {
@@ -2399,5 +2406,27 @@ func TestSelfReviewPageEndpoint(t *testing.T) {
 		if code, _ := doGetRaw(t, ts, base+"&show=fixed"+bad); code != 400 {
 			t.Errorf("%s: status %d, want 400", bad, code)
 		}
+	}
+}
+
+// TestStatsDailyCostsKeysADayByItsStartInstant: a day's row carries the
+// instant its 24 hours start, not a UTC date, so the client's midnight decides the day.
+func TestStatsDailyCostsKeysADayByItsStartInstant(t *testing.T) {
+	t.Parallel()
+	day := time.Date(2026, 8, 11, 21, 0, 0, 0, time.UTC) // 2026-08-12 00:00 at UTC+3
+	overall := 4.0
+	sts := &statsFake{dailyCosts: []store.WeeklyCostPoint{{Week: day, OverallUSD: &overall}}}
+	ts := newStatsTestServer(t, sts)
+	status, env, body := getStats(t, ts, periodPath("daily-costs"))
+	if status != http.StatusOK {
+		t.Fatalf("status %d, body %s", status, body)
+	}
+	var rows []struct {
+		Week       string   `json:"week"`
+		OverallUSD *float64 `json:"overallUsd"`
+	}
+	mustDecodeRows(t, env, body, &rows)
+	if len(rows) != 1 || rows[0].Week != "2026-08-11T21:00:00Z" || rows[0].OverallUSD == nil || *rows[0].OverallUSD != 4 {
+		t.Errorf("rows = %+v, want one row keyed 2026-08-11T21:00:00Z with overall 4", rows)
 	}
 }

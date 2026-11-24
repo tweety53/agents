@@ -20,6 +20,7 @@ import type {
 import { App } from "../App";
 import { AgentRoles } from "./AgentRoles";
 import { FlowHealth, nested, panelOf } from "./FlowHealth";
+import { DailyCosts } from "./DailyCosts";
 import { ReviewDynamics } from "./ReviewDynamics";
 import { Reviewers } from "./Reviewers";
 import { SelfReview } from "./SelfReview";
@@ -383,6 +384,7 @@ const fixtures: Record<
   "stage-leaderboard": { ...envelope("stage-leaderboard", leaderboardRows(LEADERBOARD_CURRENT)), projects: LEADERBOARD_PROJECTS },
   trend: envelope("trend", TREND_ROWS),
   "weekly-costs": { ...envelope("weekly-costs", WEEKLY_ROWS), projects: WEEKLY_PROJECTS },
+  "daily-costs": envelope("daily-costs", []),
   "weekly-model-effort-costs": envelope("weekly-model-effort-costs", WEEKLY_MODEL_ROWS),
   reviewers: { ...envelope("reviewers", REVIEWER_ROWS), projects: REVIEWER_PROJECTS },
   "guard-health": envelope("guard-health", [
@@ -2089,6 +2091,88 @@ describe("review dynamics", () => {
     expect(range).toHaveTextContent(`${lastParams().from.toISOString().slice(5, 10)} – ${lastParams().to.toISOString().slice(5, 10)}`);
     await userEvent.click(later);
     await waitFor(() => expect(lastParams().to.getTime()).toBe(now.to.getTime()));
+  });
+});
+
+describe("daily costs", () => {
+  // Friday 2026-06-19, local noon: the default 7 days run Sat 06-13 .. Fri 06-19.
+  const DC_NOW = new Date(2026, 5, 19, 12);
+  // The window fetches span at most 14 days; the all-time fetch spans months.
+  const windowCalls = () =>
+    fetchStatsViewMock.mock.calls.map((c) => c[1] as { from: Date; to: Date }).filter((p) => p.to.getTime() - p.from.getTime() <= 15 * 86400000);
+  const lastParams = () => windowCalls().at(-1)!;
+  // One row per 24h from `from` to `to`, a day costing its day-of-month in dollars (planning $1 of it).
+  // Nothing is recorded before 06-01, and 06-10 is an empty day inside the recorded span (both cost 0).
+  const dailyRows = (p: { from: Date; to: Date }) => {
+    const rows = [];
+    for (let t = p.from.getTime(); t < p.to.getTime(); t += 86400000) {
+      const d = new Date(t);
+      const cost = d < new Date(2026, 5, 1) || (d.getMonth() === 5 && d.getDate() === 10) ? 0 : d.getDate();
+      rows.push({ week: d.toISOString(), overallUsd: cost, planningUsd: cost ? 1 : 0, implementationUsd: cost ? cost - 1 : 0, reviewUsd: null, selfReviewUsd: null, visualVerifyUsd: null, otherUsd: null });
+    }
+    return rows;
+  };
+  const renderDaily = async () => {
+    vi.useFakeTimers({ now: DC_NOW, toFake: ["Date"] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    fetchStatsViewMock.mockImplementation((_v: string, p: { from: Date; to: Date }) => Promise.resolve(envelope("daily-costs", dailyRows(p))));
+    render(<DailyCosts />);
+    await screen.findAllByTestId("dc-day");
+    await screen.findByTestId("dc-total");
+  };
+  const range = () => screen.getByRole("group", { name: "Range" });
+  const press = (name: string) => userEvent.click(within(range()).getByRole("button", { name }));
+  const avg = (weekday: string) => screen.getAllByTestId("dc-avg").find((e) => e.getAttribute("data-weekday") === weekday)!.textContent;
+
+  it("daily costs opens on 7 days with a column per day and offers 7 and 14 days only", async () => {
+    await renderDaily();
+    expect(screen.getAllByTestId("dc-day")).toHaveLength(7);
+    expect(lastParams().from).toEqual(new Date(2026, 5, 13));
+    expect(within(range()).getAllByRole("button", { pressed: true }).map((b) => b.textContent)).toEqual(["7 days"]);
+    expect(within(range()).getAllByRole("button", { pressed: false }).map((b) => b.textContent)).toEqual(["14 days"]);
+    await press("14 days");
+    await waitFor(() => expect(screen.getAllByTestId("dc-day")).toHaveLength(14));
+  });
+
+  it("daily costs steps a window earlier and later, never past now", async () => {
+    await renderDaily();
+    const later = within(range()).getByRole("button", { name: "Later" });
+    expect(later).toBeDisabled();
+    const now = lastParams();
+    await press("Earlier");
+    await waitFor(() => expect(lastParams().to.getTime()).toBe(now.from.getTime()));
+    expect(screen.getAllByTestId("dc-day")).toHaveLength(7);
+    expect(later).toBeEnabled();
+    await userEvent.click(later);
+    await waitFor(() => expect(lastParams().to.getTime()).toBe(now.to.getTime()));
+  });
+
+  it("daily costs shows the all-time total, whatever the window", async () => {
+    await renderDaily();
+    expect(screen.getAllByTestId("dc-day").map((e) => e.textContent)).toContain("$19.00");
+    expect(screen.getByText("All time")).toBeInTheDocument();
+    // 06-01 .. 06-19 less the empty 06-10: 190 - 10.
+    const total = () => [screen.getByTestId("dc-total").textContent, screen.getByTestId("dc-total-planning").textContent];
+    expect(total()).toEqual(["$180.00", "$18.00"]);
+    await press("14 days");
+    await waitFor(() => expect(screen.getAllByTestId("dc-day")).toHaveLength(14));
+    await press("Earlier");
+    await waitFor(() => expect(screen.getAllByTestId("dc-day").map((e) => e.textContent)).not.toContain("$19.00"));
+    expect(total()).toEqual(["$180.00", "$18.00"]);
+  });
+
+  it("daily costs averages each weekday over the recorded span, an empty day counting as 0", async () => {
+    await renderDaily();
+    expect(screen.getAllByTestId("dc-avg").map((e) => e.getAttribute("data-weekday"))).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    expect(avg("Mon")).toBe("$8.00"); // 06-01, 08, 15
+    expect(avg("Wed")).toBe("$6.67"); // 06-03, 10 (empty), 17
+    expect(avg("Fri")).toBe("$12.00"); // 06-05, 12, 19
+    expect(avg("Sat")).toBe("$9.50"); // 06-06, 13
+    await press("14 days");
+    await waitFor(() => expect(screen.getAllByTestId("dc-day")).toHaveLength(14));
+    expect(avg("Wed")).toBe("$6.67");
   });
 });
 

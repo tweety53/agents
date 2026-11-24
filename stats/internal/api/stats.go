@@ -60,6 +60,8 @@ type StatsStore interface {
 	// trend-endpoint-per-change-rows): every project's finished changes.
 	TrendFinishedChanges(ctx context.Context, period store.Period) ([]store.TrendChange, error)
 	WeeklyCosts(ctx context.Context, period store.Period, project, model *string) ([]store.WeeklyCostPoint, error)
+	// DailyCosts backs the "daily-costs" view: WeeklyCosts per 24-hour bucket from period.From.
+	DailyCosts(ctx context.Context, period store.Period, project, model *string) ([]store.WeeklyCostPoint, error)
 	// WeeklyModelEffortCosts backs the "weekly-model-effort-costs" view
 	// (decision model-effort-view): the request's project, no model filter.
 	WeeklyModelEffortCosts(ctx context.Context, period store.Period, project *string) ([]store.WeeklyModelEffortPoint, error)
@@ -131,6 +133,7 @@ const (
 	viewStageLeaderboard  viewName = "stage-leaderboard"
 	viewTrend             viewName = "trend"
 	viewWeeklyCosts       viewName = "weekly-costs"
+	viewDailyCosts        viewName = "daily-costs"
 	viewWeeklyModelEffort viewName = "weekly-model-effort-costs"
 	viewReviewers         viewName = "reviewers"
 	viewGuardHealth       viewName = "guard-health"
@@ -143,7 +146,7 @@ const (
 // "name the field and the accepted alternatives" posture query.go's
 // allowlist already takes for filter and sort fields.
 var knownViews = []viewName{
-	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend, viewWeeklyCosts,
+	viewStateBoard, viewCostPerChange, viewStageLeaderboard, viewTrend, viewWeeklyCosts, viewDailyCosts,
 	viewWeeklyModelEffort, viewReviewers,
 	viewGuardHealth, viewSelfReview, viewReviewDynamics,
 }
@@ -636,6 +639,18 @@ func (h *statsHandler) rowsFor(ctx context.Context, name viewName, period store.
 			return nil, s, m
 		}
 		return toWeeklyCostDTOs(weekly), 0, ""
+
+	case viewDailyCosts:
+		daily, err := h.store.DailyCosts(ctx, period, project, model)
+		if err != nil {
+			s, m := mapStoreError(h.logger, "daily costs", err)
+			return nil, s, m
+		}
+		dtos := toWeeklyCostDTOs(daily)
+		for i, p := range daily { // a day is keyed by its start instant, not a UTC date
+			dtos[i].Week = p.Week.UTC().Format(time.RFC3339)
+		}
+		return dtos, 0, ""
 
 	case viewWeeklyModelEffort:
 		points, err := h.store.WeeklyModelEffortCosts(ctx, period, project)

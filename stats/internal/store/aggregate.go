@@ -779,10 +779,42 @@ type WeeklyCostPoint struct {
 // project restricts to one project; model, when non-nil, restricts to runs
 // whose metrics recorded that model and sums that model's own cost_usd.
 func (s *Store) WeeklyCosts(ctx context.Context, period Period, project, model *string) ([]WeeklyCostPoint, error) {
+	return s.costBuckets(ctx, period, project, model, `date_trunc('week', sr.started_at - interval '2 days', 'UTC') + interval '2 days'`)
+}
+
+// DailyCosts is WeeklyCosts per day: 24-hour buckets counted from
+// period.From, so the caller's own midnight decides the day, and every day
+// of [From, To) present, a day with no run zero in every column.
+func (s *Store) DailyCosts(ctx context.Context, period Period, project, model *string) ([]WeeklyCostPoint, error) {
+	got, err := s.costBuckets(ctx, period, project, model,
+		`$1::timestamptz + floor(extract(epoch FROM sr.started_at - $1::timestamptz) / 86400)::bigint * interval '24 hours'`)
+	if err != nil {
+		return nil, err
+	}
+	byDay := make(map[time.Time]WeeklyCostPoint, len(got))
+	for _, p := range got {
+		byDay[p.Week.UTC()] = p
+	}
+	zero := func() *float64 { z := 0.0; return &z }
+	var out []WeeklyCostPoint
+	for d := period.From.UTC(); d.Before(period.To); d = d.Add(24 * time.Hour) {
+		p, ok := byDay[d]
+		if !ok {
+			p = WeeklyCostPoint{Week: d, OverallUSD: zero(), PlanningUSD: zero(), ImplementUSD: zero(), ReviewUSD: zero(),
+				SelfReviewUSD: zero(), VisualVerifyUSD: zero(), OtherUSD: zero()}
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// costBuckets is the shared query: bucket is a SQL expression over sr (and
+// $1, the period start) naming the start instant of the bucket a run falls in.
+func (s *Store) costBuckets(ctx context.Context, period Period, project, model *string, bucket string) ([]WeeklyCostPoint, error) {
 	rows, err := s.pool.Query(ctx, `
 		WITH r AS (
 			SELECT
-				date_trunc('week', sr.started_at - interval '2 days', 'UTC') + interval '2 days' AS week,
+				`+bucket+` AS week,
 				CASE WHEN $4::text IS NULL THEN (sr.metrics->>'cost_usd')::numeric
 				     ELSE (sr.metrics->'models'->$4::text->>'cost_usd')::numeric END AS cost,
 				CASE

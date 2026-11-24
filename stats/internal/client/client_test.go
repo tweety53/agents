@@ -868,6 +868,9 @@ func (stubStageStore) StageLeaderboardProjects(context.Context, store.Period) ([
 func (stubStageStore) WeeklyModelEffortCosts(context.Context, store.Period, *string) ([]store.WeeklyModelEffortPoint, error) {
 	return nil, nil
 }
+func (stubStageStore) DailyCosts(context.Context, store.Period, *string, *string) ([]store.WeeklyCostPoint, error) {
+	return nil, nil
+}
 func (stubStageStore) WeeklyCosts(context.Context, store.Period, *string, *string) ([]store.WeeklyCostPoint, error) {
 	return nil, nil
 }
