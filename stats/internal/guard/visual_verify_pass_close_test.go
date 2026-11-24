@@ -1048,3 +1048,14 @@ func TestVisualVerifyPassCloseRefusesAStaleRecord(t *testing.T) {
 		})
 	}
 }
+
+func TestVvcReportFramesNamesTheRemaindersOwnFrames(t *testing.T) {
+	t.Parallel()
+	r := []byte("- frames: 2/3 — v2/LD6; v2/LD1; v2/LD12: no capture\n")
+	if got := vvcReportFrames(r); got != "v2/LD6,v2/LD1,v2/LD12" {
+		t.Fatalf("got %q", got)
+	}
+	if got := vvcReportFrames([]byte("- steps: x\n")); got != "" {
+		t.Fatalf("got %q", got)
+	}
+}

@@ -49,6 +49,12 @@ func (v *vvp) close() {
 	var frames []string
 	if slice := vvpSlice(stage, v.key); slice != "" {
 		frames = []string{"--frames", slice}
+	} else if vvcRest.MatchString(v.key) {
+		// A remainder answers for the frames its own report names; the other
+		// captures of the specs it measures belong to earlier passes.
+		if ids := vvcReportFrames(body); ids != "" {
+			frames = []string{"--frames", ids}
+		}
 	}
 	mockups := ""
 	if m := v.cells(w)["mockups"]; m != "" {
@@ -752,4 +758,23 @@ func (v *vvp) captureIsCommitted(path string) bool {
 	}
 	out, ok := v.git("-C", dir, "status", "--porcelain", "--untracked-files=no", "--", path)
 	return ok && out == ""
+}
+
+// vvcReportFrames is the comma-joined frame ids of a report's `- frames:` line
+// (`<n>/<m> — <id>; <id>: <reason>`), "" when it names none.
+func vvcReportFrames(report []byte) string {
+	var ids []string
+	for _, l := range strings.Split(string(report), "\n") {
+		m := flFramesLine.FindStringSubmatch(l)
+		if m == nil {
+			continue
+		}
+		_, list, _ := strings.Cut(m[3], "—")
+		for _, e := range strings.Split(list, ";") {
+			if id, _, _ := strings.Cut(strings.TrimSpace(e), ":"); strings.Contains(id, "/") && !strings.ContainsAny(id, " ,") {
+				ids = append(ids, id)
+			}
+		}
+	}
+	return strings.Join(ids, ",")
 }
