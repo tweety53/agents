@@ -106,15 +106,25 @@ const GUARD_INFO: Record<string, { does: string; approved: boolean }> = {
   "recover-guard-incident": { does: "Aborts a stuck git revert after printing the reflog diagnosis", approved: true },
   "run-verify-list": { does: "Runs a project's lint, test or visual list for a worktree and stamps the green commit", approved: true },
   "check-loop-dispatch": { does: "Begins and ends the dispatch rows of a pipeline-fix or self-review loop under the change it belongs to", approved: true },
+  "check-fix-revert": { does: "After a fix commit, refuses one that undoes an earlier fix of the same change", approved: false },
+  "check-frame-constants": { does: "Refuses frames of one change that draw a shared constant two ways, such as bar heights or greys", approved: false },
+  "check-ui-task-measured": { does: "Gate for a UI task: answers whether it was measured clean against its frames after its last source commit", approved: false },
+  "check-verify-env": { does: "Before a verify round, proves every backend the suite talks to accepts a connection", approved: false },
+  "end-stale-dispatch-rows": { does: "Ends the change's open dispatch rows whose agent finished and went quiet", approved: false },
+  "await-rows": { does: "The parent's one bounded wait for its children's dispatch rows to end", approved: false },
+  "run-detached": { does: "Starts a command that can outrun the shell's foreground limit, detached, recording its log and exit code", approved: false },
+  "await-detached": { does: "Waits one short call for a detached command, printing RUNNING, EXITED with its exit code, or LOST", approved: false },
+  "sync-base-behind": { does: "Runs the whole base sync that check-base-behind prints the commands for, so no raw git push is typed", approved: false },
+  "stop-worktree-processes": { does: "Stops every process running inside a worktree, before the worktree is removed", approved: false },
 };
 
 /** The panels the page draws, in order: every script of flow-guard by what it is for. A guard missing here lands in Other. */
 const GROUPS: { title: string; guards: string[] }[] = [
-  { title: "Checks", guards: ["check-guard-calls", "check-base-behind", "check-unfinished-work", "check-finish-preflight", "check-visual-trigger", "check-dev-stack-fresh", "check-workspace-isolation", "check-main-checkout-drift", "check-identical-baselines"] },
-  { title: "Dispatch bookkeeping", guards: ["end-dispatch-row", "sweep-dispatch-rows", "check-loop-dispatch"] },
-  { title: "Verify and test tooling", guards: ["run-verify-list", "recapture", "affected-specs", "capture-workers", "break-and-prove", "run-reproducer", "smoke-keep", "test-cost", "test-two-streams", "rebuild-full-app-suite-zip", "resolve-visual-screenshots", "visual-verify-pass", "measure-visual-properties", "unchanged"] },
+  { title: "Checks", guards: ["check-guard-calls", "check-base-behind", "check-unfinished-work", "check-finish-preflight", "check-visual-trigger", "check-dev-stack-fresh", "check-workspace-isolation", "check-main-checkout-drift", "check-identical-baselines", "check-fix-revert", "check-frame-constants", "check-ui-task-measured", "check-verify-env"] },
+  { title: "Dispatch bookkeeping", guards: ["end-dispatch-row", "sweep-dispatch-rows", "end-stale-dispatch-rows", "check-loop-dispatch", "await-rows"] },
+  { title: "Verify and test tooling", guards: ["run-verify-list", "recapture", "affected-specs", "capture-workers", "break-and-prove", "run-reproducer", "smoke-keep", "test-cost", "test-two-streams", "rebuild-full-app-suite-zip", "resolve-visual-screenshots", "visual-verify-pass", "measure-visual-properties", "unchanged", "run-detached", "await-detached"] },
   { title: "Mockups and frames", guards: ["render-frames", "compose-mockup-frames", "write-panel-diff"] },
-  { title: "Workspace and git", guards: ["kickoff-worktree", "prepare-workspace", "workspace", "throwaway-worktree", "remove-change-worktrees", "resolve-base-branch", "sync-onto-base", "refresh-main-checkout", "live-store-copy", "installer-sandbox-diff", "project-get"] },
+  { title: "Workspace and git", guards: ["kickoff-worktree", "prepare-workspace", "workspace", "throwaway-worktree", "remove-change-worktrees", "resolve-base-branch", "sync-onto-base", "refresh-main-checkout", "live-store-copy", "installer-sandbox-diff", "project-get", "sync-base-behind", "stop-worktree-processes"] },
   { title: "Pipeline orchestration", guards: ["integrate-change", "close-task", "plan-check", "plan-triage", "pair-judge", "pipeline-fix", "load-sets", "recover-guard-incident"] },
 ];
 const GROUP_NOTE: Record<string, string> = {
