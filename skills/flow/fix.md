@@ -59,7 +59,7 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    prompt is the implementer stub with a `FIX INPUT:` line naming `fix-<k>.md` and the `Measured:`
    line when step 1 wrote one. It writes the failing test, sees it fail, fixes, sees it pass, and
    runs its own lint and its tests by name. Its commit is
-   `git -C <abs-worktree> commit -m "fix(<module>): <subject>" --trailer "Flow-Key: fix-<k>-implementer" -- <the changed paths>`,
+   `git -C <abs-worktree> commit -m "fix(<module>): <subject>" --trailer "Flow-Key: fix-<k>-implementer" --trailer "Invariant: <one line>" -- <the changed paths>`,
    no `Task-Id:` trailer and no `flow-guard close-task` (**Commits outside every task**,
    `skills/flow-contracts/git-boundaries.md`); the parent pushes it per its branch-last-read rule
    (`skills/flow/review-panel.md`). The fix's own `flow.verify` record
@@ -189,6 +189,21 @@ remains, and a capture with a blob outside it is a defect per **The sweep**
 departure of the report that opened the loop plus every earlier round's report, never the latest
 report alone, and the fixer compares every frame row and departure of that list before it reports
 done (KAN-1157: each round saw only the latest report, fixed a few departures and exposed others).
+
+**The fix ledger: no fix silently undoes an earlier one** (KAN-1130: each fixer saw only the
+current finding and reverted or reinvented an earlier round's fix). Every fix commit of step 2
+carries an `Invariant: <the one line its fix protects>` trailer beside its `Flow-Key:`. The ledger
+is derived from git, never stored: one row per fix commit since `<base>` — the fix-start sha
+`fix-1.md` records — read by
+`git -C <abs-worktree> log --stat --format='%h %(trailers:key=Flow-Key,valueonly,separator=%x2C) %(trailers:key=Invariant,valueonly)' --grep='^Flow-Key: fix-' <base>..HEAD` —
+the finding id (`fix-<k>`, its finding in `fix-<k>.md`), the sha, the invariant and the files
+touched. Every fixer and reviewer prompt of the loop carries that output in full under
+`LEDGER:`. A fix touching a line a ledger row's commit wrote keeps that row's invariant, or
+returns `CONFLICT: <row sha> <invariant>` with no commit, never reverting it; the parent then
+dispatches the next fixer with both findings to reconcile. After each step 2 commit the parent runs
+`flow-guard check-fix-revert <abs-worktree> <base>`; its exit 1 — the fix inverts more than three
+lines of an earlier fix, both shas printed — is that same `CONFLICT`, and the reconciling fixer
+amends that fix commit rather than adding one on top.
 
 **A fixer checks every consumer of what it changed before it reports done.** It lists every view
 and frame that draws a component, copy or style its diff changed — the listed departures' siblings

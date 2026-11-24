@@ -350,6 +350,13 @@ with no strip under `<changeRoot>/visual-verification/motion/` or no entry in
 `visual-verification.md`, and a frame its strip shows breaking the motion step's rule, block as a
 departure would.**
 
+**A verified frame is frozen** (KAN-1130: a later fix re-broke a region an earlier round had
+verified). Once a verifier reports a frame clean, a later fix round may change it only inside the
+regions its `defects:` name for that frame; a `changed:` frame whose capture differs from its
+round base's — pixels or DOM — outside those regions is a regression, reported as a departure
+naming the region and the fix whose diff moved it, even where the new capture still matches the
+mockup.
+
 **A departure caused by missing account data is fixed by adding the data, never explained away.** When a
 frame shows an element the render lacks because the seeded account lacks the data that shows it —
 a grant, a template, a scheduled workout — the fix round adds that data where the captured account

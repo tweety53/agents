@@ -334,6 +334,8 @@ reads every number on it as an exit.
    capture did not change — names is not read again: an earlier verifier judged that same capture. The `frames:` line names
    it with the reason `capture unchanged since <round base>`, and its view line carries the same
    reason.
+   A `changed:` frame an earlier round reported clean is read against its round-base capture too,
+   under **A verified frame is frozen** (`skills/flow/visual-verify.md`).
 
    **Exercise the states below and capture each one; a state nobody drove into is a state nobody
    verified.** Each is a state a resting capture and a full-page composite cannot show, so each is
