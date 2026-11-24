@@ -49,7 +49,7 @@ func (v *vvp) close() {
 	var frames []string
 	if slice := vvpSlice(stage, v.key); slice != "" {
 		frames = []string{"--frames", slice}
-	} else if vvcRest.MatchString(v.key) {
+	} else if strings.Contains(v.key, "-rest") { // the repository suffix follows the segment
 		// A remainder answers for the frames its own report names; the other
 		// captures of the specs it measures belong to earlier passes.
 		if ids := vvcReportFrames(body); ids != "" {
