@@ -1,6 +1,6 @@
 ---
 name: flow-interactive
-description: Conversational /flow session — one invocation is one change, one Jira issue and one worktree, and a stream of requests the main session coordinates. Each request is looked at live, its pair judged, implemented test-first by one subagent, verified with the project's lint and targeted tests, landed by merge and push, reinstalled and, when it touches ui paths, checked on the live page; an explicit stop runs one self-review pass, cleanup and FINISHED. Every request is recorded in flowd; no spectre artifacts or state file. Use for /flow-interactive.
+description: Conversational /flow session — one invocation is one change, one Jira issue and one worktree, and a stream of requests the main session coordinates. Each request is looked at live by the coordinator, then one pair-judged operator-asked subagent implements it test-first, verifies it through a nested runner, lands it by merge and push, reinstalls and, when it touches ui paths, checks the live page; an explicit stop runs one self-review pass, cleanup and FINISHED. Every request is recorded in flowd; no spectre artifacts or state file. Use for /flow-interactive.
 allowed-tools: Bash(flow:*)
 license: MIT
 ---
@@ -10,10 +10,11 @@ worktree, and a stream of **requests**, each shipped to the base branch on its o
 marks existing `flow.*` stage keys, so labels, phases, cost by stage and the timeline read as they
 do for `/flow` and `/flow-fast`. Each request is a row the store keeps (`flow record request`),
 and every stage run made for it carries its request number (`-request <n>`). The main session is
-the **coordinator**: it looks, records, judges the pair, dispatches, verifies, lands and reports,
-and never edits source itself — a request that changes code is written by one subagent
-(**3. Implement**). No review panel per request, no spectre artifacts, no plan file, no decision,
-no state file, and no workspace isolation beyond the worktree.
+the **coordinator**: it looks, records, dispatches and reports, and does nothing else. A request that
+changes code is executed whole — implement, verify, land, reinstall, UI check — by one
+`operator-asked` subagent with a nested `runner` (**3. Execute**). No review panel per request, no
+spectre artifacts, no plan file, no decision, no state file, and no workspace isolation beyond the
+worktree.
 
 **Announce at start:** "Using flow-interactive for change `<name>`."
 
@@ -27,8 +28,8 @@ token generated once per invocation, shaped as **Stage marks** (`skills/flow-con
 states, and typed the same in every `flow record` command — never a shell substitution, per the
 CLI's own usage text. A mark carries none. `<n>` is the request's number in the session.
 
-**Guardrails, the whole list.** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output. Never dispatch a subagent, save the request's own implementer and fixer
-(**3. Implement**), the self-review pass's own
+**Guardrails, the whole list.** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output. Never dispatch a subagent, save the request's own executor and its nested runner
+(**3. Execute**), the self-review pass's own
 dispatches (`skills/flow-self-review/SKILL.md`), the in-run fix loop of **Pipeline defects found
 mid-run** (`skills/flow-contracts/pipeline.md`), and a subagent the operator asks for in their
 own words (**Operator-asked subagents**, below). Never write `<project>/spectre/`, save those
@@ -151,34 +152,35 @@ flow record request begin -change <name> -n <n> -brainstorm-reason '<why>'
 flow stage end   -command '/flow-interactive' -stage flow.plan -outcome completed <name>
 ```
 
-**3. Implement.** The coordinator rebases the worktree onto `origin/<base>` on a clean tree, then
-**judges the pair and dispatches one fresh implementer** — every request that changes code, never
-the coordinator's own edit. It writes the brief to
-`<abs-worktree>/.superpowers/sdd/pair-judge/interactive-<n>-implementer.md` (the ask, what step 1
-found, the paths to touch, the instructions below), runs `flow-guard pair-judge implementer
-<that file>` and dispatches on the pair it prints (**Model and effort**,
-`skills/flow/brainstorm-planner.md`; no pair is written into this skill). The Agent call's
-`description` opens `interactive-<n>-implementer`; its prompt opens with the baseline pointer, the
-brief's lines `Role: implementer` and `Key: interactive-<n>-implementer`, and the brief. The
-implementer works in the worktree: a failing test first for each behaviour change, seen to fail;
-the fix; its own lint and tests by name; edits through the Edit tool, or a script written to
-`<changeRoot>` and run by path that asserts each anchor matched exactly once; never a symlinked
-build input (`make -s web-dist` runs `npm ci` itself); one commit with the module as scope, no
-trailer, no `Task-Id:`; no push. It reports Verdict, Findings, Decisions, Not done and the commit.
-The coordinator pushes the branch. A request needing no code — a question, a lookup — ends
-`answered` with no dispatch and no judge call.
+**3. Execute.** A request that changes code is executed by **one fresh subagent**, never by the
+coordinator: it implements, verifies, lands, reinstalls and UI-checks, steps 3a–7 below. A request
+needing no code — a question, a lookup — ends `answered` with no dispatch and no judge call.
 
-A red step 4 or a defect step 7 finds is fixed by a fresh dispatch the same way — key
-`interactive-<n>-implementer-fix-<j>`, its brief the failure and the **fix ledger** (**The fix
-ledger**, `skills/flow/fix.md`) — and `flow-guard check-fix-revert <abs-worktree>` runs after its
-commit; the coordinator never patches it itself.
+The coordinator writes the brief to `<abs-worktree>/.superpowers/sdd/pair-judge/operator-<k>.md`
+(the ask, what step 1 found, the paths to touch, `<name>`, `<n>`, the `fi-` token, and "execute steps
+3a–7 of `skills/flow-interactive/SKILL.md`"), runs `flow-guard pair-judge operator-asked <that file>`
+and dispatches on the pair it prints (**Model and effort**, `skills/flow/brainstorm-planner.md`; no
+pair is written into this skill), recorded and dispatched as **Operator-asked subagents** below says.
+The pair's agent type must carry the Agent tool, or the nested runner cannot be dispatched: when the
+judge's pair does not, the coordinator reports BLOCKED naming the `operator-asked` row of **Allowed
+pairs** (`skills/flow-contracts/model-policy.md`) as the fix, and works nothing inline.
+
+**3a. Implement** (the subagent). Rebase the worktree onto `origin/<base>` on a clean tree; a failing
+test first for each behaviour change, seen to fail; edits through the Edit tool, or a script written
+to `<changeRoot>` and run by path that asserts each anchor matched exactly once; never a symlinked
+build input (`make -s web-dist` runs `npm ci` itself); one commit with the module as scope, no
+trailer, no `Task-Id:`; push the branch. Fixes of a red step 4 or a step 7 defect are its own commits
+under the **fix ledger** (**The fix ledger**, `skills/flow/fix.md`): `flow-guard check-fix-revert
+<abs-worktree>` runs after each.
 
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.implement -request <n> -harness <harness> -session-token mf-<literal-token> <name>
 flow stage end   -command '/flow-interactive' -stage flow.implement -outcome completed <name>
 ```
 
-**4. Verify.** `<agents repo>/scripts/flow-guard run-verify-list <worktree> lint`, the `## test` commands
+**4. Verify** (a nested `runner`: the subagent dispatches one, `Role: runner`, key `runner-<n>`,
+`skills/flow/runner-brief.md`, its pair from `flow-guard pair-judge runner`, and acts on its verdict).
+`<agents repo>/scripts/flow-guard run-verify-list <worktree> lint`, the `## test` commands
 scoped to the packages and files the request touched, and `<agents repo>/scripts/flow-guard run-verify-list <worktree> visual` — as section 5 of `/flow-fast` states them. The request never lands red. The `lint` list,
 exiting 0 on a tree clean before and after it, writes `HEAD` to the worktree's `git rev-parse
 --git-path flow-lint-green`: the evidence the **Request-end guard** reads, so step 4 runs on the
@@ -221,7 +223,8 @@ flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -h
 flow stage end   -command '/flow-interactive' -stage flow.verify -outcome completed|failed [-screenshot <path>] [-reason '<the defect, one line>'] <name>
 ```
 
-**8. End.** Steps 1–7 are not optional and never reported as left undone: a request whose reinstall, UI check or record is outstanding is not ended — run them first, and a report never carries a "Not done" for a step this section requires. One of:
+**8. End** (the coordinator, on the subagent's report: Verdict, the last landed sha, the base sha, the
+screenshot path). Steps 1–7 are not optional and never reported as left undone: a request whose reinstall, UI check or record is outstanding is not ended — run them first, and a report never carries a "Not done" for a step this section requires. One of:
 
 ```bash
 flow record request end -change <name> -n <n> -outcome landed -commit <last landed sha> -base <base sha>
@@ -239,9 +242,10 @@ after the in-flight one ends — never a stop. A turn ends when the queue is emp
 
 ## Operator-asked subagents
 
-When the operator asks for a subagent in their own words ("run it with an opus xhigh subagent"),
-the request dispatches it and counts it under this run: inside the request's open `flow.implement`
-stage, record the row (role `operator-asked`, key `operator-<k>`), dispatch, and end the row when the agent reports — never a fork.
+**The executor of step 3 is this section's subagent**, its pair from `flow-guard pair-judge
+operator-asked` unless the operator names one. When the operator asks for a subagent in their own
+words ("run it with an opus xhigh subagent"), the request dispatches it and counts it under this run: inside the request's open `flow.implement`
+stage (the executor's own marks open it), record the row (role `operator-asked`, key `operator-<k>`), dispatch, and end the row when the agent reports — never a fork.
 Each agent gets its own row: `<k>` is one past the highest `operator-` key the change records, so
 two agents of one request never share a key. A dispatch the hook refuses ends its row `aborted` at
 once.
@@ -251,11 +255,11 @@ flow record dispatch begin -change <name> -role operator-asked -model <model> -e
 ```
 
 The Agent call's `description` opens with `operator-<k>`, its prompt carries `Role:
-operator-asked` and the baseline pointer, and its `subagent_type` / `model` is a pair the
+operator-asked` and the baseline pointer, and its `subagent_type` / `model` is the judged pair, one the
 `operator-asked` row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`) admits; an effort
 the operator names above the agent type's own (xhigh, max) rides on the Agent call's `effort`. The agent works in the session's
-worktree, commits on `<name>` and never pushes; the request lands its commits through steps 4–8
-as any other. Its report is relayed, not re-told.
+worktree, commits on `<name>`; the executor of step 3 runs steps 3a–7 itself, an operator-named
+agent's commits land through steps 4–8 as any other. Its report is relayed, not re-told.
 
 ```bash
 flow record dispatch end -change <name> -key operator-<k> -session-token fi-<literal-token> -outcome <outcome>
