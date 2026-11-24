@@ -38,7 +38,9 @@ only if its output file exists and was modified within the last 120 seconds.
 
 A stop it lets through -- no child and no background command left -- closes the agent's flow
 dispatch row: `flow-guard end-dispatch-row` reads the transcript's `Key:` line and final message
-and ends the row the begin hook opened, so the parent ends none itself.
+and ends the row the begin hook opened, so the parent ends none itself. Every stop it lets through or blocks then runs `flow-guard
+end-stale-dispatch-rows <cwd>`, which ends the change's open rows whose agent finished (meta
+`finished`) and went quiet 10 minutes ago -- the rows of agents whose own stop never ended them.
 
 Fails open: any error -- bad input, unreadable folder -- exits 0 with no output.
 """
@@ -189,6 +191,17 @@ def end_row(transcript: str, payload: dict) -> None:
         pass
 
 
+def sweep_stale(payload: dict) -> None:
+    """End the change's finished-agent rows (flow-guard end-stale-dispatch-rows); best-effort, never blocking."""
+    cwd = payload.get("cwd") or ""
+    if not cwd:
+        return
+    try:
+        subprocess.run([FLOW_GUARD, "end-stale-dispatch-rows", cwd], capture_output=True, timeout=60, cwd=cwd)
+    except Exception:
+        pass
+
+
 def main() -> None:
     try:
         payload = json.load(sys.stdin)
@@ -205,6 +218,7 @@ def main() -> None:
             background = [t for t in background if alive(text, t)]
     except Exception:  # fail open: a bug here must never trap a subagent
         return
+    sweep_stale(payload)
     if background and (payload.get("last_assistant_message") or "").strip():
         try:
             kill_background(transcript, background)
