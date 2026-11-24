@@ -1,6 +1,6 @@
 ---
 name: flow-interactive
-description: Conversational /flow session — one invocation is one change, one Jira issue and one worktree, and a stream of requests worked inline. Each request is looked at live, implemented test-first, verified with the project's lint and targeted tests, landed by merge and push, reinstalled and, when it touches ui paths, checked on the live page; an explicit stop runs one self-review pass, cleanup and FINISHED. Every request is recorded in flowd; no spectre artifacts or state file. Use for /flow-interactive.
+description: Conversational /flow session — one invocation is one change, one Jira issue and one worktree, and a stream of requests the main session coordinates. Each request is looked at live, its pair judged, implemented test-first by one subagent, verified with the project's lint and targeted tests, landed by merge and push, reinstalled and, when it touches ui paths, checked on the live page; an explicit stop runs one self-review pass, cleanup and FINISHED. Every request is recorded in flowd; no spectre artifacts or state file. Use for /flow-interactive.
 allowed-tools: Bash(flow:*)
 license: MIT
 ---
@@ -9,9 +9,11 @@ One `/flow-interactive` invocation is one **session**: one store change, one Jir
 worktree, and a stream of **requests**, each shipped to the base branch on its own. The session
 marks existing `flow.*` stage keys, so labels, phases, cost by stage and the timeline read as they
 do for `/flow` and `/flow-fast`. Each request is a row the store keeps (`flow record request`),
-and every stage run made for it carries its request number (`-request <n>`). This session does the
-work inline: no review panel per request, no spectre artifacts, no plan file, no decision, no
-state file, and no workspace isolation beyond the worktree.
+and every stage run made for it carries its request number (`-request <n>`). The main session is
+the **coordinator**: it looks, records, judges the pair, dispatches, verifies, lands and reports,
+and never edits source itself — a request that changes code is written by one subagent
+(**3. Implement**). No review panel per request, no spectre artifacts, no plan file, no decision,
+no state file, and no workspace isolation beyond the worktree.
 
 **Announce at start:** "Using flow-interactive for change `<name>`."
 
@@ -25,7 +27,8 @@ token generated once per invocation, shaped as **Stage marks** (`skills/flow-con
 states, and typed the same in every `flow record` command — never a shell substitution, per the
 CLI's own usage text. A mark carries none. `<n>` is the request's number in the session.
 
-**Guardrails, the whole list.** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output. Never dispatch a subagent, save the self-review pass's own
+**Guardrails, the whole list.** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output. Never dispatch a subagent, save the request's own implementer and fixer
+(**3. Implement**), the self-review pass's own
 dispatches (`skills/flow-self-review/SKILL.md`), the in-run fix loop of **Pipeline defects found
 mid-run** (`skills/flow-contracts/pipeline.md`), and a subagent the operator asks for in their
 own words (**Operator-asked subagents**, below). Never write `<project>/spectre/`, save those
@@ -148,11 +151,27 @@ flow record request begin -change <name> -n <n> -brainstorm-reason '<why>'
 flow stage end   -command '/flow-interactive' -stage flow.plan -outcome completed <name>
 ```
 
-**3. Implement.** Rebase the worktree onto `origin/<base>` on a clean tree; a failing test first
-for each behaviour change; edits through the Edit tool, or a script written to `<changeRoot>` and
-run by path that asserts each anchor matched exactly once; never a symlinked build input (`make -s
-web-dist` runs `npm ci` itself); commit with the module as scope, no trailer; push the branch —
-otherwise as section 4 of `/flow-fast` commits (`skills/flow-fast/SKILL.md`).
+**3. Implement.** The coordinator rebases the worktree onto `origin/<base>` on a clean tree, then
+**judges the pair and dispatches one fresh implementer** — every request that changes code, never
+the coordinator's own edit. It writes the brief to
+`<abs-worktree>/.superpowers/sdd/pair-judge/interactive-<n>-implementer.md` (the ask, what step 1
+found, the paths to touch, the instructions below), runs `flow-guard pair-judge implementer
+<that file>` and dispatches on the pair it prints (**Model and effort**,
+`skills/flow/brainstorm-planner.md`; no pair is written into this skill). The Agent call's
+`description` opens `interactive-<n>-implementer`; its prompt opens with the baseline pointer, the
+brief's lines `Role: implementer` and `Key: interactive-<n>-implementer`, and the brief. The
+implementer works in the worktree: a failing test first for each behaviour change, seen to fail;
+the fix; its own lint and tests by name; edits through the Edit tool, or a script written to
+`<changeRoot>` and run by path that asserts each anchor matched exactly once; never a symlinked
+build input (`make -s web-dist` runs `npm ci` itself); one commit with the module as scope, no
+trailer, no `Task-Id:`; no push. It reports Verdict, Findings, Decisions, Not done and the commit.
+The coordinator pushes the branch. A request needing no code — a question, a lookup — ends
+`answered` with no dispatch and no judge call.
+
+A red step 4 or a defect step 7 finds is fixed by a fresh dispatch the same way — key
+`interactive-<n>-implementer-fix-<j>`, its brief the failure and the **fix ledger** (**The fix
+ledger**, `skills/flow/fix.md`) — and `flow-guard check-fix-revert <abs-worktree>` runs after its
+commit; the coordinator never patches it itself.
 
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.implement -request <n> -harness <harness> -session-token mf-<literal-token> <name>
