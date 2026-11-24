@@ -52,6 +52,13 @@ stop's stages carry no `-request`.
 below); one matching a finished change ends the run with one line saying so. Anything else starts
 a new session, save as **Name.** below states, a non-empty argument being its first request.
 
+**Session start comes first, whatever the argument says.** A non-empty argument — a question
+included — is the session's first request and is looked at, answered or implemented only once
+**Session start** (Jira, **Name.**, **Worktree.**, the `flow.plan` mark) is complete and the request
+is recorded. A turn that has answered the argument without a session behind it has skipped the
+skill (KAN-1130: the first message's question was answered inline, then a key-less change was
+resumed beside the open `kan-1130-confidence-estimate`).
+
 **Jira.** Resolve the issue per **Resolution (how `jiraIssue` is decided)**
 (`skills/flow-contracts/jira-integration.md`): with no key given, reuse the In Progress `Interactive session` issue, whoever it is assigned to, when one exists, else file a Task through its creation
 path, summary `Interactive session <YYYY-MM-DD>`, labelled per **Labels and body of issues the pipeline
