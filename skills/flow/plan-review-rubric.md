@@ -127,7 +127,7 @@ CONFIDENCE: 78%
 Lowered by: F3, F7
 **F9** [finding] tasks.md:41 — closes with: plan — Task 4 relies on a flag no task checks — stats/cmd/flow/record.go:112 parses it as a positive integer
 **F10** [finding] design.md:63 — closes with: operator — the export's column order is not stated and the ticket shows two — proposal.md:14 against the ticket's sample
-**F11** [advisory] tasks.md:58 — closes with: running it — whether the deadline holds on a cold cache is not knowable from the text — no measurement in design.md
+**F11** [advisory] tasks.md:58 — closes with: running it — whether the deadline holds on a cold cache is not knowable from the text — no measurement in design.md — probe: run the deadline test on a cold cache → under the deadline; on failure: add a warm-up task
 ```
 
 - `CONFIDENCE: <n>%` — one line, `<n>` an integer 1–100.
@@ -141,5 +141,12 @@ Lowered by: F3, F7
 - The Confidence page shows these lines without the report around them, so each gap line reads on its
   own: the task or file it concerns and what is unknown, in words, never a bare `F<k>` or "see
   above". `flow-guard plan-check` spells each `Lowered by:` finding out from the report's own line.
+- A gap that closes only by running it names, in its own line, the cheapest probe that settles it,
+  the expected result and the fallback on failure, in the shape `probe: <command or step> →
+  <expected>; on failure: <fallback>`. A running-it gap with no probe or no fallback is raised as a
+  `finding` closing with `plan` ("name how it will be found out"), never as `advisory`. An
+  `advisory` gap that carries a probe and a fallback is listed but does not lower the CONFIDENCE
+  number: the number counts only gaps an edit to the plan or an answer from the operator can close,
+  plus unprobed running-it gaps.
 - `CONFIDENCE: 100%` carries no gap line and no `Lowered by:`; below 100%, at least one of the
   two is present.

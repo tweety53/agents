@@ -1130,6 +1130,32 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.getByRole("button", { name: "To review 29" })).toBeInTheDocument();
   });
 
+  it("confidence: splits the gaps into those needing a decision and those closing by running", async () => {
+    const gaps = [
+      "**F9** [finding] tasks.md:41 — closes with: plan — Task 4 relies on a flag no task checks",
+      "Lowered by F3 — the order is unstated",
+      "a free-text gap",
+      "**F11** [advisory] tasks.md:58 — closes with: running it — cold cache deadline — probe: make bench → under 2s; on failure: cache warm-up",
+      "**F12** [finding] tasks.md:60 — closes with: running it — probe: make x → ok; on failure: none",
+    ];
+    confidenceMock.mockResolvedValue({ total: 1, toReview: 1, approved: 0, declined: 0, limit: 25, offset: 0, rows: [{ id: 1, project: "agents", change: "kan-7", stage: "plan", score: 80, gaps, tags: ["t"], recordedAt: "2026-11-20T10:00:00Z", reviewStatus: "to-review" }] });
+    const user = userEvent.setup();
+    render(<Confidence />);
+    const decide = (await screen.findByRole("heading", { name: "Needs a decision" })).nextElementSibling as HTMLElement;
+    const running = screen.getByRole("heading", { name: "Closes by running" }).nextElementSibling as HTMLElement;
+    expect(decide.textContent).toContain("Task 4 relies on a flag");
+    expect(decide.textContent).toContain("Lowered by F3");
+    expect(decide.textContent).toContain("a free-text gap");
+    expect(decide.textContent).not.toContain("cold cache");
+    expect(running.textContent).toContain("cold cache");
+    expect(running.textContent).toContain("F12");
+    expect(running.textContent).not.toContain("Task 4");
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await user.click(screen.getByRole("button", { name: "Copy for agent" }));
+    expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/Needs a decision:\n- \*\*F9\*\*[\s\S]*Closes by running:\n- \*\*F11\*\*/));
+  });
+
   it("confidence: no rows says so", async () => {
     confidenceMock.mockResolvedValue({ total: 0, toReview: 0, approved: 0, declined: 0, limit: 25, offset: 0, rows: [] });
     render(<Confidence />);
