@@ -31,13 +31,23 @@ func init() { Registry["check-fix-revert"] = checkFixRevert }
 
 func checkFixRevert(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-fix-revert"
-	if len(args) != 2 {
-		fmt.Fprintf(stderr, "%s: usage: flow-guard check-fix-revert <worktree> <base>\n", prog)
+	if len(args) < 1 || len(args) > 2 {
+		fmt.Fprintf(stderr, "%s: usage: flow-guard check-fix-revert <worktree> [<base>]\n", prog)
 		Reason(env, "usage")
 		return 2
 	}
-	wt, base := args[0], args[1]
+	wt := args[0]
 	git := envGit(env)
+	base := ""
+	if len(args) == 2 {
+		base = args[1]
+	} else if br, ok := capture(git("-C", wt, "symbolic-ref", "--short", "HEAD")); ok {
+		// The branch's flow base, as taskrecords.go resolves it: `branch.<current>.flowBase`, else origin/HEAD.
+		base, _ = capture(git("-C", wt, "config", "--get", "branch."+br+".flowBase"))
+	}
+	if base == "" {
+		base = "refs/remotes/origin/HEAD"
+	}
 	head, ok := capture(git("-C", wt, "rev-parse", "HEAD"))
 	if !ok {
 		fmt.Fprintf(stderr, "%s: not a git worktree: %s\n", prog, wt)

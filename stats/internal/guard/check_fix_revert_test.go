@@ -14,9 +14,11 @@ func TestCheckFixRevert(t *testing.T) {
 		name   string
 		second string
 		rc     int
+		noBase bool
 	}{
-		{"reverts", "a\nb\nc\nd\ne\n", 1},
-		{"keeps", "a\nB\nC\nD\nE\nf\n", 0},
+		{"reverts", "a\nb\nc\nd\ne\n", 1, false},
+		{"keeps", "a\nB\nC\nD\nE\nf\n", 0, false},
+		{"reverts against the recorded flow base", "a\nb\nc\nd\ne\n", 1, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -32,7 +34,12 @@ func TestCheckFixRevert(t *testing.T) {
 			commit("a\nB\nC\nD\nE\n", "fix: one\n\nFlow-Key: fix-1-implementer")
 			commit(tc.second, "fix: two\n\nFlow-Key: fix-2-implementer")
 			env := Env{Dir: dir, Getenv: os.Getenv, LookupEnv: os.LookupEnv}
-			r := runGuard("check-fix-revert", []string{dir, "base"}, env)
+			args := []string{dir, "base"}
+			if tc.noBase {
+				gitRun(t, dir, "config", "branch.main.flowBase", "base")
+				args = []string{dir}
+			}
+			r := runGuard("check-fix-revert", args, env)
 			if r.rc != tc.rc {
 				t.Fatalf("rc %d, want %d: %s", r.rc, tc.rc, r.out)
 			}

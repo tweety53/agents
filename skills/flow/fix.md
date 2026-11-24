@@ -193,15 +193,16 @@ done (KAN-1157: each round saw only the latest report, fixed a few departures an
 **The fix ledger: no fix silently undoes an earlier one** (KAN-1130: each fixer saw only the
 current finding and reverted or reinvented an earlier round's fix). Every fix commit of step 2
 carries an `Invariant: <the one line its fix protects>` trailer beside its `Flow-Key:`. The ledger
-is derived from git, never stored: one row per fix commit since `<base>` — the fix-start sha
-`fix-1.md` records — read by
+is derived from git, never stored: one row per fix commit since `<base>` — the branch's flow base,
+`branch.<current>.flowBase` when recorded, else `refs/remotes/origin/HEAD`, so a fix committed before
+this loop began is a row too — read by
 `git -C <abs-worktree> log --stat --format='%h %(trailers:key=Flow-Key,valueonly,separator=%x2C) %(trailers:key=Invariant,valueonly)' --grep='^Flow-Key: fix-' <base>..HEAD` —
 the finding id (`fix-<k>`, its finding in `fix-<k>.md`), the sha, the invariant and the files
 touched. Every fixer and reviewer prompt of the loop carries that output in full under
 `LEDGER:`. A fix touching a line a ledger row's commit wrote keeps that row's invariant, or
 returns `CONFLICT: <row sha> <invariant>` with no commit, never reverting it; the parent then
 dispatches the next fixer with both findings to reconcile. After each step 2 commit the parent runs
-`flow-guard check-fix-revert <abs-worktree> <base>`; its exit 1 — the fix inverts more than three
+`flow-guard check-fix-revert <abs-worktree>` (it resolves the same `<base>`); its exit 1 — the fix inverts more than three
 lines of an earlier fix, both shas printed — is that same `CONFLICT`, and the reconciling fixer
 amends that fix commit rather than adding one on top.
 
