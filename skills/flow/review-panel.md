@@ -356,6 +356,8 @@ multi-worktree run leaves one copy:
 flow record render -change <name> -kind panel -repo <canonical-worktree>
 ```
 
+Before it, `flow-guard check-panel-recorded <abs-worktree> <round>` for each round the panel ran: exit 1 means that round's reports raise findings the store holds no panel row for, and they are recorded before the render — an unrecorded panel renders `findings-total: 0`.
+
 **A panel that raised nothing still renders**, declaring `findings-total: 0`. There is no
 skip-the-render shortcut.
 
