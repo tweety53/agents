@@ -1187,6 +1187,13 @@ td.lb-clip { max-width: 0; width: 100%; }
 .dc-run td { font-size: 12px; color: var(--text-secondary); background: var(--surface-1); }
 .dc-run td:first-child { padding-left: 28px; }
 
+/* One fixed column grid for every guard group table; Guard takes the rest. */
+.fh-table { table-layout: fixed; min-width: 1180px; }
+.fh-c-n { width: 44px; }
+.fh-c-runs, .fh-c-fired { width: 80px; }
+.fh-c-rate, .fh-c-median, .fh-c-last { width: 100px; }
+.fh-c-silent, .fh-c-time { width: 120px; }
+.fh-c-share { width: 140px; }
 .lb-pill.fh-approved { color: var(--status-ok); margin-left: 6px; }
 .fh-info { display: inline-block; width: 14px; height: 14px; margin-left: 6px; border: 1px solid var(--text-secondary); border-radius: 50%; font-size: 10px; font-style: italic; font-weight: 600; line-height: 12px; text-align: center; color: var(--text-secondary); cursor: help; vertical-align: 1px; }
 

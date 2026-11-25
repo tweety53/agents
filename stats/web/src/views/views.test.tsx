@@ -1916,6 +1916,19 @@ describe("flow health", () => {
     expect(within(ws).queryByRole("columnheader", { name: "Last fired" })).not.toBeInTheDocument();
   });
 
+  it("flow guards: every group table lays out the same columns, so they line up", async () => {
+    answerGuards([gh("check-guard-calls", 10, 1, 0, 100, 1000, null), { ...gh("project-get", 50, 0, 0, 5, 250, null), helper: true }]);
+    render(<FlowHealth />);
+    const tables = await screen.findAllByRole("table");
+    const cols = (t: HTMLElement) => [...t.querySelectorAll("col")].map((c) => c.className);
+    for (const t of tables) {
+      expect(t).toHaveClass("fh-table");
+      expect(cols(t)).toHaveLength(10);
+      expect(cols(t)).toEqual(cols(tables[0]));
+      for (const tr of t.querySelectorAll("tr")) expect(tr.children).toHaveLength(10);
+    }
+  });
+
   it("flow health ranks by fires, fire rate, never fired and run time", async () => {
     const user = userEvent.setup();
     answerGuards([

@@ -171,7 +171,7 @@ export function nested(rows: GuardHealthRow[]): GuardHealthRow[] {
 const Slot = ({ name }: { name: string }) => <span className="rv-slot">{name}</span>;
 
 function Table({ rows, all, rank }: { rows: GuardHealthRow[]; all: number; rank: Rank }) {
-  // A panel of helpers only has no fire columns: a helper refuses nothing.
+  // A panel of helpers only leaves the fire columns blank (a helper refuses nothing) but keeps them, so every panel lines up.
   const fires = rows.some((r) => !r.helper);
   const sort = (k: Rank) => (k === rank ? "descending" : undefined);
   const share = (v: number) => (
@@ -187,29 +187,30 @@ function Table({ rows, all, rank }: { rows: GuardHealthRow[]; all: number; rank:
     { runs: 0, fired: 0, ca: 0, total: 0 },
   );
   return (
-    <table className="lb-table">
+    <table className="lb-table fh-table">
+      <colgroup>
+        {["n", "guard", "runs", "fired", "rate", "silent", "median", "time", "share", "last"].map((c) => (
+          <col key={c} className={`fh-c-${c}`} />
+        ))}
+      </colgroup>
       <thead>
         <tr>
           <th>#</th>
           <th>Guard</th>
           <th className="r">Runs</th>
-          {fires && (
-            <>
-              <th className="r" aria-sort={sort("fires")}>
-                Fired
-              </th>
-              <th className="r" aria-sort={sort("rate")}>
-                Fire rate
-              </th>
-              <th className="r">Cannot answer</th>
-            </>
-          )}
+          <th className="r" aria-sort={fires ? sort("fires") : undefined}>
+            {fires && "Fired"}
+          </th>
+          <th className="r" aria-sort={fires ? sort("rate") : undefined}>
+            {fires && "Fire rate"}
+          </th>
+          <th className="r">{fires && "Cannot answer"}</th>
           <th className="r">Median run</th>
           <th className="r" aria-sort={sort("time")}>
             Run time
           </th>
           <th className="r">Share of run time</th>
-          {fires && <th aria-sort={sort("silent")}>Last fired</th>}
+          <th aria-sort={fires ? sort("silent") : undefined}>{fires && "Last fired"}</th>
         </tr>
       </thead>
       <tbody>
@@ -227,17 +228,13 @@ function Table({ rows, all, rank }: { rows: GuardHealthRow[]; all: number; rank:
               )}
             </td>
             <td className="r lb-num">{int(r.runs)}</td>
-            {fires && (
-              <>
-                <td className="r lb-num">{r.helper ? "" : r.fired ? int(r.fired) : "—"}</td>
-                <td className="r lb-num">{r.helper ? "" : pct(r.fired / r.runs)}</td>
-                <td className="r lb-num">{r.helper ? "" : r.cannotAnswer ? pct(r.cannotAnswer / r.runs) : "—"}</td>
-              </>
-            )}
+            <td className="r lb-num">{r.helper ? "" : r.fired ? int(r.fired) : "—"}</td>
+            <td className="r lb-num">{r.helper ? "" : pct(r.fired / r.runs)}</td>
+            <td className="r lb-num">{r.helper ? "" : r.cannotAnswer ? pct(r.cannotAnswer / r.runs) : "—"}</td>
             <td className="r lb-num">{dur(r.medianMs)}</td>
             <td className="r lb-num">{dur(r.totalMs)}</td>
             <td className="r lb-num">{share(all ? r.totalMs / all : 0)}</td>
-            {fires && <td className="lb-num">{r.helper ? "" : r.lastFiredAt ? r.lastFiredAt.slice(0, 10) : <span className="lb-muted">never</span>}</td>}
+            <td className="lb-num">{r.helper ? "" : r.lastFiredAt ? r.lastFiredAt.slice(0, 10) : <span className="lb-muted">never</span>}</td>
           </tr>
         ))}
       </tbody>
@@ -248,17 +245,13 @@ function Table({ rows, all, rank }: { rows: GuardHealthRow[]; all: number; rank:
             {rows.length} {rows.length === 1 ? "script" : "scripts"}
           </td>
           <td className="r lb-num">{int(t.runs)}</td>
-          {fires && (
-            <>
-              <td className="r lb-num">{int(t.fired)}</td>
-              <td className="r lb-num">{pct(t.runs ? t.fired / t.runs : 0)}</td>
-              <td className="r lb-num">{pct(t.runs ? t.ca / t.runs : 0)}</td>
-            </>
-          )}
+          <td className="r lb-num">{fires && int(t.fired)}</td>
+          <td className="r lb-num">{fires && pct(t.runs ? t.fired / t.runs : 0)}</td>
+          <td className="r lb-num">{fires && pct(t.runs ? t.ca / t.runs : 0)}</td>
           <td></td>
           <td className="r lb-num">{dur(t.total)}</td>
           <td className="r lb-num">{pct(all ? t.total / all : 0)}</td>
-          {fires && <td></td>}
+          <td></td>
         </tr>
       </tfoot>
     </table>
