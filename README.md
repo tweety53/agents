@@ -12,7 +12,7 @@ synced back from a project checkout.
 ```bash
 ./setup.sh global                                          # install into ~/.claude
 go install github.com/tweety53/spectre/cmd/spectre@latest  # needed by every skill but /flow-plan
-cd stats && docker compose up -d && make build              # flowd + flow CLI
+make -C stats restart                                      # PostgreSQL, flowd and the flow CLI (~/.local/bin)
 ```
 
 1. In Claude Code: `/plugin install prime-radiant-inc/superpowers`.
@@ -52,22 +52,22 @@ flowchart TD
     plan["1 · Plan"]:::agent
     pc["2 · Plan review<br/>problems + how to build"]:::head
     tri["Triage problems<br/>fix · contest · ask you"]:::agent
-    appr{{"Approve the plan"}}:::you
+    appr{{"Approve the design"}}:::you
     build["3 · Build<br/>TDD in a worktree"]:::agent
     panel["4 · Review panel"]:::agent
     lint["5 · Lint + tests"]:::guard
     trig{"UI files changed?"}:::guard
     vv["6 · Visual verify"]:::agent
-    diff{{"7 · Review the diff"}}:::you
+    diff{{"7 · Review the diff<br/>only if a question is open"}}:::you
     land["8 · Land"]:::guard
     sr["9 · Self-review"]:::agent
     done["10 · Cleanup"]:::guard
 
-    plan --> pc
-    pc -- problems --> tri -. re-check once .-> pc
-    pc -- clean --> appr
-    tri --> appr
-    appr --> build --> panel --> lint --> trig
+    plan --> appr --> pc
+    pc -- problems --> tri
+    pc -- "clean · /clear, /flow name" --> build
+    tri -- "/clear, /flow name" --> build
+    build --> panel --> lint --> trig
     trig -- yes --> vv --> diff
     trig -- no --> diff
     lint -. red .-> build
@@ -113,6 +113,8 @@ flowchart TD
 - **Self-review after every change.** Once a change lands, the pipeline reviews its own run: what
   went wrong, what went well, and which instruction would have saved a fix round. Small fixes to the
   tooling land by themselves. [Self-review](docs/self-review.md)
+- **A confidence estimate you can act on.** The plan check and each implementer say how sure they are;
+  every estimate below 100% waits in a review queue. [Dashboard](docs/dashboard.md)
 - **The pipeline repairs itself mid-run.** A run that hits a defect in the flow tooling fixes it,
   tests it and carries on instead of stopping to ask.
   [Self-review](docs/self-review.md#fixes-made-mid-run)
@@ -121,8 +123,8 @@ flowchart TD
 
 ## Commands
 
-`<name>` is optional everywhere: with one open change it is picked, otherwise you are asked. No
-command takes a flag.
+`<name>` is optional everywhere: with one open change it is picked, otherwise you are asked. The
+one flag is `--base <branch>` on the run that creates a change (`/flow`, `/flow-plan`, `/flow-fast`).
 
 | Command | What it does |
 |---------|--------------|
@@ -137,7 +139,7 @@ command takes a flag.
 | State | What happens | Your gate |
 |-------|--------------|-----------|
 | `STARTED` | Brainstorm, you answer every ambiguity and approve the design, then spectre artifacts and `tasks.md` | `/clear`, then `/flow <name>` |
-| `IN_PROGRESS` | Implement in a worktree (TDD per task), review panel, lint and tests, staged diff | Review the diff. Describe a fix and `/flow` re-runs without moving the state; "looks good" and a bare `/flow` lands it |
+| `IN_PROGRESS` | Implement in a worktree (TDD per task), review panel, lint and tests, staged diff | Only when a question is open: otherwise the same run lands it. Describe a fix and `/flow` re-runs without moving the state; a bare `/flow` lands it |
 | `FINISHED` | Cleanup: verify the merge, save to flowd, remove worktrees and branches, issue to Done | none |
 
 - **The gate is the state.** No command exists just to record that you reviewed something.
@@ -180,6 +182,8 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `stats/` | `flowd`, the `flow` CLI, every guard (`internal/guard/`) and the web UI (`web/`) |
 | `scripts/` | `flow-guard`, the bootstrap that builds and runs every guard |
 | `mods/` | Claude Code plugins, e.g. `flow-task-list` |
+| `templates/` | The `CLAUDE.md` a project install copies in when it has none |
+| `experiments/` | Measurements behind design choices, e.g. `rag/` |
 | `docs/` | The detail pages linked above, `briefs/` (lessons) and `designs/` (records of earlier changes) |
 | `.flow/project.md` | This repository's own flow config: lint, test, run, stop |
 | `setup.sh` | The installer |

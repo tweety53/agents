@@ -13,9 +13,10 @@ For each message that asks for something, a question included:
 
 A request too big to land as one small step is put to you: run it here, or file it as a Jira task.
 
-The session does the work itself: no review panel per request, no plan file, and no subagent
-unless you ask for one in your own words. Every request is still recorded, so cost and timeline
-read as they do for `/flow`.
+The session you talk to only looks, records, dispatches and reports: one subagent per request, on a
+pair the [pair judge](roles-and-models.md#the-pair-judge) picks, does steps 2–5. There is no review
+panel per request and no plan file. A question that needs no code is just answered. Every request is
+recorded, so cost and timeline read as they do for `/flow`.
 
 Saying you are done ends the session: the in-flight request lands, one
 [self-review](self-review.md) pass covers the whole session, and cleanup runs.

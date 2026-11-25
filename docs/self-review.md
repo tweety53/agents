@@ -3,7 +3,7 @@
 ## After a change lands
 
 Every change ends with one review of the run that built it, not of the product. A single agent
-reads a bundle of what happened and reports under three angles, each always present even when
+reads a bundle of what happened and reports under five angles, each always present even when
 empty:
 
 | Angle | Asks |
@@ -11,14 +11,16 @@ empty:
 | Problems | What went wrong, and what change to the pipeline would avoid it? |
 | What went well | What worked, and how is it reproduced? |
 | Instruction gaps | Which missing instruction cost a review or visual-verify fix round, and what prompt update would have avoided it? |
+| Cost | What spent tokens or time working or waiting, and could be cut without losing quality? |
+| Automation | Which guard, hook, script or other automation would have avoided a problem or a manual step? |
 
 What happens to a finding:
 
 - **A problem with a small fix is fixed and landed without asking.**
 - **A big one**, a fix touching 60 or more files, is not fixed in the pass; it is suggested.
-- **Improvements and prompt updates are suggested, never applied**: you approve or decline each on
-  the dashboard's Self-review view. Only Critical and Important findings are suggested.
-- **A proposal to add another guard, check or hook is declined**, on record.
+- **The other four angles are suggested, never applied**: you approve or decline each on the
+  dashboard's Self-review view. Only Critical and Important findings are suggested.
+- **A new or extended guard, check or hook is never built by the pass**; it is suggested.
 
 Canonical: [`skills/flow-self-review/SKILL.md`](../skills/flow-self-review/SKILL.md).
 

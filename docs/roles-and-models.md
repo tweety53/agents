@@ -16,11 +16,10 @@ place.
 
 ## The pair judge
 
-When an agent is about to start, a small headless call, the **pair judge**, reads the task's prompt
-and picks one of the role's allowed pairs: a mechanical task gets a cheaper pair, a hard one a
-stronger pair. A judge that cannot answer never blocks the run; the role's first pair is used. A
-role the judge does not cover runs on its first base pair. The visual verifier is one: it always
-runs on its first base pair, so mechanical verification runs on a predictable model.
+When an agent is about to start, a small headless call, the **pair judge**, reads the task's prompt,
+and the file parts the prompt names, and picks one of the role's allowed pairs: a mechanical task gets a cheaper pair, a hard one a
+stronger pair. A judge that cannot answer never blocks the run; the role's first pair is used. Every
+role with base pairs is judged except the pair judge itself.
 
 Telling the session in plain words to use a different model for a role overrides the pick for that
 run only. Every dispatch records the pair it actually ran on, which is what the dashboard's

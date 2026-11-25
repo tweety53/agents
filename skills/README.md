@@ -31,7 +31,7 @@ still apply.
 | **1** | brainstorming | `/flow` (creating run) |
 | **3** | writing-plans | `/flow` (creating run) |
 | **2** | worktree creation, stated in `skills/flow/implement.md` (no skill) | `/flow` (implementation) |
-| **4** | subagent-driven-development | `/flow` (implementation, `sdd` execution only) |
+| **4** | subagent-driven-development | `/flow` (implementation) |
 | **5** | test-driven-development | `/flow`, every implementer dispatch |
 | **6** | the review panel | `/flow` (implementation) |
 | **8** | verification-before-completion | `/flow` (implementation) |
@@ -42,12 +42,13 @@ still apply.
 
 | Command | Skill | What it does |
 |---------|-------|--------------|
-| `/flow <name>` | `flow` | Single-command pipeline: no state creates the change and writes `STARTED`, then — same invocation — runs brainstorming (fully interactive) and implementation behind the decided review panel, ending at `IN_PROGRESS` — or, unless a question is open, landing straight away in the same invocation. An argument at `IN_PROGRESS` is a fix run; state unchanged, and it lands the same way. Bare at `IN_PROGRESS` asks how to land the branch — open PR (default), merge and push, or manual — and, on merge-and-push, continues in the same invocation through cleanup to `FINISHED`. Publishes no proposal artifact. |
+| `/flow <name>` | `flow` | Single-command pipeline: no state creates the change and writes `STARTED`, then — same invocation — runs brainstorming (fully interactive) and implementation behind the decided review panel, ending at `IN_PROGRESS` — or, unless a question is open, landing straight away in the same invocation. An argument at `IN_PROGRESS` is a fix run; state unchanged, and it lands the same way. Bare at `IN_PROGRESS` lands the branch by the project's `## default landing route`, asking only when none is declared — open PR (default), merge and push, or manual — and, on merge-and-push, continues in the same invocation through cleanup to `FINISHED`. Publishes no proposal artifact. |
 | *(gate)* | you | Creating run or fix that leaves a `?` in its `Decisions:`: answer it, then review the staged diff (otherwise it lands straight away). Integrate with open PR or manual: wait for the branch to merge (or finish your manual steps). Merge-and-push: nothing — the state is terminal. |
 | `/flow-fast <name>` | `flow-fast` | Minimal-ceremony `/flow` variant — one invocation from Jira key to landed change: a git worktree for isolation only, implementation and review panel as a headless decider decides, project lint plus the tests the change touches, the project's default landing route, cleanup. Marks every `flow.*` stage `/flow` marks; no spectre artifacts or state file. |
-| `/flow-interactive [key or name]` | `flow-interactive` | Conversational session: one invocation is one change, one Jira issue and one worktree, and a stream of requests the main session works inline — each looked at live, implemented test-first, verified with the project's lint and targeted tests, landed by merge and push, reinstalled and, when it touches `ui paths`, checked on the live page — until an explicit stop runs one self-review pass, cleanup and `FINISHED`. Every request is recorded in flowd; no spectre artifacts or state file |
+| `/flow-interactive [key or name]` | `flow-interactive` | Conversational session: one invocation is one change, one Jira issue and one worktree, and a stream of requests the main session coordinates — each looked at live, then by one subagent implemented test-first, verified with the project's lint and targeted tests, landed by merge and push, reinstalled and, when it touches `ui paths`, checked on the live page — until an explicit stop runs one self-review pass, cleanup and `FINISHED`. Every request is recorded in flowd; no spectre artifacts or state file |
 | `/flow-plan` | `flow-plan` | Thinking-partner mode — no implementation; a captured session creates the change at `STARTED` for `/flow` to resume |
-| *(run by the pipeline)* | `flow-self-review` | Runs a change's self-review pass, a one-shot dispatch whose non-big findings are planned in full, from the context bundle an older `/flow` or `/flow-fast` run saved; the same pass runs inside `/flow`'s integrate and `/flow-fast`'s verify. Standalone, not a pipeline stage. Fixes and lands every non-big finding; files the big ones. |
+| `/flow-learn-quiz` | `flow-learn-quiz` | Teacher mode, only when asked: quizzes you on a change. Standalone |
+| *(run by the pipeline)* | `flow-self-review` | Runs a change's self-review pass, a one-shot dispatch whose non-big findings are planned in full, from the context bundle an older `/flow` or `/flow-fast` run saved; the same pass runs inside `/flow`'s integrate, `/flow-fast`'s verify and at `/flow-interactive`'s stop. Standalone, not a pipeline stage. Fixes and lands every non-big `flow-fix` finding; suggests the rest. |
 
 Each row says what a command is *for*. Its steps are stated once under
 **The steps a run marks** (`README.md`) and are deliberately not
@@ -60,9 +61,10 @@ skills/
 ├── flow/               ← /flow (brainstorm, implement behind the review panel, integrate and clean up)
 ├── flow-fast/          ← /flow-fast (worktree, implement, land, clean up)
 ├── flow-interactive/   ← /flow-interactive (a conversational session landing each request)
-├── flow-plan/       ← /flow-plan
+├── flow-plan/          ← /flow-plan
+├── flow-learn-quiz/    ← /flow-learn-quiz
 ├── flow-self-review/   ← the self-review pass, run by the pipeline
-└── flow-contracts/    ← on-demand contracts; `pipeline.md` is canonical for the state machine
+└── flow-contracts/     ← on-demand contracts; `pipeline.md` is canonical for the state machine
 ```
 
 Every skill above but `flow-plan` and `flow-contracts` requires the `spectre` CLI
@@ -72,7 +74,7 @@ spectre tree, or a contract file, is reading markdown.
 ## Naming a guard in skill prose
 
 **Prose describing this repository's own guard is not an invocation.** A guard invoked by name
-uses the basename form above. Prose that describes **this repository's own** lint and test
+is written `flow-guard <name>`. Prose that describes **this repository's own** lint and test
 guards — resolved through `<agents repo>/.flow/project.md`'s `## lint` and `## test` lists
 rather than through `flow-guard` on `PATH` — names the guard as
 `<agents repo>/scripts/flow-guard <name>` instead of a bare repository-relative path: a bare path there

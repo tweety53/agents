@@ -19,7 +19,7 @@ uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requi
 | `rerank_cmp.py` | `bge-reranker-base` against `bge-reranker-v2-m3` (512 and 1024 tokens), top 10 and 20. |
 | `questions.json` | 59 model-written questions, each stored as its source file plus the chunk's opening, so it survives the corpus changing. |
 
-Measured on those 60 questions (1,343 chunks, 87 files), chunk recall at 1 / 5 / 10 and file recall at 1 / 5:
+Measured on those 59 questions (1,343 chunks, 87 files), chunk recall at 1 / 5 / 10 and file recall at 1 / 5:
 
 | Method | chunk r@1 | r@5 | r@10 | file r@1 | file r@5 | per query |
 |---|---|---|---|---|---|---|
@@ -29,7 +29,7 @@ Measured on those 60 questions (1,343 chunks, 87 files), chunk recall at 1 / 5 /
 | hybrid + `bge-reranker-base`, top 20 | 0.60 | 0.85 | 0.88 | 0.70 | 0.95 | ~0.8 s |
 | hybrid + `bge-reranker-v2-m3` 1024, top 20 | 0.65 | 0.83 | 0.90 | 0.73 | 0.95 | ~4.4 s |
 
-`bge-reranker-base` over the top 20 is the chosen default: v2-m3 is inside the noise of 60 questions and about
+`bge-reranker-base` over the top 20 is the chosen default: v2-m3 is inside the noise of 59 questions and about
 six times slower. Three sonnet agents given only grep, glob and read answered the same questions at chunk
 r@1 0.57 and r@3 0.63, against 0.60 and 0.78 for the chosen method.
 

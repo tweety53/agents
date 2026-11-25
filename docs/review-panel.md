@@ -34,4 +34,5 @@ finding run again.
 Canonical: [`skills/flow/review-panel.md`](../skills/flow/review-panel.md) (dispatch),
 [`skills/flow/review-panel-fix-round.md`](../skills/flow/review-panel-fix-round.md) (fix rounds),
 [`skills/flow/plan-check-decision.md`](../skills/flow/plan-check-decision.md) (how reviewers are
-picked) and each reviewer's own `skills/flow/<reviewer>-reviewer-prompt.md`.
+picked) and each reviewer's own `skills/flow/<reviewer>-reviewer-prompt.md` (`mutation`'s brief is in
+the dispatch file).

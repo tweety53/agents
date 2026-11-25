@@ -48,6 +48,7 @@ FLOW_EMBED_URL=http://127.0.0.1:8099 FLOW_PGVECTOR_DSN='postgres://flow:flow@loc
 
 ```bash
 cd stats
+make -s web-dist   # a fresh checkout has no built SPA to embed
 go test ./...
 ```
 
@@ -55,7 +56,7 @@ Tests that need the compose stack's PostgreSQL skip themselves with a clear
 message when the stack is not running, so `go test ./...` is always safe to
 run without Docker.
 
-**This stack is not needed for the Go test suite.** `go test ./...` already
+**The UI-test stack below is not needed for the Go test suite.** `go test ./...` already
 gets its own isolation: every test that touches Postgres creates its own
 database (see `internal/store/testsupport_test.go`), used once and never
 shared with the live database, another test, or the UI-test stack below.
@@ -178,6 +179,13 @@ judge and `plan-check`'s decider -- is posted with that guard's run (`guard_runs
 migration `0082_guard_run_headless.sql`) and counted as one run of its role; calls made before
 that migration were never stored. The stats SPA's
 **Role costs** view draws it.
+
+## Confidence estimates
+
+`flow confidence record` files a below-100% estimate with its gaps and tags (`flow confidence tags`
+lists those in use). flowd serves them on `/api/v1/confidence/{project}/{change}`,
+`/api/v1/confidence-tags` and `/api/v1/stats/confidence-estimates`; the SPA's **Confidence** view
+approves or declines each (`PATCH /api/v1/confidence/{project}/estimates/{id}/review`).
 
 ## Jira transitions
 
@@ -317,7 +325,7 @@ exit is never restarted, only a crash or failure is), and logs to
 `~/Library/Logs/flowd.log`. It binds loopback only, the same guarantee
 `flowd` itself enforces at startup regardless of how it is launched.
 
-`make restart` runs `flowd` outside launchd instead, appending its log to `/tmp/flow-live.log` (`LIVE_LOG`, `stats/Makefile`); while it does, `~/Library/Logs/flowd.log` is not written. Postgres logs lock waits and statements slower than one second (`ALTER SYSTEM`, kan-1040), so a store stall leaves evidence in `docker logs flow-postgres`.
+`make restart` also installs the `flow` CLI to `~/.local/bin/flow` and runs `flowd` outside launchd instead, appending its log to `/tmp/flow-live.log` (`LIVE_LOG`, `stats/Makefile`); while it does, `~/Library/Logs/flowd.log` is not written. Postgres logs lock waits and statements slower than one second (`ALTER SYSTEM`, kan-1040), so a store stall leaves evidence in `docker logs flow-postgres`.
 
 **Loading this agent is a manual operator step.** No skill or command in
 this repository loads it — an agent left running unattended during this
