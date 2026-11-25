@@ -355,6 +355,9 @@ steps are `  - [ ] **Step N: …**` lines indented two columns beneath it.
   edit".
 - A test the plan spells out is built so the nearest wrong version of the rule fails it — its
   fixture and step order tell the rule apart from that version.
+- A test's expected value follows from the rule the plan's implement step states: the planner walks
+  the fixture through that rule, and where the expected value and the rule disagree, it fixes
+  whichever is wrong before returning the plan.
 - A test that clicks, types or captures reaches each control by role, label, text or test id,
   never a coordinate, and never waits out a production timeout or backoff — the task adds a
   test-only override.
