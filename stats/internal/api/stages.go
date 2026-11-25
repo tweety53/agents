@@ -29,6 +29,9 @@ type StageStore interface {
 	MergeMetrics(ctx context.Context, stageRunID int64, patch json.RawMessage) error
 	QueryStageRuns(ctx context.Context, q store.Query) ([]store.StageRun, int, error)
 	PutChange(ctx context.Context, c store.Change) error
+	// FindChangesByName backs changeProject: a mark sent from another
+	// project's checkout lands on the change's own row.
+	FindChangesByName(ctx context.Context, name string) ([]store.Change, error)
 }
 
 // var _ StageStore = (*store.Store)(nil) verifies at compile time that the
@@ -460,6 +463,12 @@ func ApplyBeginStageMark(ctx context.Context, ss StageStore, logger *slog.Logger
 		}
 	}
 
+	projectKey, err := changeProject(ctx, ss, mark.ProjectKey, mark.ChangeName)
+	if err != nil {
+		return StageMarkResult{}, err
+	}
+	mark.ProjectKey = projectKey
+
 	var sessionToken *string
 	if mark.SessionToken != "" {
 		sessionToken = &mark.SessionToken
@@ -649,8 +658,13 @@ func ApplyEndStageMark(ctx context.Context, ss StageStore, mark EndStageMark) (S
 		return StageMarkResult{}, fmt.Errorf("%w: jiraKey without changeName is only valid for plan.session", ErrInvalidMark)
 	}
 
+	projectKey, err := changeProject(ctx, ss, mark.ProjectKey, mark.ChangeName)
+	if err != nil {
+		return StageMarkResult{}, err
+	}
+	mark.ProjectKey = projectKey
+
 	var openRun *store.StageRun
-	var err error
 	if mark.ChangeName == "" && mark.JiraKey != "" {
 		openRun, err = findOpenPlanSession(ctx, ss, mark.ProjectKey, mark.JiraKey, mark.Command, mark.Stage)
 	} else {

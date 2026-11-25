@@ -836,6 +836,10 @@ func (stubStageStore) PutChange(context.Context, store.Change) error {
 	return errStageStoreNotImplemented
 }
 
+func (stubStageStore) FindChangesByName(context.Context, string) ([]store.Change, error) {
+	return nil, errStageStoreNotImplemented
+}
+
 var _ api.StageStore = stubStageStore{}
 
 // stubStageStore also stands in as api.StatsStore for this test file: task

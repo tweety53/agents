@@ -45,6 +45,10 @@ func (nopStageStore) PutChange(context.Context, store.Change) error {
 	return errStageStoreNotExercised
 }
 
+func (nopStageStore) FindChangesByName(context.Context, string) ([]store.Change, error) {
+	return nil, errStageStoreNotExercised
+}
+
 var _ api.StageStore = nopStageStore{}
 
 // stageJournalPath mirrors cmd/flow/stage.go's own stageJournalPath
@@ -348,6 +352,10 @@ func (s *injectingStageStore) QueryStageRuns(ctx context.Context, q store.Query)
 
 func (s *injectingStageStore) PutChange(ctx context.Context, c store.Change) error {
 	return s.inner.PutChange(ctx, c)
+}
+
+func (s *injectingStageStore) FindChangesByName(ctx context.Context, name string) ([]store.Change, error) {
+	return s.inner.FindChangesByName(ctx, name)
 }
 
 var _ api.StageStore = (*injectingStageStore)(nil)
