@@ -168,6 +168,11 @@ text after it is the passage, verbatim.
 - *`**Files:**` … is expanded by the writer, never left in the field for the guard to expand* — (KAN-636); kan-579's plan declared gs/core/... behind its own legend and hand-repaired every field back to literal paths at its first task boundary, which is the repair this rule removes.
 - *A block of `**Decision:**` lines sits between blank lines … never glued to the `**Commit:**` subject above it* — (KAN-636): a citation with no blank line rode in the subject's continuation in every reader that had not learned the field's name, and kan-579's run repaired each such field by hand at its task boundary.
 
+### brainstorm-planner.md — Frame colours and computed rules
+
+- *never a hex at the use site* — accent-300 and accent-700 stayed unresolved and the hex was used directly (KAN-1130 request 203, one implement estimate).
+- *A computed rule is run against every cited frame.* — frames showed other rows and another title than the rule produced, and the implementer shipped the rule (same estimate).
+
 ### brainstorm-planner.md — D. Writing plans (live check)
 
 - ***Write a live-verification task when the change touches a running service or persistent state.** … the justification is required, the task is not.* — This is deliberately not an integration-test stage on every change: a step that usually resolves to "nothing to do" trains everyone to skip it.
@@ -1318,6 +1323,7 @@ attribution; the text after it is the passage, verbatim.
 
 ### gated-reviewer-brief.md — Gated reviewer brief
 
+- *OPEN GAPS* — the implementer brief's never-a-gap rules had no reader; `flow confidence` has no read verb, so the gaps travel in the implementer's report (KAN-1130 request 203).
 - *inherits, and a restore you perform is a claim nobody can check* — gymie KAN-635's reviewer ran `git checkout <sha> -- .` mid-review, destroyed uncommitted planning artifacts, and reported the tree restored
 
 ### visual-verify.md — The verifier dispatch

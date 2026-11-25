@@ -41,6 +41,11 @@ naming this file and one `PASS task-<n>` block per task it reviews.
 > earlier pass's report or conclusions; a defect that sits in two passes' ranges is raised under
 > each. Write each pass's report file before beginning the next pass.
 
+> **OPEN GAPS:** Read `## Open gaps` of the
+> `<abs-worktree>/.superpowers/sdd/implementer-report-*.md` whose `commit:` names the pass's task.
+> Each gap that **CONFIDENCE ONCE GREEN** (`skills/flow/implementer-brief.md`) says is never a gap
+> is a finding of that pass: Important, or Minor for a later task's work.
+
 and, for each `PASS task-<n>` block of your prompt:
 
 > **REPORT FILE:** write this pass's report to

@@ -101,7 +101,11 @@ Investigate read-only, then present the design.
   frames, exits 0 before the design is approved; it exits 1 naming each frame that leaves a listed
   constant unstated and each constant two frames draw differently. A rendered frame's sidecar sits
   in its tag's directory, which is never committed: the check is this gate's, re-stated if the
-  frames are rendered afresh.
+  frames are rendered afresh. Every colour a cited frame uses is also mapped to a theme token, or a
+  new one the design adds, before the design is approved — never a hex at the use site.
+- **A computed rule is run against every cited frame.** Where a screen's rows, titles or copy come
+  from a computed rule, the planner runs it for each cited frame and compares; every mismatch is
+  decided before the design is approved.
 - **Every visible element a task builds is drawn before the design is approved, and the
   `designer` draws what the mockups leave undrawn.** For a change that carries UI, list in
   `design.md` under `## Undrawn`, from the tasks as written, each element, state, icon, copy string,
