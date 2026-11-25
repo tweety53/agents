@@ -3,6 +3,7 @@ package guard
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -513,5 +514,100 @@ func TestImplementerOpusLowSplitsWithSonnetLow(t *testing.T) {
 		if !strings.HasPrefix(r.stdout, c.want) {
 			t.Errorf("%s: stdout %q, want prefix %q", c.name, r.stdout, c.want)
 		}
+	}
+}
+
+// pjNamedRepo is a git repository holding one file per pair-judge refusal
+// beside the two files it sends, and a file outside it; the digest names
+// every one and sits in the repository's .superpowers/.
+func pjNamedRepo(t *testing.T) (repo, digest string, files map[string]string) {
+	t.Helper()
+	repo, _ = filepath.EvalSymlinks(t.TempDir())
+	outside, _ := filepath.EvalSymlinks(t.TempDir())
+	if out, err := exec.Command("git", "init", "-q", repo).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	files = map[string]string{
+		repo + "/plan.md":                "the plan\n",
+		repo + "/.superpowers/ticket.md": "the ticket\n",
+		repo + "/.env.local":             "TOKEN=x\n",
+		repo + "/deploy-secret.txt":      "s\n",
+		repo + "/ignored.log":            "ignored\n",
+		repo + "/bin.dat":                "a\x00b",
+		repo + "/.claude/notes.md":       "home claude\n",
+		outside + "/outside.md":          "outside\n",
+		repo + "/.gitignore":             "ignored.log\n.superpowers/\n",
+	}
+	for p, body := range files {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(outside+"/outside.md", repo+"/escape.md"); err != nil {
+		t.Fatal(err)
+	}
+	digest = repo + "/.superpowers/brief.md"
+	return repo, digest, files
+}
+
+// TestPairJudgeAppendsNamedFiles: the judge's stdin is the brief, then each
+// file it names once -- in backticks, after `:line` or before a full stop
+// alike -- and nothing outside a git tree, behind a symlink escape, .env,
+// secret-named, gitignored outside .superpowers/, binary, under ~/.claude,
+// missing, or the brief itself.
+func TestPairJudgeAppendsNamedFiles(t *testing.T) {
+	t.Parallel()
+	repo, digest, files := pjNamedRepo(t)
+	var brief strings.Builder
+	brief.WriteString("Ask: see `" + repo + "/plan.md`, " + repo + "/plan.md:12 and " + repo + "/.superpowers/ticket.md.\n")
+	for p := range files {
+		if strings.HasSuffix(p, ".gitignore") {
+			continue // a tracked-tree text file, sent like plan.md
+		}
+		brief.WriteString("also " + p + "\n")
+	}
+	brief.WriteString("and " + repo + "/escape.md, " + repo + "/missing.md, " + digest + "\n")
+	if err := os.WriteFile(digest, []byte(brief.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	policy := pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`)
+	stub := newPJStub(t, pjAnswer)
+	env := policyFlowEnv(t, policy, "FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd(), "HOME="+repo)
+	if r := runGuard("pair-judge", []string{"implementer", digest}, env); r.rc != 0 {
+		t.Fatalf("rc=%d out=%q, want 0", r.rc, r.out)
+	}
+	want := brief.String() +
+		"\n\n--- " + repo + "/plan.md ---\nthe plan\n" +
+		"\n\n--- " + repo + "/.superpowers/ticket.md ---\nthe ticket\n"
+	if got := stub.stdin(t); got != want {
+		t.Errorf("stdin =\n%s\nwant\n%s", got, want)
+	}
+}
+
+// TestPairJudgeCapsNamedFiles: a named file crossing the 200 KB cap is cut
+// there and followed by the truncation line; the brief reaches the judge whole.
+func TestPairJudgeCapsNamedFiles(t *testing.T) {
+	t.Parallel()
+	repo, digest, _ := pjNamedRepo(t)
+	big := strings.Repeat("0123456789abcdef", 300*1024/16)
+	if err := os.WriteFile(repo+"/big.md", []byte(big), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	brief := "read " + repo + "/big.md\n"
+	if err := os.WriteFile(digest, []byte(brief), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	policy := pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`)
+	stub := newPJStub(t, pjAnswer)
+	if r := runGuard("pair-judge", []string{"implementer", digest}, pjEnv(t, policy, stub)); r.rc != 0 {
+		t.Fatalf("rc=%d out=%q, want 0", r.rc, r.out)
+	}
+	head := brief + "\n\n--- " + repo + "/big.md ---\n"
+	want := head + big[:204800-len(head)] + "\n[digest truncated at 200 KB]\n"
+	if got := stub.stdin(t); got != want {
+		t.Errorf("stdin is %d bytes ending %q, want %d ending %q", len(got), got[max(0, len(got)-40):], len(want), want[max(0, len(want)-40):])
 	}
 }

@@ -57,7 +57,16 @@ import (
 // pair, its system prompt a fixed template (pjPrompt) filled with the role,
 // its Does line from skills/flow-contracts/model-policy.md under
 // FLOW_GUARD_REPO_ROOT (left out when unreadable), the candidates and the
-// answer format; its stdin is the digest and nothing else. Measured live
+// answer format; its stdin is the digest followed by the files it names
+// (pjAppendNamed, pairjudge_files.go), since the judge has no tools to read a
+// path itself. A named file is an absolute path in the digest -- in backticks
+// or followed by punctuation or `:line` alike -- to an existing regular UTF-8
+// text file, appended once under a `--- <path> ---` header. The content leaves
+// the machine, so a file is sent only when, symlinks resolved, it lies inside
+// a git working tree, is not gitignored unless under `.superpowers/`, is not a
+// `.env*` or key/credential/secret/token-named file, and is not under
+// ~/.claude or ~/.config; any other path, and an unreadable one, is silently
+// left out. The digest itself is never cut for a file. Measured live
 // from a Claude Code Bash call on 2026-11-15, claude 2.1.325, exit 0 in
 // 2.5 s with a PAIR and a REASON line; --output-format json spiked the same
 // day on the same version: one JSON object with `result` (the PAIR and
@@ -92,7 +101,9 @@ import (
 // (decision judge-command-seam). Bounds (decision
 // judge-timeout-60s-digest-200kb): a 60 s deadline (Env.PairJudgeTimeout in
 // tests), and a digest over 204800 bytes is cut there and followed by the
-// line `[digest truncated at 200 KB]`. A digest file named `decide-group-<g>…`
+// line `[digest truncated at 200 KB]`; under it, the named files fill the
+// rest, the one crossing the cap cut there and followed by the same line,
+// and no file after it. A digest file named `decide-group-<g>…`
 // -- one implementer group's Decide digest -- loses every line opening
 // `inputs: `: plan-class counts the whole plan there, and the judge read a
 // one-task group as the plan's 47 tasks, two repositories and migration.
@@ -182,6 +193,8 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if len(digest) > pjDigestCap {
 		digest = append(digest[:pjDigestCap:pjDigestCap], pjTruncated...)
+	} else {
+		digest = pjAppendNamed(env, args[1], digest)
 	}
 	rows, err := policyTable(env)
 	if err != nil {
