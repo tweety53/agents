@@ -52,7 +52,7 @@ var (
 	lpPipelineKey    = regexp.MustCompile(`^pipeline-fix-([0-9]+)-(.+)$`)
 	lpDigits         = regexp.MustCompile(`^[0-9]+$`)
 	lpPipelineBranch = regexp.MustCompile(`^pipeline-fix-(.+)-([0-9]+)$`)
-	lpSuffix         = regexp.MustCompile(`^(?:pass|plan(?:-[0-9]+)?|fix(?:-[0-9]+|-g[0-9]+|-v[0-9]+)?|review-[0-9]+)$`)
+	lpSuffix         = regexp.MustCompile(`^(?:pass|plan(?:-[0-9]+)?|fix(?:-[0-9]+|-[grv][0-9]+)?|review-r?[0-9]+)$`)
 )
 
 // lpRole is the allowed-pairs role id (skills/flow-contracts/model-policy.md)
