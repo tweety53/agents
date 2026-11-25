@@ -23,10 +23,30 @@ var pjPathTail = regexp.MustCompile(`(?::\d+)*[.,;:!?]*$`)
 // extension; .env files are refused apart.
 var pjSecretName = regexp.MustCompile(`(?i)\.(key|pem|p12|pfx|jks|keystore)$|^id_(rsa|dsa|ecdsa|ed25519)$|^(secret|secrets|credentials)(\.[^.]*)?$`)
 
+// pjHead is body when it fits pjFileCap, else its head -- cut after the last
+// whole line, or else the last whole rune -- followed by pjFileTruncated.
+// body is valid UTF-8.
+func pjHead(body []byte) []byte {
+	if len(body) <= pjFileCap {
+		return body
+	}
+	n := bytes.LastIndexByte(body[:pjFileCap], '\n') + 1
+	if n == 0 {
+		for n = pjFileCap; !utf8.RuneStart(body[n]); n-- {
+		}
+	}
+	head := body[:n:n]
+	if head[n-1] != '\n' {
+		head = append(head, '\n')
+	}
+	return append(head, pjFileTruncated...)
+}
+
 // pjAppendNamed appends to digest each file it names that pjSendable admits,
-// once, under a `--- <path> ---` header, within pjDigestCap: the digest
-// comes first and is never cut for a file; the file that crosses the cap is
-// cut there and followed by pjTruncated, and no file follows it.
+// once, under a `--- <path> ---` header, each cut to its pjHead, within
+// pjDigestCap: the digest comes first and is never cut for a file; the file
+// that crosses that total is cut there and followed by pjTruncated, and no
+// file follows it.
 func pjAppendNamed(env Env, digestFile string, digest []byte) []byte {
 	self, _ := filepath.EvalSymlinks(digestFile)
 	seen := map[string]bool{self: true}
@@ -41,6 +61,7 @@ func pjAppendNamed(env Env, digestFile string, digest []byte) []byte {
 		if !ok {
 			continue
 		}
+		body = pjHead(body)
 		digest = append(digest, "\n\n--- "+p+" ---\n"...)
 		if len(digest)+len(body) > pjDigestCap {
 			return append(append(digest, body[:max(0, pjDigestCap-len(digest))]...), pjTruncated...)

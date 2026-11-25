@@ -102,8 +102,11 @@ import (
 // judge-timeout-60s-digest-200kb): a 60 s deadline (Env.PairJudgeTimeout in
 // tests), and a digest over 204800 bytes is cut there and followed by the
 // line `[digest truncated at 200 KB]`; under it, the named files fill the
-// rest, the one crossing the cap cut there and followed by the same line,
-// and no file after it. A digest file named `decide-group-<g>…`
+// rest, each over 8192 bytes sent as its head -- cut after the last whole
+// line, or else the last whole rune -- and the line
+// `[file truncated at 8 KB]`, later files still following; the one crossing
+// the 200 KB total is cut there and followed by the digest's line, and no
+// file after it. A digest file named `decide-group-<g>…`
 // -- one implementer group's Decide digest -- loses every line opening
 // `inputs: `: plan-class counts the whole plan there, and the judge read a
 // one-task group as the plan's 47 tasks, two repositories and migration.
@@ -126,9 +129,11 @@ var (
 )
 
 const (
-	pjDigestCap    = 204800
-	pjTruncated    = "\n[digest truncated at 200 KB]\n"
-	pjDefaultLimit = 60 * time.Second
+	pjDigestCap     = 204800
+	pjTruncated     = "\n[digest truncated at 200 KB]\n"
+	pjFileCap       = 8192
+	pjFileTruncated = "[file truncated at 8 KB]\n"
+	pjDefaultLimit  = 60 * time.Second
 )
 
 // pjPrompt is the judge's system prompt: the role, its Does line, the

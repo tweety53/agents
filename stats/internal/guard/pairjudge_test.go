@@ -614,16 +614,50 @@ func TestPairJudgeSecretNames(t *testing.T) {
 	}
 }
 
-// TestPairJudgeCapsNamedFiles:a named file crossing the 200 KB cap is cut
+// TestPairJudgeCapsEachNamedFile: a named file over 8192 bytes reaches the
+// judge as its head -- cut after the last whole line, or else the last whole
+// rune -- and a truncation line; one of exactly 8192 bytes is whole, and
+// later files still follow.
+func TestPairJudgeCapsEachNamedFile(t *testing.T) {
+	t.Parallel()
+	repo, digest, _ := pjNamedRepo(t)
+	lines := strings.Repeat("123456789\n", 1000)
+	runes := "x" + strings.Repeat("é", 5000) // byte 8192 falls inside a rune
+	exact := strings.Repeat("e", 8192)
+	var brief, tail strings.Builder
+	for _, f := range [][3]string{
+		{"lines.md", lines, lines[:8190] + "[file truncated at 8 KB]\n"},
+		{"runes.md", runes, runes[:8191] + "\n[file truncated at 8 KB]\n"},
+		{"exact.md", exact, exact},
+		{"after.md", "after\n", "after\n"},
+	} {
+		if err := os.WriteFile(repo+"/"+f[0], []byte(f[1]), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		brief.WriteString("read " + repo + "/" + f[0] + "\n")
+		tail.WriteString("\n\n--- " + repo + "/" + f[0] + " ---\n" + f[2])
+	}
+	pjWantStdin(t, digest, brief.String(), brief.String()+tail.String())
+}
+
+// TestPairJudgeCapsNamedFiles: the file crossing the 200 KB total is cut
 // there and followed by the truncation line; the brief reaches the judge whole.
 func TestPairJudgeCapsNamedFiles(t *testing.T) {
 	t.Parallel()
 	repo, digest, _ := pjNamedRepo(t)
-	big := strings.Repeat("0123456789abcdef", 300*1024/16)
-	if err := os.WriteFile(repo+"/big.md", []byte(big), 0o644); err != nil {
+	brief := strings.Repeat("b", 200000) + "\n"
+	if err := os.WriteFile(repo+"/big.md", []byte(strings.Repeat("0123456789abcdef", 1024)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	brief := "read " + repo + "/big.md\n"
+	brief += "read " + repo + "/big.md\n"
+	head := brief + "\n\n--- " + repo + "/big.md ---\n"
+	want := head + strings.Repeat("0123456789abcdef", 1024)[:204800-len(head)] + "\n[digest truncated at 200 KB]\n"
+	pjWantStdin(t, digest, brief, want)
+}
+
+// pjWantStdin judges brief, written to digest, and compares the judge's stdin.
+func pjWantStdin(t *testing.T, digest, brief, want string) {
+	t.Helper()
 	if err := os.WriteFile(digest, []byte(brief), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -632,8 +666,6 @@ func TestPairJudgeCapsNamedFiles(t *testing.T) {
 	if r := runGuard("pair-judge", []string{"implementer", digest}, pjEnv(t, policy, stub)); r.rc != 0 {
 		t.Fatalf("rc=%d out=%q, want 0", r.rc, r.out)
 	}
-	head := brief + "\n\n--- " + repo + "/big.md ---\n"
-	want := head + big[:204800-len(head)] + "\n[digest truncated at 200 KB]\n"
 	if got := stub.stdin(t); got != want {
 		t.Errorf("stdin is %d bytes ending %q, want %d ending %q", len(got), got[max(0, len(got)-40):], len(want), want[max(0, len(want)-40):])
 	}
