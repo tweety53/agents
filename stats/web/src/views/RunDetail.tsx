@@ -249,6 +249,7 @@ export function unrecordedRole(desc: string, agentType?: string): string {
   const d = desc.trim().toLowerCase();
   if (agentType === "Explore" || d.startsWith("explor")) return "explorer";
   if (/^(fix|rebaseline|recommit)\b/.test(d)) return "fixer";
+  if (/^pipeline-fix\b/.test(d)) return "pipeline-fix";
   if (/^runner\b/.test(d)) return "runner";
   if (/^live[ -]check\b/.test(d)) return "live-check";
   return "other";
@@ -266,6 +267,9 @@ function roleGroups(entries: RoleEntry[]): RoleGroups {
     groupOf.set(e.role, e.group);
     if (!order.includes(e.group)) order.push(e.group);
   }
+  // An unrecorded pipeline-fix agent names its loop, not a table row: it groups with that loop's roles.
+  const fixGroup = groupOf.get("pipeline-fix-fix");
+  if (fixGroup) groupOf.set("pipeline-fix", fixGroup);
   return { groupOf, order };
 }
 

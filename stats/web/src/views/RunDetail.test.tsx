@@ -1147,6 +1147,21 @@ describe("the reworked run view (kan-1048)", () => {
     expect(within(main).getAllByTestId("phase-role").some((r) => /^other ×1opus ×1\$0\.25$/.test(r.textContent ?? ""))).toBe(true);
   });
 
+  it("run detail puts unrecorded pipeline-fix agents under the roles table's Pipeline fix group", async () => {
+    fetchRolesMock.mockResolvedValueOnce([{ role: "pipeline-fix-fix", base: [], optin: [], group: "Pipeline fix", does: "" }]);
+    listStageRunsMock.mockResolvedValue(
+      stageRunsResponse([
+        run(70, "flow.plan", "2026-01-01T00:00:00Z", "2026-01-01T00:30:00Z", {
+          metrics: { cost_usd: 1, dispatches: { pf: { cost_usd: 0.25, description: "pipeline-fix-98 review-r1", model: "opus" } } },
+        }),
+      ]),
+    );
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = await screen.findByRole("region", { name: "Main" });
+    await waitFor(() => expect(within(main).getByTestId("phase-group")).toHaveTextContent("Pipeline fix"));
+    expect(within(main).getByTestId("phase-role")).toHaveTextContent(/^pipeline-fix ×1opus ×1\$0\.25$/);
+  });
+
   it("run detail lists the change's headless calls, one line per role", async () => {
     listStageRunsMock.mockResolvedValue(stageRunsResponse([run(70, "flow.plan", "2026-01-01T00:00:00Z", "2026-01-01T00:30:00Z", { metrics: { cost_usd: 1 } })]));
     const h = (role: string, model: string, effort: string, costUSD: number | null) => ({ role, model, effort, costUSD, durationMS: 1000, recordedAt: "2026-01-01T00:05:00Z" });
@@ -1553,6 +1568,8 @@ describe("unrecordedRole", () => {
     expect(unrecordedRole("live check re-run scenario 2 on fresh build")).toBe("live-check");
     expect(unrecordedRole("gated-status-sweep old findings F1-F48")).toBe("other");
     expect(unrecordedRole("Explore frontend screens")).toBe("explorer");
+    expect(unrecordedRole("pipeline-fix-98 fix-r1 stale citations")).toBe("pipeline-fix");
+    expect(unrecordedRole("pipeline-fix-98 review-r1")).toBe("pipeline-fix");
     expect(unrecordedRole("Frontend runner gap table", "Explore")).toBe("explorer");
   });
 });
