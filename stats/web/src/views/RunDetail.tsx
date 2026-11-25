@@ -33,7 +33,7 @@ import { taskCount } from "../lib/taskCount";
 import { SR_STEPS, selfReviewNow, srStep, type SrStep } from "../lib/selfReviewNow";
 import { canonicalStage, stagePhase, type Phase } from "../lib/phase";
 import { mainNow, mainProgress, mainSummary, type ProgressState } from "../lib/mainNow";
-import { currentRequest, focusRequest, interactiveWaiting, isInteractive, requestStart, requestSteps } from "../lib/interactive";
+import { currentRequest, focusRequest, interactiveWaiting, isInteractive, requestSteps } from "../lib/interactive";
 import { fetchRoles, findChanges, listConfidence, type ConfidenceRow, getDecisions, getPolicy, getRunRecord, listSelfReviewFindings, listStageRuns, listStages, type ActiveSubagent, type HeadlessRow, type PlanTask, type RecordDispatch, type RoleEntry, type SelfReviewFinding, type StageRunDTO } from "../api";
 
 export interface RunDetailProps {
@@ -412,8 +412,9 @@ function WorkPanel({
   steps: Step[];
   now: number;
   extra?: ReactNode;
-  nowText: string;
-  progress: Progress;
+  /** Absent for an interactive session's Main: no Now line and no progress. */
+  nowText?: string;
+  progress?: Progress;
   summary: string;
   /** A line under the Now line: Main's view of the self-review. */
   note?: ReactNode;
@@ -531,12 +532,13 @@ function WorkPanel({
       {open && (
         <div className="lb-phase-main">
           <div className="lb-phase-sum">
+            {nowText !== undefined && (
             <div className="lb-sr-line">
             <span className="lb-sr-now" data-testid={`${slug}-now`}>
               <strong>Now:</strong> {nowText}
             </span>
             <span className="lb-sr-prog" data-testid={`${slug}-progress`}>
-              {progress.map((p, i) => (
+              {(progress ?? []).map((p, i) => (
                 <span key={p.label} className={p.state}>
                   {i > 0 && <span className="lb-muted"> → </span>}
                   {p.label}
@@ -545,6 +547,7 @@ function WorkPanel({
               ))}
             </span>
             </div>
+            )}
             {note}
           </div>
           {status !== "idle" && (
@@ -661,30 +664,6 @@ function RequestsPanel({ tasks, order }: { tasks: PlanTask[]; order: number }) {
           );
         })}
       </ul>
-    </section>
-  );
-}
-
-/** An interactive session's Main panel: the request it follows, how long since that request's first stage began, and that request's steps. */
-function RequestMainPanel({ runs, n, now, order }: { runs: StageRunDTO[]; n: number | undefined; now: number; order: number }) {
-  const start = n === undefined ? undefined : requestStart(runs, n);
-  return (
-    <section className="lb-panel" aria-label="Main" style={{ order }}>
-      <div className="lb-panel-h">
-        <span>Main</span>
-        {n !== undefined && <span className="lb-panel-note">{`Request ${n}${start === undefined ? "" : ` · ${formatSpan(now - start)}`}`}</span>}
-      </div>
-      {n !== undefined && (
-        <div className="lb-panel-b">
-          <ul className="lb-steps">
-            {requestSteps(runs, n).map((s) => (
-              <li key={s.stage} className={s.state === "done" ? "done" : s.state === "current" ? "cur" : undefined}>
-                {stageLabel(s.stage)}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </section>
   );
 }
@@ -1240,7 +1219,7 @@ export function RunDetail({ project, change }: RunDetailProps) {
                     <WorkPanel title="Main" runs={runs0} steps={steps} now={now} nowText={srView.nowText} progress={srView.progress} summary={srView.summary} headless={headless} order={1} />
                   ) : interactive ? (
                     <>
-                      <RequestMainPanel runs={runs0} n={focus} now={now} order={1} />
+                      <WorkPanel title="Main" runs={mainRuns} steps={mainSteps} now={now} order={1} headless={headless} summary="" />
                       {srStarted && (
                         <WorkPanel
                           title="Self-review"

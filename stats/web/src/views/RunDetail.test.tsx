@@ -1427,6 +1427,9 @@ describe("interactive run view", () => {
 
   it("interactive run view draws the prototype's pill, Requests and Main panels", async () => {
     load([...r6, ...r7]);
+    runRecordMock.mockResolvedValue({
+      dispatches: [{ id: 1, role: "operator-asked", key: "operator-7", model: "opus", effort: "low", startedAt: at(3), endedAt: at(2), outcome: "completed" }],
+    });
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const requests = await screen.findByRole("region", { name: "Requests" });
     expect(screen.queryByRole("region", { name: "Tasks" })).toBeNull();
@@ -1446,15 +1449,13 @@ describe("interactive run view", () => {
     expect(items[4]).toHaveClass("dropped");
     expect(items[6]).toHaveAttribute("aria-current", "step");
 
+    // Main is the usual runs' work panel over the whole session: its role lines and cost, no Now line, no progress, no step list.
     const main = screen.getByRole("region", { name: "Main" });
-    expect(within(main).getByText("Request 7 · 4m")).toBeInTheDocument();
-    const steps = within(main).getAllByRole("listitem");
-    expect(steps.map((s) => `${s.textContent}:${s.className}`)).toEqual([
-      "Planning the change:done",
-      "Implementing:cur",
-      "Verifying:",
-      "Landing the change:",
-    ]);
+    await waitFor(() => expect(within(main).getAllByTestId("phase-role").map((r) => r.textContent!.split(" ×")[0])).toContain("operator-asked"));
+    expect(main.querySelector(".lb-phase-cost")).toHaveTextContent("$0.80");
+    expect(within(main).queryByTestId("main-now")).toBeNull();
+    expect(within(main).queryByTestId("main-progress")).toBeNull();
+    expect(within(main).queryByText(/Request 7/)).toBeNull();
     expect(screen.queryByRole("region", { name: "Self-review" })).toBeNull();
     expect(screen.getByRole("group", { name: "Now running" })).toHaveTextContent("Request 7: Show the stage's model on the Agents row");
   });

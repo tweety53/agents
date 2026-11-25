@@ -41,8 +41,3 @@ export function requestSteps(runs: StageRunDTO[], n: number): { stage: string; s
   });
 }
 
-/** When request n's first stage run began, if any. */
-export function requestStart(runs: StageRunDTO[], n: number): number | undefined {
-  const starts = runs.filter((r) => r.request === n).map((r) => Date.parse(r.startedAt));
-  return starts.length ? Math.min(...starts) : undefined;
-}
