@@ -208,7 +208,7 @@ turn, never a second key.
 no-runtime section, or none, skips it. A section is that no-runtime form when its first line opens
 with `None`, `No ` or `Not applicable`, however many lines its justification wraps to. Once both groups of the lint and test list have exited —
 never while either still runs — with the parent's own Bash calls: when the stack's worktree-resolved URLs do not answer, start it as **One stack for the verification tasks**
-(`skills/flow/implement.md`) does; then exercise what the section names and write each
+(`skills/flow/implement.md`) does; then exercise what the section names — a proxy (an earlier capture, a neighbouring check) never stands for an item the section names unless that item is infeasible in this environment, and an unexercised item is exercised before the stage ends — and write each
 before/after figure, beside the failure look the section states, to `live-verification.md` in
 the change's directory (**A change's directory**, `skills/flow-contracts/pipeline.md`), a
 gitignored planning path written on disk and nothing else. **A before figure is measured from a
