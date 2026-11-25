@@ -236,5 +236,47 @@
     "opener": "",
     "category": "planner-short",
     "describe": "plan-short-2"
+  },
+  {
+    "key": "self-review-kan-1-fix-r1",
+    "role": "implementer",
+    "opener": "",
+    "category": "self-review-fixer",
+    "describe": "Self-review: fix round 1"
+  },
+  {
+    "key": "self-review-kan-1-review-r2",
+    "role": "reviewer",
+    "opener": "",
+    "category": "self-review-reviewer",
+    "describe": "Self-review: review round 2"
+  },
+  {
+    "key": "pipeline-fix-3-fix-r1",
+    "role": "implementer",
+    "opener": "",
+    "category": "pipeline-fix-fixer",
+    "describe": "Pipeline fix 3: fixing, round 1"
+  },
+  {
+    "key": "pipeline-fix-3-review-r2",
+    "role": "reviewer",
+    "opener": "",
+    "category": "pipeline-fix-reviewer",
+    "describe": "Pipeline fix 3: reviewing, round 2"
+  },
+  {
+    "key": "pipeline-fix-3-fix-g2",
+    "role": "implementer",
+    "opener": "",
+    "category": "pipeline-fix-fixer",
+    "describe": "Pipeline fix 3: fixing, group 2"
+  },
+  {
+    "key": "pipeline-fix-3-fix-v1",
+    "role": "implementer",
+    "opener": "",
+    "category": "pipeline-fix-fixer",
+    "describe": "Pipeline fix 3: fixing, verify fix round 1"
   }
 ]

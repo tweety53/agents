@@ -17,10 +17,13 @@ export function describeDispatch(key: string | undefined, role: string): string 
   if ((m = /^self-review-.+-plan$/.exec(key))) return "Self-review: planning fixes";
   if ((m = /^self-review-.+-fix-g(\d+)$/.exec(key))) return `Self-review: fixing the plan, group ${m[1]}`;
   if ((m = /^self-review-.+-fix-v(\d+)$/.exec(key))) return `Self-review: verify fix round ${m[1]}`;
-  if ((m = /^self-review-.+-fix(?:-(\d+))?$/.exec(key))) return m[1] ? `Self-review: fix round ${m[1]}` : "Self-review: fixing the plan";
-  if ((m = /^self-review-.+-review-(\d+)$/.exec(key))) return `Self-review: review round ${m[1]}`;
-  if ((m = /^pipeline-fix-(\d+)-(plan|fix|review)(?:-(\d+))?$/.exec(key)))
-    return `Pipeline fix ${m[1]}: ${{ plan: "planning", fix: "fixing", review: "reviewing" }[m[2] as "plan"]}${m[3] ? `, round ${m[3]}` : ""}`;
+  if ((m = /^self-review-.+-fix(?:-r?(\d+))?$/.exec(key))) return m[1] ? `Self-review: fix round ${m[1]}` : "Self-review: fixing the plan";
+  if ((m = /^self-review-.+-review-r?(\d+)$/.exec(key))) return `Self-review: review round ${m[1]}`;
+  if ((m = /^pipeline-fix-(\d+)-(plan|fix|review)(?:-([gvr]?)(\d+))?$/.exec(key))) {
+    const step = { plan: "planning", fix: "fixing", review: "reviewing" }[m[2] as "plan"];
+    const unit = { g: "group", v: "verify fix round" }[m[3] as "g"] ?? "round";
+    return `Pipeline fix ${m[1]}: ${step}${m[4] ? `, ${unit} ${m[4]}` : ""}`;
+  }
   if ((m = /^visual-verify(?:-fix-(\d+))?(-full)?(?:-(.+))?$/.exec(key)))
     return `Checking the UI${m[2] ? " in full" : ""}${after(m[1])}${m[3] ? ` · ${m[3]}` : ""}`;
   if ((m = /^verify(?:-fix-(\d+))?(?:-(.+))?$/.exec(key))) return `Running lint and tests${after(m[1])}${m[2] ? ` · ${m[2]}` : ""}`;

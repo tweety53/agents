@@ -41,11 +41,11 @@ var Categories = []CategoryRow{
 	{ID: "visual-verifier", Label: "visual verifier", Key: regexp.MustCompile(`^visual-verify`)},
 	{ID: "verify-list", Label: "verify list", Key: regexp.MustCompile(`^verify`)},
 	{ID: "self-review-planner", Label: "self-review planner", Key: regexp.MustCompile(`^self-review-.+-plan$`)},
-	{ID: "self-review-reviewer", Label: "self-review reviewer", Key: regexp.MustCompile(`^self-review-.+-(pass|review-\d+)$`)},
-	{ID: "self-review-fixer", Label: "self-review fixer", Key: regexp.MustCompile(`^self-review-.+-fix(-g\d+|-v\d+|-\d+)?$`)},
+	{ID: "self-review-reviewer", Label: "self-review reviewer", Key: regexp.MustCompile(`^self-review-.+-(pass|review-r?\d+)$`)},
+	{ID: "self-review-fixer", Label: "self-review fixer", Key: regexp.MustCompile(`^self-review-.+-fix(-[gvr]?\d+)?$`)},
 	{ID: "pipeline-fix-planner", Label: "pipeline-fix planner", Key: regexp.MustCompile(`^pipeline-fix-\d+-plan(-\d+)?$`)},
-	{ID: "pipeline-fix-fixer", Label: "pipeline-fix fixer", Key: regexp.MustCompile(`^pipeline-fix-\d+-fix(-\d+)?$`)},
-	{ID: "pipeline-fix-reviewer", Label: "pipeline-fix reviewer", Key: regexp.MustCompile(`^pipeline-fix-\d+-review(-\d+)?$`)},
+	{ID: "pipeline-fix-fixer", Label: "pipeline-fix fixer", Key: regexp.MustCompile(`^pipeline-fix-\d+-fix(-[gvr]?\d+)?$`)},
+	{ID: "pipeline-fix-reviewer", Label: "pipeline-fix reviewer", Key: regexp.MustCompile(`^pipeline-fix-\d+-review(-r?\d+)?$`)},
 	{ID: "operator-request", Label: "operator request", Key: regexp.MustCompile(`^operator-\d+$`)},
 }
 
