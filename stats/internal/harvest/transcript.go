@@ -475,6 +475,9 @@ type AgentLaunch struct {
 	// row's with its task ids, so either form names the row the launch
 	// belongs to.
 	Key string
+	// ToolUseID is the launching Agent call's id: a dispatch naming no key
+	// is begun under "agent-<id>" (hooks/enforce-agent-baseline.py row_key).
+	ToolUseID string
 }
 
 // loopKeyPattern reads a fix-loop dispatch key off a launched prompt --
@@ -592,11 +595,25 @@ func ParseAgentLaunches(complete []byte) []AgentLaunch {
 					Line:      lineIndex,
 					LoopKey:   loopKey(raw.ToolUseResult.Prompt),
 					Key:       launchKey(raw.ToolUseResult.Description, raw.ToolUseResult.Prompt),
+					ToolUseID: toolResultID(raw),
 				})
 			}
 		}
 	}
 	return out
+}
+
+// toolResultID is the tool_use_id of raw's tool_result block, or "".
+func toolResultID(raw rawLine) string {
+	if raw.Message == nil {
+		return ""
+	}
+	for _, b := range contentBlocks(raw.Message.Content) {
+		if b.Type == "tool_result" {
+			return b.ToolUseID
+		}
+	}
+	return ""
 }
 
 // taskDescriptionRE matches a task launch's description, "Task 13/13 (...)"

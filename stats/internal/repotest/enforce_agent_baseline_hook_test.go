@@ -822,3 +822,57 @@ func TestEnforceAgentBaselineHookRoleCheckReadsItsOwnPolicy(t *testing.T) {
 		})
 	}
 }
+
+// TestEnforceAgentBaselineHookBeginsUnkeyedAgents pins request 211: a planner's explorer described
+// behind its `plan-<n>` prefix is begun under its own explore key beside the open planner row, and
+// an Explore or general agent with no Role line or no key is begun under agent-<tool_use_id>, never
+// denied for a missing pick.
+func TestEnforceAgentBaselineHookBeginsUnkeyedAgents(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	for _, c := range []struct {
+		name, typ, description, prompt, stage string
+		want                                  map[string]string // nil: no begin
+	}{
+		{"explorer behind the planner prefix", "Explore", "plan-1 design round — explore-2 survey", "Role: explorer\nsurvey", "",
+			map[string]string{"-key": "explore-2", "-role": "explorer", "-policy-role": "explorer"}},
+		{"role-less Explore", "Explore", "plan-1 — frontend tests", "look", "flow.implement",
+			map[string]string{"-key": "agent-tu1", "-role": "explorer", "-effort": "default"}},
+		{"role-less general", "general-purpose", "live check", "look", "flow.implement",
+			map[string]string{"-key": "agent-tu1", "-role": "general", "-policy-role": "general"}},
+		{"Role general", "flow-low", "live check", "Role: general\nlook", "flow.implement",
+			map[string]string{"-key": "agent-tu1", "-role": "general", "-effort": "low"}},
+		{"role-less in a loop worktree", "Explore", "look", "read MAIN-worktrees/pipeline-fix-c1-2/x", "", nil},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			main, _ := beginRepo(t)
+			env, log := beginEnv(t, `[{"key":"plan-1","outcome":""}]`)
+			if c.stage != "" {
+				if err := os.WriteFile(filepath.Join(filepath.Dir(log), "stage"), []byte(c.stage), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			payload := beginPayload(t, main, c.description, strings.ReplaceAll(c.prompt, "MAIN", main), c.typ, "opus", "")
+			payload = []byte(strings.Replace(string(payload), "{", `{"tool_use_id":"tu1",`, 1))
+			if denied, out := runBegin(t, payload, env...); denied {
+				t.Fatalf("denied: %s", out)
+			}
+			begins := flowCalls(t, log, "record dispatch begin")
+			if c.want == nil {
+				if len(begins) != 0 {
+					t.Errorf("begins = %q, want none", begins)
+				}
+				return
+			}
+			if len(begins) != 1 {
+				t.Fatalf("begins = %q, want one", begins)
+			}
+			for flag, v := range c.want {
+				if got := argAfter(strings.Fields(begins[0]), flag); got != v {
+					t.Errorf("%s = %q, want %q (%s)", flag, got, v, begins[0])
+				}
+			}
+		})
+	}
+}

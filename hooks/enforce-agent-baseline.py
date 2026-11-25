@@ -36,10 +36,11 @@ with no session token, an absent or failing `flow` CLI, or an unparseable answer
 through with no begin. Nothing is begun once the session's change is FINISHED in the store.
 
 A planning agent (PLANNING_AGENT_TYPES: Explore, Plan) is begun under its `explore-<n>` or
-`design-<n>` key only while the session's latest stage run is `flow.plan` and its prompt
-names the session change's worktree, <main-checkout>-worktrees/<change> (decisions
-planning-agents-hook-begun, planning-agent-begins-in-brainstorm); a loop planner's agents -- naming
-the loop's worktree, or the run's own outside `flow.plan` -- keep the planner's explicit begin.
+`design-<n>` key (row_key); one carrying a `Role:` line only while the session's latest stage run
+is `flow.plan` (decision planning-agent-begins-in-brainstorm), and none whose prompt names only
+another worktree of the main checkout: a loop planner's agents keep the planner's explicit begin.
+An `Explore` or general-purpose agent with no `Role:` line is begun as `explorer` or `general`.
+A planning or general agent naming no key is begun under `agent-<tool_use_id>`.
 
 It denies, in a flow session, a `flow-*` dispatch whose prompt has no `Role: <id>` line, whose id is
 not a role of `flow policy get`, or whose `<model>/<subagent_type>` pair is in neither the role's base
@@ -174,12 +175,19 @@ ROW_ROLE = {
     "panel-fix": "panel-fix", "minor-fix": "panel-fix", "no-progress-fixer": "panel-fix",
     "visual-verifier": "verifier", "runner": "verifier",
     "planner": "planner", "plan-designer": "planner", "designer": "planner",
-    "explorer": "explorer",
+    "explorer": "explorer", "general": "general",
 }
 
 
-# Every role a begun row maps takes the pair judge's pick.
-JUDGED_ROLES = set(ROW_ROLE)
+# Every role a begun row maps takes the pair judge's pick, save `general`.
+JUDGED_ROLES = set(ROW_ROLE) - {"general"}
+
+# The role of an agent type dispatched with no `Role:` line ("" is a call naming no type).
+UNROLED = {"Explore": "explorer", "general-purpose": "general", "claude": "general", "": "general"}
+
+# A planner's agent names its own row anywhere in its description, behind the planner's own
+# `plan-<n>` prefix: the harvester's planningAgentKeyRE (stats/internal/harvest/transcript.go).
+PLANNING_KEY = re.compile(r"(?<!\S)(?:explore|design)-\d+(?!\S)")
 
 
 def bound(seconds: float) -> "float | None":
@@ -239,6 +247,28 @@ def begin_key(tool_input: dict, prompt: str) -> "str | None":
     return words[0] if words and BEGIN_KEY.fullmatch(words[0]) else None
 
 
+def row_key(payload: dict, tool_input: dict, prompt: str, role_id: str) -> "str | None":
+    """begin_key, save for a planning or general agent: its Key line, else its explore-/design-
+    word, else `agent-<tool_use_id>` -- never a planner's `plan-<n>` prefix, the planner's own row.
+    The harvester and flow-guard end-dispatch-row derive the same key."""
+    planning = tool_input.get("subagent_type") in PLANNING_AGENT_TYPES
+    if not planning and role_id not in ("explorer", "general"):
+        return begin_key(tool_input, prompt)
+    line = KEY_LINE.search(prompt)
+    if line and AD_HOC_KEY.fullmatch(line.group(1)):
+        return line.group(1)
+    description = tool_input.get("description")
+    word = PLANNING_KEY.search(description) if isinstance(description, str) else None
+    if word:
+        return word.group(0)
+    if not planning:
+        key = begin_key(tool_input, prompt)
+        if key:
+            return key
+    use = payload.get("tool_use_id")
+    return f"agent-{use}" if isinstance(use, str) and use else None
+
+
 def names_worktree(prompt: str, worktree: str) -> bool:
     return re.search(re.escape(worktree) + r"(?:/|\s|$)", prompt) is not None
 
@@ -251,10 +281,10 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | str | Non
     if LOOP_KEY_LINE.search(prompt) or loop_word(tool_input):
         return None
     planning = tool_input.get("subagent_type") in PLANNING_AGENT_TYPES
-    key = begin_key(tool_input, prompt)
     role_line = ROLE_LINE.search(prompt)
-    role_id = role_line.group(1) if role_line else None
+    role_id = role_line.group(1) if role_line else UNROLED.get(str(tool_input.get("subagent_type") or ""))
     role = ROW_ROLE.get(role_id) if role_id else None
+    key = row_key(payload, tool_input, prompt, role_id) if role else None
     session_id, cwd = payload.get("session_id"), payload.get("cwd")
     if key is None or role is None or not isinstance(session_id, str) or not session_id or not isinstance(cwd, str):
         return None
@@ -271,7 +301,12 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | str | Non
         worktree = f"{main}-worktrees/{change}" if main else None
         if not token or not worktree:
             return None
-        if planning and not (stage == "flow.plan" and names_worktree(prompt, worktree)):
+        # A loop planner's agents -- naming another worktree, or Role-lined outside flow.plan -- keep
+        # the planner's explicit begin.
+        ours = names_worktree(prompt, worktree)
+        if (planning or not role_line) and not ours and f"{main}-worktrees/" in prompt:
+            return None
+        if planning and role_line and stage != "flow.plan":
             return None
         done = subprocess.run(
             ["flow", "record", "dispatches", "-change", change, "-C", cwd],
@@ -284,13 +319,10 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | str | Non
         return None
     if any(isinstance(r, dict) and not r.get("outcome") and r.get("key") == key for r in rows):
         return None
-    if planning:
-        effort = tool_input.get("effort")
-    else:
-        typed = FLOW_EFFORT.fullmatch(str(tool_input.get("subagent_type") or ""))
-        effort = typed.group(1) if typed else None
+    typed = FLOW_EFFORT.fullmatch(str(tool_input.get("subagent_type") or ""))
+    effort = typed.group(1) if typed else tool_input.get("effort") or "default"
     args = ["flow", "record", "dispatch", "begin", "-C", cwd, "-change", change, "-role", role,
-            "-model", str(tool_input.get("model") or ""), "-effort", str(effort or "")]
+            "-model", str(tool_input.get("model") or "unknown (agent-defined)"), "-effort", str(effort)]
     single = SINGLE_TASK_KEY.match(key)
     if single:
         args += ["-task", single.group(1)]
@@ -298,7 +330,7 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | str | Non
     pick = read_pick(os.path.join(worktree, ".superpowers", "sdd", "pair-judge", key + ".pick"))
     if pick:
         args += ["-pair-pick", pick]
-    elif role_id in JUDGED_ROLES and os.environ.get("FLOW_HOOK_ROLE_CHECK") != "off":
+    elif role_line and (ours or not planning) and role_id in JUDGED_ROLES and os.environ.get("FLOW_HOOK_ROLE_CHECK") != "off":
         return (f"Dispatch blocked: `{role_id}` dispatches take the pair judge's pick, and "
                 f"`.superpowers/sdd/pair-judge/{key}.pick` is not there.\n\n"
                 f"Write the dispatch's prompt to `{worktree}/.superpowers/sdd/pair-judge/{key}.md`, run\n"

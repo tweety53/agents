@@ -40,3 +40,13 @@ func TestLaunchKeyPrefersThePromptKeyLine(t *testing.T) {
 		}
 	}
 }
+
+// TestParseAgentLaunchesReadsTheToolUseID: the launch result's tool_use_id, which a keyless
+// dispatch's row is keyed by (request 211).
+func TestParseAgentLaunchesReadsTheToolUseID(t *testing.T) {
+	line := `{"type":"user","sessionId":"s1","timestamp":"2026-11-25T08:00:00Z","message":{"content":[{"type":"tool_result","tool_use_id":"tu1"}]},"toolUseResult":{"status":"async_launched","agentId":"a1","description":"live check"}}` + "\n"
+	got := ParseAgentLaunches([]byte(line))
+	if len(got) != 1 || got[0].ToolUseID != "tu1" {
+		t.Fatalf("launches = %+v, want ToolUseID tu1", got)
+	}
+}

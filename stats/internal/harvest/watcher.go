@@ -2320,7 +2320,17 @@ func (w *Watcher) stampKeyedLaunches(ctx context.Context, path string, launches 
 			rest = append(rest, launch)
 			continue
 		}
-		stamped, err := w.deps.StampSessionDispatchAgent(ctx, launch.SessionID, launch.Key, launch.AgentID)
+		var stamped bool
+		var err error
+		if launch.ToolUseID != "" {
+			// A keyless dispatch's row first: its description may open with another row's key.
+			stamped, err = w.deps.StampSessionDispatchAgent(ctx, launch.SessionID, "agent-"+launch.ToolUseID, launch.AgentID)
+			if err == nil && stamped {
+				w.creditStampedAgentFile(ctx, path, launch.AgentID)
+				continue
+			}
+		}
+		stamped, err = w.deps.StampSessionDispatchAgent(ctx, launch.SessionID, launch.Key, launch.AgentID)
 		if err != nil {
 			w.warn("harvest: stamp session dispatch agent failed, the launch pairs by time",
 				"path", path, "key", launch.Key, "agent_id", launch.AgentID, "error", err)

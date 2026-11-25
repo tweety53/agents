@@ -189,3 +189,41 @@ func jsonString(s string) string {
 	b, _ := json.Marshal(s)
 	return string(b)
 }
+
+// TestEndDispatchRowEndsAKeylessAgentsRow: a transcript with no Key: line is ended under the key
+// the begin hook derived from its meta sidecar (request 211).
+func TestEndDispatchRowEndsAKeylessAgentsRow(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"stageRuns":[{"changeName":"c1","sessionToken":"mf-t1"}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	for name, c := range map[string]struct{ description, want string }{
+		"explore word": {"plan-1 round — explore-2 survey", "-key explore-2 "},
+		"tool use id":  {"live check", "-key agent-tu1 "},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			tmp := t.TempDir()
+			log := filepath.Join(tmp, "flow.log")
+			writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >>"+log+"\n")
+			tr := filepath.Join(tmp, "agent-a1.jsonl")
+			writeFile(t, tr, `{"type":"user","message":{"content":"look"}}`+"\n")
+			writeFile(t, filepath.Join(tmp, "agent-a1.meta.json"), `{"description":`+jsonString(c.description)+`,"toolUseId":"tu1"}`)
+			env := Env{Getenv: func(k string) string {
+				switch k {
+				case "FLOW_ADDR":
+					return srv.URL
+				case "PATH":
+					return filepath.Join(tmp, "bin") + ":" + os.Getenv("PATH")
+				}
+				return os.Getenv(k)
+			}, Dir: tmp}
+			var o, e bytes.Buffer
+			endDispatchRow([]string{tr, "s1", tmp, "done"}, env, &o, &e)
+			if got, _ := os.ReadFile(log); !strings.Contains(string(got), c.want) {
+				t.Errorf("flow called with %q, want %q (out %s)", got, c.want, o.String())
+			}
+		})
+	}
+}

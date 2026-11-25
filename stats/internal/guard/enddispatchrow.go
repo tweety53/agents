@@ -20,7 +20,8 @@ import (
 // it on every SubagentStop it lets through, so the parent ends no row of its
 // own (the begin is hooks/enforce-agent-baseline.py's).
 //
-// The row is the one the transcript's first prompt names on its `Key:` line,
+// The row is the one the transcript's first prompt names on its `Key:` line
+// (else edrMetaKey's),
 // under the session's change and token: the session's latest open stage run,
 // else its latest, of a change that is no loop's own (as the begin hook
 // reads them). A loop key (`pipeline-fix-…`, `self-review-…`) and a verifier
@@ -67,11 +68,12 @@ func endDispatchRow(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) == 4 && strings.TrimSpace(args[3]) != "" {
 		final = args[3]
 	}
-	m := edrKey.FindStringSubmatch(prompt)
-	if m == nil {
+	var key string
+	if m := edrKey.FindStringSubmatch(prompt); m != nil {
+		key = m[1]
+	} else if key = edrMetaKey(args[0]); key == "" {
 		return na("no Key: line")
 	}
-	key := m[1]
 	for _, p := range []string{"pipeline-fix-", "self-review-", "visual-verify"} {
 		if strings.HasPrefix(key, p) {
 			return na(key + " is ended by its own loop or guard")
@@ -94,6 +96,29 @@ func endDispatchRow(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "END-DISPATCH-ROW-OK %s %s\n", key, outcome)
 	return 0
+}
+
+var edrPlanningKey = regexp.MustCompile(`(?:^|\s)((?:explore|design)-\d+)(?:\s|$)`)
+
+// edrMetaKey is the key hooks/enforce-agent-baseline.py row_key gave an agent
+// whose prompt has no Key: line, off its meta sidecar: the description's
+// explore-/design- word, else agent-<toolUseId>. "" without a sidecar.
+func edrMetaKey(transcript string) string {
+	b, err := os.ReadFile(strings.TrimSuffix(transcript, ".jsonl") + ".meta.json")
+	var meta struct {
+		Description string `json:"description"`
+		ToolUseID   string `json:"toolUseId"`
+	}
+	if err != nil || json.Unmarshal(b, &meta) != nil {
+		return ""
+	}
+	if m := edrPlanningKey.FindStringSubmatch(meta.Description); m != nil {
+		return m[1]
+	}
+	if meta.ToolUseID == "" {
+		return ""
+	}
+	return "agent-" + meta.ToolUseID
 }
 
 func edrOutcome(key, final string) string {
