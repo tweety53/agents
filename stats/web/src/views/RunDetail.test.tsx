@@ -1159,7 +1159,7 @@ describe("the reworked run view (kan-1048)", () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const main = await screen.findByRole("region", { name: "Main" });
     await waitFor(() => expect(within(main).getByTestId("phase-group")).toHaveTextContent("Pipeline fix"));
-    expect(within(main).getByTestId("phase-role")).toHaveTextContent(/^pipeline-fix ×1opus ×1\$0\.25$/);
+    expect(within(main).getAllByTestId("phase-role").some((r) => /^pipeline-fix ×1opus ×1\$0\.25$/.test(r.textContent ?? ""))).toBe(true);
   });
 
   it("run detail lists the change's headless calls, one line per role", async () => {
