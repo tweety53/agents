@@ -189,7 +189,7 @@ to read the absolute path of
 `visual-verify-verifier.md` beside this file and run its steps 4 and 8–11 and its motion step as written against the stack step 5 left serving the
 worktree's build, starting, stopping and restarting nothing, committing and pushing nothing. The parent's prompt carries the bundle's path and
 the lines no script can resolve: the views touched; the change's motions, named as the paragraph below states; and the
-`moved:` frames and, in a scoped fix round, the `defects:` frames — every frame this round's defects name — when the fix procedure (`skills/flow/fix.md`) names them. The parent passes the same `defects:` frames to `prepare` as `--defects`, beside `--round-base`.
+`moved:` frames and, in a scoped fix round, the `defects:` frames — every frame this round's defects name — when the fix procedure (`skills/flow/fix.md`) names them. The parent passes the same `defects:` frames to `prepare` as `--defects`, beside `--round-base`. With `--defects`, `prepare`'s preflight renders and reach-checks only the sidecars holding those frames.
 
 **`prepare` names the mockup sources in the bundle** — `mockup sources:`, then every HTML or CSS
 path `design.md` cites that exists in the tree, or `mockup sources: none` — and decodes a bundled

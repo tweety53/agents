@@ -852,6 +852,13 @@ func TestVisualVerifyPassPrepareChecksOnlyCapturedSidecars(t *testing.T) {
 			t.Fatalf("exit %d\n%s", rc, out)
 		}
 	})
+	t.Run("a scoped pass with defects checks only the sidecars holding them", func(t *testing.T) {
+		t.Parallel()
+		f := setup(t, "")
+		if rc, out, _ := f.prepare("--round-base", f.wt+"="+f.mb, "--defects", f.wt+"=f1"); rc != 0 || strings.Contains(out, "STOP:") {
+			t.Fatalf("exit %d\n%s", rc, out)
+		}
+	})
 	t.Run("no specs row checks the whole root", func(t *testing.T) {
 		t.Parallel()
 		if rc, out, _ := setup(t, "").prepare(); rc != 1 || !strings.Contains(out, "check-sidecar-reach") || !strings.Contains(out, "foreign") {

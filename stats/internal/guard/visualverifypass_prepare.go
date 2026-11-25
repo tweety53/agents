@@ -320,6 +320,19 @@ func (v *vvp) preflight(survivors []string) {
 				}
 			}
 			files := v.frameFiles(targets)
+			if d := v.defects[w]; len(v.roundBase) > 0 && len(d) > 0 {
+				// A scoped pass renders and reach-checks only the sidecars holding its defect frames.
+				files, targets = nil, nil
+				for _, p := range v.frameFiles([]string{root}) {
+					body, _ := os.ReadFile(p)
+					for _, f := range mockupsLines(body) {
+						if slices.Contains(d, f[1]) {
+							files, targets = append(files, p), append(targets, p)
+							break
+						}
+					}
+				}
+			}
 			for _, p := range files {
 				if strings.HasSuffix(p, ".mockups") {
 					sidecars = append(sidecars, p)
@@ -330,7 +343,7 @@ func (v *vvp) preflight(survivors []string) {
 					specs = append(specs, strings.TrimSuffix(sc, ".mockups"))
 				}
 			}
-			if v.cells(w)["design repo"] != "" {
+			if v.cells(w)["design repo"] != "" && len(files) > 0 {
 				if rc, out, errs := v.guard("render-frames", nil, append([]string{w}, files...)...); rc != 0 {
 					collect("render-frames", out, errs)
 				}
