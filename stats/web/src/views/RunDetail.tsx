@@ -144,14 +144,15 @@ function phaseSteps(runs: StageRunDTO[], dispatches: RecordDispatch[]): Step[] {
 type PhaseStatus = "running" | "done" | "idle";
 const PHASE_STATUS_LABEL: Record<PhaseStatus, string> = { running: "running", done: "done", idle: "not started" };
 
-/** Each priced dispatch's own cost, keyed by agent id, from its stage run's `dispatches.<agentId>.cost_usd` (KAN-212). */
+/** Each priced dispatch's own cost, keyed by agent id: the sum of its stage runs' `dispatches.<agentId>.cost_usd` (KAN-212). */
 function dispatchCosts(runs: StageRunDTO[]): Map<string, number> {
   const out = new Map<string, number>();
   for (const r of runs) {
     const buckets = asObject(asObject(r.metrics)?.dispatches);
     for (const [id, b] of Object.entries(buckets ?? {})) {
       const c = readCostUsd(b);
-      if (c !== null) out.set(id, c);
+      // An agent that spans stage runs has a bucket in each: its cost is their sum.
+      if (c !== null) out.set(id, (out.get(id) ?? 0) + c);
     }
   }
   return out;

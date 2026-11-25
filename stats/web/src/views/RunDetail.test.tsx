@@ -1473,6 +1473,18 @@ describe("interactive run view", () => {
     await waitFor(() => expect(main.querySelector(".lb-phase-cost")).toHaveTextContent("$0.80"));
   });
 
+  it("interactive run view prices an agent across every stage run it spans", async () => {
+    const bucket = (c: number) => ({ cost_usd: 1, dispatches: { "agent-1": { cost_usd: c } } });
+    load([{ ...run(7, "flow.implement", 7, 4, 3), metrics: bucket(0.3) }, { ...run(8, "flow.verify", 7, 3), metrics: bucket(0.2) }]);
+    runRecordMock.mockResolvedValue({
+      dispatches: [{ id: 1, agentId: "agent-1", role: "operator-asked", key: "operator-7", model: "opus", effort: "low", startedAt: at(4), outcome: undefined }],
+    });
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = await screen.findByRole("region", { name: "Main" });
+    await waitFor(() => expect(within(main).getAllByTestId("phase-role").find((r) => r.textContent!.startsWith("operator-asked"))).toHaveTextContent("$0.50"));
+    expect(within(main).getAllByTestId("phase-role").find((r) => r.textContent!.startsWith("main session"))).toHaveTextContent("$1.50");
+  });
+
   it("interactive run view reads a session between requests as waiting for the next one", async () => {
     const idle = {
       ...board, currentStage: undefined, currentStageStartedAt: undefined, lastStage: "flow.visual-verify", lastStageEndedAt: at(11), sessionSeenAt: at(0),
