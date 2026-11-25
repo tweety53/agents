@@ -1,7 +1,6 @@
 package api_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -63,17 +62,6 @@ func (f *fakeStore) ReviewConfidenceEstimate(_ context.Context, projectKey strin
 	for i, e := range f.confidence {
 		if e.Project == projectKey && e.ID == id {
 			f.confidence[i].ReviewStatus, f.confidence[i].Reason = status, reason
-			return nil
-		}
-	}
-	return store.ErrConfidenceEstimateNotFound
-}
-
-func (f *fakeStore) SetConfidenceAfter(_ context.Context, projectKey, change, task string, score int, gaps []string) error {
-	for i := len(f.confidence) - 1; i >= 0; i-- {
-		if e := f.confidence[i]; e.Project == projectKey && e.Change == change && e.Task == task {
-			f.confidence[i].ScoreAfter = &score
-			f.confidence[i].GapsAfter = gaps
 			return nil
 		}
 	}
@@ -159,32 +147,4 @@ func TestConfidenceRoutes(t *testing.T) {
 func containsRowsEmpty(body string) bool {
 	var p struct{ Rows []json.RawMessage }
 	return json.Unmarshal([]byte(body), &p) == nil && p.Rows != nil && len(p.Rows) == 0
-}
-
-// TestConfidenceAfterRoute: PATCH after sets the estimate on the task's row (204) and answers 404 for a task
-// that filed none.
-func TestConfidenceAfterRoute(t *testing.T) {
-	t.Parallel()
-	fs := &fakeStore{}
-	ts := newTestServer(t, fs)
-	post := ts.URL + "/api/v1/confidence/proj/kan-1"
-	if resp, raw := postJSON(t, post, map[string]any{"stage": "implement", "task": "2", "score": 70, "gaps": []string{"g"}, "tags": []string{"x"}}); resp.StatusCode != http.StatusCreated {
-		t.Fatalf("POST = %d (%s)", resp.StatusCode, raw)
-	}
-	patch := func(task string) int {
-		b, _ := json.Marshal(map[string]any{"task": task, "score": 95, "gaps": []string{"g"}})
-		req, _ := http.NewRequest(http.MethodPatch, post+"/after", bytes.NewReader(b))
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		resp.Body.Close()
-		return resp.StatusCode
-	}
-	if c := patch("2"); c != http.StatusNoContent || fs.confidence[0].ScoreAfter == nil || *fs.confidence[0].ScoreAfter != 95 {
-		t.Errorf("PATCH after = %d, row %+v", c, fs.confidence[0])
-	}
-	if c := patch("7"); c != http.StatusNotFound {
-		t.Errorf("PATCH after for a task with no estimate = %d, want 404", c)
-	}
 }

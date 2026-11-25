@@ -103,23 +103,18 @@ func TestConfidenceTagsPrintsCountAndTag(t *testing.T) {
 	}
 }
 
-// TestConfidenceAfterPatchesTheTask: -task and -score reach the change's after route; a task that filed no
-// estimate (404) is exit 2.
-func TestConfidenceAfterPatchesTheTask(t *testing.T) {
+// TestConfidenceAfterIsGone: an implement estimate is one score filed by "record" once the tests are green;
+// "after" is an unknown command, exit 2, and sends nothing.
+func TestConfidenceAfterIsGone(t *testing.T) {
 	t.Parallel()
 	repo := gitRepo(t)
-	var gotPath, gotBody string
-	code, _, stderr := confidenceRun(t, func(w http.ResponseWriter, r *http.Request) {
-		gotPath = r.Method + " " + r.URL.Path
-		b, _ := io.ReadAll(r.Body)
-		gotBody = string(b)
+	sent := false
+	code, _, stderr := confidenceRun(t, func(w http.ResponseWriter, _ *http.Request) {
+		sent = true
 		w.WriteHeader(http.StatusNoContent)
-	}, "after", "-C", repo, "-change", "kan-1", "-task", "9+12", "-score", "95", "-gap", "fold toast unread")
-	if code != 0 || !strings.HasPrefix(gotPath, "PATCH /api/v1/confidence/") || !strings.HasSuffix(gotPath, "/kan-1/after") || !strings.Contains(gotBody, `"task":"9+12"`) || !strings.Contains(gotBody, `"score":95`) || !strings.Contains(gotBody, `"gaps":["fold toast unread"]`) {
-		t.Fatalf("exit %d, request %s %s, stderr %s", code, gotPath, gotBody, stderr)
-	}
-	if code, _, _ := confidenceRun(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) }, "after", "-C", repo, "-change", "kan-1", "-task", "3", "-score", "95", "-gap", "g"); code != 2 {
-		t.Errorf("a task with no estimate: exit %d, want 2", code)
+	}, "after", "-C", repo, "-change", "kan-1", "-task", "9+12", "-score", "95", "-gap", "g")
+	if code != 2 || sent || !strings.Contains(stderr, "unknown confidence command") || strings.Contains(stderr, "confidence after") {
+		t.Fatalf("exit %d, sent %v, stderr %s", code, sent, stderr)
 	}
 }
 

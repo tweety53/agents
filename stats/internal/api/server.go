@@ -423,7 +423,6 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 		mux.HandleFunc("GET /api/v1/confidence/{project}/{change}", ch.forChange)
 		mux.HandleFunc("GET /api/v1/confidence-tags", ch.tags)
 		mux.HandleFunc("PATCH /api/v1/confidence/{project}/estimates/{id}/review", ch.review)
-		mux.HandleFunc("PATCH /api/v1/confidence/{project}/{change}/after", ch.after)
 		mux.Handle("GET /api/v1/stats/confidence-estimates", http.TimeoutHandler(http.HandlerFunc(ch.page), so.statsTimeout, statsTimeoutMessage))
 	}
 	mux.HandleFunc("GET /api/v1/projects", ph.projects)

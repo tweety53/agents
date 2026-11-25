@@ -43,7 +43,7 @@ func TestConfidenceEstimatesRoundTrip(t *testing.T) {
 
 	plan := records.ConfidenceEstimate{Change: "kan-1", Stage: "plan", Score: 78, Disposition: "later",
 		Gaps: []string{"F9 — closes with: plan — no task checks the flag", "F10 — closes with: operator — column order"}, Tags: []string{shared}}
-	impl := records.ConfidenceEstimate{Change: "kan-1", Stage: "implement", Task: "2+3", Score: 90, ReviewStatus: "approved", Reason: "sent by the caller",
+	impl := records.ConfidenceEstimate{Change: "kan-1", Stage: "implement", Task: "2+3", Score: 85, ReviewStatus: "approved", Reason: "sent by the caller",
 		Gaps: []string{"the fixture the test needs does not exist"}, Tags: []string{shared, only}}
 	for _, e := range []records.ConfidenceEstimate{plan, impl} {
 		got, err := st.RecordConfidenceEstimate(ctx, projectKey, e)
@@ -59,7 +59,7 @@ func TestConfidenceEstimatesRoundTrip(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("to-review: %d rows, want 2: %+v", len(rows), rows)
 	}
-	if g := rows[0]; g.Stage != "implement" || g.Task != "2+3" || g.Score != 90 || g.Disposition != "" || g.ReviewStatus != "to-review" || g.Reason != "" ||
+	if g := rows[0]; g.Stage != "implement" || g.Task != "2+3" || g.Score != 85 || g.Disposition != "" || g.ReviewStatus != "to-review" || g.Reason != "" ||
 		!slices.Equal(g.Gaps, impl.Gaps) || !slices.Equal(g.Tags, impl.Tags) {
 		t.Errorf("newest row = %+v, want the implement row, to-review", g)
 	}
@@ -214,39 +214,29 @@ func TestConfidenceHundredIsKeptOutsideTheReviewList(t *testing.T) {
 	}
 }
 
-// TestSetConfidenceAfter: the estimate held after the tests lands on the task's latest row and is read back
-// with the change's rows; a task that filed none is not found; a score outside 1-100 is refused.
-func TestSetConfidenceAfter(t *testing.T) {
+// TestConfidenceToReviewHoldsOnlyLowImplementEstimates: an implement estimate reaches To review, list and count,
+// only below 90%; one at 90-99 is stored and read back for its change; a plan estimate below 100% still reaches it.
+func TestConfidenceToReviewHoldsOnlyLowImplementEstimates(t *testing.T) {
 	t.Parallel()
 	st, _, projectKey := newHazardStore(t)
 	ctx := context.Background()
-	for _, score := range []int{70, 60} {
-		if _, err := st.RecordConfidenceEstimate(ctx, projectKey, records.ConfidenceEstimate{Change: "kan-after", Stage: "implement", Task: "9+12", Score: score, Gaps: []string{"g"}, Tags: []string{"after-" + projectKey}}); err != nil {
+	for _, e := range []records.ConfidenceEstimate{
+		{Change: "kan-90", Stage: "implement", Task: "1", Score: 92, Gaps: []string{"g"}, Tags: []string{"t"}},
+		{Change: "kan-90", Stage: "implement", Task: "2", Score: 89, Gaps: []string{"g"}, Tags: []string{"t"}},
+		{Change: "kan-90", Stage: "plan", Score: 95, Disposition: "later", Gaps: []string{"g"}, Tags: []string{"t"}},
+	} {
+		if _, err := st.RecordConfidenceEstimate(ctx, projectKey, e); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "9+12", 95, []string{"fold toast unread"}); err != nil {
-		t.Fatal(err)
+	var got []int
+	for _, r := range pageOf(t, st, "to-review", projectKey) {
+		got = append(got, r.Score)
 	}
-	got, err := st.ConfidenceEstimatesForChange(ctx, projectKey, "kan-after")
-	if err != nil || len(got) != 2 || got[0].ScoreAfter != nil || got[1].ScoreAfter == nil || *got[1].ScoreAfter != 95 || len(got[1].GapsAfter) != 1 {
-		t.Fatalf("rows %+v (%v), want only the latest to carry 95", got, err)
+	if !slices.Equal(got, []int{95, 89}) {
+		t.Errorf("to-review scores %v, want the plan 95 and the implement 89 only", got)
 	}
-	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "3", 90, []string{"g"}); !errors.Is(err, store.ErrConfidenceEstimateNotFound) {
-		t.Errorf("a task with no estimate: %v", err)
-	}
-	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "9+12", 101, nil); !errors.Is(err, store.ErrConfidenceEstimateInvalid) {
-		t.Errorf("score 101: %v", err)
-	}
-	for _, c := range []struct {
-		score int
-		gaps  []string
-	}{{90, nil}, {90, []string{" "}}, {100, []string{"g"}}} {
-		if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "9+12", c.score, c.gaps); !errors.Is(err, store.ErrConfidenceEstimateInvalid) {
-			t.Errorf("score %d gaps %q: %v, want invalid", c.score, c.gaps, err)
-		}
-	}
-	if err := st.SetConfidenceAfter(ctx, projectKey, "kan-after", "9+12", 100, nil); err != nil {
-		t.Errorf("100 with no gap: %v", err)
+	if rows, err := st.ConfidenceEstimatesForChange(ctx, projectKey, "kan-90"); err != nil || len(rows) != 3 || rows[0].Score != 92 {
+		t.Errorf("for change: %+v %v, want all three rows, the 92 first", rows, err)
 	}
 }

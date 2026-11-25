@@ -32,12 +32,13 @@ this file in full first: its prompt is a stub naming this file, never these para
 > wrote and undid before committing is never what its subject or body describes (**Revert and
 > back-out commits**, `skills/flow-contracts/git-boundaries.md`).
 
-> **CONFIDENCE FIRST:** An implementer's first act after reading its tasks and every file they
-> will edit or whose call sites they alter — the named ones and the ones the change reaches — before its first edit, is one estimate, filed and never acted on. Answer for the tasks of
-> this dispatch: how confident are you, 1–100%, that you execute them as the plan writes them, and
-> what would move you to 100% — one gap per thing, each naming what would close it. Then run
-> `flow confidence tags`, reuse a printed tag only when it names the same kind of gap — a near fit hides two unrelated gaps under one name — and write a new lowercase
-> kebab-case tag only when none does (a tag names the kind of gap, never the change), and file it:
+> **CONFIDENCE ONCE GREEN:** Once your tasks' tests are green, before your commit, an implementer
+> files one estimate, never acted on. Answer for the tasks of this dispatch: how confident are you,
+> 1–100%, that you executed them as the plan writes them, and what would move you to 100% — one gap
+> per thing still open, each naming what would close it. Then run `flow confidence tags`, reuse a
+> printed tag only when it names the same kind of gap — a near fit hides two unrelated gaps under one
+> name — and write a new lowercase kebab-case tag only when none does (a tag names the kind of gap,
+> never the change), and file it:
 >
 > ```bash
 > flow confidence record -C <abs-worktree> -change <name> -stage implement -task '<the ids of your Key, e.g. 2+3>' \
@@ -45,32 +46,28 @@ this file in full first: its prompt is a stub naming this file, never these para
 > ```
 >
 > `<name>` is the last path element of your `Plan:` line's change directory. At 100% pass `-score
-> 100` with the first three flags and no `-gap` or `-tag`: it is kept as a plain 100%, outside the review list. **Then continue, whatever the number**
-> — a low estimate is never a question, never a `BLOCKED` and never a reason to change the plan;
-> a gap that is a question only the operator can settle still goes through **REPORT, DON'T
-> DECIDE**, as it would unestimated. A warning or a non-zero exit of either command is noted in
-> your REPORT FILE and does not stop you. **A gap that reading code settles is settled by reading it —
-> "unread" is never a gap (KAN-1156: "sync replay sites unread until edited").** **A gap a command inside your tasks can settle is settled by
-> running it** — a test, a query against real data, a build — and is never left to stand as a gap
-> because the run has not happened yet (KAN-1156: "native SQL is unverified until the integration
-> test runs"). **Once your tests are green, file what you now hold**, at 100% too:
-> `flow confidence after -C <abs-worktree> -change <name> -task '<the ids of your Key>' -score <n> [-gap '<one gap still open, in full>' …]`;
-> the first estimate stays as filed, and the pair shows beside your group. **Before filing it, take
-> each gap of the first estimate in turn and close it:** read the file or run the command that
-> settles it, and name that file or command in your REPORT FILE. A scenario no test covers is closed
-> by writing the test inside your task. **A gap is never one of these, whatever the number:** existing
-> code that contradicts a recorded decision or the plan (the plan's decision is applied, or the task
-> reports BLOCKED — **REPORT, DON'T DECIDE**; "kept existing" is a silent decision, KAN-1157), a test
-> you wrote and have not run (run it; if it cannot run here the task is `BLOCKED` naming the command and
-> why, never `DONE`), and a seam you left inert — a default no-op, a stub or a placeholder that nothing
-> in your tasks replaces (wire the real one inside your task, or carry it as a question in your REPORT
-> FILE for the plan), a guard, gate, branch or condition you added that no test fails without
-> (write the test, delete the guard, watch it fail, restore it — KAN-1157: a write-access gate with no
-> such test), and work a later task of the plan names — a capture run, a wiring step — which your
-> REPORT FILE carries as `owned by Task <n>` and your estimate leaves out. Below 100, `-gap` is required, once per gap still open, and a
-> gap there is one no command or file read in your tasks could settle, the REPORT FILE saying why; at
-> 100 pass none. Skip it only when you
-> filed no estimate. A fixer skips this paragraph.
+> 100` with the first three flags and no `-gap` or `-tag`: it is kept as a plain 100%. An estimate
+> below 90% reaches the operator's review list; one of 90% or more is stored and shown beside your
+> group only. **Whatever the number, continue** — a low estimate is never a question, never a `BLOCKED`
+> and never a reason to change the plan; a gap that is a question only the operator can settle still
+> goes through **REPORT, DON'T DECIDE**, as it would unestimated. A warning or a non-zero exit of
+> either command is noted in your REPORT FILE and does not stop you. **A gap that reading code settles
+> is settled by reading it — "unread" is never a gap (KAN-1156: "sync replay sites unread until
+> edited").** **A gap a command inside your tasks can settle is settled by running it** — a test, a
+> query against real data, a build — and is never left to stand as a gap (KAN-1156: "native SQL is
+> unverified until the integration test runs"); name that file or command in your REPORT FILE. A
+> scenario no test covers is closed by writing the test inside your task. **A gap is never one of
+> these, whatever the number:** existing code that contradicts a recorded decision or the plan (the
+> plan's decision is applied, or the task reports BLOCKED — **REPORT, DON'T DECIDE**; "kept existing"
+> is a silent decision, KAN-1157), a test you wrote and have not run (run it; if it cannot run here the
+> task is `BLOCKED` naming the command and why, never `DONE`), and a seam you left inert — a default
+> no-op, a stub or a placeholder that nothing in your tasks replaces (wire the real one inside your
+> task, or carry it as a question in your REPORT FILE for the plan), a guard, gate, branch or
+> condition you added that no test fails without (write the test, delete the guard, watch it fail,
+> restore it — KAN-1157: a write-access gate with no such test), and work a later task of the plan
+> names — a capture run, a wiring step — which your REPORT FILE carries as `owned by Task <n>` and your
+> estimate leaves out. Below 100, a gap there is one no command or file read in your tasks could
+> settle, the REPORT FILE saying why. A fixer skips this paragraph.
 
 > **REQUIRED SUB-SKILL:** Read and follow superpowers:test-driven-development from its file — on
 > Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/test-driven-development/SKILL.md`
@@ -222,7 +219,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > report: <this report file's absolute path>
 > ```
 >
-> `status:` and `report:` appear once, and so does `confidence:` — the CONFIDENCE FIRST estimate you made, `filed` after your `flow confidence record` call, at 100% too (a fixer omits it); a head without it says the estimate was skipped (KAN-1156: three implementers ran no `flow confidence` call at all); every other line once per item — a `commit:` per
+> `status:` and `report:` appear once, and so does `confidence:` — the CONFIDENCE ONCE GREEN estimate you made, `filed` after your `flow confidence record` call, at 100% too (a fixer omits it); a head without it says the estimate was skipped (KAN-1156: three implementers ran no `flow confidence` call at all); every other line once per item — a `commit:` per
 > task, its sha a `<worktree>=<sha>[,<worktree>=<sha>…]` map on a change spanning repositories, a
 > `fixed:` or `not-fixed:` per finding a FIX INPUT names — and not at all when there is none.
 

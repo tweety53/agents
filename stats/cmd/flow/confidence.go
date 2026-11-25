@@ -20,15 +20,6 @@ Run it before "flow confidence record": reuse a printed tag only when it names
 the same kind of gap, and write a new lowercase kebab-case tag otherwise. Exit 1
 when the store cannot answer.
 
-usage: flow confidence after [-addr url] [-timeout dur] [-C dir]
-                             -change <name> -task <ids> -score <1-100>
-                             [-gap <text>…]
-
-Sets the estimate held once the task's tests are green on the latest estimate
-that task (the dispatch's ids, "2+3") filed. Below 100 each -gap is one thing still
-open, in full (at least one, naming what would close it); at 100 pass none. Exit 2 when
-the task filed none or the gaps break that rule.
-
 usage: flow confidence record [-addr url] [-timeout dur] [-C dir]
                               -change <name> -stage <plan|implement> -score <1-100>
                               -gap <text> [-gap <text>…] -tag <tag> [-tag <tag>…]
@@ -88,39 +79,6 @@ func runConfidence(ctx context.Context, args []string, getenv func(string) strin
 			fmt.Fprintf(stdout, "%d %s\n", t.Count, t.Tag)
 		}
 		return 0
-	case "after":
-		var task string
-		var score int
-		var gaps []string
-		fset.StringVar(&f.change, "change", "", "the change the estimate belongs to (required)")
-		fset.StringVar(&task, "task", "", "the dispatch's task ids (required)")
-		fset.IntVar(&score, "score", 0, "the estimate once the tests are green, 1-100 (required)")
-		fset.Func("gap", "one thing still open below 100%, in full (repeatable)", func(v string) error {
-			gaps = append(gaps, v)
-			return nil
-		})
-		projectKey, _, code := parseSelfReviewFlags(fset, &f, args[1:], getenv, stderr)
-		if code >= 0 {
-			return code
-		}
-		projectKey = changeProject(ctx, f.addr, f.timeout, f.change, projectKey)
-		if task == "" {
-			fmt.Fprintln(stderr, "flow: confidence after needs -task")
-			return 2
-		}
-		_, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (struct{}, error) {
-			return struct{}{}, cl.ConfidenceAfter(ctx, projectKey, f.change, task, score, gaps)
-		})
-		switch {
-		case err == nil:
-			return 0
-		case errors.Is(err, client.ErrRecordRejected), errors.Is(err, client.ErrNotFound):
-			fmt.Fprintf(stderr, "flow: confidence after refused: %v\n", err)
-			return 2
-		default:
-			fmt.Fprintf(stderr, "⚠ flow: confidence after not recorded — the store could not take it: %v\n", err)
-			return 0
-		}
 	case "record":
 		var in records.ConfidenceEstimate
 		fset.StringVar(&f.change, "change", "", "the change the estimate belongs to (required)")

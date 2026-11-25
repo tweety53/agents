@@ -1036,10 +1036,6 @@ export interface ConfidenceRow {
   stage: "plan" | "implement";
   task?: string;
   score: number;
-  /** The estimate once the group's tests were green; absent until set. */
-  scoreAfter?: number;
-  /** The gaps still open at scoreAfter. */
-  gapsAfter?: string[];
   gaps: string[];
   tags: string[];
   disposition?: "raised" | "later";

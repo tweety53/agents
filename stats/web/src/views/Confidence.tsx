@@ -14,7 +14,7 @@ const SHOWS: { key: ConfidenceStatus; label: string }[] = [
 ];
 const PAGE = 25;
 
-const title = (r: ConfidenceRow) => `${r.scoreAfter ? `${r.score}% → ${r.scoreAfter}%` : `${r.score}%`} · ${r.change}`;
+const title = (r: ConfidenceRow) => `${r.score}% · ${r.change}`;
 
 const runs = (g: string) => /\[advisory\]|closes with: running it/.test(g);
 /** A plan-check gap line closes by running (advisory, or a running-it finding); every other line needs a decision. */
@@ -29,7 +29,7 @@ const groups = (gaps: string[]) => {
 
 /** The estimate, whole, for pasting to an agent: nothing here is readable by a store verb, so the text carries it. */
 const agentText = (r: ConfidenceRow) =>
-  `Confidence estimate ${r.project}/${r.change} (${r.stage}${r.task ? ` task ${r.task}` : ""}): ${r.score}%${r.scoreAfter ? `, ${r.scoreAfter}% once its tests were green` : ""}.\nWhat would move it to 100%:\n${groups(r.gaps).map(([h, l]) => `${h}:\n${l.map((g) => `- ${g}`).join("\n")}`).join("\n")}${r.gapsAfter?.length ? `\nStill open once its tests were green:\n${r.gapsAfter.map((g) => `- ${g}`).join("\n")}` : ""}\nTags: ${r.tags.join(", ")}\n\nAnalyze what can be done and where, and say what generic fix would prevent this kind of gap in any future task — a fix specific to this task is useless.`;
+  `Confidence estimate ${r.project}/${r.change} (${r.stage}${r.task ? ` task ${r.task}` : ""}): ${r.score}%.\nWhat would move it to 100%:\n${groups(r.gaps).map(([h, l]) => `${h}:\n${l.map((g) => `- ${g}`).join("\n")}`).join("\n")}\nTags: ${r.tags.join(", ")}\n\nAnalyze what can be done and where, and say what generic fix would prevent this kind of gap in any future task — a fix specific to this task is useless.`;
 
 function Meta({ row }: { row: ConfidenceRow }) {
   return (
@@ -160,16 +160,6 @@ export function Confidence() {
                     </ul>
                   </section>
                 ))}
-                {sel.gapsAfter && sel.gapsAfter.length > 0 && (
-                  <>
-                    <h4 className="sr-h">Still open once its tests were green</h4>
-                    <ul className="sr-list">
-                      {sel.gapsAfter.map((g, i) => (
-                        <li key={i}>{g}</li>
-                      ))}
-                    </ul>
-                  </>
-                )}
                 {show === "to-review" ? (
                   <footer className="sr-actions">
                     <button type="button" className="sr-approve" onClick={() => void decide(sel, "approved")}>

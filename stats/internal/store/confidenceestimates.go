@@ -154,6 +154,10 @@ type ConfidencePage struct {
 	ToReview, Approved, Declined int
 }
 
+// lowEnough is which estimates reach To review: every plan estimate below 100%, an implement one only below 90%.
+// The rest stay stored, shown on the run page and kept under Approved and Declined as before.
+const lowEnough = `(stage = 'plan' OR score < 90)`
+
 // ConfidenceEstimatesPage reads one page of the estimates across all
 // projects carrying the review status, newest first. Only limit rows are read.
 func (s *Store) ConfidenceEstimatesPage(ctx context.Context, status string, limit, offset int) (ConfidencePage, error) {
@@ -163,8 +167,8 @@ func (s *Store) ConfidenceEstimatesPage(ctx context.Context, status string, limi
 	}
 	if err := s.pool.QueryRow(ctx, `
 		SELECT
-		  count(*) FILTER (WHERE review_status = $1),
-		  count(*) FILTER (WHERE review_status = 'to-review'),
+		  count(*) FILTER (WHERE review_status = $1 AND ($1 <> 'to-review' OR `+lowEnough+`)),
+		  count(*) FILTER (WHERE review_status = 'to-review' AND `+lowEnough+`),
 		  count(*) FILTER (WHERE review_status = 'approved'),
 		  count(*) FILTER (WHERE review_status = 'declined')
 		FROM confidence_estimates WHERE score < 100
@@ -172,9 +176,9 @@ func (s *Store) ConfidenceEstimatesPage(ctx context.Context, status string, limi
 		return out, fmt.Errorf("store: count confidence estimates: %w", err)
 	}
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, project_key, change, stage, COALESCE(task, ''), score, score_after, gaps_after, gaps, tags, COALESCE(disposition, ''), recorded_at, review_status, COALESCE(review_reason, '')
+		SELECT id, project_key, change, stage, COALESCE(task, ''), score, gaps, tags, COALESCE(disposition, ''), recorded_at, review_status, COALESCE(review_reason, '')
 		FROM confidence_estimates
-		WHERE review_status = $1 AND score < 100
+		WHERE review_status = $1 AND score < 100 AND ($1 <> 'to-review' OR `+lowEnough+`)
 		ORDER BY recorded_at DESC, id DESC
 		LIMIT $2 OFFSET $3
 	`, status, limit, offset)
@@ -185,7 +189,7 @@ func (s *Store) ConfidenceEstimatesPage(ctx context.Context, status string, limi
 	out.Rows = []records.ConfidenceEstimate{}
 	for rows.Next() {
 		var e records.ConfidenceEstimate
-		if err := rows.Scan(&e.ID, &e.Project, &e.Change, &e.Stage, &e.Task, &e.Score, &e.ScoreAfter, &e.GapsAfter, &e.Gaps, &e.Tags, &e.Disposition, &e.RecordedAt, &e.ReviewStatus, &e.Reason); err != nil {
+		if err := rows.Scan(&e.ID, &e.Project, &e.Change, &e.Stage, &e.Task, &e.Score, &e.Gaps, &e.Tags, &e.Disposition, &e.RecordedAt, &e.ReviewStatus, &e.Reason); err != nil {
 			return out, fmt.Errorf("store: confidence estimates page: scan: %w", err)
 		}
 		out.Rows = append(out.Rows, e)
@@ -197,7 +201,7 @@ func (s *Store) ConfidenceEstimatesPage(ctx context.Context, status string, limi
 // whatever their review status -- what the run page shows.
 func (s *Store) ConfidenceEstimatesForChange(ctx context.Context, projectKey, change string) ([]records.ConfidenceEstimate, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, project_key, change, stage, COALESCE(task, ''), score, score_after, gaps_after, gaps, tags, COALESCE(disposition, ''), recorded_at, review_status, COALESCE(review_reason, '')
+		SELECT id, project_key, change, stage, COALESCE(task, ''), score, gaps, tags, COALESCE(disposition, ''), recorded_at, review_status, COALESCE(review_reason, '')
 		FROM confidence_estimates
 		WHERE project_key = $1 AND change = $2
 		ORDER BY recorded_at, id
@@ -209,45 +213,10 @@ func (s *Store) ConfidenceEstimatesForChange(ctx context.Context, projectKey, ch
 	out := []records.ConfidenceEstimate{}
 	for rows.Next() {
 		var e records.ConfidenceEstimate
-		if err := rows.Scan(&e.ID, &e.Project, &e.Change, &e.Stage, &e.Task, &e.Score, &e.ScoreAfter, &e.GapsAfter, &e.Gaps, &e.Tags, &e.Disposition, &e.RecordedAt, &e.ReviewStatus, &e.Reason); err != nil {
+		if err := rows.Scan(&e.ID, &e.Project, &e.Change, &e.Stage, &e.Task, &e.Score, &e.Gaps, &e.Tags, &e.Disposition, &e.RecordedAt, &e.ReviewStatus, &e.Reason); err != nil {
 			return nil, fmt.Errorf("store: confidence estimates for %s/%s: scan: %w", projectKey, change, err)
 		}
 		out = append(out, e)
 	}
 	return out, rows.Err()
-}
-
-// SetConfidenceAfter sets score_after on the latest implement estimate of project/change whose task is task:
-// what the implementer held once its tests were green, with the gaps still open below 100%. ErrConfidenceEstimateNotFound when the group filed none.
-func (s *Store) SetConfidenceAfter(ctx context.Context, projectKey, change, task string, score int, gaps []string) error {
-	bad := func(format string, a ...any) error {
-		return fmt.Errorf("%w: "+format, append([]any{ErrConfidenceEstimateInvalid}, a...)...)
-	}
-	switch {
-	case score < 1 || score > 100:
-		return bad("score must be 1-100, got %d", score)
-	case score == 100 && len(gaps) > 0:
-		return bad("a 100%% estimate carries no gap")
-	case score < 100 && len(gaps) == 0:
-		return bad("at least one gap is required below 100%%: what would close it")
-	}
-	for _, g := range gaps {
-		if strings.TrimSpace(g) == "" {
-			return bad("a gap is blank")
-		}
-	}
-	if gaps == nil {
-		gaps = []string{}
-	}
-	tag, err := s.pool.Exec(ctx, `
-		UPDATE confidence_estimates SET score_after = $4, gaps_after = $5
-		WHERE id = (SELECT max(id) FROM confidence_estimates WHERE project_key = $1 AND change = $2 AND stage = 'implement' AND task = $3)
-	`, projectKey, change, task, score, gaps)
-	if err != nil {
-		return fmt.Errorf("store: set confidence after for %s/%s task %s: %w", projectKey, change, task, err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("%w: %s/%s task %s", ErrConfidenceEstimateNotFound, projectKey, change, task)
-	}
-	return nil
 }

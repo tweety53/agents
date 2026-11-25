@@ -67,7 +67,10 @@ optional `review_reason`, both set from the dashboard and never by `flow confide
 uniqueness: a re-dispatched implementer's second estimate is a second response. A 100% response
 is stored too (migration 0099, the operator's later decision) with no gap and no tag, so a group
 that was sure shows as sure; the Confidence dashboard and its counts read only the rows below 100,
-the run page and the Decisions panel read them all.
+the run page and the Decisions panel read them all. **To review** (list and count) holds only plan rows below 100 and implement rows below 90
+(request 200: too many implement rows to review, all those declined had ended at 90 or more); an
+implement row at 90–99 stays stored, shown on the run page and the Decisions panel. Approved and
+Declined read every row below 100.
 **Considered:** rows in `self_review_findings` under a new angle (the operator asked for a
 different table, and that one's angle, severity, effort and theme columns mean nothing here).
 
@@ -90,18 +93,22 @@ in the same round (a "later" answer would have made the operator read questions 
 defers); re-running the plan check to measure the raised score (a second ten-minute read per
 plan, for a number nothing acts on).
 
-### An implementer estimates first and never stops for it
+### An implementer estimates once its tests are green and never stops for it
 
 **ID:** implementer-estimates-first
 **Status:** active
-**Chosen:** **CONFIDENCE FIRST** in `skills/flow/implementer-brief.md`: after reading its tasks
-and before its first edit an implementer estimates, lists what would move it to 100%, and files
-it with `-stage implement -task <its Key's ids>`. It then continues whatever the number — no
-question, no `BLOCKED`; **REPORT, DON'T DECIDE** is unchanged. A store that cannot take the row
-warns and exits 0. A fixer skips it.
+**Chosen:** **CONFIDENCE ONCE GREEN** in `skills/flow/implementer-brief.md`: once its tasks' tests
+are green, before its commit, an implementer estimates, lists what is still open, and files it with
+`-stage implement -task <its Key's ids>` — one estimate per dispatch, `score` and `gaps`. It then
+continues whatever the number — no question, no `BLOCKED`; **REPORT, DON'T DECIDE** is unchanged. A
+store that cannot take the row warns and exits 0. A fixer skips it. Migration 0104 folded the rows
+an earlier two-estimate shape had filed into this one: a row's post-test estimate became its score
+and gaps, and the columns that held it were dropped.
 **Considered:** the parent filing from the implementer's report (the estimate would be written
-after the work, when it is no longer a prediction); a `BLOCKED` below a threshold (the operator
-ruled it out: the implementer continues).
+after the work, by an agent that did not do it); a `BLOCKED` below a threshold (the operator
+ruled it out: the implementer continues); an estimate before the first edit as well as one once the
+tests are green (request 200: the operator ruled only the second one matters, and two numbers per
+group doubled what was shown and reviewed).
 
 ### Tags are whatever is already in the table
 

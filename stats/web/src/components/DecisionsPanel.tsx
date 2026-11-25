@@ -70,12 +70,12 @@ const pick = (role: string, p: Pick | undefined, run?: string): Line[] =>
 
 const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** The lowest estimate an implementer filed for any task of a group, "70% → 95%" once its tests were green; none when it filed none. */
+/** The lowest estimate an implementer filed for any task of a group; none when it filed none. */
 const confidenceOf = (rows: ConfidenceRow[], ids: string[]): { pct: string; why: string } | undefined => {
   const hit = rows.filter((r) => r.stage === "implement" && (r.task ?? "").split("+").some((t) => ids.includes(t)));
   if (hit.length === 0) return undefined;
   const low = hit.reduce((a, b) => (b.score < a.score ? b : a));
-  return { pct: low.scoreAfter ? `${low.score}% → ${low.scoreAfter}%` : `${low.score}%`, why: (low.scoreAfter ? (low.gapsAfter ?? []) : low.gaps).join("\n") };
+  return { pct: `${low.score}%`, why: low.gaps.join("\n") };
 };
 
 function lines(d: Decision, dispatches: RecordDispatch[], confidence: ConfidenceRow[]): Line[] {

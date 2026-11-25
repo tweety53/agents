@@ -1070,9 +1070,9 @@ describe("views render their fixture response's actual values", () => {
 
   it("confidence: lists the estimates to review, 25 a page, and approves, declines and moves one back", async () => {
     const rows: ConfidenceRow[] = [
-      { id: 2, project: "agents", change: "kan-9", stage: "implement", task: "2+3", score: 85, scoreAfter: 70, gapsAfter: ["a test pinned the wrong order"], gaps: ["the fixture is missing", "task 3 states no order"], tags: ["missing-fixture"], recordedAt: "2026-11-20T10:00:00Z", reviewStatus: "to-review" },
+      { id: 2, project: "agents", change: "kan-9", stage: "implement", task: "2+3", score: 85, gaps: ["the fixture is missing", "task 3 states no order"], tags: ["missing-fixture"], recordedAt: "2026-11-20T10:00:00Z", reviewStatus: "to-review" },
       { id: 1, project: "agents", change: "kan-9", stage: "plan", score: 70, gaps: ["closes with: operator — column order"], tags: ["open-decision"], disposition: "later", recordedAt: "2026-11-19T10:00:00Z", reviewStatus: "to-review" },
-      ...Array.from({ length: 28 }, (_, i) => ({ id: 10 + i, project: "agents", change: `kan-${100 + i}`, stage: "implement" as const, task: "1", score: 90, gaps: ["g"], tags: ["missing-fixture"], recordedAt: "2026-11-01T10:00:00Z", reviewStatus: "to-review" as const })),
+      ...Array.from({ length: 28 }, (_, i) => ({ id: 10 + i, project: "agents", change: `kan-${100 + i}`, stage: "implement" as const, task: "1", score: 80, gaps: ["g"], tags: ["missing-fixture"], recordedAt: "2026-11-01T10:00:00Z", reviewStatus: "to-review" as const })),
     ];
     confidenceMock.mockImplementation(async (q: { status: string; limit: number; offset: number }) => {
       const count = (s: string) => rows.filter((r) => r.reviewStatus === s).length;
@@ -1088,11 +1088,10 @@ describe("views render their fixture response's actual values", () => {
     render(<Confidence />);
 
     // To review is the list on screen; the newest estimate is open: its gaps in full, its tag.
-    expect(await screen.findByRole("heading", { name: "85% → 70% · kan-9" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "85% · kan-9" })).toBeInTheDocument();
     expect(screen.getByText("the fixture is missing")).toBeInTheDocument();
     expect(screen.getByText("task 3 states no order")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Still open once its tests were green" })).toBeInTheDocument();
-    expect(screen.getByText("a test pinned the wrong order")).toBeInTheDocument();
+    expect(screen.queryByText(/once its tests were green|→/)).not.toBeInTheDocument();
     expect(confidenceMock).toHaveBeenCalledWith({ status: "to-review", limit: 25, offset: 0 });
     expect(screen.getByText("1–25 of 30")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "To review 30" })).toHaveAttribute("aria-pressed", "true");

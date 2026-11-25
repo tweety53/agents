@@ -300,3 +300,67 @@ func TestMigration0061FoldsModelSpellings(t *testing.T) {
 		t.Errorf("dispatches after 0061 twice = %q, want %q", g, want)
 	}
 }
+
+// TestMigration0104FoldsTheAfterEstimate re-adds the after columns 0104 drops, seeds a row with an after
+// estimate below 100, one with an after of 100 and one with none, runs 0104 and asserts each row carries
+// its after score and gaps where it had them (a 100 losing its tags), else its own, and the columns are gone.
+func TestMigration0104FoldsTheAfterEstimate(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	dsn := newTestDatabase(t)
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(st.Close)
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open raw pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	exec := func(sql string, args ...any) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, sql, args...); err != nil {
+			t.Fatalf("exec %q: %v", sql, err)
+		}
+	}
+
+	exec(`ALTER TABLE confidence_estimates ADD COLUMN IF NOT EXISTS score_after INT, ADD COLUMN IF NOT EXISTS gaps_after TEXT[] NOT NULL DEFAULT '{}'`)
+	exec(`INSERT INTO projects (project_key, main_checkout_path) VALUES ('p', '/tmp/p')`)
+	exec(`INSERT INTO confidence_estimates (project_key, change, stage, task, score, gaps, tags, score_after, gaps_after) VALUES
+		('p', 'kan-1', 'implement', '1', 40, '{before}', '{t}', 62, '{still open}'),
+		('p', 'kan-1', 'implement', '2', 50, '{before}', '{t}', 100, '{}'),
+		('p', 'kan-1', 'implement', '3', 70, '{own}', '{t}', NULL, '{}')`)
+
+	sql, err := os.ReadFile("migrations/0104_confidence_one_score.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(string(sql))
+
+	rows, err := pool.Query(ctx, `SELECT task || ':' || score || ':' || array_to_string(gaps, ',') || ':' || array_to_string(tags, ',') FROM confidence_estimates ORDER BY task`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, s)
+	}
+	rows.Close()
+	if g, want := strings.Join(got, " "), "1:62:still open:t 2:100:: 3:70:own:t"; g != want {
+		t.Errorf("rows after 0104 = %q, want %q", g, want)
+	}
+	var left int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM information_schema.columns WHERE table_name = 'confidence_estimates' AND column_name IN ('score_after', 'gaps_after')`).Scan(&left); err != nil || left != 0 {
+		t.Errorf("after columns left: %d (%v), want 0", left, err)
+	}
+}
