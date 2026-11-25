@@ -58,7 +58,7 @@ flowchart TD
     lint["5 · Lint + tests"]:::guard
     trig{"UI files changed?"}:::guard
     vv["6 · Visual verify"]:::agent
-    diff{{"7 · Review the diff<br/>only if a question is open"}}:::you
+    diff{{"7 · Human code review & test<br/>if needed"}}:::you
     land["8 · Land"]:::guard
     sr["9 · Self-review"]:::agent
     done["10 · Cleanup"]:::guard
