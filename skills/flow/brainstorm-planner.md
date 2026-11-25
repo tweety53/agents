@@ -4,8 +4,7 @@ Sections **B**, **C** and **D** of the brainstorming phase, run by `/flow`'s `pl
 (**Run brainstorming and planning through the planner role**, `skills/flow/brainstorm.md`), in
 `/flow`'s creating run and in a `/flow-plan` capture alike — no one relays these sections, though
 the session may dispatch the fresh subagents **Explore and design agents** below allows, and
-neither does the self-review planner, which runs B, C and D as item 1 of **3. Fix every finding that is
-not `big`** (`skills/flow-self-review/SKILL.md`) binds them, and the self-review planner, which
+neither does the in-run pipeline fix planner, which
 runs them as **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`) binds them. Every "you" below addresses that session, or that planner, directly.
 
 In a `planner` dispatch, every **AskUserQuestion** these sections name is written as a question of

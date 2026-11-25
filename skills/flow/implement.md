@@ -109,7 +109,7 @@ is a fresh dispatch.
 Every row's own prompt or brief carries the NO DELEGATION paragraph (`skills/flow/implementer-brief.md`,
 `skills/flow/gated-reviewer-brief.md`, `skills/flow/review-panel.md`, `skills/flow/visual-verify.md`, `skills/flow-contracts/pipeline.md`) — a leaf never dispatches, so
 nothing exists below these rows — save the in-run pipeline fix planner, which carries PLANNING
-DELEGATION in its place on a `flow-planner-<effort>` definition and may dispatch fresh Explore and
+DELEGATION (`skills/flow/brainstorm.md`) in its place on a `flow-planner-<effort>` definition and may dispatch fresh Explore and
 Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/model-policy.md`).
 **The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`
 — three definitions, one per effort, each carrying `effort:` and no

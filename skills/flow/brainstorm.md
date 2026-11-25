@@ -91,9 +91,8 @@ request verbatim — to `<abs-worktree>/.superpowers/sdd/planner/ticket.md`. A `
 **Every planner dispatch is fresh and one-shot**, on `subagent_type: flow-planner-<effort>` with
 the `planner` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`). Its prompt
 carries the Role line, `Role: planner`, the two agent-baseline sentences, the
-report-tersely line, the PLANNING DELEGATION
-paragraph (`skills/flow-self-review/SKILL.md`) — its auto-resolution sentence replaced by "every
-choice is written as a question of the round file" — the change name and the absolute worktree.
+report-tersely line, the **PLANNING DELEGATION** paragraph below, the change name and the absolute
+worktree.
 The Agent-tool `description` opens with `plan-<n>` — `plan-2 design round` — `<n>` counting this
 run's planner dispatches from 1, so the hook records the dispatch; once the planner returns:
 
@@ -102,6 +101,15 @@ flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal
 ```
 
 A failed recording command is one line in the run's narrative, never a stop.
+
+> **PLANNING DELEGATION:** You may dispatch fresh `Explore` and `Plan` subagents through the
+> `Agent` tool while you plan, per **B. Basic Workflow #1 — Brainstorming** (`skills/flow/brainstorm-planner.md`) — never a
+> `fork`, and never an agent that edits files or commits. Each dispatch runs on its own Role's pair
+> (**Model and effort**, `skills/flow/brainstorm-planner.md`), and every dispatch prompt carries the line
+> `Role: explorer` (an Explore agent) or `Role: plan-designer` (a Plan agent) and the two sentences of **Propagate this**
+> (`~/.claude/rules/agent-baseline.md`) verbatim. The agents investigate and propose; you
+> decide, and every choice is written as a question of the round file. Fixing, implementing and
+> reviewing are never delegated.
 
 No `fork` from kickoff to the plan gate: a fork copies the whole conversation and doubles the
 token spend.
