@@ -366,7 +366,9 @@ steps are `  - [ ] **Step N: …**` lines indented two columns beneath it.
 - A changed rule whose reasoning lives in a `*-rationale.md` appendix lists that appendix in its
   task's `**Files:**`.
 - A view a mockup specifies gets a full-page capture for every frame `design.md` cites, its
-  fixture seeding every element and state the frame shows. A task that builds a drawn element on a
+  fixture seeding every element and state the frame shows. For each cited frame the capture task
+  names how its fixture reaches that state and which task makes that possible; a state nothing can
+  reach is decided at design time: add a seed route, redraw the frame, or accept the departure. A task that builds a drawn element on a
   native screen has a `**Tests:**` entry that compiles it and captures it against its frame; a
   capture no task creates leaves every implementer holding the same "unverified until run" gap.
 

@@ -1363,3 +1363,8 @@ attribution; the text after it is the passage, verbatim.
 ### review-panel.md — hand-assembled briefs and no docs-only guard (slim-flow-loop, cuts 1 and 4)
 
 - *`render-slot-prompt` and `check-panel-docs-only` deleted* — a brief is a few blockquotes and a template body the parent already holds, so a rendering guard with its own placeholder and block-extraction contract cost more to keep than the copy it saved; the docs-only reduction moved into `plan-check`, which decides a documentation-only change's panel `primary` alone before any round runs, so no round re-classifies the branch.
+
+### implementer-brief.md — CONFIDENCE ONCE GREEN, brainstorm-planner.md — full-page captures (KAN-1130 request 210)
+
+- *Only a finished group is estimated* — a `PARTIAL` implementer filed 55% over captures a fixer later closed, and the stale row stayed in review.
+- *how its fixture reaches that state* — the same run's blocked captures: a cited state no fixture could reach surfaced only at implementation.

@@ -386,7 +386,7 @@ entry. At each boundary, in this order:
 
 1. **The returned group's implementer commits**, writes its report and ends; the parent's `await-rows`
    reports it `ENDED` and the parent reads its summary head (`skills/flow/implementer-brief.md`). **A `status: DONE` head of an
-   implementer (not a fixer's) with no `confidence:` line skipped CONFIDENCE ONCE GREEN: the parent sends that agent one message —
+   implementer, or of a fixer that turned its group green, with no `confidence:` line skipped CONFIDENCE ONCE GREEN: the parent sends that agent one message —
    estimate now, per your brief's CONFIDENCE ONCE GREEN, file it and answer with the `confidence:` line —
    and continues on its answer, never blocking the group on it.**
 2. **One Bash call closes the returned group**, its verdict echoed:

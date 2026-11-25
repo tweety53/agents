@@ -32,8 +32,10 @@ this file in full first: its prompt is a stub naming this file, never these para
 > wrote and undid before committing is never what its subject or body describes (**Revert and
 > back-out commits**, `skills/flow-contracts/git-boundaries.md`).
 
-> **CONFIDENCE ONCE GREEN:** Once your tasks' tests are green, before your commit, an implementer
-> files one estimate, never acted on. Answer for the tasks of this dispatch: how confident are you,
+> **CONFIDENCE ONCE GREEN:** Only a finished group is estimated: a `BLOCKED` or `PARTIAL` report files
+> nothing. Once its tests are green, before your commit, whoever turns the group green — its
+> implementer, or a fixer closing what its implementer's report left open — files one estimate, never
+> acted on. Answer for the tasks of this dispatch: how confident are you,
 > 1–100%, that you executed them as the plan writes them, and what would move you to 100% — one gap
 > per thing still open, each naming what would close it. Then run `flow confidence tags`, reuse a
 > printed tag only when it names the same kind of gap — a near fit hides two unrelated gaps under one
@@ -41,7 +43,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > never the change), and file it:
 >
 > ```bash
-> flow confidence record -C <abs-worktree> -change <name> -stage implement -task '<the ids of your Key, e.g. 2+3>' \
+> flow confidence record -C <abs-worktree> -change <name> -stage implement -task '<the ids of the group, e.g. 2+3>' \
 >   -score <n> -gap '<one gap, in full>' [-gap …] -tag <tag> [-tag …]
 > ```
 >
@@ -67,7 +69,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > restore it — KAN-1157: a write-access gate with no such test), and work a later task of the plan
 > names — a capture run, a wiring step — which your REPORT FILE carries as `owned by Task <n>` and your
 > estimate leaves out. Below 100, a gap there is one no command or file read in your tasks could
-> settle, the REPORT FILE saying why. A fixer skips this paragraph.
+> settle, the REPORT FILE saying why. Any other fixer skips this paragraph.
 
 > **REQUIRED SUB-SKILL:** Read and follow superpowers:test-driven-development from its file — on
 > Claude Code the newest `~/.claude/plugins/cache/*/superpowers/*/skills/test-driven-development/SKILL.md`
@@ -220,7 +222,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > report: <this report file's absolute path>
 > ```
 >
-> `status:` and `report:` appear once, and so does `confidence:` — the CONFIDENCE ONCE GREEN estimate you made, `filed` after your `flow confidence record` call, at 100% too (a fixer omits it); a head without it says the estimate was skipped (KAN-1156: three implementers ran no `flow confidence` call at all); every other line once per item — a `commit:` per
+> `status:` and `report:` appear once, and so does `confidence:` — the CONFIDENCE ONCE GREEN estimate you made, `filed` after your `flow confidence record` call, at 100% too (omitted by a `BLOCKED` or `PARTIAL` head and by a fixer that turned no group green); a `DONE` implementer head without it says the estimate was skipped (KAN-1156: three implementers ran no `flow confidence` call at all); every other line once per item — a `commit:` per
 > task, its sha a `<worktree>=<sha>[,<worktree>=<sha>…]` map on a change spanning repositories, a
 > `fixed:` or `not-fixed:` per finding a FIX INPUT names — and not at all when there is none.
 
