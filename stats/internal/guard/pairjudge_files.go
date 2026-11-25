@@ -6,17 +6,23 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
 
-// pjNamedPath is an absolute path in a digest: opening the text or after a
-// space, a backtick, a quote or a bracket, running to the next such character.
-var pjNamedPath = regexp.MustCompile("(?:^|[\\s`'\"(<\\[])(/[^\\s`'\"()<>\\[\\]]+)")
+// pjNamedPath is a file reference in a digest: a backticked
+// `<abs-path>#<heading text>` (submatches 1 and 2), or an absolute path
+// (submatch 3) opening the text or after a space, a backtick, a quote or a
+// bracket, running to the next such character.
+var pjNamedPath = regexp.MustCompile("`(/[^`#\\n]+)#([^`\\n]+)`|(?:^|[\\s`'\"(<\\[])(/[^\\s`'\"()<>\\[\\]]+)")
 
-// pjPathTail is what may follow a named path without being part of it: a
-// `:line[:col]` and trailing punctuation.
-var pjPathTail = regexp.MustCompile(`(?::\d+)*[.,;:!?]*$`)
+// pjPathLines splits a bare reference into its path and the `:a` or `:a-b`
+// lines it names; a `:col` and trailing punctuation belong to neither.
+var pjPathLines = regexp.MustCompile(`^(.*?)(?::(\d+)(?:-(\d+))?)?(?::\d+)*[.,;:!?]*$`)
+
+// pjHeading is a markdown heading line: its level and text.
+var pjHeading = regexp.MustCompile(`^(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$`)
 
 // pjSecretName is a file name never sent, obvious secrets only: private keys
 // and key stores, and files named secret, secrets or credentials before the
@@ -82,32 +88,99 @@ func pjTasks(real string, body []byte, ids map[string]bool) []byte {
 	return out
 }
 
-// pjAppendNamed appends to digest each file it names that pjSendable admits,
-// once, under a `--- <path> ---` header, each cut to its pjHead -- a file
-// named tasks.md to the pjTasks the digest names instead, when there are any -- within
+// pjSection is the markdown section of body whose heading text is want, up to
+// the next heading of the same or a higher level; backticks are ignored on
+// both sides, and a line inside a code fence is no heading. nil when absent.
+func pjSection(body []byte, want string) []byte {
+	plain := func(s string) string { return strings.TrimSpace(strings.ReplaceAll(s, "`", "")) }
+	var out []byte
+	level, fence := 0, ""
+	for _, line := range bytes.SplitAfter(body, []byte("\n")) {
+		text := strings.TrimRight(string(line), "\r\n")
+		if mark := strings.TrimSpace(text); fence != "" {
+			if strings.HasPrefix(mark, fence) {
+				fence = ""
+			}
+		} else if strings.HasPrefix(mark, "```") || strings.HasPrefix(mark, "~~~") {
+			fence = mark[:3]
+		} else if m := pjHeading.FindStringSubmatch(text); m != nil {
+			if level > 0 && len(m[1]) <= level {
+				break
+			}
+			if level == 0 && plain(m[2]) == plain(want) {
+				level = len(m[1])
+			}
+		}
+		if level > 0 {
+			out = append(out, line...)
+		}
+	}
+	return out
+}
+
+// pjLines is lines from through to (empty: from alone) of body, 1-based, to
+// clamped to the last line; nil when the range holds none.
+func pjLines(body []byte, from, to string) []byte {
+	if to == "" {
+		to = from
+	}
+	a, errA := strconv.Atoi(from)
+	b, errB := strconv.Atoi(to)
+	lines := bytes.SplitAfter(body, []byte("\n"))
+	if errA != nil || errB != nil || a < 1 || b < a || a > len(lines) {
+		return nil
+	}
+	return bytes.Join(lines[a-1:min(b, len(lines))], nil)
+}
+
+// pjAppendNamed appends to digest, for each reference in it to a file
+// pjSendable admits, the part it names -- a pjSection or pjLines, cut to its
+// pjHead, under a `--- <reference> ---` header; for a file named tasks.md with
+// no part, the pjTasks the digest names, under `--- <path> ---` -- each once;
+// a file named without a part, and a part it lacks, add nothing. All within
 // pjDigestCap: the digest comes first and is never cut for a file; the file
 // that crosses that total is cut there and followed by pjTruncated, and no
 // file follows it.
 func pjAppendNamed(env Env, digestFile string, digest []byte) []byte {
 	self, _ := filepath.EvalSymlinks(digestFile)
-	seen, ids := map[string]bool{self: true}, pjTaskIDs(digest)
+	seen, ids := map[string]bool{}, pjTaskIDs(digest)
 	for _, m := range pjNamedPath.FindAllSubmatch(digest, -1) {
-		p := pjPathTail.ReplaceAllString(string(m[1]), "")
+		p, heading := string(m[1]), string(m[2])
+		var from, to, ref string
+		if heading != "" {
+			ref = p + "#" + heading
+		} else {
+			l := pjPathLines.FindStringSubmatch(string(m[3]))
+			p, from, to, ref = l[1], l[2], l[3], l[1]
+			if from != "" {
+				ref += ":" + from
+			}
+			if to != "" {
+				ref += "-" + to
+			}
+		}
 		real, err := filepath.EvalSymlinks(p)
-		if err != nil || seen[real] {
+		key := real + ref[len(p):]
+		if err != nil || real == self || seen[key] {
 			continue
 		}
-		seen[real] = true
+		seen[key] = true
 		body, ok := pjSendable(env, real)
 		if !ok {
 			continue
 		}
-		if tasks := pjTasks(real, body, ids); tasks != nil {
-			body = tasks
-		} else {
-			body = pjHead(body)
+		switch {
+		case heading != "":
+			body = pjHead(pjSection(body, heading))
+		case from != "":
+			body = pjHead(pjLines(body, from, to))
+		default:
+			body = pjTasks(real, body, ids)
 		}
-		digest = append(digest, "\n\n--- "+p+" ---\n"...)
+		if len(body) == 0 {
+			continue
+		}
+		digest = append(digest, "\n\n--- "+ref+" ---\n"...)
 		if len(digest)+len(body) > pjDigestCap {
 			return append(append(digest, body[:max(0, pjDigestCap-len(digest))]...), pjTruncated...)
 		}

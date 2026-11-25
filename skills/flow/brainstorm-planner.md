@@ -492,6 +492,9 @@ prompt as `<key>.pick`, which the dispatch hook records with the row. The judge 
 the role's allowed pairs in flowd; no pair is ever written into a prompt or a skill. A judge
 that cannot answer never blocks: it prints the role's first candidate with source `fallback`. A
 role the judge does not cover (it exits 2) runs on its first `base` pair in `flow policy get`.
+Besides the prompt, the judge reads only the file parts it names: `` `<abs-path>#<heading text>` ``
+(in backticks; that markdown section) or `<abs-path>:<a>-<b>` / `:<a>` (those lines); a bare
+`tasks.md` gives the sections of the tasks the prompt names, and any other bare path nothing.
 
 A pair is a model and an agent type joined by `/`: `opus/flow-low` dispatches
 `subagent_type: flow-low` on `model: opus`; `opus/flow-planner-medium` is `flow-planner-medium` on

@@ -2,6 +2,7 @@ package guard
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -554,22 +555,21 @@ func pjNamedRepo(t *testing.T) (repo, digest string, files map[string]string) {
 }
 
 // TestPairJudgeAppendsNamedFiles: the judge's stdin is the brief, then each
-// file it names once -- in backticks, after `:line` or before a full stop
-// alike -- and nothing outside a git tree, behind a symlink escape, .env,
+// part it names once -- bare or in backticks, before a full stop alike -- and nothing outside a git tree, behind a symlink escape, .env,
 // secret-named, gitignored outside .superpowers/, binary, under ~/.claude,
 // missing, or the brief itself.
 func TestPairJudgeAppendsNamedFiles(t *testing.T) {
 	t.Parallel()
 	repo, digest, files := pjNamedRepo(t)
 	var brief strings.Builder
-	brief.WriteString("Ask: see `" + repo + "/plan.md`, " + repo + "/plan.md:12 and " + repo + "/.superpowers/ticket.md.\n")
+	brief.WriteString("Ask: see `" + repo + "/plan.md:1`, " + repo + "/plan.md:1 and " + repo + "/.superpowers/ticket.md:1.\n")
 	for p := range files {
 		if strings.HasSuffix(p, ".gitignore") {
 			continue // a tracked-tree text file, sent like plan.md
 		}
-		brief.WriteString("also " + p + "\n")
+		brief.WriteString("also " + p + ":1\n")
 	}
-	brief.WriteString("and " + repo + "/escape.md, " + repo + "/missing.md, " + digest + "\n")
+	brief.WriteString("and " + repo + "/escape.md:1, " + repo + "/missing.md:1, " + digest + ":1\n")
 	if err := os.WriteFile(digest, []byte(brief.String()), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -580,8 +580,8 @@ func TestPairJudgeAppendsNamedFiles(t *testing.T) {
 		t.Fatalf("rc=%d out=%q, want 0", r.rc, r.out)
 	}
 	want := brief.String() +
-		"\n\n--- " + repo + "/plan.md ---\nthe plan\n" +
-		"\n\n--- " + repo + "/.superpowers/ticket.md ---\nthe ticket\n"
+		"\n\n--- " + repo + "/plan.md:1 ---\nthe plan\n" +
+		"\n\n--- " + repo + "/.superpowers/ticket.md:1 ---\nthe ticket\n"
 	if got := stub.stdin(t); got != want {
 		t.Errorf("stdin =\n%s\nwant\n%s", got, want)
 	}
@@ -614,7 +614,7 @@ func TestPairJudgeSecretNames(t *testing.T) {
 	}
 }
 
-// TestPairJudgeCapsEachNamedFile: a named file over 8192 bytes reaches the
+// TestPairJudgeCapsEachNamedFile: a named part over 8192 bytes reaches the
 // judge as its head -- cut after the last whole line, or else the last whole
 // rune -- and a truncation line; one of exactly 8192 bytes is whole, and
 // later files still follow.
@@ -634,8 +634,8 @@ func TestPairJudgeCapsEachNamedFile(t *testing.T) {
 		if err := os.WriteFile(repo+"/"+f[0], []byte(f[1]), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		brief.WriteString("read " + repo + "/" + f[0] + "\n")
-		tail.WriteString("\n\n--- " + repo + "/" + f[0] + " ---\n" + f[2])
+		brief.WriteString("read " + repo + "/" + f[0] + ":1-2000\n")
+		tail.WriteString("\n\n--- " + repo + "/" + f[0] + ":1-2000 ---\n" + f[2])
 	}
 	pjWantStdin(t, digest, brief.String(), brief.String()+tail.String())
 }
@@ -649,8 +649,8 @@ func TestPairJudgeCapsNamedFiles(t *testing.T) {
 	if err := os.WriteFile(repo+"/big.md", []byte(strings.Repeat("0123456789abcdef", 1024)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	brief += "read " + repo + "/big.md\n"
-	head := brief + "\n\n--- " + repo + "/big.md ---\n"
+	brief += "read " + repo + "/big.md:1\n"
+	head := brief + "\n\n--- " + repo + "/big.md:1 ---\n"
 	want := head + strings.Repeat("0123456789abcdef", 1024)[:204800-len(head)] + "\n[digest truncated at 200 KB]\n"
 	pjWantStdin(t, digest, brief, want)
 }
@@ -658,8 +658,7 @@ func TestPairJudgeCapsNamedFiles(t *testing.T) {
 // TestPairJudgeAppendsNamedTasks: a named tasks.md reaches the judge as the
 // sections of the tasks the brief names -- by an implementer's `Tasks: 7, 9
 // of 20` line or a reviewer's `PASS task-<n>:` lines -- each capped at 8 KB on
-// its own, not as the file's head; a brief naming none, or none the file
-// holds, gets the head. The file sits gitignored under spectre/changes/, as real plans do.
+// its own; a brief naming none, or none the file holds, gets nothing of it. The file sits gitignored under spectre/changes/, as real plans do.
 func TestPairJudgeAppendsNamedTasks(t *testing.T) {
 	t.Parallel()
 	pad := strings.Repeat("padding line\n", 700) // ~9 KB, pushes task 7 past the head
@@ -675,8 +674,8 @@ func TestPairJudgeAppendsNamedTasks(t *testing.T) {
 	for name, c := range map[string]struct{ brief, want string }{
 		"implementer": {"Tasks: 7, 9 of 20\n", "- [x] 7. Seven\nseven body\n" + sec9},
 		"reviewer":    {"PASS task-7:\nPASS task-8:\n", "- [x] 7. Seven\nseven body\n- [ ] 8. Eight\neight body\n"},
-		"none named":  {"Tasks: none\n", plan[:strings.LastIndexByte(plan[:8192], '\n')+1] + "[file truncated at 8 KB]\n"},
-		"not in file": {"Tasks: 42 of 50\n", plan[:strings.LastIndexByte(plan[:8192], '\n')+1] + "[file truncated at 8 KB]\n"},
+		"none named":  {"Tasks: none\n", ""},
+		"not in file": {"Tasks: 42 of 50\n", ""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -692,7 +691,50 @@ func TestPairJudgeAppendsNamedTasks(t *testing.T) {
 				t.Fatal(err)
 			}
 			brief := c.brief + "Plan: " + p + "\n"
-			pjWantStdin(t, digest, brief, brief+"\n\n--- "+p+" ---\n"+c.want)
+			want := brief
+			if c.want != "" {
+				want += "\n\n--- " + p + " ---\n" + c.want
+			}
+			pjWantStdin(t, digest, brief, want)
+		})
+	}
+}
+
+// TestPairJudgeAppendsNamedParts: only the part a brief names is sent -- a
+// backticked `path#heading` its section up to the next heading of the same or
+// higher level, fenced lines not headings; `:a-b` and `:a` those lines -- and
+// nothing for a file named bare or a part the file lacks.
+func TestPairJudgeAppendsNamedParts(t *testing.T) {
+	t.Parallel()
+	doc := "# Top\nintro\n## The `x` part, here\nbody\n```\n# not a heading\n```\n### Sub\nsub\n## Next\nafter\n"
+	section := "## The `x` part, here\nbody\n```\n# not a heading\n```\n### Sub\nsub\n"
+	for name, c := range map[string]struct{ ref, want string }{
+		"section":         {"`%s#The x part, here`", section},
+		"last section":    {"`%s#Next`", "## Next\nafter\n"},
+		"lines":           {"%s:2-3.", "intro\n## The `x` part, here\n"},
+		"one line":        {"`%s:2`", "intro\n"},
+		"line and column": {"%s:2:7", "intro\n"},
+		"past the end":    {"%s:11-99", "after\n"},
+		"bare":            {"`%s`", ""},
+		"no such heading": {"`%s#Absent`", ""},
+		"no such line":    {"%s:99", ""},
+		"backward range":  {"%s:3-2", ""},
+		"line zero":       {"%s:0", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			repo, digest, _ := pjNamedRepo(t)
+			p := repo + "/doc.md"
+			if err := os.WriteFile(p, []byte(doc), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			ref := fmt.Sprintf(c.ref, p)
+			brief := "Read " + ref + "\n"
+			want := brief
+			if c.want != "" {
+				want += "\n\n--- " + strings.TrimSuffix(strings.Trim(ref, "`."), ":7") + " ---\n" + c.want
+			}
+			pjWantStdin(t, digest, brief, want)
 		})
 	}
 }

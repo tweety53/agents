@@ -982,7 +982,7 @@ re-run reads a delta and is outside what the operator asked to change.
 KAN-1119 replaced every work-blind pick among a judged role's pairs — medium-effort-default's
 `effort_roll` and its band above 90, panel-effort-roll-60-40, opus-low-verification, both
 extra-dispatch model rolls and the rerun pair's planner-chosen model — with `flow-guard
-pair-judge`, a headless `claude -p` call that reads a digest of the work and the files it names. The sections here that
+pair-judge`, a headless `claude -p` call that reads a digest of the work and the file parts it names. The sections here that
 describe those rolls record why each was chosen then; the judge's own reasons, and the
 alternatives it rejected, are KAN-1119's design record.
 

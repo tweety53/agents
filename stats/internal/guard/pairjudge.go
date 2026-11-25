@@ -57,13 +57,14 @@ import (
 // pair, its system prompt a fixed template (pjPrompt) filled with the role,
 // its Does line from skills/flow-contracts/model-policy.md under
 // FLOW_GUARD_REPO_ROOT (left out when unreadable), the candidates and the
-// answer format; its stdin is the digest followed by the files it names
+// answer format; its stdin is the digest followed by the file parts it names
 // (pjAppendNamed, pairjudge_files.go), since the judge has no tools to read a
-// path itself. A named file is an absolute path in the digest -- in backticks
-// or followed by punctuation or `:line` alike -- to an existing regular UTF-8
-// text file, appended once under a `--- <path> ---` header -- each capped at
-// 8 KB, a tasks.md at 8 KB per task section when the digest names tasks
-// (`Tasks: 7, 8 of 20`, `PASS task-7:`) and only those sections. The content leaves
+// path itself. A part is a backticked `<abs-path>#<heading text>` (that
+// markdown section), an `<abs-path>:<a>-<b>` or `:<a>` (those lines), or, for
+// a tasks.md named bare, the sections of the tasks the digest names
+// (`Tasks: 7, 8 of 20`, `PASS task-7:`), each capped at 8 KB under a
+// `--- <reference> ---` header. A file named without a part, and a part it
+// lacks, are not sent. The content leaves
 // the machine, so a file is sent only when, symlinks resolved, it lies inside
 // a git working tree, is not gitignored unless under `.superpowers/` or `spectre/changes/`, is not a
 // `.env*` file, private key or key store, or file named secret, secrets or
@@ -103,12 +104,12 @@ import (
 // (decision judge-command-seam). Bounds (decision
 // judge-timeout-60s-digest-200kb): a 60 s deadline (Env.PairJudgeTimeout in
 // tests), and a digest over 204800 bytes is cut there and followed by the
-// line `[digest truncated at 200 KB]`; under it, the named files fill the
+// line `[digest truncated at 200 KB]`; under it, the named parts fill the
 // rest, each over 8192 bytes sent as its head -- cut after the last whole
 // line, or else the last whole rune -- and the line
-// `[file truncated at 8 KB]`, later files still following; the one crossing
+// `[file truncated at 8 KB]`, later parts still following; the one crossing
 // the 200 KB total is cut there and followed by the digest's line, and no
-// file after it. A digest file named `decide-group-<g>…`
+// part after it. A digest file named `decide-group-<g>…`
 // -- one implementer group's Decide digest -- loses every line opening
 // `inputs: `: plan-class counts the whole plan there, and the judge read a
 // one-task group as the plan's 47 tasks, two repositories and migration.
