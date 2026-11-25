@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -99,6 +100,10 @@ import (
 // call bills API credits while no other `claude` -- the session's own
 // included -- sees the key or leaves the subscription login. An unreadable or
 // empty file is the fallback's cause, never a silent run on the subscription.
+// The key is added only when the child's ANTHROPIC_BASE_URL is unset or
+// Anthropic's own API host (the parsed host, compared exactly): a session
+// pointed at another vendor runs the judge on its own credentials, and the
+// Anthropic key is never sent to that vendor.
 //
 // FLOW_PAIR_JUDGE_CMD, when set, names the command run in place of `claude`
 // (decision judge-command-seam). Bounds (decision
@@ -318,8 +323,11 @@ func pjRun(env Env, rows map[string][]policyRow, judgeRole, system string, diges
 		"--tools", tools, "--setting-sources", "", "--strict-mcp-config", "--no-session-persistence",
 		"--output-format", "json", "--system-prompt", system)
 	cmd.Dir = env.Dir
-	cmd.Env = append(os.Environ(), "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1")
+	cmd.Env = append(icChildEnv(env), "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1")
 	f := env.Getenv("FLOW_HEADLESS_API_KEY_FILE")
+	if !pjAnthropicBase(cmd.Env) {
+		f = "off"
+	}
 	if f == "" && env.Getenv("HOME") != "" {
 		if d := filepath.Join(env.Getenv("HOME"), ".config", "flow", "headless-api-key"); isRegular(d) {
 			f = d
@@ -401,4 +409,20 @@ func pjDoes(env Env, role string) string {
 		return entries[i].Does
 	}
 	return ""
+}
+
+// pjAnthropicBase reports whether the child environment's last
+// ANTHROPIC_BASE_URL is unset, empty or Anthropic's own API host.
+func pjAnthropicBase(environ []string) bool {
+	base := ""
+	for _, kv := range environ {
+		if v, ok := strings.CutPrefix(kv, "ANTHROPIC_BASE_URL="); ok {
+			base = v
+		}
+	}
+	if base == "" {
+		return true
+	}
+	u, err := url.Parse(base)
+	return err == nil && u.Scheme == "https" && strings.EqualFold(u.Hostname(), "api.anthropic.com")
 }

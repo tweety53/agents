@@ -454,6 +454,7 @@ func TestJudgeGetsTheAPIKeyFromItsFile(t *testing.T) {
 		writeFile(t, keyFile, c.content)
 		env := policyFlowEnv(t, pjPolicy(`"planner":{"base":["opus/flow-low","opus/flow-medium"],"optin":[],"marked":[]},"pair-judge":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}`),
 			"FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd(), "FLOW_HEADLESS_API_KEY_FILE="+keyFile)
+		env.Environ = pjChildEnviron("")
 		r := runGuard("pair-judge", []string{"planner", pjDigest(t, "d")}, env)
 		got, _ := os.ReadFile(stub.dir + "/key")
 		switch c.name {
@@ -484,6 +485,7 @@ func TestJudgeKeyFileOffAndDefault(t *testing.T) {
 		}
 		env := policyFlowEnv(t, pjPolicy(`"planner":{"base":["opus/flow-low","opus/flow-medium"],"optin":[],"marked":[]},"pair-judge":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}`),
 			"FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd(), extra, "HOME="+home)
+		env.Environ = pjChildEnviron("")
 		runGuard("pair-judge", []string{"planner", pjDigest(t, "d")}, env)
 		if got, _ := os.ReadFile(stub.dir + "/key"); string(got) != want {
 			t.Errorf("%s: key %q, want %q", mode, got, want)
@@ -752,5 +754,51 @@ func pjWantStdin(t *testing.T, digest, brief, want string) {
 	}
 	if got := stub.stdin(t); got != want {
 		t.Errorf("stdin is %d bytes ending %q, want %d ending %q", len(got), got[max(0, len(got)-40):], len(want), want[max(0, len(want)-40):])
+	}
+}
+
+// TestJudgeKeyOnlyForAnthropicBaseURL: the headless key reaches the judge
+// child only when the child's ANTHROPIC_BASE_URL is unset or Anthropic's own
+// API host; any other vendor runs on the session's own credentials, so the
+// Anthropic key is never sent to it. Hosts compare exactly, never by substring.
+func TestJudgeKeyOnlyForAnthropicBaseURL(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct{ base, want string }{
+		{"", "sk-dummy"},
+		{"https://api.anthropic.com", "sk-dummy"},
+		{"https://API.anthropic.com:443/", "sk-dummy"},
+		{"https://dashscope.example.com/apps/anthropic", ""},
+		{"https://api.anthropic.com.evil.example", ""},
+		{"https://evil.example/api.anthropic.com", ""},
+		{"not a url", ""},
+	} {
+		stub := newPJStub(t, "printf '%s' \"$ANTHROPIC_API_KEY\" > $(dirname $0)/key\n"+pjJSON("PAIR: opus/flow-low\nREASON: r", ""))
+		keyFile := filepath.Join(t.TempDir(), "key")
+		writeFile(t, keyFile, "sk-dummy\n")
+		env := policyFlowEnv(t, pjPolicy(`"planner":{"base":["opus/flow-low","opus/flow-medium"],"optin":[],"marked":[]},"pair-judge":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}`),
+			"FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd(), "FLOW_HEADLESS_API_KEY_FILE="+keyFile)
+		env.Environ = pjChildEnviron(c.base)
+		runGuard("pair-judge", []string{"planner", pjDigest(t, "d")}, env)
+		if got, _ := os.ReadFile(stub.dir + "/key"); string(got) != c.want {
+			t.Errorf("base %q: key %q, want %q", c.base, got, c.want)
+		}
+	}
+}
+
+// pjChildEnviron is the process environment without any ANTHROPIC_* entry,
+// plus ANTHROPIC_BASE_URL=base when base is set: a judge child's environment
+// independent of the session running the tests.
+func pjChildEnviron(base string) func() []string {
+	return func() []string {
+		var out []string
+		for _, kv := range os.Environ() {
+			if !strings.HasPrefix(kv, "ANTHROPIC_") {
+				out = append(out, kv)
+			}
+		}
+		if base != "" {
+			out = append(out, "ANTHROPIC_BASE_URL="+base)
+		}
+		return out
 	}
 }
