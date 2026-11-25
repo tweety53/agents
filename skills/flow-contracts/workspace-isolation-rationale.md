@@ -61,8 +61,7 @@ apart when their prefixes collapse together, which is the likely collision rathe
 one: `kan-15-parallel-lanes` and `kan-15-parallel-two` both reduce to the prefix `kan-15` and are
 distinguished only by their digests, `42f2` and `77be`.
 
-This is the point the three
-  implementations disagreed on, because Unicode folding is where the freedom lives: `İ` (U+0130)
+This is where implementations disagree, because Unicode folding is where the freedom lives: `İ` (U+0130)
   folds to *two* characters under a JVM's `lowercase`, to `i` under a UTF-8-locale `tr`, and to
   nothing under a C-locale one.
 
@@ -178,7 +177,7 @@ change from finishing, over a service that happens to be stopped, trades a real 
 stranded short of its terminal state — for a few megabytes of stale storage. It also matches how the
 project-supplied stop check already treats an unreachable stack.
 
-## Moved by KAN-858
+## Moved from workspace-isolation.md
 
 Moved verbatim from `skills/flow-contracts/workspace-isolation.md`; each heading names the section
 the passage came from.
@@ -186,12 +185,6 @@ the passage came from.
 ### The workspace id
 
 flow change names are `<lowercased-jira-key>-<slug>` in practice, so this is a boundary case rather than a daily one, and a boundary case nobody has written down is where two implementations drift apart.
-
-The id blocks' fences carried the verification environment they were measured in:
-
-- `verified:run in this worktree on macOS (Darwin 25.5.0) with /usr/bin/shasum, /usr/bin/sed and bash 3.2, under LC_ALL of C, en_US.UTF-8, ru_RU.UTF-8 and tr_TR.UTF-8; every id in a comment is that run's output, identical under all four`
-- `verified:run in this worktree on macOS (Darwin 25.5.0) with bash 3.2; continues the id block above, whose $id is kan-15-fb13`
-- `verified:run in this worktree on macOS (Darwin 25.5.0) with digest fb13, the digest derived above`
 
 ### What the id derives
 

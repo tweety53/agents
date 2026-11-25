@@ -51,8 +51,7 @@ independence comes from reading only the fix delta against named findings,
 not from a different model.
 
 **Every subagent dispatch records the model it used** in the SDD ledger, alongside the task it ran.
-A model policy that nothing records is a policy nothing can verify — and the absence of that record
-is precisely how this rule came to be missing in the first place.
+A model policy that nothing records is a policy nothing can verify.
 
 **This record outlives the change, because it is a row in the store rather than a file in a
 worktree.** Each dispatch is written as it closes, and the store's rows are the terminal record — no
@@ -73,13 +72,3 @@ exception from either mechanism.
 Durability is a **stronger** reason to leave an unobserved entry unobserved, not a weaker one. A
 persisting record makes an invented model slug permanent, so `unknown (agent-defined)` stays exactly
 as written and no step fills it in on the way into the repository.
-
-## Moved from model-policy.md
-
-### Planning
-
-`runs in the current session, on its own model` — with no dispatched planner subagent and no `PLANNING_MODEL` to resolve (kan-488).
-
-### Claude Code
-
-`Planning has no dispatch to name a model for — it runs on the session's own model` — (kan-488).

@@ -76,11 +76,11 @@ readers — the prefix scoping in
 follow-up is filed into — read the same validated keys, so a value this clause refuses is never one
 another site quietly accepts. Validating per call site is how the three would drift.
 
-## Moved by KAN-856
+## Moved — planning-session files
 
-Verbatim passages KAN-856 moved out of the planning session's run-loaded files; each is the reason behind a rule that stays where it was.
+Verbatim passages moved out of the planning session's run-loaded files; each is the reason behind a rule that stays where it was.
 
-### Transitions (KAN-856)
+### Transitions
 
 That field groups a custom `TO DO URGENT` with `In Progress` under
 `indeterminate`, so a position deduced from it reports an issue sitting at `TO DO URGENT` as
@@ -89,12 +89,12 @@ whole change. Enumerating the name at the To Do position is the opposite operati
 position rather than deducing it, which is the mechanism the follow-up join search's To Do set
 already uses.
 
-### Unrecognised statuses (KAN-856)
+### Unrecognised statuses
 
 Nothing about
 the run depends on the answer, which is what keeps the guardrail's actual promise intact.
 
-### Description sync (KAN-856)
+### Description sync
 
 Everything preceding that heading is left byte-for-byte unchanged, and earlier
 bullets under it are retained — a bad paraphrase must be able to add a line, never to destroy the
@@ -111,9 +111,9 @@ whole field, so the intervening edit is destroyed by an operation that reported 
 The transcript is
 then the recovery path: the original is recoverable even if the write later proves wrong.
 
-## Moved by KAN-859 — jira-followups.md
+## Moved — jira-followups.md
 
-Verbatim passages KAN-859 moved out of `jira-followups.md` when it split the join path into `jira-followups-join.md`; each is the reason behind a rule that stays where it was — the subsection names the file that rule now lives in.
+Verbatim passages moved out of `jira-followups.md` when it was split the join path into `jira-followups-join.md`; each is the reason behind a rule that stays where it was — the subsection names the file that rule now lives in.
 
 ### jira-followups.md — The project clause
 
@@ -366,13 +366,3 @@ need six rows to say what two columns already say.
 The label union exists to stop an issue holding a second change's work from being invisible to a
 label filter, so a union that silently failed produces exactly the invisibility the rule was written
 to prevent — and reporting the join as clean is what would make it silent.
-
-## Moved by the 2026-11-13 prompt audit — incident records
-
-Each passage below sat inline in a run-loaded file beside the rule it motivated; the rule and its
-in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
-attribution; the text after it is the passage, verbatim.
-
-### jira-integration.md — Resolution (how `jiraIssue` is decided)
-
-- *a stop: the run continues into the In Progress transition and planning* — (kan-1040: a run filed the issue and ended its turn)

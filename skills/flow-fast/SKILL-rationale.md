@@ -1,7 +1,6 @@
 # flow-fast — rationale
 
-Reasoning behind `skills/flow-fast/SKILL.md`: what pins its tables and the incidents its rules were
-written against. Moved here verbatim from the run-loaded file; **no `/flow-fast` run loads this
+Reasoning behind `skills/flow-fast/SKILL.md`: what pins its tables. Moved here verbatim from the run-loaded file; **no `/flow-fast` run loads this
 file.** Each heading names the source file and the section the passage came from.
 
 ## SKILL.md — Stage keys

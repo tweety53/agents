@@ -268,16 +268,14 @@ reads every number on it as an exit.
    (`.superpowers/sdd/verify-report-*.md` of the worktree) with its numbers, and names the commit or
    edit between the two rounds that moved the element. With no such change since, the earlier
    number stands and the new one is re-measured at 2x on the frame before either is reported; a
-   reversal that quotes no earlier numbers and names no change is not accepted (KAN-1091: rounds
-   6–14 contradicted themselves on one element for twenty rounds).
+   reversal that quotes no earlier numbers and names no change is not accepted.
 
    **A fill that looks like a hover is not recorded as a departure until the pointer is shown to be
    outside every control.** A grey disc, tint or ring on a control that the mockup draws plain is
    first checked against where the capture left the pointer — the last `page.mouse.move`, and every
    control under that point, a corner chevron under `(0, 0)` included. With the pointer on the
    control, recapture that frame with the pointer off the viewport (`page.mouse.move(-1, -1)`) and
-   judge the recapture; the report names the pointer position it checked (KAN-1155: a parked pointer's
-   hover disc behind every pushed page's back chevron cost fix 17 to fix 20).
+   judge the recapture; the report names the pointer position it checked.
    **A departure's expected value cites the mockup's source wherever the handoff ships one, never a
    rule inferred from the pixels**: where the frame was drawn from HTML or CSS in the tree — beside
    the mockups or cited by `design.md` — the line names the declaration the expected layout, size or
@@ -436,13 +434,12 @@ reads every number on it as an exit.
 
    **Every element the frame draws, on every property the script measures — a matrix per
    frame, never a list of sweeps done.** Every sweep above is anchored on one kind of element
-   and asks the question its own incident taught: a control's kind and box, a text run's
+   and asks one question: a control's kind and box, a text run's
    content, a bounded row's gaps, a column's ink. An element outside every anchor — a headline
    figure, a caption, a summary row, a slider's track and thumb, a row's own border — is
    transcribed at most, and a property no sweep names is read by nobody: the text sweep judges
    what a run says and never its colour or its size, the row sweep measures the gaps around a
-   row and never how far the row stretches, and the per-control crop is asked for the one number
-   the last incident made memorable. The report's `sweeps:` line then names the sweeps, not the
+   row and never how far the row stretches, and the per-control crop is asked for one number. The report's `sweeps:` line then names the sweeps, not the
    numbers, so a round that re-checked one defect reads exactly like a round that measured the
    frame. Before a frame is called matching:
 
@@ -506,15 +503,12 @@ reads every number on it as an exit.
       **A row is never labelled by rule**: each `over-tolerance:` item names one row, `#<row>: <cause>
       — <figures>`, and its cause comes from what the composite shows at that row — never a range
       (`#3-#40: annotation`), a list of rows under one cause, or a selector (`rows 3 to 40`, `all`,
-      `the rest`). The check refuses such an item (kan-1155: 192 rows were labelled by a key-to-cause
-      rule over 14 rounds with no composite read). When `measure` printed `shift: dy=<px> rows=<n>
+      `the rest`). The check refuses such an item. When `measure` printed `shift: dy=<px> rows=<n>
       frame=<frame id>`, `<n>` of the frame's rows sit one constant offset low or high: they
       are one defect, the manifest's `shift` names it, and its `row` stands for
       all of them on `over` — find what moved the whole frame (a bar height, a scroll position, a status
       line) rather than explaining rows. What moved it is itself a departure, listed on the
-      report's departures lines unless a recorded decision covers it (KAN-1157: round 1 named a
-      `· 2 min rest` header subline as nine frames' shift cause and listed no departure for it, so
-      round 4 reported it as new). The frame's rows are then paired under that offset, so every
+      report's departures lines unless a recorded decision covers it. The frame's rows are then paired under that offset, so every
       other `over` row is a departure of its own, read as if the shift were already fixed.
    4. **Explain every row the matrix's `over` list names.** The manifest carries each composed
       frame's `over` rows by their 1-based index — every matrix row `missing`, `extra` or
@@ -695,8 +689,7 @@ sampling skipped that instant is no departure.
     that produced it — a frame an earlier pass found departing and this pass re-checked done reads
     `done` under this pass's key, and a frame this pass did not re-check keeps its entry with the key
     of the pass that last checked it. The record the change lands with then never names a departure
-    the closing pass closed (KAN-1155: it named `fix-13-rest` and the back-button circle as a
-    departure after `fix-21-rest` closed `done`).
+    the closing pass closed.
 
 **The wire-contract check — when the prompt names one.** With no `wire contract:` line, the
 report's `wire contract:` line reads n/a. Otherwise, signed in as an account
@@ -739,7 +732,7 @@ else. `exits:` names every exit the `## Report` carries, `not declared` where a 
 `missing-fixture` from the report's own facts; `departures:` counts every departure the `## Report`
 names, and the lines under it name each cause once, with every frame or view it shows on and its
 attribution beside it — one cause drawn on 34 frames is one line, never one line per frame
-(kan-1089: a 432-departure verdict listed one calendar header frame by frame).
+.
 
 ```text
 ## Verdict

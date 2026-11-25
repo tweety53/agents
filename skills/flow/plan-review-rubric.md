@@ -65,8 +65,7 @@ and how? Any choice left to the implementer is a `finding` naming the choice —
 rule of **The checklist** (`skills/flow/brainstorm-planner.md`), tested from a fresh reader's
 seat. A task that pairs, merges, restores or diffs two collections, or whose result depends on
 an iteration order, names the key or the sort that decides the pairing; a positional match with
-none stated is a `finding` closed by a line in `design.md` (KAN-1156: a restore matched stored
-entries to rows by position and the plan never said which sort).
+none stated is a `finding` closed by a line in `design.md`.
 
 ## Codebase details
 
@@ -75,16 +74,15 @@ content against the repository, and check that every path and symbol they name e
 statement the code refutes is a `blocker`: quote the statement and the code line. A task's
 `**Tests:**` file sits beside an existing test of the same kind — a full-HTTP test where the
 repository's full-HTTP tests live, a unit test in the module under test — named in the plan; a test
-path in a module that holds no test of that kind, and so cannot host it, is a `finding` (KAN-1156: an
-integration test was planned into a module whose tests are not full-HTTP).
+path in a module that holds no test of that kind, and so cannot host it, is a `finding`.
 A task that adds native SQL, a migration or a query has a `**Tests:**` entry that executes it
 against real or seeded data; with none, nothing in the plan can verify it, and that is a `finding`.
 A task that changes a symbol's signature or behaviour has a `**Files:**` entry for the places that
 use it, or says why none need editing; a definition listed alone leaves its call sites to be found
-while editing (KAN-1156: replay sites of a sync engine were found only once the task was under way).
+while editing.
 Every scenario `design.md` states has a `**Tests:**` entry that names it, or the plan says it is
 checked by hand or on screen; a scenario no entry names is a `finding`, since the implementer can
-only carry it as an open gap (KAN-1156: a lift sheet and a fold toast had no named test).
+only carry it as an open gap.
 
 A UI task has a `**Tests:**` entry that captures what it builds against its frame, and builds
 nothing `design.md`'s `## Undrawn` still lists; a UI element, state, icon or copy string the tasks

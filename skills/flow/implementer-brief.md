@@ -54,19 +54,17 @@ this file in full first: its prompt is a stub naming this file, never these para
 > and never a reason to change the plan; a gap that is a question only the operator can settle still
 > goes through **REPORT, DON'T DECIDE**, as it would unestimated. A warning or a non-zero exit of
 > either command is noted in your REPORT FILE and does not stop you. **A gap that reading code settles
-> is settled by reading it — "unread" is never a gap (KAN-1156: "sync replay sites unread until
-> edited").** **A gap a command inside your tasks can settle is settled by running it** — a test, a
-> query against real data, a build — and is never left to stand as a gap (KAN-1156: "native SQL is
-> unverified until the integration test runs"); name that file or command in your REPORT FILE. A
+> is settled by reading it — "unread" is never a gap.** **A gap a command inside your tasks can settle is settled by running it** — a test, a
+> query against real data, a build — and is never left to stand as a gap; name that file or command in your REPORT FILE. A
 > scenario no test covers is closed by writing the test inside your task. **A gap is never one of
 > these, whatever the number:** existing code that contradicts a recorded decision or the plan (the
 > plan's decision is applied, or the task reports BLOCKED — **REPORT, DON'T DECIDE**; "kept existing"
-> is a silent decision, KAN-1157), a test you wrote and have not run (run it; if it cannot run here the
+> is a silent decision), a test you wrote and have not run (run it; if it cannot run here the
 > task is `BLOCKED` naming the command and why, never `DONE`), and a seam you left inert — a default
 > no-op, a stub or a placeholder that nothing in your tasks replaces (wire the real one inside your
 > task, or carry it as a question in your REPORT FILE for the plan), a guard, gate, branch or
 > condition you added that no test fails without (write the test, delete the guard, watch it fail,
-> restore it — KAN-1157: a write-access gate with no such test), and work a later task of the plan
+> restore it), and work a later task of the plan
 > names — a capture run, a wiring step — which your REPORT FILE carries as `owned by Task <n>` and your
 > estimate leaves out. Below 100, a gap there is one no command or file read in your tasks could
 > settle, the REPORT FILE saying why. Any other fixer skips this paragraph.
@@ -117,14 +115,12 @@ this file in full first: its prompt is a stub naming this file, never these para
 > this command. A length delta within the project's `tolerance` is not flagged. A task whose plan
 > adds the capture spec in a later task is not measured per task; **the task that adds that spec
 > measures every earlier UI task's frame** with it, on the same command, and fixes each flagged row at
-> the earlier task's source before it reports (KAN-1156: task 19's frame departures surfaced only at
-> gated review and visual verification, four fix rounds).
+> the earlier task's source before it reports.
 
 > **NO FRAME VALUE WITHOUT A MODEL:** a mockup frame's value — a setting's current value, a count,
 > a name, a date — is drawn only where a model, store or API field holds it. A frame element whose
 > value no model holds is never drawn with the frame's literal value: a control behind it then
-> shows made-up data that nothing changes (KAN-1155: Settings Training goal, Training days and
-> Notifications rows, drawn from the frame for ten fix rounds). Report it as a departure, or as a
+> shows made-up data that nothing changes. Report it as a departure, or as a
 > question under **REPORT, DON'T DECIDE**, and leave the element out of the code until the
 > operator settles it.
 
@@ -159,7 +155,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > green or every failure is fixed or dispositioned as the step says (re-baselined with the departure
 > recorded, restored). TARGETED TESTS above decides which command runs; this decides when its step
 > is done. Anything less is `status: BLOCKED`, never `DONE`, with a `question:` line naming the
-> command and the count of failures left (KAN-1158: a task reported done on a sweep at 74 failures).
+> command and the count of failures left.
 
 > **DRIFT CHECK:** Before you commit, read your own diff once for what it leaves behind. For
 > every behaviour, name, path, flag or exit code the diff changes, grep for the comments, file
@@ -198,7 +194,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > place of your earlier turns. When your context opens with such a summary, re-read this brief
 > before your next action — the summary does not carry it.
 
-> **SCRUB A REPRODUCED ARTIFACT:** A real artifact reproduced into a committed fixture — a transcript, a log, a database dump — is reduced to the lines the test needs and scrubbed of every identifier, path, prompt text and personal datum before it is staged; the raw copy stays under `<abs-worktree>/.superpowers/sdd/`, never in the tree (kan-1132 self-review, F6).
+> **SCRUB A REPRODUCED ARTIFACT:** A real artifact reproduced into a committed fixture — a transcript, a log, a database dump — is reduced to the lines the test needs and scrubbed of every identifier, path, prompt text and personal datum before it is staged; the raw copy stays under `<abs-worktree>/.superpowers/sdd/`, never in the tree.
 
 > **SCRATCH HARNESS:** A throwaway harness — a measuring spec, a repro script, a probe — lives in
 > your session scratchpad or in this change's state dir (the path `flow state dir` prints), never
@@ -222,7 +218,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > report: <this report file's absolute path>
 > ```
 >
-> `status:` and `report:` appear once, and so does `confidence:` — the CONFIDENCE ONCE GREEN estimate you made, `filed` after your `flow confidence record` call, at 100% too (omitted by a `BLOCKED` or `PARTIAL` head and by a fixer that turned no group green); a `DONE` implementer head without it says the estimate was skipped (KAN-1156: three implementers ran no `flow confidence` call at all); every other line once per item — a `commit:` per
+> `status:` and `report:` appear once, and so does `confidence:` — the CONFIDENCE ONCE GREEN estimate you made, `filed` after your `flow confidence record` call, at 100% too (omitted by a `BLOCKED` or `PARTIAL` head and by a fixer that turned no group green); a `DONE` implementer head without it says the estimate was skipped; every other line once per item — a `commit:` per
 > task, its sha a `<worktree>=<sha>[,<worktree>=<sha>…]` map on a change spanning repositories, a
 > `fixed:` or `not-fixed:` per finding a FIX INPUT names — and not at all when there is none.
 
@@ -233,8 +229,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > BLOCKED. A decision you make silently is a decision nobody recorded. **The mechanism the design
 > states is the one you build.** One you judge better, or one that suits a single code path, is not
 > yours to substitute: build the design's, or report BLOCKED naming why it cannot work, never both
-> change it and carry on (KAN-1156: a rewrite the design places before delegating was applied to
-> the saved workout instead).
+> change it and carry on.
 
 > **A FLOW TOOLING DEFECT IS REPORTED, NEVER FIXED HERE:** a guard, hook, script, skill or contract
 > of the `agents` repository that wrongly blocks your task is named in your REPORT FILE — the

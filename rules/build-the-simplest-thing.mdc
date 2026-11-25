@@ -42,16 +42,3 @@ surface for a defect to hide in.
 **Correctness, security and stated requirements always win.** This governs the space where several
 correct designs exist and one is smaller — it is never licence to under-build or ignore a real
 constraint.
-
-## The incident behind it
-
-Gymie KAN-144 needed one behaviour: after logging a set, focus the next set's weight field. It
-shipped as a dedicated focus-state holder with its own tracking, update rules and synchronisation
-against workout state. It was later replaced by deriving the focused input from the current set —
-removing 67 lines of `commonMain` and a whole class of desynchronisation bug.
-
-The derived version was always available, met the requirement exactly, and should have been written
-first. The user's own statement of the requirement:
-
-> *"focus should be easy no? If already started and is a log then focus its weight field. Otherwise
-> just go next after user action."*

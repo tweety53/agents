@@ -26,6 +26,12 @@ cd stats && make -s web-dist && cd web && npx tsc -b      # must exit clean befo
 
 ---
 
+### No incident history in instruction files
+
+Rules, skills, contracts, templates and rationale appendices state the rule and its reason, never the incident behind it; incidents are recorded with `flow record incident`.
+
+---
+
 ### No scripts in bash
 
 Every new script, and any new logic added to an existing one, is Go in `flow-guard`:

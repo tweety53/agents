@@ -35,7 +35,7 @@ naming this file and one `PASS task-<n>` block per task it reviews.
 > prototype it is compared with is an Important finding, unless a `## Decisions` entry of the
 > change or a sidecar `#` comment naming the sibling ticket that builds that part excuses it.
 > Its fix changes the app until the capture matches the frame, never a sidecar comment that
-> names the departure (kan-1087 self-review, F17).
+> names the departure.
 
 > **INDEPENDENT PASSES:** each pass reviews its own task's diff range and the code, never an
 > earlier pass's report or conclusions; a defect that sits in two passes' ranges is raised under

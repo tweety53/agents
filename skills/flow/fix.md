@@ -49,8 +49,7 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    first step of the task is the `Measured:` line above for the reported element on both sides; when
    the numbers show no difference, the task's result is `not a departure: <the measured numbers, both
    sides>` and no code changes, and in every case the measured numbers are in the task's result, so
-   a later round that contradicts it must quote them (KAN-1091: a tab bar reported 13 px high, then
-   20 px low, settled only by measuring both sides).
+   a later round that contradicts it must quote them.
 
 2. **Fix it test-first**, under `flow.implement` (`flow stage begin -command '/flow' -stage
    flow.implement <name>` when no `flow.implement` mark is open). One fresh implementer, role
@@ -76,8 +75,7 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    files>`, its trailers kept), so a fixer that runs out of working memory part-way leaves a commit
    holding every finished group. The fix's next dispatch resumes from that commit: it reads
    `git -C <abs-worktree> show --stat HEAD` for the groups done, takes the first group the fix
-   instructions name that the commit does not yet touch, and redoes nothing (KAN-1091: a large fix
-   task ran out of context mid-way and resumed from the amended commit with no work lost).
+   instructions name that the commit does not yet touch, and redoes nothing.
 
 3. **Re-run the failing check**, under `flow.verify`. In-run: the stage that reported the defect,
    re-run as `skills/flow/verify-and-handoff.md`'s Verify and Visual verification
@@ -163,8 +161,7 @@ prints for the fix's own diff where the capture root holds a `<spec>.sources` si
 spec `specs` prints for it — none when it prints
 nothing — plus every capture spec the fix's task names in its `**Tests:**` line — when it fixes a shared
 component, every spec whose frames show that component, named by the planner or the finding that
-raised the fix, never left for the diff to reveal (KAN-1091: six verify breaks after fixes to a shared component whose images sat in specs the
-task never listed) — runs through one `capture` run with `--update-snapshots=all`
+raised the fix, never left for the diff to reveal — runs through one `capture` run with `--update-snapshots=all`
 appended (step 8, `skills/flow/visual-verify-verifier.md`), and every PNG whose bytes changed is
 read first, per **The sweep** (`skills/flow-contracts/known-bugs.md`), and
 committed with the fix, in the checkout step 12 of **Steps 3–13** (`skills/flow/visual-verify.md`)
@@ -188,10 +185,9 @@ remains, and a capture with a blob outside it is a defect per **The sweep**
 **A fix round from the second on carries the full departure list.** Its prompt carries every
 departure of the report that opened the loop plus every earlier round's report, never the latest
 report alone, and the fixer compares every frame row and departure of that list before it reports
-done (KAN-1157: each round saw only the latest report, fixed a few departures and exposed others).
+done.
 
-**The fix ledger: no fix silently undoes an earlier one** (KAN-1130: each fixer saw only the
-current finding and reverted or reinvented an earlier round's fix). Every fix commit of step 2
+**The fix ledger: no fix silently undoes an earlier one**. Every fix commit of step 2
 carries an `Invariant: <the one line its fix protects>` trailer beside its `Flow-Key:`. The ledger
 is derived from git, never stored: one row per fix commit since `<base>` — the branch's flow base,
 `branch.<current>.flowBase` when recorded, else `refs/remotes/origin/HEAD`, so a fix committed before
@@ -209,11 +205,9 @@ amends that fix commit rather than adding one on top.
 **A fixer checks every consumer of what it changed before it reports done.** It lists every view
 and frame that draws a component, copy or style its diff changed — the listed departures' siblings
 included — reads each one's recaptured PNG against its frame, and fixes in the same round any it
-no longer matches (KAN-1157: fix-4 changed the shared fold and dropped CQ17's and CQ21's next-copy
-line, which round 5 then reported). A departure whose frame contradicts older spec text is fixed to
+no longer matches. A departure whose frame contradicts older spec text is fixed to
 the frame and the spec text updated in the same round, never handed back as an open question
-(KAN-1157: fix-3 left three such frame-versus-spec departures "open for parent", and fix-4 was
-opened for them alone).
+.
 
 **Mockup departures are classified before the fix is written.** Where every frame that
 draws the departing component agrees, the departure is a defect this round fixes.
@@ -243,18 +237,14 @@ From then on every verifier attributes the rows that pick explains `decision dri
 (step 10's closed list, `skills/flow/visual-verify-verifier.md`), so they count as no departure; no
 round fixes the element toward another frame's value, picks it again or asks about it, and the
 handoff's `**Decisions:**` lines name each drift. Whatever looks wrong in use the operator reports
-after landing (kan-1091 and kan-1089: rounds swung one element between the values two frames draw,
-each round's fixer siding with a different frame).
+after landing.
 
 **A shared element that departs on some screens and not on others is fixed where those screens
 differ, never by a per-screen offset.** When the frames agree on where an element sits and the
 captures put it in different places on different screens, the cause is what those screens draw
 differently around it — a title block, an inset, a hero — and the fix fixes that. A constant
 added for one screen or one tab to land the element where that frame puts it moves the element off
-the frames the other screens matched, and the next round reports them (kan-1091: the frames put
-the Body tab band at y≈170 on every tab; `BODY_SIDE`, `CALORIES_HERO_EXTRA` and a band 3dp under
-the title on one tab but 11dp on the others left the captures at 149 on some screens and 170 on
-the rest, over rounds 4 to 8).
+the frames the other screens matched, and the next round reports them.
 
 One round runs steps 1, 2 and 4 in order; step 3 runs once, at the loop's close:
 
@@ -368,5 +358,4 @@ each saw its own slice: a value hard-coded or drawn from a frame that no model h
 without a test, a baseline moved without a reason. The dispatch takes its pair from the role the
 reviewer's work falls under in `flow policy get`, never a pair named here. What it finds takes
 this procedure as any defect does, and the late review runs again only if that fix round added
-more than one commit (KAN-1155: `fix-late-review`, run once at the end of 20 rounds, found Settings
-values hard-coded that 18 rounds had missed).
+more than one commit.

@@ -40,14 +40,14 @@ Never symlink a shared `node_modules` into a copy: the copy's own `npm ci` insta
 Dispatch each slot present in this round's panel **once**, its brief hand-assembled
 (**Bundled dispatch**, `skills/flow/review-panel.md`) from the shared resolved set, never from a copy: the
 brief names each copy, `<worktree>-<slot>-<round>`, as the repository path to mutate and test
-in, and never lists a worktree whose name already ends `-mutation-<round>` (kan-1119 self-review, F1).
+in, and never lists a worktree whose name already ends `-mutation-<round>`.
 Remove every copy unconditionally once that slot's dispatch closes — completed, aborted or the run stopped — with
 `flow-guard throwaway-worktree remove <worktree> <worktree>-<slot>-<round> --fold-back`, run as its own Bash call with literal absolute paths, never chained into a compound command, which first copies
 each non-empty `<worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md`,
 `<worktree>-<slot>-<round>/.superpowers/sdd/reproducers/*.sh`,
 `<worktree>-<slot>-<round>/.superpowers/sdd/dispatch-context-group-*.md` and
 `<worktree>-<slot>-<round>/.superpowers/sdd/implementer-report-*.md` back to the same path under `<worktree>`, unless `<worktree>` already holds a non-empty file the copy's is not newer than.
-It also folds a non-empty `panel-report-*.md` found at the root of the copy or of `<worktree>` — a report a slot wrote by a relative path after a `cd` — into the directory the copy's own reports fold back to, by the same rule, moving the one at `<worktree>`'s root, so a misplaced report is never moved by hand (kan-1119 self-review, F2).
+It also folds a non-empty `panel-report-*.md` found at the root of the copy or of `<worktree>` — a report a slot wrote by a relative path after a `cd` — into the directory the copy's own reports fold back to, by the same rule, moving the one at `<worktree>`'s root, so a misplaced report is never moved by hand.
 
 The fold-back runs inside the removal step itself — on every path that removes a copy,
 completed, timed out or run stopped — because a report the slot resolved onto its dispatched root

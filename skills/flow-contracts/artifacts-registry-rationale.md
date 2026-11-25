@@ -14,14 +14,11 @@ the wrong thing.
 
 **An artifact no row accounts for is a defect in the registry**, corrected by adding the row. It is
 never left unaccounted for on the grounds that something probably removes it — that assumption is
-exactly how the remote branch went unremoved until it was given a row here.
+exactly how a remote branch goes unremoved.
 
 Run 2 is terminal, and before step 10 merged its own pull request with `--delete-branch` that pull
 request outlived the run, so no later run existed to delete the branch it was
-opened from — this repository already carries five such leftovers, chore/archive-kan-197,
-chore/archive-kan-200, chore/archive-kan-209, chore/self-review-kan-201 and chore/self-review-kan-236,
-which is the evidence, not a guess, that nothing removed them. The archive branch itself is gone
-since 2026-10-04: run 1 archives on the change branch, which run 2 removes (**one task, one
+opened from . The archive branch itself is gone: run 1 archives on the change branch, which run 2 removes (**one task, one
 worktree**, `skills/flow-contracts/finish-contract-rationale.md`).
 
 **Nothing removes the claimed cache index, and nothing in this pipeline can — which is why the row
@@ -53,9 +50,3 @@ claim it — the `Removed by` cell stays `nothing in this pipeline` either way.
 The terminal
 state file keeps `artifactUrl` indefinitely, so deleting the only source that could republish that
 URL would leave it advertised and unrepublishable.
-
-## Moved from artifacts-registry.md
-
-### Rendered ledger and panel record
-
-`the renders target the canonical worktree only` — (kan-399); `copied into run 1's archive commit` … `spectre/<name>` — (kan-552). kan-1072 replaced the kan-552 phrase with `never copied into the change directory or committed`: run 1 drops the change directory instead of archiving it.

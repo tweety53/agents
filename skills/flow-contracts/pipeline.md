@@ -148,7 +148,7 @@ same turn, never announced as "next". A turn whose last action is anything other
 prompt **What still stops** names, a blocked report, or the handoff the state's run ends on is
 this rule broken. Ending on
 "the turn has been long", "each step is a real dispatch or build", "send `/flow` to continue" or
-any status report that offers to continue is this rule broken too (kan-1099).
+any status report that offers to continue is this rule broken too.
 
 **A wait on background subagents is one `flow-guard await-rows` call, never a turn end** (**Turn
 discipline**, `skills/flow/implement.md`).
@@ -185,7 +185,7 @@ verbatim and naming the approach that failed. It is never a stop and never an as
 independent families, each gets its own fixer, dispatched one after another — the next only
 once the previous has reported, so no two fixers' changes intersect — and each commits its own
 work — a WIP commit counts — before it reports, so a stalled fixer resumes from committed work
-(KAN-1157: one brief bundling three families ran 451 tool calls and never closed).
+.
 
 **A fixer that never reported has its row ended before it is resumed or replaced.** When the
 parent gives up on or resumes any fixer whose dispatch row is still open, it first ends that row
@@ -194,14 +194,12 @@ with `flow record dispatch end -change <name> -key <key> -outcome aborted`, so n
 **A verify round whose backend is down is no round.** Before each verify or visual-verify round,
 `flow-guard check-verify-env <url>...` dials every backend URL the project's `## run` starts; exit
 1 is an environment failure, cured by starting or restarting that backend before the round runs,
-and never counted as a failed round (KAN-1157: rounds 4 and 5 failed 15+ unrelated specs on
-`ECONNREFUSED`).
+and never counted as a failed round.
 
 **A visual round whose report names more departures than the visual report that opened its round
 is a round without progress too.** The visual stage's `close` prints `ESCALATE:` for it and for
 every failed round from the third on (`flow-guard visual-verify-pass`'s header canonical), and the
-next round is the escalation above, never another dispatch on the base pair (kan-1091: rounds 4 to
-8 ran on the base pair while the departures went 9, 19, 26, 24).
+next round is the escalation above, never another dispatch on the base pair.
 
 ### Caps never stop the run
 

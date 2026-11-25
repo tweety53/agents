@@ -90,8 +90,7 @@ Investigate read-only, then present the design.
   label wording — from the app's own token file, and list them in `design.md` under
   `## Shared constants`, one per item: ``- `<name>`: <value> — <token and file it was read from>``.
   A frame that disagrees with the list is corrected in the frame, or the list is changed by an
-  explicit decision recorded in `design.md` — never left for `flow.verify` to find (kan-1155:
-  contradictory frames cost 14 verify rounds). Each frame of the change states every listed
+  explicit decision recorded in `design.md` — never left for `flow.verify` to find. Each frame of the change states every listed
   constant — the value it draws, or `n/a` where it does not draw it — in
   a sidecar `<frame id>.constants` beside it, one `<name>: <value>` per line, or in
   `data-const-<name>="<value>"` attributes in an HTML frame. A sidecar's value is read off that
@@ -111,9 +110,7 @@ Investigate read-only, then present the design.
   `design.md` under `## Undrawn`, from the tasks as written, each element, state, icon, copy string,
   alignment and chrome variant (title placement, close control) that no cited frame draws, and each
   icon the project's icon set lacks — never inferred from a design template, a sibling screen or
-  the nearest component (KAN-1156: copy for undrawn cases was invented from templates, a title's
-  alignment and close button departed from the frame, two icons had to be drawn by the
-  implementer). Then dispatch one `designer` (**The designer**, below) for the whole list, and
+  the nearest component. Then dispatch one `designer` (**The designer**, below) for the whole list, and
   replace each `## Undrawn` item with the frame id it returned. The operator never answers an item
   on its own: the drawn result is reviewed in **The designer review**, below, an interactive step
   of its own that ends before the convergence confirm (**Convergence**, below) is asked. The

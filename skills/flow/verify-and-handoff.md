@@ -178,7 +178,7 @@ group was cache-skipped, `-outcome blocked -cause test-failure` when its list ex
 `begin` the store refuses stops the list before its first command, exit 4, its stderr line naming the
 refusal: clear the cause — a tracked modification, most often — and run the list again; a failed
 `end` is a warning line that never changes the exit code. The first `begin` stamps the start and the
-last group to finish ends the row: a group that ends green while a sibling group of the same key still runs records no `end`, and a group killed before its end leaves the row open for the parent to end by hand. The next verify run of the same group — a key that folds to the same `verify[-<repository name>]` — ends such a row `-outcome aborted` at its own begin (kan-1099 self-review, F11). A verify re-run after a new code commit passes a key no earlier verify row of the change
+last group to finish ends the row: a group that ends green while a sibling group of the same key still runs records no `end`, and a group killed before its end leaves the row open for the parent to end by hand. The next verify run of the same group — a key that folds to the same `verify[-<repository name>]` — ends such a row `-outcome aborted` at its own begin. A verify re-run after a new code commit passes a key no earlier verify row of the change
 used — `verify-<k>`, `<k>` counting from 2, suffixed as above — because the store keeps a reused
 key's first `startedAt`, and a row started before the commit never covers it. `verify-<k>` keys a re-run with no fix; a re-run after a fix carries the fix round's `-fix-<k>` key
 (`skills/flow/fix.md`). Once the one inline re-run is decided, a passing re-run ends a fresh
@@ -199,7 +199,7 @@ turn, never a second key.
 
 `<canonical worktree>` is the worktree holding `<project>/spectre/changes/<name>`; pass it when verifying any other worktree of a multi-repo change.
 
-`flow-guard run-verify-list` runs `flow-guard prepare-workspace <worktree>` itself before its first command and gives every command the `KEY=value` lines it prints, a value the caller's environment already sets winning; the caller exports nothing (kan-1099 self-review, F16).
+`flow-guard run-verify-list` runs `flow-guard prepare-workspace <worktree>` itself before its first command and gives every command the `KEY=value` lines it prints, a value the caller's environment already sets winning; the caller exports nothing.
 
 ### Live check
 
@@ -376,7 +376,7 @@ flow record dispatches -change <name> -C <canonical-worktree> \
   | jq -r '.[] | select((.outcome // "") == "") | "\(.key) \(.sessionToken) \(.agentId // "inline")"'
 ```
 
-**A row whose agent returned is never aborted** (KAN-1156: eight rows, each with its handback and $0.19–3.90 of spend, were ended `aborted`). A row with an agent id whose transcript (`<session folder>/subagents/agent-<agent id>.jsonl`) exists is closed from that transcript, which is complete by now: `flow-guard end-dispatch-row <that transcript> <session id> <canonical-worktree>`, which prints `END-DISPATCH-ROW-OK` and ends the row on its real final message. Only a row that guard prints `END-DISPATCH-ROW-NA` for, or that has no transcript, is ended `-outcome aborted` — its agent is gone:
+**A row whose agent returned is never aborted**. A row with an agent id whose transcript (`<session folder>/subagents/agent-<agent id>.jsonl`) exists is closed from that transcript, which is complete by now: `flow-guard end-dispatch-row <that transcript> <session id> <canonical-worktree>`, which prints `END-DISPATCH-ROW-OK` and ends the row on its real final message. Only a row that guard prints `END-DISPATCH-ROW-NA` for, or that has no transcript, is ended `-outcome aborted` — its agent is gone:
 
 ```bash
 flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome aborted

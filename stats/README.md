@@ -85,10 +85,6 @@ the dev daemon, is bounded at 500 ms, never changes a guard's exit code, and
 is dropped when the daemon is down or does not know the project (a guard run
 inside a test fixture's repository). `FLOW_GUARD_TELEMETRY=off` turns it off.
 
-Before/after suite timings
-for the port are recorded in the design of change
-kan-760-agents-port-the-flow-guard-scripts-and-their, not here.
-
 ## The UI-test stack
 
 For testing the application's browser interface by hand, from the main
@@ -154,7 +150,7 @@ second `make ui-test-down` is not an error.
 
 ## Agent roles
 
-Every role's allowed pairs live in flowd's store (kan-1103), seeded once by migration
+Every role's allowed pairs live in flowd's store, seeded once by migration
 `0061_role_pairs.sql`; `skills/flow-contracts/model-policy.md`'s **Allowed pairs** section is
 canonical for what the tiers mean. `flow policy get` prints them (and caches them for when flowd is
 down), `flow policy grants|grant|revoke -change <name> [-roles …]` manage the operator grants that
@@ -192,7 +188,7 @@ approves or declines each (`PATCH /api/v1/confidence/{project}/estimates/{id}/re
 The daemon can perform the pipeline's Jira status transitions itself: the
 four-position forward-only table (To Do, In Progress, In Review, Done) with
 retries against a transient Atlassian outage, so a landing run is not
-stranded by one failing call (KAN-571). The mechanism lives in
+stranded by one failing call. The mechanism lives in
 `internal/jira`; flowd serves it at `POST /api/v1/jira/transition`, and the
 `flow` CLI drives it:
 
@@ -275,12 +271,9 @@ parent is the wall clock left over.
 
 ## Checking attribution by hand
 
-KAN-16 shipped a measurement system that could not measure: every stage run
-was recorded with `session_id` NULL, so the harvester attributed every
-transcript offset it read to nothing, and the dashboards just looked
-empty. Nothing failed loudly — it was found by a human staring at that
-empty dashboard and asking why. This is the same check, made a minute's
-work instead of an investigation.
+A stage run recorded with `session_id` NULL leaves the harvester attributing
+transcript offsets to nothing: the dashboards just look empty and nothing fails
+loudly.
 
 While a `flow-postgres` stack and `flowd` are both running (see above),
 and while a real `/flow*` command is mid-run (so a change and at least
@@ -305,8 +298,7 @@ transcript, stays `sessionId: null` with empty `metrics`
 honestly — that is the *recorded, not measured* state (see "Pricing"
 above and this repository's `run-telemetry` capability), not a
 symptom by itself. What is a symptom: every stage run staying unbound
-minutes after it should have flushed, across every change — that is
-exactly what KAN-16 looked like. On Claude Code `sessionId` is set by the mark itself from
+minutes after it should have flushed, across every change. On Claude Code `sessionId` is set by the mark itself from
 `CLAUDE_CODE_SESSION_ID` and is present before the first harvest
 cycle; only `metrics` waits on the harvester.
 

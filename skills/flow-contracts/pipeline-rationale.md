@@ -17,9 +17,7 @@ be nothing for one to write.
 
 The tuned threshold, the two prompts, and why their opposite recommendations are not to be
 harmonised belong to the command itself — **Convergence** (`skills/flow/brainstorm-planner.md`).
-The design-approval stage's median wall clock was 0 s over 49 runs in this repository's dev stats
-store on 2026-09-04 — the approval was a reflex seconds after the confirm — which is why one answer
-now serves as both.
+The approval is a reflex seconds after the confirm, which is why one answer serves as both.
 
 ## Command surface
 
@@ -36,7 +34,7 @@ ignored word is indistinguishable from a flag that stopped working.
 
 Integrate's one sanctioned chain — **Write `IN_PROGRESS`** continuing into it when no open
 question is left — exists because most changes had nothing for the operator to review at
-`IN_PROGRESS`, and the stop cost one extra turn per change (KAN-1030). The ban on integrate
+`IN_PROGRESS`, and the stop cost one extra turn per change. The ban on integrate
 inferred from mid-turn words stays: a stray "merge and push" said mid-run is still conversation,
 and only the run's own chain point or a fresh bare `/flow` starts integrate.
 
@@ -51,11 +49,12 @@ Moved from the contract, where it followed **This table is authoritative.**: Eve
 disagree, whichever the agent reads first wins, which is non-determinism in the one layer that must
 be deterministic.
 
+*The self-review runs after the route lands and `cleanup` gates on it; In Review is dropped*, because fixes land through `pipeline-fix land` on `self-review-<name>`, never on the change's branch, so nothing waits on a rewritten sha and no status sits between In Progress and Done.
+
 ## Pipeline defects found mid-run
 
 The in-run fix loop runs the self-review pass's loop — a planner, then a fixer per recorded group,
-reviews, and a ticks-and-archive commit before landing — at the operator's explicit request
-(2026-10-14), once that pass's loop had moved to full planning: the two loops fix the same kind of
+reviews, and a ticks-and-archive commit before landing — at the operator's explicit request, once that pass's loop had moved to full planning: the two loops fix the same kind of
 defect, and the operator wanted them to match rather than keep a one-shot brainstorming fixer here.
 The loop cites **3. Fix every finding that is not `big`** (`skills/flow-self-review/SKILL.md`)
 for its pairs and mechanics rather than restating them, so the two cannot drift; this section
@@ -72,7 +71,7 @@ at dispatch and resolved at completion would survive a crashed run as a permanen
 task, in a file two guards parse. A second source of completion state would be one
 `flow-guard check-unfinished-work` cannot see.
 
-**The flow-task-list mod replaced the harness's task-list mechanism** (operator, 2026-10-03). The
+**The flow-task-list mod replaced the harness's task-list mechanism** (operator). The
 mod renders every dispatch as a row and the run's phase from its marks; the checklist's
 per-step view of undispatched work — brainstorming, inline-executed tasks, finish steps — is given
 up for one view the run never maintains by hand. The dispatch-description shape drops its leading
@@ -82,7 +81,7 @@ board's own spawn-order number, a doubled emoji and a doubled state. The mod is 
 plugin; a harness without it keeps the printed equivalent block, so no harness has to gain a task
 tool or a plugin to show progress.
 
-The hint line's running-stage emoji was dropped (operator, 2026-10-07): the tally already counts
+The hint line's running-stage emoji was dropped (operator): the tally already counts
 the rows running that stage under the same emoji, so `flow-implement 👀 -> 👀 1` showed one verifier
 twice.
 
@@ -115,7 +114,7 @@ missing either is a caller mistake the CLI rejects before it ever reaches the st
 start of the run, and then passes unchanged on every mark that run makes, so the daemon can later
 find it in the calling session's own transcript and bind every stage run carrying it to that
 transcript's own `sessionId` — design.md's "bind after the fact, by a correlator the caller writes"
-and "one token per session, not one per mark" (kan-172).
+and "one token per session, not one per mark" .
 
 **The token is per run, generated fresh, never reused across runs.** A run
 that starts identifies itself with its own new token; a run that already has one (mid-run, at a
@@ -168,7 +167,7 @@ it on every turn.
   prose after it. An agent cannot drive a harness's autocomplete; nothing lets a running session
   prefill the operator's input box. The last-line convention plus a four-command surface is the
   whole mechanism. The fence is what the Claude mobile and desktop apps put a copy button on — a
-  bare line has to be selected by hand (kan-1040); it holds the command alone so the copy is
+  bare line has to be selected by hand; it holds the command alone so the copy is
   exactly what is pasted, and `/clear` stays outside it because the operator types it.
 
 - **`/flow`'s implement phase never stages `<project>/spectre/changes/` or `<project>/docs/superpowers/` into
@@ -271,46 +270,3 @@ it alone, even while it sits at a human gate with a fully staged diff.
 Moved verbatim from the contract, after the three-outcome list: This resolution is defined **once,
 here**, and `/flow`'s own enumeration step cites this section rather than repeating or re-deriving
 the union — so its list of open changes can never drift from what this section defines.
-
-## Review panel — the measurements behind three fix-round rules
-
-Three rules in `skills/flow/review-panel.md` were derived from measurements taken on earlier runs.
-The rules state their own reasons and no longer carry the figures; the figures are recorded here so
-the provenance survives the contract text.
-
-- *A deferral's reason is one clause naming the mechanism — never a rationale essay.* KAN-501
-  observed gymie kan-459's fix rounds 6–7 at 29.6k–34.7k tokens each, carrying deferral-rationale prose
-  and `design.md` rewrites rather than fixes.
-- *When the round raised anything above Minor, re-run on deltas.* On gymie KAN-459, five of seven review
-  rounds raised mostly regressions of earlier fixes, at roughly forty-five minutes a round
-  (KAN-500).
-- *Give the surviving findings to fix subagents in chunks of at most 10 findings.* gymie KAN-459's round 1
-  read ~110M cache tokens fixing 24 findings in one dispatch (KAN-499).
-
-## Moved by the 2026-11-13 prompt audit — incident records
-
-Each passage below sat inline in a run-loaded file beside the rule it motivated; the rule and its
-in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
-attribution; the text after it is the passage, verbatim.
-
-### pipeline.md — Fewest operator actions
-
-- *in another file licenses asking a question that carries a recommended option* — (kan-1037: the parent asked a visual verifier's three spec questions under `rules/design-mockups-are-specs.mdc`'s "Ask rather than invent", then stopped after an in-run fix task citing token cost)
-- *`skills/flow-contracts/operator-prompts-auto-resolution.md`). A shared-source fix (`skills/flow/verify-fix-loop.md`) is never offered as "a separate change"* — (kan-1017: the parent stopped after Task 11 with verify, the panel re-review and integrate still ahead, offering a seed-data flake, a shared heading departure and a mockup-frame config gap as open items, each of which had a recommended fix)
-- *stop, is never handed to the operator as 're-run /flow to continue'* — (kan-1104: the parent stopped at STARTED with every task ticked and the panel, verify and integrate ahead, citing the size of the phase files left to read)
-- *or the handoff the state's run ends on is this rule broken* — (kan-1018: the parent ended its turn with round-0 panel findings recorded and every fix still ahead)
-
-### pipeline.md — Unanswered mid-run asks
-
-- *output, and the same turn then continues into the run's next step* — (kan-1033: the parent closed the review panel, answered two mid-run questions and filed a requested ticket, then ended the turn with verify still to run)
-
-### pipeline.md — Stage marks
-
-- *no two runs share one: a name-derived token alone repeats across sessions* — (kan-1028: `mf-k1028b`, reused by a resumed run, collided with the dead session's rows)
-- *the clock then and marks under the stamped token from there on* — (kan-1029: `mf-k1029-PLACEHOLDER` was accepted)
-
-### pipeline.md — Self-review after landing
-
-- *the self-review runs after the route lands and `cleanup` gates on it; In Review is dropped* — (slim-flow-loop: fixes land through `pipeline-fix land` on `self-review-<name>`, never on the change's branch, so nothing waits on a rewritten sha and no status sits between In Progress and Done)
-
-- The stage marks are seven — `flow.plan`, `flow.implement`, `flow.review`, `flow.verify`, `flow.land`, `flow.self-review`, `flow.cleanup` — because the old keys named steps, not phases, and a phase chart wants one mark per phase (ticket cut 10).

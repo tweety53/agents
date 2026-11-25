@@ -9,7 +9,7 @@ This file is the reasoning behind `skills/flow-contracts/state-file.md`.
 
 ## state-file.md — Physical path resolution
 
-`reappearing one level down` — it was found by running the derivation from a real worktree whose temporary directory crossed a symlink.
+`reappearing one level down`.
 
 ## state-file.md — `artifactUrl`
 
@@ -17,7 +17,7 @@ This file is the reasoning behind `skills/flow-contracts/state-file.md`.
 
 ## state-file.md — Planning effort
 
-`planningEffort` and `models` are retired fields (2026-11-20): no run writes or reads them, and a level recorded on a change created
+`planningEffort` and `models` are retired fields: no run writes or reads them, and a level recorded on a change created
 before the question was retired governs nothing.
 
 **No gate is ever switched off.** Brainstorming runs, the design approval gate holds,

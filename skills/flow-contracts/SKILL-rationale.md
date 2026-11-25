@@ -37,8 +37,7 @@ nothing checks it:
 | [workspace-isolation-rationale.md](workspace-isolation-rationale.md) | [workspace-isolation.md](workspace-isolation.md) |
 
 They exist for whoever *edits* a contract — the
-justification of an ordering, the alternatives that were rejected, the history, and the measurements
-behind a rule. A command that loads one has paid the cost the split exists to remove, which is why
+justification of an ordering, the alternatives that were rejected, and the measurements behind a rule. They hold no incident history; incidents are recorded with `flow record incident`. A command that loads one has paid the cost the split exists to remove, which is why
 no appendix appears in the **Index** above: that index is what a command reads, and this section is
 for the editor.
 
@@ -60,22 +59,3 @@ appendices, so it never appears in the table above or anywhere in this directory
 This file is the entry point to the contracts, so a stale entry here misdirects every command that
 starts from it. When a contract file gains or loses a section, update the row above in the same
 change — nothing checks that a description is still true.
-
-## Moved by the 2026-11-13 prompt audit — incident records
-
-Each passage below sat inline in a run-loaded file beside the rule it motivated; the rule and its
-in-sentence reason stay there. The quoted fragment before each dash is the end of that rule, for
-attribution; the text after it is the passage, verbatim.
-
-### operator-prompts-auto-resolution.md — Auto-resolution
-
-- *or main holding commits the base lacks — syncs the base first* — (KAN-1000: a stale feature/cardio base cost 61 failures and about an hour)
-- *run could have taken, is the stop this file exists to prevent* — (kan-1007: the run stopped after visual-verify to ask whether a requested rise could start visible)
-
-### operator-prompts-auto-resolution.md — What still stops
-
-- *no history and only brings the base up to what it tracks* — (gymie KAN-1015: the run stopped mid-verify to ask it, and the operator said to answer it automatically)
-
-### known-bugs.md — The sweep
-
-- *is and where its fix is recorded — never whether it blocks* — KAN-570 is the case that set the standard: kan-485 reverted its own calculator-area touches, saw the same failures, and so kept a pre-existing defect out of its own scope on evidence rather than assertion.

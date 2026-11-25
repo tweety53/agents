@@ -60,16 +60,14 @@ a new session, save as **Name.** below states, a non-empty argument being its fi
 included — is the session's first request and is looked at, answered or implemented only once
 **Session start** (Jira, **Name.**, **Worktree.**, the `flow.plan` mark) is complete and the request
 is recorded. A turn that has answered the argument without a session behind it has skipped the
-skill (KAN-1130: the first message's question was answered inline, then a key-less change was
-resumed beside the open `kan-1130-confidence-estimate`).
+skill.
 
 The invocation's first tool call is the open-session lookup (`flow state list`); no answer, look,
 edit or other tool call comes before the `flow.plan` mark and the recorded request row. A session
 started late is never repaired backwards — no hand-made worktree, no backfilled marks, no direct
 push to the base: stop and run **Session start** from its beginning. A plain message mid-session is
 recorded as a request before anything else, and code changes go to the executor, never the
-coordinator (2026-11-24: a question answered inline, edits made in the main checkout, a worktree
-built by hand, marks backfilled).
+coordinator.
 
 **Jira.** Resolve the issue per **Resolution (how `jiraIssue` is decided)**
 (`skills/flow-contracts/jira-integration.md`): with no key given, reuse the In Progress `Interactive session` issue, whoever it is assigned to, when one exists, else file a Task through its creation
@@ -82,7 +80,7 @@ one `⚠ Jira: skipped — <reason>` line of **Never blocking**.
 `interactive-<YYYYMMDD-HHMM>` (UTC). **An open `/flow-interactive` change whose name is, or starts
 with `<lowercased key>-`, the resolved issue's key is resumed whatever its slug** (**Resume**, below) —
 the reused `Interactive session` issue's included, so a topic-slugged request never opens a second
-change on the same issue — never a new session numbering from 1. Find it with `flow state list`: every record whose name is, or starts with `<lowercased key>-`, and whose state is not `FINISHED` — the most recently updated when several. (`flow state find` takes one exact name and never matches by key.) **Whatever state the record shows is open: a `STARTED` row whose `updatedBy` is `flow stage begin (synthetic)` is a session's own row — a stage mark creates it, as no state write exists before the stop — so it is resumed, never judged another command's and never left beside a new name** (KAN-1130: `kan-1130-confidence-estimate` was opened beside the unfinished `kan-1130-prompt-tuning-files`, two cards for one issue). Looking before creating is not optional: a session whose worktree is not the one found is a second session on the issue.
+change on the same issue — never a new session numbering from 1. Find it with `flow state list`: every record whose name is, or starts with `<lowercased key>-`, and whose state is not `FINISHED` — the most recently updated when several. (`flow state find` takes one exact name and never matches by key.) **Whatever state the record shows is open: a `STARTED` row whose `updatedBy` is `flow stage begin (synthetic)` is a session's own row — a stage mark creates it, as no state write exists before the stop — so it is resumed, never judged another command's and never left beside a new name**. Looking before creating is not optional: a session whose worktree is not the one found is a second session on the issue.
 
 ```bash
 flow stage mark  -command '/flow-interactive' -stages flow.plan -harness <harness> <name>
@@ -336,8 +334,7 @@ as a request and the session stays open, saying so in one line. Stop:
    created, with the synthetic marker the read adds dropped (`state set` refuses it): `flow state get
    <name> | jq '.state="FINISHED" | .updatedBy="/flow-interactive close" | del(.synthetic)' | flow state
    set <name>`, then `flow state get <name>` printing `"state":"FINISHED"`. A stop that ends without
-   it leaves a closed session's card on the board as `STARTED` for good (KAN-1130:
-   `kan-1130-prompt-tuning-files`).
+   it leaves a closed session's card on the board as `STARTED` for good.
 
 ## Resume
 
