@@ -66,7 +66,6 @@ const GUARD_INFO: Record<string, { does: string; approved: boolean }> = {
   "end-dispatch-row": { does: "Closes a stopping subagent's dispatch row with its outcome and commit", approved: true },
   "check-visual-trigger": { does: "Tells the verify stage whether a diff touches ui paths, so the UI check runs", approved: true },
   "check-unfinished-work": { does: "Integrate gate: reports whether the change still has unfinished work", approved: true },
-  "plan-triage": { does: "One headless model call deciding full or short planning for a new change", approved: true },
   "sweep-dispatch-rows": { does: "Closes dispatch rows whose stop was missed, from the agent's hand-back report", approved: true },
   "affected-specs": { does: "Prints the capture specs a diff can move, so a fix round recaptures those and no others", approved: true },
   "break-and-prove": { does: "Flips a file with a sed or patch, runs the test command and restores the file, proving the test fails without the fix", approved: true },
@@ -125,7 +124,7 @@ const GROUPS: { title: string; guards: string[] }[] = [
   { title: "Verify and test tooling", guards: ["run-verify-list", "recapture", "affected-specs", "capture-workers", "break-and-prove", "run-reproducer", "smoke-keep", "test-cost", "test-two-streams", "rebuild-full-app-suite-zip", "resolve-visual-screenshots", "visual-verify-pass", "measure-visual-properties", "unchanged", "run-detached", "await-detached"] },
   { title: "Mockups and frames", guards: ["render-frames", "compose-mockup-frames", "write-panel-diff"] },
   { title: "Workspace and git", guards: ["kickoff-worktree", "prepare-workspace", "workspace", "throwaway-worktree", "remove-change-worktrees", "resolve-base-branch", "sync-onto-base", "refresh-main-checkout", "live-store-copy", "installer-sandbox-diff", "project-get", "sync-base-behind", "stop-worktree-processes"] },
-  { title: "Pipeline orchestration", guards: ["integrate-change", "close-task", "plan-check", "plan-triage", "pair-judge", "pipeline-fix", "load-sets", "recover-guard-incident"] },
+  { title: "Pipeline orchestration", guards: ["integrate-change", "close-task", "plan-check", "pair-judge", "pipeline-fix", "load-sets", "recover-guard-incident"] },
 ];
 const GROUP_NOTE: Record<string, string> = {
   Checks: "gates that can refuse",

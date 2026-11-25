@@ -1,11 +1,5 @@
 [
  {
-  "question": "How does the step that decides how much planning a change needs work, and what does it do with instructions embedded in the ticket?",
-  "kind": "any",
-  "file": "skills/flow/plan-triage-prompt.md",
-  "snippet": "# Plan triage You decide how much planning a change needs before anyone designs "
- },
- {
   "question": "What is the overall shape of the flow pipeline's state machine and how many states and gates does it have?",
   "kind": "any",
   "file": "skills/README.md",

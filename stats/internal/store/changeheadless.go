@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// HeadlessRow is one headless model call (pair-judge, plan-triage, the
+// HeadlessRow is one headless model call (pair-judge, the
 // plan-check decider) as a change's run page lists it. CostUSD is nil when
 // the call's cost went unrecorded, never 0.
 type HeadlessRow struct {

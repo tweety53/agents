@@ -158,8 +158,7 @@ for an Explore agent, `plan-designer` for a Plan agent — passed as the Agent t
 what is already known, what to return. Never a `fork`, and never an agent that edits files: each is dispatched on the read-only `Explore`
 or `Plan` agent type, whose tool set has no Edit and no Write. The
 agents investigate and propose; you decide. They record no ledger row. Read the code yourself
-first; dispatch an agent only where that cannot settle a question. On an easy change (`planner-short`, **Judge easy or hard**,
-`skills/flow/brainstorm.md`) only Explore agents are dispatched — never a Plan agent.
+first; dispatch an agent only where that cannot settle a question.
 
 **Findings outlive the round.** Append each Explore and Plan hand-back verbatim to
 `<abs-worktree>/.superpowers/sdd/planner/findings.md` under `## <explore-<n>|design-<n>> — <the

@@ -222,7 +222,7 @@ function modelEffortLabel(d: Step): string {
  * descriptions, then "main session" for the runs' cost no bucket carries --
  * the main session's own turns. Null where nothing is left.
  */
-/** One line per role of a change's headless calls (pair-judge, plan-triage, decider): how many, on which model · effort, their summed cost. */
+/** One line per role of a change's headless calls (pair-judge, decider): how many, on which model · effort, their summed cost. */
 export function headlessRoles(rows: HeadlessRow[], versionOf: (model: string) => string = formatModel): { role: string; count: number; models: string; cost: number | null }[] {
   const by = new Map<string, { count: number; cost: number | null; pairs: Map<string, number> }>();
   for (const r of rows) {

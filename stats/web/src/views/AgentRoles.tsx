@@ -14,8 +14,6 @@ export const SHORT_DOES: Record<string, string> = {
   "plan-designer": "Proposes a plan",
   designer: "Draws the undrawn",
   planner: "Writes the plan",
-  "plan-triage": "Judges easy or hard",
-  "planner-short": "Plans an easy change",
   implementer: "Writes the code",
   "panel-fix": "Fixes review findings",
   "operator-asked": "Does what you asked",
@@ -44,7 +42,7 @@ export const SHORT_DOES: Record<string, string> = {
 const shortDoes = (r: RoleEntry) => SHORT_DOES[r.role] ?? r.does.split(" ").slice(0, 4).join(" ");
 
 // Roles run by a guard's headless `claude -p`, never dispatched as an agent.
-const HEADLESS = new Set(["pair-judge", "decider", "plan-triage"]);
+const HEADLESS = new Set(["pair-judge", "decider"]);
 
 const MAIN_PAIR = "session's own pair";
 

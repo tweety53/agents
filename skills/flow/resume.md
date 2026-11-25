@@ -8,10 +8,7 @@ a missing worktree runs its steps 1–4, and every other resume point below runs
 brainstorming and planning through the planner role**. A resume at **B** re-enters the planner loop
 at the round after the last `round-<r>.md` under `<abs-worktree>/.superpowers/sdd/planner/` — its
 relay first when that round has no `## Answers`, the resumed round reading `findings.md`, that
-latest round file with its answers. Every planner dispatch a resume makes runs on `planner-short`
-exactly when `<abs-worktree>/.superpowers/sdd/planner/triage.md` holds `TRIAGE: short`, else on
-`planner` (**Judge easy or hard**, `skills/flow/brainstorm.md`); a resume that finds no
-`triage.md` and no round file runs the judge first.
+latest round file with its answers.
 
 ### Resuming at `STARTED`
 

@@ -1,22 +1,8 @@
-# Planning: triage, then a cold plan review
+# Planning: design, then a cold plan review
 
 Planning is the one fully interactive part of `/flow`: you answer every ambiguity and approve the
-design. Two model calls around it keep the effort proportional and the plan honest. Both are
-"headless": one-shot, read-only calls that ask nobody anything.
-
-## Triage: easy or hard?
-
-Before anyone designs, one call reads the ticket and the repository's file list and answers
-`short` or `full`.
-
-- **Short** — the change sits in one known area, has one obvious approach and makes no visible UI
-  change that needs a prototype. One planner does everything, reading the code itself.
-- **Full** — it spans repositories or apps, changes a data model or a public contract, is a
-  visible change with no mockup, or has real design alternatives or open product questions.
-
-Both still run design rounds with you and end on your approval. When in doubt the answer is `full`.
-
-Canonical: [`skills/flow/plan-triage-prompt.md`](../skills/flow/plan-triage-prompt.md).
+design. One model call after it keeps the plan honest. It is "headless": a one-shot, read-only
+call that asks nobody anything.
 
 ## Plan review: read cold
 

@@ -49,22 +49,21 @@ Orange boxes are your decisions, blue are agents, purple are one-shot read-only 
 
 ```mermaid
 flowchart TD
-    triage["1 · Triage<br/>easy or hard plan?"]:::head
-    plan["2 · Plan"]:::agent
-    pc["3 · Plan review<br/>problems + how to build"]:::head
+    plan["1 · Plan"]:::agent
+    pc["2 · Plan review<br/>problems + how to build"]:::head
     tri["Triage problems<br/>fix · contest · ask you"]:::agent
     appr{{"Approve the plan"}}:::you
-    build["4 · Build<br/>TDD in a worktree"]:::agent
-    panel["5 · Review panel"]:::agent
-    lint["6 · Lint + tests"]:::guard
+    build["3 · Build<br/>TDD in a worktree"]:::agent
+    panel["4 · Review panel"]:::agent
+    lint["5 · Lint + tests"]:::guard
     trig{"UI files changed?"}:::guard
-    vv["7 · Visual verify"]:::agent
-    diff{{"8 · Review the diff"}}:::you
-    land["9 · Land"]:::guard
-    sr["10 · Self-review"]:::agent
-    done["11 · Cleanup"]:::guard
+    vv["6 · Visual verify"]:::agent
+    diff{{"7 · Review the diff"}}:::you
+    land["8 · Land"]:::guard
+    sr["9 · Self-review"]:::agent
+    done["10 · Cleanup"]:::guard
 
-    triage --> plan --> pc
+    plan --> pc
     pc -- problems --> tri -. re-check once .-> pc
     pc -- clean --> appr
     tri --> appr
@@ -92,8 +91,7 @@ flowchart TD
 
 ## The good parts
 
-- **The plan is sized, then read cold.** A quick first call judges whether a change is easy or hard,
-  so a small change gets short planning; the finished plan is then reviewed by a model that never saw
+- **The plan is read cold.** The finished plan is reviewed by a model that never saw
   the conversation, which also decides how the work is split and reviewed.
   [Planning](docs/planning.md)
 - **A review panel picked per change.** Up to seven reviewers, each with one job; the plan review

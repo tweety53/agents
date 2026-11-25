@@ -41,8 +41,6 @@ func TestRolePairsSeedMatchesTable(t *testing.T) {
 		"general":               {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
 		"self-review-pass":      {Base: []string{"opus/flow-medium"}, Optin: []string{}},
 		"self-review-plan":      {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low"}, Optin: []string{}},
-		"plan-triage":           {Base: []string{"opus/flow-low"}, Optin: []string{}},
-		"planner-short":         {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low", "opus/flow-planner-high", "opus/flow-planner-xhigh", "fable/flow-planner-xhigh", "fable/flow-planner-high", "fable/flow-planner-medium"}, Optin: []string{}},
 		"self-review-fix":       {Base: []string{"opus/flow-medium", "sonnet/flow-medium"}, Optin: []string{}},
 		"self-review-review-1":  {Base: []string{"opus/flow-medium", "opus/flow-low"}, Optin: []string{}},
 		"self-review-review-r":  {Base: []string{"sonnet/flow-low"}, Optin: []string{}},

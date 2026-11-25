@@ -17,7 +17,7 @@ uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requi
 | `search.py "<question>" [-k 5] [--no-rerank]` | Hybrid BM25 + `bge-small-en-v1.5` (RRF), top 20 reranked by `bge-reranker-base`. Embeddings cached in `emb.npy`, keyed by a hash of the chunk texts. |
 | `evaluate.py` | Scores bm25, bge-small, hybrid and weighted hybrids, then the reranker, on `questions.json`; lists near-duplicate chunk pairs. |
 | `rerank_cmp.py` | `bge-reranker-base` against `bge-reranker-v2-m3` (512 and 1024 tokens), top 10 and 20. |
-| `questions.json` | 60 model-written questions, each stored as its source file plus the chunk's opening, so it survives the corpus changing. |
+| `questions.json` | 59 model-written questions, each stored as its source file plus the chunk's opening, so it survives the corpus changing. |
 
 Measured on those 60 questions (1,343 chunks, 87 files), chunk recall at 1 / 5 / 10 and file recall at 1 / 5:
 
