@@ -113,6 +113,8 @@ those dispatches.
 Before dispatching any panel round,
 re-check the decision's `panel` bundles.
 
+**No reviewer dispatch carries more than two roles** — pass 1, a re-run, or an added id.
+
 **Each `panel` bundle is one dispatch**, one **PASS `<id>`** section per role in the
 bundle's order — findings still recorded per role. **The one-per-role
 shape — one dispatch per role — is the explicit fallback, taken when a bundled dispatch's findings
@@ -164,10 +166,10 @@ launch and end it when its agent stops (**Dispatch sites — the parent's closed
 `skills/flow/implement.md`); on any other harness by the parent, with this pair:
 
 ```bash
-flow record dispatch begin -change <name> -role panel-reviewer -slot <slot|slot+slot+slot> -model <m> -effort <e> \
-  -key panel-<round>-<slot|slot+slot+slot> \
+flow record dispatch begin -change <name> -role panel-reviewer -slot <slot|slot+slot> -model <m> -effort <e> \
+  -key panel-<round>-<slot|slot+slot> \
   -session-token mf-<literal-token>
-flow record dispatch end -change <name> -key panel-<round>-<slot|slot+slot+slot> \
+flow record dispatch end -change <name> -key panel-<round>-<slot|slot+slot> \
   -session-token mf-<literal-token> -outcome completed \
   [-ended-at "$(date -u -r <report-file> +%Y-%m-%dT%H:%M:%SZ)"]
 ```

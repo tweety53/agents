@@ -456,7 +456,7 @@ with `Role: gated-re-reviewer` (`skills/flow/gated-review-fix.md`). Each task in
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of
 the working tree, which the next implementer is editing — its own verdict and its own report
 file. Record the bundle as one `dispatches` row (`-role gated-reviewer`, `-key task-<n+n+n>-reviewer`
-with the task ids `+`-joined in plan order, the same convention as `panel-<round>-<slot|slot+slot+slot>`;
+with the task ids `+`-joined in plan order, the same convention as `panel-<round>-<slot|slot+slot>`;
 `-task <n>` only on a one-task bundle, omitted otherwise) and close it with **`-outcome clean`
 when every pass is clean, `-outcome fix` when any pass is `fix`**; each pass's own verdict is
 its report file's `## Verdict`, so per-task review yield stays measurable.

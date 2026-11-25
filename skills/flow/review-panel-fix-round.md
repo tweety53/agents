@@ -51,10 +51,10 @@ Critical, Important or Minor alike.** Then:
   delta is empty in every worktree is not dispatched**;
 - **a slot the operator has not named for this run is never added here** — that addition happens
   only through the explicit-request check **The panel** states, at the start of any round;
-- **the round's re-running roles ride one bundled dispatch, on role `panel-rerun`**, its pair
+- **the round's re-running roles are dispatched on role `panel-rerun`** in the bundles of
+  **Bundled dispatch** (`skills/flow/review-panel.md`), each dispatch's pair
   from `flow-guard pair-judge` — one **PASS** section
-  per role, the one-per-role fallback (**Bundled dispatch**, `skills/flow/review-panel.md`)
-  separating them one per role when the bundled findings need separation. **Each role's re-run is
+  per role. **Each role's re-run is
   targeted at what that role raised and nothing else**: it reads the round's `fix-round-N.diff` plus the sites of its own open
   findings, each opened at its recorded `file:line` in the current tree, and its PASS section lists
   those `F<n>` rows verbatim, states that it is re-reviewing their fix, and names that diff path.

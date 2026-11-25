@@ -238,9 +238,6 @@ Each passage below sat inline in a run-loaded phase file beside the rule it moti
 
 ### review-panel.md — Bundled dispatch
 
-> **At most two review dispatches per round, each carrying one to three roles**, on
-> decided and `default` panels alike and in both execution modes.
-
 > A one-role dispatch is unchanged from today.
 
 > the
