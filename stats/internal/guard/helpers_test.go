@@ -1019,9 +1019,9 @@ func TestSpecRootFrozenOpenspecIsSpectre(t *testing.T) {
 		name, want string
 		trees      []string
 	}{
-		{"a frozen openspec tree beside spectre/ is spectre", "spectre", []string{"openspec/changes/archive/old", "spectre/specs"}},
+		{"a frozen openspec tree beside spectre/ is spectre", "spectre", []string{"openspec/changes/archive/old", "spectre"}},
 		{"a frozen openspec tree alone is openspec", "openspec", []string{"openspec/changes/archive/old"}},
-		{"an open openspec change beside spectre/ is openspec", "openspec", []string{"openspec/changes/open-change", "spectre/specs"}},
+		{"an open openspec change beside spectre/ is openspec", "openspec", []string{"openspec/changes/open-change", "spectre"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

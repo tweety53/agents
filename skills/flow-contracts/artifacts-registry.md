@@ -31,11 +31,6 @@ The reasoning behind this file lives in `skills/flow-contracts/artifacts-registr
 | State file | every command | the state directory | never — it is the terminal record |
 | Mutation's throwaway worktree copy | `/flow`'s review panel | sibling of the apply worktree, `<worktree>-<slot>-<round>` | the review panel itself, immediately after that slot's dispatch closes — never survives to run 2 |
 
-**A change's spec edits are not an artifact and carry no row.** the implement phase's implementer writes
-them directly into `<project>/spectre/specs/<capability>.md` on the change's branch, in the task
-commit that implements the requirement, where they are ordinary source: the merge lands them and
-there is nothing temporary to remove.
-
 **This table is the one place a cleanup rule is stated.** Everything else that mentions a removal
 points here rather than restating it. **Worktree cleanup**
 (`skills/flow-contracts/finish-contract-run2.md`) is the *procedure* for the rows removed there, not a

@@ -144,7 +144,6 @@ naming: nothing has been proposed under that name, so stop and suggest `/flow <n
 - `<changeRoot>/proposal.md` — what and why
 - `<changeRoot>/tasks.md` — the plan
 - `<changeRoot>/design.md` — how, when the change carries one
-- `<project>/spectre/specs/<capability>.md` for every capability the proposal names
 
 **Every recorded base is compared with the branch it tracks before task 1 runs.** Run
 `flow-guard check-base-behind <worktree>...` over the run's resolved worktree set; its header is canonical
@@ -164,8 +163,7 @@ worktree onto it (its header is canonical); never a raw `git push` — and run t
 Confirm `tasks.md` meets writing-plans quality; if it does not, invoke **superpowers:writing-plans**
 to repair it before touching code.
 
-Extract the **Global constraints** verbatim from the capability specs the proposal names and
-`design.md` for the reviewers.
+Extract the **Global constraints** verbatim from `design.md` for the reviewers.
 
 ## 2. Isolate the workspace
 
@@ -435,15 +433,12 @@ once `flow-guard close-task`'s checks pass on its commit. A step's checkbox trac
 the step and gates nothing.
 
 **A pivot reconciles the three artifacts together.** When implementation pivots — a reality
-discovered mid-run (a route already taken on the base, a capability spec another change already
-moved, a premise a measurement disproved) has remaining tasks redesigned rather than implemented
+discovered mid-run (a route already taken on the base, a premise a measurement disproved) has remaining tasks redesigned rather than implemented
 as written — the pivot is resolved **before the colliding code is written**: the run stops at the
 discovery, and the redesign is a prompt resolved per **Auto-resolution**
 (`skills/flow-contracts/operator-prompts.md`). Only then does the
 parent edit `proposal.md`, `design.md` and `tasks.md` in the same pass, never
-`tasks.md` alone: `proposal.md`'s `## What changes` is brought to the pivoted scope, the
-capability spec the plan edits (`<project>/spectre/specs/<capability>.md`) is rewritten to the pivoted
-scope in that same pass, and a
+`tasks.md` alone: `proposal.md`'s `## What changes` is brought to the pivoted scope, and a
 decision the pivot displaces is overridden per **Decisions**
 (`skills/flow/brainstorm-planner.md`) — a fresh entry appended naming the old ID, nothing deleted
 or rewritten — so the record carries the overridden decision beside its replacement. The amended plan is

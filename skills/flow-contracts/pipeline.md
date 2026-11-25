@@ -530,9 +530,8 @@ Next:
   holds the work — and no `/flow` step checks out, stages or commits in the main checkout. Resolve
   app roots from `git worktree list` or the state file's `worktrees` keys.
 - **Implementation never stages `<project>/spectre/changes/` into its own commits**, and the path
-  is fixed here rather than configured per project. `<project>/spectre/specs/`
-  and a change directory's `link.md` are deliberately not on it — see **Git boundaries**
-  (`skills/flow-contracts/git-boundaries.md`) for why. Leaving them unstaged — rather than filtering a display — is what keeps them out of every view of the staging area:
+  is fixed here rather than configured per project. A change directory's `link.md` is deliberately
+  not on it — see **Git boundaries** (`skills/flow-contracts/git-boundaries.md`) for why. Leaving them unstaged — rather than filtering a display — is what keeps them out of every view of the staging area:
 
   ```bash
   git -C <abs-worktree> diff --cached --stat
@@ -584,7 +583,7 @@ carries only the block it prints.
 
 **Every artifact a `/flow` run writes is written brief** — bullets over prose, no preamble, no
 recap, no restatement of what another artifact in the same change already says. It binds
-`proposal.md`, `design.md`, the change's spec edits, `tasks.md`, the SDD ledger, the review panel record and
+`proposal.md`, `design.md`, `tasks.md`, the SDD ledger, the review panel record and
 the self-review report.
 
 **Brevity never withholds a fact.** Wording is compressed; a decision, a reason, a measured number,
@@ -595,7 +594,6 @@ of those is a defect, not a brief artifact.
 
 - a task's `Files:`, `Tests:`, `After:`, `Size:` and `Commit:` fields;
 - a decision's or an open question's `ID:` and `Status:` lines;
-- a spec's normative statements and their scenarios;
 - the review panel record's marker blocks and its findings table.
 
 This narrows the "code, commits, docs and specs stay full" carve-out the be-brief rule

@@ -82,13 +82,12 @@ out, staged, committed or written, whatever branch it sits on.
 ## Reading the Tree
 
 A spectre tree is a directory named `<project>/spectre/` holding
-`<project>/spectre/specs/<capability>.md` flat files and `<project>/spectre/changes/<id>/` folders —
+`<project>/spectre/changes/<id>/` folders —
 plain markdown, not a database. Read the same way under `<agents repo>/spectre/` when the research is
 about this repository's own tree. Reading it means reading files:
 
 - `spectre list` — the open changes
-- `spectre list --specs` — the capabilities with a spec
-- `<project>/spectre/specs/*.md` and `<project>/spectre/changes/<id>/` — read them directly with your
+- `<project>/spectre/changes/<id>/` — read them directly with your
   file tools
 
 No CLI grant is needed for any of this: listing and reading markdown takes no `allowed-tools` entry.

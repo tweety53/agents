@@ -561,7 +561,7 @@ A subagent's prompt cache lives five minutes, so a child woken later re-writes i
 
 ### implement.md — 1. Load context and validate the plan
 
-The plan and design were written against a snapshot of the base branch and the capability specs, and a concurrent merge can outdate both while this change waits.
+The plan and design were written against a snapshot of the base branch, and a concurrent merge can outdate both while this change waits.
 
 ### implement.md — 2. Isolate the workspace
 

@@ -57,13 +57,6 @@ pathspec — an exclusion governs what an
 `add` adds and cannot retract what an earlier step staged, so the clearing pass is what makes the
 rule hold rather than merely assert it. Its staging area therefore carries implementation only.
 
-**A capability spec is implementation, not planning.** `<project>/spectre/specs/<capability>.md`
-states what the system must do, so changing it changes the product exactly as code does: the
-implementer writes and commits it on the change branch, in the task commit that implements the
-requirement. Within the spectre tree the boundary is the
-directory — `<project>/spectre/changes/` is planning and `<project>/spectre/specs/` is not — which is
-why every pathspec below names the change folder rather than the tree.
-
 **`link.md` is never committed either.** It lives in the gitignored
 `<project>/spectre/changes/<name>/`, on disk in each worktree, like the rest of the change
 directory.

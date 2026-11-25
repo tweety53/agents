@@ -10,7 +10,7 @@ The field shape, and the rule that an absent key reads as *not recorded*, belong
 
 **This section is canonical for the model roles, their defaults and how an override applies.** One
 location, named here rather than left to be worked out: every `/flow*` command is required to
-load this file before acting, and none of them loads `<agents repo>/spectre/specs/`, so the file runtime actually
+load this file before acting, so the file runtime actually
 reads is the file the rule has to live in. **State file** (`skills/flow-contracts/state-file.md`)
 cites this section for the `models` field rather than defining the roles a second time, and
 `<project>/CLAUDE.md` names this section for the same reason.

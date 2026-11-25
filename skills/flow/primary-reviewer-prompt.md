@@ -47,11 +47,6 @@
     or the pipeline, the project README is updated in the same diff. A missing update is
     an Important finding at the README.
 
-    **Capability specs:** a finding on `<project>/spectre/specs/` is raised only for a statement
-    the code contradicts or a prohibition (SHALL NOT) the diff breaks — never for wording, or
-    for a detail the spec form leaves out (**A capability spec is one short contract file**,
-    `skills/flow/brainstorm-planner.md`).
-
     **Prose against code:** where the diff edits prose under `skills/`, `rules/` or a README,
     a statement the code refutes is a Critical finding; quote the statement and the code line.
 

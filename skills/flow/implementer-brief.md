@@ -23,9 +23,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > `git add -A`, `git add .`, or `git commit -a`**:
 > any of them sweeps already-staged planning artifacts into the task commit. Never
 > `<project>/spectre/changes/` either.
-> **A capability spec under `<project>/spectre/specs/` is your work, not theirs**: when this task's
-> `**Files:**` names one, edit it in the form **A capability spec is one short contract file**
-> (`skills/flow/brainstorm-planner.md`) and commit it here, in this task's own commit. **A withdrawn
+> **A withdrawn
 > task is backed out, not erased**: when work an earlier commit landed is withdrawn, the
 > backing-out commit's body carries the rejection reason — what was wrong, and what would have to
 > change for it to come back (**Revert and back-out commits**,

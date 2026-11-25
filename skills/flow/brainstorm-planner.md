@@ -290,22 +290,7 @@ stub heading and fill:
 - **`tasks.md`** — written in **D**.
 
 A change that alters user-visible behaviour, a command, a flag, a file format or the pipeline
-plans a task naming `<project>/README.md`; one that changes an item a capability spec holds plans a
-task naming `<project>/spectre/specs/<capability>.md`. Neither is written here.
-
-**A capability spec is one short contract file per capability**, `# <capability>`, `## Purpose`,
-`## Requirements` (`- R<n>: … SHALL …`, numbered from 1 without gaps — the shape `spectre
-validate` checks), holding only:
-
-1. its purpose, in one paragraph;
-2. the cross-repo endpoints, wire shapes and error codes;
-3. its offline, replay and idempotency rules;
-4. its prohibitions (SHALL NOT);
-5. the reason behind any choice a later reader would otherwise undo.
-
-Never UI copy, dp/ms values, per-screen scenarios, implementation type names or history (KAN
-tags, "currently…" narrative): code, tests, fidelity specs and mockups already state those, and a
-copy in the spec only drifts. A change whose items 1–5 are unchanged plans no spec task.
+plans a task naming `<project>/README.md`. It is not written here.
 
 ### Decisions
 
