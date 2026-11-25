@@ -1188,7 +1188,7 @@ td.lb-clip { max-width: 0; width: 100%; }
 .dc-run td:first-child { padding-left: 28px; }
 
 /* One fixed column grid for every guard group table; Guard takes the rest. */
-.fh-table { table-layout: fixed; min-width: 1180px; }
+.fh-table { table-layout: fixed; min-width: 1210px; }
 .fh-c-n { width: 44px; }
 .fh-c-runs, .fh-c-fired { width: 80px; }
 .fh-c-rate, .fh-c-median, .fh-c-last { width: 100px; }
