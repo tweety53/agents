@@ -16,6 +16,7 @@ import {
   fetchStatsView,
   listStageRuns,
   type CostPerChangeRow,
+  type ListStageRunsResponse,
   type StageRunDTO,
   type StateBoardRow,
 } from "../api";
@@ -70,6 +71,23 @@ const STAGE_RUN_PAGE_SIZE = 200;
  * not load its stage runs at all.
  */
 export const RUN_DETAIL_STAGE_RUN_SORT_FIELD = "started_at";
+
+/** Every stage run of one change, a page at a time: a long session's latest runs sit past the first page, and every panel sums them. */
+async function allStageRuns(project: string, name: string): Promise<ListStageRunsResponse> {
+  const out: ListStageRunsResponse = { total: 0, stageRuns: [] };
+  do {
+    const page = await listStageRuns({
+      filters: { project, name },
+      sort: [{ field: RUN_DETAIL_STAGE_RUN_SORT_FIELD }],
+      limit: STAGE_RUN_PAGE_SIZE,
+      offset: out.stageRuns.length,
+    });
+    out.total = page.total;
+    if (page.stageRuns.length === 0) break;
+    out.stageRuns.push(...page.stageRuns);
+  } while (out.stageRuns.length < out.total);
+  return out;
+}
 
 /** Sums a metric across cost-per-change rows, honouring absence-is-never-zero:
  * null when none of the rows carry the metric, the sum of the present
@@ -134,11 +152,7 @@ export function useRunDetail(project: string, change: string): RunDetailState {
     let cancelled = false;
 
     Promise.all([
-      listStageRuns({
-        filters: { project, name: change },
-        sort: [{ field: RUN_DETAIL_STAGE_RUN_SORT_FIELD }],
-        limit: STAGE_RUN_PAGE_SIZE,
-      }),
+      allStageRuns(project, change),
       fetchStatsView<CostPerChangeRow[]>("cost-per-change", {
         from: WIDE_FROM,
         to: new Date(),

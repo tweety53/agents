@@ -337,10 +337,12 @@ describe("a change whose stage runs exceed one fetched page (task 25, step 4)", 
   // within the page fetched, with nothing saying so -- so a change with
   // far more runs than fit in one page can display a handful with no
   // indication the list is not complete. This must not happen silently.
-  it("states the shortfall when the server's total exceeds the fetched page", async () => {
-    listStageRunsMock.mockResolvedValue(
+  it("states the shortfall when the server's total exceeds the runs it hands out", async () => {
+    // The first page carries one run; the next comes back empty, so the list stays short of the total.
+    listStageRunsMock.mockImplementation((q?: { offset?: number }) =>
+      Promise.resolve(
       stageRunsResponse(
-        [
+        (q?.offset ?? 0) > 0 ? [] : [
           {
             stageRunId: 20,
             harness: "claude-code",
@@ -353,7 +355,8 @@ describe("a change whose stage runs exceed one fetched page (task 25, step 4)", 
             metrics: {},
           },
         ],
-        500, // the change really has 500 stage runs; only one page came back
+        500, // the change really has 500 stage runs; only one came back
+      ),
       ),
     );
     fetchStatsViewMock.mockResolvedValue(aggregateEnvelope([]));
@@ -1458,6 +1461,16 @@ describe("interactive run view", () => {
     expect(within(main).queryByText(/Request 7/)).toBeNull();
     expect(screen.queryByRole("region", { name: "Self-review" })).toBeNull();
     expect(screen.getByRole("group", { name: "Now running" })).toHaveTextContent("Request 7: Show the stage's model on the Agents row");
+  });
+
+  it("interactive run view's Main covers every stage run, past the list's first page", async () => {
+    load([]);
+    const all = [...r6, ...r7];
+    // The server hands the runs out a page at a time: Main's cost is all of them, never the first page's.
+    listStageRunsMock.mockImplementation((q?: { offset?: number }) => Promise.resolve(stageRunsResponse((q?.offset ?? 0) === 0 ? all.slice(0, 5) : all.slice(5), all.length)));
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = await screen.findByRole("region", { name: "Main" });
+    await waitFor(() => expect(main.querySelector(".lb-phase-cost")).toHaveTextContent("$0.80"));
   });
 
   it("interactive run view reads a session between requests as waiting for the next one", async () => {
