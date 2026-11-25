@@ -29,7 +29,7 @@ type StageStore interface {
 	MergeMetrics(ctx context.Context, stageRunID int64, patch json.RawMessage) error
 	QueryStageRuns(ctx context.Context, q store.Query) ([]store.StageRun, int, error)
 	PutChange(ctx context.Context, c store.Change) error
-	// FindChangesByName backs changeProject: a mark sent from another
+	// FindChangesByName backs ChangeProject: a mark sent from another
 	// project's checkout lands on the change's own row.
 	FindChangesByName(ctx context.Context, name string) ([]store.Change, error)
 }
@@ -463,7 +463,7 @@ func ApplyBeginStageMark(ctx context.Context, ss StageStore, logger *slog.Logger
 		}
 	}
 
-	projectKey, err := changeProject(ctx, ss, mark.ProjectKey, mark.ChangeName)
+	projectKey, err := ChangeProject(ctx, ss, mark.ProjectKey, mark.ChangeName)
 	if err != nil {
 		return StageMarkResult{}, err
 	}
@@ -658,7 +658,7 @@ func ApplyEndStageMark(ctx context.Context, ss StageStore, mark EndStageMark) (S
 		return StageMarkResult{}, fmt.Errorf("%w: jiraKey without changeName is only valid for plan.session", ErrInvalidMark)
 	}
 
-	projectKey, err := changeProject(ctx, ss, mark.ProjectKey, mark.ChangeName)
+	projectKey, err := ChangeProject(ctx, ss, mark.ProjectKey, mark.ChangeName)
 	if err != nil {
 		return StageMarkResult{}, err
 	}

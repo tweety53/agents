@@ -8,12 +8,12 @@ import (
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
-// changeFinder is the one store call changeProject needs.
+// changeFinder is the one store call ChangeProject needs.
 type changeFinder interface {
 	FindChangesByName(ctx context.Context, name string) ([]store.Change, error)
 }
 
-// changeProject returns the project a stage mark or record write for the
+// ChangeProject returns the project a stage mark or record write for the
 // change named name lands on. A caller sends the project of its own
 // checkout, and a /flow-interactive executor working in another of the
 // operator's repositories sends that repository's project instead of the
@@ -23,7 +23,7 @@ type changeFinder interface {
 // name; else projectKey -- several unfinished rows elsewhere are never
 // guessed between, and an unknown name keeps the begin mark's synthetic
 // bootstrap under the caller's project.
-func changeProject(ctx context.Context, find changeFinder, projectKey, name string) (string, error) {
+func ChangeProject(ctx context.Context, find changeFinder, projectKey, name string) (string, error) {
 	if name == "" {
 		return projectKey, nil
 	}
@@ -49,10 +49,10 @@ func changeProject(ctx context.Context, find changeFinder, projectKey, name stri
 }
 
 // withChangeProject re-keys a {project}/{change} route's project path value
-// by changeProject before h runs.
+// by ChangeProject before h runs.
 func withChangeProject(find changeFinder, logger *slog.Logger, h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		project, err := changeProject(r.Context(), find, r.PathValue("project"), r.PathValue("change"))
+		project, err := ChangeProject(r.Context(), find, r.PathValue("project"), r.PathValue("change"))
 		if err != nil {
 			status, msg := mapStoreError(logger, "resolve the project of "+r.PathValue("change"), err)
 			writeError(w, status, msg)

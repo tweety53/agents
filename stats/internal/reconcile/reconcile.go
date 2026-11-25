@@ -695,6 +695,16 @@ func (r *Reconciler) applyRecordEntry(ctx context.Context, e fallback.Entry) err
 		return fmt.Errorf("%w: decode envelope: %v", errRecordEntryDecodeFailed, err)
 	}
 
+	// The live record routes re-key a change-scoped write by api.ChangeProject;
+	// incident and suite are project-scoped there and stay on their project.
+	if body.Kind != "incident" && body.Kind != "suite" {
+		project, err := api.ChangeProject(ctx, r.stageStore, e.Project, e.Name)
+		if err != nil {
+			return fmt.Errorf("resolve the project of %s: %w", e.Name, err)
+		}
+		e.Project = project
+	}
+
 	switch body.Kind {
 	case "dispatch":
 		var in records.Dispatch

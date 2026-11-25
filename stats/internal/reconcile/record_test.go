@@ -1560,3 +1560,26 @@ func (nopRecordStore) SimilarSelfReviewFindings(context.Context, string, string,
 func (*fakeRecordStore) SimilarSelfReviewFindings(context.Context, string, string, int) ([]records.SimilarSelfReviewFinding, error) {
 	return nil, nil
 }
+
+// oneRowStageStore answers changeProject's lookup with one unfinished agents row.
+type oneRowStageStore struct{ nopStageStore }
+
+func (oneRowStageStore) FindChangesByName(_ context.Context, name string) ([]store.Change, error) {
+	return []store.Change{{ProjectKey: "agents", Name: name, State: store.StateStarted}}, nil
+}
+
+// TestReplayRecordWriteFromAnotherProjectLandsOnTheChangesRow pins that a
+// journalled change-scoped write is re-keyed as the live route re-keys it,
+// so it is not refused as "change not found".
+func TestReplayRecordWriteFromAnotherProjectLandsOnTheChangesRow(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	appendRecordWrite(t, root, "gymie", "kan-1", "dispatch", testDispatch())
+
+	rs := &fakeRecordStore{}
+	rec := reconcile.New(&fakeStore{}, oneRowStageStore{}, rs, root, nil)
+	if result, err := rec.Run(context.Background()); err != nil || result.Applied != 1 {
+		t.Fatalf("Run = %+v, %v; want one applied", result, err)
+	}
+	assertAppliedCalls(t, rs.appliedCalls(), []string{"dispatch agents/kan-1 task=7 role=implementer model=opus"})
+}

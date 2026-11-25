@@ -46,7 +46,7 @@ func (nopStageStore) PutChange(context.Context, store.Change) error {
 }
 
 func (nopStageStore) FindChangesByName(context.Context, string) ([]store.Change, error) {
-	return nil, errStageStoreNotExercised
+	return nil, nil
 }
 
 var _ api.StageStore = nopStageStore{}
