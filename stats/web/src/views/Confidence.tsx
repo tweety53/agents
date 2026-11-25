@@ -29,7 +29,7 @@ const groups = (gaps: string[]) => {
 
 /** The estimate, whole, for pasting to an agent: nothing here is readable by a store verb, so the text carries it. */
 const agentText = (r: ConfidenceRow) =>
-  `Confidence estimate ${r.project}/${r.change} (${r.stage}${r.task ? ` task ${r.task}` : ""}): ${r.score}%.\nWhat would move it to 100%:\n${groups(r.gaps).map(([h, l]) => `${h}:\n${l.map((g) => `- ${g}`).join("\n")}`).join("\n")}\nTags: ${r.tags.join(", ")}\n\nAnalyze what can be done and where, and say what generic fix would prevent this kind of gap in any future task — a fix specific to this task is useless.`;
+  `Confidence estimate ${r.project}/${r.change} (${r.stage}${r.task ? ` task ${r.task}` : ""}): ${r.score}%.\nWhat would move it to 100%:\n${groups(r.gaps).map(([h, l]) => `${h}:\n${l.map((g) => `- ${g}`).join("\n")}`).join("\n")}\nTags: ${r.tags.join(", ")}\n\nAnalyze only: say what can be done and where, and what generic fix would prevent this kind of gap in any future task — a fix specific to this task is useless. Do not implement anything until I have reviewed your analysis and told you to.`;
 
 function Meta({ row }: { row: ConfidenceRow }) {
   return (
