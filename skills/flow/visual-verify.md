@@ -244,7 +244,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    the pre-flight check's arguments: <worktree> and `<app-root>=<resolved-url> ...`
    with that worktree's `--app` arguments. A worktree whose `<project>/.flow/project.md` declares `preflight apps` needs no `--app`: `prepare` reads its pairs from that row.
    Each `<app-root>=<resolved-url>` is an app `ui paths` matched: its package root relative
-   to the worktree and its worktree-resolved URL. A root in another repository — a cross-repo
+   to the worktree and its worktree-resolved URL. That URL is read from the stack that is serving the build (the project's `## run` output, or the ports files it writes), never from `prepare-workspace`'s derived values: those name the ports the workspace is assigned, which are not always the ports the stack binds, and a verifier bundle naming an unreachable URL fails every probe. A root in another repository — a cross-repo
    change's sibling worktree — is passed relative to the worktree too
    (`../../<sibling-worktrees>/<name>`), never absolute, which the guard refuses as not a
    directory under it; the guard checks it as that repository's own worktree. The guard's header is canonical for
