@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,7 +16,9 @@ import (
 // "finished": true and whose transcript was last written at least staleFinishedAge ago. A stop that
 // was blocked, or an agent its parent killed, never reached end-dispatch-row. The row is ended
 // `aborted`, dated at the transcript's last write. A row with no agentId, an unfinished or missing
-// meta, or a recent transcript is left alone. Prints `ENDED <key> <agentId>` per row. Exit 0
+// meta, or a recent transcript is left alone. An agent whose transcript holds a SubagentHandback
+// report delivered it: its row ends with the outcome and commit end-dispatch-row derives from that
+// report, never `aborted`. Prints `ENDED <key> <agentId>` per row. Exit 0
 // always (fail open: a store failure on one row goes to stderr and the sweep continues).
 // hooks/await-own-agents.py runs it after every SubagentStop.
 //
@@ -51,13 +54,14 @@ func endStaleDispatchRows(args []string, env Env, stdout, stderr io.Writer) int 
 		if r.EndedAt != nil || r.AgentID == "" || r.AgentID == "none" || r.AgentID == "inline" {
 			continue
 		}
-		last, ok := finishedAgentLastWrite(env.Getenv("HOME"), r.AgentID)
+		transcript, last, ok := finishedAgentLastWrite(env.Getenv("HOME"), r.AgentID)
 		if !ok || time.Since(last) < staleFinishedAge {
 			continue
 		}
-		_, e, rc := pcFlow(env, false, "record", "dispatch", "end", "-C", worktree, "-change", change,
-			"-key", r.Key, "-session-token", r.SessionToken, "-outcome", "aborted",
-			"-agent-id", r.AgentID, "-ended-at", last.UTC().Format(time.RFC3339Nano))
+		end := append([]string{"record", "dispatch", "end", "-C", worktree, "-change", change,
+			"-key", r.Key, "-session-token", r.SessionToken, "-outcome", handbackOutcome(r.Key, transcript),
+			"-agent-id", r.AgentID, "-ended-at", last.UTC().Format(time.RFC3339Nano)}, handbackCommit(transcript)...)
+		_, e, rc := pcFlow(env, false, end...)
 		if rc != 0 {
 			fmt.Fprintf(stderr, "end-stale-dispatch-rows: %s: flow record dispatch end exit %d: %s\n", r.Key, rc, strings.TrimSpace(string(e)))
 			continue
@@ -67,8 +71,8 @@ func endStaleDispatchRows(args []string, env Env, stdout, stderr io.Writer) int 
 	return 0
 }
 
-// finishedAgentLastWrite is the agent transcript's mtime when its meta says finished.
-func finishedAgentLastWrite(home, id string) (time.Time, bool) {
+// finishedAgentLastWrite is the agent transcript's path and mtime when its meta says finished.
+func finishedAgentLastWrite(home, id string) (string, time.Time, bool) {
 	metas, _ := filepath.Glob(filepath.Join(home, ".claude", "projects", "*", "*", "subagents", "agent-"+id+".meta.json"))
 	for _, meta := range metas {
 		b, err := os.ReadFile(meta)
@@ -81,9 +85,36 @@ func finishedAgentLastWrite(home, id string) (time.Time, bool) {
 		if json.Unmarshal(b, &m) != nil || !m.Finished {
 			continue
 		}
-		if fi, err := os.Stat(strings.TrimSuffix(meta, ".meta.json") + ".jsonl"); err == nil {
-			return fi.ModTime(), true
+		tr := strings.TrimSuffix(meta, ".meta.json") + ".jsonl"
+		if fi, err := os.Stat(tr); err == nil {
+			return tr, fi.ModTime(), true
 		}
 	}
-	return time.Time{}, false
+	return "", time.Time{}, false
+}
+
+// handbackReport is the transcript's SubagentHandback report, "" when it delivered none.
+func handbackReport(transcript string) string {
+	b, err := os.ReadFile(transcript)
+	if err != nil || !bytes.Contains(b, []byte(`"SubagentHandback"`)) {
+		return ""
+	}
+	_, final, _ := edrTranscript(transcript)
+	return final
+}
+
+// handbackOutcome is end-dispatch-row's outcome for a delivered report, else `aborted`.
+func handbackOutcome(key, transcript string) string {
+	if final := handbackReport(transcript); strings.TrimSpace(final) != "" {
+		return edrOutcome(key, final)
+	}
+	return "aborted"
+}
+
+// handbackCommit is `-commit <sha>` for the report's last commit: line, else nothing.
+func handbackCommit(transcript string) []string {
+	if c := edrCommit.FindAllStringSubmatch(handbackReport(transcript), -1); len(c) > 0 {
+		return []string{"-commit", c[len(c)-1][1]}
+	}
+	return nil
 }

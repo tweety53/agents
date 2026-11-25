@@ -98,11 +98,19 @@ func endDispatchRow(args []string, env Env, stdout, stderr io.Writer) int {
 	return 0
 }
 
-var edrPlanningKey = regexp.MustCompile(`(?:^|\s)((?:explore|design)-\d+)(?:\s|$)`)
+var (
+	edrPlanningKey = regexp.MustCompile(`(?:^|\s)((?:explore|design)-\d+)(?:\s|$)`)
+	// edrBeginKey is hooks/enforce-agent-baseline.py's BEGIN_KEY, matched whole.
+	edrBeginKey = regexp.MustCompile(`^(?:task-\d+(?:\+\d+)*-(?:implementer|reviewer)(?:-[a-z0-9-]+)?` +
+		`|panel-\d+-[a-z][a-z0-9+-]*|panel-fix-\d+(?:-\d+)?(?:-retry)?|fix-\d+-(?:implementer|review)` +
+		`|full-suite-fix-\d+|runner-\d+|visual-verify(?:-[a-z0-9][a-z0-9-]*)?|pipeline-fix-[a-z0-9][a-z0-9-]*` +
+		`|plan-\d+|designer-\d+|operator-\d+(?:-[a-z0-9][a-z0-9-]*)?|explore-\d+|design-\d+)$`)
+)
 
 // edrMetaKey is the key hooks/enforce-agent-baseline.py row_key gave an agent
 // whose prompt has no Key: line, off its meta sidecar: the description's
-// explore-/design- word, else agent-<toolUseId>. "" without a sidecar.
+// explore-/design- word, else its first word when begin_key begins rows under
+// it (`panel-0-mutation`), else agent-<toolUseId>. "" without a sidecar.
 func edrMetaKey(transcript string) string {
 	b, err := os.ReadFile(strings.TrimSuffix(transcript, ".jsonl") + ".meta.json")
 	var meta struct {
@@ -114,6 +122,9 @@ func edrMetaKey(transcript string) string {
 	}
 	if m := edrPlanningKey.FindStringSubmatch(meta.Description); m != nil {
 		return m[1]
+	}
+	if w := strings.Fields(meta.Description); len(w) > 0 && edrBeginKey.MatchString(w[0]) {
+		return w[0]
 	}
 	if meta.ToolUseID == "" {
 		return ""

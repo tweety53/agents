@@ -201,6 +201,7 @@ func TestEndDispatchRowEndsAKeylessAgentsRow(t *testing.T) {
 	for name, c := range map[string]struct{ description, want string }{
 		"explore word": {"plan-1 round — explore-2 survey", "-key explore-2 "},
 		"tool use id":  {"live check", "-key agent-tu1 "},
+		"row key word": {"panel-0-primary+principles", "-key panel-0-primary+principles "},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

@@ -95,3 +95,53 @@ func TestEndStaleDispatchRowsIdempotent(t *testing.T) {
 		t.Errorf("rc %d out %q", rc, o.String())
 	}
 }
+
+// TestEndStaleDispatchRowsReadsTheHandbackReport: a finished agent that delivered its report through
+// SubagentHandback is ended with the outcome and commit its report carries, never aborted (request 245).
+func TestEndStaleDispatchRowsReadsTheHandbackReport(t *testing.T) {
+	t.Parallel()
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	sub := filepath.Join(home, ".claude", "projects", "p", "sess", "subagents")
+	sha := strings.Repeat("a", 40)
+	for id, report := range map[string]string{
+		"aaa": "done\ncommit: t1 " + sha,
+		"bbb": "- task 3: fix",
+	} {
+		writeFile(t, filepath.Join(sub, "agent-"+id+".meta.json"), `{"finished":true}`)
+		tr := filepath.Join(sub, "agent-"+id+".jsonl")
+		writeFile(t, tr, `{"type":"user","message":{"content":"go"}}`+"\n"+
+			`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"SubagentHandback","input":{"message":`+jsonString(report)+`}}]}}`+"\n")
+		old := time.Now().Add(-20 * time.Minute)
+		if err := os.Chtimes(tr, old, old); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeFile(t, filepath.Join(tmp, "rows.json"), `[{"key":"panel-0-primary","agentId":"aaa","sessionToken":"t","endedAt":null},
+{"key":"task-3-reviewer","agentId":"bbb","sessionToken":"t","endedAt":null}]`)
+	log := filepath.Join(tmp, "flow.log")
+	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\n"+
+		"if [ \"$2\" = dispatches ]; then cat "+filepath.Join(tmp, "rows.json")+"; exit 0; fi\n"+
+		"printf '%s\\n' \"$*\" >>"+log+"\n")
+	env := Env{Getenv: func(k string) string {
+		switch k {
+		case "HOME":
+			return home
+		case "PATH":
+			return filepath.Join(tmp, "bin") + ":" + os.Getenv("PATH")
+		}
+		return os.Getenv(k)
+	}, Dir: tmp}
+	var o, e bytes.Buffer
+	endStaleDispatchRows([]string{filepath.Join(tmp, "chg")}, env, &o, &e)
+	got, _ := os.ReadFile(log)
+	for _, want := range []string{"-key panel-0-primary -session-token t -outcome completed -agent-id aaa -ended-at", "-commit " + sha,
+		"-key task-3-reviewer -session-token t -outcome fix -agent-id bbb"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("missing %q in %s", want, got)
+		}
+	}
+	if strings.Contains(string(got), "aborted") {
+		t.Errorf("a handed-back agent ended aborted: %s", got)
+	}
+}
