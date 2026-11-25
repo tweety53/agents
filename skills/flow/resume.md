@@ -27,8 +27,8 @@ holds; `<sdd>` is `<abs-worktree>/.superpowers/sdd`:
 3. **Plan not done** — `flow record decisions -change <name>` names no decision: dispatch a final
    planner (step 3 of **Run brainstorming and planning through the planner role**,
    `skills/flow/brainstorm.md`), its prompt naming every artifact already under `<changeRoot>` —
-   it keeps what is written and completes what is missing — then run **Plan check** and the gate
-   (**Plan check gate**, `skills/flow/brainstorm-planner.md`).
+   it keeps what is written and completes what is missing — then run **Plan check**
+   (`skills/flow/brainstorm.md`) and what follows it there.
 4. **Otherwise** planning is done: go to `skills/flow/implement.md`.
 
 State the resumption point plainly before continuing:
@@ -36,5 +36,5 @@ State the resumption point plainly before continuing:
 
 ### Resuming a recorded decision
 
-A run resumed at `STARTED` rests on **Plan check gate** (`skills/flow/brainstorm-planner.md`): it reads
+A run resumed at `STARTED` rests on **Plan check** (`skills/flow/brainstorm.md`): it reads
 `flow record decisions -change <name>` and follows the newest row rather than re-deciding.

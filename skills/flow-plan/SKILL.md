@@ -161,7 +161,7 @@ When there's no existing change to write into, offer to capture the session as a
 
 **Nothing below runs before that Yes.** The `STARTED` write, the worktree and the artifacts are
 this answer's consequence; **No** is the abandoned path (**Capturing the Outcome**, above). The
-plan check gate in step 5 then gates the plan alone — a change that reached it exists
+**Save the plan?** gate below then gates the plan alone — a change that reached it exists
 already, at `STARTED`, and a **No** there revises the plan rather than removing the change.
 
 **The key comes first, because it names the change.** A Jira key is known when it was passed as
@@ -196,10 +196,36 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
    issue when one is linked, then a `## Research session` section — the operator's statements
    verbatim and the session's findings with their file paths, marked as findings, not decisions.
 5. **Run brainstorming and planning through the planner role** (`skills/flow/brainstorm.md`), from
-   its start through the gate, its plan check (`flow-guard plan-check`) included. Every `-command '/flow'` those sections show,
+   its start through its **Plan check** (`flow-guard plan-check`), then **The Save the plan? gate**
+   below. Every `-command '/flow'` those sections show,
    `skills/flow/brainstorm-planner.md`'s included, is `-command '/flow-plan'`. The final planner's prompt also carries the line "`design.md` follows **The Fixed Section
-   Structure** and **The Step-by-Step Breakdown** of `skills/flow-plan/SKILL.md`". The gate asks
-   **Save the plan?**.
+   Structure** and **The Step-by-Step Breakdown** of `skills/flow-plan/SKILL.md`".
+
+#### The Save the plan? gate
+
+**The plan is never acted on unread.** Print the `## Decision` block verbatim — the output of `flow
+decision render` — then the plan summary — plain prose on what will be built and how: the behaviour
+added or changed, the approach, the seams and decisions that matter and what was left out; no
+per-task rows — and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The
+`STARTED` handoff block** (`skills/flow/brainstorm.md`) under it. The summary ends on that block's
+`**Design:**` and `**Plan check:**` lines, each on its own.
+
+Then the question, **Save the plan?**, with exactly two options: **Yes** *(recommended)* and **No
+(plan needs updates)**.
+
+On **No**, take the operator's changes (a follow-up **AskUserQuestion** round when the option
+carried none) and revise as **A plan the operator wants changed** (`skills/flow/brainstorm.md`)
+states, re-deciding and recording as **Plan check** there states. Then print the summary and ask
+again. Loop until **Yes**. **Yes** is the only exit. Under the `## decisions: recommended` mode the
+gate takes **Yes** without asking — the summary and the `## Decision` block still print, so the
+record of what was approved stays complete (**Auto-resolution**,
+`skills/flow-contracts/operator-prompts.md`).
+
+On **Yes**, end the planning mark:
+
+```bash
+flow stage end -command '/flow-plan' -stage flow.plan -outcome completed <name>
+```
 
 Every guard those sections invoke runs per **Guard resolution**
 (`skills/flow-contracts/pipeline.md`): `flow-guard kickoff-worktree <project> <name>` with its sibling

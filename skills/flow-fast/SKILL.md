@@ -91,7 +91,7 @@ skipped, the finding rows are the record. The scripts a cited section calls run 
 **After:** none
 ```
 
-- **decide**: `flow-guard plan-check <worktree> <changeRoot> <abs-worktree>/.superpowers/sdd/decision.json -decide-only` (**Plan check gate**, `skills/flow/brainstorm-planner.md`), `<changeRoot>` the
+- **decide**: `flow-guard plan-check <worktree> <changeRoot> <abs-worktree>/.superpowers/sdd/decision.json -decide-only` (**Plan check**, `skills/flow/brainstorm.md`), `<changeRoot>` the
   directory holding this run's `tasks.md` and no `design.md`, writing `<abs-worktree>/.superpowers/sdd/decision.json` and printing the
   `## Decision` block.
 - **sdd-tdd**: **4. Execute (SDD + TDD)** (`skills/flow/implement.md`) as

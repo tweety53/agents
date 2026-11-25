@@ -33,7 +33,7 @@ A recorded base gone from origin — merged and deleted — is refused by name b
 ## Model resolution
 
 **The implementer groups, the review panel and visual verification are decided per change, never
-configured** — by the headless plan check at **Plan check gate** (`skills/flow/brainstorm-planner.md`) — and the
+configured** — by the headless plan check at **Plan check** (`skills/flow/brainstorm.md`) — and the
 run reads them from the recorded `decision.json`.
 
 **Every dispatch runs on its role's pair, picked by `flow-guard pair-judge` at dispatch time** —
@@ -56,7 +56,7 @@ to report, never a creating run.
 
 - **No state** as above, or exit 0 with `"synthetic": true`: a creating run. See
   **A. Resolve the change and write `STARTED`** (`skills/flow/brainstorm.md`); the run ends at
-  the plan gate's **Yes** with a `/clear` handoff, and the next `/flow <name>` enters **The parent
+  the plan gate with a `/clear` handoff, and the next `/flow <name>` enters **The parent
   orchestrates directly** (`skills/flow/implement.md`).
 - **Exit 0, `"state": "STARTED"`** — a creating run interrupted before it reached `IN_PROGRESS`. See
   **Resuming at `STARTED`** (`skills/flow/resume.md`).

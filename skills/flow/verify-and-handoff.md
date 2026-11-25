@@ -303,7 +303,7 @@ A worktree held in a shell variable is written braced, `--app "${W}:<app-root>=<
 
 **A `skipped` decision ends the stage at step 2.** When this run's decision
 (`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 6 of
-**Plan check gate**, `skills/flow/brainstorm-planner.md`), `prepare` closes the stage `skipped` and prints
+**Plan check**, `skills/flow/brainstorm.md`), `prepare` closes the stage `skipped` and prints
 `NEXT: skip — skipped at plan check — <reason>`, and every worktree surviving step 2 prints
 `Visual: skipped at plan check — <reason>`.
 `required`, `not configured` or no `visual` at all takes the load below, unchanged.

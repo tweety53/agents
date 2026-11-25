@@ -3,7 +3,7 @@
 Loaded by `skills/flow/SKILL.md` immediately after `skills/flow/implement.md`'s `flow.implement`
 stage closes, on every implementation run — creating, resumed, or fix. Dispatches the panel: the
 `panel` bundles of this run's newest decision (`<abs-worktree>/.superpowers/sdd/decision.json`, per
-**Plan check gate**, `skills/flow/brainstorm-planner.md`), each bundle one reviewer dispatch. This file owns
+**Plan check**, `skills/flow/brainstorm.md`), each bundle one reviewer dispatch. This file owns
 dispatch: mapping each slot id to its prompt and spawning each bundle.
 
 ```bash

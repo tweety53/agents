@@ -17,9 +17,9 @@ func TestPlanCheckTriageScope(t *testing.T) {
 		t.Fatal("skills/flow/brainstorm-planner.md lacks the triage paragraph")
 	}
 	para := text[i:]
-	j := strings.Index(para, "### Plan check gate")
+	j := strings.Index(para, "### Model and effort")
 	if j < 0 {
-		t.Fatal("the triage paragraph is not followed by ### Plan check gate")
+		t.Fatal("the triage paragraph is not followed by ### Model and effort")
 	}
 	para = para[:j]
 	if strings.Contains(para, "### Decide") {

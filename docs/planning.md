@@ -35,8 +35,8 @@ The same call also decides three things, so nothing in a project configures them
 - **The review panel** — which reviewers the change needs ([Review panel](review-panel.md)).
 - **Visual verification** — required, skipped, or not configured ([Visual verify](visual-verify.md)).
 
-The decision is printed with the plan summary before anything is built.
+The decision is printed before anything is built.
 
 Canonical: [`skills/flow/plan-check-decision.md`](../skills/flow/plan-check-decision.md); the gate
-around it is **Plan check gate** in
-[`skills/flow/brainstorm-planner.md`](../skills/flow/brainstorm-planner.md).
+around it is **Plan check** in
+[`skills/flow/brainstorm.md`](../skills/flow/brainstorm.md).

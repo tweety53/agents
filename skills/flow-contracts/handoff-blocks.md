@@ -75,6 +75,8 @@ read-only in both forms.
 
 <the `flow decision render` output for the change's latest recorded decision, verbatim>
 
+**Design:** <absolute path of design.md>
+**Plan check:** <the report's absolute path and verdict, as **The `STARTED` handoff block** (`skills/flow/brainstorm.md`) states it>
 **Prototype:** <the Artifact URL `design.md`'s `## Context` cites — printed only when it cites a prototype; where none could be published, the file's absolute path and that it was not published>
 **Open questions:** <each still-open entry's ID and question, one line each — printed only when `design.md` records one>
 **Jira:** (run-only) <the skip reason, or the line appended to the description — printed only when a Jira call failed or the run appended>
@@ -86,8 +88,8 @@ Next:
 ```
 ````
 
-**Only what the operator acts on.** The block is the summary, the decision, the next commands and
-nothing else on a clean run; a conditional line prints only when its condition holds, and is
+**Only what the operator acts on.** The block is the summary, the decision, the design and plan-check
+lines, the next commands and nothing else on a clean run; a conditional line prints only when its condition holds, and is
 dropped rather than reported missing otherwise. The open-questions entry shape is stated once under
 **Open questions** (`skills/flow/brainstorm-planner.md`).
 

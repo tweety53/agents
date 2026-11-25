@@ -26,7 +26,7 @@ the parent resolves the worktree from the state file's `worktrees` map and conti
 `skills/flow/fix.md` (section **3** below) on the same session.
 
 Read the decision JSON
-(`<abs-worktree>/.superpowers/sdd/decision.json`) for the decided `panel` — per **Plan check gate** (`skills/flow/brainstorm-planner.md`) — and for the recorded
+(`<abs-worktree>/.superpowers/sdd/decision.json`) for the decided `panel` — per **Plan check** (`skills/flow/brainstorm.md`) — and for the recorded
 `groups` field, which section **4** below
 dispatches by.
 

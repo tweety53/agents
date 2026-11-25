@@ -511,8 +511,8 @@ Next:
 - **The next command is the last thing printed, alone in its own fenced code block** — a plain
   triple-backtick fence, no language tag, holding the command and nothing else, with no prose after
   it, so a client with a code-block copy button copies it in one tap.
-- **A handoff printed at `IN_PROGRESS`, or at `STARTED` once the plan gate answered
-  Yes, puts `/clear` on the line above the next command's fence.** It is a recommendation the operator may skip, never a gate, and the next
+- **A handoff printed at `IN_PROGRESS`, or at `STARTED` once planning is complete,
+  puts `/clear` on the line above the next command's fence.** It is a recommendation the operator may skip, never a gate, and the next
   command's fence stays last.
 - **A bare invocation at `IN_PROGRESS` that opened a PR or handed off manually names itself** as the
   next command, because that is what the operator runs once the branch is merged. Only a run that

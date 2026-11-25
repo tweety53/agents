@@ -153,30 +153,38 @@ token spend.
    paths of `proposal.md`, `design.md` and `tasks.md`; a second failure stops the run with both
    returns.
 
-The parent then runs **Plan check** below, then the gate (**Plan check gate**,
-`skills/flow/brainstorm-planner.md`).
+The parent then runs **Plan check** below.
 
 **Prose preceding a question is shown too, not dropped.** When the checklist carries a summary
 before a question — most concretely the convergence confirm's "state what you believe settled"
 paragraph — show that prose to the operator as ordinary text before the **AskUserQuestion** call,
 not only the bare question and options.
 
-Once the plan check finishes, print the `## Decision` block verbatim — the output of `flow
-decision render` (**Plan check gate**, `skills/flow/brainstorm-planner.md`) — then record it:
+Once the plan check finishes, render the decision — the parent never decides itself — then record
+it:
 
 ```bash
+flow decision render -file <abs-worktree>/.superpowers/sdd/decision.json -session-model '<the model named in this session's own system prompt>'
 flow record decision -change <name> -session-token mf-<literal-token> -file <abs-worktree>/.superpowers/sdd/decision.json
 ```
 
-**The gate comes next**: **Plan check gate** (`skills/flow/brainstorm-planner.md`), recording each
-re-decision the same way. On **Yes**, end the planning mark and **end the run** with the `STARTED`
+The render exits 0 on a printed block and 2 on a usage error or an unreadable file.
+
+**`/flow` has no gate question.** It ends the planning mark and **ends the run** with the `STARTED`
 handoff (**The `STARTED` handoff block**, below), `/clear` above `/flow <name>`, on a creating and
 a resumed run alike; the next run finds the plan ready (**Resuming at `STARTED`**,
-`skills/flow/resume.md`) and implements on a fresh context.
+`skills/flow/resume.md`) and implements on a fresh context. `/flow-plan` goes on at **The Save the
+plan? gate** (`skills/flow-plan/SKILL.md`) instead.
 
 ```bash
 flow stage end -command '/flow' -stage flow.plan -outcome completed <name>
 ```
+
+**A plan the operator wants changed** — on `/flow`, a message before the handoff's `/flow <name>`
+runs: take the operator's changes, write them verbatim to the latest round file's `## Answers`, and
+dispatch a fresh final planner on them as a `QUESTIONS` return is taken (step 3 above) — it revises
+`tasks.md` and re-runs `spectre validate "<name>"`. Then re-decide as **Plan check** below states and
+print the `STARTED` handoff again.
 
 ### Plan check
 
@@ -192,16 +200,23 @@ returned `PLAN-WRITTEN`, in `/flow`'s creating run and a `/flow-plan` capture. A
    Its header is canonical for the call, its fallback and its exits. It writes
    `<abs-worktree>/.superpowers/sdd/plan-check.md`, the decision and, when the report states one,
    the execution confidence as `<abs-worktree>/.superpowers/sdd/confidence.json`; exit 2 stops the
-   run with its stderr.
+   run with its stderr, and so does exit 1: the decider's decision was unusable twice and none is
+   written — there is no fallback decision, the run is never planned by a made-up one.
+   `skills/flow/plan-check-prompt.md` is canonical for the lenses, the rules and the shape. The
+   report's last line is `PLAN-CHECK-CLEAN`, `PLAN-CHECK-FINDINGS <n>` or `PLAN-CHECK-NOT-RUN`.
 2. **`PLAN-CHECK-CLEAN`** and no `confidence <n>%` below 100 on the guard's stdout line — go on.
 3. **`PLAN-CHECK-FINDINGS`, or a `confidence <n>%` below 100** — dispatch a fresh final planner, its prompt naming the report's
    absolute path; it triages the report per **Plan review** (`skills/flow/brainstorm-planner.md`).
    Its `QUESTIONS` return is relayed as step 2 of the section above relays a round, and a fresh
    final dispatch takes the answers. Its `PLAN-WRITTEN` return closes the check; nothing is
-   checked a second time, and a changed `tasks.md` re-decides once (**Plan check gate**,
-   `skills/flow/brainstorm-planner.md`).
-4. **`PLAN-CHECK-NOT-RUN`** — the check could not run: say so in the gate summary and go on, never
-   as clean.
+   checked a second time.
+4. **`PLAN-CHECK-NOT-RUN`** — the check could not run: say so on the `**Plan check:**` line and go
+   on, never as clean.
+
+**A changed `tasks.md` re-decides once.** `plan-check … -decide-only` rewrites `decision.json` and
+leaves `plan-check.md` as it is. **That re-run is the only one: it happens once whenever `tasks.md`
+changed after the check — a triage fix or an operator's change — and the decision is recorded
+again.**
 
 ### The `STARTED` handoff block
 
@@ -214,6 +229,8 @@ Defined by **The block each state renders** (`skills/flow-contracts/handoff-bloc
 
 <the `flow decision render` output for the change's latest recorded decision, verbatim>
 
+**Design:** <absolute path of design.md>
+**Plan check:** <absolute path of the report — clean | <n> fixed, <n> accepted | not run — no confidence estimate (the report ends `PLAN-CHECK-NOT-RUN`; never a bare `not run`), followed by ` · confidence <n>% at plan check` when the guard's stdout line carried a number>
 **Prototype:** <the Artifact URL `design.md`'s `## Context` cites — printed only when it cites a prototype; where none could be published, the file's absolute path and that it was not published>
 **Open questions:** <each still-open entry's ID and question, one line each — printed only when `design.md` records one>
 **Jira:** <the skip reason, or the line appended to the description — printed only when a Jira call failed or the run appended>
@@ -225,10 +242,8 @@ Next:
 ```
 ````
 
-**Only what the operator acts on** — on a clean run the block is the summary, the decision and
-the next commands; a conditional line prints only when its condition holds.
+**Only what the operator acts on** — on a clean run the block is the summary, the decision, the
+design and plan-check lines and the next commands; a conditional line prints only when its
+condition holds.
 
-**The block is the run's final message, whole — never the `Next:` lines alone.** The summary and
-the decision sit directly above `Next:` even though the gate already showed them: text printed
-beside a question is hidden where the operator sees only a turn's last message (focus mode), so
-the handoff is the one place the settled plan is guaranteed to be read.
+**The block is the run's final message, whole — never the `Next:` lines alone.**

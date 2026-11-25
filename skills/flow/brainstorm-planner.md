@@ -421,66 +421,6 @@ flow confidence record -change <name> -stage plan -score <score> -disposition <r
 gaps are closed. Exit 2 is a refused estimate — correct the flag its stderr names and re-run; an
 unreachable store warns and exits 0, and the planner goes on.
 
-### Plan check gate
-
-**One headless pass reviews the plan and decides how it is built and reviewed**, once the final
-planner returned `PLAN-WRITTEN` — the parent never decides itself. One call:
-
-```bash
-flow-guard plan-check <worktree> <changeRoot> <abs-worktree>/.superpowers/sdd/decision.json
-```
-
-Its header is canonical for the call, its checks, its fallback and its exits;
-`skills/flow/plan-check-prompt.md` is canonical for the lenses, the rules and the shape. It
-writes `<abs-worktree>/.superpowers/sdd/plan-check.md`, whose last line is `PLAN-CHECK-CLEAN`,
-`PLAN-CHECK-FINDINGS <n>` or `PLAN-CHECK-NOT-RUN`, and the decision. Exit 2 stops the run with its
-stderr, and so does exit 1: the decider's decision was unusable twice and none is written — there is no
-fallback decision, the run is never planned by a made-up one. Gate **No** re-runs it as `plan-check … -decide-only`, which rewrites
-`decision.json` and leaves `plan-check.md` as it is. **That re-run is the only one: it happens
-once whenever `tasks.md` changed after the check — a triage fix or a gate **No** — and the decision
-is recorded again.**
-
-The parent renders the file and prints the output verbatim; the `STARTED`
-handoff prints it again (**The `STARTED` handoff block**, `skills/flow/brainstorm.md`):
-
-```bash
-flow decision render -file <abs-worktree>/.superpowers/sdd/decision.json -session-model '<the model named in this session's own system prompt>'
-```
-
-It exits 0 on a printed block and 2 on a usage error or an unreadable file.
-
-**The plan is never acted on unread.** Once the plan-check step has printed its `## Decision` block,
-print the plan summary — plain prose on what will be built and how: the behaviour added or changed, the approach, the seams and decisions that matter and what was left out; no per-task rows — and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The `STARTED` handoff block** (`skills/flow/brainstorm.md`) under it. The
-summary ends on two lines of their own: `**Design:** <absolute path of design.md>` and
-`**Plan check:** <absolute path of the report> — clean | <n> fixed, <n> accepted | not run — no confidence estimate`, the last when the report ends `PLAN-CHECK-NOT-RUN` (never a bare `not run`),
-followed on the same line by ` · confidence <n>% at plan check` when the guard's stdout line
-carried a number.
-
-Then the question — `/flow-plan`'s wording is **Save the plan?**, `/flow`'s is **Proceed to
-implementation?** — with exactly two options: **Yes** *(recommended)* and **No (plan needs
-updates)**.
-
-**`/flow` never asks its gate question: it takes **Yes** at once.** The summary and the `## Decision` block still print, and the run ends with the
-`STARTED` handoff. An operator who wants the plan changed says so before running the handoff's
-`/flow <name>` — that message re-plans as **No** below. `/flow-plan`'s **Save the plan?** is
-still asked.
-
-**A behind base is synced at the gate, so implementation starts on a current one.** On `/flow`'s creating run, once the plan is
-accepted and before the `STARTED` handoff prints, run `flow-guard sync-base-behind <worktree>...` over the run's worktrees
-(`skills/flow/implement.md`'s base check, step 1, is the same call). Exit 0 → continue. Exit 1 or 2 → name its stderr in the
-handoff and continue; the implement run's check finds the base again. It is one command: never a raw `git push`.
-
-On **No**, take the operator's changes (a follow-up **AskUserQuestion** round when the option
-carried none), write them verbatim to the latest round file's `## Answers`, and dispatch a fresh final planner
-on them as a `QUESTIONS` return is taken (**Run brainstorming and planning through the planner
-role**, `skills/flow/brainstorm.md`) — it revises `tasks.md` and re-runs `spectre validate
-"<name>"`. Then print the summary and ask again. Loop until **Yes**. **Yes** is the only exit. Under the `## decisions: recommended` mode the
-gate takes **Yes** without asking — the summary and the `## Decision` block still print, so the
-record of what was approved stays complete (**Auto-resolution**,
-`skills/flow-contracts/operator-prompts.md`).
-
-`/flow-plan` ends with its own report (**Capturing a new change**, `skills/flow-plan/SKILL.md`).
-
 ### Model and effort
 
 **A dispatch's pair is picked by the pair judge**, at dispatch time: write the dispatch's prompt

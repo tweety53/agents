@@ -1356,6 +1356,10 @@ attribution; the text after it is the passage, verbatim.
 
 - The visual tooling analysis left the loop (cut 10): it was a per-miss dispatch whose sweeps the next verifier ran, a recording role and a `prepare --miss` stop. It is now `skills/flow-visual-tooling-analysis/SKILL.md`, which the operator runs inline when a miss shows; the verifier's sweeps change only by the operator's edit.
 
+### brainstorm.md — one Plan check section, no `/flow` gate
+
+- *`/flow`'s never-asked gate, its gate-time summary and `## Decision` print and its gate-time `sync-base-behind` removed; **Save the plan?** moved to `skills/flow-plan/SKILL.md`, its only asker* — the question was taken at once, so the `STARTED` handoff repeated the print with nothing between, and `implement.md`'s base check runs the same sync when the base matters.
+
 ### review-panel.md — hand-assembled briefs and no docs-only guard (slim-flow-loop, cuts 1 and 4)
 
 - *`render-slot-prompt` and `check-panel-docs-only` deleted* — a brief is a few blockquotes and a template body the parent already holds, so a rendering guard with its own placeholder and block-extraction contract cost more to keep than the copy it saved; the docs-only reduction moved into `plan-check`, which decides a documentation-only change's panel `primary` alone before any round runs, so no round re-classifies the branch.
