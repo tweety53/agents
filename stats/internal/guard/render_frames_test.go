@@ -18,7 +18,7 @@ import (
 // rfPage is a tiny design page: frame F1 with a light and a dark phone,
 // frame L1 with a light phone only, and lazy frame Z1, which sets
 // data-mig-filled before filling its panes (light and dark phone), as the
-// design pages' _migLazy does. Every phone draws a band below its status
+// design pages' _migLazy does; Q1, Q2 and Z2 fill through an observer queue. Every phone draws a band below its status
 // line except B1's, which is blank.
 const rfPage = `<!doctype html><html><body style="margin:0;background:#888">
 <div id="F1" data-frame style="display:flex;gap:40px;padding:20px;width:820px">
@@ -35,7 +35,25 @@ const rfPage = `<!doctype html><html><body style="margin:0;background:#888">
 <div id="B1" data-frame style="padding:20px;width:820px">
 <div style="width:390px;height:844px;border-radius:28px;background:#ffffff"></div>
 </div>
+<div id="Q1" data-frame data-mig style="height:20px"><div data-mig-pane></div></div>
+<div id="Q2" data-frame data-mig style="height:20px"><div data-mig-pane></div></div>
+<div id="Z2" data-frame data-mig style="padding:20px;width:820px"><div data-mig-pane></div></div>
 <script>
+// Q1, Q2 and Z2 fill as _migLazy does: observed frames join one FIFO queue,
+// slow enough that Z2 behind Q1 and Q2 would outlast the renderer's wait.
+const queue = [];
+const pump = () => setTimeout(() => {
+  const f = queue[0];
+  f.firstElementChild.innerHTML = '<div style="width:390px;height:844px;border-radius:28px;background:#ffffff"><div style="height:150px"></div><div style="height:200px;background:#4080c0"></div></div>';
+  queue.shift();
+  if (queue.length) pump();
+}, 4500);
+const io = new IntersectionObserver(es => es.forEach(e => {
+  if (!e.isIntersecting || e.target.dataset.migFilled) return;
+  e.target.dataset.migFilled = '1';
+  if (queue.push(e.target) === 1) pump();
+}), { rootMargin: '10000px 0px' });
+['Q1', 'Q2', 'Z2'].forEach(id => io.observe(document.getElementById(id)));
 document.getElementById('Z1').dataset.migFilled = '1';
 setTimeout(() => {
   const ps = document.querySelectorAll('#Z1 [data-mig-pane]');
@@ -291,6 +309,19 @@ func TestRenderFramesWaitsForLazyPanes(t *testing.T) {
 	out, rc := rfRun(t, vvEnv("/"), root, f)
 	if rc != 0 || out != "FRAMES-RENDERED: 2 rendered, 0 already present\n" {
 		t.Fatalf("rc=%d out=%q, want 0 with two rendered", rc, out)
+	}
+}
+
+// TestRenderFramesSkipsTheLazyQueue: a lazy frame far down a page renders
+// without waiting for the frames queued ahead of it.
+func TestRenderFramesSkipsTheLazyQueue(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	_, root := rfFixture(t, rfPlaywright(t))
+	f := rfCite(t, root, "docs/design/mockups/t1/Z2.png")
+	out, rc := rfRun(t, vvEnv("/"), root, f)
+	if rc != 0 || out != "FRAMES-RENDERED: 1 rendered, 0 already present\n" {
+		t.Fatalf("rc=%d out=%q, want 0 with one rendered", rc, out)
 	}
 }
 

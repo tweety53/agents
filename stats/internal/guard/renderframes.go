@@ -53,8 +53,10 @@ import (
 // id found in exactly one other page renders from that page, never refused. The renderer runs `node` with the program below on the `regression
 // checkout`'s own `@playwright/test` (the in-process visual-preflight check (visual-verify-pass prepare)'s
 // precedent): one page at DPR 2, requests to http://design.local/ fulfilled
-// from the exported tree (no server process), the frame scrolled into view
-// and its lazy panes filled — the data-mig-filled flag set and every
+// from the exported tree (no server process), the frame scrolled into view,
+// reported as intersecting — no other [data-frame] ever is, so the page's
+// lazy-fill queue holds this frame's panes alone, whatever was scrolled
+// past — and its lazy panes filled — the data-mig-filled flag set and every
 // [data-mig-pane] holding an element, since the page sets the flag when it
 // queues the panes and fills them later (KAN-1087). Each of the frame's phones — outermost
 // elements 390 css px wide with 28 px corners, in document order — is
@@ -406,6 +408,26 @@ const jobs = JSON.parse(spec);
       if (f.startsWith(base) && fs.existsSync(f) && fs.statSync(f).isFile()) return r.fulfill({ path: f });
       return r.fulfill({ status: 404 });
     });
+    // A design page fills lazy frames through one FIFO idle queue, so a frame
+    // waits behind every frame that scrolled near the viewport before it and
+    // can miss the wait below. Only the frame being rendered is reported as
+    // intersecting, so the queue holds its panes alone.
+    await page.addInitScript(() => {
+      const seen = [], wanted = new Set();
+      const fire = (o, el) => o.cb([{ isIntersecting: true, target: el }], o);
+      window.IntersectionObserver = class extends window.IntersectionObserver {
+        constructor(cb, opts) { super(cb, opts); this.cb = cb; }
+        observe(el) {
+          if (!el.matches('[data-frame]')) return super.observe(el);
+          seen.push([this, el]);
+          if (wanted.has(el.id)) fire(this, el);
+        }
+      };
+      window.__renderWant = id => {
+        wanted.add(id);
+        seen.filter(([, el]) => el.id === id).forEach(([o, el]) => fire(o, el));
+      };
+    });
     let loaded = '';
     for (const { File, ID } of jobs) {
       if (loaded !== File) {
@@ -415,6 +437,7 @@ const jobs = JSON.parse(spec);
       const frame = page.locator('[id="' + ID + '"][data-frame]');
       await frame.scrollIntoViewIfNeeded();
       await frame.evaluate(f => new Promise(res => {
+        window.__renderWant(f.id);
         const t0 = Date.now();
         const filled = () => f.dataset.migFilled && [...f.querySelectorAll('[data-mig-pane]')].every(p => p.firstElementChild);
         const chk = () => (f.dataset.mig === undefined || filled() || Date.now() - t0 > 8000) ? res() : setTimeout(chk, 100);
