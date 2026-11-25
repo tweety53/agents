@@ -1,6 +1,6 @@
 ---
 name: flow-planner-low
-description: Flow planner at low effort — may dispatch fresh Explore and Plan agents (decision planner-carries-agent); mechanical work whose answer is determined by the prompt; the dispatch prompt carries every instruction; pass `model` at dispatch time.
+description: Flow planner at low effort — may dispatch fresh Explore and Plan agents; mechanical work whose answer is determined by the prompt; the dispatch prompt carries every instruction; pass `model` at dispatch time.
 effort: low
 tools: Read, Glob, Grep, Bash, Write, Edit, ToolSearch, Agent
 ---

@@ -258,7 +258,7 @@ something**. Only an explicit **approve** ends the rounds and approves the desig
 answer, silence included, is another round, and the operator's words are that round's input. No
 round count ends planning.
 
-**The confirm asked alone shows the whole design** (decision `approval-by-question-preview`). A
+**The confirm asked alone shows the whole design**. A
 round whose only question is the confirm is asked as one **AskUserQuestion** with exactly those
 two options, the approve option's `preview` carrying the full design draft text. The session is
 never switched into plan mode, and **Another round** only dispatches the next round — nothing is

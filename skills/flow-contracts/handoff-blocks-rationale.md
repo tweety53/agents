@@ -64,7 +64,7 @@ of its detail view, so what the omission drops is the transition, which is the r
 
 ### Why the `IN_PROGRESS` block has no `Running:` section
 
-slim-flow-loop removed the run-instructions step and the review-before-landing hold: a run that
+The run-instructions step and the review-before-landing hold were removed: a run that
 lands straight away starts no stack, and the operator who tests by hand starts the applications
 from the project's own `## run`.
 

@@ -34,7 +34,7 @@ and may dispatch the fresh Explore and Plan agents **Explore and design agents**
 (`skills/flow/brainstorm-planner.md`) allows — each on its role's pair — never
 a `fork`. Once a capture has created the change, the session never brainstorms or writes the plan
 itself: `planner` dispatches do, exactly as in `/flow`'s creating run (**Capturing a new change**,
-below; decision `flow-plan-plans-through-planner`). The session still writes an addition to an
+below). The session still writes an addition to an
 existing change's `design.md` itself. Every "you" elsewhere in this skill addresses the running
 session.
 
@@ -62,7 +62,7 @@ otherwise, including a session that just stops.
 The store attaches the open plan session to the change the moment the capture's own `STARTED`
 write creates it. A capture's planning then marks `flow.plan` under `-command '/flow-plan'`. **No
 `flow record dispatch` call before capture** — no change exists to record a planning dispatch
-against (decision `flow-plan-records-nothing`). After it, every `plan-<n>`,
+against. After it, every `plan-<n>`,
 `explore-<n>` and `design-<n>` dispatch is recorded against the change, `<n>` counting from 1 per
 change.
 

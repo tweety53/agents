@@ -83,8 +83,7 @@ output.
 
 ## Run brainstorming and planning through the planner role
 
-**The parent never brainstorms or writes the plan itself; a `planner` dispatch does** (decision
-`planner-role`). Before the first dispatch, write the ticket — the Jira issue, or the operator's
+**The parent never brainstorms or writes the plan itself; a `planner` dispatch does**. Before the first dispatch, write the ticket — the Jira issue, or the operator's
 request verbatim — to `<abs-worktree>/.superpowers/sdd/planner/ticket.md`. A `/flow-plan` capture runs this section too, with the differences
 **Capturing a new change** (`skills/flow-plan/SKILL.md`) states.
 

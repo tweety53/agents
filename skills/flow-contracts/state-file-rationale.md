@@ -13,7 +13,7 @@ This file is the reasoning behind `skills/flow-contracts/state-file.md`.
 
 ## state-file.md — `artifactUrl`
 
-`artifactUrl` is kept in the record rather than dropped so a change created before that decision (`publish-proposal-removed`), whose `artifactUrl` is still populated, is not read as malformed.
+`artifactUrl` is kept in the record rather than dropped so a change created while it was still written, whose `artifactUrl` is still populated, is not read as malformed.
 
 ## state-file.md — Planning effort
 

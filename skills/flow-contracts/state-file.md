@@ -112,8 +112,8 @@ field is how it gets erased.
   preflight is handed `-` and refuses, the merge status is `inconclusive`, and the review command
   falls back to the staged diff. A `null` value is therefore never a licence to infer a merge base —
   it is the refusal to.
-- `artifactUrl` — `null` for the life of the change: `/flow` publishes no proposal artifact
-  (design.md's `publish-proposal-removed`), so nothing ever writes this field a non-null value.
+- `artifactUrl` — `null` for the life of the change: `/flow` publishes no proposal artifact,
+  so nothing ever writes this field a non-null value.
 - `jiraIssue` — the key of the Jira issue driving this change (e.g. `"KAN-8"`), or `null` when no issue is linked. Written only on the run that **creates** the change; every other invocation **carries it forward verbatim**. See **Jira integration** (`jira-integration.md`).
 - `planningEffort` and `models` — retired fields no run writes or reads. A record that carries one
   (an older change's) is valid and is carried forward verbatim; a record that omits them is the

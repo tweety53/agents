@@ -38,8 +38,8 @@ question is left — exists because most changes had nothing for the operator to
 inferred from mid-turn words stays: a stray "merge and push" said mid-run is still conversation,
 and only the run's own chain point or a fresh bare `/flow` starts integrate.
 
-slim-flow-loop removed the per-change review-before-landing hold (`reviewBeforeLanding`) and the
-run-instructions step: a hold nobody set was a stop nobody needed, and the instructions were
+The per-change review-before-landing hold (`reviewBeforeLanding`) and the
+run-instructions step were removed: a hold nobody set was a stop nobody needed, and the instructions were
 printed for a stack a landing run never used.
 
 ### A fix never moves the state
@@ -260,7 +260,7 @@ than a skill calling `curl` directly is deliberate, not a style preference: `sta
 same `Client.ListStateBoard` method every other read uses, so it inherits the `Flow-Daemon`
 header check, the timeout, and the unreachable/refused classification once, in the one package that
 owns them, instead of every contract file that enumerates changes growing its own copy of that HTTP
-handling — the outcome `design.md`'s `daemon-owns-db` decision names and rejects.
+handling — an outcome that is rejected.
 
 This is why the second source matters: `spectre list --json` only
 sees change directories present in the *current* git checkout, so a change staged in a worktree —

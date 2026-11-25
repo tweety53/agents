@@ -21,7 +21,7 @@ The reasoning behind this file lives in `skills/flow-contracts/artifacts-registr
 | SDD ledger | `/flow`'s implement phase | the store | nothing — the store is the terminal record |
 | Rendered ledger and panel record | `flow record render` | the canonical worktree's `<abs-worktree>/.superpowers/sdd/`, under the change-keyed filename — the renders target the canonical worktree only; never copied into the change directory or committed | with the worktree, at run 2 — the self-review bundle renders them from the store |
 | Brainstorm design document | `/flow`'s creating run | `<abs-worktree>/.superpowers/sdd/` in the worktree | with the worktree, at run 2 |
-| Proposal artifact source | nothing — `/flow` publishes no proposal artifact (`publish-proposal-removed`), so the file is absent on every change it creates | the state directory | run 2, unconditionally |
+| Proposal artifact source | nothing — `/flow` publishes no proposal artifact, so the file is absent on every change it creates | the state directory | run 2, unconditionally |
 | Worktree | `/flow`'s kickoff | per the `worktrees` keys | run 2, after its existing checks |
 | Local branch | `/flow`'s implement phase | the repository | run 2, `git branch -d` |
 | Remote branch | finish run 1 | `origin` | run 2, without a further prompt |
@@ -45,7 +45,7 @@ second statement of the rule.
 never left unaccounted for on the grounds that something probably removes it.
 
 **The proposal artifact source is not a record.** `/flow` writes no
-`<state-dir>/<name>-proposal-artifact.html`; a change created before `publish-proposal-removed` may
+`<state-dir>/<name>-proposal-artifact.html`; an older change may
 still hold one, and nothing in the repository preserves a copy. Run 2 deletes it
 whether or not it exists — a `/flow-fast` change, which publishes none, has nothing to delete and
 says so. The deletion is disclosed the same way the worktree removal is.

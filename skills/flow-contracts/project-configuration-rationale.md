@@ -159,7 +159,7 @@ caught before it can be used, and never at the point where reporting it would st
 
 ### visual verification
 
-Why the permission this section once granted was dropped, on evidence a panel slot demonstrated, is design.md's `no-automatic-push` decision (`kan-171-generic-visual-verification-step`'s `design.md`, in the agents repo's history).
+Why the permission this section once granted was dropped, on evidence a panel slot demonstrated: a file inside a repository cannot authorise a push to another repository.
 
 ### project-configuration-authoring.md — which rules a script checks
 

@@ -19,53 +19,51 @@ records.
 ## SKILL.md — preamble
 
 > one state file, the same three states, content reorganized by topic rather than by the old
-> start/do/finish boundary (design.md's `flow-rename-content-split`). This file is the router: it
+> start/do/finish boundary. This file is the router: it
 
 ## SKILL.md — Guardrails
 
 > **Generate this run's session token once, right here, before the first mark any phase file below
 > makes — a short, unique literal string — and reuse that exact same value at every `stage begin` this
 > run makes, including inside every phase file it dispatches into.** One run, one token, never a fresh
-> one per mark or per phase file (design.md's "one token per session, not one per mark").
+> one per mark or per phase file.
 
 ## brainstorm.md — preamble
 
 > Superpowers Basic Workflow steps **#1** (brainstorming) and **#3** (writing-plans), intertwined
 > with spectre artifact creation, run here — without an options-question round or a proposal
-> publish (design.md's `ask-options-removed`, `publish-proposal-removed`).
+> publish.
 
 ## brainstorm.md — A. Resolve the change and write `STARTED`
 
-> This is design.md's `started-redefined`: `STARTED` is a kickoff marker,
+> `STARTED` is a kickoff marker,
 > "the operator started this," not a record that a design was approved and a proposal published.
 
 > `artifactUrl` stays `null` —
-> `/flow` publishes no proposal artifact (`publish-proposal-removed`).
+> `/flow` publishes no proposal artifact.
 
 ## integrate.md — preamble
 
-> Run 1, with two folds design.md decides:
-> `move-in-review-fold` (the Jira "move to In Review" step was a sub-step of `flow.landing-routes`; the slim-flow-loop change drops In Review altogether, the self-review now runs after landing) and this task's own resolution of open question `write-in-progress-fold`
+> Run 1, with two folds:
+> the In Review move (the Jira "move to In Review" step was a sub-step of `flow.landing-routes`; In Review has since been dropped altogether, and the self-review now runs after landing) and the `write-in-progress` fold
 > (below).
 
 ## integrate.md — rebase
 
-> — per design.md's `rebase-is-a-confirmed-choice`: the rebase never runs on its own, only after the
+> — the rebase never runs on its own, only after the
 > operator picks this option, and only against the worktree(s) that actually moved
 
 Superseded: the rebase now runs with no prompt on every `MOVED` worktree — **Sync the branch onto
 the base** (`skills/flow/sync-onto-base.md`).
 
-> , per design.md's `never-auto-abort`
 
 ## integrate.md — landing routes
 
-> This stage carries three sub-steps under one mark, per this task's own resolution of open question
-> `write-in-progress-fold` and design.md's `move-in-review-fold`: the git route, the state write, and
+> This stage carries three sub-steps under one mark: the git route, the state write, and
 > the Jira transition — three sub-steps recorded as one.
-> **This task's own choice**: fold `write-in-progress` in alongside `move-in-review`, rather than
+> **The choice**: fold `write-in-progress` in alongside `move-in-review`, rather than
 > leave it standalone. The write is a genuine no-op (`IN_PROGRESS` → `IN_PROGRESS`, nothing changes
-> but `prUrl` and `updatedAt`/`updatedBy`) exactly as design.md's open question describes, and by the
+> but `prUrl` and `updatedAt`/`updatedBy`) and by the
 > time this mark reaches it, the route sub-step immediately above has already decided what `prUrl`
 > becomes — folding the write in with the route that produces its one real input, and with the Jira
 > transition that only ever follows a successful route, keeps one mark's three sub-steps in the causal
@@ -74,8 +72,7 @@ the base** (`skills/flow/sync-onto-base.md`).
 
 ## brainstorm.md — the worktree is created inside `flow.kickoff`
 
-An earlier design moved worktree creation to the end of planning (the `worktree-created-at-end-of-planning`
-decision), so sections **B**, **C** and **D** wrote into the main checkout's own
+An earlier design moved worktree creation to the end of planning, so sections **B**, **C** and **D** wrote into the main checkout's own
 `<project>/spectre/changes/<name>/` and the run moved that directory into the worktree afterwards. That
 decision is superseded by an explicit operator instruction: `/flow`, `/flow-fast` and `/flow-plan`
 runs kept touching whatever branch the main checkout sat on — planning artifacts left there when a
@@ -90,29 +87,27 @@ no gap left for it to bridge.
 
 ## brainstorm.md — Run brainstorming and planning through the planner role
 
-The ban on every dispatch from kickoff to the plan gate narrowed to forks (decision
-`agent-tool-everywhere`). Its recorded reason was about forks alone: a fork copies the whole
+The ban on every dispatch from kickoff to the plan gate narrowed to forks. Its recorded reason was about forks alone: a fork copies the whole
 conversation, so it saves no context and doubles the spend. A fresh Explore or Plan agent starts
 empty and returns only its conclusions, so it saves the planning session's context — the opposite
 of the failure the ban was written against. **Considered:** keeping the ban for every dispatch —
 rejected because fresh agents save the context the ban protected.
 
-**Superseded by decision `planner-role`, then `approval-by-question-preview` (below):** the two
+**Superseded (below):** the two
 decisions that follow no longer hold — planning runs in a `planner` dispatch without plan mode.
 
 On Claude Code `ExitPlanMode` is the design approval and the merged convergence confirm still
-closes the checklist (decision `exit-plan-mode-is-approval`). **Considered:** `ExitPlanMode` in
+closes the checklist. **Considered:** `ExitPlanMode` in
 addition to the merged confirm's approval — rejected as two approvals of one design;
 `ExitPlanMode` replacing the plan review gate — rejected because that gate reviews `tasks.md` and
 the decision, which do not exist yet at design time.
 
-Planning keeps every current practice and gate and adds the plan-mode practices (decision
-`extend-not-replace`). **Considered:** replacing brainstorming with plan mode — rejected by the
+Planning keeps every current practice and gate and adds the plan-mode practices. **Considered:** replacing brainstorming with plan mode — rejected by the
 operator.
 
 The design approval is the convergence confirm asked alone as an **AskUserQuestion** of two
 options, approve or another round, whose approve option's `preview` shows the full design text;
-the session never enters plan mode (decision `approval-by-question-preview`). It gives the
+the session never enters plan mode. It gives the
 operator plan-mode approval's read-the-whole-plan-then-approve step without the mode.
 **Considered:** `ExitPlanMode` as the approval — rejected because it needs the session to be in
 plan mode, a rejection strands the session there, and a subagent's plan mode is ignored under the
@@ -184,7 +179,7 @@ Each passage below sat inline in a run-loaded phase file beside the rule it moti
 
 ### visual-verify.md — Visual verification, step 6 (no fingerprint)
 
-- *The stack freshness check runs once, in verify's test group* — the per-stage fingerprint and its `NEXT: restart-stack` branch were deleted (slim-flow-loop); a stack visual verify starts is built from the current tree, `fix.md`'s step 3 re-runs the lint/test list when a visual fix changed code.
+- *The stack freshness check runs once, in verify's test group* — the per-stage fingerprint and its `NEXT: restart-stack` branch were deleted; a stack visual verify starts is built from the current tree, `fix.md`'s step 3 re-runs the lint/test list when a visual fix changed code.
 
 - *Steps 1, 2, 3, 5, 6, 12 and 13 are the parent's* — Those steps run in the parent's own calls to `flow-guard visual-verify-pass prepare` and `close` — the same reason keeps them out of the verifier — and the parent still starts, restarts and stops the stack itself, since `start` carries placeholders and `## run` is prose no script can run.
 
@@ -206,12 +201,11 @@ Each passage below sat inline in a run-loaded phase file beside the rule it moti
 
 ## review-panel.md and implement.md
 
-*Archived design.md decision pointers and reasons moved from `skills/flow/review-panel.md` and `skills/flow/implement.md`; each sub-heading names the section the passage came from, and the rule it decorated stays in the run-loaded file.*
+*Reasons moved from `skills/flow/review-panel.md` and `skills/flow/implement.md`; each sub-heading names the section the passage came from, and the rule it decorated stays in the run-loaded file.*
 
 ### review-panel.md — preamble
 
-> Per design.md's `roster-from-settings`, which supersedes
-> `review-panel-fixed-3` (design.md's `supersedes-review-panel-fixed-3`): there is no fixed roster
+> There is no fixed roster
 > table and no diff-size/touched-area trigger table.
 
 ### review-panel.md — The roster
@@ -221,41 +215,36 @@ Each passage below sat inline in a run-loaded phase file beside the rule it moti
 
 > There is no parent-model inheritance and no economy tier.
 
-> and both `model` and `-effort` are recorded,
-> per design.md's `agent-definitions-universal-handshake`.
+> and both `model` and `-effort` are recorded.
 
 ### review-panel.md — Experimental slot
 
 > The rendered panel record's Slot column therefore shows the `exp-` id unchanged, so the
-> prefix survives into the archive per design.md's `exp-slot-prefix`.
+> prefix survives into the archive.
 
-> `flow record pass -round <round> -note 'experimental: skipped — bundle cap'` (design.md's
-> `exp-skipped-over-cap`) rather than displacing a persistent role.
+> `flow record pass -round <round> -note 'experimental: skipped — bundle cap'` rather than displacing a persistent role.
 
 ### review-panel.md — the diff-size cap
 
 > and the over-cap report names the sum and each
-> worktree's own count (design.md's `cap-sum-across-worktrees`).
+> worktree's own count.
 
 ### review-panel.md — final-review.diff
 
 > it is a plain working-tree diff
 > against the merge base, so work still unstaged or uncommitted is already in it .
 
-> one pass reads every worktree's section, so a seam between two repositories is in one pass's view
-> (design.md's `combined-diff-per-round`).
+> one pass reads every worktree's section, so a seam between two repositories is in one pass's view.
 
 ### review-panel.md — Bundled dispatch
 
 > **At most two review dispatches per round, each carrying one to three roles**, on
-> decided and `default` panels alike and in both execution modes (design.md's
-> `two-dispatch-cap-everywhere`).
+> decided and `default` panels alike and in both execution modes.
 
 > A one-role dispatch is unchanged from today.
 
 > the
-> panel record names every worktree's sha beside the delta path (design.md's
-> `diff-base-canonical-sha`).
+> panel record names every worktree's sha beside the delta path.
 
 > **`-agent-id` is never typed, never invented** — the daemon captures the launch identifier
 > pairing each launch with the begin whose command sits nearest it in the transcript;
@@ -301,8 +290,7 @@ Each passage below sat inline in a run-loaded phase file beside the rule it moti
 > without `<abs-worktree>/.superpowers/sdd` sent the panel back to re-brief the slot mid-dispatch and let the slot's report resolve onto the copy, where its removal destroys it.
 
 > Dispatch each slot present in this round's roster **once**, its prompt listing every copy made for
-> that slot as the repository paths to mutate and test in, in place of `<worktree>` (design.md's
-> `bugbot-security-one-dispatch`).
+> that slot as the repository paths to mutate and test in, in place of `<worktree>`.
 
 > because a report the slot resolved onto its dispatched root
 > dies with the copy.
@@ -445,7 +433,7 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 > The start and end instants are the daemon's own — never caller inputs.
 
 > The sixth argument scopes the group's `## tasks.md` section to the plan header and the named
-> tasks' blocks (per design.md's `scope-tasks-not-files`);
+> tasks' blocks;
 
 > **A guard you could not run is hand-substituted only on the record.**
 
@@ -500,20 +488,19 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 
 ### implement.md — Every fix is a fresh one-shot
 
-The inline parent pays for its fixes on its own large, growing context; a fresh fixer does the same turns on a small one. That supersedes `inline-parent-implements-panel-dispatches` for its
-implementer half on every class but `micro`, and `parent-fixes-minors-inline` for the
+The inline parent pays for its fixes on its own large, growing context; a fresh fixer does the same turns on a small one. That supersedes the inline parent implementing under panel dispatch for its
+implementer half on every class but `micro`, and the parent fixing the
 gated reviewer's Minors under `sdd`: the gated Minors and `fix` verdicts go to one fixer at the
 stage's end — one dispatch per stage, not the rejected per-boundary fixer.
 
 One stage-end fixer's cost grows faster than its load: each tool call re-reading the whole growing context. A twenty-finding cap did not hold. So the stage-end fix caps a fixer at weight 3, the implementer
-groups' own cap, and fixers of one worktree run in series because they share it (decision fixer-weight-cap).
+groups' own cap, and fixers of one worktree run in series because they share it.
 
 ### implement.md — The gated per-task reviewer
 
 A gated bundle is a batch of weight 5, not the implementer group: small groups pay one reviewer dispatch each, each re-reading the brief, the prompt
 and the three artifacts for one to three small diffs. Weight 5 halves that count while a bundle
-stays well under the fixer's blow-up; the fixer keeps weight 3 (decision
-fixer-weight-cap), since a fixer edits and re-tests where a reviewer only reads.
+stays well under the fixer's blow-up; the fixer keeps weight 3, since a fixer edits and re-tests where a reviewer only reads.
 
 > **one dispatch per bundle of gate-fired tasks, never one per task** (the review-dispatch count tracks the change's size, never its task count).
 
@@ -776,7 +763,7 @@ Not `content.padding`: it boxes every non-fill pixel in the container, the other
 
 ### visual-verify.md — Visual verification, step 12 (commit)
 
-**Never push** — see `no-automatic-push` (design.md): a file inside a repository cannot authorise a push to another repository, so no guard here grants one, worktree or not.
+**Never push**: a file inside a repository cannot authorise a push to another repository, so no guard here grants one, worktree or not.
 
 ## Moved — reviewer templates
 
@@ -827,8 +814,7 @@ The pair judge replaced every work-blind pick among a judged role's pairs — me
 `effort_roll` and its band above 90, panel-effort-roll-60-40, opus-low-verification, both
 extra-dispatch model rolls and the rerun pair's planner-chosen model — with `flow-guard
 pair-judge`, a headless `claude -p` call that reads a digest of the work and the file parts it names. The sections here that
-describe those rolls record why each was chosen then; the judge's own reasons, and the
-alternatives it rejected, are in its design record.
+describe those rolls record why each was chosen then.
 
 ## brainstorm-planner.md — Model and effort, no `high` implementer or fixer (no-high-implementer)
 
@@ -944,12 +930,12 @@ rule is **Work end to end — stop only to plan or to test by hand** (`rules/wor
 
 ## review-panel.md — The slot triggers
 
-- *a role is skipped only when both sources say `skip`* — the guard reads the landed diff but misses a query reached through an unnamed helper; the judge reads the plan, written before the code, and misses what the plan does not name. Skipping on either source's skip would turn each one's miss into a silent skip; requiring both keeps every reduction to a definite answer, so the judge only ever adds a role back (decision `slot-judge-union`).
-- *built-in rules over changed lines, no project configuration* — rules widened to the enclosing function, or a boundary-named-receiver rule, fire on nearly every Go and Kotlin change, shrinking the saving the ticket asks for; project-declared globs keep the always-on cost in every project until it writes them (decision `trigger-rules-builtin-changed-lines`).
-- *the judge reuses pair-judge's call* — a new policy row would need a model-policy contract row, an Allowed pairs entry and a migration for one call per change (decision `slot-judge-reuses-pair-judge-call`).
-- *principles drops on the effective `small` class* — the mechanical class would ignore a planner's recorded raise to `regular` (decision `principles-small-effective-class`).
+- *a role is skipped only when both sources say `skip`* — the guard reads the landed diff but misses a query reached through an unnamed helper; the judge reads the plan, written before the code, and misses what the plan does not name. Skipping on either source's skip would turn each one's miss into a silent skip; requiring both keeps every reduction to a definite answer, so the judge only ever adds a role back.
+- *built-in rules over changed lines, no project configuration* — rules widened to the enclosing function, or a boundary-named-receiver rule, fire on nearly every Go and Kotlin change, shrinking the saving the ticket asks for; project-declared globs keep the always-on cost in every project until it writes them.
+- *the judge reuses pair-judge's call* — a new policy row would need a model-policy contract row, an Allowed pairs entry and a migration for one call per change.
+- *principles drops on the effective `small` class* — the mechanical class would ignore a planner's recorded raise to `regular`.
 
-### slim-flow-loop
+### Removed from the loop
 
 - *The review-before-landing hold and the run-instructions step were removed* — a hold nobody set was a stop nobody needed, and a landing run never used the stack its instructions started .
 
@@ -957,11 +943,11 @@ rule is **Work end to end — stop only to plan or to test by hand** (`rules/wor
 
 - *The six visual-verify checks run inside `visual-verify-pass`* — `check-frame-list`, `check-verify-report`, `check-verify-green`, `check-visual-preflight`, `check-visual-verification` and `check-sidecar-reach` had one caller each; they are unexported functions now, prepare validates the `## visual verification` section first, and the verifier bundle carries one `close --check-only` line instead of two `check:` lines.
 
-### fix.md — one fix procedure (slim-flow-loop)
+### fix.md — one fix procedure
 
 - *`document-fix.md` and `verify-fix-loop.md` retired into `fix.md`* — an in-run fix and a fix run did the same work through two planner-led loops (fix planner, appended task, `-fix-<k>-full` run, loop-close panel escalation, `fix-slot-judge`); one test-first implementer plus one `primary` reviewer over `late-fix.diff` serves both, and the planner and escalation cost more rounds than the defects they handled.
 
-### brainstorm.md — plan short first, one plan check (slim-flow-loop)
+### brainstorm.md — plan short first, one plan check
 
 - *The planning triage, the plan reviewer and the decider merged into `flow-guard plan-check`* — three headless or dispatched steps each read the same three artifacts cold; one read-only pass (`skills/flow/plan-check-prompt.md`) writes the report and the decision together, and every new change plans short first, escalating on the planner's own `ESCALATE`, so no pre-planning model call remains.
 - The merge-base capture was removed: a visual departure is compared against the mockup or approved prototype only, and every departure is blocking — a second stack, 4–8 minutes, to attribute a departure whose fix is the same either way.
@@ -972,7 +958,7 @@ rule is **Work end to end — stop only to plan or to test by hand** (`rules/wor
 
 - *`/flow`'s never-asked gate, its gate-time summary and `## Decision` print and its gate-time `sync-base-behind` removed; **Save the plan?** moved to `skills/flow-plan/SKILL.md`, its only asker* — the question was taken at once, so the `STARTED` handoff repeated the print with nothing between, and `implement.md`'s base check runs the same sync when the base matters.
 
-### review-panel.md — hand-assembled briefs and no docs-only guard (slim-flow-loop)
+### review-panel.md — hand-assembled briefs and no docs-only guard
 
 - *`render-slot-prompt` and `check-panel-docs-only` deleted* — a brief is a few blockquotes and a template body the parent already holds, so a rendering guard with its own placeholder and block-extraction contract cost more to keep than the copy it saved; the docs-only reduction moved into `plan-check`, which decides a documentation-only change's panel `primary` alone before any round runs, so no round re-classifies the branch.
 

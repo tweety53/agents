@@ -6,13 +6,12 @@ loads this file.** Each heading names the source file and the section the passag
 ## SKILL.md — Research in the session, planning through the planner role
 
 Previously the session did the thinking itself: it ran `/flow`'s sections C, D and Decide
-directly at capture, marked only `plan.session`, and recorded no dispatch (decision `flow-plan-records-nothing`). The operator asked for parity: "flow-plan must behave the same way as planning
+directly at capture, marked only `plan.session`, and recorded no dispatch. The operator asked for parity: "flow-plan must behave the same way as planning
 during the very first flow run." A capture now plans through the same `planner` dispatches as
-`/flow`'s creating run (decision `flow-plan-plans-through-planner`); research before the capture
+`/flow`'s creating run; research before the capture
 stays in the session because round files need the worktree and dispatch rows need the change.
 
-The five planning rows of the README's steps table admit `/flow-plan` (decision
-`flow-plan-marks-planning-stages`) at the operator's choice, for per-stage timings of a capture,
+The five planning rows of the README's steps table admit `/flow-plan` at the operator's choice, for per-stage timings of a capture,
 over keeping `plan.session` the one mark. `plan.session` therefore ends at kickoff: a
 `stage begin` closes every open run sharing its session token as `superseded`
 (`<agents repo>/stats/internal/store/stageruns.go`), so a `plan.session` still open at the `flow.plan`

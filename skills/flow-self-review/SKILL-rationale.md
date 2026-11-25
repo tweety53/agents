@@ -28,7 +28,7 @@ unticked task whose subject a commit carries as a violation.
 
 The harness refuses a subagent's Write of `findings.md` and `report-draft.md` ("Subagents should
 return findings as text, not write report files"), while the pass's case files were written, so the pass returns the two files' text and this
-session writes them (decision pass-hands-back-file-text).
+session writes them.
 
 ### Angle 3 — prompt tuning
 

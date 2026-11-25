@@ -27,7 +27,7 @@ per-change state file, and marks no `flow stage` call.
 ### 1. Resolve and refuse
 
 Read the bundle with `flow self-review bundle -change <name>`, run from the main checkout — outside
-the change's worktree it prints the bundle flowd saved (decision self-review-bundle-to-flowd) —
+the change's worktree it prints the bundle flowd saved —
 writing its stdout to `<sr-dir>/bundle.md`, never printing it. Its exit 1 — flowd holding none,
 or flowd unreachable, its stderr saying which: print `no saved bundle for <name>` or
 `flowd unreachable` with that line, and stop.

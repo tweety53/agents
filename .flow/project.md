@@ -313,7 +313,7 @@ visual-verify-pass prepare` takes the app root
 `http://127.0.0.1:4173`, so check 2 fails on `stats` by construction.
 
 **No `regression checkout` row** — this repository commits its own baselines to the change's own
-branch, per `design.md`'s `agents-has-no-regression-checkout` decision. **No `push to default
+branch. **No `push to default
 branch` row** either, so nothing declared here can push anywhere.
 
 **`capture` carries `--update-snapshots`, measured rather than assumed.** `capture` creates this
