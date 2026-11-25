@@ -3,9 +3,7 @@
 Sections **B**, **C** and **D** of the brainstorming phase, run by `/flow`'s `planner` dispatch
 (**Run brainstorming and planning through the planner role**, `skills/flow/brainstorm.md`), in
 `/flow`'s creating run and in a `/flow-plan` capture alike — no one relays these sections, though
-the session may dispatch the fresh subagents **Explore and design agents** below allows, and
-neither does the in-run pipeline fix planner, which
-runs them as **Pipeline defects found mid-run** (`skills/flow-contracts/pipeline.md`) binds them. Every "you" below addresses that session, or that planner, directly.
+the session may dispatch the fresh subagents **Explore and design agents** below allows. Every "you" below addresses that session, or that planner, directly.
 
 In a `planner` dispatch, every **AskUserQuestion** these sections name is written as a question of
 the round file instead, and the parent asks it, with the silence outcome the naming section
@@ -39,9 +37,7 @@ Investigate read-only, then present the design.
   round, never a later round. Each question is asked in the round it
   appears: from an answer or an agent's findings, or, once the design is
   approved, from writing the artifacts or the plan, then asked before the plan review gate and its
-  answer revising the design. The self-review planner never asks:
-  it takes the recommendation (**Auto-resolution**,
-  `skills/flow-contracts/operator-prompts-auto-resolution.md`).
+  answer revising the design.
 
 - **A reported defect is confirmed on the base before its fix is designed.** One already fixed
   there is recorded in the design as fixed, with the commit that fixed it, and planned no task.
@@ -135,14 +131,12 @@ Investigate read-only, then present the design.
   file as the capture's frame; a note to the operator goes in the message. **The operator sees the prototype
   whenever one exists**: a planner only writes the file; the session that dispatched it publishes
   it with the Artifact tool after every return that wrote or changed it and prints its URL —
-  `/flow`'s parent in the relay, the self-review and in-run fix loops' parent in its final
-  report. Where the harness has no Artifact tool, that session prints the file's absolute path
+  `/flow`'s parent in the relay. Where the harness has no Artifact tool, that session prints the file's absolute path
   and says it could not be published. Cite the approved file, with its Artifact URL
   or, where it could not be published, that it was not, from `design.md`'s `## Context` as the
   spec the implementation and `flow.verify` compare
   against. A change with nothing visible builds none. Where the confirm is not asked — the
-  `## decisions: recommended` mode, and the self-review planner, which take the
-  recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)
+  `## decisions: recommended` mode, which takes the recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)
   — the published prototype is the spec without an approval round. **The approved prototype is
   the source of truth**: any departure from it found later in the run — by a reviewer,
   verify or `flow.verify` — is fixed to match it, auto-resolved and never asked; a UI
@@ -177,9 +171,7 @@ still runs (stop again to keep waiting). Read each hand-back; say in the round f
 returned nothing.
 
 In `/flow` and `/flow-plan` the recommendation goes to the operator as part of the design, its
-alternatives shown only when they help the operator decide. The self-review planner
-take the recommendation without asking, per **Auto-resolution**
-(`skills/flow-contracts/operator-prompts-auto-resolution.md`).
+alternatives shown only when they help the operator decide.
 
 ### The designer
 
@@ -254,7 +246,7 @@ The unapproved branch is never landed: a review that never reaches **Continue wi
 lands nothing. Where the review is not asked (below) the drawn frames stand and the same landing
 runs once the plan is written.
 
-Where the confirm is not asked (`## decisions: recommended`, the self-review planner) the review is not asked either: the drawn frames stand.
+Where the confirm is not asked (`## decisions: recommended`) the review is not asked either: the drawn frames stand.
 
 ### Convergence
 
@@ -380,7 +372,7 @@ reported and stops the plan.
 ### Plan review
 
 **Every plan is checked** (**Plan check**, `skills/flow/brainstorm.md`); return `PLAN-WRITTEN`
-alone. The self-review planner and a fix run's re-plan are never reviewed.
+alone. A fix run's re-plan is never reviewed.
 
 **A dispatch whose prompt names a `plan-check.md` report triages it.** It reads the report,
 `proposal.md`, `design.md` and `tasks.md`; it opens a file under

@@ -181,8 +181,7 @@ flow stage end -command '/flow' -stage flow.plan -outcome completed <name>
 ### Plan check
 
 **One headless pass reads every plan once and decides how it is built**, after the final planner
-returned `PLAN-WRITTEN`, in `/flow`'s creating run and a `/flow-plan` capture. A fix run's re-plan
-and the self-review planner never run it.
+returned `PLAN-WRITTEN`, in `/flow`'s creating run and a `/flow-plan` capture. A fix run's re-plan never runs it.
 
 1. **Run it.**
 

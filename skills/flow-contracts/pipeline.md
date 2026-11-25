@@ -177,8 +177,8 @@ in that output, so only the same-defect rule above applies.
 
 **Three failed rounds of one loop are a round without progress too, whatever their defects.** A
 failed round is one that ends without the loop's own clean close. The fix procedure counts three failed rounds of `skills/flow/fix.md`, a round being one fix. The fourth round, and each
-later one, is the fresh dispatch above — the loop's planner where it has one, else its fixer —
-on the `no-progress-fixer` role — a loop's planner on its own role — carrying every earlier round's report
+later one, is the fresh dispatch above — its fixer —
+on the `no-progress-fixer` role carrying every earlier round's report
 verbatim and naming the approach that failed. It is never a stop and never an ask.
 
 **A `no-progress-fixer` dispatch carries one defect family.** Where the reports name several
@@ -240,11 +240,9 @@ words that ask the run to stop are.
 ## The parent is the only orchestrator
 
 **Every dispatch a `/flow`, `/flow-fast` or `/flow-self-review` run makes does the work itself;
-none of them is an orchestrator.** The parent session dispatches each planner, implementer,
+none of them is an orchestrator.** The parent session dispatches each implementer,
 fixer, reviewer and verifier directly, every one with the NO DELEGATION paragraph
-(`skills/flow/implement.md`) and a `subagent_type` that carries no `Agent` tool — save a loop's
-planner, which carries PLANNING DELEGATION (`skills/flow/brainstorm.md`) on a `flow-planner-<effort>` definition and may dispatch
-only fresh Explore and Plan agents — never a
+(`skills/flow/implement.md`) and a `subagent_type` that carries no `Agent` tool — never a
 `general-purpose` or other agent whose job is to dispatch, sequence or wait on others. Where a
 contract says "this session" or "the parent" runs a loop, the parent runs it, even when the loop
 is long. An orchestrator duplicates the parent's context, idles between its children's returns

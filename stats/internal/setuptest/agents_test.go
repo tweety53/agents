@@ -54,8 +54,8 @@ func TestSetupAgents(t *testing.T) {
 
 	found, _ := filepath.Glob(filepath.Join(agentsDir, "flow-*.md"))
 	g.assertEq("eight flow-* symlinks present under "+agentsDir, 8, len(found))
-	// The flow-planner-<effort> definitions alone carry Agent: the self-review
-	// and in-run fix planners dispatch Explore and Plan agents (kan-1033).
+	// The flow-planner-<effort> definitions alone carry Agent: the
+	// planners dispatch Explore and Plan agents (kan-1033).
 	for _, e := range []string{"low", "medium", "high", "xhigh"} {
 		b, err := os.ReadFile(filepath.Join(agentsDir, "flow-planner-"+e+".md"))
 		if err != nil || !toolsFork.Match(b) {

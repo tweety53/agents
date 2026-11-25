@@ -52,7 +52,7 @@ These eleven rows are **every** Agent-tool dispatch the parent may make, across 
 | fix reviewer, one per fix | `panel-reviewer` | `fix-<k>-review` | `skills/flow/fix.md`, step 4 |
 | verifier, one per worktree, or one per shard of a sharded pass | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-s<i>of<n>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
 | runner, one per test-list run | `runner` | `runner-<n>` | section **4** below, **The runner runs the test list**, and `skills/flow/verify-and-handoff.md`, **Inline verify** |
-| in-run pipeline fix planner, fixer and review, one each per loop step | none — its `Key:` line names its role | `pipeline-fix-<k>-plan`, `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
+| in-run pipeline fix fixer and review, one each per loop step | none — its `Key:` line names its role | `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
 
 **Every dispatch's prompt carries its Role line** — `Role: <role id>`, a line of its own, the id
 the **Role** column names — and runs on a pair that role's rows of **Allowed pairs**
@@ -108,9 +108,7 @@ is a fresh dispatch.
 
 Every row's own prompt or brief carries the NO DELEGATION paragraph (`skills/flow/implementer-brief.md`,
 `skills/flow/gated-reviewer-brief.md`, `skills/flow/review-panel.md`, `skills/flow/visual-verify.md`, `skills/flow-contracts/pipeline.md`) — a leaf never dispatches, so
-nothing exists below these rows — save the in-run pipeline fix planner, which carries PLANNING
-DELEGATION (`skills/flow/brainstorm.md`) in its place on a `flow-planner-<effort>` definition and may dispatch fresh Explore and
-Plan agents, never one that edits (**Allowed pairs**, `skills/flow-contracts/model-policy.md`).
+nothing exists below these rows.
 **The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`
 — three definitions, one per effort, each carrying `effort:` and no
 `model:`) carries a `tools:` allowlist that omits
