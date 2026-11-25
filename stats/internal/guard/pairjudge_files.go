@@ -18,9 +18,10 @@ var pjNamedPath = regexp.MustCompile("(?:^|[\\s`'\"(<\\[])(/[^\\s`'\"()<>\\[\\]]
 // `:line[:col]` and trailing punctuation.
 var pjPathTail = regexp.MustCompile(`(?::\d+)*[.,;:!?]*$`)
 
-// pjSecretName is a file name never sent: key, credential, secret, password
-// or token files and key-store extensions; .env files are refused apart.
-var pjSecretName = regexp.MustCompile(`(?i)key|secret|credential|passw|token|\.(pem|p12|pfx|der|crt|jks|keystore|gpg|asc)$`)
+// pjSecretName is a file name never sent, obvious secrets only: private keys
+// and key stores, and files named secret, secrets or credentials before the
+// extension; .env files are refused apart.
+var pjSecretName = regexp.MustCompile(`(?i)\.(key|pem|p12|pfx|jks|keystore)$|^id_(rsa|dsa|ecdsa|ed25519)$|^(secret|secrets|credentials)(\.[^.]*)?$`)
 
 // pjAppendNamed appends to digest each file it names that pjSendable admits,
 // once, under a `--- <path> ---` header, within pjDigestCap: the digest

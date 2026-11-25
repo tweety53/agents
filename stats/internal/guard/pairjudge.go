@@ -64,8 +64,8 @@ import (
 // text file, appended once under a `--- <path> ---` header. The content leaves
 // the machine, so a file is sent only when, symlinks resolved, it lies inside
 // a git working tree, is not gitignored unless under `.superpowers/`, is not a
-// `.env*` or key/credential/secret/token-named file, and is not under
-// ~/.claude or ~/.config; any other path, and an unreadable one, is silently
+// `.env*` file, private key or key store, or file named secret, secrets or
+// credentials, and is not under ~/.claude or ~/.config; any other path, and an unreadable one, is silently
 // left out. The digest itself is never cut for a file. Measured live
 // from a Claude Code Bash call on 2026-11-15, claude 2.1.325, exit 0 in
 // 2.5 s with a PAIR and a REASON line; --output-format json spiked the same

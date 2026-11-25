@@ -531,7 +531,7 @@ func pjNamedRepo(t *testing.T) (repo, digest string, files map[string]string) {
 		repo + "/plan.md":                "the plan\n",
 		repo + "/.superpowers/ticket.md": "the ticket\n",
 		repo + "/.env.local":             "TOKEN=x\n",
-		repo + "/deploy-secret.txt":      "s\n",
+		repo + "/secrets.txt":            "s\n",
 		repo + "/ignored.log":            "ignored\n",
 		repo + "/bin.dat":                "a\x00b",
 		repo + "/.claude/notes.md":       "home claude\n",
@@ -587,7 +587,34 @@ func TestPairJudgeAppendsNamedFiles(t *testing.T) {
 	}
 }
 
-// TestPairJudgeCapsNamedFiles: a named file crossing the 200 KB cap is cut
+// TestPairJudgeSecretNames: only .env files, private keys, key stores and
+// files named secret, secrets or credentials are kept back.
+func TestPairJudgeSecretNames(t *testing.T) {
+	t.Parallel()
+	repo, _, _ := pjNamedRepo(t)
+	for name, sent := range map[string]bool{
+		"monkey.go": true, "token.go": true, "tokenizer.ts": true, "secretary.md": true,
+		"password.go": true, "deploy-secret.txt": true, "api_key.md": true, "credentials_test.go": true,
+		"id_rsa.pub": true, "server.crt": true,
+		".env": false, ".env.local": false,
+		"server.key": false, "server.PEM": false, "a.p12": false, "a.pfx": false, "a.jks": false, "a.keystore": false,
+		"id_rsa": false, "id_dsa": false, "id_ecdsa": false, "id_ed25519": false,
+		"secret": false, "secret.yaml": false, "Secrets.json": false, "credentials": false, "credentials.toml": false,
+	} {
+		p := repo + "/" + name
+		if err := os.WriteFile(p, []byte("x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, ok := pjSendable(Env{Getenv: func(string) string { return "" }}, p); ok != sent {
+			t.Errorf("%s: sent %v, want %v", name, ok, sent)
+		}
+		if err := os.Remove(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// TestPairJudgeCapsNamedFiles:a named file crossing the 200 KB cap is cut
 // there and followed by the truncation line; the brief reaches the judge whole.
 func TestPairJudgeCapsNamedFiles(t *testing.T) {
 	t.Parallel()
