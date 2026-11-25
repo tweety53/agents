@@ -155,6 +155,13 @@ this file in full first: its prompt is a stub naming this file, never these para
 > suite is run as this task's targeted tests instead. Pipe a test run's output through `tail` so a
 > green run costs lines of context, not a build log.
 
+> **A PASS CONDITION IS MET BEFORE YOU REPORT:** a plan step whose command must be green, or each
+> failure dispositioned — a regression or capture sweep included — is done only when the command is
+> green or every failure is fixed or dispositioned as the step says (re-baselined with the departure
+> recorded, restored). TARGETED TESTS above decides which command runs; this decides when its step
+> is done. Anything less is `status: BLOCKED`, never `DONE`, with a `question:` line naming the
+> command and the count of failures left (KAN-1158: a task reported done on a sweep at 74 failures).
+
 > **DRIFT CHECK:** Before you commit, read your own diff once for what it leaves behind. For
 > every behaviour, name, path, flag or exit code the diff changes, grep for the comments, file
 > headers, usage lines, docs and cross-file citations that describe it, and bring each one in
