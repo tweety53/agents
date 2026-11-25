@@ -655,6 +655,48 @@ func TestPairJudgeCapsNamedFiles(t *testing.T) {
 	pjWantStdin(t, digest, brief, want)
 }
 
+// TestPairJudgeAppendsNamedTasks: a named tasks.md reaches the judge as the
+// sections of the tasks the brief names -- by an implementer's `Tasks: 7, 9
+// of 20` line or a reviewer's `PASS task-<n>:` lines -- each capped at 8 KB on
+// its own, not as the file's head; a brief naming none, or none the file
+// holds, gets the head. The file sits gitignored under spectre/changes/, as real plans do.
+func TestPairJudgeAppendsNamedTasks(t *testing.T) {
+	t.Parallel()
+	pad := strings.Repeat("padding line\n", 700) // ~9 KB, pushes task 7 past the head
+	big := strings.Repeat("123456789\n", 1000)
+	plan := "# plan\n\n## area\n\n" +
+		"- [x] 1. One\n" + pad +
+		"- [x] 7. Seven\nseven body\n" +
+		"- [ ] 8. Eight\neight body\n" +
+		"- [ ] 9. Nine\n" + big +
+		"\n## next\nafter\n"
+	sec9 := "- [ ] 9. Nine\n" + big
+	sec9 = sec9[:strings.LastIndexByte(sec9[:8192], '\n')+1] + "[file truncated at 8 KB]\n"
+	for name, c := range map[string]struct{ brief, want string }{
+		"implementer": {"Tasks: 7, 9 of 20\n", "- [x] 7. Seven\nseven body\n" + sec9},
+		"reviewer":    {"PASS task-7:\nPASS task-8:\n", "- [x] 7. Seven\nseven body\n- [ ] 8. Eight\neight body\n"},
+		"none named":  {"Tasks: none\n", plan[:strings.LastIndexByte(plan[:8192], '\n')+1] + "[file truncated at 8 KB]\n"},
+		"not in file": {"Tasks: 42 of 50\n", plan[:strings.LastIndexByte(plan[:8192], '\n')+1] + "[file truncated at 8 KB]\n"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			repo, digest, _ := pjNamedRepo(t)
+			p := repo + "/spectre/changes/c/tasks.md" // gitignored, as spectre change dirs are
+			if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(p, []byte(plan), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(repo+"/.gitignore", []byte("ignored.log\n.superpowers/\nspectre/changes/\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			brief := c.brief + "Plan: " + p + "\n"
+			pjWantStdin(t, digest, brief, brief+"\n\n--- "+p+" ---\n"+c.want)
+		})
+	}
+}
+
 // pjWantStdin judges brief, written to digest, and compares the judge's stdin.
 func pjWantStdin(t *testing.T, digest, brief, want string) {
 	t.Helper()

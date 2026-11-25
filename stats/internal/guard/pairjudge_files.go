@@ -42,14 +42,55 @@ func pjHead(body []byte) []byte {
 	return append(head, pjFileTruncated...)
 }
 
+// pjBriefTasks finds the task numbers a brief names: an implementer brief's
+// `Tasks: 7, 8, 9 of 20` line and a reviewer brief's `PASS task-7:` lines.
+var pjBriefTasks = regexp.MustCompile(`(?m)^Tasks:[ \t]*([0-9][0-9, \t]*)|^PASS task-([0-9]+):`)
+
+// pjNumber is one task number in a pjBriefTasks match.
+var pjNumber = regexp.MustCompile(`[0-9]+`)
+
+// pjTaskIDs is the task numbers digest names, as a set.
+func pjTaskIDs(digest []byte) map[string]bool {
+	ids := map[string]bool{}
+	for _, m := range pjBriefTasks.FindAllSubmatch(digest, -1) {
+		for _, id := range pjNumber.FindAll(append(m[1], m[2]...), -1) {
+			ids[string(id)] = true
+		}
+	}
+	return ids
+}
+
+// pjTasks is, for a file real named tasks.md, the sections of its body (tcfIterTasks' grammar: the task
+// line to the next task or `##`/`###` heading) whose number ids holds, each
+// cut to its own pjHead, in file order; nil when ids is empty or the file
+// holds none of them.
+func pjTasks(real string, body []byte, ids map[string]bool) []byte {
+	if len(ids) == 0 || filepath.Base(real) != "tasks.md" {
+		return nil
+	}
+	lines, err := tcfPlanLines(body)
+	if err != nil {
+		return nil
+	}
+	var out []byte
+	for _, t := range tcfIterTasks(lines) {
+		if ids[t.id] {
+			sec := strings.Join(append([]string{lines[t.taskLine-1]}, t.lines...), "\n") + "\n"
+			out = append(out, pjHead([]byte(sec))...)
+		}
+	}
+	return out
+}
+
 // pjAppendNamed appends to digest each file it names that pjSendable admits,
-// once, under a `--- <path> ---` header, each cut to its pjHead, within
+// once, under a `--- <path> ---` header, each cut to its pjHead -- a file
+// named tasks.md to the pjTasks the digest names instead, when there are any -- within
 // pjDigestCap: the digest comes first and is never cut for a file; the file
 // that crosses that total is cut there and followed by pjTruncated, and no
 // file follows it.
 func pjAppendNamed(env Env, digestFile string, digest []byte) []byte {
 	self, _ := filepath.EvalSymlinks(digestFile)
-	seen := map[string]bool{self: true}
+	seen, ids := map[string]bool{self: true}, pjTaskIDs(digest)
 	for _, m := range pjNamedPath.FindAllSubmatch(digest, -1) {
 		p := pjPathTail.ReplaceAllString(string(m[1]), "")
 		real, err := filepath.EvalSymlinks(p)
@@ -61,7 +102,11 @@ func pjAppendNamed(env Env, digestFile string, digest []byte) []byte {
 		if !ok {
 			continue
 		}
-		body = pjHead(body)
+		if tasks := pjTasks(real, body, ids); tasks != nil {
+			body = tasks
+		} else {
+			body = pjHead(body)
+		}
 		digest = append(digest, "\n\n--- "+p+" ---\n"...)
 		if len(digest)+len(body) > pjDigestCap {
 			return append(append(digest, body[:max(0, pjDigestCap-len(digest))]...), pjTruncated...)
@@ -73,7 +118,7 @@ func pjAppendNamed(env Env, digestFile string, digest []byte) []byte {
 
 // pjSendable is real's content when it may leave the machine: a regular
 // UTF-8 text file with no NUL, inside a git working tree, not gitignored
-// unless under .superpowers/, not a .env or secret-named file, and not under
+// unless under .superpowers/ or spectre/changes/, not a .env or secret-named file, and not under
 // ~/.claude or ~/.config. real is already symlink-resolved.
 func pjSendable(env Env, real string) ([]byte, bool) {
 	name := filepath.Base(real)
@@ -97,7 +142,7 @@ func pjSendable(env Env, real string) ([]byte, bool) {
 		return nil, false
 	}
 	if exec.Command("git", "-C", dir, "check-ignore", "-q", real).Run() == nil &&
-		!strings.Contains(filepath.ToSlash(real[len(root):])+"/", "/.superpowers/") {
+		!pjIgnoredSendable(filepath.ToSlash(real[len(root):])) {
 		return nil, false
 	}
 	body, err := os.ReadFile(real)
@@ -105,6 +150,13 @@ func pjSendable(env Env, real string) ([]byte, bool) {
 		return nil, false
 	}
 	return body, true
+}
+
+// pjIgnoredSendable is whether a gitignored path, relative to its tree's root
+// with a leading slash, is still sent: run artifacts under .superpowers/ and
+// spectre change artifacts under spectre/changes/.
+func pjIgnoredSendable(rel string) bool {
+	return strings.Contains(rel+"/", "/.superpowers/") || strings.HasPrefix(rel, "/spectre/changes/")
 }
 
 func pjUnder(p, dir string) bool {

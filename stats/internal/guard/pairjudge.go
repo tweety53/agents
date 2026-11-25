@@ -61,9 +61,11 @@ import (
 // (pjAppendNamed, pairjudge_files.go), since the judge has no tools to read a
 // path itself. A named file is an absolute path in the digest -- in backticks
 // or followed by punctuation or `:line` alike -- to an existing regular UTF-8
-// text file, appended once under a `--- <path> ---` header. The content leaves
+// text file, appended once under a `--- <path> ---` header -- each capped at
+// 8 KB, a tasks.md at 8 KB per task section when the digest names tasks
+// (`Tasks: 7, 8 of 20`, `PASS task-7:`) and only those sections. The content leaves
 // the machine, so a file is sent only when, symlinks resolved, it lies inside
-// a git working tree, is not gitignored unless under `.superpowers/`, is not a
+// a git working tree, is not gitignored unless under `.superpowers/` or `spectre/changes/`, is not a
 // `.env*` file, private key or key store, or file named secret, secrets or
 // credentials, and is not under ~/.claude or ~/.config; any other path, and an unreadable one, is silently
 // left out. The digest itself is never cut for a file. Measured live
