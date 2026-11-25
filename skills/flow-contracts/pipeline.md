@@ -247,7 +247,8 @@ fixer, reviewer and verifier directly, every one with the NO DELEGATION paragrap
 contract says "this session" or "the parent" runs a loop, the parent runs it, even when the loop
 is long. An orchestrator duplicates the parent's context, idles between its children's returns
 until its prompt cache expires and re-reads it all on every wake, and resuming it is the
-`SendMessage`-to-a-finished-child shape this pipeline bans.
+`SendMessage`-to-a-finished-child shape this pipeline bans. The brainstorm planner alone dispatches
+through `Agent` (**PLANNING DELEGATION**, `skills/flow/brainstorm.md`).
 
 **Only the parent waits.** A subagent starts fresh, does one job, writes its result to disk and
 exits; work that follows it starts in a fresh one from that file (**Dispatch sites — the parent's closed list**,

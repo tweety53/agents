@@ -765,7 +765,7 @@ type stateBoardRowDTO struct {
 	// Tasks is an unfinished change's plan, read from its tasks.md;
 	// Subagents its running dispatches. Both omitted when empty.
 	Tasks []taskDTO `json:"tasks,omitempty"`
-	// SelfReviewTasks is the self-review planner's plan, self-review-<name>'s tasks.md.
+	// SelfReviewTasks is the self-review's own plan, self-review-<name>'s tasks.md.
 	SelfReviewTasks []taskDTO              `json:"selfReviewTasks,omitempty"`
 	Subagents       []store.ActiveDispatch `json:"subagents,omitempty"`
 	// SessionSeenAt is when the session last wrote to its transcript.
@@ -881,7 +881,7 @@ func planTasks(r store.LiveStateRow, saved savedFile) []taskDTO {
 	})
 }
 
-// selfReviewTasks reads the self-review planner's own plan, the spectre
+// selfReviewTasks reads the self-review's own plan, the spectre
 // change self-review-<name>, from that sub-run's own worktrees first, then
 // the change's. A task is done when
 // ticked, pending otherwise: a running dispatch's task id does not say which

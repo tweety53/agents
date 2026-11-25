@@ -148,7 +148,7 @@ Investigate read-only, then present the design.
 for an Explore agent, `plan-designer` for a Plan agent — passed as the Agent tool's `model` and
 `effort`. Its prompt carries the two agent-baseline sentences and the report-tersely line
 (`~/.claude/rules/dispatch-carries-the-baseline.md`) and a narrow, explicit scope: what to look at,
-what is already known, what to return. Never a `fork`, and never an agent that edits files: each is dispatched on the read-only `Explore`
+what is already known, what to return, and the line `Role: explorer` or `Role: plan-designer`. Never a `fork`, and never an agent that edits files: each is dispatched on the read-only `Explore`
 or `Plan` agent type, whose tool set has no Edit and no Write. The
 agents investigate and propose; you decide. They record no ledger row. Read the code yourself
 first; dispatch an agent only where that cannot settle a question.

@@ -52,7 +52,7 @@ These eleven rows are **every** Agent-tool dispatch the parent may make, across 
 | fix reviewer, one per fix | `panel-reviewer` | `fix-<k>-review` | `skills/flow/fix.md`, step 4 |
 | verifier, one per worktree, or one per shard of a sharded pass | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-s<i>of<n>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
 | runner, one per test-list run | `runner` | `runner-<n>` | section **4** below, **The runner runs the test list**, and `skills/flow/verify-and-handoff.md`, **Inline verify** |
-| in-run pipeline fix fixer and review, one each per loop step | none — its `Key:` line names its role | `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
+| in-run pipeline fix fixer and review, one each per loop step | none — its `Key:` line names its role | `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-r<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-1`, `pipeline-fix-<k>-review-r<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
 
 **Every dispatch's prompt carries its Role line** — `Role: <role id>`, a line of its own, the id
 the **Role** column names — and runs on a pair that role's rows of **Allowed pairs**

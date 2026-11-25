@@ -332,7 +332,7 @@ export interface StateBoardRow {
   doneTasks?: number;
   /** An unfinished change's plan tasks, and its running subagents; each absent when empty. */
   tasks?: PlanTask[];
-  /** The self-review planner's own plan (self-review-<name>), absent when it has none. */
+  /** The self-review's own plan (self-review-<name>), absent when it has none. */
   selfReviewTasks?: PlanTask[];
   subagents?: ActiveSubagent[];
   /** When the session last wrote to its transcript; absent for a finished change. */
