@@ -251,3 +251,36 @@ func TestSeedPricingRatesCarryUnpricedServedModels(t *testing.T) {
 		t.Errorf("claude-opus-5-5: fast rates want 8/40")
 	}
 }
+
+// TestSeedPricingRatesCarryQwen pins the Qwen rows: published input/output
+// list prices, and the input rate for every cache bucket, none of which has a
+// verbatim published rate.
+func TestSeedPricingRatesCarryQwen(t *testing.T) {
+	t.Parallel()
+	got := map[string]store.PricingRate{}
+	for _, rate := range store.SeedPricingRates() {
+		got[rate.Model] = rate
+	}
+	for model, w := range map[string]struct{ in, out float64 }{
+		"qwen4-max":     {1.50, 4.50},
+		"qwen3.8-flash": {0.15, 0.47},
+	} {
+		r, ok := got[model]
+		if !ok {
+			t.Errorf("no seeded rate for %s", model)
+			continue
+		}
+		if r.InputPerMTok != w.in || r.OutputPerMTok != w.out {
+			t.Errorf("%s: input/output = %v/%v, want %v/%v", model, r.InputPerMTok, r.OutputPerMTok, w.in, w.out)
+		}
+		if r.CacheWrite5mPerMTok != w.in || r.CacheWrite1hPerMTok == nil || *r.CacheWrite1hPerMTok != w.in || r.CacheReadPerMTok != w.in {
+			t.Errorf("%s: cache rates = %+v, want the input rate %v in each", model, r, w.in)
+		}
+		if r.FastInputPerMTok != nil || r.FastOutputPerMTok != nil {
+			t.Errorf("%s: fast rate present, want nil", model)
+		}
+		if r.EffectiveFrom.After(time.Date(2026, 8, 25, 0, 0, 0, 0, time.UTC)) {
+			t.Errorf("%s: effective from %v, after the model's release", model, r.EffectiveFrom)
+		}
+	}
+}
