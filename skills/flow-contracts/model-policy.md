@@ -127,7 +127,7 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 
 | Role | Does |
 |---|---|
-| `general` | Any task no other role fits; the operator adds pairs in the Experiments view. |
+| `general` | Any task no other role fits; the operator adds pairs in the Agent roles view. |
 
 ### Pair choice
 
