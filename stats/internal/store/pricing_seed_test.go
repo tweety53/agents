@@ -253,17 +253,20 @@ func TestSeedPricingRatesCarryUnpricedServedModels(t *testing.T) {
 }
 
 // TestSeedPricingRatesCarryQwen pins the Qwen rows: published input/output
-// list prices, and the input rate for every cache bucket, none of which has a
-// verbatim published rate.
+// list prices and the cache rates the operator's Model Studio console lists;
+// qwen3.8-flash publishes no 1-hour cache-creation rate, so it stays nil.
 func TestSeedPricingRatesCarryQwen(t *testing.T) {
 	t.Parallel()
 	got := map[string]store.PricingRate{}
 	for _, rate := range store.SeedPricingRates() {
 		got[rate.Model] = rate
 	}
-	for model, w := range map[string]struct{ in, out float64 }{
-		"qwen4-max":     {1.50, 4.50},
-		"qwen3.8-flash": {0.15, 0.47},
+	for model, w := range map[string]struct {
+		in, out, w5m, read float64
+		w1h                *float64
+	}{
+		"qwen4-max":     {1.50, 4.50, 1.875, 0.075, ptr(3.00)},
+		"qwen3.8-flash": {0.15, 0.47, 0.20, 0.016, nil},
 	} {
 		r, ok := got[model]
 		if !ok {
@@ -273,8 +276,9 @@ func TestSeedPricingRatesCarryQwen(t *testing.T) {
 		if r.InputPerMTok != w.in || r.OutputPerMTok != w.out {
 			t.Errorf("%s: input/output = %v/%v, want %v/%v", model, r.InputPerMTok, r.OutputPerMTok, w.in, w.out)
 		}
-		if r.CacheWrite5mPerMTok != w.in || r.CacheWrite1hPerMTok == nil || *r.CacheWrite1hPerMTok != w.in || r.CacheReadPerMTok != w.in {
-			t.Errorf("%s: cache rates = %+v, want the input rate %v in each", model, r, w.in)
+		if r.CacheWrite5mPerMTok != w.w5m || r.CacheReadPerMTok != w.read || (r.CacheWrite1hPerMTok == nil) != (w.w1h == nil) ||
+			(w.w1h != nil && *r.CacheWrite1hPerMTok != *w.w1h) {
+			t.Errorf("%s: cache rates = %+v, want 5m %v, 1h %v, read %v", model, r, w.w5m, w.w1h, w.read)
 		}
 		if r.FastInputPerMTok != nil || r.FastOutputPerMTok != nil {
 			t.Errorf("%s: fast rate present, want nil", model)

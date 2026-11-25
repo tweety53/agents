@@ -50,27 +50,27 @@ func SeedPricingRates() []PricingRate {
 	return []PricingRate{
 		// The Qwen rows are the pay-as-you-go international list prices read from
 		// https://docs.modelstudio.console.alibabacloud.com/en/model-studio/model-pricing
-		// on 2026-11-25 (one tier, up to 1M tokens). No cache-write or cache-read
-		// rate is published verbatim and those columns cannot be left unset
-		// without leaving buckets unpriced, so every cache rate is the input rate
-		// (a ceiling); the equal 5m and 1h rates price an unknown split.
+		// on 2026-11-25 (one tier, up to 1M tokens). The cache rates are the
+		// operator's Model Studio console's, read on 2026-11-25: cache read
+		// (implicit and explicit alike) and 5-minute and 1-hour cache creation.
+		// qwen3.8-flash publishes no 1-hour rate, so that column is nil and a
+		// 1-hour write prices as unavailable rather than at an invented rate.
 		{
 			Model:               "qwen4-max",
 			EffectiveFrom:       pricingSeedEffectiveFrom,
 			InputPerMTok:        1.50,
 			OutputPerMTok:       4.50,
-			CacheWrite5mPerMTok: 1.50,
-			CacheWrite1hPerMTok: fastRate(1.50),
-			CacheReadPerMTok:    1.50,
+			CacheWrite5mPerMTok: 1.875,
+			CacheWrite1hPerMTok: fastRate(3.00),
+			CacheReadPerMTok:    0.075,
 		},
 		{
 			Model:               "qwen3.8-flash",
 			EffectiveFrom:       pricingSeedEffectiveFrom,
 			InputPerMTok:        0.15,
 			OutputPerMTok:       0.47,
-			CacheWrite5mPerMTok: 0.15,
-			CacheWrite1hPerMTok: fastRate(0.15),
-			CacheReadPerMTok:    0.15,
+			CacheWrite5mPerMTok: 0.20,
+			CacheReadPerMTok:    0.016,
 		},
 		{
 			Model:               "glm-5.3-flash",
