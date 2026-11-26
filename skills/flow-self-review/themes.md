@@ -59,6 +59,7 @@ no tag below names — one-off defects, feature additions, display issues; an an
 | `worktree-env-wiring` | an environment file, port variable or sibling repository that does not reach a worktree — an unlinked `.env`, an unexported URL or port, a frontend not found from a `<repo>-worktrees` tree |
 | `verifier-contract-gap` | a visual-verifier report, verdict or skip condition whose contract leaves a case open — an incomplete report, an invented exit code, a skip rule that hides a view |
 | `tooling-flag-misbehaviour` | a CLI, flag or script that misbehaves or lacks a capability it needs — a flag refused in one position, an add-only edit, a hand-written runner, a missing column |
+| `agent-command-mistake` | the agent's own command error it then corrected — a wrong command name, shell syntax, path or flag shape the tool rejected as specified; a tool that misbehaves is `tooling-flag-misbehaviour` instead |
 | `leftover-artifact` | a stray, unrestored or unignored file left in a worktree or copy — a zip, a vendored copy, a `.DS_Store`, a file a step should have removed |
 | `misleading-refusal-hint` | a refusal or message that names no recovery, or names the wrong command or file, so the reader fixes the wrong thing |
 | `verify-run-ordering` | a verify or visual run gated or ordered so it runs too early, too late or twice — before the stack is fresh, before a rebase, after a fix it should have followed |
