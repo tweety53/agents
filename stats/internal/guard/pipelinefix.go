@@ -35,7 +35,9 @@ import (
 //       <n> of any pipeline-fix-*-<n> branch (local or remote), change flowd
 //       records (`flow state list`, which must answer from its store, complete,
 //       else exit 2) or directory under <repo>-worktrees/, so <k> is repo-unique; creates <worktree>/.superpowers/sdd/<branch>/ and the
-//       loop's STARTED state record (flow state set); runs ## worktree setup.
+//       loop's STARTED state record (flow state set; one over a dropped
+//       loop's withdrawn record restarts it, and a refused write removes the
+//       worktree and branch again); runs ## worktree setup.
 //       stdout: `worktree: <path>`.
 //   flow-guard pipeline-fix end <key> <outcome>
 //   flow-guard pipeline-fix end <review-key> <report-file>|aborted
@@ -242,6 +244,8 @@ func pfStart(env Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 	}
 	if rc, out := pfState(env, wt, branch, pfRecord("STARTED", branch, map[string]string{wt: strings.TrimSpace(out)})); rc != 0 {
 		fmt.Fprint(stderr, out)
+		// Leave nothing behind, so the same start can run again.
+		pfRemove(env, pe, wt, branch, true, stderr)
 		Reason(env, "state-write-failed")
 		return 1
 	}

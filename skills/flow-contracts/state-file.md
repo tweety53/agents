@@ -141,7 +141,9 @@ A write is refused (HTTP 409, `flow state set` reports and exits 1) when it woul
 backwards **in either dimension**: to a `state` earlier in the pipeline than the one stored, or —
 at the *same* `state` — to an `updatedAt` earlier than the one already recorded. The recorded
 instant is the primary ordering and the pipeline state is the tiebreaker, so a replayed or
-duplicated write can never silently overwrite a newer record with older field values.
+duplicated write can never silently overwrite a newer record with older field values. The one step
+back allowed is a later `STARTED` over a `withdrawn` record: a dropped loop started again under the
+same name.
 
 ## Carry the record forward on every write
 

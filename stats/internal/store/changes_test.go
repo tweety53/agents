@@ -193,6 +193,39 @@ func TestPutChangeRefusesMonotonicViolation(t *testing.T) {
 	}
 }
 
+// A withdrawn record is a dropped loop: a later STARTED write restarts it
+// (pipeline-fix drop, then start under the same name), an older one stays
+// refused.
+func TestPutChangeRestartsAWithdrawnChange(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	ctx := context.Background()
+
+	c := baseChange("agents", "self-review-restart")
+	c.State, c.Withdrawn = store.StateFinished, true
+	if err := st.PutChange(ctx, c); err != nil {
+		t.Fatalf("PutChange(withdrawn): %v", err)
+	}
+
+	restart := c
+	restart.State, restart.Withdrawn = store.StateStarted, false
+	restart.UpdatedAt = c.UpdatedAt.Add(-time.Hour)
+	if err := st.PutChange(ctx, restart); !errors.Is(err, store.ErrMonotonicViolation) {
+		t.Fatalf("an older STARTED over a withdrawn record: err = %v, want ErrMonotonicViolation", err)
+	}
+	restart.UpdatedAt = c.UpdatedAt.Add(time.Hour)
+	if err := st.PutChange(ctx, restart); err != nil {
+		t.Fatalf("a later STARTED over a withdrawn record: %v", err)
+	}
+	got, err := st.GetChange(ctx, c.ProjectKey, c.Name)
+	if err != nil {
+		t.Fatalf("GetChange: %v", err)
+	}
+	if got.State != store.StateStarted || got.Withdrawn {
+		t.Fatalf("stored state = %q withdrawn = %v, want STARTED, false", got.State, got.Withdrawn)
+	}
+}
+
 // TestPutChangeRefusesOutOfOrderWriteAtSameState is F4: design.md and the
 // spec's "An out-of-order write at the same state is refused" scenario
 // both require the recorded instant, not just the pipeline state, to order

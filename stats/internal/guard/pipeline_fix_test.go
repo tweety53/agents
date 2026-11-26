@@ -126,6 +126,26 @@ func TestPipelineFixStart(t *testing.T) {
 	}
 }
 
+func TestPipelineFixStartLeavesNothingWhenTheStateWriteFails(t *testing.T) {
+	t.Parallel()
+	fx := pfNew(t, "")
+	flow, ok := lookPath(fx.env, "flow")
+	if !ok {
+		t.Fatal("no flow stub")
+	}
+	writeExec(t, flow, "#!/usr/bin/env bash\necho 'flow: state set refused' >&2\nexit 1\n")
+	if rc, out := fx.pf(t, "start", "kan-1-demo"); rc != 1 || !strings.Contains(out, "state set refused") {
+		t.Fatalf("rc %d: %s", rc, out)
+	}
+	branch := "self-review-kan-1-demo"
+	if _, err := os.Stat(fx.wt(branch)); !os.IsNotExist(err) {
+		t.Fatalf("worktree left behind: %v", err)
+	}
+	if rc, _ := kwRun(fx.env, "", "git", "-C", fx.repo, "rev-parse", "-q", "--verify", "refs/heads/"+branch); rc == 0 {
+		t.Fatal("branch left behind")
+	}
+}
+
 func TestPipelineFixStartRefusesANonUniqueK(t *testing.T) {
 	t.Parallel()
 	fx := pfNew(t, "")

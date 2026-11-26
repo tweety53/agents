@@ -183,7 +183,9 @@ func ensureProject(ctx context.Context, tx pgx.Tx, projectKey, mainCheckoutPath 
 // same-state writes apply in either order and let the chronologically
 // older one silently overwrite the newer record's fields, which is exactly
 // the case task 6's journal replay exists to guard against: replay's whole
-// purpose is applying writes that can arrive out of order.
+// purpose is applying writes that can arrive out of order. The one step
+// back allowed is a later STARTED over a withdrawn record: a dropped loop
+// started again under the same name.
 func (s *Store) PutChange(ctx context.Context, c Change) error {
 	if !c.State.IsValid() {
 		return fmt.Errorf("%w: %q", ErrInvalidState, c.State)
@@ -253,6 +255,8 @@ func (s *Store) PutChange(ctx context.Context, c Change) error {
 			updated_by          = EXCLUDED.updated_by
 		WHERE state_rank(EXCLUDED.state) > state_rank(changes.state)
 		   OR (state_rank(EXCLUDED.state) = state_rank(changes.state)
+		       AND EXCLUDED.updated_at > changes.updated_at)
+		   OR (changes.withdrawn AND EXCLUDED.state = 'STARTED'
 		       AND EXCLUDED.updated_at > changes.updated_at)
 		RETURNING id
 	`,
