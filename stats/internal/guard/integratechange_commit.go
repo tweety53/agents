@@ -100,7 +100,7 @@ func (c *ic) commitTwo(wt, subj string, trailers []string) bool {
 	changes := specRootLeaf(wt, c.stderr) + "/changes/"
 	// A worktree with nothing to commit and no change file tracked needs no
 	// ignore: neither commit can take the change directory.
-	dirty, okStatus := c.gitQuiet("-C", wt, "status", "--porcelain")
+	dirty, okStatus := c.gitQuiet("-C", wt, "status", "--porcelain", "--untracked-files=normal")
 	tracked, okTracked := c.gitQuiet("-C", wt, "ls-files", "--", changes+c.name)
 	if okStatus && okTracked && dirty == "" && tracked == "" {
 		return true
