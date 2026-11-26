@@ -1,14 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
-import { bodyBackground, DARK_SURFACE_1 } from "./support";
+import { bodyBackground, DARK_SURFACE_1, FIXTURE_NOW } from "./support";
 
 // The Reviewer findings view (#/review-dynamics, ReviewDynamics.tsx): the
 // findings-per-dispatch heatmap and its one Range control, over the eight
-// weeks cmd/uitest-seed's seedReviewDynamics fills, 2026-05-04 ..
-// 2026-06-29 -- before every other view's pinned window, so this fixture
-// moves no other baseline. The clock is pinned to the fixture's end, since
-// every range is counted back from now.
+// weeks cmd/uitest-seed's seedReviewDynamics fills, 2026-07-05 ..
+// 2026-08-14 -- ending the day before FIXTURE_NOW so the default 7d range
+// holds its last week (kan-1164 moved both). The dynamics changes' runs are
+// pinned outside every other view's window, so no other baseline moves. The
+// clock is pinned to FIXTURE_NOW, since every range is counted back from now.
 async function open(page: Page) {
-  await page.clock.setFixedTime(new Date("2026-06-29T00:00:00Z"));
+  await page.clock.setFixedTime(FIXTURE_NOW);
   await page.goto("/#/review-dynamics");
   await expect(page.getByRole("link", { name: "Reviewer findings", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("Loading…")).toHaveCount(0);
@@ -16,11 +17,11 @@ async function open(page: Page) {
 }
 
 test.describe("reviewer findings", () => {
-  test("reviewer findings, last 30 days", async ({ page }) => {
+  test("reviewer findings, last 7 days", async ({ page }) => {
     await open(page);
     expect(await bodyBackground(page)).toBe(DARK_SURFACE_1);
     const range = page.getByRole("group", { name: "Range" });
-    await expect(range.getByRole("button", { name: "30 days" })).toHaveAttribute("aria-pressed", "true");
+    await expect(range.getByRole("button", { name: "7 days" })).toHaveAttribute("aria-pressed", "true");
     await expect(range.getByRole("button", { name: "Later" })).toBeDisabled();
     await expect(page).toHaveScreenshot("reviewer-findings.png", { fullPage: true });
   });
@@ -30,7 +31,7 @@ test.describe("reviewer findings", () => {
     const range = page.getByRole("group", { name: "Range" });
     await range.getByRole("button", { name: "14 days" }).click();
     await range.getByRole("button", { name: "Earlier" }).click();
-    await expect(range).toContainText("06-01 – 06-15");
+    await expect(range).toContainText("07-25 – 08-08");
     await expect(range.getByRole("button", { name: "Later" })).toBeEnabled();
     await expect(page.getByText("Loading…")).toHaveCount(0);
     await expect(page).toHaveScreenshot("reviewer-findings-earlier.png", { fullPage: true });

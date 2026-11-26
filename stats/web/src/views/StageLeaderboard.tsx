@@ -42,7 +42,7 @@ interface Filters {
   to: Date;
 }
 
-const defaults = (): Filters => ({ ...windowFor("30d"), project: null, command: null });
+const defaults = (): Filters => ({ ...windowFor("7d"), project: null, command: null });
 
 interface Ranked {
   row: StageLeaderboardRow;
@@ -92,7 +92,7 @@ export function StageLeaderboard() {
   const cur = useStatsView<StageLeaderboardRow[]>("stage-leaderboard", { from: f.from, to: f.to, project, projects: true });
   const prev = useStatsView<StageLeaderboardRow[]>("stage-leaderboard", { from: new Date(f.from.getTime() - length), to: f.from, project });
 
-  const offDefaults = f.period !== "30d" || f.project !== null || f.command !== null;
+  const offDefaults = f.period !== "7d" || f.project !== null || f.command !== null;
   const ready = cur.status === "ready" && prev.status === "ready" && cur.data.recorded && !cur.data.unmeasured;
   const costed = (r: { totalCostUsd: number }) => r.totalCostUsd >= 0.005;
   const all = cur.status === "ready" ? cur.data.rows.filter(costed) : [];

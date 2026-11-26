@@ -11,8 +11,8 @@ import { bodyBackground, DARK_SURFACE_1, FIXTURE_NOW } from "./support";
 // flow-health.spec.ts.mockups.
 //
 // Values below are read from the live UI-test stack rather than assumed:
-// GET /api/v1/stats/guard-health?from=2026-07-16T09:00:00Z&to=2026-08-15T09:00:00Z&projects=1
-// (the default 30d window ending at FIXTURE_NOW) returns thirteen guards --
+// GET /api/v1/stats/guard-health?from=2026-08-08T09:00:00Z&to=2026-08-15T09:00:00Z&projects=1
+// (the default 7d window ending at FIXTURE_NOW) returns thirteen guards --
 // the helper commands project-get and run-verify-list are excluded -- and
 // projects uitest-alpha (205 runs) then uitest-beta (18 runs), so the first
 // Project chip after All is "uitest-alpha":
@@ -43,7 +43,7 @@ async function openAndAssert(page: Page) {
   await expect(page.getByRole("link", { name: "Flow guards" })).toHaveAttribute("aria-current", "page");
   const bar = page.getByRole("toolbar", { name: "Filters" });
   for (const g of ["Period", "Project", "Rank by"]) await expect(bar.getByRole("group", { name: g })).toBeVisible();
-  await expect(bar.getByRole("group", { name: "Period" }).getByRole("button", { name: "30d" })).toHaveAttribute("aria-pressed", "true");
+  await expect(bar.getByRole("group", { name: "Period" }).getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
   await expect(bar.getByRole("group", { name: "Rank by" }).getByRole("button", { name: "Fires" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByLabel("Period start")).toHaveCount(0);
 

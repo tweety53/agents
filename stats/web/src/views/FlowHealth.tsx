@@ -7,8 +7,8 @@
 // One endpoint, internal/api/health.go's guard-health: one row per guard with
 // runs in the window and project, flow-guard's helper commands left out.
 // The view owns its filters: a KAN-1048 chip bar of Period (7d / 30d / 90d,
-// a rolling window computed when the chip is chosen, 30d by default --
-// default-period-30d), Project (from the response's `projects`, each with
+// a rolling window computed when the chip is chosen, 7d by default --
+// default-period-7d), Project (from the response's `projects`, each with
 // its guard-run count) and Rank by (Fires by default -- default-rank-fires),
 // replacing the shared dashboard bar, so App's period, project and model
 // props are ignored (chip-filters-period-project-rank). Chip state is local.
@@ -44,7 +44,7 @@ interface Filters {
   to: Date;
 }
 
-const defaults = (): Filters => ({ ...windowFor("30d"), project: null });
+const defaults = (): Filters => ({ ...windowFor("7d"), project: null });
 
 const int = (v: number) => v.toLocaleString("en-US");
 const pct = (v: number) => (v === 0 ? "0%" : v < 0.001 ? "<0.1%" : v < 0.1 ? `${(v * 100).toFixed(1)}%` : `${Math.round(v * 100)}%`);
@@ -268,7 +268,7 @@ export function FlowHealth() {
     projects: true,
   });
 
-  const offDefaults = f.period !== "30d" || f.project !== null;
+  const offDefaults = f.period !== "7d" || f.project !== null;
   const ready = state.status === "ready" && state.data.recorded && !state.data.unmeasured;
   const rows = state.status === "ready" ? state.data.rows : [];
   const projects = state.status === "ready" ? (state.data.projects ?? []) : [];

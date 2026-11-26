@@ -37,6 +37,15 @@ beforeEach(() => {
 
 const cells = (r: HTMLElement) => within(r).getAllByRole("cell").map((c) => c.textContent);
 
+it("opens on the 7d chip and requests its 7-day window", async () => {
+  render(<RoleCosts />);
+  await screen.findByRole("table", { name: "Spend and agent time per role" });
+  const req = fetchStatsViewMock.mock.calls.find((c) => c[0] === "role-costs")![1] as { from: Date; to: Date };
+  expect(Math.round((req.to.getTime() - req.from.getTime()) / 86400000)).toBe(7);
+  const periodGroup = within(screen.getByRole("group", { name: "Period" }));
+  expect(periodGroup.getByRole("button", { name: "7 days" })).toHaveAttribute("aria-pressed", "true");
+});
+
 it("groups roles under a stage row carrying the stage's totals", async () => {
   render(<RoleCosts />);
   const table = await screen.findByRole("table", { name: "Spend and agent time per role" });

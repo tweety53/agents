@@ -7,8 +7,8 @@ import { bodyBackground, DARK_SURFACE_1, FIXTURE_NOW } from "./support";
 // ending now, so the clock is pinned to the UI-test fixture's FIXTURE_NOW.
 //
 // Values below are read from the live UI-test stack rather than assumed:
-// GET /api/v1/stats/reviewers?from=2026-07-16T09:00:00Z&to=2026-08-15T09:00:00Z&projects=1
-// (the default 30d window ending at FIXTURE_NOW) returns thirteen rows, one
+// GET /api/v1/stats/reviewers?from=2026-08-08T09:00:00Z&to=2026-08-15T09:00:00Z&projects=1
+// (the default 7d window ending at FIXTURE_NOW) returns thirteen rows, one
 // dispatch each -- kan-102's primary ($0.15, critical 1, minor 1) and
 // principles ($0.1, important 1), and kan-104's mutation ($0.125, important 3,
 // minor 2, withdrawn 1), exp-test-sanity ($0.125, no findings: the
@@ -37,7 +37,7 @@ async function openAndAssert(page: Page) {
   await expect(page.getByRole("link", { name: "Reviewers" })).toHaveAttribute("aria-current", "page");
   const bar = page.getByRole("toolbar", { name: "Filters" });
   for (const g of ["Period", "Project", "Rank by"]) await expect(bar.getByRole("group", { name: g })).toBeVisible();
-  await expect(bar.getByRole("group", { name: "Period" }).getByRole("button", { name: "30d" })).toHaveAttribute("aria-pressed", "true");
+  await expect(bar.getByRole("group", { name: "Period" }).getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
   await expect(bar.getByRole("group", { name: "Rank by" }).getByRole("button", { name: "Value" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByLabel("Period start")).toHaveCount(0);
 

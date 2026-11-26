@@ -118,7 +118,7 @@ function Cell({ v, max, colour }: { v: number; max: number; colour: string }) {
 }
 
 export function RoleCosts() {
-  const [win, setWin] = useState(() => windowFor("30d"));
+  const [win, setWin] = useState(() => windowFor("7d"));
   const [project, setProject] = useState<string | undefined>(undefined);
   const [projects, setProjects] = useState<string[]>([]);
   const [data, setData] = useState<RoleCostsResult | null>(null);

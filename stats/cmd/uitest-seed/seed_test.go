@@ -396,7 +396,7 @@ func TestSeedPricesReviewerDispatches(t *testing.T) {
 	}
 }
 
-// TestSeedDrawsReviewerStates: the default 30d Reviewers window over
+// TestSeedDrawsReviewerStates: the default 7d Reviewers window over
 // uitest-alpha holds every state the approved prototype draws -- a roster
 // description on the experimental slot, an experimental slot priced with no findings ("found
 // nothing"), a non-zero withdrawn share, different heads for the Severity
@@ -407,7 +407,7 @@ func TestSeedDrawsReviewerStates(t *testing.T) {
 	st := seededStore(t)
 	ctx := t.Context()
 
-	period := store.Period{From: fixtureNow.Add(-30 * 24 * time.Hour), To: fixtureNow}
+	period := store.Period{From: fixtureNow.Add(-7 * 24 * time.Hour), To: fixtureNow}
 	project := "uitest-alpha"
 	rows, err := st.Reviewers(ctx, period, &project, nil)
 	if err != nil {

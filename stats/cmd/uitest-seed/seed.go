@@ -25,9 +25,16 @@ var fixtureNow = time.Date(2026, 8, 15, 9, 0, 0, 0, time.UTC)
 var weeklyFixtureAt = time.Date(2026, 7, 23, 9, 0, 0, 0, time.UTC)
 
 // reviewersFixtureAt is when kan-104's Reviewers panel dispatches start:
-// inside the default 30d Reviewers window ending at fixtureNow, before
-// every other spec's pinned period (KAN-1053).
-var reviewersFixtureAt = time.Date(2026, 7, 20, 9, 0, 0, 0, time.UTC)
+// inside the default 7d Reviewers window ending at fixtureNow, before
+// every other spec's pinned period (KAN-1053; moved from 2026-07-20 with
+// the default window's shift to 7d, kan-1164).
+var reviewersFixtureAt = fixtureNow.Add(-3 * 24 * time.Hour)
+
+// stageFixtureAt is when kan-201's "SDD + TDD per task" run starts: inside
+// the default 7d Stage leaderboard window ending at fixtureNow (it was
+// -26h, outside it, since the window's shift to 7d, kan-1164), and still
+// outside every other spec's pinned period.
+var stageFixtureAt = fixtureNow.Add(-18 * time.Hour)
 
 // kan104At is when kan-104 finished and its one stage run started: before
 // every view's window, so the Trend view's finished changes leave it out.
@@ -223,8 +230,8 @@ func fixtureData() []projectFixture {
 							}},
 					},
 					// The Reviewers view's prototype rows (KAN-1053): panel
-					// dispatches on 2026-07-20, inside the default 30d
-					// Reviewers window and before every other spec's pinned
+					// dispatches at reviewersFixtureAt, inside the default
+					// 7d Reviewers window and before every other spec's pinned
 					// period, priced from the agent-rv-a/agent-rv-b buckets
 					// above -- each bucket split evenly between the two
 					// dispatches carrying it. That run starts in 2024, before
@@ -383,7 +390,7 @@ func fixtureData() []projectFixture {
 							InputTokens:  310000,
 							OutputTokens: 48000,
 							CostUSD:      2.75,
-							StartedAt:    fixtureNow.Add(-26 * time.Hour),
+							StartedAt:    stageFixtureAt,
 							Outcome:      "completed",
 							SessionToken: "uitest-kan-201",
 							SessionID:    "uitest-session-201a",
@@ -403,7 +410,7 @@ func fixtureData() []projectFixture {
 						},
 					},
 					SessionToken: "uitest-kan-201",
-					DecisionAt:   fixtureNow.Add(-26*time.Hour - 5*time.Minute),
+					DecisionAt:   stageFixtureAt.Add(-5 * time.Minute),
 					Decision: `{
 						"class": "big", "execution": "sdd",
 						"implementer": {"model": "opus", "effort": "high"},
@@ -691,9 +698,20 @@ func mergeJSON(ctx context.Context, st *store.Store, id int64, patch string) err
 }
 
 // dynamicsFrom is the first Monday of the Review dynamics fixture's eight
-// weeks, 2026-05-04 .. 2026-06-29 -- before every other view's pinned
-// window, so no other view's baseline moves (review-dynamics.spec.ts).
-var dynamicsFrom = time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC)
+// weeks, 2026-07-05 .. 2026-08-14 -- ending the day before FIXTURE_NOW so
+// the view's default 7d range holds its last week (the range shifted from
+// 30d to 7d in kan-1164, and this fixture moved with it). Its two earliest
+// weeks land on trend's deliberately empty week of Jun 17 and the filled one
+// before it, and its last inside PINNED_QUERY; dynamicsRunsAt keeps every
+// dynamics run out of both windows, so trend.png, four more finished changes
+// heavier, and the reviewer-findings captures are all that moves.
+var dynamicsFrom = time.Date(2026, 7, 6, 0, 0, 0, 0, time.UTC)
+
+// dynamicsRunsAt is when every dynamics change's pinned stage run starts:
+// after each change's own finish -- a FINISHED change with an open run would
+// surface on the state board -- and outside PINNED_QUERY and the default 7d
+// window, so no cost or run figure any spec reads moves.
+var dynamicsRunsAt = time.Date(2026, 8, 16, 12, 0, 0, 0, time.UTC)
 
 // seedReviewDynamics writes the Review dynamics view's fixture: two changes
 // a week for the eight weeks from dynamicsFrom plus two in the previous
@@ -715,12 +733,24 @@ func seedReviewDynamics(ctx context.Context, st *store.Store) error {
 				Name: name, State: "FINISHED", UpdatedAt: at.Add(48 * time.Hour), UpdatedBy: "uitest-seed"}); err != nil {
 				return fmt.Errorf("uitest-seed: put change %s: %w", name, err)
 			}
-			// The first change of each week is big, the second small, so the
-			// page's Task size bar has data to draw (class-buttons).
+			// One run pinned to dynamicsRunsAt per change so no dispatch here
+			// auto-opens a stage run inside PINNED_QUERY or the default 7d
+			// window; its zero-cost metrics move no cost figure and it is
+			// the change's only run, so its command reads /flow everywhere.
+			// It carries the class decision every dynamics change holds
+			// (class-buttons).
+			run, err := st.BeginStage(ctx, store.BeginStageInput{ProjectKey: project, ChangeName: name, Harness: "claude-code",
+				Command: "/flow", Stage: "flow.plan", StartedAt: dynamicsRunsAt})
+			if err != nil {
+				return fmt.Errorf("uitest-seed: begin stage for %s: %w", name, err)
+			}
 			class := []string{"big", "small"}[c]
 			if _, _, err := st.RecordDecision(ctx, project, name, records.Decision{SessionToken: "mf-" + name,
 				RecordedAt: at.Add(-4 * time.Hour), Decision: json.RawMessage(`{"class":"` + class + `"}`)}); err != nil {
 				return fmt.Errorf("uitest-seed: record decision for %s: %w", name, err)
+			}
+			if err := st.EndStage(ctx, run.ID, dynamicsRunsAt.Add(5*time.Minute), "completed"); err != nil {
+				return fmt.Errorf("uitest-seed: end stage for %s: %w", name, err)
 			}
 			dispatch := func(key, role, slot, model, effort, outcome string, start time.Time, version string) (records.Dispatch, error) {
 				d, err := st.RecordDispatch(ctx, project, name, records.Dispatch{Key: key, Role: role, Slot: slot, Model: model,

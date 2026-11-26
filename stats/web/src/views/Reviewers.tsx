@@ -45,7 +45,7 @@ interface Filters {
   to: Date;
 }
 
-const defaults = (): Filters => ({ ...windowFor("30d"), project: null });
+const defaults = (): Filters => ({ ...windowFor("7d"), project: null });
 
 interface Slot {
   row: ReviewerRow;
@@ -293,7 +293,7 @@ export function Reviewers() {
     projects: true,
   });
 
-  const offDefaults = f.period !== "30d" || f.project !== null;
+  const offDefaults = f.period !== "7d" || f.project !== null;
   const ready = state.status === "ready" && state.data.recorded && !state.data.unmeasured;
   const slots = state.status === "ready" ? state.data.rows.map(derive) : [];
   const projects = state.status === "ready" ? (state.data.projects ?? []) : [];

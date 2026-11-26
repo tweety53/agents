@@ -112,7 +112,7 @@ export function ReviewDynamics() {
   // end is when the view opened: every window is counted back from it, so
   // stepping later returns to exactly the windows stepped through.
   const [end] = useState(() => Date.now());
-  const [days, setDays] = useState<(typeof RANGES)[number]>(30);
+  const [days, setDays] = useState<(typeof RANGES)[number]>(7);
   const [back, setBack] = useState(0);
   const to = new Date(end - back * days * DAY_MS);
   const from = new Date(to.getTime() - days * DAY_MS);

@@ -658,21 +658,22 @@ describe("views render their fixture response's actual values", () => {
     await screen.findByRole("table");
     const day = 24 * 60 * 60 * 1000;
     expect(calls().map(span)).toEqual([
-      [LB_NOW - 30 * day, LB_NOW],
-      [LB_NOW - 60 * day, LB_NOW - 30 * day],
+      [LB_NOW - 7 * day, LB_NOW],
+      [LB_NOW - 14 * day, LB_NOW - 7 * day],
     ]);
+    expect(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByLabelText("Period start")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Model")).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Search/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
 
     const periodGroup = within(screen.getByRole("group", { name: "Period" }));
-    await user.click(periodGroup.getByRole("button", { name: "7d" }));
+    await user.click(periodGroup.getByRole("button", { name: "30d" }));
     await waitFor(() => expect(calls().slice(-2).map(span)).toEqual([
-      [LB_NOW - 7 * day, LB_NOW],
-      [LB_NOW - 14 * day, LB_NOW - 7 * day],
+      [LB_NOW - 30 * day, LB_NOW],
+      [LB_NOW - 60 * day, LB_NOW - 30 * day],
     ]));
-    expect(await screen.findByRole("columnheader", { name: "vs previous 7d" })).toBeInTheDocument();
+    expect(await screen.findByRole("columnheader", { name: "vs previous 30d" })).toBeInTheDocument();
 
     const projectGroup = within(screen.getByRole("group", { name: "Project" }));
     await user.click(projectGroup.getByRole("button", { name: /^gymie/ }));
@@ -688,14 +689,24 @@ describe("views render their fixture response's actual values", () => {
     expect(calls()).toHaveLength(before);
 
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(periodGroup.getByRole("button", { name: "30d" })).toHaveAttribute("aria-pressed", "true");
+    expect(periodGroup.getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
     expect(projectGroup.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
     expect(commandGroup.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
     await waitFor(() => expect(calls().slice(-2).map((p) => [...span(p), p.project])).toEqual([
-      [LB_NOW - 30 * day, LB_NOW, undefined],
-      [LB_NOW - 60 * day, LB_NOW - 30 * day, undefined],
+      [LB_NOW - 7 * day, LB_NOW, undefined],
+      [LB_NOW - 14 * day, LB_NOW - 7 * day, undefined],
     ]));
     expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
+  });
+
+  it("stage leaderboard opens on the 7d chip and requests its 7-day window", async () => {
+    answerLeaderboard();
+    render(<StageLeaderboard />);
+    await screen.findByRole("table");
+    const day = 24 * 60 * 60 * 1000;
+    expect(calls()).toHaveLength(2);
+    expect(calls()[0]).toMatchObject({ from: new Date(LB_NOW - 7 * day), to: new Date(LB_NOW) });
+    expect(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("stage leaderboard asks for projects on its current-window call only", async () => {
@@ -730,7 +741,7 @@ describe("views render their fixture response's actual values", () => {
     await user.click(within(screen.getByRole("group", { name: "Command" })).getByRole("button", { name: /^\/flow-fast/ }));
     const spend = tile("sl-t-spend");
     spend.getByText("$105");
-    expect(spend.getByText(/vs the previous 30d/)).toHaveTextContent("+$12.00 (+13%) vs the previous 30d");
+    expect(spend.getByText(/vs the previous 7d/)).toHaveTextContent("+$12.00 (+13%) vs the previous 7d");
   });
 
   it("stage leaderboard reads a sub-cent previous spend as new, writes a thousandfold rise in k, and drops the command note under a Command chip", async () => {
@@ -814,7 +825,7 @@ describe("views render their fixture response's actual values", () => {
     await screen.findByRole("table");
     const spend = tile("sl-t-spend");
     spend.getByText("$1,260");
-    expect(spend.getByText(/vs the previous 30d/)).toHaveTextContent("+$20.00 (+2%) vs the previous 30d");
+    expect(spend.getByText(/vs the previous 7d/)).toHaveTextContent("+$20.00 (+2%) vs the previous 7d");
 
     const top = tile("sl-t-top");
     top.getByText("79%");
@@ -830,7 +841,7 @@ describe("views render their fixture response's actual values", () => {
     riser.getByText("Self-review");
     riser.getByText("flow.self-review");
     riser.getByText("/flow");
-    riser.getByText("$20.00 → $200 vs the previous 30d (+900%)");
+    riser.getByText("$20.00 → $200 vs the previous 7d (+900%)");
   });
 
   it("stage leaderboard table ranks the top ten with deltas and an Other row", async () => {
@@ -838,7 +849,7 @@ describe("views render their fixture response's actual values", () => {
     render(<StageLeaderboard />);
     const table = within(await screen.findByRole("table"));
     expect(table.getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
-      "#", "Stage", "Command", "Spend", "Share", "vs previous 30d", "Runs", "Median run", "P90 run", "Main share",
+      "#", "Stage", "Command", "Spend", "Share", "vs previous 7d", "Runs", "Median run", "P90 run", "Main share",
     ]);
     expect(table.queryAllByRole("button")).toHaveLength(0);
     screen.getByText("12 stages ran");
@@ -875,7 +886,7 @@ describe("views render their fixture response's actual values", () => {
     await screen.findByRole("table");
     const riser = tile("sl-t-riser");
     riser.getByText("—");
-    riser.getByText("no stage grew vs the previous 30d");
+    riser.getByText("no stage grew vs the previous 7d");
     unmount();
 
     answer([], []);
@@ -964,32 +975,34 @@ describe("views render their fixture response's actual values", () => {
     await screen.findByRole("table");
     expect(reqs()).toHaveLength(1);
     expect(reqs()[0]).toMatchObject({ projects: true, project: undefined });
-    expect([reqs()[0].from.getTime(), reqs()[0].to.getTime()]).toEqual([now - 30 * day, now]);
+    expect([reqs()[0].from.getTime(), reqs()[0].to.getTime()]).toEqual([now - 7 * day, now]);
     expect(screen.queryByLabelText("Period start")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
 
     const group = (name: string) => within(screen.getByRole("group", { name }));
+    const pressedIn = (g: string) => group(g).getAllByRole("button", { pressed: true }).map((b) => b.textContent);
     const pressed = (g: string, name: string | RegExp) => expect(group(g).getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+    expect(pressedIn("Period")).toEqual(["7d"]);
     await user.click(group("Rank by").getByRole("button", { name: "Severity" }));
     expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
-    await user.click(group("Period").getByRole("button", { name: "7d" }));
-    await waitFor(() => expect([reqs().at(-1)!.from.getTime(), reqs().at(-1)!.to.getTime()]).toEqual([now - 7 * day, now]));
+    await user.click(group("Period").getByRole("button", { name: "30d" }));
+    await waitFor(() => expect([reqs().at(-1)!.from.getTime(), reqs().at(-1)!.to.getTime()]).toEqual([now - 30 * day, now]));
     await screen.findByRole("table");
     pressed("Rank by", "Severity");
     await user.click(group("Project").getByRole("button", { name: /^gymie/ }));
     await waitFor(() => expect(reqs().at(-1)).toMatchObject({ project: "gymie-7c1f238a", projects: true }));
     await screen.findByRole("table");
     pressed("Rank by", "Severity");
-    pressed("Period", "7d");
+    pressed("Period", "30d");
     expect(group("Project").getByRole("button", { name: /^gymie/ })).toHaveAttribute("title", "gymie-7c1f238a");
     expect(group("Project").getByRole("button", { name: /^gymie/ })).toHaveTextContent("gymie20");
 
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
-    pressed("Period", "30d");
+    pressed("Period", "7d");
     pressed("Project", "All");
     pressed("Rank by", "Severity");
     await waitFor(() => expect(reqs().at(-1)).toMatchObject({ project: undefined }));
-    expect([reqs().at(-1)!.from.getTime(), reqs().at(-1)!.to.getTime()]).toEqual([now - 30 * day, now]);
+    expect([reqs().at(-1)!.from.getTime(), reqs().at(-1)!.to.getTime()]).toEqual([now - 7 * day, now]);
     expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
     unmount();
 
@@ -998,6 +1011,17 @@ describe("views render their fixture response's actual values", () => {
     expect(await screen.findByText("No reviewer dispatches in this period.")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(document.querySelector(".rv-tiles")).toBeNull();
+  });
+
+  it("reviewers opens on the 7d chip and requests its 7-day window", async () => {
+    const reqs = () => fetchStatsViewMock.mock.calls.filter((c) => c[0] === "reviewers").map((c) => c[1] as { from: Date; to: Date });
+    render(<Reviewers />);
+    await screen.findByRole("table");
+    const day = 24 * 60 * 60 * 1000;
+    const now = BOARD_NOW.getTime();
+    expect(reqs()).toHaveLength(1);
+    expect([reqs()[0].from.getTime(), reqs()[0].to.getTime()]).toEqual([now - 7 * day, now]);
+    expect(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
   });
 
   // The server's lists over the fixture rows: `show`/`status` pick the list, newest first.
@@ -1977,7 +2001,8 @@ describe("flow health", () => {
     await screen.findByRole("table");
     expect(reqs()).toHaveLength(1);
     expect(reqs()[0]).toMatchObject({ projects: true, project: undefined });
-    expect([reqs()[0].from.getTime(), reqs()[0].to.getTime()]).toEqual([now - 30 * day, now]);
+    expect([reqs()[0].from.getTime(), reqs()[0].to.getTime()]).toEqual([now - 7 * day, now]);
+    pressed("Period", "7d");
     expect(group("Project").getAllByRole("button").map((b) => b.textContent)).toEqual(["All", "zeta9,000", "alpha12"]);
     expect(group("Project").getByRole("button", { name: /^zeta/ }).querySelector(".lb-c")).toHaveTextContent("9,000");
     pressed("Rank by", "Fires");
@@ -1989,18 +2014,18 @@ describe("flow health", () => {
     pressed("Rank by", "Run time");
     expect(group("Project").getByRole("button", { name: /^alpha/ })).toHaveAttribute("title", "alpha-0000aaaa");
 
-    await user.click(group("Period").getByRole("button", { name: "7d" }));
-    await waitFor(() => expect([reqs().at(-1)!.from.getTime(), reqs().at(-1)!.to.getTime()]).toEqual([now - 7 * day, now]));
+    await user.click(group("Period").getByRole("button", { name: "30d" }));
+    await waitFor(() => expect([reqs().at(-1)!.from.getTime(), reqs().at(-1)!.to.getTime()]).toEqual([now - 30 * day, now]));
     await screen.findByRole("table");
     expect(reqs().at(-1)).toMatchObject({ project: "alpha-0000aaaa" });
     pressed("Project", /^alpha/);
 
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
-    pressed("Period", "30d");
+    pressed("Period", "7d");
     pressed("Project", "All");
     pressed("Rank by", "Run time");
     await waitFor(() => expect(reqs().at(-1)).toMatchObject({ project: undefined }));
-    expect([reqs().at(-1)!.from.getTime(), reqs().at(-1)!.to.getTime()]).toEqual([now - 30 * day, now]);
+    expect([reqs().at(-1)!.from.getTime(), reqs().at(-1)!.to.getTime()]).toEqual([now - 7 * day, now]);
     expect(screen.queryByRole("button", { name: "Clear filters" })).not.toBeInTheDocument();
   });
 
@@ -2050,6 +2075,17 @@ describe("flow health", () => {
     expect(await screen.findByTestId("not-recorded")).toBeInTheDocument();
     expect(document.querySelector(".lb-tile")).toBeNull();
   });
+
+  it("flow health opens on the 7d chip and requests its 7-day window", async () => {
+    answerGuards([gh("check-guard-calls", 10, 1, 0, 100, 1000, null)]);
+    render(<FlowHealth />);
+    await screen.findByRole("table");
+    const day = 24 * 60 * 60 * 1000;
+    const now = BOARD_NOW.getTime();
+    const reqs = () => fetchStatsViewMock.mock.calls.filter((c) => c[0] === "guard-health").map((c) => c[1] as { from: Date; to: Date });
+    expect([reqs()[0].from.getTime(), reqs()[0].to.getTime()]).toEqual([now - 7 * day, now]);
+    expect(within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
+  });
 });
 
 describe("review dynamics", () => {
@@ -2074,16 +2110,16 @@ describe("review dynamics", () => {
     expect(screen.queryByRole("group", { name: "Projects" })).toBeNull();
   });
 
-  it("review dynamics opens on the last 30 days and picks 7, 14, 30 or 60", async () => {
+  it("review dynamics opens on the last 7 days and picks 7, 14, 30 or 60", async () => {
     fetchStatsViewMock.mockResolvedValue(envelope("review-dynamics", reviewDynamicsRows()));
     render(<ReviewDynamics />);
     await screen.findByText(/Findings per dispatch: slot/);
-    expect(days(lastParams())).toBe(30);
+    expect(days(lastParams())).toBe(7);
     expect(Math.abs(lastParams().to.getTime() - Date.now())).toBeLessThan(60_000);
     const range = screen.getByRole("group", { name: "Range" });
-    expect(within(range).getAllByRole("button", { pressed: false }).map((b) => b.textContent)).toEqual(["7 days", "14 days", "60 days"]);
-    await userEvent.click(within(range).getByRole("button", { name: "7 days" }));
-    await waitFor(() => expect(days(lastParams())).toBe(7));
+    expect(within(range).getAllByRole("button", { pressed: false }).map((b) => b.textContent)).toEqual(["14 days", "30 days", "60 days"]);
+    await userEvent.click(within(range).getByRole("button", { name: "30 days" }));
+    await waitFor(() => expect(days(lastParams())).toBe(30));
   });
 
   it("review dynamics steps the range back and forth by its own length, never past now", async () => {
@@ -2091,7 +2127,6 @@ describe("review dynamics", () => {
     render(<ReviewDynamics />);
     await screen.findByText(/Findings per dispatch: slot/);
     const range = screen.getByRole("group", { name: "Range" });
-    await userEvent.click(within(range).getByRole("button", { name: "7 days" }));
     const later = within(range).getByRole("button", { name: "Later" });
     expect(later).toBeDisabled();
     await waitFor(() => expect(days(lastParams())).toBe(7));
