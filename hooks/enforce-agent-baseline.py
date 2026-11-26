@@ -320,7 +320,7 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | str | Non
     if any(isinstance(r, dict) and not r.get("outcome") and r.get("key") == key for r in rows):
         return None
     typed = FLOW_EFFORT.fullmatch(str(tool_input.get("subagent_type") or ""))
-    effort = typed.group(1) if typed else tool_input.get("effort") or "default"
+    effort = typed.group(1) if typed else tool_input.get("effort")
     args = ["flow", "record", "dispatch", "begin", "-C", cwd, "-change", change, "-role", role,
             "-model", str(tool_input.get("model") or "unknown (agent-defined)"), "-effort", str(effort)]
     single = SINGLE_TASK_KEY.match(key)
@@ -398,6 +398,20 @@ def in_flow_session(payload: dict) -> bool:
             return any(is_flow_command(line) for line in f)
     except OSError:
         return False
+
+
+def effort_reason(payload: dict, tool_input: dict) -> "str | None":
+    """The deny reason for a flow-session dispatch that would run at the model's built-in effort:
+    a subagent_type that is not `flow-<effort>` / `flow-planner-<effort>`, with no `effort` on the
+    call. Every flow dispatch runs on a pair its role admits, and every pair names an effort."""
+    agent = str(tool_input.get("subagent_type") or "")
+    if FLOW_EFFORT.fullmatch(agent) or tool_input.get("effort") or not in_flow_session(payload):
+        return None
+    return (f"Dispatch blocked: `subagent_type: {agent or '<none>'}` carries no effort and the call "
+            "sets none, so it would run at the model's built-in effort.\n\n"
+            "Run `flow-guard pair-judge <role> <prompt file>` and re-send on the pair it prints "
+            "(`skills/flow/brainstorm-planner.md`, **Model and effort**): a `flow-<effort>` type, or "
+            "an `Explore`/`Plan` type with the pair's `effort` set on the call.")
 
 
 def role_pair_reason(payload: dict, tool_input: dict, prompt: str) -> "str | None":
@@ -555,7 +569,7 @@ def main() -> int:
     if reason:
         deny(reason)
         return 0
-    reason = role_pair_reason(payload, tool_input, prompt)
+    reason = effort_reason(payload, tool_input) or role_pair_reason(payload, tool_input, prompt)
     if reason:
         deny(reason)
         return 0

@@ -774,7 +774,7 @@ func TestEnforceAgentBaselineHookAdmitsOnlyAPolicyRoleAndPair(t *testing.T) {
 		{"unknown role", "executor", "sonnet", "flow-low", true, "not a role"},
 		{"role with the wrong pair", "panel-merger", "sonnet", "flow-medium", true, "sonnet/flow-low"},
 		{"admitted pair", "panel-merger", "sonnet", "flow-low", false, ""},
-		{"other subagent type", "executor", "sonnet", "general-purpose", false, ""},
+		{"other subagent type", "executor", "sonnet", "general-purpose", true, "carries no effort"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -837,7 +837,7 @@ func TestEnforceAgentBaselineHookBeginsUnkeyedAgents(t *testing.T) {
 		{"explorer behind the planner prefix", "Explore", "plan-1 design round — explore-2 survey", "Role: explorer\nsurvey", "",
 			map[string]string{"-key": "explore-2", "-role": "explorer", "-policy-role": "explorer"}},
 		{"role-less Explore", "Explore", "plan-1 — frontend tests", "look", "flow.implement",
-			map[string]string{"-key": "agent-tu1", "-role": "explorer", "-effort": "default"}},
+			map[string]string{"-key": "agent-tu1", "-role": "explorer", "-effort": "low"}},
 		{"role-less general", "general-purpose", "live check", "look", "flow.implement",
 			map[string]string{"-key": "agent-tu1", "-role": "general", "-policy-role": "general"}},
 		{"Role general", "flow-low", "live check", "Role: general\nlook", "flow.implement",
@@ -853,7 +853,11 @@ func TestEnforceAgentBaselineHookBeginsUnkeyedAgents(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			payload := beginPayload(t, main, c.description, strings.ReplaceAll(c.prompt, "MAIN", main), c.typ, "opus", "")
+			effort := ""
+			if !strings.HasPrefix(c.typ, "flow-") {
+				effort = "low"
+			}
+			payload := beginPayload(t, main, c.description, strings.ReplaceAll(c.prompt, "MAIN", main), c.typ, "opus", effort)
 			payload = []byte(strings.Replace(string(payload), "{", `{"tool_use_id":"tu1",`, 1))
 			if denied, out := runBegin(t, payload, env...); denied {
 				t.Fatalf("denied: %s", out)
@@ -872,6 +876,42 @@ func TestEnforceAgentBaselineHookBeginsUnkeyedAgents(t *testing.T) {
 				if got := argAfter(strings.Fields(begins[0]), flag); got != v {
 					t.Errorf("%s = %q, want %q (%s)", flag, got, v, begins[0])
 				}
+			}
+		})
+	}
+}
+
+// TestEnforceAgentBaselineHookDeniesAnEffortlessType: in a flow session a dispatch whose
+// subagent_type carries no effort (anything but flow-<effort> / flow-planner-<effort>) and whose
+// call sets no `effort` is denied, so no row is ever begun at the model's built-in effort. The
+// role check being off does not lift it.
+func TestEnforceAgentBaselineHookDeniesAnEffortlessType(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		name, agent, effort string
+		deny                bool
+	}{
+		{"Explore", "Explore", "", true},
+		{"Plan", "Plan", "", true},
+		{"general-purpose", "general-purpose", "", true},
+		{"no type", "", "", true},
+		{"Explore with an effort", "Explore", "low", false},
+		{"flow type", "flow-low", "", false},
+		{"flow-planner type", "flow-planner-medium", "", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			payload := roleCheckPayload(t, "explorer", "sonnet", c.agent)
+			if c.effort != "" {
+				payload = []byte(strings.Replace(string(payload), `"model":`, `"effort":"`+c.effort+`","model":`, 1))
+			}
+			out, _, rc := runHook(t, "enforce-agent-baseline.py", payload, "FLOW_HOOK_ROLE_CHECK=off")
+			denied := strings.Contains(out, `"permissionDecision": "deny"`)
+			if rc != 0 || denied != c.deny {
+				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)
+			}
+			if c.deny && !strings.Contains(out, "carries no effort") {
+				t.Errorf("reason lacks the effort rule: %s", out)
 			}
 		})
 	}

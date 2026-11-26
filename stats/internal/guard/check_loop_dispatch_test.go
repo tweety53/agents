@@ -139,6 +139,8 @@ func TestCheckLoopDispatch(t *testing.T) {
 			out: "LOOP-DISPATCH-OK", begin: "-role implementer -model opus -effort low -key pipeline-fix-6-fix"},
 		{name: "fix on flow-high recorded with no escalation", key: "pipeline-fix-6-fix-1", typ: "flow-high", model: "opus", branches: []string{lpBranch},
 			out: "LOOP-DISPATCH-OK", begin: "-effort high"},
+		{name: "fix on flow-xhigh recorded at xhigh", key: "pipeline-fix-6-fix-1", typ: "flow-xhigh", model: "opus", branches: []string{lpBranch},
+			out: "LOOP-DISPATCH-OK", begin: "-effort xhigh"},
 		{name: "first review recorded on any effort", key: "pipeline-fix-6-review-1", typ: "flow-medium", model: "opus", branches: []string{lpBranch},
 			out: "LOOP-DISPATCH-OK", begin: "-role reviewer"},
 		{name: "no loop branch", key: "pipeline-fix-6-plan", typ: "flow-planner-medium", model: "opus", rc: 2, out: "not recorded: NOT-STARTED —"},

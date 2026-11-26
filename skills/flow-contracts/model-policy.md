@@ -150,6 +150,8 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 ## Harness mapping
 
 **`<parent model>` and `<parent effort>` name the session's own pair, on every harness and in every
-inline row.** Where the session does not state one, `<parent model>` is `unknown (agent-defined)` and
-`<parent effort>` the literal `default`, the CLI accepting only `low|medium|high|xhigh|max|default`.
+inline row.** Where the session does not state one, `<parent model>` is `unknown (agent-defined)`.
+No dispatch runs at a model's built-in effort: its effort is its `flow-<effort>` /
+`flow-planner-<effort>` type's, or the Agent call's `effort` on any other type, and the dispatch
+hook (`hooks/enforce-agent-baseline.py`) refuses a flow-session Agent call carrying neither.
 

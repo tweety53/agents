@@ -85,7 +85,7 @@ type lpLoop struct {
 // lpEffort is the effort a subagent_type names (flow-low, flow-planner-medium), "default" for any other.
 func lpEffort(typ string) string {
 	effort := strings.TrimPrefix(strings.TrimPrefix(typ, "flow-"), "planner-")
-	if !slices.Contains([]string{"low", "medium", "high"}, effort) {
+	if !slices.Contains([]string{"low", "medium", "high", "xhigh", "max"}, effort) {
 		return "default"
 	}
 	return effort
