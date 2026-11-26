@@ -79,8 +79,9 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
 
 3. **Re-run the failing check**, under `flow.verify`. In-run: the stage that reported the defect,
    re-run as `skills/flow/verify-and-handoff.md`'s Verify and Visual verification
-   (`skills/flow/visual-verify.md`) say from their `begin` marks, its `verify` and `visual-verify`
-   dispatch keys carrying the suffix `-fix-<k>` before any `-<repository name>` suffix; when visual
+   (`skills/flow/visual-verify.md`) say from their `begin` marks, under the dispatch keys
+   `verify-fix-<k>[-<repository name>]` and `visual-verify-fix-<k>[-<repository name>]`, never
+   `fix-<k>-verify…`, which the dispatch hook refuses; when visual
    verify failed and code changed since the last green lint/test run, the lint/test list re-runs
    first, so the landing gate is unchanged. On a fix run: the lint/test list, then visual verify
    only when the fix touched `ui paths` — a fix that touches none needs no `visual-verify` run.
