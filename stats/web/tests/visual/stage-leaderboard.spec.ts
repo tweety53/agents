@@ -8,16 +8,17 @@ import { FIXTURE_NOW } from "./support";
 // UI-test fixture's FIXTURE_NOW (its timestamps are fixed at seed time).
 //
 // Values below are read from the live UI-test stack rather than assumed:
-// GET /api/v1/stats/stage-leaderboard?from=2026-07-16T09:00:00Z&to=2026-08-15T09:00:00Z
-// (the default 30d window ending at FIXTURE_NOW) returns 16 rows, the
-// costliest /flow-interactive "flow.sdd-tdd" ($3.23, stageLabel
-// "Implementing"), and projects uitest-alpha ($10.149) then uitest-beta ($2.778) --
-// so the first Project chip after All is "uitest-alpha". The previous window
-// (2026-06-16T09:00:00Z to 2026-07-16T09:00:00Z) returns no rows, so every
-// row's growth reads "new" and Biggest riser reads "—" ("no stage grew"),
-// as the prototype draws a window with no previous spend.
+// GET /api/v1/stats/stage-leaderboard?from=2026-08-08T09:00:00Z&to=2026-08-15T09:00:00Z
+// (the default 7d window ending at FIXTURE_NOW) returns 8 rows, the
+// costliest /flow-interactive "flow.implement" ($3.48), then /flow "SDD +
+// TDD per task" ($2.929), and projects uitest-alpha ($6.579) then
+// uitest-beta ($2.778) -- so the first Project chip after All is
+// "uitest-alpha". The previous window (2026-08-01T09:00:00Z to
+// 2026-08-08T09:00:00Z) returns no rows, so every row's growth reads "new"
+// and Biggest riser reads "—" ("no stage grew vs the previous 7d"), as the
+// prototype draws a window with no previous spend.
 
-const HEADERS = ["#", "Stage", "Command", "Spend", "Share", "vs previous 30d", "Runs", "Median run", "P90 run", "Main share"];
+const HEADERS = ["#", "Stage", "Command", "Spend", "Share", "vs previous 7d", "Runs", "Median run", "P90 run", "Main share"];
 
 test.use({ colorScheme: "light" });
 
@@ -29,7 +30,7 @@ async function openAndAssert(page: Page) {
   await expect(page.getByRole("link", { name: "Stage leaderboard" })).toHaveAttribute("aria-current", "page");
   const bar = page.getByRole("toolbar", { name: "Filters" });
   for (const g of ["Period", "Project", "Command"]) await expect(bar.getByRole("group", { name: g })).toBeVisible();
-  await expect(bar.getByRole("group", { name: "Period" }).getByRole("button", { name: "30d" })).toHaveAttribute("aria-pressed", "true");
+  await expect(bar.getByRole("group", { name: "Period" }).getByRole("button", { name: "7d" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByLabel("Period start")).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: "Model" })).toHaveCount(0);
 

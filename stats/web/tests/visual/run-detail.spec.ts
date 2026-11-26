@@ -9,7 +9,7 @@ import { FIXTURE_NOW, PINNED_QUERY } from "./support";
 // runs in two sessions --
 //
 //   uitest-session-201a, /flow, "SDD + TDD per task", started
-//     2026-08-14T07:00:00Z, 5 min, cost_usd 2.75, claude-opus-5, effort high
+//     2026-08-14T15:00:00Z, 5 min, cost_usd 2.75, claude-opus-5, effort high
 //   uitest-session-201b, /flow-fast, "integrate", started
 //     2026-08-15T08:00:00Z, 5 min, cost_usd 0.028, claude-sonnet-5, effort low
 const RUN_DETAIL_URL = `/#/run/uitest-beta/kan-201-refactor-thing?${PINNED_QUERY}`;
@@ -23,7 +23,7 @@ test.describe("stage runs", () => {
     await page.goto(RUN_DETAIL_URL);
     const table = page.getByRole("region", { name: "Stage runs" }).getByRole("table");
     await expect(table.locator("tr.lb-group")).toHaveText([
-      "Session 1 · Other07:00–07:05 · 5m · $2.75",
+      "Session 1 · Other15:00–15:05 · 5m · $2.75",
       "Session 2 · Other08:00–08:05 · 5m · $0.03",
     ]);
     await expect(table.getByRole("row", { name: /SDD \+ TDD per task/ })).toContainText("opus 5 · high");
