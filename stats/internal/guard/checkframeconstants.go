@@ -11,8 +11,7 @@ import (
 )
 
 // flow-guard check-frame-constants — two frames of one change must not draw
-// one shared constant two ways (kan-1155: the frames contradicted each other
-// on bar heights and greys, and every verify round re-found it).
+// one shared constant two ways.
 //
 // Usage: flow-guard check-frame-constants <design.md> <frames>...
 //
@@ -36,6 +35,7 @@ import (
 // and one per conflicting constant:
 //
 //	FRAME-CONSTANT-UNSTATED: <frame> — <name>, …
+//	FRAME-CONSTANT-ADD: <sidecar path> — <name>: <value|n/a>   (one per unstated constant)
 //	FRAME-CONSTANT-CONFLICT: <name> — <value> (<frame>, …) vs <value> (<frame>, …)
 //
 // Exit 0 every frame states every listed constant and none is drawn two ways
@@ -78,6 +78,7 @@ func checkFrameConstants(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	stated := map[string]map[string]string{} // frame → constant → value
+	sidecar := map[string]string{}           // frame → its sidecar's path
 	note := func(frame, name, value string) {
 		name, value = strings.Trim(strings.TrimSpace(name), "`"), strings.Trim(strings.TrimSpace(value), "`")
 		if value != "" {
@@ -92,6 +93,7 @@ func checkFrameConstants(args []string, env Env, stdout, stderr io.Writer) int {
 		if stated[frame] == nil {
 			stated[frame] = map[string]string{}
 		}
+		sidecar[frame] = strings.TrimSuffix(p, ext) + ".constants"
 		if ext == ".html" {
 			body, err := os.ReadFile(p)
 			if err != nil {
@@ -101,7 +103,7 @@ func checkFrameConstants(args []string, env Env, stdout, stderr io.Writer) int {
 				note(frame, m[1], m[2])
 			}
 		}
-		body, err := os.ReadFile(strings.TrimSuffix(p, ext) + ".constants")
+		body, err := os.ReadFile(sidecar[frame])
 		if os.IsNotExist(err) {
 			return nil
 		}
@@ -152,6 +154,9 @@ func checkFrameConstants(args []string, env Env, stdout, stderr io.Writer) int {
 		if len(unstated) > 0 {
 			failed = "frame-constants-unstated"
 			fmt.Fprintf(stderr, "FRAME-CONSTANT-UNSTATED: %s — %s\n", f, strings.Join(unstated, ", "))
+			for _, name := range unstated {
+				fmt.Fprintf(stderr, "FRAME-CONSTANT-ADD: %s — %s: <value|n/a>\n", sidecar[f], name)
+			}
 		}
 	}
 	for _, name := range listed {

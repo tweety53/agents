@@ -51,3 +51,20 @@ func TestCheckFrameConstantsRefusesAnUnstatedFrame(t *testing.T) {
 		t.Fatalf("no frames: exit %d, want 2\n%s", r.rc, r.out+r.err)
 	}
 }
+
+// Each constant a frame leaves unstated comes with the exact sidecar line to
+// add, so the fix is mechanical: the sidecar path beside the frame and a
+// `<name>: <value|n/a>` placeholder, the value read off the frame, never
+// copied from the list.
+func TestCheckFrameConstantsPrintsTheSidecarLineToAdd(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	writeFile(t, root+"/design.md", "## Shared constants\n\n- `bar-height`: 56px\n- `rail-grey`: #8a8a8a\n")
+	writeFile(t, root+"/frames/WU2.png", "png")
+	writeFile(t, root+"/frames/WU2.constants", "bar-height: 56px\n")
+	r := runGuard("check-frame-constants", []string{"design.md", "frames"}, Env{Dir: root})
+	want := "FRAME-CONSTANT-ADD: " + root + "/frames/WU2.constants — rail-grey: <value|n/a>\n"
+	if r.rc != 1 || !strings.Contains(r.err, want) || strings.Contains(r.err, "— bar-height: <value") {
+		t.Fatalf("exit %d, want 1 with %q alone\n%s", r.rc, want, r.out+r.err)
+	}
+}
