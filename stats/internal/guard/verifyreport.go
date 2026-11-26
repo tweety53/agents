@@ -155,6 +155,8 @@ var (
 	// A composed frame's `- <frame id>: <composite> diff=` line.
 	vrPlatformSuffix = regexp.MustCompile(`-(darwin|linux|win32)$`)
 	vrFrameLine      = regexp.MustCompile(`^\s*- (\S+): (\S+) diff=`)
+	// A frame line's numeric diff and the decision its match cites.
+	vrFrameDiff = regexp.MustCompile(`diff=([0-9.]+)\b.*\(decision ([^\s)]+)\)`)
 	// The capture spec a `## Report` names: every PNG the resolver prints for
 	// it needs its own view line (group-allowed-pairs-roles self-review).
 	vrSpecLine = regexp.MustCompile(`^\s*- spec:\s*(\S+)`)
@@ -235,6 +237,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	var reportLines []string
 	over, spot := map[string]string{}, map[string]string{}
 	viewed := map[string]bool{}
+	blanket := map[string][]string{}
 	var badSweeps []string
 	for _, line := range strings.Split(string(data), "\n") {
 		// Every line is read from `## Report` to the next `## ` heading alone:
@@ -260,6 +263,11 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if m := vrFrameLine.FindStringSubmatch(line); m != nil {
 			frames = append(frames, m[1])
+			if d := vrFrameDiff.FindStringSubmatch(line); d != nil {
+				if r, _ := strconv.ParseFloat(d[1], 64); r > vrBlanketCeiling {
+					blanket[d[2]] = append(blanket[d[2]], m[1])
+				}
+			}
 			framed = append(framed, vrPlatformSuffix.ReplaceAllString(strings.TrimSuffix(filepath.Base(m[2]), ".png"), ""))
 		}
 		if m := vrOverLine.FindStringSubmatch(line); m != nil {
@@ -356,6 +364,11 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	mbody, merr := os.ReadFile(mpath)
 	if status["10"] == "done" && len(frames) > 0 {
 		undone = append(undone, vrOverTolerance(mpath, mbody, merr, frames, over, spot, viewed, string(designBody))...)
+	}
+	for _, id := range slices.Sorted(maps.Keys(blanket)) {
+		if fs := blanket[id]; len(fs) > 1 {
+			undone = append(undone, fmt.Sprintf("decision %s excuses %d frames above diff=%v (%s) — each needs its own reason", id, len(fs), vrBlanketCeiling, strings.Join(fs, ", ")))
+		}
 	}
 	if spec != "" && !noView {
 		key := vrRestSegment.ReplaceAllString(strings.TrimSuffix(strings.TrimPrefix(filepath.Base(args[0]), "verify-report-"), ".md"), "")
@@ -518,6 +531,10 @@ func vrOverTolerance(path string, body []byte, err error, frames []string, lines
 	slices.Sort(undone)
 	return undone
 }
+
+// vrBlanketCeiling is the diff above which a frame's match needs a reason of
+// its own: one decision cited by two such frames is a blanket.
+const vrBlanketCeiling = 0.03
 
 // vrCauseAdmitted answers whether cause is on step 10's closed list for row.
 func vrCauseAdmitted(cause string, row vrOverRow, design string) bool {

@@ -356,6 +356,8 @@ round base's — pixels or DOM — outside those regions is a regression, report
 naming the region and the fix whose diff moved it, even where the new capture still matches the
 mockup.
 
+**One decision never excuses several large frames.** `check-verify-report` refuses a report where two or more frames with `diff=` above 0.03 cite the same `(decision <ID>)` on their frame line; each such frame needs a reason of its own.
+
 **A departure caused by missing account data is fixed by adding the data, never explained away.** When a
 frame shows an element the render lacks because the seeded account lacks the data that shows it —
 a grant, a template, a scheduled workout — the fix round adds that data where the captured account

@@ -688,3 +688,39 @@ func TestCheckVerifyReportFlaggedFrameIsViewed(t *testing.T) {
 		}
 	}
 }
+
+// TestCheckVerifyReportBlanketDecision: one decision cited by two frames above
+// the diff ceiling is refused, each large departure needing its own reason.
+func TestCheckVerifyReportBlanketDecision(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, a, b string
+		rc         int
+		want       string
+	}{
+		{"one decision over both frames", "0.1003 — match (decision d1)", "0.1087 — match (decision d1)", 1, "decision d1 excuses 2 frames"},
+		{"a reason each", "0.1003 — match (decision d1)", "0.1087 — match (decision d2)", 0, "COMPLETE"},
+		{"shared decision below the ceiling", "0.01 — match (decision d1)", "0.02 — match (decision d1)", 0, "COMPLETE"},
+	} {
+		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
+		pair := func(f string) vvmPair {
+			return vvmPair{Frame: f, Bands: []any{}, Seams: []any{}, Over: []any{}, Cells: vrtCells()}
+		}
+		body, err := json.Marshal(vvmManifestOut{Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{}, Pairs: []vvmPair{pair("A"), pair("B")}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		writeFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"), string(body))
+		design := filepath.Join(sdd, "design.md")
+		writeFile(t, design, "**ID:** d1\n\n**ID:** d2\n")
+		path := filepath.Join(sdd, "verify-report-visual-verify.md")
+		frame := func(id, rest string) string {
+			return strings.Replace(vrtFrame(id), "diff=0.1 — match", "diff="+rest, 1) + "- " + id + " over-tolerance: 0\n"
+		}
+		writeFile(t, path, "## Report\n"+vrtDone+frame("A", tc.a)+frame("B", tc.b))
+		r := runGuard("check-verify-report", []string{path, "0", "--design", design}, Env{Getenv: os.Getenv})
+		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		}
+	}
+}
