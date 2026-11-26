@@ -269,8 +269,10 @@ worktree, commits on `<name>`; the executor of step 3 runs steps 3a–7 itself, 
 agent's commits land through steps 4–8 as any other. Its report is relayed, not re-told.
 
 ```bash
-flow record dispatch end -change <name> -key operator-<k> -session-token fi-<literal-token> -outcome <outcome>
+flow record dispatch end -change <name> -key operator-<k> -session-token fi-<literal-token> -outcome <outcome> -agent-id <the agent's id> [-commit <last sha it landed>]
 ```
+
+Every end names the agent's id, an aborted row's included, so its tokens are measured; a `completed` end of a request that landed carries `-commit`, the last sha that agent landed. A row whose agent is given up on or replaced is ended `aborted` before the replacement's begin, so no row stays open with no outcome.
 
 ## Request-end guard
 
