@@ -90,7 +90,10 @@ Investigate read-only, then present the design.
   label wording — from the app's own token file, and list them in `design.md` under
   `## Shared constants`, one per item: ``- `<name>`: <value> — <token and file it was read from>``.
   A frame that disagrees with the list is corrected in the frame, or the list is changed by an
-  explicit decision recorded in `design.md` — never left for `flow.verify` to find. Each frame of the change states every listed
+  explicit decision recorded in `design.md` — never left for `flow.verify` to find. Where two
+  frames the plan cites disagree with each other (copy, label case, order), `design.md` names the
+  governing frame and why, or records the departure, before the plan is written (the lens
+  **Design critic** of `skills/flow/plan-review-rubric.md`). Each frame of the change states every listed
   constant — the value it draws, or `n/a` where it does not draw it — in
   a sidecar `<frame id>.constants` beside it, one `<name>: <value>` per line, or in
   `data-const-<name>="<value>"` attributes in an HTML frame. A sidecar's value is read off that
@@ -396,24 +399,31 @@ beside the options. Write each finding still standing into `design.md`'s `## Ris
 `Accepted: <the finding> — <why>` — a contest of the reviewer's reading names the path:line it
 rests on — re-run `spectre validate`, and return `PLAN-WRITTEN`.
 
+**A `closes with: plan` gap is fixed, never deferred.** The triaging planner applies it in the
+artifacts and re-runs `spectre validate`, whatever the score and whatever the mode, `## decisions:
+recommended` included; it is never written to `## Risks` as `Accepted`.
+
+**A `closes with: running it` gap is a probe step in the plan.** The planner writes the gap's
+probe and its fallback into the task it concerns, so the implementer runs it on reaching that
+task, and also writes the gap into `## Risks` as `Accepted: <the gap> — <why>`.
+
 **A confidence below 100% is put to the operator, before anything is triaged.** When
 `<abs-worktree>/.superpowers/sdd/confidence.json` exists and its `score` is below 100, the
 triaging dispatch's first return is `QUESTIONS`, its round file holding one question:
 `### Q<n>. The plan check is <score>% confident this plan is executed as written — raise it now?`
-Its `**Context:**` lists every entry of the file's `gaps` verbatim, each followed by the
-suggestion that closes it — the edit to the plan, the question the operator would be asked, or
-what only running the work can show. It has exactly two options, **Raise it** — apply every
-suggestion now — and **Later** *(recommended)* — file the estimate and go on. Under the
+Its `**Context:**` lists every entry of the file's `gaps` that closes with `operator` or `running
+it`, verbatim, each followed by the suggestion that closes it — the question the operator would be
+asked, or what only running the work can show. It has exactly two options, **Raise it** — apply
+every suggestion now — and **Later** *(recommended)* — file the estimate and go on. Under the
 `## decisions: recommended` mode (**Auto-resolution**,
 `skills/flow-contracts/operator-prompts-auto-resolution.md`) the question is not asked and
 **Later** is taken. A gap that closes with `operator` is not asked in this round: it is asked
 only once the answer is **Raise it**.
 
 - **Raise it** — the fresh final planner that takes the answer triages the report as above, with
-  every gap in scope: a `closes with: plan` gap is fixed in the artifacts, a `closes with:
-  operator` gap is one more `QUESTIONS` round, a `closes with: running it` gap is written into
-  `## Risks` as `Accepted: …`. It then files the estimate with `-disposition raised`.
-- **Later** — it changes nothing for the gaps: each is written into `## Risks` as
+  every gap in scope: a `closes with: operator` gap is one more `QUESTIONS` round. It then files
+  the estimate with `-disposition raised`.
+- **Later** — it defers only the `operator` gaps: each is written into `## Risks` as
   `Accepted: <the gap> — deferred at the confidence question`, the report's other
   findings are triaged as above, and the estimate is filed with `-disposition later`.
 

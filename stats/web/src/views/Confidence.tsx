@@ -17,12 +17,18 @@ const PAGE = 25;
 const title = (r: ConfidenceRow) => `${r.score}% · ${r.change}`;
 
 const runs = (g: string) => /\[advisory\]|closes with: running it/.test(g);
-/** A plan-check gap line closes by running (advisory, or a running-it finding); every other line needs a decision. */
-const split = (gaps: string[]) => ({ decide: gaps.filter((g) => !runs(g)), run: gaps.filter(runs) });
+const edits = (g: string) => !runs(g) && /closes with: plan/.test(g);
+/** A plan-check gap line closes by running (advisory, or a running-it finding), by an edit to the plan, or needs a decision. */
+const split = (gaps: string[]) => ({
+  decide: gaps.filter((g) => !runs(g) && !edits(g)),
+  edit: gaps.filter(edits),
+  run: gaps.filter(runs),
+});
 const groups = (gaps: string[]) => {
-  const { decide, run } = split(gaps);
+  const { decide, edit, run } = split(gaps);
   return [
     ["Needs a decision", decide],
+    ["Closes by editing the plan", edit],
     ["Closes by running", run],
   ].filter(([, l]) => l.length) as [string, string[]][];
 };

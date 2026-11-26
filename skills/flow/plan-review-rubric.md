@@ -47,6 +47,15 @@ a `blocker`.
 - A `## Decisions` entry whose `**Considered:**` names no real alternative, or no reason it lost.
 - A risk the design runs that `## Risks` does not name.
 - A `## Non-goals` line a task violates.
+- Frames: two frames the plan cites disagree with each other (copy, label case, order) and the
+  plan neither names the governing frame and why nor records the departure; picking one silently
+  is a `finding`. Which frame wins where a spec is involved is decided by
+  `rules/design-mockups-are-specs.mdc` and the departure bullet of
+  `skills/flow-contracts/operator-prompts-auto-resolution.md`.
+- A claim in `design.md`'s `## Verification` that no task runs is a `finding`. Every promised
+  capture, recording or measurement names the command that produces it and where its output goes.
+  A plan that starts or reuses a running stack names, before the run, the freshness check of the
+  project's `.flow/project.md`.
 
 ## Proposal exam
 
@@ -65,7 +74,11 @@ and how? Any choice left to the implementer is a `finding` naming the choice —
 rule of **The checklist** (`skills/flow/brainstorm-planner.md`), tested from a fresh reader's
 seat. A task that pairs, merges, restores or diffs two collections, or whose result depends on
 an iteration order, names the key or the sort that decides the pairing; a positional match with
-none stated is a `finding` closed by a line in `design.md`.
+none stated is a `finding` closed by a line in `design.md`. A task that names a step by number or
+index, a count, or a cross-reference matches the artifact it cites (the numbered list, the frame
+list, the file it points at); a mismatch is a `finding` quoting both sides. A gap that closes only
+by running it is a probe step in the task it concerns (**Plan review**,
+`skills/flow/brainstorm-planner.md`); a task that should carry one and does not is a `finding`.
 
 ## Codebase details
 

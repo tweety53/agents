@@ -1155,7 +1155,7 @@ describe("views render their fixture response's actual values", () => {
     expect(screen.getByRole("button", { name: "To review 29" })).toBeInTheDocument();
   });
 
-  it("confidence: splits the gaps into those needing a decision and those closing by running", async () => {
+  it("confidence: splits the gaps into those needing a decision, those closing by a plan edit and those closing by running", async () => {
     const gaps = [
       "**F9** [finding] tasks.md:41 — closes with: plan — Task 4 relies on a flag no task checks",
       "Lowered by F3 — the order is unstated",
@@ -1167,8 +1167,10 @@ describe("views render their fixture response's actual values", () => {
     const user = userEvent.setup();
     render(<Confidence />);
     const decide = (await screen.findByRole("heading", { name: "Needs a decision" })).nextElementSibling as HTMLElement;
+    const editing = screen.getByRole("heading", { name: "Closes by editing the plan" }).nextElementSibling as HTMLElement;
     const running = screen.getByRole("heading", { name: "Closes by running" }).nextElementSibling as HTMLElement;
-    expect(decide.textContent).toContain("Task 4 relies on a flag");
+    expect(editing.textContent).toContain("Task 4 relies on a flag");
+    expect(decide.textContent).not.toContain("Task 4");
     expect(decide.textContent).toContain("Lowered by F3");
     expect(decide.textContent).toContain("a free-text gap");
     expect(decide.textContent).not.toContain("cold cache");
@@ -1178,7 +1180,7 @@ describe("views render their fixture response's actual values", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     await user.click(screen.getByRole("button", { name: "Copy for agent" }));
-    expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/Needs a decision:\n- \*\*F9\*\*[\s\S]*Closes by running:\n- \*\*F11\*\*/));
+    expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/Closes by editing the plan:\n- \*\*F9\*\*[\s\S]*Closes by running:\n- \*\*F11\*\*/));
   });
 
   it("confidence: no rows says so", async () => {
