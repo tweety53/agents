@@ -4,7 +4,7 @@ Portable agent configuration for Claude Code and Antigravity: the **flow** pipel
 land), its slash commands and skills, always-on rules, hooks, and a stats service that records every
 run.
 
-**This repository is the source of truth — edit here, then run `./setup.sh global` (Claude Code) or `./setup.sh antigravity` (Antigravity).** Nothing is
+**This repository is the source of truth — edit here, then run `./setup.sh global` (Claude Code, user-level), `./setup.sh antigravity` (Antigravity, user-level) or `./setup.sh claude-code` (Claude Code, one project).** Nothing is
 synced back from a project checkout.
 
 ## Quick start
@@ -24,15 +24,15 @@ make -C stats restart                                      # PostgreSQL, flowd a
 **Never stop the live daemon or drop the `flow` database:** every project's runs write to it.
 `stats/README.md` covers the launchd agent, the UI-test stack and Jira credentials.
 
-Per project: `/path/to/agents/setup.sh claude-code` links skills, commands and agents into `.claude/`
-and renders the opt-in rules a project names under `## standards` in its `.flow/project.md`.
+Per project: `/path/to/agents/setup.sh claude-code` links skills, commands and agents into `.claude/`,
+copies `templates/CLAUDE.md` in when the project has none, and renders the opt-in rules a project names under `## standards` in its `.flow/project.md`.
 
 ## How it fits together
 
 ```mermaid
 flowchart LR
     setup["setup.sh"] --> inst["rules · skills · commands<br/>agents · hooks · mods"]
-    cc["Claude Code"] -- reads --> inst
+    cc["Claude Code · Antigravity"] -- reads --> inst
     inst -- calls --> cli["flow CLI"]
     inst -- calls --> fg["flow-guard"]
     cli --> flowd["flowd<br/>127.0.0.1:4173"]
@@ -185,7 +185,9 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `mods/` | Claude Code plugins, e.g. `flow-task-list` |
 | `templates/` | The `CLAUDE.md` a project install copies in when it has none, plus Antigravity harness and `hooks.json` templates |
 | `experiments/` | Measurements behind design choices, e.g. `rag/` |
-| `docs/` | The detail pages linked above, `briefs/` (lessons) and `designs/` (records of earlier changes) |
+| `docs/` | The detail pages linked above |
+| `spectre/peers` | Declared peer repositories (name and relative path) for cross-repo changes (`skills/flow/cross-repo-worktrees.md`) |
+| `AGENTS.md` | The instruction file Antigravity sessions in this repository read; `CLAUDE.md` is Claude Code's |
 | `.flow/project.md` | This repository's own flow config: lint, test, run, stop |
 | `setup.sh` | The installer |
 
