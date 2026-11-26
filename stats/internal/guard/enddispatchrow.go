@@ -109,12 +109,15 @@ var (
 
 // edrMetaKey is the key hooks/enforce-agent-baseline.py row_key gave an agent
 // whose prompt has no Key: line, off its meta sidecar: the description's
-// explore-/design- word, else its first word when begin_key begins rows under
-// it (`panel-0-mutation`), else agent-<toolUseId>. "" without a sidecar.
+// explore-/design- word, else — for an agent not of a planning type (Explore,
+// Plan) — its first word when begin_key begins rows under it (`panel-0-mutation`),
+// else agent-<toolUseId>; a planner's Explore agent described `plan-1 …` is never
+// the planner's own plan-1 row. "" without a sidecar.
 func edrMetaKey(transcript string) string {
 	b, err := os.ReadFile(strings.TrimSuffix(transcript, ".jsonl") + ".meta.json")
 	var meta struct {
 		Description string `json:"description"`
+		AgentType   string `json:"agentType"`
 		ToolUseID   string `json:"toolUseId"`
 	}
 	if err != nil || json.Unmarshal(b, &meta) != nil {
@@ -123,7 +126,8 @@ func edrMetaKey(transcript string) string {
 	if m := edrPlanningKey.FindStringSubmatch(meta.Description); m != nil {
 		return m[1]
 	}
-	if w := strings.Fields(meta.Description); len(w) > 0 && edrBeginKey.MatchString(w[0]) {
+	planning := meta.AgentType == "Explore" || meta.AgentType == "Plan"
+	if w := strings.Fields(meta.Description); !planning && len(w) > 0 && edrBeginKey.MatchString(w[0]) {
 		return w[0]
 	}
 	if meta.ToolUseID == "" {

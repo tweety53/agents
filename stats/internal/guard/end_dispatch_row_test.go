@@ -198,10 +198,13 @@ func TestEndDispatchRowEndsAKeylessAgentsRow(t *testing.T) {
 		_, _ = w.Write([]byte(`{"stageRuns":[{"changeName":"c1","sessionToken":"mf-t1"}]}`))
 	}))
 	t.Cleanup(srv.Close)
-	for name, c := range map[string]struct{ description, want string }{
-		"explore word": {"plan-1 round — explore-2 survey", "-key explore-2 "},
-		"tool use id":  {"live check", "-key agent-tu1 "},
-		"row key word": {"panel-0-primary+principles", "-key panel-0-primary+principles "},
+	for name, c := range map[string]struct{ description, agentType, prompt, want string }{
+		"explore word": {"plan-1 round — explore-2 survey", "", "look", "-key explore-2 "},
+		"tool use id":  {"live check", "", "look", "-key agent-tu1 "},
+		"row key word": {"panel-0-primary+principles", "", "look", "-key panel-0-primary+principles "},
+		// A planner's Explore agent described `plan-1 …` is begun agent-<toolUseId>, never the
+		// planner's own plan-1 row (request 286).
+		"planning agent under plan-1": {"plan-1 explore runner seam", "Explore", "look", "-key agent-tu1 "},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -209,8 +212,8 @@ func TestEndDispatchRowEndsAKeylessAgentsRow(t *testing.T) {
 			log := filepath.Join(tmp, "flow.log")
 			writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >>"+log+"\n")
 			tr := filepath.Join(tmp, "agent-a1.jsonl")
-			writeFile(t, tr, `{"type":"user","message":{"content":"look"}}`+"\n")
-			writeFile(t, filepath.Join(tmp, "agent-a1.meta.json"), `{"description":`+jsonString(c.description)+`,"toolUseId":"tu1"}`)
+			writeFile(t, tr, `{"type":"user","message":{"content":`+jsonString(c.prompt)+`}}`+"\n")
+			writeFile(t, filepath.Join(tmp, "agent-a1.meta.json"), `{"description":`+jsonString(c.description)+`,"agentType":`+jsonString(c.agentType)+`,"toolUseId":"tu1"}`)
 			env := Env{Getenv: func(k string) string {
 				switch k {
 				case "FLOW_ADDR":
