@@ -2,6 +2,7 @@ package harvest_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/harvest"
@@ -204,5 +205,46 @@ func TestSyntheticAPIErrorLineDoesNotZeroContextEnd(t *testing.T) {
 	}
 	if got := deltas[11].Signals.Main.ContextEnd; got != "60" {
 		t.Errorf("context_end = %q, want %q (the synthetic API-error line's zero usage must not overwrite the real value)", got, "60")
+	}
+}
+
+func toolLine(kind, body string) string {
+	return `{"isSidechain":false,"type":"` + kind + `","message":{"role":"x","content":[` + body + `]},"timestamp":"2026-09-01T10:00:00.000Z","sessionId":"s1"}` + "\n"
+}
+
+func TestToolErrorEventsCarryFailedCallAndItsFix(t *testing.T) {
+	t.Parallel()
+	use := func(id, cmd string) string {
+		return toolLine("assistant", `{"type":"tool_use","id":"`+id+`","name":"Bash","input":{"command":"`+cmd+`"}}`)
+	}
+	res := func(id, text string, isErr bool) string {
+		e := "false"
+		if isErr {
+			e = "true"
+		}
+		return toolLine("user", `{"type":"tool_result","tool_use_id":"`+id+`","is_error":`+e+`,"content":"`+text+`"}`)
+	}
+	transcript := use("t1", "git statu") + res("t1", "git: 'statu' is not a git command", true) +
+		use("t2", "git status") + res("t2", "clean", false) +
+		use("t3", "cat ~/.claude/settings.json") + res("t3", "no such file", true) +
+		use("t4", "curl -H 'Authorization: Bearer abc123secret' x") + res("t4", "token=hunter2 refused", true)
+	complete, _ := harvest.SplitCompleteLines([]byte(transcript))
+	var got []harvest.Signal
+	for _, r := range harvest.ParseSignalRecords(complete) {
+		if r.Signal != nil && r.Signal.IsError {
+			got = append(got, *r.Signal)
+		}
+	}
+	if len(got) != 3 {
+		t.Fatalf("errors = %d, want 3", len(got))
+	}
+	if got[0].Tool != "Bash" || got[0].Input != "git statu" || !strings.Contains(got[0].Error, "not a git command") || got[0].Fix != "git status" {
+		t.Errorf("first failure = %+v", got[0])
+	}
+	if got[1].Input != "" || got[1].Error != "" {
+		t.Errorf("a ~/.claude call must be withheld, got %+v", got[1])
+	}
+	if strings.Contains(got[2].Input+got[2].Error, "abc123secret") || strings.Contains(got[2].Error, "hunter2") {
+		t.Errorf("secret survived redaction: %+v", got[2])
 	}
 }

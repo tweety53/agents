@@ -692,6 +692,56 @@ func RenderLedger(r Run) string {
 	return b.String()
 }
 
+// maxToolErrorsShown caps the failed calls one dispatch lists.
+const maxToolErrorsShown = 5
+
+// RenderToolErrors lists, per dispatch, the failed tool calls its metrics
+// bag carries (internal/harvest's tool_error_events) and the call that fixed
+// each, at most maxToolErrorsShown, in key order; false when no dispatch
+// carries one. The harvester has already redacted and trimmed the text.
+func RenderToolErrors(r Run) (string, bool) {
+	type event struct{ Tool, Input, Error, Fix string }
+	var b strings.Builder
+	for _, d := range r.Dispatches {
+		var m struct {
+			Signals struct {
+				Main, Sidechain struct {
+					Events map[string]event `json:"tool_error_events"`
+				}
+			}
+		}
+		if json.Unmarshal(d.Metrics, &m) != nil {
+			continue
+		}
+		events := map[string]event{}
+		for k, e := range m.Signals.Main.Events {
+			events[k] = e
+		}
+		for k, e := range m.Signals.Sidechain.Events {
+			events[k] = e
+		}
+		if len(events) == 0 {
+			continue
+		}
+		keys := make([]string, 0, len(events))
+		for k := range events {
+			keys = append(keys, k)
+		}
+		slices.Sort(keys)
+		fmt.Fprintf(&b, "## Dispatch %d — %s\n\n", d.Seq, orElse(d.Role, "role not recorded"))
+		for _, k := range keys[:min(len(keys), maxToolErrorsShown)] {
+			e := events[k]
+			fmt.Fprintf(&b, "- Failed: %s `%s` — %s", neutraliseMarkers(e.Tool), neutraliseMarkers(e.Input), neutraliseMarkers(e.Error))
+			if e.Fix != "" {
+				fmt.Fprintf(&b, "; fixed by `%s`", neutraliseMarkers(e.Fix))
+			}
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
+	return b.String(), b.Len() > 0
+}
+
 // changeNameAllowed is the allowlist a change name must match: one
 // leading alphanumeric, then letters, digits, '.', '_' and '-'. It is
 // preserve-session-records.sh's Protection 1, which this change retires,

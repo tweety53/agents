@@ -491,6 +491,8 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 	add(".superpowers/sdd/reviews/"+change+"-panel.md", panel, run.HasRows())
 	gated, ok := records.RenderGatedFindings(run)
 	add("gated per-task reviewer findings", gated, ok)
+	toolErrors, ok := records.RenderToolErrors(run)
+	add("failed tool calls per dispatch", toolErrors, ok)
 
 	for _, file := range changeFiles {
 		label := liveDir + "/" + change + "/" + file

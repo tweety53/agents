@@ -1354,3 +1354,36 @@ func TestRenderLedgerNamesBlockedCause(t *testing.T) {
 		t.Errorf("ledger omits the blocked cause:\n%s", out)
 	}
 }
+
+func TestRenderToolErrorsListsFailedCallAndFixPerDispatch(t *testing.T) {
+	t.Parallel()
+	events := map[string]string{}
+	for i := 0; i < 9; i++ {
+		events["t"+strconv.Itoa(i)] = `{"tool":"Bash","input":"git statu","error":"not a git command","fix":"git status"}`
+	}
+	var sc []string
+	for k, v := range events {
+		sc = append(sc, `"`+k+`":`+v)
+	}
+	metrics := `{"signals":{"sidechain":{"tool_error_events":{` + strings.Join(sc, ",") + `}}}}`
+	run := records.Run{Change: "demo", Dispatches: []records.Dispatch{
+		{Seq: 1, Role: "implementer", Metrics: json.RawMessage(metrics)},
+		{Seq: 2, Role: "reviewer", Metrics: json.RawMessage(`{"tokens":{}}`)},
+	}}
+	got, ok := records.RenderToolErrors(run)
+	if !ok {
+		t.Fatal("dispatch 1 carries events, yet nothing rendered")
+	}
+	if !strings.Contains(got, "## Dispatch 1 — implementer") || strings.Contains(got, "Dispatch 2") {
+		t.Errorf("sections wrong:\n%s", got)
+	}
+	if n := strings.Count(got, "- Failed: "); n != 5 {
+		t.Errorf("failed calls shown = %d, want the cap of 5:\n%s", n, got)
+	}
+	if !strings.Contains(got, "Bash `git statu` — not a git command") || !strings.Contains(got, "fixed by `git status`") {
+		t.Errorf("call, error or fix missing:\n%s", got)
+	}
+	if _, ok := records.RenderToolErrors(records.Run{Change: "demo", Dispatches: run.Dispatches[1:]}); ok {
+		t.Error("no events, yet a section rendered")
+	}
+}

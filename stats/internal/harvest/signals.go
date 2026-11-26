@@ -3,6 +3,7 @@ package harvest
 import (
 	"bytes"
 	"encoding/json"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -37,13 +38,17 @@ type Compaction struct {
 // only the fields its Kind actually carries are populated, the rest
 // stay zero.
 type Signal struct {
-	Kind       SignalKind
-	ToolName   string // SignalToolUse
-	IsError    bool   // SignalToolResult
-	Denied     bool   // SignalToolResult
-	DurationMs int64  // SignalTurn
-	Messages   int64  // SignalTurn
-	Compaction *Compaction
+	Kind     SignalKind
+	ToolName string // SignalToolUse
+	IsError  bool   // SignalToolResult
+	// ToolUseID, Tool, Input, Error and Fix describe a failed call a
+	// SignalToolResult carries (see toolErrorFields); empty on a success or a
+	// failure whose text or input is withheld.
+	ToolUseID, Tool, Input, Error, Fix string
+	Denied                             bool  // SignalToolResult
+	DurationMs                         int64 // SignalTurn
+	Messages                           int64 // SignalTurn
+	Compaction                         *Compaction
 }
 
 // CompactionEvent is one compaction's own figures, keyed in Signals by
@@ -55,6 +60,19 @@ type CompactionEvent struct {
 	PostTokens int64  `json:"post_tokens"`
 	DurationMs int64  `json:"duration_ms"`
 }
+
+// ToolErrorEvent is one failed tool call a self-review bundle shows: the call,
+// its trimmed error and, when the same tool succeeded next in the same read,
+// the call that fixed it.
+type ToolErrorEvent struct {
+	Tool  string `json:"tool"`
+	Input string `json:"input"`
+	Error string `json:"error"`
+	Fix   string `json:"fix,omitempty"`
+}
+
+// maxToolErrorEvents bounds the events one Signals bucket accumulates per read.
+const maxToolErrorEvents = 5
 
 // Signals is one main/sidechain bucket's (or one dispatch's) observability
 // counters, accumulated by add from a batch's signal and usage records --
@@ -69,6 +87,7 @@ type Signals struct {
 	ToolCalls        map[string]int64           `json:"tool_calls,omitempty"`
 	ToolCallsTotal   int64                      `json:"tool_calls_total,omitempty"`
 	ToolErrors       int64                      `json:"tool_errors,omitempty"`
+	ToolErrorEvents  map[string]ToolErrorEvent  `json:"tool_error_events,omitempty"` // key: tool_use id
 	Denials          int64                      `json:"denials,omitempty"`
 	APIErrors        int64                      `json:"api_errors,omitempty"`
 	ContextEnd       string                     `json:"context_end,omitempty"`
@@ -130,6 +149,14 @@ func (s *Signals) add(r Record) {
 	case SignalToolResult:
 		if r.Signal.IsError {
 			s.ToolErrors++
+			if r.Signal.Tool != "" && r.Signal.Error != "" && len(s.ToolErrorEvents) < maxToolErrorEvents {
+				if s.ToolErrorEvents == nil {
+					s.ToolErrorEvents = map[string]ToolErrorEvent{}
+				}
+				s.ToolErrorEvents[r.Signal.ToolUseID] = ToolErrorEvent{
+					Tool: r.Signal.Tool, Input: r.Signal.Input, Error: r.Signal.Error, Fix: r.Signal.Fix,
+				}
+			}
 		}
 		if r.Signal.Denied {
 			s.Denials++
@@ -203,6 +230,10 @@ func toolResultText(raw json.RawMessage) string {
 func ParseSignalRecords(complete []byte) []Record {
 	var out []Record
 	seenTool := map[string]bool{}
+	uses := map[string]rawContentBlock{}
+	// ponytail: a fix is paired only within one read of the transcript; add
+	// cross-read state if a failure's fix lands in a later batch.
+	pending := map[string]int{} // tool name -> index in out of its latest unfixed failure
 	start := 0
 	for start < len(complete) {
 		idx := bytes.IndexByte(complete[start:], '\n')
@@ -257,6 +288,7 @@ func ParseSignalRecords(complete []byte) []Record {
 					continue
 				}
 				seenTool["use:"+blk.ID] = true
+				uses[blk.ID] = blk
 				emit(Signal{Kind: SignalToolUse, ToolName: blk.Name})
 			}
 		case "user":
@@ -269,9 +301,82 @@ func ParseSignalRecords(complete []byte) []Record {
 				}
 				seenTool["result:"+blk.ToolUseID] = true
 				text := toolResultText(blk.Content)
-				emit(Signal{Kind: SignalToolResult, IsError: blk.IsError, Denied: blk.IsError && isDenial(text)})
+				sig := Signal{Kind: SignalToolResult, IsError: blk.IsError, Denied: blk.IsError && isDenial(text)}
+				use, known := uses[blk.ToolUseID]
+				if blk.IsError && known {
+					sig.ToolUseID, sig.Tool = blk.ToolUseID, use.Name
+					sig.Input, sig.Error = toolErrorFields(use.Input, text)
+				}
+				if !blk.IsError && known {
+					if i, ok := pending[use.Name]; ok {
+						if in, ok := sanitizeToolText(toolInputSummary(use.Input)); ok {
+							out[i].Signal.Fix = in
+						}
+						delete(pending, use.Name)
+					}
+				}
+				emit(sig)
+				if sig.Error != "" {
+					pending[sig.Tool] = len(out) - 1
+				}
 			}
 		}
 	}
 	return out
+}
+
+const (
+	maxToolInputChars = 200
+	maxToolErrorChars = 300
+)
+
+// toolInputSummary is the Bash command or, for any other tool, the call's
+// input JSON.
+func toolInputSummary(raw json.RawMessage) string {
+	var b rawBashInput
+	if json.Unmarshal(raw, &b) == nil && b.Command != "" {
+		return b.Command
+	}
+	return string(raw)
+}
+
+// toolErrorFields is a failed call's input summary and error text, each
+// redacted and trimmed; both empty when either touches a credential file,
+// so the pair is withheld whole.
+func toolErrorFields(input json.RawMessage, errText string) (in, msg string) {
+	in, ok1 := sanitizeToolText(toolInputSummary(input))
+	msg, ok2 := sanitizeToolText(errText)
+	if !ok1 || !ok2 {
+		return "", ""
+	}
+	return trimChars(in, maxToolInputChars), trimChars(msg, maxToolErrorChars)
+}
+
+var (
+	// sensitivePath matches the credential locations a bundle never carries.
+	sensitivePath = regexp.MustCompile(`(?i)(^|[/\s'"=~])\.env\b|\.claude\b|\.config\b|credentials|\.pem\b|id_rsa|\.netrc|\.aws\b`)
+	// secretValue matches an assignment or header carrying a secret value.
+	secretValue = regexp.MustCompile(`(?i)((token|secret|passw(or)?d|api[_-]?key|authorization|bearer)["']?\s*[=:]?\s*(?:bearer\s+)?)[^\s'"]+|sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{20,}`)
+)
+
+// sanitizeToolText redacts secret values and reports false when s names a
+// credential, .env, ~/.claude or ~/.config path.
+func sanitizeToolText(s string) (string, bool) {
+	if sensitivePath.MatchString(s) {
+		return "", false
+	}
+	return secretValue.ReplaceAllStringFunc(s, func(m string) string {
+		if loc := secretValue.FindStringSubmatchIndex(m); loc != nil && loc[3] > 0 {
+			return m[:loc[3]] + "[redacted]"
+		}
+		return "[redacted]"
+	}), true
+}
+
+func trimChars(s string, n int) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if r := []rune(s); len(r) > n {
+		return string(r[:n]) + "..."
+	}
+	return s
 }
