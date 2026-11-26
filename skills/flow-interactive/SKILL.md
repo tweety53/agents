@@ -215,7 +215,7 @@ check, the request stays open (⛔ blocked), since the live page cannot show the
 --name-only <base>..HEAD` on its stdin): open the live page — the link the operator gave, else the
 URL `## run` serves, by the app's own run-view route, keyed by the project key and `<name>`, never a display name —
 the executor opens it with the project's own installed Playwright through Bash — a short Node script written under `<changeRoot>` that navigates, reloads, takes the screenshot into `<changeRoot>` and exits — never an MCP browser tool, which a `flow-*` subagent does not carry —
-`location.reload()`, screenshot, and read the screenshot against the ask. A pass ends the stage
+`location.reload()`, screenshot, and read the screenshot against the ask. When the request changes a view's default (a window, a filter), the executor also reads that view against real live data on the new default and confirms it is non-empty; fixtures alone do not pass. A pass ends the stage
 run `-outcome completed`. That end carries `-screenshot <path>`, the screenshot just read, saved
 under `<changeRoot>`. A defect ends it `-outcome failed` with `-reason` naming the defect, and is a fix commit and steps 4–7
 again inside the same request. The stage's end is its own call, made after the screenshot is read —
