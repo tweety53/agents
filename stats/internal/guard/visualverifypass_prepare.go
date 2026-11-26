@@ -269,8 +269,8 @@ func (v *vvp) captureRoot(w string) string {
 // too, render-frames runs first on design.md and those sidecars, so the
 // tagged frames they cite exist before check-sidecar-reach, compose and
 // check-frame-list read them (kan-1096). Of the sidecars reach-checked, only
-// the change's own (own) go on to shard; a --defects pass keeps every
-// sidecar holding a defect frame. Every failing check is collected, then one
+// the change's own (own) go on to shard and, unsharded too, to the bundle's
+// `own specs:` line; a --defects pass keeps every sidecar holding a defect frame. Every failing check is collected, then one
 // `STOP:` line names them all.
 func (v *vvp) preflight(survivors []string) {
 	var fails, sidecars []string
@@ -356,6 +356,7 @@ func (v *vvp) preflight(survivors []string) {
 	if len(fails) > 0 {
 		v.stop("preflight-failed", "stopped", "preflight — "+strings.Join(fails, "; "))
 	}
+	v.sidecars = sidecars
 	v.shard(survivors, sidecars)
 }
 
@@ -384,6 +385,24 @@ func (v *vvp) own(w string) func(string) bool {
 		}
 		return false
 	}
+}
+
+// ownSpecs is the bundle's `own specs:` value: the specs, under w's capture
+// root, of the sidecars preflight kept (the change's own, by own) and that map
+// a frame; `none` when there are none, so an empty `<spec>` never reaches the
+// verifier's capture run.
+func (v *vvp) ownSpecs(w string) string {
+	var specs []string
+	root := v.captureRoot(w) + string(filepath.Separator)
+	for _, sc := range v.sidecars {
+		if body, _ := os.ReadFile(sc); strings.HasPrefix(sc, root) && len(mockupsLines(body)) > 0 {
+			specs = append(specs, strings.TrimSuffix(sc, ".mockups"))
+		}
+	}
+	if len(specs) == 0 {
+		return "none"
+	}
+	return strings.Join(specs, " ")
 }
 
 // shard writes a sharded pass's `spec` and `slice` lines to the stage file
@@ -969,6 +988,7 @@ func (v *vvp) bundle(key, w, stack, relay string, green []struct{ Key, DiffBase 
 		line("captured: %s", strings.Join(c, " "))
 	}
 	if m := cells["mockups"]; m != "" {
+		line("own specs: %s", v.ownSpecs(w))
 		line("mockups: %s", cellPath(w, m))
 	}
 	if m := cells["mockup frame"]; m != "" {

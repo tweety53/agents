@@ -1111,8 +1111,8 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 	// earlier is a shard fixture whose `specs` row reaches a.spec.ts and two
 	// sidecar-carrying specs of earlier changes, b and c, committed before the
 	// merge base; only a.spec.ts changes after it.
-	earlier := func(t *testing.T) *vvpFix {
-		f := vvpShardFixture(t, 60, "")
+	earlier := func(t *testing.T, frames int) *vvpFix {
+		f := vvpShardFixture(t, frames, "")
 		for _, n := range []string{"b", "c"} {
 			writeFile(t, filepath.Join(f.wt, "design/mockups/"+n+"1.png"), "png\n")
 			writeFile(t, filepath.Join(f.wt, "tests/visual/"+n+".spec.ts"), "shot('shot-"+n+"1.png')\n")
@@ -1132,7 +1132,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 
 	t.Run("a spec whose sidecar is another change's is neither captured nor judged", func(t *testing.T) {
 		t.Parallel()
-		f := earlier(t)
+		f := earlier(t, 60)
 		f.green()
 		rc, out, _ := f.prepare()
 		if st := f.stageFile(); rc != 0 || !strings.Contains(st, "spec "+spec(f)+"\n") || strings.Contains(st, "b.spec.ts") || strings.Contains(st, "c.spec.ts") ||
@@ -1143,7 +1143,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 
 	t.Run("a round base the change's own spec predates captures nothing", func(t *testing.T) {
 		t.Parallel()
-		f := earlier(t)
+		f := earlier(t, 60)
 		rb := vgHead(t, f.wt)
 		writeFile(t, filepath.Join(f.wt, "src/ui/app.tsx"), "round\n")
 		gitRun(t, f.wt, "commit", "-qam", "the round's fix")
@@ -1151,6 +1151,29 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		rc, out, _ := f.prepare("--round-base", f.wt+"="+rb)
 		if st := f.stageFile(); rc != 0 || strings.Contains(st, "spec ") || runLog(f) != "" {
 			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, st)
+		}
+	})
+
+	t.Run("an unsharded pass's bundle names only the change's own spec to capture", func(t *testing.T) {
+		t.Parallel()
+		f := earlier(t, 10)
+		f.green()
+		rc, out, _ := f.prepare()
+		if b := bundle(f, "visual-verify"); rc != 0 || !strings.Contains(b, "own specs: "+spec(f)+"\n") || strings.Contains(b, "b.spec.ts") || strings.Contains(b, "c.spec.ts") {
+			t.Fatalf("exit %d\n%s\n%s", rc, out, b)
+		}
+	})
+
+	t.Run("an unsharded pass with no own sidecar names none to capture", func(t *testing.T) {
+		t.Parallel()
+		f := earlier(t, 10)
+		rb := vgHead(t, f.wt)
+		writeFile(t, filepath.Join(f.wt, "src/ui/app.tsx"), "round\n")
+		gitRun(t, f.wt, "commit", "-qam", "the round's fix")
+		f.green()
+		rc, out, _ := f.prepare("--round-base", f.wt+"="+rb)
+		if b := bundle(f, "visual-verify"); rc != 0 || !strings.Contains(b, "own specs: none\n") {
+			t.Fatalf("exit %d\n%s\n%s", rc, out, b)
 		}
 	})
 

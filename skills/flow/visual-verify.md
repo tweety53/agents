@@ -269,7 +269,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    counts when it or its spec changed in `<capture root>`'s diff from its `--round-base`, else its
    `--since`, else its `--merge-base`; a `--defects` pass keeps every sidecar holding a defect frame.
    Another change's sidecar-carrying spec the `specs` row reaches is neither captured nor judged — its
-   committed baseline guards it through `verify` — and with no sidecar of the change's own, nothing is captured.
+   committed baseline guards it through `verify` — and with no sidecar of the change's own, nothing is captured. On an unsharded pass the verifier's own capture run (step 8 of `skills/flow/visual-verify-verifier.md`) takes the bundle's `own specs:` line, the same sidecars' specs.
 
    **Any failing check ends the stage here**: no verifier is dispatched, `prepare` stops the pass —
    no stage mark is made — and its `STOP:` line names every failing check with the evidence above.

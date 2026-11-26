@@ -149,7 +149,7 @@ import (
 //      when a flow-guard recapture receipt of every worktree given a
 //      --round-base records a pass of those specs on exactly the source
 //      files `<round base>..HEAD` holds there, each at HEAD's blob — the
-//      verifier's capture run leaves them out; `mockups:` and `mockup frame:` when declared; one `app:`
+//      verifier's capture run leaves them out; `mockups:` preceded by `own specs: <spec> <spec>…` (or `none`) when declared — the specs of the change's own sidecars, the only ones the verifier's capture run takes; `mockup frame:` when declared; one `app:`
 //      line per --app URL; the `## run` commands; `stack:` (`found running` or
 //      `started by this stage`), `fingerprint:` and `verify: <key>@<short sha>`
 //      — this session's newest green inline verify row whose HEAD resolves in
@@ -432,6 +432,7 @@ type vvp struct {
 	cont, started                    bool
 	siblings                         map[string][]string // a worktree's siblings whose diff its `ui paths` matched
 	setSize                          int
+	sidecars                         []string // the change's own reach-checked sidecars, set by preflight
 }
 
 func visualVerifyPass(args []string, env Env, stdout, stderr io.Writer) (code int) {
