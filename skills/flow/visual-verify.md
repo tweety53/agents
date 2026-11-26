@@ -132,7 +132,7 @@ first — with one surviving worktree, with `mockups` declared and more than
 25 frames on the change's list, or on a scoped pass over more than 25 frames — the `--defects` it names, else every listed frame no passing recapture of the round stands for —
 (each shard's round file then carries only the defects in its slice, and a shard's manifest holds only its slice, so
 `close` derives `CLOSES-LOOP: no` for it — the next full run closes the loop), `prepare` cuts the frames into n = min(4, ⌈F/25⌉) slices, runs
-step 8's `setup` and one `capture` of every capture spec itself, and begins one row per slice, keyed
+step 8's `setup` and one `capture` of the specs whose sidecar frames the pass judges (a spec the `specs` row reaches with no such sidecar is not captured) itself, and begins one row per slice, keyed
 `<stage key>-s<i>of<n>`, the segment after any `-<repository name>` suffix — `visual-verify-s2of4`,
 `visual-verify-fix-3-full-s1of3`, `visual-verify-gymie-s2of3`;
 `flow-guard visual-verify-pass`'s header is canonical for the cut. Every other pass runs one

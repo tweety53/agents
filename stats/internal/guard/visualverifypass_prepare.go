@@ -271,7 +271,7 @@ func (v *vvp) captureRoot(w string) string {
 // check-frame-list read them (kan-1096). Every failing check is collected,
 // then one `STOP:` line names them all.
 func (v *vvp) preflight(survivors []string) {
-	var fails, specs, sidecars []string
+	var fails, sidecars []string
 	collect := func(guard, out, errs string) {
 		ev := strings.TrimSpace(out + "\n" + errs)
 		fails = append(fails, guard+": "+strings.Join(strings.Fields(strings.ReplaceAll(ev, "\n", " | ")), " "))
@@ -313,7 +313,6 @@ func (v *vvp) preflight(survivors []string) {
 				}
 				targets = nil
 				for _, spec := range strings.Fields(out) {
-					specs = append(specs, cellPath(root, spec))
 					if sc := cellPath(root, spec) + ".mockups"; isFile(sc) {
 						targets = append(targets, sc)
 					}
@@ -338,11 +337,6 @@ func (v *vvp) preflight(survivors []string) {
 					sidecars = append(sidecars, p)
 				}
 			}
-			if specs == nil {
-				for _, sc := range sidecars {
-					specs = append(specs, strings.TrimSuffix(sc, ".mockups"))
-				}
-			}
 			if v.cells(w)["design repo"] != "" && len(files) > 0 {
 				if rc, out, errs := v.guard("render-frames", nil, append([]string{w}, files...)...); rc != 0 {
 					collect("render-frames", out, errs)
@@ -358,7 +352,7 @@ func (v *vvp) preflight(survivors []string) {
 	if len(fails) > 0 {
 		v.stop("preflight-failed", "stopped", "preflight — "+strings.Join(fails, "; "))
 	}
-	v.shard(survivors, specs, sidecars)
+	v.shard(survivors, sidecars)
 }
 
 // shard writes a sharded pass's `spec` and `slice` lines to the stage file
@@ -371,8 +365,9 @@ func (v *vvp) preflight(survivors []string) {
 // (and shards only when they are more than 25), else every frame on the list
 // that no passing recapture of the round stands for — what its verifier still
 // reads (KAN-1091: a partial check over 25 screenshots ran as one reviewer
-// that named its own batches s1, s2, s3).
-func (v *vvp) shard(survivors, specs, sidecars []string) {
+// that named its own batches s1, s2, s3). The `spec` lines name only the specs
+// whose sidecar lines it judges, never the rest of what the `specs` row reaches.
+func (v *vvp) shard(survivors, sidecars []string) {
 	if len(survivors) != 1 {
 		return
 	}
@@ -391,6 +386,7 @@ func (v *vvp) shard(survivors, specs, sidecars []string) {
 		return
 	}
 	var lines [][3]string
+	var specs []string // the specs whose sidecar frames this pass judges: the only ones captured
 	listed := map[string]bool{}
 	for _, sc := range sidecars {
 		body, _ := os.ReadFile(sc)
@@ -400,6 +396,9 @@ func (v *vvp) shard(survivors, specs, sidecars []string) {
 				continue
 			}
 			lines = append(lines, [3]string{spec, f[0], f[1]})
+			if !slices.Contains(specs, spec) {
+				specs = append(specs, spec)
+			}
 			listed[f[1]] = true
 		}
 	}

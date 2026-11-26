@@ -1077,16 +1077,34 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		}
 	})
 
-	t.Run("every spec is captured in one run", func(t *testing.T) {
+	t.Run("every spec with a judged sidecar is captured in one run", func(t *testing.T) {
 		t.Parallel()
 		f := vvpShardFixture(t, 60, "")
-		writeFile(t, filepath.Join(f.wt, "tests/visual/b.spec.ts"), "shot('b.png')\n")
+		writeFile(t, filepath.Join(f.wt, "design/mockups/G1.png"), "png\n")
+		writeFile(t, filepath.Join(f.wt, "tests/visual/b.spec.ts"), "shot('shot-G1.png')\n")
+		writeFile(t, filepath.Join(f.wt, "tests/visual/b.spec.ts.mockups"), "shot-G1.png G1\n")
 		writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts tests/visual/b.spec.ts\n")
 		gitRun(t, f.wt, "add", "-A")
 		gitRun(t, f.wt, "commit", "-qm", "second spec")
 		f.green()
 		if rc, out, _ := f.prepare(); rc != 0 || runLog(f) != "setup\ncapture "+spec(f)+" "+filepath.Join(f.wt, "tests/visual/b.spec.ts")+" "+vvpWorkersFlag+"--update-snapshots=all\n" {
 			t.Fatalf("exit %d, run log %q\n%s", rc, runLog(f), out)
+		}
+	})
+
+	t.Run("a spec the row reaches with no sidecar is not captured", func(t *testing.T) {
+		t.Parallel()
+		f := vvpShardFixture(t, 60, "")
+		for _, n := range []string{"b", "c"} {
+			writeFile(t, filepath.Join(f.wt, "tests/visual/"+n+".spec.ts"), "shot('"+n+".png')\n")
+		}
+		writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts tests/visual/b.spec.ts tests/visual/c.spec.ts\n")
+		gitRun(t, f.wt, "add", "-A")
+		gitRun(t, f.wt, "commit", "-qm", "unjudged specs")
+		f.green()
+		rc, out, _ := f.prepare()
+		if st := f.stageFile(); rc != 0 || strings.Contains(st, "b.spec.ts") || strings.Contains(st, "c.spec.ts") || runLog(f) != "setup\ncapture "+spec(f)+" "+vvpWorkersFlag+"--update-snapshots=all\n" {
+			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, st)
 		}
 	})
 
