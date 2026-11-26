@@ -164,7 +164,7 @@ needing no code — a question, a lookup — ends `answered` with no dispatch an
 
 The coordinator writes the brief to `<abs-worktree>/.superpowers/sdd/pair-judge/operator-<k>.md`
 (the ask, what step 1 found, the paths to touch, `<name>`, `<n>`, the `fi-` token, and "execute steps
-3a–7 of `skills/flow-interactive/SKILL.md`", and the report shape: Verdict, Findings, Decisions, Not done, the last landed sha, the base sha, and one `Red:` line per test added or changed; for a request that changes a default time window or filter of a view, the UI-test fixtures, pinned instants and visual baselines that default moves, so the executor fixes them in the same pass), runs `flow-guard pair-judge operator-asked <that file>`
+3a–7 of `skills/flow-interactive/SKILL.md`", and the report shape: Verdict, Findings, Decisions, Not done, a `commit: request-<n> <40-hex sha>` line naming the last landed sha (the line the stop hook's `end-dispatch-row` reads into the dispatch row; omit it when nothing landed), the base sha, and one `Red:` line per test added or changed; for a request that changes a default time window or filter of a view, the UI-test fixtures, pinned instants and visual baselines that default moves, so the executor fixes them in the same pass), runs `flow-guard pair-judge operator-asked <that file>`
 and dispatches on the pair it prints (**Model and effort**, `skills/flow/brainstorm-planner.md`; no
 pair is written into this skill), recorded and dispatched as **Operator-asked subagents** below says.
 
