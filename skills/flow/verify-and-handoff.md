@@ -156,6 +156,10 @@ change did not introduce takes the fix procedure as well (**the sweep**, `skills
 passing re-run as license to skip the rest of the list — every remaining command in the order
 above still runs.
 
+**Inline verify — the confirm run.** After a fix round, only the failing test commands re-run until
+they pass (`skills/flow/fix.md`, step 3); then the default list runs once in full, and only that
+run's green lets the change land. A command that fails in the confirm run opens the next fix.
+
 **A test runner's own timeout under outside load is the environment's failure.** A command killed by
 its test runner's own timeout — Go's `panic: test timed out after` — with no failed assertion and no
 data race, while the one-minute load average (`uptime`) exceeds the machine's core count

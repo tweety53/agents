@@ -85,6 +85,9 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    verify failed and code changed since the last green lint/test run, the lint/test list re-runs
    first, so the landing gate is unchanged. On a fix run: the lint/test list, then visual verify
    only when the fix touched `ui paths` — a fix that touches none needs no `visual-verify` run.
+   **A fix round re-runs only the test commands that failed, until they pass;** the one default-list
+   run that confirms the whole list follows, before landing (**Inline verify — the confirm run**,
+   `skills/flow/verify-and-handoff.md`).
    **The `verify` re-run runs only in a worktree whose HEAD moved since its previous verify of
    this run, or whose test commands drive the stack of one that did.** **The `visual-verify`
    re-run is scoped to the fix's own diff** in every worktree with a round base — the HEAD step
