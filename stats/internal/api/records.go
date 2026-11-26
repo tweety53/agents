@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -214,6 +215,33 @@ var panelSlots = map[string]bool{
 	"call-efficiency": true, "failure-modes": true, "mutation": true, "security": true,
 }
 
+var panelKey = regexp.MustCompile(`^panel-[0-9]+-(.+)$`)
+
+// panelSlotFromKey is the slot a panel-<round>-<slot>[+<slot>...] key names,
+// each part's trailing -<suffix> (a part, repository or unread marker)
+// dropped, or "" when any part names no panel slot. Migration 0106 applies
+// the same reading to rows begun before it.
+func panelSlotFromKey(key string) string {
+	m := panelKey.FindStringSubmatch(key)
+	if m == nil {
+		return ""
+	}
+	parts := strings.Split(m[1], "+")
+	for i, p := range parts {
+		found := ""
+		for s := range panelSlots {
+			if (p == s || strings.HasPrefix(p, s+"-")) && len(s) > len(found) {
+				found = s
+			}
+		}
+		if found == "" {
+			return ""
+		}
+		parts[i] = found
+	}
+	return strings.Join(parts, "+")
+}
+
 func ApplyDispatchRecord(ctx context.Context, rw RecordWriter, projectKey, change string, in records.Dispatch) (records.Dispatch, error) {
 	if in.Role == "" || in.Model == "" {
 		return records.Dispatch{}, fmt.Errorf("%w: role and model are both required: a dispatch row records what ran and on what", ErrInvalidRecord)
@@ -224,6 +252,10 @@ func ApplyDispatchRecord(ctx context.Context, rw RecordWriter, projectKey, chang
 				return records.Dispatch{}, fmt.Errorf("%w: slot %q is not a review-panel slot: name only panel slots (skills/flow/review-panel.md), and record a gated per-task or self-review reviewer without -slot", ErrInvalidRecord, slot)
 			}
 		}
+	}
+	// A panel row the dispatch hook begins carries no -slot; its key names it.
+	if records.Class(in.Role) == "reviewer" && in.Slot == "" {
+		in.Slot = panelSlotFromKey(in.Key)
 	}
 	// The row is stored under its roles-table role, whichever name the caller typed.
 	in.Role = records.StoredRole(in.Role, in.Key, in.PolicyRole)

@@ -364,3 +364,73 @@ func TestMigration0104FoldsTheAfterEstimate(t *testing.T) {
 		t.Errorf("after columns left: %d (%v), want 0", left, err)
 	}
 }
+
+// TestMigration0106BackfillsPanelSlots pins the backfill of panel rows the
+// dispatch hook began without -slot: the key's slot parts (a trailing
+// -<suffix> dropped) become the slot, a key naming no panel slot and a row
+// already carrying one are untouched.
+func TestMigration0106BackfillsPanelSlots(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	dsn := newTestDatabase(t)
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(st.Close)
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open raw pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	exec := func(sql string, args ...any) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, sql, args...); err != nil {
+			t.Fatalf("exec %q: %v", sql, err)
+		}
+	}
+
+	exec(`INSERT INTO projects (project_key, main_checkout_path) VALUES ('p', '/tmp/p')`)
+	exec(`INSERT INTO changes (project_key, name, state, updated_at, updated_by) VALUES
+		('p', 'kan-1', 'IN_PROGRESS', now(), '/flow')`)
+	exec(`INSERT INTO dispatches (change_id, seq, role, model, started_at, dispatch_key, slot)
+		SELECT c.id, v.seq, v.role, 'opus', now(), v.k, v.slot FROM changes c, (VALUES
+			(1, 'panel-reviewer', 'panel-0-mutation', NULL),
+			(2, 'panel-reviewer', 'panel-0-test-sanity+failure-modes', NULL),
+			(3, 'panel-reviewer', 'panel-9-primary-unread', NULL),
+			(4, 'panel-rerun', 'panel-1-rerun', NULL),
+			(5, 'panel-reviewer', 'fix-9-review', NULL),
+			(6, 'panel-reviewer', 'panel-2-primary', 'principles'),
+			(7, 'implementer', 'panel-0-mutation', NULL)
+		) AS v(seq, role, k, slot)`)
+
+	sql, err := os.ReadFile("migrations/0106_backfill_panel_slots.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(string(sql))
+	exec(string(sql))
+
+	rows, err := pool.Query(ctx, `SELECT COALESCE(slot, '-') FROM dispatches ORDER BY seq`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for rows.Next() {
+		var slot string
+		if err := rows.Scan(&slot); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, slot)
+	}
+	rows.Close()
+	want := "mutation test-sanity+failure-modes primary - - principles -"
+	if g := strings.Join(got, " "); g != want {
+		t.Errorf("slots after 0106 twice = %q, want %q", g, want)
+	}
+}
