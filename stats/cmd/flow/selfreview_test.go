@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -458,5 +459,52 @@ func TestSelfReviewSimilarFallbackWarning(t *testing.T) {
 	mode = "hybrid"
 	if _, _, stderr := sim(); strings.Contains(stderr, "hybrid similarity unavailable") {
 		t.Errorf("hybrid: stderr %q, want no warning", stderr)
+	}
+}
+
+// TestSelfReviewFindingImplementCLI drives `flow self-review finding-implement <id> -commit <sha>`:
+// it PATCHes the finding's review status to approved with the landing sha as the reason (idempotent
+// on repeat), an unknown id is exit 1 with the store's message, a bad sha or id is 2.
+func TestSelfReviewFindingImplementCLI(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	env := newTestEnv(t)
+	const sha = "1444d5f772a17d12c479ff47f2d6523514e345d8"
+
+	var bodies []string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPatch && strings.HasSuffix(r.URL.Path, "/findings/7/review") {
+			b, _ := io.ReadAll(r.Body)
+			bodies = append(bodies, string(b))
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"no such suggested self-review finding"}`))
+	}))
+	defer srv.Close()
+
+	impl := func(args ...string) (int, string) {
+		var stdout, stderr strings.Builder
+		code := run(context.Background(), append([]string{"self-review", "finding-implement", "-addr", srv.URL, "-timeout", "500ms", "-C", repo}, args...), env.get, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
+	for i := 0; i < 2; i++ {
+		if code, stderr := impl("7", "-commit", sha); code != 0 {
+			t.Fatalf("run %d: exit %d, stderr %q; want 0", i, code, stderr)
+		}
+	}
+	var got map[string]string
+	if len(bodies) != 2 || json.Unmarshal([]byte(bodies[0]), &got) != nil || got["status"] != "approved" || got["reason"] != "implemented in "+sha {
+		t.Errorf("bodies = %q, want two approving with reason %q", bodies, "implemented in "+sha)
+	}
+	if code, stderr := impl("8", "-commit", sha); code != 1 || !strings.Contains(stderr, "no such suggested") {
+		t.Errorf("unknown id: exit %d, stderr %q; want 1 naming the store's message", code, stderr)
+	}
+	for _, args := range [][]string{{"7"}, {"7", "-commit", "xyz"}, {"abc", "-commit", sha}, {"-commit", sha}} {
+		if code, _ := impl(args...); code != 2 {
+			t.Errorf("%v: exit %d, want 2", args, code)
+		}
 	}
 }

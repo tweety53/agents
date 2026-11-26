@@ -82,6 +82,14 @@ contract as findings: exit 1 with nothing on stdout when the store cannot be
 reached or the project has no finding with that id; exit 2 on a missing or
 non-numeric id.
 
+usage: flow self-review finding-implement [-addr url] [-timeout dur] [-C dir] <id> -commit sha
+
+Marks a suggested finding implemented once its change landed as sha: the
+finding leaves the dashboard's To review list as approved, its reason reading
+"implemented in <sha>". Repeating it changes nothing; exit 1 when the store
+cannot be reached or holds no suggested finding with that id; exit 2 on a
+missing or non-numeric id, or a -commit that is no 7-40 character hex sha.
+
 usage: flow self-review similar [-addr url] [-timeout dur] [-C dir] [-n N] <text...>
 
 Prints the N (default 5) recorded self-review findings of the project most
@@ -109,6 +117,8 @@ func runSelfReview(ctx context.Context, args []string, getenv func(string) strin
 		return runSelfReviewFindings(ctx, args[1:], getenv, stdout, stderr)
 	case "finding-get":
 		return runSelfReviewFindingGet(ctx, args[1:], getenv, stdout, stderr)
+	case "finding-implement":
+		return runSelfReviewFindingImplement(ctx, args[1:], getenv, stderr)
 	case "similar":
 		return runSelfReviewSimilar(ctx, args[1:], getenv, stdout, stderr)
 	default:
@@ -327,47 +337,9 @@ func runSelfReviewFindingGet(ctx context.Context, args []string, getenv func(str
 	var f recordIdentityFlags
 	registerRecordConnFlags(fset, &f, getenv)
 
-	// The id is the one positional, accepted before or after the flags.
-	var idArg string
-	rest := args
-	for {
-		if err := fset.Parse(rest); err != nil {
-			if errors.Is(err, flag.ErrHelp) {
-				return 0
-			}
-			fmt.Fprintf(stderr, "flow: %v\n", err)
-			fmt.Fprint(stderr, selfReviewUsage)
-			return 2
-		}
-		if fset.NArg() == 0 {
-			break
-		}
-		if idArg != "" {
-			fmt.Fprint(stderr, "flow: expected one finding id\n")
-			fmt.Fprint(stderr, selfReviewUsage)
-			return 2
-		}
-		idArg, rest = fset.Arg(0), fset.Args()[1:]
-	}
-	id, err := strconv.ParseInt(idArg, 10, 64)
-	if err != nil || id <= 0 {
-		fmt.Fprint(stderr, "flow: a finding id (a positive number) is required\n")
-		fmt.Fprint(stderr, selfReviewUsage)
-		return 2
-	}
-	noteAddrUsage(fset, stderr, f.addr, getenv)
-	if f.dir == "" {
-		wd, err := os.Getwd()
-		if err != nil {
-			fmt.Fprintf(stderr, "flow: resolve working directory: %v\n", err)
-			return 1
-		}
-		f.dir = wd
-	}
-	projectKey, _, err := fallback.ProjectKey(f.dir)
-	if err != nil {
-		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
-		return 1
+	projectKey, id, code := parseFindingIDArgs(fset, &f, args, getenv, stderr)
+	if code >= 0 {
+		return code
 	}
 	row, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.SelfReviewFinding, error) {
 		return cl.GetSelfReviewFinding(ctx, projectKey, id)
@@ -380,6 +352,79 @@ func runSelfReviewFindingGet(ctx context.Context, args []string, getenv func(str
 	enc.SetIndent("", "  ")
 	if err := enc.Encode(row); err != nil {
 		fmt.Fprintf(stderr, "flow: self-review finding-get: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+// parseFindingIDArgs parses fset over args with the finding id as the one positional, accepted
+// before or after the flags, and resolves the project key from -C. code is -1 on success.
+func parseFindingIDArgs(fset *flag.FlagSet, f *recordIdentityFlags, args []string, getenv func(string) string, stderr io.Writer) (projectKey string, id int64, code int) {
+	var idArg string
+	rest := args
+	for {
+		if err := fset.Parse(rest); err != nil {
+			if errors.Is(err, flag.ErrHelp) {
+				return "", 0, 0
+			}
+			fmt.Fprintf(stderr, "flow: %v\n", err)
+			fmt.Fprint(stderr, selfReviewUsage)
+			return "", 0, 2
+		}
+		if fset.NArg() == 0 {
+			break
+		}
+		if idArg != "" {
+			fmt.Fprint(stderr, "flow: expected one finding id\n")
+			fmt.Fprint(stderr, selfReviewUsage)
+			return "", 0, 2
+		}
+		idArg, rest = fset.Arg(0), fset.Args()[1:]
+	}
+	id, err := strconv.ParseInt(idArg, 10, 64)
+	if err != nil || id <= 0 {
+		fmt.Fprint(stderr, "flow: a finding id (a positive number) is required\n")
+		fmt.Fprint(stderr, selfReviewUsage)
+		return "", 0, 2
+	}
+	noteAddrUsage(fset, stderr, f.addr, getenv)
+	if f.dir == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(stderr, "flow: resolve working directory: %v\n", err)
+			return "", 0, 1
+		}
+		f.dir = wd
+	}
+	projectKey, _, err = fallback.ProjectKey(f.dir)
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: resolve project key: %v\n", err)
+		return "", 0, 1
+	}
+	return projectKey, id, -1
+}
+
+// runSelfReviewFindingImplement marks a suggested finding implemented: its review status becomes
+// approved and the reason names the landing commit. Repeating it rewrites the same values.
+func runSelfReviewFindingImplement(ctx context.Context, args []string, getenv func(string) string, stderr io.Writer) int {
+	fset := flag.NewFlagSet("flow self-review finding-implement", flag.ContinueOnError)
+	fset.SetOutput(stderr)
+	var f recordIdentityFlags
+	registerRecordConnFlags(fset, &f, getenv)
+	commit := fset.String("commit", "", "the sha the implementation landed as (required)")
+	projectKey, id, code := parseFindingIDArgs(fset, &f, args, getenv, stderr)
+	if code >= 0 {
+		return code
+	}
+	if !records.SelfReviewSha.MatchString(*commit) {
+		fmt.Fprintf(stderr, "flow: -commit must be a 7-40 character lowercase hex sha, got %q\n", *commit)
+		return 2
+	}
+	_, err := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (struct{}, error) {
+		return struct{}{}, cl.ReviewSelfReviewFinding(ctx, projectKey, id, "approved", "implemented in "+*commit)
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "flow: self-review finding-implement: %v\n", err)
 		return 1
 	}
 	return 0

@@ -237,6 +237,8 @@ flow record request end -change <name> -n <n> -outcome dropped
 
 `landed` runs the **Request-end guard**, below. Then a short report.
 
+A request that implements a self-review finding is not ended `landed` until its executor ran `flow self-review finding-implement <id> -commit <last landed sha>` (`skills/flow-self-review/SKILL.md`).
+
 Before `landed`, when `git diff --name-only <base>..<commit>` matches `_test.go`, `.test.ts` or `.test.tsx`, the coordinator checks the executor's report carries the `Red:` lines of step 3a. A report without them is sent back to the executor exactly as the Request-end guard's refusal text says (SendMessage to its agent id, else a fresh `operator-asked` dispatch), never accepted and never worked around by the coordinator.
 
 A resumed request whose base was never noted passes the parent of its earliest commit found on

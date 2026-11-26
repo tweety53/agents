@@ -142,3 +142,12 @@ func (c *Client) SimilarSelfReviewFindingsMode(ctx context.Context, project, que
 	}
 	return rows, h.Get("X-Similar-Mode"), h.Get("X-Similar-Error"), nil
 }
+
+// ReviewSelfReviewFinding sets a suggested finding's review status (to-review, approved or
+// declined) and reason; an id that is no suggested finding is ErrNotFound.
+func (c *Client) ReviewSelfReviewFinding(ctx context.Context, project string, id int64, status, reason string) error {
+	u := c.baseURL + "/api/v1/self-review/" + url.PathEscape(project) + "/findings/" + strconv.FormatInt(id, 10) + "/review"
+	_, err := c.writeRecord(ctx, http.MethodPatch, u, map[string]string{"status": status, "reason": reason},
+		map[int]bool{http.StatusNoContent: true}, nil)
+	return err
+}
