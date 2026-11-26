@@ -81,7 +81,7 @@ const slotSQL = `COALESCE(d.slot,
 // modelVersion, else its recorded model when that is a full ID, else
 // "<family> (version unrecorded)" (model-version-split).
 const modelVersionSQL = `COALESCE(d.metrics->>'modelVersion',
-	CASE WHEN ` + servedModelSQL + ` ~* '^((claude|glm)-|qwen)' THEN ` + servedModelSQL + ` END,
+	CASE WHEN ` + servedModelSQL + ` ~* '^(claude|glm)-' THEN ` + servedModelSQL + ` END,
 	model_family(` + servedModelSQL + `) || ' (version unrecorded)')`
 
 // implBadOutcomes are the implementer dispatch outcomes counted as blocked

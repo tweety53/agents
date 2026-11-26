@@ -311,7 +311,6 @@ func TestReviewDynamicsModelVersions(t *testing.T) {
 	fx.dispatch("v", "reviewer", "primary", "opus", "low", "panel-0-a", "completed", at)
 	fx.dispatch("v", "reviewer", "primary", "claude-opus-5", "low", "panel-0-b", "completed", at.Add(time.Hour))
 	fx.dispatch("v", "reviewer", "primary", "opus", "low", "panel-0-c", "completed", at.Add(2*time.Hour))
-	fx.dispatch("v", "reviewer", "primary", "qwen4-max", "low", "panel-0-q", "completed", at.Add(3*time.Hour))
 	fx.dispatch("v", "implementer", "", "opus", "low", "task-1-implementer", "completed", at.Add(-time.Hour))
 	for _, key := range []string{"panel-0-a", "task-1-implementer"} {
 		if _, err := pool.Exec(ctx, `UPDATE dispatches SET metrics = metrics || '{"modelVersion":"claude-opus-5-5"}'
@@ -331,10 +330,10 @@ func TestReviewDynamicsModelVersions(t *testing.T) {
 		}
 		series[p.Metric][p.Series] += p.Basis
 	}
-	if fmt.Sprint(series["per-dispatch-model"]) != "map[opus:3 qwen4-max:1]" {
+	if fmt.Sprint(series["per-dispatch-model"]) != "map[opus:3]" {
 		t.Errorf("per-dispatch-model = %v, want one opus series over all three opus dispatches", series["per-dispatch-model"])
 	}
-	if fmt.Sprint(series["per-dispatch-model-version"]) != "map[claude-opus-5:1 claude-opus-5-5:1 opus (version unrecorded):1 qwen4-max:1]" {
+	if fmt.Sprint(series["per-dispatch-model-version"]) != "map[claude-opus-5:1 claude-opus-5-5:1 opus (version unrecorded):1]" {
 		t.Errorf("per-dispatch-model-version = %v", series["per-dispatch-model-version"])
 	}
 	if _, ok := series["impl-findings-per-task"]["opus · low"]; !ok {
@@ -343,11 +342,11 @@ func TestReviewDynamicsModelVersions(t *testing.T) {
 	if _, ok := series["impl-findings-per-task-version"]["claude-opus-5-5 · low"]; !ok {
 		t.Errorf("impl-findings-per-task-version = %v, want claude-opus-5-5 · low", series["impl-findings-per-task-version"])
 	}
-	if len(got.Heat) != 2 || got.Heat[0].Model != "opus" || got.Heat[0].Dispatches != 3 {
-		t.Errorf("Heat = %+v, want an opus cell of 3 dispatches and a qwen one", got.Heat)
+	if len(got.Heat) != 1 || got.Heat[0].Model != "opus" || got.Heat[0].Dispatches != 3 {
+		t.Errorf("Heat = %+v, want an opus cell of 3 dispatches", got.Heat)
 	}
-	if len(got.HeatVersion) != 4 {
-		t.Errorf("HeatVersion = %+v, want four version cells", got.HeatVersion)
+	if len(got.HeatVersion) != 3 {
+		t.Errorf("HeatVersion = %+v, want three version cells", got.HeatVersion)
 	}
 
 	for in, want := range map[string]string{

@@ -767,7 +767,7 @@ func TestJudgeKeyOnlyForAnthropicBaseURL(t *testing.T) {
 		{"", "sk-dummy"},
 		{"https://api.anthropic.com", "sk-dummy"},
 		{"https://API.anthropic.com:443/", "sk-dummy"},
-		{"https://dashscope.example.com/apps/anthropic", ""},
+		{"https://example.invalid/apps/anthropic", ""},
 		{"https://api.anthropic.com.evil.example", ""},
 		{"https://evil.example/api.anthropic.com", ""},
 		{"not a url", ""},
