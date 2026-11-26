@@ -39,9 +39,12 @@ flowchart LR
     fg --> flowd
     flowd --> pg[("PostgreSQL<br/>:5433")]
     flowd --> ui["web UI"]
+    cc -- writes --> tr["Claude Code transcripts<br/>~/.claude/projects"]
+    tr -- read --> hv["harvester<br/>inside flowd"]
+    hv --> pg
 ```
 
-`setup.sh` installs, the harness reads, and every check and record goes through `flowd`.
+`setup.sh` installs, the harness reads, and every check and record goes through `flowd`, whose harvester also reads Claude Code's session transcripts and stores their tokens, models and tool signals in PostgreSQL.
 
 ## How a change really flows
 
