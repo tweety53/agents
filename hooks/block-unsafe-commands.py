@@ -72,7 +72,15 @@ import shlex
 import subprocess
 import sys
 
-EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
+from harness_io import (
+    emit_pre_tool_allow,
+    emit_pre_tool_deny,
+    get_tool_call,
+    get_transcript_path,
+)
+
+EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "edit_file", "write_file"}
+SHELL_TOOLS = {"Bash", "run_command"}
 
 ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
@@ -133,7 +141,7 @@ VERIFY_LIST_REASON = (
 def verify_list_by_main_session(command, payload):
     if not VERIFY_LIST_RECORDED_RE.search(command):
         return False
-    transcript = payload.get("transcript_path")
+    transcript = get_transcript_path(payload)
     in_subagent = bool(payload.get("agent_id")) or (isinstance(transcript, str) and "/subagents/" in transcript)
     return not in_subagent
 
@@ -1040,19 +1048,20 @@ def main():
         return 0
     if not isinstance(payload, dict):
         return 0
-    tool = payload.get("tool_name")
-    tool_input = payload.get("tool_input")
-    if not isinstance(tool_input, dict):
+    tool, tool_input, _ = get_tool_call(payload)
+    if not tool or not isinstance(tool_input, dict):
+        emit_pre_tool_allow(payload)
         return 0
     cwd = payload.get("cwd") or os.getcwd()
 
     candidates = []
+    command = None
     if tool in EDIT_TOOLS:
-        path = tool_input.get("file_path") or tool_input.get("notebook_path")
+        path = tool_input.get("file_path") or tool_input.get("notebook_path") or tool_input.get("Path")
         if isinstance(path, str) and path:
             candidates.append(resolve(path, cwd))
-    elif tool == "Bash":
-        command = tool_input.get("command")
+    elif tool in SHELL_TOOLS:
+        command = tool_input.get("command") or tool_input.get("CommandLine")
         if isinstance(command, str) and command:
             landings = []
             if BARE_CAT_RE.search(command):
@@ -1066,18 +1075,10 @@ def main():
                 landings.append(stash)
             candidates.extend(bash_hits(command, cwd, landings))
             if landings:
-                json.dump(
-                    {
-                        "hookSpecificOutput": {
-                            "hookEventName": "PreToolUse",
-                            "permissionDecision": "deny",
-                            "permissionDecisionReason": landings[0],
-                        }
-                    },
-                    sys.stdout,
-                )
+                emit_pre_tool_deny(payload, landings[0])
                 return 0
     else:
+        emit_pre_tool_allow(payload)
         return 0
 
     for path in candidates:
@@ -1085,7 +1086,7 @@ def main():
         if hit is None:
             continue
         reason = deny_reason(*hit)
-        if tool == "Bash":
+        if tool in SHELL_TOOLS and isinstance(command, str):
             reason += f"\n\nThis command reads as writing {path}."
             if HEREDOC_OPEN_RE.search(command):
                 reason += (
@@ -1094,17 +1095,9 @@ def main():
                     "keeps it scanned. Write the file with the Write tool, or run the heredoc as a "
                     "command of its own."
                 )
-        json.dump(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": reason,
-                }
-            },
-            sys.stdout,
-        )
+        emit_pre_tool_deny(payload, reason)
         return 0
+    emit_pre_tool_allow(payload)
     return 0
 
 

@@ -110,7 +110,7 @@ func TestRetiredModesRefused(t *testing.T) {
 		proj := filepath.Join(g.dir, "retired-"+mode)
 		g.runSetup(fixture, home, mode, proj)
 		g.assertRCNonzero("setup.sh "+mode+" exits non-zero", g.rc)
-		g.assertContains("setup.sh "+mode+" prints the usage line", g.log, "Choose: claude-code | global")
+		g.assertContains("setup.sh "+mode+" prints the usage line", g.log, "Choose: claude-code | global | antigravity")
 		var names []string
 		entries, _ := os.ReadDir(proj)
 		for _, e := range entries {

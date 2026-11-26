@@ -3,12 +3,13 @@
 #
 # Usage: ./setup.sh <harness> [project-dir]
 #
-# Harnesses: claude-code | global
+# Harnesses: claude-code | global | antigravity
 #
 # Examples:
 #   ./setup.sh claude-code                    # current directory
 #   ./setup.sh claude-code /path/to/other-project
 #   ./setup.sh global                         # user-level install (~/.claude)
+#   ./setup.sh antigravity                    # user-level install (~/.gemini/config/plugins/flow)
 
 set -euo pipefail
 
@@ -55,7 +56,7 @@ TMP_FILES=()
 cleanup_tmp() { [[ ${#TMP_FILES[@]} -eq 0 ]] || rm -f "${TMP_FILES[@]}"; }
 trap cleanup_tmp EXIT
 
-[[ -n "$HARNESS" ]] || die "Usage: $0 <claude-code|global> [project-dir]"
+[[ -n "$HARNESS" ]] || die "Usage: $0 <claude-code|global|antigravity> [project-dir]"
 [[ -d "$SKILLS_SRC" ]] || die "skills/ directory not found at $SKILLS_SRC"
 
 # Count of items that could not be linked. A skip must never be reportable as a
@@ -565,7 +566,7 @@ render_managed_block() {
         $0 == "<!-- core -->"  { next }
         { print }
       ' <<<"$body"
-      printf 'Full rule: `~/.claude/rules/%s.md`.\n' "${rule_name%.mdc}"
+      printf 'Full rule: `%s/%s.md`.\n' "${RENDER_RULES_DIR:-~/.claude/rules}" "${rule_name%.mdc}"
       continue
     fi
     # Whole-body render: the markers are scaffolding for the renderer, not content, so they
@@ -577,6 +578,10 @@ render_managed_block() {
       { print }
     '
   done
+  if (( global_render )) && [[ "${RENDER_ANTIGRAVITY_HARNESS:-0}" == "1" ]] && [[ -f "$SCRIPT_DIR/templates/antigravity-harness.md" ]]; then
+    printf '\n'
+    cat "$SCRIPT_DIR/templates/antigravity-harness.md"
+  fi
   printf '\n%s\n' "$CLAUDE_MD_END"
 }
 
@@ -826,6 +831,7 @@ project_lint_commands_block() {
 # the duplication this exists to remove.
 install_project_standards() {
   local project_dir="$1"
+  local target_name="${2:-CLAUDE.md}"
   local project_md="$project_dir/.flow/project.md"
   local skipped_before=$SKIPPED
   local entry rule_name always_list target
@@ -873,7 +879,7 @@ install_project_standards() {
   fi
 
   echo ""
-  info "Rendering opt-in standards into $project_dir/CLAUDE.md (from .flow/project.md)"
+  info "Rendering opt-in standards into $project_dir/$target_name (from .flow/project.md)"
   for rule_name in "${selected[@]}"; do
     echo "  ✓ $rule_name"
   done
@@ -896,8 +902,8 @@ install_project_standards() {
   done
 
   render_managed_block "${selected[@]}" >/dev/null
-  preflight_managed_block "$project_dir/CLAUDE.md"
-  install_managed_block "$project_dir/CLAUDE.md" "${selected[@]}"
+  preflight_managed_block "$project_dir/$target_name"
+  install_managed_block "$project_dir/$target_name" "${selected[@]}"
   finish_banner "Project standards" "$skipped_before"
 }
 
@@ -983,30 +989,107 @@ install_global() {
   echo "   from a git worktree or feature branch the links break when it is removed."
 }
 
+install_rules_antigravity() {
+  local target_dir="$1" rule_name rule_file baseline
+  [[ -d "$RULES_SRC" ]] || return 0
+  info "Installing full rule texts into $target_dir"
+  mkdir -p "$target_dir"
+  prune_stale_links "$target_dir"
+  while IFS= read -r rule_name; do
+    rule_file="$RULES_SRC/$rule_name"
+    [[ -f "$rule_file" ]] || continue
+    link_into "$rule_file" "$target_dir/${rule_name%.mdc}.md" "${rule_name%.mdc}.md"
+  done < <(always_on_rules)
+  baseline="$RULES_SRC/agent-baseline.md"
+  if [[ -f "$baseline" ]]; then
+    if [[ -L "$target_dir/agent-baseline.md" ]]; then
+      rm -f "$target_dir/agent-baseline.md"
+    fi
+    sed \
+      -e 's|~/.claude/rules/|~/.gemini/config/plugins/flow/rules-full/|g' \
+      -e 's|<project>/CLAUDE\.md|<project>/AGENTS.md|g' \
+      "$baseline" > "$target_dir/agent-baseline.md"
+    echo "  ✓ rendered agent-baseline.md"
+  else
+    warn "$baseline is missing — subagent dispatches point at a file that does not exist"
+    SKIPPED=$((SKIPPED + 1))
+  fi
+}
+
+install_hooks_antigravity() {
+  local plugin_dir="$1" hooks_src="$SCRIPT_DIR/hooks" hook_file hook_name
+  [[ -d "$hooks_src" ]] || return 0
+  info "Installing Antigravity hooks into $plugin_dir/hooks"
+  mkdir -p "$plugin_dir/hooks"
+  prune_stale_links "$plugin_dir/hooks"
+  for hook_file in "$hooks_src"/*; do
+    [[ -f "$hook_file" ]] || continue
+    hook_name=$(basename "$hook_file")
+    link_into "$hook_file" "$plugin_dir/hooks/$hook_name" "$hook_name"
+  done
+  if [[ -f "$SCRIPT_DIR/templates/antigravity-hooks.json" ]]; then
+    link_into "$SCRIPT_DIR/templates/antigravity-hooks.json" "$plugin_dir/hooks.json" "hooks.json"
+  fi
+}
+
+install_antigravity() {
+  local home_dir="${HOME:?HOME must be set}"
+  local skipped_before=$SKIPPED
+  local plugin_dir="$home_dir/.gemini/config/plugins/flow"
+  local managed_file="$plugin_dir/rules/AGENTS.md"
+  info "Setting up flow globally for Antigravity under $plugin_dir"
+
+  RENDER_RULES_DIR="~/.gemini/config/plugins/flow/rules-full" \
+    RENDER_ANTIGRAVITY_HARNESS=1 \
+    render_managed_block >/dev/null
+  preflight_managed_block "$managed_file"
+
+  mkdir -p "$plugin_dir"
+  printf '{\n  "name": "flow"\n}\n' > "$plugin_dir/plugin.json"
+
+  install_skills "$plugin_dir/skills"
+  install_rules_antigravity "$plugin_dir/rules-full"
+  install_hooks_antigravity "$plugin_dir"
+  install_script_shims "$home_dir/.local/bin"
+  RENDER_RULES_DIR="~/.gemini/config/plugins/flow/rules-full" \
+    RENDER_ANTIGRAVITY_HARNESS=1 \
+    install_managed_block "$managed_file"
+
+  echo ""
+  finish_banner "Antigravity" "$skipped_before"
+  echo "   Plugin   → $plugin_dir/"
+  echo "   Skills   → $plugin_dir/skills/"
+  echo "   Rules    → $managed_file"
+  echo "              Full texts → $plugin_dir/rules-full/"
+  echo "   Hooks    → $plugin_dir/hooks.json (auto-discovered by Antigravity)"
+  echo "   Scripts  → $home_dir/.local/bin/flow-guard"
+  echo ""
+  echo "   Source   → $SCRIPT_DIR"
+}
+
 # A global install into the operator's own home links it into this checkout, so from a linked
 # worktree every session's rules break the moment cleanup removes it (KAN-773). A sandboxed
 # $HOME — every test and sandbox-diff run — is not the operator's and installs as before. The
 # home is the password database's (bash's ~user), SETUP_REAL_HOME standing in for it in a test.
 real_home="${SETUP_REAL_HOME:-$(eval echo "~$(id -un)")}"
-if [ "$HARNESS" = global ] && [ "$HOME" = "$real_home" ] \
+if { [ "$HARNESS" = global ] || [ "$HARNESS" = antigravity ]; } && [ "$HOME" = "$real_home" ] \
   && common_dir="$(git -C "$SCRIPT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
   && [ "$(git -C "$SCRIPT_DIR" rev-parse --absolute-git-dir)" != "$common_dir" ]; then
-  die "$SCRIPT_DIR is a linked worktree — a global install from it breaks when it is removed. Run from the main checkout: $(dirname "$common_dir")/setup.sh global"
+  die "$SCRIPT_DIR is a linked worktree — a global install from it breaks when it is removed. Run from the main checkout: $(dirname "$common_dir")/setup.sh $HARNESS"
 fi
 
 case "$HARNESS" in
   global)      install_global ;;
   claude-code) install_claude_code ;;
-  *) die "Unknown harness '$HARNESS'. Choose: claude-code | global" ;;
+  antigravity) install_antigravity ;;
+  *) die "Unknown harness '$HARNESS'. Choose: claude-code | global | antigravity" ;;
 esac
 
-# Opt-in standards are rendered after the mode, so that the CLAUDE.md a first-time
-# `claude-code` install copies in is the file the block lands in.
-# `global` installs no project files at all, so it is deliberately not in this list — a
-# user-level install must not start writing into whatever directory it happened to be run
-# from.
+# Opt-in standards are rendered after the mode, so that the instruction file a first-time
+# project install copies in is the file the block lands in.
+# Global modes install no project files at all, so they are deliberately not in this list.
 case "$HARNESS" in
-  claude-code) install_project_standards "$PROJECT_DIR" ;;
+  claude-code) install_project_standards "$PROJECT_DIR" "CLAUDE.md" ;;
 esac
 
 # A run that could not link something is not a successful install, and a caller (CI, a

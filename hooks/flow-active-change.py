@@ -28,6 +28,13 @@ import sys
 from typing import Optional
 from urllib import parse, request
 
+from harness_io import (
+    emit_empty_if_antigravity,
+    get_session_id,
+    get_transcript_path,
+    is_antigravity,
+)
+
 DEFAULT_STORE_ADDR = "http://127.0.0.1:4173"
 STORE_TIMEOUT_SECONDS = 2
 
@@ -36,12 +43,12 @@ LOOP_CHANGE_PREFIXES = ("pipeline-fix-", "self-review-")
 
 
 def resolve_session_id(payload: dict) -> Optional[str]:
-    session_id = payload.get("session_id")
-    if isinstance(session_id, str) and session_id:
+    session_id = get_session_id(payload)
+    if session_id:
         return session_id
 
-    transcript_path = payload.get("transcript_path")
-    if isinstance(transcript_path, str) and transcript_path:
+    transcript_path = get_transcript_path(payload)
+    if transcript_path:
         # A claude-code transcript is named after the bare session id.
         stem, ext = os.path.splitext(os.path.basename(transcript_path))
         if stem and ext == ".jsonl":
@@ -92,16 +99,33 @@ def main() -> int:
     if not isinstance(payload, dict):
         return 0
 
-    prompt = payload.get("prompt")
+    agy = is_antigravity(payload)
+    if agy:
+        # PreInvocation fires before every model call in a turn; only inject on the first call.
+        inv = payload.get("invocationNum")
+        if isinstance(inv, int) and inv > 1:
+            emit_empty_if_antigravity(payload)
+            return 0
+        prompt = payload.get("lastUserInput")
+    else:
+        prompt = payload.get("prompt")
+
     if isinstance(prompt, str) and prompt.startswith("/"):
+        emit_empty_if_antigravity(payload)
         return 0
 
     session_id = resolve_session_id(payload)
     if not session_id:
+        emit_empty_if_antigravity(payload)
         return 0
 
-    last = last_stage_run(session_id)
+    try:
+        last = last_stage_run(session_id)
+    except Exception:
+        emit_empty_if_antigravity(payload)
+        return 0
     if not last:
+        emit_empty_if_antigravity(payload)
         return 0
     name, command, stage = last
 
@@ -118,16 +142,27 @@ def main() -> int:
             "`skills/flow-interactive/SKILL.md`)."
         )
     else:
+        emit_empty_if_antigravity(payload)
         return 0
-    json.dump(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "UserPromptSubmit",
-                "additionalContext": line,
-            }
-        },
-        sys.stdout,
-    )
+    if agy:
+        json.dump(
+            {
+                "injectSteps": [
+                    {"systemMessage": {"systemMessage": line}}
+                ]
+            },
+            sys.stdout,
+        )
+    else:
+        json.dump(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "UserPromptSubmit",
+                    "additionalContext": line,
+                }
+            },
+            sys.stdout,
+        )
     return 0
 
 

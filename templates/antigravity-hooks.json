@@ -1,0 +1,93 @@
+{
+  "block-unsafe-commands": {
+    "PreToolUse": [
+      {
+        "matcher": "edit_file|write_file|run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ./hooks/block-unsafe-commands.py",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  },
+  "enforce-agent-baseline": {
+    "PreToolUse": [
+      {
+        "matcher": "invoke_subagent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ./hooks/enforce-agent-baseline.py",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  },
+  "enforce-loop-dispatch": {
+    "PreToolUse": [
+      {
+        "matcher": "invoke_subagent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ./hooks/enforce-loop-dispatch.py",
+            "timeout": 300
+          }
+        ]
+      }
+    ]
+  },
+  "flow-active-change": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "python3 ./hooks/flow-active-change.py",
+        "timeout": 10
+      }
+    ]
+  },
+  "flow-session-activity": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ./hooks/flow-session-activity.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ./hooks/flow-session-activity.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "python3 ./hooks/flow-session-activity.py",
+        "timeout": 10
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python3 ./hooks/flow-session-activity.py",
+        "timeout": 10
+      }
+    ]
+  }
+}

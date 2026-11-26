@@ -62,8 +62,16 @@ import subprocess
 import sys
 from urllib import parse, request
 
-# The tool that spawns a subagent. Current builds name it "Agent"; older ones "Task".
-DISPATCH_TOOLS = {"Agent", "Task"}
+from harness_io import (
+    emit_pre_tool_allow,
+    emit_pre_tool_deny,
+    get_session_id,
+    get_tool_call,
+    is_antigravity,
+)
+
+# The tool that spawns a subagent. Claude Code names it "Agent"/"Task"; Antigravity names it "invoke_subagent".
+DISPATCH_TOOLS = {"Agent", "Task", "invoke_subagent"}
 
 # A fork inherits the parent's full context, CLAUDE.md included, so it needs no pointer --
 # outside a flow session, where it is denied instead (fork_reason).
@@ -106,6 +114,21 @@ DENY_REASON = (
     "The second sentence is not optional: it is what carries the rules past depth 1.\n"
     "Exempt: subagent_type \"fork\" outside a flow session, which inherits this session's "
     "context already."
+)
+
+AGY_REQUIRED_TEXT = (
+    "Before anything else, read `~/.gemini/config/plugins/flow/rules-full/agent-baseline.md` "
+    "and follow it for this whole task. Include this instruction verbatim in any prompt you "
+    "write for another agent."
+)
+
+AGY_DENY_REASON = (
+    "Dispatch blocked: the subagent prompt does not carry the agent-baseline pointer.\n\n"
+    "A dispatched agent starts from a fresh context. Without the pointer it may not propagate "
+    "the flow rules past depth 1.\n\n"
+    "Re-send this call with the following two sentences included verbatim in `Prompt`:\n\n"
+    f"{AGY_REQUIRED_TEXT}\n\n"
+    "The second sentence is not optional: it is what carries the rules past depth 1."
 )
 
 
@@ -488,20 +511,10 @@ def is_flow_command(line: str) -> bool:
 
 
 def deny(reason: str) -> None:
-    json.dump(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": reason,
-            }
-        },
-        sys.stdout,
-    )
-    sys.stdout.flush()
+    emit_pre_tool_deny(PAYLOAD, reason)
     cwd = PAYLOAD.get("cwd")
     change = None
-    session_id = PAYLOAD.get("session_id")
+    session_id = get_session_id(PAYLOAD)
     if isinstance(session_id, str) and session_id:
         try:
             change, _, _, _ = session_change(session_id)
@@ -543,41 +556,60 @@ def main() -> int:
         return 0
     PAYLOAD = payload
 
-    if payload.get("tool_name") not in DISPATCH_TOOLS:
+    tool_name, raw_input, _ = get_tool_call(payload)
+    if tool_name not in DISPATCH_TOOLS:
+        emit_pre_tool_allow(payload)
         return 0
 
-    tool_input = payload.get("tool_input")
-    if not isinstance(tool_input, dict):
+    if not isinstance(raw_input, dict):
+        emit_pre_tool_allow(payload)
         return 0
+
+    agy = is_antigravity(payload)
+    if agy:
+        tool_input = {
+            "prompt": raw_input.get("Prompt"),
+            "subagent_type": raw_input.get("TypeName"),
+            "description": raw_input.get("Role"),
+            "model": raw_input.get("Model"),
+        }
+    else:
+        tool_input = raw_input
 
     if tool_input.get("subagent_type") in EXEMPT_SUBAGENT_TYPES:
         reason = fork_reason(payload, tool_input)
         if reason:
             deny(reason)
+        else:
+            emit_pre_tool_allow(payload)
         return 0
 
     prompt = tool_input.get("prompt")
     if not isinstance(prompt, str):
+        emit_pre_tool_allow(payload)
         return 0
 
     lowered = prompt.lower()
     if not all(marker in lowered for marker in REQUIRED_MARKERS):
-        deny(DENY_REASON)
+        deny(AGY_DENY_REASON if agy else DENY_REASON)
         return 0
 
     reason = loop_key_line_reason(payload, tool_input, prompt)
     if reason:
         deny(reason)
         return 0
-    reason = effort_reason(payload, tool_input) or role_pair_reason(payload, tool_input, prompt)
-    if reason:
-        deny(reason)
-        return 0
-    begin = begin_row(payload, tool_input, prompt)
-    if isinstance(begin, str):
-        deny(begin)
-    elif begin:
-        write_begin(begin)
+    if not agy:
+        reason = effort_reason(payload, tool_input) or role_pair_reason(payload, tool_input, prompt)
+        if reason:
+            deny(reason)
+            return 0
+        begin = begin_row(payload, tool_input, prompt)
+        if isinstance(begin, str):
+            deny(begin)
+            return 0
+        elif begin:
+            write_begin(begin)
+    emit_pre_tool_allow(payload)
     return 0
 
 

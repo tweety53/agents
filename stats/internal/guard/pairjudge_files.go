@@ -199,7 +199,7 @@ func pjSendable(env Env, real string) ([]byte, bool) {
 		return nil, false
 	}
 	if home, err := filepath.EvalSymlinks(env.Getenv("HOME")); err == nil && home != "" {
-		for _, d := range []string{".claude", ".config"} {
+		for _, d := range []string{".claude", ".config", ".gemini"} {
 			if pjUnder(real, filepath.Join(home, d)) {
 				return nil, false
 			}
