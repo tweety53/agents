@@ -1108,6 +1108,52 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		}
 	})
 
+	// earlier is a shard fixture whose `specs` row reaches a.spec.ts and two
+	// sidecar-carrying specs of earlier changes, b and c, committed before the
+	// merge base; only a.spec.ts changes after it.
+	earlier := func(t *testing.T) *vvpFix {
+		f := vvpShardFixture(t, 60, "")
+		for _, n := range []string{"b", "c"} {
+			writeFile(t, filepath.Join(f.wt, "design/mockups/"+n+"1.png"), "png\n")
+			writeFile(t, filepath.Join(f.wt, "tests/visual/"+n+".spec.ts"), "shot('shot-"+n+"1.png')\n")
+			writeFile(t, filepath.Join(f.wt, "tests/visual/"+n+".spec.ts.mockups"), "shot-"+n+"1.png "+n+"1\n")
+		}
+		writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts tests/visual/b.spec.ts tests/visual/c.spec.ts\n")
+		gitRun(t, f.wt, "add", "-A")
+		gitRun(t, f.wt, "commit", "-qm", "earlier changes' specs")
+		f.mb = vgHead(t, f.wt)
+		own, _ := os.ReadFile(spec(f))
+		writeFile(t, spec(f), string(own)+"// the change's own\n")
+		writeFile(t, filepath.Join(f.wt, "src/ui/app.tsx"), "own\n")
+		gitRun(t, f.wt, "add", "-A")
+		gitRun(t, f.wt, "commit", "-qm", "the change's own")
+		return f
+	}
+
+	t.Run("a spec whose sidecar is another change's is neither captured nor judged", func(t *testing.T) {
+		t.Parallel()
+		f := earlier(t)
+		f.green()
+		rc, out, _ := f.prepare()
+		if st := f.stageFile(); rc != 0 || !strings.Contains(st, "spec "+spec(f)+"\n") || strings.Contains(st, "b.spec.ts") || strings.Contains(st, "c.spec.ts") ||
+			runLog(f) != "setup\ncapture "+spec(f)+" "+vvpWorkersFlag+"--update-snapshots=all\n" {
+			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, st)
+		}
+	})
+
+	t.Run("a round base the change's own spec predates captures nothing", func(t *testing.T) {
+		t.Parallel()
+		f := earlier(t)
+		rb := vgHead(t, f.wt)
+		writeFile(t, filepath.Join(f.wt, "src/ui/app.tsx"), "round\n")
+		gitRun(t, f.wt, "commit", "-qam", "the round's fix")
+		f.green()
+		rc, out, _ := f.prepare("--round-base", f.wt+"="+rb)
+		if st := f.stageFile(); rc != 0 || strings.Contains(st, "spec ") || runLog(f) != "" {
+			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, st)
+		}
+	})
+
 	t.Run("a capture row ending in a block takes the flags inside it", func(t *testing.T) {
 		t.Parallel()
 		f := vvpShardFixture(t, 60, "")
@@ -1157,7 +1203,8 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		t.Parallel()
 		f := vvpShardFixture(t, 60, "")
 		// The regression checkout, a worktree of the set whose diff touches no
-		// UI path: it holds the spec, its sidecar and a baseline at its merge base.
+		// UI path: it holds the spec, its sidecar and a baseline at its merge
+		// base, and edits the spec after it, so the spec is the change's own.
 		w := filepath.Join(filepath.Dir(f.wt), "gymie-playwright")
 		shot := "tests/visual/a.spec.ts-snapshots/shot-F1-darwin.png"
 		for _, p := range []string{"tests/visual/a.spec.ts", "tests/visual/a.spec.ts.mockups"} {
@@ -1174,7 +1221,9 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		gitRun(t, w, "add", "-A")
 		gitRun(t, w, "commit", "-qm", "base")
 		mb := vgHead(t, w)
-		vgCommit(t, w, "notes.md")
+		own, _ := os.ReadFile(filepath.Join(w, "tests/visual/a.spec.ts"))
+		writeFile(t, filepath.Join(w, "tests/visual/a.spec.ts"), string(own)+"// the change's own\n")
+		gitRun(t, w, "commit", "-qam", "the change's own")
 		b, _ := os.ReadFile(filepath.Join(f.wt, ".flow/project.md"))
 		gitRun(t, w, "remote", "add", "origin", "x/regress")
 		writeFile(t, filepath.Join(f.wt, ".flow/project.md"), strings.Replace(string(b), "| `screenshots` | `tests/visual` |\n", "| `screenshots` | `tests/visual` |\n| `regression checkout` | `"+w+"` |\n| `regression repo` | `x/regress` |\n", 1))

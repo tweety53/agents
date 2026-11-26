@@ -268,8 +268,10 @@ func (v *vvp) captureRoot(w string) string {
 // is a failing check (kan-1086 self-review, F11). With `design repo` declared
 // too, render-frames runs first on design.md and those sidecars, so the
 // tagged frames they cite exist before check-sidecar-reach, compose and
-// check-frame-list read them (kan-1096). Every failing check is collected,
-// then one `STOP:` line names them all.
+// check-frame-list read them (kan-1096). Of the sidecars reach-checked, only
+// the change's own (own) go on to shard; a --defects pass keeps every
+// sidecar holding a defect frame. Every failing check is collected, then one
+// `STOP:` line names them all.
 func (v *vvp) preflight(survivors []string) {
 	var fails, sidecars []string
 	collect := func(guard, out, errs string) {
@@ -319,7 +321,9 @@ func (v *vvp) preflight(survivors []string) {
 				}
 			}
 			files := v.frameFiles(targets)
+			own := v.own(w)
 			if d := v.defects[w]; len(v.roundBase) > 0 && len(d) > 0 {
+				own = nil
 				// A scoped pass renders and reach-checks only the sidecars holding its defect frames.
 				files, targets = nil, nil
 				for _, p := range v.frameFiles([]string{root}) {
@@ -333,7 +337,7 @@ func (v *vvp) preflight(survivors []string) {
 				}
 			}
 			for _, p := range files {
-				if strings.HasSuffix(p, ".mockups") {
+				if strings.HasSuffix(p, ".mockups") && (own == nil || own(p)) {
 					sidecars = append(sidecars, p)
 				}
 			}
@@ -353,6 +357,33 @@ func (v *vvp) preflight(survivors []string) {
 		v.stop("preflight-failed", "stopped", "preflight — "+strings.Join(fails, "; "))
 	}
 	v.shard(survivors, sidecars)
+}
+
+// own is whether a `<spec>.mockups` sidecar is the change's own: it or its
+// spec changed in the diff of w's capture root from its --round-base, else
+// its --since, else its --merge-base. nil, every sidecar counting, when the
+// capture root has no base to diff from.
+func (v *vvp) own(w string) func(string) bool {
+	root := v.captureRoot(w)
+	base, dots := v.roundBase[root], ".."
+	if base == "" {
+		base, dots = v.since[root], "..."
+	}
+	if base == "" {
+		base = v.mergeBase[root]
+	}
+	if base == "" {
+		return nil
+	}
+	changed := v.changed(root, base, dots)
+	return func(sc string) bool {
+		for _, p := range []string{sc, strings.TrimSuffix(sc, ".mockups")} {
+			if rel, err := filepath.Rel(root, p); err == nil && slices.Contains(changed, filepath.ToSlash(rel)) {
+				return true
+			}
+		}
+		return false
+	}
 }
 
 // shard writes a sharded pass's `spec` and `slice` lines to the stage file
