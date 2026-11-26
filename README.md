@@ -4,7 +4,7 @@ Portable agent configuration for Claude Code and Antigravity: the **flow** pipel
 land), its slash commands and skills, always-on rules, hooks, and a stats service that records every
 run.
 
-**This repository is the source of truth — edit here, then run `./setup.sh global` (Claude Code, user-level), `./setup.sh antigravity` (Antigravity, user-level) or `./setup.sh claude-code` (Claude Code, one project).** Nothing is
+**This repository is the source of truth — edit here, then run `./setup.sh global` (Claude Code, user-level), `./setup.sh antigravity` (Antigravity, user-level) or, optionally, `./setup.sh claude-code` (Claude Code, one project).** Nothing is
 synced back from a project checkout.
 
 ## Quick start
@@ -24,8 +24,8 @@ make -C stats restart                                      # PostgreSQL, flowd a
 **Never stop the live daemon or drop the `flow` database:** every project's runs write to it.
 `stats/README.md` covers the launchd agent, the UI-test stack and Jira credentials.
 
-Per project: `/path/to/agents/setup.sh claude-code` links skills, commands and agents into `.claude/`,
-copies `templates/CLAUDE.md` in when the project has none, and renders the opt-in rules a project names under `## standards` in its `.flow/project.md`.
+Per project (optional; no `/flow*` command needs it, since everything a flow run reads — rules, hooks, guard symlinks, mods, flowd and the `flow` CLI — comes from `./setup.sh global`): `/path/to/agents/setup.sh claude-code` links skills, commands and agents into that project's `.claude/`,
+copies `templates/CLAUDE.md` in when the project has none, renders the opt-in rules a project names under `## standards` in its `.flow/project.md`, and prints the superpowers plugin-install hint.
 
 ## How it fits together
 
