@@ -66,10 +66,13 @@ cases is a stop for nothing:
   the mockup does not draw stays only when the screen cannot work without it. Record that reason
   with the frame. A written spec that disagrees with the mockup is no reason to keep the departure
   (**Mockup over spec**, `rules/design-mockups-are-specs.mdc`): the run builds the mockup and
-  records the spec's difference as a departure. Frames that contradict a `## Decisions` entry
-  naming the look — "use the shipped component", say — are not fixed: the difference is recorded
-  as a departure under that decision, a fresh entry naming its ID (the decision-entry bullet
-  below). Restyling a shared style, token or component for every screen to match one feature's
+  records the spec's difference as a departure. Frames that contradict a `## Decisions` entry the operator stated — "use the shipped component",
+  say — lose to the mockup: the run builds the frames and never stops or asks. It shows that once
+  during the run, as one short line in the run's status channel naming the decision ID, the frame
+  and what was built, and lists it in the handoff's `**Decisions:**` lines (🤖-marked, the
+  decision ID and frame) so the operator can overrule it with a fix run. A departure from an
+  entry the run recorded itself (the decision-entry bullet below) is not that: the frames stay
+  recorded as a departure under it, a fresh entry naming its ID. Restyling a shared style, token or component for every screen to match one feature's
   frames is not the default fix: the feature's own code is brought to the frames, and the shared
   source is restyled only where a `## Decisions` entry chose that.
 - **A declared frame that was not captured:** add the capture. A missing capture means the report is
