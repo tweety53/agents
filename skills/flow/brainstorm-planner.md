@@ -100,7 +100,9 @@ Investigate read-only, then present the design.
   frames, exits 0 before the design is approved; it exits 1 naming each frame that leaves a listed
   constant unstated and each constant two frames draw differently. A rendered frame's sidecar sits
   in its tag's directory, which is never committed: the check is this gate's, re-stated if the
-  frames are rendered afresh. Every colour a cited frame uses is also mapped to a theme token, or a
+  frames are rendered afresh. Whoever adds or changes a listed constant runs
+  `flow-guard check-frame-constants` in the same step and fixes every frame it names — each
+  `FRAME-CONSTANT-ADD:` line it prints is the sidecar line to add, its value read off the frame. Every colour a cited frame uses is also mapped to a theme token, or a
   new one the design adds, before the design is approved — never a hex at the use site.
 - **A computed rule is run against every cited frame.** Where a screen's rows, titles or copy come
   from a computed rule, the planner runs it for each cited frame and compares; every mismatch is

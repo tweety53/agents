@@ -32,11 +32,15 @@ this file in full first: its prompt is a stub naming this file, never these para
 > back-out commits**, `skills/flow-contracts/git-boundaries.md`).
 
 > **CONFIDENCE ONCE GREEN:** Only a finished group is estimated: a `BLOCKED` or `PARTIAL` report files
-> nothing. Once its tests are green, before your commit, whoever turns the group green — its
+> nothing. A group is not finished while a guard it runs exits non-zero or its measure carries a
+> flagged row (**MEASURE A UI TASK BEFORE YOU REPORT**): fix it, or report `BLOCKED` naming the
+> guard — never `DONE` carrying it as a gap, whatever the number. Once its tests are green, before your commit, whoever turns the group green — its
 > implementer, or a fixer closing what its implementer's report left open — files one estimate, never
 > acted on. Answer for the tasks of this dispatch: how confident are you,
 > 1–100%, that you executed them as the plan writes them, and what would move you to 100% — one gap
-> per thing still open, each naming what would close it. Then run `flow confidence tags`, reuse a
+> per thing still open, each naming what would close it and ending with the command that would
+> verify or close it (`flow-guard check-frame-constants …`, `flow-guard visual-verify-pass measure …`);
+> a gap without its command is incomplete. Then run `flow confidence tags`, reuse a
 > printed tag only when it names the same kind of gap — a near fit hides two unrelated gaps under one
 > name — and write a new lowercase kebab-case tag only when none does (a tag names the kind of gap,
 > never the change), and file it:
@@ -51,7 +55,10 @@ this file in full first: its prompt is a stub naming this file, never these para
 > below 90% reaches the operator's review list; one of 90% or more is stored and shown beside your
 > group only. **Whatever the number, continue** — a low estimate is never a question, never a `BLOCKED`
 > and never a reason to change the plan; a gap that is a question only the operator can settle still
-> goes through **REPORT, DON'T DECIDE**, as it would unestimated. A warning or a non-zero exit of
+> goes through **REPORT, DON'T DECIDE**, as it would unestimated. A question your report carries names
+> only a choice **What still stops** (`skills/flow-contracts/operator-prompts-auto-resolution.md`)
+> lets a run stop for: a red guard, an open flag or a failed check is your next step, never a
+> question. A warning or a non-zero exit of
 > either command is noted in your REPORT FILE and does not stop you. **A gap that reading code settles
 > is settled by reading it — "unread" is never a gap.** **A gap a command inside your tasks can settle is settled by running it** — a test, a
 > query against real data, a build — and is never left to stand as a gap; name that file or command in your REPORT FILE. A
@@ -229,6 +236,12 @@ this file in full first: its prompt is a stub naming this file, never these para
 > states is the one you build.** One you judge better, or one that suits a single code path, is not
 > yours to substitute: build the design's, or report BLOCKED naming why it cannot work, never both
 > change it and carry on.
+
+> **AN EDIT DENIED IS REPORTED, NEVER ROUTED AROUND:** when a permission classifier denies an edit,
+> report `status: BLOCKED` with the `question:` line `edit denied — <file> — <the exact edit: the old
+> and new text, or the line to add>`, and never reach the file another way. The parent makes the
+> edit itself where **What still stops**' **Out of the run's reach** bullet
+> (`skills/flow-contracts/operator-prompts-auto-resolution.md`) lets it.
 
 > **A FLOW TOOLING DEFECT IS REPORTED, NEVER FIXED HERE:** a guard, hook, script, skill or contract
 > of the `agents` repository that wrongly blocks your task is named in your REPORT FILE — the

@@ -386,7 +386,9 @@ entry. At each boundary, in this order:
    reports it `ENDED` and the parent reads its summary head (`skills/flow/implementer-brief.md`). **A `status: DONE` head of an
    implementer, or of a fixer that turned its group green, with no `confidence:` line skipped CONFIDENCE ONCE GREEN: the parent sends that agent one message —
    estimate now, per your brief's CONFIDENCE ONCE GREEN, file it and answer with the `confidence:` line —
-   and continues on its answer, never blocking the group on it.**
+   and continues on its answer, never blocking the group on it.** A report whose `## Open gaps` —
+   the one section of its body the parent reads — holds a gap that names no command gets the same
+   one message, asking for each gap's command.
 2. **One Bash call closes the returned group**, its verdict echoed:
    `flow-guard close-task`.
 
@@ -575,7 +577,9 @@ The parent's own `## lint` runs and boundary checks are bound by the same two pa
 
 > **SCRUB A REPRODUCED ARTIFACT:** A real artifact reproduced into a committed fixture — a transcript, a log, a database dump — is reduced to the lines the test needs and scrubbed of every identifier, path, prompt text and personal datum before it is staged; the raw copy stays under `<abs-worktree>/.superpowers/sdd/`, never in the tree.
 
-On BLOCKED: pause and report. Never guess. A question the report carries that takes one
+On BLOCKED: pause and report. Never guess. A `question:` line `edit denied — <file> — <edit>`
+(**AN EDIT DENIED IS REPORTED, NEVER ROUTED AROUND**, `skills/flow/implementer-brief.md`) is not a
+pause: the parent makes that edit where that paragraph lets it, and the task continues. A question the report carries that takes one
 recommended option is not a guess: **Auto-resolution** (`skills/flow-contracts/operator-prompts.md`)
 takes it, and only a question with none pauses the run.
 
