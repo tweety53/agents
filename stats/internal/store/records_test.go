@@ -6264,6 +6264,40 @@ func TestRecordDispatchKeepsRequest(t *testing.T) {
 	}
 }
 
+// TestRecordDispatchRefusesOperatorKeyReuseAndMissingRequest pins that an
+// operator-asked begin refuses a key held under another session token (naming
+// the next free key) and a first begin with no request, while a same-token
+// replay passes.
+func TestRecordDispatchRefusesOperatorKeyReuseAndMissingRequest(t *testing.T) {
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-operator-key-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	one := 1
+	begin := func(token, key string, req *int) error {
+		in := baseDispatch("implementer", "opus")
+		in.SessionToken = token
+		in.Key = key
+		in.Request = req
+		_, err := st.RecordDispatch(ctx, projectKey, "kan-1", in)
+		return err
+	}
+	if err := begin("fi-a", "operator-1", &one); err != nil {
+		t.Fatalf("first begin: %v", err)
+	}
+	if err := begin("fi-a", "operator-1", nil); err != nil {
+		t.Errorf("same-token replay: %v, want accepted", err)
+	}
+	if err := begin("fi-b", "operator-1", &one); !errors.Is(err, store.ErrOperatorKeyReused) || !strings.Contains(err.Error(), "operator-2") {
+		t.Errorf("reused key: %v, want ErrOperatorKeyReused naming operator-2", err)
+	}
+	if err := begin("fi-a", "operator-2", nil); !errors.Is(err, store.ErrOperatorAskedNoRequest) {
+		t.Errorf("no request: %v, want ErrOperatorAskedNoRequest", err)
+	}
+}
+
 // TestRecordDispatchReBeginClearsClosesLoop: a re-begin of an aborted row
 // clears closesLoop with the row's other end facts, so the re-run's completed
 // end without -closes-loop reads false (KAN-1122).

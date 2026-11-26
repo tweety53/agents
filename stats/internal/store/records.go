@@ -239,6 +239,47 @@ func checkPlannerKey(ctx context.Context, tx pgx.Tx, projectKey, change string, 
 	return fmt.Errorf("%w: %s/%s key %q under session token %q -- this run's next planner key is plan-%d", ErrPlannerKeyOutOfSequence, projectKey, change, in.Key, in.SessionToken, next)
 }
 
+// ErrOperatorKeyReused is an operator-asked begin of an operator-<k> key the
+// change already holds under another session token (a restarted session
+// reusing a key); ErrOperatorAskedNoRequest is a first operator-asked begin
+// naming no /flow-interactive request, so its cost and commits tie to none.
+var (
+	ErrOperatorKeyReused      = errors.New("store: operator key already held by another session")
+	ErrOperatorAskedNoRequest = errors.New("store: operator-asked begin without -request")
+)
+
+var operatorKey = regexp.MustCompile(`^operator-([0-9]+)$`)
+
+// checkOperatorAsked refuses an operator-asked begin whose key the change
+// holds under another session token, naming the next free operator-<k>, and
+// a first begin of a key with no request. A replay or re-begin under the same
+// token passes.
+func checkOperatorAsked(ctx context.Context, tx pgx.Tx, projectKey, change string, in records.Dispatch) error {
+	if records.StoredRole(in.Role, in.Key, in.PolicyRole) != "operator-asked" {
+		return nil
+	}
+	var same, other bool
+	var maxK int
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(bool_or(d.dispatch_key = $4 AND d.session_token = $3), false),
+		       COALESCE(bool_or(d.dispatch_key = $4 AND d.session_token IS DISTINCT FROM $3), false),
+		       COALESCE(max(substring(d.dispatch_key from '^operator-([0-9]+)$')::int), 0)
+		FROM dispatches d JOIN changes c ON c.id = d.change_id
+		WHERE c.project_key = $1 AND c.name = $2`,
+		projectKey, change, in.SessionToken, in.Key).Scan(&same, &other, &maxK); err != nil {
+		return err
+	}
+	switch {
+	case same:
+		return nil
+	case other:
+		return fmt.Errorf("%w: %s/%s key %q -- the next free operator key is operator-%d", ErrOperatorKeyReused, projectKey, change, in.Key, maxK+1)
+	case in.Request == nil:
+		return fmt.Errorf("%w: %s/%s key %q -- pass -request <n>, the /flow-interactive request it runs for", ErrOperatorAskedNoRequest, projectKey, change, in.Key)
+	}
+	return nil
+}
+
 // ErrTooManyDispatchSeqCollisions is returned by RecordDispatch when it
 // could not allocate a seq after retrying past every concurrent collision
 // it was willing to absorb -- contention so extreme that the caller, not
@@ -528,6 +569,9 @@ func (s *Store) recordDispatchTx(ctx context.Context, projectKey, change string,
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	if err := checkPlannerKey(ctx, tx, projectKey, change, in); err != nil {
+		return records.Dispatch{}, err
+	}
+	if err := checkOperatorAsked(ctx, tx, projectKey, change, in); err != nil {
 		return records.Dispatch{}, err
 	}
 	if in.StageRunID == nil {

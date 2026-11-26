@@ -272,6 +272,7 @@ func validateFindingRef(flagName, ref string) error {
 
 const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] [-request n] -role role [-slot name]
+                             (an operator-asked begin needs -request and a key the change does not hold)
                              -model model -effort level [-agent-id id|none]
                              [-diff-base sha[,sha...]] [-round-base sha] [-pair-pick text] [-policy-role id]
                              [-started-at instant]
