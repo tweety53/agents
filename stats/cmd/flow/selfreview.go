@@ -446,17 +446,18 @@ func runSelfReviewSimilar(ctx context.Context, args []string, getenv func(string
 		fmt.Fprintf(stderr, "⚠ flow: hybrid similarity unavailable, BM25 only: %s\n", res.reason)
 	}
 	type hit struct {
-		ID          int64   `json:"id"`
-		Change      string  `json:"change"`
-		Theme       string  `json:"theme"`
-		Severity    string  `json:"severity"`
-		Disposition string  `json:"disposition"`
-		Score       float64 `json:"score"`
-		Note        string  `json:"note"`
+		ID           int64   `json:"id"`
+		Change       string  `json:"change"`
+		Theme        string  `json:"theme"`
+		Severity     string  `json:"severity"`
+		Disposition  string  `json:"disposition"`
+		ReviewStatus string  `json:"reviewStatus,omitempty"`
+		Score        float64 `json:"score"`
+		Note         string  `json:"note"`
 	}
 	out := []hit{}
 	for _, r := range rows {
-		out = append(out, hit{r.ID, r.Change, r.Theme, r.Severity, r.Disposition, r.Score, r.Note})
+		out = append(out, hit{r.ID, r.Change, r.Theme, r.Severity, r.Disposition, r.ReviewStatus, r.Score, r.Note})
 	}
 	enc := json.NewEncoder(stdout)
 	enc.SetIndent("", "  ")

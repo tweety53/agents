@@ -78,6 +78,11 @@ present-but-empty for an angle with no findings, never omitted:
 
 A silent angle and a skipped angle are indistinguishable to a reader, which is why an empty angle says so.
 
+Angles 1 and 5 read the bundle's `failed tool calls per dispatch` section — each dispatch's failed
+tool calls, their trimmed error and the call that fixed them (absent when none failed). A failure
+the agent caused and corrected is a finding when it recurs or its cause is a pipeline gap; it takes
+the `agent-command-mistake` theme. No credential, `.env`, `~/.claude` or `~/.config` content is in it.
+
 Angle 3 reads the run's review-panel findings and its visual-verify findings, each judged alone on its own severity — no severity
 needs another alongside it. A Critical finding qualifies; an Important finding qualifies; a Minor
 finding qualifies only when the pass judges it genuinely useful, meaning it is in a class the
@@ -223,7 +228,7 @@ Only an impactful finding is suggested: a Critical or Important one (`skills/flo
 finding is never recorded as a suggestion — `flow self-review finding` refuses `suggested` with `-severity minor` — and is
 left out of the report; this holds for suggestions only, and fixes are recorded as they always were. Every impactful
 `big` finding, every impactful `flow-fix` finding step 3 or **The base sync** left unfixed, and every impactful
-`flow-improvement`, `flow-prompt-tuning`, `flow-cost` and `flow-automation` finding is recorded in step 5 as `suggested`, one row each,
+`flow-improvement`, `flow-prompt-tuning`, `flow-cost` and `flow-automation` finding is recorded in step 5 as `suggested` (after its similarity check), one row each,
 carrying its full `-detail`, written for the operator who decides on it and has not seen the run: one markdown body
 with these headings, in this order — `## Proposal` (the one change asked for, one or two sentences), `## What happened`
 (the situation in plain words: what the run was doing, what went wrong or well, and why that matters), `## Examples`
@@ -257,7 +262,7 @@ flow self-review finding -change <name> -angle <label> -disposition fixed|sugges
 ```
 
 `-note` opens with the finding's theme prefix, `uncategorized` for a finding no tag fits (**The theme list**, `skills/flow-self-review/themes.md`).
-Before recording an `uncategorized` finding the pass may run `flow self-review similar '<the finding in a few words>'` and read the earlier findings it prints; it ranks the project's recorded findings by their wording, and a close match shows which theme the earlier one took.
+Before recording each `suggested` finding, and before an `uncategorized` one, the pass runs `flow self-review similar '<the finding in a few words>'` and reads the earlier findings it prints; it ranks the project's recorded findings by their wording, and a close match shows which theme the earlier one took. Each hit carries its `disposition` and, on a suggestion, its `reviewStatus`. A close match to an earlier suggestion with `reviewStatus` **declined** is recorded `noted`, never `suggested`, its note naming the match. A close match to one still `to-review` is still recorded `suggested`, its `## Examples` naming the earlier finding.
 `-ref` is the landed sha for `fixed`, and omitted for `suggested`, `declined` and `noted`; `-detail` is required for `suggested`;
 `-blast-radius` is step 3's count; `-severity` is the grade the pass gave the finding, required for `fixed` and `suggested`, which `flow self-review finding` refuses without it, and omitted for `declined` or `noted` when the pass gave none. An `In-run pipeline fix:`
 line naming a sha gets no second row when `flow self-review findings -change <name>` already

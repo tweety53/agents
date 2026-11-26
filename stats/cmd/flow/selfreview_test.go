@@ -405,7 +405,7 @@ func TestSelfReviewSimilarCLI(t *testing.T) {
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		gotQuery = r.URL.Query().Get("q") + "|" + r.URL.Query().Get("n")
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`[{"id":7,"change":"demo","angle":"a","note":"n","disposition":"noted","detail":"long","theme":"t","severity":"minor","score":1.5,"recordedAt":"2026-10-04T00:00:00Z"}]`))
+		_, _ = w.Write([]byte(`[{"id":7,"change":"demo","angle":"a","note":"n","disposition":"noted","detail":"long","theme":"t","severity":"minor","reviewStatus":"declined","score":1.5,"recordedAt":"2026-10-04T00:00:00Z"}]`))
 	}))
 	defer srv.Close()
 
@@ -416,7 +416,7 @@ func TestSelfReviewSimilarCLI(t *testing.T) {
 	}
 	code, stdout := sim("stale", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "cache", "-n", "3")
 	var rows []map[string]any
-	if code != 0 || json.Unmarshal([]byte(stdout), &rows) != nil || len(rows) != 1 || rows[0]["id"] != float64(7) || rows[0]["score"] != 1.5 || rows[0]["theme"] != "t" {
+	if code != 0 || json.Unmarshal([]byte(stdout), &rows) != nil || len(rows) != 1 || rows[0]["id"] != float64(7) || rows[0]["score"] != 1.5 || rows[0]["theme"] != "t" || rows[0]["reviewStatus"] != "declined" {
 		t.Errorf("exit %d, stdout %q; want the one hit", code, stdout)
 	}
 	if _, has := rows[0]["detail"]; has || gotQuery != "stale cache|3" {
