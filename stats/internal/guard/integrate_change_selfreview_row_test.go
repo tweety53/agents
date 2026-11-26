@@ -104,3 +104,18 @@ for r in "merge and push" manual; do
   check "no_in_review: $r prints no In Review" '[ "$RC" -eq 0 ] && ! printf "%s" "$OUT" | grep -q "to In Review"'
 done`}})
 }
+
+// TestCommitSkipsCleanWorktreeWithoutIgnore pins that a worktree holding no
+// change and not ignoring the change directory does not stop commit.
+func TestCommitSkipsCleanWorktreeWithoutIgnore(t *testing.T) {
+	smoke.Heavy(t)
+	icRunCases(t, []icCaseDef{{"commit_clean_unignored", `# --- commit_clean_unignored ---
+fixture
+printf '.superpowers/\n' >"$WORK/b/.gitignore"
+g -C "$WORK/b" commit -qam "base: no changes ignore" && g -C "$WORK/b" push -q origin main
+g -C "$WORK/b-worktrees/demo" reset -q --hard main
+jq --arg w "$WORK/b-worktrees/demo" --arg s "$(g -C "$WORK/b" rev-parse main)" '.worktrees[$w]=$s' "$WORK/state.json" >"$WORK/state.new" && mv "$WORK/state.new" "$WORK/state.json"
+sut prepare "$WORK/a" demo
+sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): add work"
+check "commit_clean_unignored: commit exits 0" '[ "$RC" -eq 0 ]'`}})
+}

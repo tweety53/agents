@@ -98,6 +98,13 @@ func (c *ic) commitTwo(wt, subj string, trailers []string) bool {
 		return false
 	}
 	changes := specRootLeaf(wt, c.stderr) + "/changes/"
+	// A worktree with nothing to commit and no change file tracked needs no
+	// ignore: neither commit can take the change directory.
+	dirty, okStatus := c.gitQuiet("-C", wt, "status", "--porcelain")
+	tracked, okTracked := c.gitQuiet("-C", wt, "ls-files", "--", changes+c.name)
+	if okStatus && okTracked && dirty == "" && tracked == "" {
+		return true
+	}
 	if _, ok := c.gitQuiet("-C", wt, "check-ignore", "-q", "--no-index", changes); !ok {
 		fmt.Fprintf(c.stderr, "integrate-change: %s is not gitignored in %s — add it to .gitignore before integrating\n", changes, wt)
 		return false
