@@ -1,25 +1,24 @@
 # agents
 
-Portable agent configuration for Claude Code and Antigravity: the **flow** pipeline (plan → implement → review →
+Portable agent configuration for Claude Code: the **flow** pipeline (plan → implement → review →
 land), its slash commands and skills, always-on rules, hooks, and a stats service that records every
 run.
 
-**This repository is the source of truth — edit here, then run `./setup.sh global` (Claude Code, user-level), `./setup.sh antigravity` (Antigravity, user-level) or, optionally, `./setup.sh claude-code` (Claude Code, one project).** Nothing is
+**This repository is the source of truth — edit here, then run `./setup.sh global` (Claude Code, user-level) or, optionally, `./setup.sh claude-code` (Claude Code, one project).** Nothing is
 synced back from a project checkout.
 
 ## Quick start
 
 ```bash
-./setup.sh global                                          # install into ~/.claude (Claude Code)
-./setup.sh antigravity                                     # install plugin into ~/.gemini/config/plugins/flow (Antigravity)
+./setup.sh global                                          # install into ~/.claude
 go install github.com/tweety53/spectre/cmd/spectre@latest  # needed by every skill but /flow-plan
 make -C stats restart                                      # PostgreSQL, flowd and the flow CLI (~/.local/bin)
 ```
 
 1. In Claude Code: `/plugin install prime-radiant-inc/superpowers`.
-2. In Claude Code, paste the hook snippet the installer prints into `~/.claude/settings.json` (hooks are installed,
-   never registered for you). Antigravity auto-discovers `hooks.json`, rules, and skills from the installed plugin.
-3. In any project: `/flow <name>` (or invoke the `flow` skill in Antigravity).
+2. Paste the hook snippet the installer prints into `~/.claude/settings.json` (hooks are installed,
+   never registered for you).
+3. In any project: `/flow <name>`.
 
 **Never stop the live daemon or drop the `flow` database:** every project's runs write to it.
 `stats/README.md` covers the launchd agent, the UI-test stack and Jira credentials.
@@ -32,7 +31,7 @@ copies `templates/CLAUDE.md` in when the project has none, renders the opt-in ru
 ```mermaid
 flowchart LR
     setup["setup.sh"] --> inst["rules · skills · commands<br/>agents · hooks · mods"]
-    cc["Claude Code · Antigravity"] -- reads --> inst
+    cc["Claude Code"] -- reads --> inst
     inst -- calls --> cli["flow CLI"]
     inst -- calls --> fg["flow-guard"]
     cli --> flowd["flowd<br/>127.0.0.1:4173"]
@@ -186,11 +185,10 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 | `stats/` | `flowd`, the `flow` CLI, every guard (`internal/guard/`) and the web UI (`web/`) |
 | `scripts/` | `flow-guard`, the bootstrap that builds and runs every guard |
 | `mods/` | Claude Code plugins, e.g. `flow-task-list` |
-| `templates/` | The `CLAUDE.md` a project install copies in when it has none, plus Antigravity harness and `hooks.json` templates |
+| `templates/` | The `CLAUDE.md` a project install copies in when it has none |
 | `experiments/` | Measurements behind design choices, e.g. `rag/` |
 | `docs/` | The detail pages linked above |
 | `spectre/peers` | Declared peer repositories (name and relative path) for cross-repo changes (`skills/flow/cross-repo-worktrees.md`) |
-| `AGENTS.md` | The instruction file Antigravity sessions in this repository read; `CLAUDE.md` is Claude Code's |
 | `.flow/project.md` | This repository's own flow config: lint, test, run, stop |
 | `setup.sh` | The installer |
 
@@ -198,5 +196,5 @@ file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
 
 From `stats/`: `gofmt -w .`, `go vet ./...`, and `cd web && npx tsc -b` must exit clean. Guard tests:
 `go test ./internal/guard/...`. The full lint list is `.flow/project.md`'s `## lint`. After a change
-lands, run `./setup.sh global`, `./setup.sh antigravity`, and `make -C stats restart` so the next run uses it. Edits to existing
+lands, run `./setup.sh global` and `make -C stats restart` so the next run uses it. Edits to existing
 skills, commands and hooks are live (symlinks); an always-on rule needs the re-run.

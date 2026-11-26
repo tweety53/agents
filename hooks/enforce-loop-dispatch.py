@@ -24,18 +24,13 @@ import re
 import subprocess
 import sys
 
-from harness_io import emit_pre_tool_allow, get_tool_call
-
-DISPATCH_TOOLS = {"Agent", "Task", "invoke_subagent"}
+DISPATCH_TOOLS = {"Agent", "Task"}
 
 # Any Key line whose value starts as a loop key; the value must then be a whole VALID_KEY.
 KEY_RE = re.compile(r"^[ \t]*Key:[ \t]*((?:pipeline-fix|self-review)-.*?)[ \t]*$", re.M)
 VALID_KEY = re.compile(r"pipeline-fix-[0-9]+-\S+|self-review-\S+-\S+")
 
-BASELINES = (
-    "~/.claude/rules/agent-baseline.md",
-    "~/.gemini/config/plugins/flow/rules-full/agent-baseline.md",
-)
+BASELINE = "~/.claude/rules/agent-baseline.md"
 
 # Under setup.sh's registered 300s.
 CHECK_TIMEOUT = 240
@@ -64,37 +59,28 @@ def main():
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
         return 0
-    if not isinstance(payload, dict):
+    if not isinstance(payload, dict) or payload.get("tool_name") not in DISPATCH_TOOLS:
         return 0
-    tool_name, tool_input, _ = get_tool_call(payload)
-    if tool_name not in DISPATCH_TOOLS:
-        emit_pre_tool_allow(payload)
+    tool_input = payload.get("tool_input")
+    if not isinstance(tool_input, dict) or not isinstance(tool_input.get("prompt"), str):
         return 0
-    prompt = tool_input.get("prompt") if isinstance(tool_input.get("prompt"), str) else tool_input.get("Prompt")
-    if not isinstance(prompt, str):
-        emit_pre_tool_allow(payload)
-        return 0
+    prompt = tool_input["prompt"]
     cwd = payload.get("cwd")
     cwd = cwd if isinstance(cwd, str) and os.path.isdir(cwd) else None
     m = KEY_RE.search(prompt)
-    if not m or not VALID_KEY.fullmatch(m.group(1)) or not any(b in prompt for b in BASELINES):
-        emit_pre_tool_allow(payload)
+    if not m or not VALID_KEY.fullmatch(m.group(1)) or BASELINE not in prompt:
         return 0
     key = m.group(1)
     role = ROLE_LINE.search(prompt)
-    subagent_type = tool_input.get("subagent_type") or tool_input.get("TypeName") or ""
-    model = tool_input.get("model") or tool_input.get("Model") or ""
-    args = [*CHECK, REPO, key, str(subagent_type), str(model),
+    args = [*CHECK, REPO, key, str(tool_input.get("subagent_type") or ""), str(tool_input.get("model") or ""),
             role.group(1) if role else ""]
     try:
         r = subprocess.run(args, capture_output=True, text=True, timeout=bound(CHECK_TIMEOUT), cwd=cwd)
     except (OSError, subprocess.SubprocessError) as e:
         print(f"enforce-loop-dispatch: {key} not recorded: flow-guard check-loop-dispatch could not run ({e})", file=sys.stderr)
-        emit_pre_tool_allow(payload)
         return 0
     if r.returncode != 0:
         print(f"enforce-loop-dispatch: {key} not recorded (flow-guard check-loop-dispatch exit {r.returncode}):\n{r.stdout}{r.stderr}", file=sys.stderr)
-    emit_pre_tool_allow(payload)
     return 0
 
 

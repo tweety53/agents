@@ -25,31 +25,21 @@ import sys
 from typing import Optional, Tuple
 from urllib import parse, request
 
-from harness_io import (
-    emit_empty_if_antigravity,
-    emit_pre_tool_allow,
-    get_event_name,
-    get_session_id,
-    get_tool_call,
-    is_antigravity,
-)
-
 DEFAULT_STORE_ADDR = "http://127.0.0.1:4173"
 STORE_TIMEOUT_SECONDS = 2
 MAX_DETAIL_BYTES = 500
 
 
 def activity(payload: dict) -> Optional[Tuple[str, str]]:
-    event = get_event_name(payload)
+    event = payload.get("hook_event_name")
     # A subagent's tool events fire under the parent's session_id and carry
     # agent_id (https://code.claude.com/docs/en/hooks); they must not overwrite
     # the main thread's state, e.g. turn an open question back to working
     # (kan-1048 self-review, 1-J). Its Notification still reaches the board.
     if event in ("PreToolUse", "PostToolUse") and payload.get("agent_id"):
         return None
-    tool, inp, _ = get_tool_call(payload)
-    if event == "PreToolUse" and tool in ("AskUserQuestion", "ask_question"):
-        questions = inp.get("questions") or [{}]
+    if event == "PreToolUse" and payload.get("tool_name") == "AskUserQuestion":
+        questions = (payload.get("tool_input") or {}).get("questions") or [{}]
         return "question", str(questions[0].get("question") or "")
     if event == "Notification":
         message = str(payload.get("message") or "")
@@ -60,7 +50,7 @@ def activity(payload: dict) -> Optional[Tuple[str, str]]:
     # (a poll, a build) must not read as a turn that ended while it runs.
     if event in ("PreToolUse", "PostToolUse"):
         return "working", action(payload)
-    if event in ("UserPromptSubmit", "PreInvocation"):
+    if event == "UserPromptSubmit":
         return "working", ""
     if event == "Stop":
         return "idle", ""
@@ -71,24 +61,24 @@ def activity(payload: dict) -> Optional[Tuple[str, str]]:
 
 def action(payload: dict) -> str:
     """What the main thread just did, in a few words, for the board: the tool and
-    its own short label -- a Bash/run_command call's description (else its first command
+    its own short label -- a Bash call's description (else its first command
     line), an edited or read file's name, a dispatched agent's or skill's name."""
-    tool, inp, _ = get_tool_call(payload)
+    tool = str(payload.get("tool_name") or "")
+    inp = payload.get("tool_input") or {}
     if not isinstance(inp, dict):
         return tool
-    if tool in ("Bash", "run_command"):
-        label = str(inp.get("description") or inp.get("toolSummary") or "")
+    if tool == "Bash":
+        label = str(inp.get("description") or "")
         if not label:
-            lines = str(inp.get("command") or inp.get("CommandLine") or "").splitlines()
+            lines = str(inp.get("command") or "").splitlines()
             label = lines[0] if lines else ""
-        return f"{tool}: {label}" if label else tool
-    if tool in ("Edit", "Write", "Read", "NotebookEdit", "edit_file", "write_file", "read_file"):
-        path = str(inp.get("file_path") or inp.get("notebook_path") or inp.get("Path") or "")
+        return f"Bash: {label}" if label else tool
+    if tool in ("Edit", "Write", "Read", "NotebookEdit"):
+        path = str(inp.get("file_path") or inp.get("notebook_path") or "")
         return f"{tool} {os.path.basename(path)}" if path else tool
-    if tool in ("Agent", "Task", "invoke_subagent"):
-        label = str(inp.get("description") or inp.get("subagent_type") or inp.get("Role") or inp.get("TypeName") or "")
-        prefix = "Agent" if tool in ("Agent", "Task") else tool
-        return f"{prefix}: {label}" if label else tool
+    if tool in ("Agent", "Task"):
+        label = str(inp.get("description") or inp.get("subagent_type") or "")
+        return f"Agent: {label}" if label else tool
     if tool == "Skill":
         return f"Skill {inp.get('skill')}" if inp.get("skill") else tool
     return tool
@@ -100,23 +90,11 @@ def truncate(text: str) -> str:
     return text.encode("utf-8")[:MAX_DETAIL_BYTES].decode("utf-8", errors="ignore")
 
 
-def emit_antigravity_response(payload: dict) -> None:
-    if not is_antigravity(payload):
-        return
-    if get_event_name(payload) == "PreToolUse":
-        emit_pre_tool_allow(payload)
-    else:
-        emit_empty_if_antigravity(payload)
-
-
 def main() -> None:
-    payload = None
     try:
         payload = json.load(sys.stdin)
-        if not isinstance(payload, dict):
-            return
-        session_id = get_session_id(payload)
-        if not session_id:
+        session_id = payload.get("session_id")
+        if not isinstance(session_id, str) or not session_id:
             return
         found = activity(payload)
         if found is None:
@@ -134,9 +112,6 @@ def main() -> None:
             pass
     except Exception:
         return
-    finally:
-        if isinstance(payload, dict):
-            emit_antigravity_response(payload)
 
 
 if __name__ == "__main__":
