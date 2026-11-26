@@ -13,8 +13,12 @@ import (
 // dynamicsFixture seeds the three changes TestReviewDynamicsSeries and
 // TestReviewDynamicsHeatSummary read: A and B reviewed in the week
 // of 2026-06-01, C in the week of 2026-06-08.
+// dynamicsFixture seeds dispatches and findings onto a store. Its helpers
+// take no *testing.T: every failure is a t.Fatalf on the seeding path, so
+// they abort the test outright, and seedGatedDynamics runs unthreaded —
+// after seedDynamics' own parallel dispatches have all been recorded — where
+// calling t.Fatalf from a non-test goroutine would panic.
 type dynamicsFixture struct {
-	t       *testing.T
 	st      *store.Store
 	project string
 }
@@ -25,29 +29,31 @@ var (
 )
 
 func (fx dynamicsFixture) dispatch(change, role, slot, model, effort, key, outcome string, at time.Time) int {
-	fx.t.Helper()
 	d := baseDispatch(role, model)
 	d.Slot, d.Effort, d.Key, d.Outcome, d.StartedAt = slot, effort, key, outcome, at
 	out, err := fx.st.RecordDispatch(context.Background(), fx.project, change, d)
 	if err != nil {
-		fx.t.Fatalf("RecordDispatch %s %s: %v", change, key, err)
+		panic("RecordDispatch " + change + " " + key + ": " + err.Error())
 	}
 	return out.Seq
 }
 
+// finding files a finding joined to the dispatch at seq — or, with seq nil,
+// to no dispatch at all. A finding that names no dispatch belongs to no row
+// and never enters the heatmap; every finding of a real review carries its
+// dispatch's seq, gated reviews included.
 func (fx dynamicsFixture) finding(change, ref, slot, severity string, round int, seq *int) {
-	fx.t.Helper()
 	f := baseFinding(ref, round)
 	f.Slot, f.Severity, f.DispatchSeq = slot, severity, seq
 	if _, _, err := fx.st.UpsertFinding(context.Background(), fx.project, change, f); err != nil {
-		fx.t.Fatalf("UpsertFinding %s %s: %v", change, ref, err)
+		panic("UpsertFinding " + change + " " + ref + ": " + err.Error())
 	}
 }
 
 func seedDynamics(t *testing.T) (*store.Store, string) {
 	t.Helper()
 	st, _ := newRecordStore(t)
-	fx := dynamicsFixture{t: t, st: st, project: fmt.Sprintf("proj-dynamics-%d", time.Now().UnixNano())}
+	fx := dynamicsFixture{st: st, project: fmt.Sprintf("proj-dynamics-%d", time.Now().UnixNano())}
 	for _, c := range []string{"a", "b", "c"} {
 		seedChange(t, st, fx.project, c)
 	}
@@ -84,10 +90,11 @@ type pointKey struct {
 
 // TestReviewDynamicsSeries pins every series formula of
 // Store.ReviewDynamics (cohort-by-change, impl-vv-metrics,
-// bucket-from-range) over a two-week fixture.
+// bucket-from-range) over a two-week fixture plus the gated reviews
+// seedGatedDynamics adds.
 func TestReviewDynamicsSeries(t *testing.T) {
 	t.Parallel()
-	st, project := seedDynamics(t)
+	st, project := seedGatedDynamics(seedDynamics(t))
 	ctx := context.Background()
 	period := store.Period{From: week1, To: week1.Add(15 * 24 * time.Hour)}
 
@@ -102,29 +109,35 @@ func TestReviewDynamicsSeries(t *testing.T) {
 	for _, p := range got.Series {
 		points[pointKey{p.Bucket.UTC(), p.Metric, p.Series}] = p
 	}
+	// The gated rows count exactly as Reviewers counts them: change d's
+	// dispatch under opus · low in week 1, change e's batched one under
+	// sonnet · high in week 2, both under the derived slot name; change f's
+	// slot-less non-gated row appears nowhere.
 	want := []struct {
 		bucket         time.Time
 		metric, series string
 		value          float64
 		basis          int
 	}{
-		{week1, "findings-per-change", "critical", 0.5, 2},
-		{week1, "findings-per-change", "important", 0.5, 2},
-		{week1, "findings-per-change", "minor", 0.5, 2},
-		{week2, "findings-per-change", "minor", 1, 1},
-		{week2, "findings-per-change", "critical", 0, 1},
-		{week1, "fix-rounds", "mean", 1, 2},
-		{week1, "fix-rounds", "max", 2, 2},
-		{week1, "changes", "changes", 2, 2},
-		{week2, "changes", "changes", 1, 1},
+		{week1, "findings-per-change", "critical", 1.0 / 3, 3},
+		{week1, "findings-per-change", "important", 1, 3},
+		{week1, "findings-per-change", "minor", 1.0 / 3, 3},
+		{week2, "findings-per-change", "minor", 0.5, 2},
+		{week2, "findings-per-change", "critical", 0, 2},
+		{week1, "fix-rounds", "mean", 1, 3},
+		{week1, "fix-rounds", "max", 2, 3},
+		{week1, "changes", "changes", 3, 3},
+		{week2, "changes", "changes", 2, 2},
 		{week1, "per-dispatch-slot", "primary", 2, 1},
 		{week1, "per-dispatch-slot", "principles", 1, 1},
 		{week1, "per-dispatch-slot", "test-sanity", 0, 1},
+		{week1, "per-dispatch-slot", "gated-reviewer", 2, 1},
 		{week2, "per-dispatch-slot", "primary", 0, 1},
-		{week1, "per-dispatch-model", "opus", 3, 1},
+		{week2, "per-dispatch-slot", "gated-reviewer", 2, 1},
+		{week1, "per-dispatch-model", "opus", 2.5, 2},
 		{week1, "per-dispatch-model", "sonnet", 0, 1},
 		{week1, "per-dispatch-effort", "medium", 3, 1},
-		{week1, "per-dispatch-effort", "low", 0, 1},
+		{week1, "per-dispatch-effort", "low", 1, 2},
 		{week1, "impl-findings-per-task", "opus · low", 1.5, 2},
 		{week1, "impl-blocked-share", "blocked", 0.5, 2},
 		{week1, "vv-rounds", "mean", 2, 1},
@@ -132,6 +145,12 @@ func TestReviewDynamicsSeries(t *testing.T) {
 		{week2, "vv-rounds", "mean", 0, 1},
 		{week1, "vv-first-pass", "first-pass", 0, 1},
 		{week2, "vv-first-pass", "first-pass", 1, 1},
+	}
+	for _, p := range got.Series {
+		if p.Metric == "per-dispatch-slot" && p.Series != "primary" && p.Series != "principles" &&
+			p.Series != "test-sanity" && p.Series != "gated-reviewer" {
+			t.Errorf("unexpected per-dispatch-slot series %q", p.Series)
+		}
 	}
 	for _, w := range want {
 		p, ok := points[pointKey{w.bucket, w.metric, w.series}]
@@ -161,13 +180,74 @@ func TestReviewDynamicsSeries(t *testing.T) {
 	if len(empty.Series) != 0 || len(empty.Heat) != 0 {
 		t.Errorf("another project's dynamics = %d points, %d heat rows; want none", len(empty.Series), len(empty.Heat))
 	}
+
+	if s := got.Summary; s.Changes != 5 || s.FindingsPerChange != 1.6 || s.CriticalImportantPerChange != 1.2 || s.MeanFixRounds != 0.8 {
+		t.Errorf("Summary = %+v, want 5 changes, 1.6 findings, 1.2 critical+important, 0.8 rounds", s)
+	}
+	var gatedSlots []string
+	for _, cell := range got.Heat {
+		if cell.Slot == "gated-reviewer" {
+			gatedSlots = append(gatedSlots, cell.Model+" · "+cell.Effort)
+		}
+	}
+	if fmt.Sprint(gatedSlots) != "[opus · low sonnet · high]" {
+		t.Errorf("gated heat cells = %v, want the week 1 one under opus · low and the week 2 one under sonnet · high", gatedSlots)
+	}
+	// A day-bucketed window over week 1 alone holds exactly change d's
+	// gated cell, and its previous range holds none of the gated fixture.
+	d1, err := st.ReviewDynamics(ctx, store.Period{From: week1, To: week1.Add(7 * 24 * time.Hour)}, &project)
+	if err != nil {
+		t.Fatalf("ReviewDynamics week 1: %v", err)
+	}
+	var gated []store.HeatCell
+	for _, cell := range d1.Heat {
+		if cell.Slot == "gated-reviewer" {
+			gated = append(gated, cell)
+		}
+	}
+	if len(gated) != 1 || gated[0] != (store.HeatCell{Slot: "gated-reviewer", Model: "opus", Effort: "low", Dispatches: 1, Important: 2}) {
+		t.Errorf("week 1 gated cells = %+v, want one opus · low of 1 dispatch, 2 important", gated)
+	}
+	for _, cell := range d1.PreviousHeat {
+		if cell.Slot == "gated-reviewer" {
+			t.Errorf("previous-range gated cell = %+v, want none", cell)
+		}
+	}
+}
+
+// seedGatedDynamics adds three reviewed changes to seedDynamics' project:
+// one gated review in week 1 (change d, task-1-reviewer, opus · low), one
+// batched gated review in week 2 (change e, task-2+3-reviewer, sonnet ·
+// high) — each recording no slot, as a gated review does, and filing two
+// findings under slot gated-reviewer joined by dispatch seq, the major
+// spelling folding to important through canonical_severity — and one
+// slot-less non-gated reviewer row (change f), which belongs to no slot and
+// stays invisible everywhere. The instants sit mid-week, so every existing
+// point keeps its bucket. It hands back the same store and project
+// seedDynamics handed out.
+func seedGatedDynamics(st *store.Store, project string) (*store.Store, string) {
+	fx := dynamicsFixture{st: st, project: project}
+	for _, c := range []string{"d", "e", "f"} {
+		if err := st.PutChange(context.Background(), baseChange(project, c)); err != nil {
+			panic("put change " + c + ": " + err.Error())
+		}
+	}
+	gated := func(change, model, effort, key string, at time.Time) {
+		seq := fx.dispatch(change, "reviewer", "", model, effort, key, "completed", at)
+		fx.finding(change, key+"-f1", "gated-reviewer", "important", 1, &seq)
+		fx.finding(change, key+"-f2", "gated-reviewer", "major", 1, &seq)
+	}
+	gated("d", "opus", "low", "task-1-reviewer", week1.Add(70*time.Hour))
+	gated("e", "sonnet", "high", "task-2+3-reviewer", week2.Add(70*time.Hour))
+	fx.dispatch("f", "reviewer", "", "opus", "low", "mystery-key", "completed", week1.Add(71*time.Hour))
+	return st, project
 }
 
 // TestReviewDynamicsHeatSummary pins the heatmap rows and the summary
 // against the previous range of the same length (previous-range).
 func TestReviewDynamicsHeatSummary(t *testing.T) {
 	t.Parallel()
-	st, project := seedDynamics(t)
+	st, project := seedGatedDynamics(seedDynamics(t))
 	ctx := context.Background()
 	// Week 2 alone, so week 1 is the previous range.
 	got, err := st.ReviewDynamics(ctx, store.Period{From: week2, To: week2.Add(7 * 24 * time.Hour)}, &project)
@@ -178,11 +258,15 @@ func TestReviewDynamicsHeatSummary(t *testing.T) {
 		t.Errorf("Bucket = %q, want day", got.Bucket)
 	}
 
-	wantHeat := []store.HeatCell{{Slot: "primary", Model: "sonnet", Effort: "high", Dispatches: 1}}
+	wantHeat := []store.HeatCell{
+		{Slot: "gated-reviewer", Model: "sonnet", Effort: "high", Dispatches: 1, Important: 2},
+		{Slot: "primary", Model: "sonnet", Effort: "high", Dispatches: 1},
+	}
 	if fmt.Sprint(got.Heat) != fmt.Sprint(wantHeat) {
 		t.Errorf("Heat = %+v, want %+v", got.Heat, wantHeat)
 	}
 	wantPrev := []store.HeatCell{
+		{Slot: "gated-reviewer", Model: "opus", Effort: "low", Dispatches: 1, Important: 2},
 		{Slot: "primary", Model: "opus", Effort: "medium", Dispatches: 1, Critical: 1, Minor: 1},
 		{Slot: "principles", Model: "opus", Effort: "medium", Dispatches: 1, Important: 1},
 		{Slot: "test-sanity", Model: "sonnet", Effort: "low", Dispatches: 1},
@@ -192,8 +276,8 @@ func TestReviewDynamicsHeatSummary(t *testing.T) {
 	}
 
 	s, p := got.Summary, got.PreviousSummary
-	if s.Changes != 1 || s.FindingsPerChange != 1 || s.CriticalImportantPerChange != 0 || s.MeanFixRounds != 0 {
-		t.Errorf("Summary = %+v, want 1 change, 1 finding, 0 critical+important, 0 rounds", s)
+	if s.Changes != 2 || s.FindingsPerChange != 1.5 || s.CriticalImportantPerChange != 1 || s.MeanFixRounds != 0.5 {
+		t.Errorf("Summary = %+v, want 2 changes (one panel, one gated), 1.5 findings, 1 critical+important, 0.5 rounds", s)
 	}
 	if s.ImplFindingsPerTask != nil {
 		t.Errorf("Summary.ImplFindingsPerTask = %v, want nil (no implementer dispatch in range)", *s.ImplFindingsPerTask)
@@ -201,8 +285,8 @@ func TestReviewDynamicsHeatSummary(t *testing.T) {
 	if s.VVFirstPassShare == nil || *s.VVFirstPassShare != 1 {
 		t.Errorf("Summary.VVFirstPassShare = %v, want 1", s.VVFirstPassShare)
 	}
-	if p.Changes != 2 || p.FindingsPerChange != 1.5 || p.CriticalImportantPerChange != 1 || p.MeanFixRounds != 1 {
-		t.Errorf("PreviousSummary = %+v, want 2 changes, 1.5 findings, 1 critical+important, 1 round", p)
+	if p.Changes != 3 || p.FindingsPerChange != 1.6666666666666667 || p.CriticalImportantPerChange != 1.3333333333333333 || p.MeanFixRounds != 1 {
+		t.Errorf("PreviousSummary = %+v, want 3 changes (two panel, one gated), 5/3 findings, 4/3 critical+important, 1 round", p)
 	}
 	if p.ImplFindingsPerTask == nil || *p.ImplFindingsPerTask != 1.5 {
 		t.Errorf("PreviousSummary.ImplFindingsPerTask = %v, want 1.5", p.ImplFindingsPerTask)
@@ -220,7 +304,7 @@ func TestReviewDynamicsModelVersions(t *testing.T) {
 	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
-	fx := dynamicsFixture{t: t, st: st, project: fmt.Sprintf("proj-versions-%d", time.Now().UnixNano())}
+	fx := dynamicsFixture{st: st, project: fmt.Sprintf("proj-versions-%d", time.Now().UnixNano())}
 	seedChange(t, st, fx.project, "v")
 	at := week1.Add(9 * time.Hour)
 
@@ -286,7 +370,7 @@ func TestReviewDynamicsPrefersServedModelAndEffort(t *testing.T) {
 	t.Parallel()
 	st, pool := newRecordStore(t)
 	ctx := context.Background()
-	fx := dynamicsFixture{t: t, st: st, project: fmt.Sprintf("proj-served-%d", time.Now().UnixNano())}
+	fx := dynamicsFixture{st: st, project: fmt.Sprintf("proj-served-%d", time.Now().UnixNano())}
 	seedChange(t, st, fx.project, "s")
 	at := week1.Add(9 * time.Hour)
 
@@ -336,7 +420,7 @@ func TestReviewDynamicsProjects(t *testing.T) {
 		at   time.Time
 	}{other: {"reviewer", week1.Add(time.Hour)}, idle: {"implementer", week1.Add(time.Hour)}, edge: {"reviewer", period.To}} {
 		seedChange(t, st, p, "x")
-		fx := dynamicsFixture{t: t, st: st, project: p}
+		fx := dynamicsFixture{st: st, project: p}
 		fx.dispatch("x", d.role, "primary", "opus", "low", "panel-0-primary", "completed", d.at)
 	}
 

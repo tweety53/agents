@@ -22,9 +22,19 @@ export function byEffort(a: string, b: string): number {
   return rank(a) - rank(b) || a.localeCompare(b);
 }
 
-// CURRENT_SLOTS is every slot the review panel dispatches today -- the
-// panelSlots internal/api records against; a retired slot is not shown.
-const CURRENT_SLOTS = new Set(["primary", "principles", "test-sanity", "call-efficiency", "failure-modes", "mutation"]);
+// CURRENT_SLOTS is every slot the heatmap shows: the panel's current slots,
+// as the panelSlots internal/api records against -- a retired slot is not
+// shown -- plus gated-reviewer, which no dispatch row carries but the store
+// derives for every gated review (slotSQL).
+const CURRENT_SLOTS = new Set([
+  "primary",
+  "principles",
+  "test-sanity",
+  "call-efficiency",
+  "failure-modes",
+  "mutation",
+  "gated-reviewer",
+]);
 
 function Heatmap({ cells, previous }: { cells: HeatCell[]; previous: HeatCell[] }) {
   const rate = (c: HeatCell) => (c.dispatches === 0 ? 0 : (c.critical + c.important + c.minor) / c.dispatches);
