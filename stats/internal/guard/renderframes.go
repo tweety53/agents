@@ -103,11 +103,10 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 	root := wiAbs(env, args[0])
 	cfg, _ := os.ReadFile(filepath.Join(root, ".flow", "project.md"))
 	cells := vvCells(string(cfg))
-	design := strings.Fields(strings.ReplaceAll(cells["design repo"], "`", ""))
-	if len(design) != 2 {
+	clone, remote, ok := designRepoRow(root, cells)
+	if !ok {
 		return refuse("design-repo-row-missing", "%s/.flow/project.md declares no `design repo` row of `<clone> <remote>` under `## visual verification`", args[0])
 	}
-	clone, remote := cellPath(root, design[0]), design[1]
 	mockups := strings.TrimSuffix(strings.Trim(cells["mockups"], "`"), "/")
 	if mockups == "" {
 		return refuse("mockups-row-missing", "%s/.flow/project.md declares no `mockups` row — there is no root to render into", args[0])

@@ -110,16 +110,20 @@ Investigate read-only, then present the design.
   `design.md` under `## Undrawn`, from the tasks as written, each element, state, icon, copy string,
   alignment and chrome variant (title placement, close control) that no cited frame draws, and each
   icon the project's icon set lacks — never inferred from a design template, a sibling screen or
-  the nearest component. Then dispatch one `designer` (**The designer**, below) for the whole list, and
-  replace each `## Undrawn` item with the frame id it returned. The operator never answers an item
-  on its own: the drawn result is reviewed in **The designer review**, below, an interactive step
-  of its own that ends before the convergence confirm (**Convergence**, below) is asked. The
-  design is not approvable while `## Undrawn` holds an item. A project with no `design repo` row
-  (`skills/flow-contracts/project-configuration-visual.md`) gets no designer: each item is put to
-  the operator through **AskUserQuestion**, with no recommended option, to draw (a frame or the
-  prototype below) or rule out. Planning is the only phase that stops for this; an implementer
-  meeting an element the plan missed reports it in its REPORT FILE and builds the nearest drawn
-  pattern.
+  the nearest component. `flow-guard design-repo <abs-worktree>` — never
+  `flow-guard project-get`, never the main checkout — says who draws them. Exit 0 prints
+  `<clone> <remote>`: the planner leaves the items listed and returns, and **whenever a planner
+  return leaves `## Undrawn` non-empty (the round file's design draft, or `design.md`), the session
+  that dispatched it dispatches one `designer`** (**The designer**, below) for the whole list in
+  the same turn, unasked; the next planner dispatch replaces each item with the frame id the
+  designer returned. Exit 1, no design repo: the planner draws every item into the prototype HTML
+  (`plan-visual-prototype`, below), cites it and empties the list. Exit 2 is a defect fixed in the
+  run. **The answer to an undrawn item is always draw**: it is never put to the operator as a
+  question, and neither ruling it out nor reusing something as is is ever offered. With a design
+  repo the only operator step for the items is **The designer review**, below, which ends before
+  the convergence confirm (**Convergence**, below) is asked. The design is not approvable while
+  `## Undrawn` holds an item. An implementer meeting an element the plan missed reports it in its
+  REPORT FILE and builds the nearest drawn pattern.
 - **A visible change is prototyped before its design is approved** (`plan-visual-prototype`). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
   no mockup frame already specifies it, build a clickable prototype of the proposed result with
   sample data as a single HTML file under `<project>-worktrees/<name>/.superpowers/sdd/`, and
@@ -182,10 +186,10 @@ drawn**, above), key `designer-<k>`, `<k>` counting from 1 per change, on the pa
 adjustment round is judged on its own prompt, never given the role's first pair by default), on a
 `flow-*` agent type, since it writes. Its prompt carries the two
 agent-baseline sentences, the report-tersely line, `Role: designer`, the `## Undrawn` list
-verbatim, the frames already cited, and on an adjustment the operator's words verbatim. The
+verbatim, the `<clone> <remote>` `flow-guard design-repo` printed, the frames already cited, and on an adjustment the operator's words verbatim. The
 designer:
 
-1. works in a git worktree of the project's `design repo` clone, `<design clone>-worktrees/<change
+1. works in a git worktree of that design-repo clone, `<design clone>-worktrees/<change
    name>` on branch `<change name>` — created from the clone's default branch when absent, reused
    as it stands when present;
 2. reads that repository's own instructions first — its `CLAUDE.md`, `AGENTS.md`, README, style
@@ -221,7 +225,7 @@ designer:
    `<mockups root>/<tag>/<frame id>.png` with that tag; an adjustment's dispatch cites its own,
    newer tag.
 
-The planner copies that report into its round file's `## Summary` (a final dispatch: its return). The designer is outside **The cap** above.
+The dispatching session appends that report to the latest round file's `## Answers`, where the next planner dispatch reads it. The designer is outside **The cap** above.
 
 **The designer review** is an interactive pre-step of the approval, run by the session that
 dispatched the planner after every return that drew or changed frames. That session prints the
@@ -250,6 +254,10 @@ runs once the plan is written.
 Where the confirm is not asked (`## decisions: recommended`) the review is not asked either: the drawn frames stand.
 
 ### Convergence
+
+**The confirm is never asked while `## Undrawn` holds an item or a designer review is open**: the
+session that would ask it refuses, strikes it from the round's questions and goes to **The
+designer**, above, instead.
 
 **A round ends on one question, asked last:** state what you believe settled — the answers and
 the decisions the design now rests on — then ask **Anything unclear before I move on?** with two
