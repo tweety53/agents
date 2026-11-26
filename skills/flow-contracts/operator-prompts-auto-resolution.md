@@ -15,18 +15,25 @@ question they would answer with the recommended option costs them a stop for not
 It holds for a call site's own prompt and for any question the run frames itself in those phases —
 a finding that seems to need a product decision, a departure from a mockup — one whose root
 cause is a shared style, token or component, whose fix moves other screens' baselines, included
-(`skills/flow/fix.md` fixes it at that source) — a
+(resolved by **A departure from the mockup** below) — a
 question an implementer's report carries, a pivot (`skills/flow/implement.md`).
 A pivot is auto-resolved although it alters approved scope: the operator asked that a recommended
 option be taken even when it reopens an earlier choice of theirs. Frame it with the option the
 pipeline's own rules favour marked recommended (for a mockup departure, matching the mockup, per `rules/design-mockups-are-specs.mdc`),
-and take that option.
+and take that option. A pivot's recommended option is the smallest change that still meets the
+requirement.
+
+**A question written as prose is an ask exactly as an `AskUserQuestion` call is**, anywhere in
+this scope, a final message's included: a "should I …?" is never written; the run takes its
+recommended option, records it as below and goes on.
 
 **A child's hand-back never reaches the operator as an ask.** A fixer's or implementer's "please
 spot-check", "your call" or any decision its report leaves open is resolved inside the run: a check
 it asks for — a regenerated golden or snapshot among them — is made by the loop's reviewer, its
 dispatch naming each regenerated file and the one change each may carry; a decision left over is
-taken by its recommended option by the parent and recorded as below, never listed as open.
+taken by its recommended option by the parent and recorded as below, never listed as open. A
+child's `BLOCKED` report that carries a recommended option is one of these: the parent takes the
+option and never relays it to the operator.
 
 **The `## decisions: recommended` mode widens the scope to planning.** When the project's
 `## decisions` key resolves to `recommended` (**Project configuration**,
@@ -57,7 +64,14 @@ cases is a stop for nothing:
   **Never merge the tracked branch into a change branch**: the change branch then carries the tracked branch's commits as its own, and integrate's reshape folds them into the change's squash — the base is what gets synced.
 - **A departure from the mockup:** match the mockup (`rules/design-mockups-are-specs.mdc`). An element
   the mockup does not draw stays only when the screen cannot work without it. Record that reason
-  with the frame.
+  with the frame. A written spec that disagrees with the mockup is no reason to keep the departure
+  (**Mockup over spec**, `rules/design-mockups-are-specs.mdc`): the run builds the mockup and
+  records the spec's difference as a departure. Frames that contradict a `## Decisions` entry
+  naming the look — "use the shipped component", say — are not fixed: the difference is recorded
+  as a departure under that decision, a fresh entry naming its ID (the decision-entry bullet
+  below). Restyling a shared style, token or component for every screen to match one feature's
+  frames is not the default fix: the feature's own code is brought to the frames, and the shared
+  source is restyled only where a `## Decisions` entry chose that.
 - **A declared frame that was not captured:** add the capture. A missing capture means the report is
   incomplete. It is never a scope choice.
 - **The ticket or a design decision conflicts with a project rule** — a requested entrance motion
@@ -89,8 +103,7 @@ could have taken, is the stop this file exists to prevent.
 **A scope or cost question with a recommended option is never asked during integrate or the
 self-review either** (operator). "Fix every finding (recommended), or only the
 blocker?", whether to run one more fix or review round, whether a fix is worth its cost: the run
-takes the recommended option, records it as below and goes on. A question written as prose in a
-message, a final message's included, is an ask exactly as an `AskUserQuestion` call is. The
+takes the recommended option, records it as below and goes on. The
 outward-facing and irreversible actions of **What still stops** below are still asked.
 
 Every auto-resolution:
@@ -102,6 +115,12 @@ Every auto-resolution:
   same row — and a site that records no answer records nothing new
 - is named in the handoff's `**Decisions:**` lines, 🤖-marked, question and option taken, so the
   operator can overrule it afterwards with a fix run
+- on a `/flow` run, whose change carries `design.md`, is also one `## Decisions` entry there in
+  the shape **Decisions** (`skills/flow/brainstorm-planner.md`) gives — what was chosen, what was
+  considered and why each lost; one displacing an earlier decision appends a fresh entry naming
+  the old ID, never rewriting it. The `tasks.md` text of every task the decision changes is
+  amended in the same pass, and `spectre validate` re-run, before the next dispatch. `/flow-fast`
+  and `/flow-interactive` carry no design doc and record it by the bullets above alone
 - never repeats: the same prompt arising again for the same subject after its recommended option
   was already taken this run is asked, so an auto-taken **another round** cannot loop — except a
   fix, re-review or re-verify round, which **Fewest operator actions**
@@ -122,16 +141,21 @@ past planning is (**Work end to end — stop only to plan or to test by hand**,
   the operator set it. A `/flow` run that leaves a `?` in its `Decisions:` stops at its `IN_PROGRESS`
   handoff (**What still stops**).
 - **No recommended option.** A multiple-match pick, a finding
-  recorded unverifiable, and a question the run cannot honestly give one recommended option.
+  recorded unverifiable, and a question the run cannot honestly give one recommended option. Two
+  options with different trade-offs where the run leans one way are not this bullet: the lean is
+  the recommended option.
 - **Out of the run's reach.** A failure whose cure lies outside the run — production, a credential
   or account only the operator holds, a repository the run was not given — and a `## Question`
   handback that carries no options. A guard's exit 2, a failing command or tool, a stack that will
-  not start and an environment fault the run's own commands can repair are not this bullet: they
+  not start, a missing sidecar or config the run can derive from its inputs and an environment
+  fault the run's own commands can repair are not this bullet: they
   are cured in the run (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`). Nor is
   the flow tooling itself: a guard, script, skill or contract of the `agents` repository that blocks
   the run — two guards that contradict, a check that refuses correct work — is fixed in an `agents`
   worktree with a test that fails without the fix, pushed to `main`, and the run continues; that push
-  is not asked (`rules/work-end-to-end.mdc`).
+  is not asked (`rules/work-end-to-end.mdc`). Nor is a permission classifier that blocks a
+  subagent's edit: where the edit is legitimate — local, reversible, derived from real
+  measurements — the parent makes it itself.
 - **Outward-facing or irreversible actions.** Push, merge, opening a PR, deleting, and
   every Jira write — the follow-up filing included.
   The global rules require these confirmed.

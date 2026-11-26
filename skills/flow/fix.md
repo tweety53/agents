@@ -158,7 +158,9 @@ The fix's dispatch prompt names this section, and the implementer follows every 
 applies to the defect it fixes.
 
 **A defect whose root cause is a shared source — a style, a token, a component other screens draw
-too, the data every spec renders such as a UI-test seed or fixture — is fixed at that source, whatever else the fix moves.** The fix never patches the
+too, the data every spec renders such as a UI-test seed or fixture — is fixed at that source, whatever else the fix moves.** A shared source's shipped look departing
+from one feature's frames is not such a defect (**A departure from the mockup**,
+`skills/flow-contracts/operator-prompts-auto-resolution.md`). The fix never patches the
 changed screen alone to spare the others, and its steps carry two more. Every baseline the fix
 moves is recaptured: every spec `flow-guard affected-specs <worktree> <round base> <capture root>`
 prints for the fix's own diff where the capture root holds a `<spec>.sources` sidecar, else every

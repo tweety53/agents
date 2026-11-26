@@ -435,7 +435,8 @@ the step and gates nothing.
 **A pivot reconciles the three artifacts together.** When implementation pivots — a reality
 discovered mid-run (a route already taken on the base, a premise a measurement disproved) has remaining tasks redesigned rather than implemented
 as written — the pivot is resolved **before the colliding code is written**: the run stops at the
-discovery, and the redesign is a prompt resolved per **Auto-resolution**
+discovery, a halt of the task and never a turn end (**Fewest operator actions**,
+`skills/flow-contracts/pipeline.md`), and the redesign is a prompt resolved per **Auto-resolution**
 (`skills/flow-contracts/operator-prompts.md`). Only then does the
 parent edit `proposal.md`, `design.md` and `tasks.md` in the same pass, never
 `tasks.md` alone: `proposal.md`'s `## What changes` is brought to the pivoted scope, and a

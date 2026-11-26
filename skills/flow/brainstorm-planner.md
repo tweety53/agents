@@ -144,7 +144,8 @@ Investigate read-only, then present the design.
   `## decisions: recommended` mode, which takes the recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)
   — the published prototype is the spec without an approval round. **The approved prototype is
   the source of truth**: any departure from it found later in the run — by a reviewer,
-  verify or `flow.verify` — is fixed to match it, auto-resolved and never asked; a UI
+  verify or `flow.verify` — is fixed to match it, auto-resolved and never asked, as **A departure
+from the mockup** (`skills/flow-contracts/operator-prompts-auto-resolution.md`) resolves it; a UI
   change the operator wants after using it is a later change, not this one.
 
 ### Explore and design agents

@@ -131,7 +131,9 @@ Then the project's declared `## worktree setup` (**Project configuration**,
 `skills/flow-contracts/project-configuration.md`) runs once, from the worktree root, before
 anything else touches the tree — the fenced command lines only, in order, in the foreground; the
 key's exit 1 (absent) continues with nothing run, its exit 2 stops the run, and a command's
-non-zero exit ends the run naming the command and its output. A re-run reusing an existing
+non-zero exit ends the run naming the command and its output — each only for a cause out of the
+run's reach; any other is cured and the setup re-run (**Fewest operator actions**,
+`skills/flow-contracts/pipeline.md`). A re-run reusing an existing
 worktree runs nothing here — the creating run already ran it.
 
 **From here on, on every run, `<base>` is what `flow-guard resolve-base-branch <worktree>` prints** — the

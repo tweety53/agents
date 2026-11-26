@@ -12,6 +12,10 @@ so and build it as drawn unless the user agrees to change it. Reuse existing tok
 already match; add new ones where the mockup demands values the system lacks, rather than bending
 the mockup to fit.
 
+**Mockup over spec.** Where a mockup and a written spec disagree, build the mockup and note the
+spec's difference as a departure, never stopping to ask: the user approves mockups, not specs, so
+the mockup is the signed-off artifact and a spec that disagrees with it is the stale one.
+
 **Ask rather than invent.** A mockup shows the resting state; every other state exists only if
 named — empty input, zero results, hover/focus/disabled, loading, error, validation, breakpoints,
 overflow. A picker must not offer what submit would reject; whether it filters is a spec question,
