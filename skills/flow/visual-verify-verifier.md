@@ -26,6 +26,10 @@ submitting, stays on the seeded account. Step 11 writes
 `close` rebuilds from every shard's part. The `exits:` line never names the shard's key: `close`
 reads every number on it as an exit.
 
+**Run only the steps below.** Add no pre-check of your own — no reading `.env`, credentials or
+config files, no probing the stack beyond what a step names. A step that cannot proceed is
+reported BLOCKED, naming it.
+
 4. **Run `setup`, if declared.** A non-zero exit blocks, printing the command verbatim.
 8. **Capture** — when `specs` is declared, run it first from the `regression checkout`, with
    `<frontend-root>` substituted for the worktree and `<merge-base>` for the merge base the bundle
