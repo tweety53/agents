@@ -364,6 +364,9 @@ func TestSelfReviewSuggestionsAreReviewed(t *testing.T) {
 	if err != nil || len(pg.Rows) != 1 || pg.Rows[0].Reason != "cheap and visible" {
 		t.Fatalf("approved page = %+v, err %v, want the row with reason %q", pg.Rows, err, "cheap and visible")
 	}
+	if err := st.ReviewSelfReviewFinding(ctx, "another-project-00000000", got.ID, "approved", "from another repo"); err != nil {
+		t.Fatalf("review from another project's checkout: %v, want it to find the id like finding-get does", err)
+	}
 	if err := st.ReviewSelfReviewFinding(ctx, projectKey, got.ID, "to-review", ""); err != nil {
 		t.Fatalf("move back: %v", err)
 	}

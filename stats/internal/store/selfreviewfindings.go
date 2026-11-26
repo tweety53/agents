@@ -157,16 +157,18 @@ var ErrSelfReviewFindingNotSuggested = errors.New("store: no such suggested self
 
 // ReviewSelfReviewFinding sets a suggested finding's review status: to-review, approved or
 // declined, with the operator's optional reason (empty clears it). Nothing else about the row changes.
-func (s *Store) ReviewSelfReviewFinding(ctx context.Context, projectKey string, id int64, status, reason string) error {
+// Ids are global, so the caller's project does not scope it -- as in GetSelfReviewFinding: a run in
+// one repository marks a finding another repository's change recorded.
+func (s *Store) ReviewSelfReviewFinding(ctx context.Context, _ string, id int64, status, reason string) error {
 	switch status {
 	case "to-review", "approved", "declined":
 	default:
 		return fmt.Errorf("%w: review status must be to-review, approved or declined, got %q", ErrSelfReviewFindingInvalid, status)
 	}
 	tag, err := s.pool.Exec(ctx, `
-		UPDATE self_review_findings SET review_status = $3, review_reason = NULLIF($4, '')
-		WHERE project_key = $1 AND id = $2 AND disposition = 'suggested'
-	`, projectKey, id, status, reason)
+		UPDATE self_review_findings SET review_status = $2, review_reason = NULLIF($3, '')
+		WHERE id = $1 AND disposition = 'suggested'
+	`, id, status, reason)
 	if err != nil {
 		return fmt.Errorf("store: review self-review finding %d: %w", id, err)
 	}
