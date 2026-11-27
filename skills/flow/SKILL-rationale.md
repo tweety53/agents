@@ -935,6 +935,7 @@ rule is **Work end to end — stop only to plan or to test by hand** (`rules/wor
 ### brainstorm.md — one Plan check section, no `/flow` gate
 
 - *`/flow`'s never-asked gate, its gate-time summary and `## Decision` print and its gate-time `sync-base-behind` removed; **Save the plan?** moved to `skills/flow-plan/SKILL.md`, its only asker* — the question was taken at once, so the `STARTED` handoff repeated the print with nothing between, and `implement.md`'s base check runs the same sync when the base matters.
+- *`/flow-plan`'s **Save the plan?** gate removed; a capture ends on `/flow`'s `STARTED` handoff* — the design was already approved at the convergence confirm, and the handoff's print plus **A plan the operator wants changed** give the same read-and-revise path before `/flow <name>`. The `/flow-plan`-only step-by-step breakdown went with it: no guard, test, reviewer or later stage read it.
 
 ### review-panel.md — hand-assembled briefs and no docs-only guard
 

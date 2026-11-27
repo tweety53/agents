@@ -6,7 +6,7 @@ description: Research mode - a thinking partner for exploring ideas, investigati
 Enter research mode. Visualize freely. Follow the conversation wherever it goes.
 
 **This is a stance, not a workflow.** There are no fixed steps, no required sequence. One output
-shape is fixed rather than optional (the step-by-step breakdown, below) — but nothing about how you
+shape is fixed rather than optional (**The Fixed Section Structure**, below) — but nothing about how you
 get there is scripted. You're a thinking partner helping the user explore.
 
 ---
@@ -120,8 +120,7 @@ pending questions stay pending for the operator's next reply (**Unanswered mid-r
 
 There's no required ending, but there is a required *shape* once you do capture: every session that
 produces a `design.md` — a new change's or an addition to an existing one's — produces it through
-the fixed structure below, never as free-form prose (see **The Fixed Section Structure** and
-**The Step-by-Step Breakdown**).
+the fixed structure below, never as free-form prose (see **The Fixed Section Structure**).
 
 Two capture destinations, depending on what exists:
 
@@ -159,9 +158,7 @@ When there's no existing change to write into, offer to capture the session as a
 > - **No — leave it in the conversation**
 
 **Nothing below runs before that Yes.** The `STARTED` write, the worktree and the artifacts are
-this answer's consequence; **No** is the abandoned path (**Capturing the Outcome**, above). The
-**Save the plan?** gate below then gates the plan alone — a change that reached it exists
-already, at `STARTED`, and a **No** there revises the plan rather than removing the change.
+this answer's consequence; **No** is the abandoned path (**Capturing the Outcome**, above).
 
 **The key comes first, because it names the change.** A Jira key is known when it was passed as
 the argument or resolved from the conversation per **Resolution (how `jiraIssue` is decided)**
@@ -195,59 +192,23 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
    issue when one is linked, then a `## Research session` section — the operator's statements
    verbatim and the session's findings with their file paths, marked as findings, not decisions.
 5. **Run brainstorming and planning through the planner role** (`skills/flow/brainstorm.md`), from
-   its start through its **Plan check** (`flow-guard plan-check`), then **The Save the plan? gate**
-   below. Every `-command '/flow'` those sections show,
+   its start through `/flow`'s `STARTED` handoff, the planning mark's end and **A plan the operator
+   wants changed** included. Every `-command '/flow'` those sections show,
    `skills/flow/brainstorm-planner.md`'s included, is `-command '/flow-plan'`. The final planner's prompt also carries the line "`design.md` follows **The Fixed Section
-   Structure** and **The Step-by-Step Breakdown** of `skills/flow-plan/SKILL.md`".
-
-#### The Save the plan? gate
-
-**The plan is never acted on unread.** Print the `## Decision` block verbatim — the output of `flow
-decision render` — then the plan summary — plain prose on what will be built and how: the behaviour
-added or changed, the approach, the seams and decisions that matter and what was left out; no
-per-task rows — and, whenever `design.md` cites a prototype, the line `**Prototype:**` of **The
-`STARTED` handoff block** (`skills/flow/brainstorm.md`) under it. The summary ends on that block's
-`**Design:**` and `**Plan check:**` lines, each on its own.
-
-Then the question, **Save the plan?**, with exactly two options: **Yes** *(recommended)* and **No
-(plan needs updates)**.
-
-On **No**, take the operator's changes (a follow-up **AskUserQuestion** round when the option
-carried none) and revise as **A plan the operator wants changed** (`skills/flow/brainstorm.md`)
-states, re-deciding and recording as **Plan check** there states. Then print the summary and ask
-again. Loop until **Yes**. **Yes** is the only exit. Under the `## decisions: recommended` mode the
-gate takes **Yes** without asking — the summary and the `## Decision` block still print, so the
-record of what was approved stays complete (**Auto-resolution**,
-`skills/flow-contracts/operator-prompts.md`).
-
-On **Yes**, end the planning mark:
-
-```bash
-flow stage end -command '/flow-plan' -stage flow.plan -outcome completed <name>
-```
+   Structure** of `skills/flow-plan/SKILL.md`".
 
 Every guard those sections invoke runs per **Guard resolution**
 (`skills/flow-contracts/pipeline.md`): `flow-guard kickoff-worktree <project> <name>` with its sibling
 `flow-guard project-get <project> <key>` (kickoff).
 
-**On Yes, nothing is staged, committed or pushed**: a capture leaves the change on disk at `STARTED` in its worktree,
+**Nothing is staged, committed or pushed**: a capture leaves the change on disk at `STARTED` in its worktree,
 resumed by `/flow <name>` exactly as any `STARTED` change's is (**Resuming at `STARTED`**,
 `skills/flow/resume.md`).
 
-A capture stopped before that **Yes** is at `STARTED` as well, and `/flow <name>` resumes its
+A capture stopped before its `STARTED` handoff is at `STARTED` as well, and `/flow <name>` resumes its
 rounds.
 
 End by naming the change, the Jira key and the worktree's absolute path.
-
-The handoff ends on the next command, alone in its own fence (**Handoff output**,
-`skills/flow-contracts/pipeline.md`):
-
-````text
-Next:
-```
-/flow <name>
-```
-````
 
 ---
 
@@ -261,8 +222,7 @@ minimum:
 1. **One section per topic/thread discussed**, each a `##`-level heading with a short descriptive
    title, holding whatever prose, lists, or code excerpts the discussion produced for that thread.
    Order sections in the order the threads came up.
-2. **A step-by-step breakdown section**, always present (see below).
-3. **The six plan sections** of **C. Create the change and its artifacts**
+2. **The six plan sections** of **C. Create the change and its artifacts**
    (`skills/flow/brainstorm-planner.md`) —
    `## Recommended approach`, `## Critical files`, `## Existing code to reuse`,
    `## Verification`, `## Non-goals` and `## Risks` — on a new change's design.
@@ -300,36 +260,4 @@ mid-run asks**, `skills/flow-contracts/pipeline.md`).
 ## Non-goals
 
 ## Risks
-
-## Step-by-step breakdown
-
-### <Name of item 1>
-
-**What:** <one or two sentences — what it is or does>
-**Why:** <one or two sentences — the reason it exists or was chosen>
-**Uses:** <what it depends on or calls — files, skills, scripts, CLIs, services; "none" if nothing>
-
-### <Name of item 2>
-
-**What:** ...
-**Why:** ...
-**Uses:** ...
 ```
-
-## The Step-by-Step Breakdown
-
-The breakdown section is a `name`/`what`/`why`/`uses` structural analysis of the topic under
-discussion, and it is the **default** output of every `/flow-plan` session — produce it whether
-or not the user explicitly asked for it, whenever a session reaches a captured design.
-
-Rules for filling it in:
-
-- One `###` subsection per distinct item the session identified — a pipeline stage, a component, a
-  design option, a mechanism — whatever unit of analysis the topic decomposed into.
-- Each subsection carries exactly the three labelled fields above, in that order:
-  `**What:**`, `**Why:**`, `**Uses:**`. Keep each to one or two sentences; a longer explanation
-  belongs in the numbered thread section above, cross-referenced from here rather than repeated.
-- `**Uses:**` names concrete things (file paths, skill names, script names, CLI commands, external
-  services) — `none` is a valid, honest answer, not a placeholder to avoid filling in.
-- If the topic is small enough that a full breakdown would only have one item, still include the
-  section with that one item — the section's presence is what's fixed, not a minimum item count.

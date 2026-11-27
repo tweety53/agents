@@ -167,8 +167,7 @@ The render exits 0 on a printed block and 2 on a usage error or an unreadable fi
 **`/flow` has no gate question.** It ends the planning mark and **ends the run** with the `STARTED`
 handoff (**The `STARTED` handoff block**, below), `/clear` above `/flow <name>`, on a creating and
 a resumed run alike; the next run finds the plan ready (**Resuming at `STARTED`**,
-`skills/flow/resume.md`) and implements on a fresh context. `/flow-plan` goes on at **The Save the
-plan? gate** (`skills/flow-plan/SKILL.md`) instead.
+`skills/flow/resume.md`) and implements on a fresh context. A `/flow-plan` capture ends the same way.
 
 ```bash
 flow stage end -command '/flow' -stage flow.plan -outcome completed <name>
