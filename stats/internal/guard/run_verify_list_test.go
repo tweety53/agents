@@ -1284,6 +1284,43 @@ func TestRunVerifyListStampsLintGreen(t *testing.T) {
 	})
 }
 
+// TestRunVerifyListRunsConcurrentLintTogether (request 72): a `lint` list's
+// consecutive `# concurrent` commands run at once, an unannotated command runs
+// alone after every earlier one exited and before any later one starts, the
+// blocks print in list order, and one failure fails the list.
+func TestRunVerifyListRunsConcurrentLintTogether(t *testing.T) {
+	t.Parallel()
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\n"+
+		"# concurrent\nsleep 1; touch a; echo one\n"+
+		"# concurrent\nsleep 1; touch b; echo two; exit 3\n"+
+		"ls a b >/dev/null && touch m && echo three\n"+
+		"# concurrent\ntest -e m && sleep 1 && echo four\n"+
+		"# concurrent\ntest -e m && sleep 1 && echo five\n"+
+		"```\n")
+	start := time.Now()
+	rc, out := rvlRunIn(t, wt, "", wt, "lint")
+	took := time.Since(start)
+	if rc != 1 {
+		t.Errorf("exit %d, want 1 — a failing concurrent command fails the list\n%s", rc, out)
+	}
+	if took >= 3500*time.Millisecond {
+		t.Errorf("took %v: four 1 s commands in two concurrent groups must take about 2 s, not 4 s\n%s", took, out)
+	}
+	want := []string{"exit 0\n  one", "exit 3\n  two", "exit 0\n  three", "exit 0\n  four", "exit 0\n  five"}
+	at := 0
+	for _, w := range want {
+		i := strings.Index(out[at:], w)
+		if i < 0 {
+			t.Fatalf("block %q missing or out of list order\n%s", w, out)
+		}
+		at += i + len(w)
+	}
+}
+
 // TestRunVerifyListSkipsACommandGreenAtHead: a `test` re-run at the same
 // clean HEAD skips each command an earlier run passed while another failed,
 // and a new commit runs it again (kan-1103 self-review, F10).

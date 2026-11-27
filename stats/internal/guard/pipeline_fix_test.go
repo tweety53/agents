@@ -231,6 +231,18 @@ func TestPipelineFixChecksGoAudits(t *testing.T) {
 	}
 }
 
+// A `# concurrent` annotation line of the `## lint` fence is no check
+// (request 72).
+func TestPipelineFixChecksSkipLintAnnotations(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	writeFile(t, wt+"/.flow/project.md", "## lint\n\n```bash\n# concurrent\ntrue\n```\n")
+	cmds, rc := pfChecks(Env{Getenv: os.Getenv}, pfEnv{}, wt, nil)
+	if rc != 0 || slices.ContainsFunc(cmds, func(c string) bool { return strings.HasPrefix(c, "#") }) || !slices.Contains(cmds, "true") {
+		t.Fatalf("rc %d, checks %q: want `true` and no `#` line", rc, cmds)
+	}
+}
+
 // A touched script or setup.sh selects the guard package's script audits
 // where the worktree has stats/internal/guard (kan-1038).
 func TestPipelineFixChecksScriptAudits(t *testing.T) {

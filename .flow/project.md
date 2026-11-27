@@ -178,11 +178,17 @@ line and never changes the suite's own exit code.
 ## lint
 
 ```bash
+# concurrent
 printf 'stats/web/src/App.tsx\n' | scripts/flow-guard check-visual-trigger .
+# concurrent
 scripts/flow-guard resolve-visual-screenshots . baseline.spec.ts
+# concurrent
 scripts/flow-guard check-guard-calls
+# concurrent
 cd stats && gofmt -l .
+# concurrent
 cd stats && make -s web-dist && go vet ./...
+# concurrent
 cd stats && make -s web-dist && cd web && npx tsc -b
 ```
 
@@ -195,6 +201,10 @@ carries no lint or format script, only `tsc -b`'s type check, so a TypeScript vi
 hand like a guard-script one.
 
 **Every guard in the list is currently expected to exit 0.**
+
+**Every line is `# concurrent`:** the guards and `gofmt -l` only read, `scripts/flow-guard` installs
+its build by a rename, and `make -s web-dist` builds under a lock in the git dir — so the six run at
+once. `cd stats && gofmt -w .` is never added here as a `# concurrent` line.
 
 ## stop
 

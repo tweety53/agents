@@ -418,6 +418,8 @@ func pfChecks(env Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 	var cmds []string
 	for _, l := range kwFenced(body.String()) {
 		switch {
+		case strings.HasPrefix(strings.TrimSpace(l), "#"):
+			// An annotation such as `# concurrent`, never a check.
 		case strings.HasPrefix(l, "cd stats/web"):
 			if webTouched {
 				cmds = append(cmds, l)

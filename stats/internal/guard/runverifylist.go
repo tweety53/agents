@@ -69,7 +69,13 @@
 // reported in list order once every one has exited (kan-920 self-review: the
 // guard harnesses and `go test -race` ran one after the other, 6½ minutes; run
 // together they took 307 s, each slowed by the other's CPU). A `lint` list
-// runs in order, one command at a time.
+// runs in order, one command at a time, except THE CONCURRENT LINT: commands
+// each under a `# concurrent` line, consecutive in the list, run at once, at
+// most one per CPU, and report in list order once all have exited; an
+// unmarked command -- an auto-fix that rewrites files -- runs alone, after
+// every command above it exits and before any below it starts (request 72).
+// The visual tail never runs beside the test commands: its `verify` row's
+// stack check rebuilds the web bundle the Go suites compile in.
 // A `test` list then ends with the `## visual verification` `verify` row,
 // run once in the foreground after every other command has exited, `<specs>`
 // filled as THE SMOKE FALLBACK states, from the section's `regression checkout` when declared
@@ -338,6 +344,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -503,6 +510,7 @@ var (
 	rvlFenceOpen = regexp.MustCompile("^```bash[[:space:]]*$")
 	rvlInputs    = regexp.MustCompile(`^[[:space:]]*# inputs:(.*)$`)
 	rvlSuite     = regexp.MustCompile(`^[[:space:]]*# suite:[[:space:]]*([A-Za-z0-9._-]+)[[:space:]]*$`)
+	rvlConcur    = regexp.MustCompile(`^[[:space:]]*# concurrent[[:space:]]*$`)
 	rvlTemplate  = regexp.MustCompile(`<[A-Za-z][A-Za-z0-9_-]*>`)
 	// rvlGuarded is a `## test` line's leading `flow-guard unchanged
 	// <pathspecs> ||` (A SKIPPED SUITE); rvlPathspec one of its pathspecs.
@@ -988,9 +996,10 @@ func rvlKeepPlaywrightResults(dir, dst string, since time.Time) string {
 // rvlParse reads a verify list out of `project-get <worktree> <list>`'s
 // output: every non-blank, non-`#` line inside a ```bash fence, in order.
 // inputs[i] is the pathspec list the `# inputs:` line above cmds[i] named,
-// suites[i] the `# suite:` line's name.
-func rvlParse(body string) (cmds, inputs, suites []string) {
-	pending, suite, fenced := "", "", false
+// suites[i] the `# suite:` line's name, concurrent[i] whether a `# concurrent`
+// line stood above it.
+func rvlParse(body string) (cmds, inputs, suites []string, concurrent []bool) {
+	pending, suite, fenced, conc := "", "", false, false
 	for _, line := range strings.Split(strings.TrimRight(body, "\n"), "\n") {
 		switch {
 		case rvlFenceOpen.MatchString(line):
@@ -1012,15 +1021,20 @@ func rvlParse(body string) (cmds, inputs, suites []string) {
 			suite = m[1]
 			continue
 		}
+		if rvlConcur.MatchString(line) {
+			conc = true
+			continue
+		}
 		if strings.HasPrefix(fields[0], "#") {
 			continue
 		}
 		cmds = append(cmds, line)
 		inputs = append(inputs, pending)
 		suites = append(suites, suite)
-		pending, suite = "", ""
+		concurrent = append(concurrent, conc)
+		pending, suite, conc = "", "", false
 	}
-	return cmds, inputs, suites
+	return cmds, inputs, suites, concurrent
 }
 
 func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
@@ -1254,7 +1268,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 
-	cmds, inputs, suites := rvlParse(string(body))
+	cmds, inputs, suites, concurrent := rvlParse(string(body))
 	for _, c := range cmds {
 		if rvlTemplate.MatchString(c) {
 			fmt.Fprintf(stderr, "run-verify-list: %s line is a template, not a command — move it out of the fence: %s\n", list, c)
@@ -1392,6 +1406,25 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		results := rgtRun(context.Background(), [][]string{append(bashC[:len(bashC):len(bashC)], cmd)}, 1, outDir, abs(wt), cmdEnv)
 		report(shown, results[0].rc, results[0].out, list+"-"+key)
 	}
+	// group holds the list positions of the `lint` commands waiting to run
+	// together (THE CONCURRENT LINT); flush runs them at once, at most one per
+	// CPU, and reports them in list order.
+	var group []int
+	flush := func() {
+		if len(group) == 0 {
+			return
+		}
+		argvs := make([][]string, len(group))
+		for k, i := range group {
+			argvs[k] = append(bashC[:len(bashC):len(bashC)], cmds[i])
+		}
+		dir := filepath.Join(outDir, fmt.Sprint("lint-", group[0]))
+		os.MkdirAll(dir, 0o777)
+		for k, r := range rgtRun(context.Background(), argvs, min(len(argvs), runtime.NumCPU()), dir, abs(wt), cmdEnv) {
+			report(cmds[group[k]], r.rc, r.out, list+"-"+fmt.Sprint(group[k]))
+		}
+		group = nil
+	}
 
 	abortSuperseded()
 	beganAt := time.Now()
@@ -1443,10 +1476,14 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			} else {
 				argvs = append(argvs, append(bashC[:len(bashC):len(bashC)], c))
 			}
+		case concurrent[i]:
+			group = append(group, i)
 		default:
+			flush()
 			run(c, c, fmt.Sprint(i))
 		}
 	}
+	flush()
 	var verdict []string // THE ONE RE-RUN: each failing test command's VERDICT line
 	if list == "test" {
 		results := rgtRun(context.Background(), argvs, max(len(argvs), 1), outDir, abs(wt), cmdEnv)
