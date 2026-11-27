@@ -160,3 +160,40 @@ func TestHookFlowSessionActivityBytes(t *testing.T) {
 		t.Errorf("\n got: %q\nwant: %q", got, want)
 	}
 }
+
+// TestHookFlowActiveChangeBytes pins what hooks/flow-active-change.py asked flowd and printed before
+// its port, byte for byte: the stage-runs query (urlencode's quote_plus), a loop's own run skipped,
+// the session id from a transcript's stem, and the context line in Python's json.dump with no
+// trailing newline.
+func TestHookFlowActiveChangeBytes(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct{ stdin, answer, query, want string }{
+		{`{"prompt":"hi","session_id":"a b/c+&"}`,
+			`{"stageRuns":[{"changeName":"self-review-x"},{"changeName":"kan-1","command":"/flow","stage":"flow.implement"}]}`,
+			"/api/v1/stage-runs?session_id=a+b%2Fc%2B%26&sort=-started_at&limit=50",
+			`{"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": "flow: this session's last /flow run marked change kan-1. A plain message reporting a problem or asking for a change to it is a fix run of kan-1 \u2014 **A plain message at IN_PROGRESS** (skills/flow/SKILL.md)."}}`},
+		{`{"prompt":"hi","transcript_path":"/t/sess-9.jsonl"}`,
+			`{"stageRuns":[{"changeName":"kan-2","command":"/flow-interactive","stage":"flow.verify"}]}`,
+			"/api/v1/stage-runs?session_id=sess-9&sort=-started_at&limit=50",
+			"{\"hookSpecificOutput\": {\"hookEventName\": \"UserPromptSubmit\", \"additionalContext\": \"flow: this session runs /flow-interactive change `kan-2`. A plain message is its next request \\u2014 or its stop (**One request**, **Explicit stop**, `skills/flow-interactive/SKILL.md`).\"}}"},
+		{`{"prompt":"hi","session_id":"s"}`,
+			`{"stageRuns":[{"changeName":"kan-3","command":"/flow-interactive","stage":"flow.cleanup"}]}`,
+			"/api/v1/stage-runs?session_id=s&sort=-started_at&limit=50", ""},
+	} {
+		var mu sync.Mutex
+		var asked string
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			mu.Lock()
+			asked = r.RequestURI
+			mu.Unlock()
+			_, _ = io.WriteString(w, c.answer)
+		}))
+		out, rc := runHookInProcess(t, "flow-active-change", c.stdin, "FLOW_ADDR="+srv.URL)
+		srv.Close()
+		mu.Lock()
+		if rc != 0 || out != c.want || asked != c.query {
+			t.Errorf("rc=%d asked %q\n got: %q\nwant: %q", rc, asked, out, c.want)
+		}
+		mu.Unlock()
+	}
+}
