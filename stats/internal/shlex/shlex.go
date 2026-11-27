@@ -20,8 +20,8 @@ limitations under the License.
 //
 // Python compatibility: this package splits a command exactly as Python's
 // shlex.shlex(s, posix=True, punctuation_chars=True) with whitespace_split = True does — the
-// splitter hooks/block-unsafe-commands.py used, whose decisions the Go port must reproduce byte
-// for byte. That differs from upstream in six ways, each a change to the state machine below:
+// splitter the Python original of flow-guard hook block-unsafe-commands used, whose decisions
+// its Go port reproduces byte for byte. That differs from upstream in six ways, each a change to the state machine below:
 //   - `();<>|&` are punctuation: a run of them is a token of its own, ending the word before it,
 //     and the character that ends the run is pushed back to start the next token.
 //   - `#` starts a comment anywhere outside quotes, mid-word included: it ends the word.

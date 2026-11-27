@@ -30,7 +30,7 @@ func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Write
 		return die("not-a-git-work-tree", "not a git work tree: %s", wt)
 	}
 	// "MAIN CHECKOUT" IS THE WORKTREE WHOSE GIT DIR IS THE COMMON DIR — the
-	// same test hooks/block-unsafe-commands.py makes. A linked worktree's
+	// same test flow-guard hook block-unsafe-commands makes. A linked worktree's
 	// `--git-dir` is `<common>/worktrees/<id>`, so it differs from
 	// `--git-common-dir`; both are asked for with `--path-format=absolute` so
 	// a relative `.git` from a main checkout never compares unequal to its own

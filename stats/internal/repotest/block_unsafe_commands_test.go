@@ -1,7 +1,7 @@
 package repotest
 
 // TestBlockUnsafeCommands ports the retired shell harness, the
-// harness for hooks/block-unsafe-commands.py.
+// harness for the block-unsafe-commands hook, run through its shim hooks/block-unsafe-commands.py.
 //
 // It builds one bare origin with a clone whose main checkout sits on `main`
 // (origin/HEAD set), a linked worktree of it on a feature branch, and one repo

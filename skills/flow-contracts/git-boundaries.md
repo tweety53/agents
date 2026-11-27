@@ -87,7 +87,7 @@ carries `Task-Id:` instead.
 
 ## Restoring a path with unstaged edits
 
-**A restore that would discard unstaged edits is denied.** `hooks/block-unsafe-commands.py` denies
+**A restore that would discard unstaged edits is denied.** `flow-guard hook block-unsafe-commands` denies
 a typed `git checkout … -- <path>` or `git restore <path>` in a linked worktree when a path it names
 carries unstaged edits: the restore reverts the file to its index state, and an uncommitted fix on
 it is lost with the flip a mutation proof made. Restore a flipped file
