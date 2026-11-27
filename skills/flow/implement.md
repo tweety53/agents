@@ -36,7 +36,7 @@ implementer, reviewer, slot or fix subagent launched first, by the wait of **Tur
 
 ### Dispatch sites — the parent's closed list
 
-These eleven rows are **every** Agent-tool dispatch the parent may make, across sections **1**,
+These ten rows are **every** Agent-tool dispatch the parent may make, across sections **1**,
 **2** and **4** below, `skills/flow/review-panel.md`, `skills/flow/verify-and-handoff.md` and
 `skills/flow-contracts/pipeline.md`'s **Pipeline defects found mid-run**:
 
@@ -45,7 +45,6 @@ These eleven rows are **every** Agent-tool dispatch the parent may make, across 
 | implementer, one per group; a fixer per fix | `implementer`; a fixer the role whose pair **Every fix is a fresh one-shot** names | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
 | gated reviewer bundle, one per batch of returned tasks of weight 5 | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
 | panel bundle, one per decided `panel` bundle | `panel-reviewer` on pass 1; `panel-rerun` for a re-run | `panel-<round>-<slot\|slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
-| findings merger, one per round once its dispatches have ended | `panel-merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` | `skills/flow/review-panel.md`, the fix step |
 | minor fix, one per round that raised only Minors | `minor-fix` | `panel-<round>-minor-fix` | `skills/flow/review-panel.md`, **Panel re-runs** |
 | fix implementer, one per fix | `implementer` | `fix-<k>-implementer` | `skills/flow/fix.md`, step 2 |
@@ -68,8 +67,7 @@ delegated** — every `flow-guard check-*`, `flow-guard run-reproducer`,
 `flow-guard prepare-workspace`, `## lint`, every `flow record` and `flow stage` call,
 worktree add and remove, every report read and every diff walk. Not to a "verify" reader, a
 "re-verify" or "mutation re-verify" agent, a helper, a background task, or a subagent under any
-other name; the `## test` list is the runner's. The findings merger's read of a round's reports
-(**The findings merger**, `skills/flow/review-panel.md`) is the one exception. A call that names
+other name; the `## test` list is the runner's. A call that names
 no row above is not made.
 
 **No row is ever a fork.** No `/flow*` phase, and no loop a phase or the self-review runs,
@@ -541,8 +539,8 @@ stated once here and cited — never restated — from `skills/flow/review-panel
 - **Never open a report.** The parent opens no report or evidence file a dispatched agent wrote. A
   dispatch's verdict is its final message — an implementer's, fixer's or gated bundle's summary
   head (`skills/flow/implementer-brief.md`, `skills/flow/gated-reviewer-brief.md`), the verifier's
-  `## Verdict`, the panel's merger summary — and a judgement that needs a report body goes to the
-  agent passed that path: the fixer through `FIX INPUT:`, the merger, the planner. A file a guard or
+  `## Verdict`, the `merge-panel-findings` output — and a judgement that needs a report body goes to the
+  agent passed that path: the fixer through `FIX INPUT:`, the planner. A file a guard or
   `flow` parses, and output the operator must see, are not the parent's reads.
 - **Never read `final-review.diff` or a panel-fix diff whole.** A slot
   reads the diff it was dispatched against; the parent walks a fix's hunks through `git diff

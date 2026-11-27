@@ -221,47 +221,29 @@ its round is never clean.
 
 ### The findings merger
 
-**The parent reads a round's findings through one findings merger, never the reports one by one.**
+**The parent reads a round's findings through `flow-guard merge-panel-findings`, never the reports one by one.**
 **A section a report leaves unread is read in the same round, before the merger.** When a
 round-`<r>` report's `Unread:` line names a section, the parent dispatches one more dispatch of that role in round `<r>`, keyed
 `panel-<r>-<id>-unread` with `<id>` the report's own id, its prompt carrying the SECTION paragraph
 for each section the line names, and its report written to `panel-report-<r>-<id>-unread.md`.
 Once every dispatch of the round has ended — its `end` recorded, every role's report file
-confirmed under **Recording findings**, and the worktree-status comparison passed — the parent dispatches one merger: a one-shot that
-reads the round's report files from disk, writes one summary and exits.
+confirmed under **Recording findings**, and the worktree-status comparison passed — the parent runs
 
-**The merger never judges, fixes or dispatches.** It decides no finding real, records nothing,
-and edits no file but its summary. Whether each finding stands, the fold of a
-defect raised by several roles, every `flow record finding`, `status` and `incident` call, the fix
-and every re-run decision stay the parent's.
+```bash
+flow-guard merge-panel-findings <abs-worktree> <round> <id>=<dispatch-seq> [<id>=<dispatch-seq>…]
+```
 
-**The merger runs on the `panel-merger` role's pair** — its work is mechanical, and every review
-stays on its slot's own pair. Its row is begun and ended by the hooks.
+one `<id>` per findings file the round's dispatches wrote (`<id>-unread`, `<id>-<repo>` as its report is named), `<dispatch-seq>` the
+seq its dispatch recorded. Its header (`stats/internal/guard/mergepanelfindings.go`) is canonical
+for its output: `findings-<round>.jsonl`, and one `finding: <id>#<n> — <severity> — <file:line> —
+<task id|none> — <note>` line per finding and one `duplicate: <file:line> — <id>#<n>, …` line per
+location several roles cite. Exit 1 names a role whose findings file is missing or unreadable: that
+role is `not run`.
 
-It is launched with `run_in_background: true`, its `description` opening with its key, and a
-prompt opening with the line `Role: panel-merger`, its pair its **Allowed pairs** row
-(`skills/flow-contracts/model-policy.md`) — followed by the baseline pointer, the line `Read <skill-dir>/implementer-brief.md` for its TOOLS and NO DELEGATION paragraphs, the
-MERGER BRIEF paragraph below, every role's report path, and one line per dispatch of the round —
-its `-key`, the `-outcome` its row was closed with, and its elapsed seconds.
-
-> **MERGER BRIEF:** read each report file listed below — never the diff, never the code — and
-> write `<abs-worktree>/.superpowers/sdd/panel-summary-<round>.md`, then return its content and
-> stop. One line per fact, in exactly these shapes:
-> `dispatch: <key> — <outcome> — <elapsed>s` for each dispatch listed below, as given;
-> `slot: <id> — <report path> — Critical <n> — Important <n> — Minor <n>`, the counts its
-> report's `Critical:` and `Important:` lines give and its own Minor count, or `placeholder` in
-> place of the counts for a `no verbatim report captured` file;
-> `finding: <id>#<n> — <severity> — <file:line> — <task id|none> — <the reviewer's own sentence naming the defect, quoted>`, `<n>` the finding's
-> 1-based index in its report;
-> `duplicate: <file:line> — <id>#<n>, <id>#<n>[, …]` grouping findings of different roles that
-> cite one `file:line`. You judge nothing: never decide a finding real, join findings at different
-> locations, drop one, re-word one, or fix anything.
-
-**The summary is what the parent reads**, not the reports: its `finding:` lines carry each
-finding's severity, location, task and the reviewer's own sentence, the `-note` of
-**Recording findings**. A `duplicate:`
-line is a candidate fold the parent confirms or rejects under **Bundled dispatch**'s
-several-roles rule.
+**The guard judges nothing.** Whether each finding stands, the fold of a defect raised by several
+roles, every `flow record finding`, `status` and `incident` call, the fix and every re-run decision
+stay the parent's. A `duplicate:` line is a candidate fold the parent confirms or rejects under
+**Bundled dispatch**'s several-roles rule.
 
 ### The mutation-testing brief
 
@@ -326,8 +308,8 @@ discipline**'s never-`cat`-a-report rule (`skills/flow/implement.md`).
 **Every finding is a row in the store. The panel record is rendered from those rows.** The parent
 records every finding itself. Every
 finding a round raised is recorded in one Bash call, `flow record finding -change <name> -from
-<abs-worktree>/.superpowers/sdd/findings-<round>.jsonl`, over a file the parent writes first: one
-JSON object per finding, its keys the flags below without their dash, a flag the finding omits
+<abs-worktree>/.superpowers/sdd/findings-<round>.jsonl`, over the file `merge-panel-findings` wrote:
+one JSON object per finding, its keys the flags below without their dash, a flag the finding omits
 left out — never a shell loop of single `flow record finding` calls.
 
 ```bash

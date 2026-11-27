@@ -30,7 +30,10 @@ each pass's REPORT FILE path are filled in by that brief.
 > too; the file is the record. Open the file with one `Critical: <n>`, one `Important: <n>` and one
 > `Minor: <n>` line counting the findings it raises at each severity, then one `Unread: none` line, or
 > `Unread: <repository>[, <repository>…]` naming each `# worktree:` section you did not read in
-> full. Write this file's own text, never one derived from another role's report or from a shared
+> full. Beside it write `findings-<round>-<id>[-<repo>].jsonl`, named as your report file is, empty when
+> you raised nothing: one JSON object per finding, carrying `task` (omitted where it names none),
+> `severity`, `location` (`<file>:<line>`) and `note` (your sentence naming the defect), never a
+> `ref`. Write this file's own text, never one derived from another role's report or from a shared
 > text by substitution: a substitution rewrites every match in the findings as well.
 
 > **WORKTREES:** this change spans `<abs-worktree-1>`, `<abs-worktree-2>`, …; `final-review.diff`
