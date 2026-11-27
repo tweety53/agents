@@ -357,11 +357,12 @@ verify** skip what no later commit touched. The parent reads the runner's final 
 `VERDICT: PASS` goes on; `VERDICT: FAIL` with `flaky` evidence goes on once the runner's re-run has
 passed; `defect` is fixed at its root cause by a fresh one-shot `full-suite-fix-<n>` (**Every fix is
 a fresh one-shot** below), its `FIX INPUT:` the runner's `failing:` lines and `full output:` path,
-then a fresh runner re-runs the list — each `full-suite-fix-<n>`/runner pair is one round, and three
+then a fresh runner re-runs only what failed — a visual `verify` row narrowed as **Narrowed visual
+re-runs** states (`skills/flow/fix.md`), any other failing test by name — and re-runs the list once,
+after the last fix, when those pass: each `full-suite-fix-<n>`/runner pair is one round, and three
 failed rounds take **Three failed rounds** (`skills/flow-contracts/pipeline.md`). The commit
 carries `-m "Flow-Key: full-suite-fix-<n>"` (**Commits outside every task**,
-`skills/flow-contracts/git-boundaries.md`). A failing visual `verify` row in the list is re-run
-narrowed as **Narrowed visual re-runs** states (`skills/flow/fix.md`).
+`skills/flow-contracts/git-boundaries.md`).
 `flow-guard run-verify-list`'s `test` list ends with that section's `verify` run on the specs its `specs`
 row maps for the diff — the smoke set alone when it maps nothing or no `specs` row is declared, the
 list failing when it exits non-zero, and the whole suite, `<specs>` empty, only when the operator asks for it

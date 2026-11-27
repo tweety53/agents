@@ -53,6 +53,12 @@ It reads `implementer-brief.md` and then this file in full first; every paragrap
 > run costs lines of context, not a build log. Keep every run bounded (PROOF RUNS,
 > `skills/flow/implementer-brief.md`).
 
+> **MOVED BASELINES:** a fix that moves what a committed capture baseline shows — on purpose, as
+> its finding asks — re-baselines that capture in the same commit, through the re-baseline route
+> `<project>/.flow/project.md` names or else its `capture` command with `--update-snapshots=all`,
+> each changed PNG read against what the fix meant to move before it is staged; a capture whose
+> change lies outside that is a defect, never re-baselined.
+
 > **OUTPUT BUDGET:** Every tool result stays in your context, and every later turn re-reads your
 > whole context — a large output is paid for again on every turn after it. Read a file over 200
 > lines by line range — `grep -n` for the symbol, then `sed -n '<a>,<b>p'` or Read with
