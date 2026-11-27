@@ -20,7 +20,7 @@ const STAGE_COLOUR: Record<string, string> = {
   Review: "#2563eb",
   Verification: "#16a34a",
   "Self-review": "#9333ea",
-  "Pipeline fix": "#0891b2",
+  "Fix loop": "#0891b2",
   "Pair choice": "#64748b",
   Other: "#94a3b8",
 };

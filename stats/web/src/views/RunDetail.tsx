@@ -268,8 +268,8 @@ function roleGroups(entries: RoleEntry[]): RoleGroups {
     groupOf.set(e.role, e.group);
     if (!order.includes(e.group)) order.push(e.group);
   }
-  // An unrecorded pipeline-fix agent names its loop, not a table row: it groups with that loop's roles.
-  const fixGroup = groupOf.get("pipeline-fix-fix");
+  // An unrecorded pipeline-fix agent names its loop, not a table row: it groups with the loop's roles.
+  const fixGroup = groupOf.get("loop-fix");
   if (fixGroup) groupOf.set("pipeline-fix", fixGroup);
   return { groupOf, order };
 }

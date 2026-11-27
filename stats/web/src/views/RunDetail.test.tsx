@@ -1150,8 +1150,8 @@ describe("the reworked run view (kan-1048)", () => {
     expect(within(main).getAllByTestId("phase-role").some((r) => /^other ×1opus ×1\$0\.25$/.test(r.textContent ?? ""))).toBe(true);
   });
 
-  it("run detail puts unrecorded pipeline-fix agents under the roles table's Pipeline fix group", async () => {
-    fetchRolesMock.mockResolvedValueOnce([{ role: "pipeline-fix-fix", base: [], optin: [], group: "Pipeline fix", does: "" }]);
+  it("run detail puts unrecorded pipeline-fix agents under the roles table's Fix loop group", async () => {
+    fetchRolesMock.mockResolvedValueOnce([{ role: "loop-fix", base: [], optin: [], group: "Fix loop", does: "" }]);
     listStageRunsMock.mockResolvedValue(
       stageRunsResponse([
         run(70, "flow.plan", "2026-01-01T00:00:00Z", "2026-01-01T00:30:00Z", {
@@ -1161,7 +1161,7 @@ describe("the reworked run view (kan-1048)", () => {
     );
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const main = await screen.findByRole("region", { name: "Main" });
-    await waitFor(() => expect(within(main).getByTestId("phase-group")).toHaveTextContent("Pipeline fix"));
+    await waitFor(() => expect(within(main).getByTestId("phase-group")).toHaveTextContent("Fix loop"));
     expect(within(main).getAllByTestId("phase-role").some((r) => /^pipeline-fix ×1opus ×1\$0\.25$/.test(r.textContent ?? ""))).toBe(true);
   });
 

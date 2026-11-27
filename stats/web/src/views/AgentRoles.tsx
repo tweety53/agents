@@ -28,14 +28,10 @@ export const SHORT_DOES: Record<string, string> = {
   runner: "Runs suites, returns a verdict",
   general: "Any task no other role fits",
   "self-review-pass": "Reviews the run",
-  "self-review-plan": "Plans review fixes",
-  "self-review-fix": "Makes a review fix",
-  "self-review-review-1": "Reviews that fix",
-  "self-review-review-r": "Re-reviews that fix",
-  "pipeline-fix-plan": "Plans a tooling fix",
-  "pipeline-fix-fix": "Makes a tooling fix",
-  "pipeline-fix-review-1": "Reviews that fix",
-  "pipeline-fix-review-r": "Re-reviews that fix",
+  "loop-plan": "Plans the fixes",
+  "loop-fix": "Makes a fix",
+  "loop-review-1": "Reviews that fix",
+  "loop-review-r": "Re-reviews that fix",
   "pair-judge": "Picks each dispatch's pair",
 };
 const shortDoes = (r: RoleEntry) => SHORT_DOES[r.role] ?? r.does.split(" ").slice(0, 4).join(" ");
