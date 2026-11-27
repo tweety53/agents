@@ -38,7 +38,8 @@ import (
 //     a verdict, and the parent's own end or sweep-dispatch-rows closes it from the real report.
 //
 // The commit is the last `commit: <task-id> <40-hex sha>` line of the final
-// message, passed as -commit.
+// message, passed as -commit; on a change spanning repositories, whose line
+// carries a `<worktree>=<sha>[,…]` map, the map's first sha.
 //
 // Exit 0 always: recording is best-effort and never blocks a stop. It prints
 // END-DISPATCH-ROW-OK <key> <outcome>, or END-DISPATCH-ROW-NA <why>.
@@ -48,7 +49,7 @@ func init() { Registry["end-dispatch-row"] = endDispatchRow }
 
 var (
 	edrKey        = regexp.MustCompile(`(?m)^Key:[ \t]*(\S+)[ \t]*$`)
-	edrCommit     = regexp.MustCompile(`(?m)^commit:[ \t]*\S+[ \t]+([0-9a-f]{40})\b`)
+	edrCommit     = regexp.MustCompile(`(?m)^commit:[ \t]*\S+[ \t]+(?:[^=\s]+=)?([0-9a-f]{40})\b`)
 	edrGatedKey   = regexp.MustCompile(`^task-[0-9]+(?:\+[0-9]+)*-reviewer`)
 	edrGatedFix   = regexp.MustCompile(`(?m)^[ \t]*(?:[-*][ \t]+)?task [0-9]+: fix\b`)
 	edrGatedClean = regexp.MustCompile(`(?m)^[ \t]*(?:[-*][ \t]+)?task [0-9]+: clean\b`)

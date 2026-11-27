@@ -31,6 +31,7 @@ func TestEndDispatchRow(t *testing.T) {
 		payload                   string
 	}{
 		{"implementer", "Role: implementer\nKey: task-3-implementer\n", "status: DONE\ncommit: 3 " + sha + "\n", "-key task-3-implementer -session-token mf-t2 -outcome completed -commit " + sha, ""},
+		{"multi-repo implementer", "Key: task-3-implementer\n", "status: DONE\ncommit: 3 /wt/a=" + sha + ",/wt/b=" + strings.Repeat("b", 40) + "\n", "-outcome completed -commit " + sha, ""},
 		{"gated fix", "Key: task-1+2-reviewer\n", "task 1: clean — x\ntask 2: fix — y\n", "-key task-1+2-reviewer -session-token mf-t2 -outcome fix", ""},
 		{"gated clean", "Key: task-1-reviewer\n", "task 1: clean — x\n", "-outcome clean", ""},
 		{"no final message", "Key: panel-1-primary\n", "", "", ""},
