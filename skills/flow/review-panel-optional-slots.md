@@ -10,9 +10,8 @@ role (`mutation`) works in its
 throwaway copy (**The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`); every other bundle reads the shared
 `<worktree>`.
 
-**The mutation slot's dispatch prompt also carries the MUTATION ENTRY CONTEXT paragraph**, every
-test the plan's `**Tests:**` fields name and every test file in the touched-files list inlined
-directly beneath it:
+**The mutation slot's brief also carries the MUTATION ENTRY CONTEXT paragraph**, the tests
+`build-slot-prompt`'s `-tests` names inlined directly beneath it:
 
 > **MUTATION ENTRY CONTEXT:** `final-review.diff`, at the merge-base sha each `# worktree:`
 > header carries, is your diff base; the tests beneath this paragraph are the tests your
@@ -37,10 +36,10 @@ not dispatched against that copy.
 
 Never symlink a shared `node_modules` into a copy: the copy's own `npm ci` installs one, and over a symlink it empties the shared directory — `<agents repo>/stats/Makefile` refuses to run it there.
 
-Dispatch each slot present in this round's panel **once**, its brief hand-assembled
-(**Bundled dispatch**, `skills/flow/review-panel.md`) from the shared resolved set, never from a copy: the
-brief names each copy, `<worktree>-<slot>-<round>`, as the repository path to mutate and test
-in, and never lists a worktree whose name already ends `-mutation-<round>`.
+Dispatch each slot present in this round's panel **once**, its brief built by `flow-guard
+build-slot-prompt` (**Bundled dispatch**, `skills/flow/review-panel.md`) from the shared resolved set, never from a copy: its
+`-copies` names each copy, `<worktree>-<slot>-<round>`, as the repository path to mutate and test
+in, and its `-worktrees` never lists a worktree whose name already ends `-mutation-<round>`.
 Remove every copy unconditionally once that slot's dispatch closes — completed, aborted or the run stopped — with
 `flow-guard throwaway-worktree remove <worktree> <worktree>-<slot>-<round> --fold-back`, run as its own Bash call with literal absolute paths, never chained into a compound command, which first copies
 each non-empty `<worktree>-<slot>-<round>/.superpowers/sdd/panel-report-*.md`,

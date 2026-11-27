@@ -55,11 +55,8 @@ import (
 //
 // explorer is an Explore subagent a /flow planning session dispatches during
 // flow.plan; a Plan subagent there records planner (kan-1033,
-// design.md §1). merger is the one-shot subagent that folds a panel
-// round's reports into one summary (skills/flow/review-panel.md, The
-// findings merger): never reviewer, whose rows the panel guards read as
-// slots owing reports.
-var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor", "verifier", "explorer", "merger"}
+// design.md §1).
+var recordRoles = []string{"implementer", "reviewer", "panel-fix", "red-partner", "planner", "conductor", "verifier", "explorer"}
 
 // locationLineRe is what a non-empty finding -location must carry: a line
 // number after a colon (path:12, path:12-20).
@@ -563,7 +560,7 @@ and replayed carrying the identical key, so it updates the row the first
 attempt inserted instead of inserting a second row for one dispatch. Write
 it as a literal, unique among the dispatches of one -session-token.
 
--role is one of: implementer, reviewer, panel-fix, red-partner, planner, conductor, verifier, explorer, merger.
+-role is one of: implementer, reviewer, panel-fix, red-partner, planner, conductor, verifier, explorer.
 Any role of the roles table (flow policy get) is accepted too, and the row is stored under its roles-table role.
 "flow record roles" prints that set, one per line.
 

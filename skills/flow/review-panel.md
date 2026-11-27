@@ -134,18 +134,16 @@ written** — one call per dispatch, a one-role dispatch included:
 
 ```bash
 flow-guard build-slot-prompt <skill-dir> <abs-worktree> <round> <id[+id]> -diff <path> [-artifacts <p,…>] \
-  [-standards <p,…>] [-global-constraints <path|none>] [-worktrees <p,…>] [-repo <repo>] [-fix-report <p,…>] \
-  -panel <slot,…>
+  [-standards <p,…>] [-global-constraints <path|none>] [-worktrees <p,…>] [-repo <repo> | -unread <repo,…>] [-fix-report <p,…>] \
+  -panel <slot,…> [-copies <p,…> -tests <p,…>]
 ```
 
 Its flags carry the values of the placeholder table above, `-worktrees` the resolved set, `-repo`
 only on one repository's dispatch of a multi-repository panel, and `-fix-report` the `<fix report>`
 path(s) on a fix round, and `-panel` every slot the round runs, so a slot takes up the angle of one
-the round omits. Its header (`stats/internal/guard/buildslotprompt.go`) is canonical for the
+the round omits; `-unread` the sections of a same-round re-dispatch (**The findings merger**), and on the `mutation` dispatch `-copies` its throwaway copies, `<worktree>-mutation-<round>` per repository, and `-tests` every test the plan's `**Tests:**` fields name and every test file in the touched-files list. Its header (`stats/internal/guard/buildslotprompt.go`) is canonical for the
 file it writes, `<canon>/.superpowers/sdd/slot-prompt-<round>-<ids>[-<repo>].md`, whose path it
-prints; exit 2 names a missing value and writes nothing. `mutation` has no template: its brief is
-**The mutation-testing brief** below, built last, naming its throwaway copies,
-`<worktree>-mutation-<round>` per repository.
+prints; exit 2 names a missing value and writes nothing.
 
 The Agent call's description is `panel-<round>-<slots>[-<repo>]` and its prompt opens `Role: panel-reviewer` (`Role: panel-rerun` on a fix round). Its prompt carries only that Role line
 (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), the baseline
@@ -234,8 +232,8 @@ its round is never clean.
 **The parent reads a round's findings through `flow-guard merge-panel-findings`, never the reports one by one.**
 **A section a report leaves unread is read in the same round, before the merger.** When a
 round-`<r>` report's `Unread:` line names a section, the parent dispatches one more dispatch of that role in round `<r>`, keyed
-`panel-<r>-<id>-unread` with `<id>` the report's own id, its prompt carrying the SECTION paragraph
-for each section the line names, and its report written to `panel-report-<r>-<id>-unread.md`.
+`panel-<r>-<id>-unread` with `<id>` the report's own id, its brief built with `-unread` naming
+each section the line names.
 Once every dispatch of the round has ended — its `end` recorded, every role's report file
 confirmed under **Recording findings**, and the worktree-status comparison passed — the parent runs
 

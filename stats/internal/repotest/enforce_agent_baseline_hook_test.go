@@ -510,7 +510,7 @@ func TestEnforceAgentBaselineHookBeginsEveryRowRole(t *testing.T) {
 		"implementer": "implementer", "operator-asked": "implementer",
 		"gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer",
 		"panel-reviewer": "reviewer", "panel-rerun": "reviewer",
-		"panel-merger": "merger", "panel-fix": "panel-fix", "minor-fix": "panel-fix", "no-progress-fixer": "panel-fix", "visual-verifier": "verifier", "runner": "verifier",
+		"panel-fix": "panel-fix", "minor-fix": "panel-fix", "no-progress-fixer": "panel-fix", "visual-verifier": "verifier", "runner": "verifier",
 		"planner": "planner",
 	} {
 		t.Run(id, func(t *testing.T) {
@@ -709,8 +709,8 @@ func TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick(t *testing.T) {
 		{"no pick", "panel-fix", "panel-fix-2", false, true},
 		{"implementer, no pick", "implementer", "task-1-implementer", false, true},
 		{"pick saved", "panel-fix", "panel-fix-2", true, false},
-		// panel-merger has one base pair in the seeded policy: the judge has nothing to pick.
-		{"one base pair, no pick", "panel-merger", "panel-merger-1", false, false},
+		// visual-verifier has one base pair in the seeded policy: the judge has nothing to pick.
+		{"one base pair, no pick", "visual-verifier", "visual-verify-1", false, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			main, wt := beginRepo(t)
@@ -725,18 +725,14 @@ func TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick(t *testing.T) {
 			}
 			env, log := beginEnv(t, `[]`)
 			env = append(env, "FLOW_HOOK_ROLE_CHECK=on")
-			model := "opus"
-			if c.role == "panel-merger" {
-				model = "sonnet"
-			}
-			denied, out := runBegin(t, beginPayload(t, main, c.key+" x", "Role: "+c.role+"\nKey: "+c.key+"\nx", "flow-low", model, ""), env...)
+			denied, out := runBegin(t, beginPayload(t, main, c.key+" x", "Role: "+c.role+"\nKey: "+c.key+"\nx", "flow-low", "opus", ""), env...)
 			if denied != c.wantDeny {
 				t.Errorf("denied = %v (%s), want %v", denied, out, c.wantDeny)
 			}
 			if c.wantDeny && !strings.Contains(out, "pair-judge "+c.role) {
 				t.Errorf("reason = %q, want the pair-judge command for %s", out, c.role)
 			}
-			if c.role == "panel-merger" {
+			if c.role == "visual-verifier" {
 				begins := flowCalls(t, log, "record dispatch begin")
 				if len(begins) != 1 || !strings.HasSuffix(begins[0], " -pair-pick single: the only candidate") {
 					t.Errorf("begins = %q, want one ending in `-pair-pick single: the only candidate`", begins)
@@ -780,8 +776,9 @@ func TestEnforceAgentBaselineHookAdmitsOnlyAPolicyRoleAndPair(t *testing.T) {
 	}{
 		{"no role line", "", "sonnet", "flow-low", true, "Role: <id>"},
 		{"unknown role", "executor", "sonnet", "flow-low", true, "not a role"},
-		{"role with the wrong pair", "panel-merger", "sonnet", "flow-medium", true, "sonnet/flow-low"},
-		{"admitted pair", "panel-merger", "sonnet", "flow-low", false, ""},
+		{"role with the wrong pair", "visual-verifier", "sonnet", "flow-low", true, "opus/flow-low"},
+		{"admitted pair", "visual-verifier", "opus", "flow-low", false, ""},
+		{"retired role", "panel-merger", "sonnet", "flow-low", true, "not a role"},
 		{"other subagent type", "executor", "sonnet", "general-purpose", true, "carries no effort"},
 	}
 	for _, c := range cases {

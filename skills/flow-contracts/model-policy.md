@@ -118,7 +118,6 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 |---|---|
 | `panel-reviewer` | Reviews the whole branch, first pass. |
 | `panel-rerun` | Re-reviews the branch after a fix round. |
-| `panel-merger` | Merges the reviewers' findings into one list without duplicates. |
 | `panel-fix` | Fixes what the review panel found. |
 | `minor-fix` | Fixes a review round's Minors when the round raised nothing worse. |
 

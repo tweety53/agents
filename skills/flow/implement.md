@@ -262,7 +262,7 @@ calls as recorded intent the daemon never overwrites, for a caller that knows th
 unique within the run's session token — `task-<ids>-implementer`, reused identically in both calls.
 Inside a `for` loop it may expand the loop variable — `$k`, `${k}`, or a `#`/`%` strip of it — the
 only shapes the harvester reads; any other expansion leaves the row without its agent.
-`-role` is one of `implementer`, `reviewer`, `merger`, `panel-fix` or `verifier` (**Verify**,
+`-role` is one of `implementer`, `reviewer`, `panel-fix` or `verifier` (**Verify**,
 `skills/flow/verify-and-handoff.md`); `-task` is the task's
 flat integer id, omitted for a dispatch against no single task. `-session-token` takes a literal,
 never a shell substitution. The start and end instants are the daemon's own — never

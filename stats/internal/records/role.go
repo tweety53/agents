@@ -7,7 +7,7 @@ import (
 
 // A dispatch row's stored role is a role of flowd's roles table (the allowed
 // pairs, skills/flow-contracts/model-policy.md): runner, panel-reviewer,
-// visual-verifier, panel-merger. A dispatcher may still type one of the
+// visual-verifier. A dispatcher may still type one of the
 // coarse legacy names, and StoredRole turns it into the roles-table role its
 // key names. Class folds a roles-table role back to the coarse class the
 // consumers that only need "a reviewer" or "an implementer" test.
@@ -27,7 +27,7 @@ var roleClass = map[string]string{
 	"gated-re-reviewer": "reviewer", "self-review-pass": "reviewer",
 	"self-review-review-1": "reviewer", "self-review-review-r": "reviewer",
 	"pipeline-fix-review-1": "reviewer", "pipeline-fix-review-r": "reviewer",
-	"panel-merger":   "merger",
+	"panel-merger":   "merger", // retired role: kept so its history rows fold as dispatch_class (0094) does
 	"minor-fix":      "panel-fix",
 	"operator-asked": "implementer", "self-review-fix": "implementer", "pipeline-fix-fix": "implementer",
 	"no-progress-fixer": "implementer",
@@ -88,8 +88,6 @@ func LaunchRoleID(role, key string) string {
 		}
 	}
 	switch {
-	case role == "merger":
-		return "panel-merger"
 	case role == "panel-fix" && strings.HasPrefix(key, "panel-") && strings.HasSuffix(key, "-minor-fix"):
 		return "minor-fix"
 	case role == "panel-fix":

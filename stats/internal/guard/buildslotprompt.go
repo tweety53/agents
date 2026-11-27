@@ -13,7 +13,7 @@ import (
 
 // flow-guard build-slot-prompt <skill-dir> <abs-worktree> <round> <id[+id]>
 // -diff <path> [-artifacts <p,…>] [-standards <p,…>] [-global-constraints <path|none>]
-// [-worktrees <p,…>] [-repo <name>] [-fix-report <p,…>] [-panel <slot,…>] — assembles one panel
+// [-worktrees <p,…>] [-repo <name> | -unread <repo,…>] [-fix-report <p,…>] [-panel <slot,…>] [-copies <p,…> [-tests <p,…>]] — assembles one panel
 // dispatch's brief (skills/flow/review-panel.md, **Bundled dispatch**) so the
 // parent never reads a reviewer template. It writes
 // <abs-worktree>/.superpowers/sdd/slot-prompt-<round>-<ids>[-<repo>].md:
@@ -23,8 +23,20 @@ import (
 // fenced body of <skill-dir>/<id>-reviewer-prompt.md, dedented, its
 // placeholders filled ([CALIBRATION_PATH] and [PRINCIPLES_PATH] resolved
 // beside the templates) — and its REPORT FILE line. Prints the written path.
-// Exit 0 written; 2 usage, an id with no template (mutation has none), or a
-// placeholder a template carries that no flag filled.
+//
+// -unread names the sections a round's report left unread: the role's
+// same-round re-dispatch, one SECTION line per section, its brief and report
+// file named with an -unread suffix in place of -<repo>.
+//
+// mutation, always alone, has no template: its PASS section is the diff
+// line, a MUTATION COPIES line (-copies, required: the throwaway copies it
+// mutates and tests in), the body of review-panel.md's **The
+// mutation-testing brief**, and review-panel-optional-slots.md's MUTATION
+// ENTRY CONTEXT blockquote with each -tests file inlined beneath it.
+//
+// Exit 0 written; 2 usage, an id with no template, mutation bundled or
+// without -copies, -unread with -repo, or a placeholder a template carries
+// that no flag filled.
 func init() { Registry["build-slot-prompt"] = buildSlotPrompt }
 
 var bspPlaceholder = regexp.MustCompile(`\[(DIFF_PATH|ARTIFACT_PATHS|CALIBRATION_PATH|PRINCIPLES_PATH|STANDARDS_PATHS|GLOBAL_CONSTRAINTS)\]`)
@@ -33,7 +45,7 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	usage := func(msg string) int {
 		Reason(env, "usage")
 		fmt.Fprintln(stderr, "build-slot-prompt: "+msg)
-		fmt.Fprintln(stderr, "usage: flow-guard build-slot-prompt <skill-dir> <abs-worktree> <round> <id[+id]> -diff <path> [-artifacts <p,…>] [-standards <p,…>] [-global-constraints <path|none>] [-worktrees <p,…>] [-repo <name>] [-fix-report <p,…>] [-panel <slot,…>]")
+		fmt.Fprintln(stderr, "usage: flow-guard build-slot-prompt <skill-dir> <abs-worktree> <round> <id[+id]> -diff <path> [-artifacts <p,…>] [-standards <p,…>] [-global-constraints <path|none>] [-worktrees <p,…>] [-repo <name> | -unread <repo,…>] [-fix-report <p,…>] [-panel <slot,…>] [-copies <p,…> [-tests <p,…>]]")
 		return 2
 	}
 	if len(args) < 4 {
@@ -56,6 +68,9 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	repo := fs.String("repo", "", "")
 	fixReport := fs.String("fix-report", "", "")
 	panel := fs.String("panel", "", "")
+	unread := fs.String("unread", "", "")
+	copies := fs.String("copies", "", "")
+	tests := fs.String("tests", "", "")
 	if err := fs.Parse(args[4:]); err != nil || fs.NArg() != 0 {
 		return usage("bad flags")
 	}
@@ -68,8 +83,13 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	list := func(s string) string { return strings.ReplaceAll(s, ",", ", ") }
 
 	suffix := ""
-	if *repo != "" {
+	switch {
+	case *repo != "" && *unread != "":
+		return usage("-unread and -repo are exclusive")
+	case *repo != "":
 		suffix = "-" + *repo
+	case *unread != "":
+		suffix = "-unread"
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "Read %s in full first — every paragraph binds you\n\n", filepath.Join(skillDir, "slot-brief.md"))
@@ -79,8 +99,10 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	if *worktrees != "" {
 		fmt.Fprintf(&b, "WORKTREES: %s\n\n", list(*worktrees))
 	}
-	if *repo != "" {
-		fmt.Fprintf(&b, "SECTION: %s\n\n", *repo)
+	for _, sec := range strings.Split(*repo+*unread, ",") {
+		if sec != "" {
+			fmt.Fprintf(&b, "SECTION: %s\n\n", sec)
+		}
 	}
 	if *fixReport != "" {
 		src, err := os.ReadFile(filepath.Join(skillDir, "review-panel-fix-round.md"))
@@ -92,11 +114,21 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	sdd := filepath.Join(wt, ".superpowers/sdd")
 	for _, id := range ids {
-		src, err := os.ReadFile(filepath.Join(skillDir, id+"-reviewer-prompt.md"))
-		if err != nil {
-			return usage(fmt.Sprintf("%s has no reviewer template (mutation's brief is The mutation-testing brief)", id))
+		var body string
+		if id == "mutation" {
+			if len(ids) != 1 || *copies == "" {
+				return usage("mutation is dispatched alone and needs -copies")
+			}
+			if body, err = bspMutationBody(skillDir, *fill["DIFF_PATH"], list(*copies), *tests); err != nil {
+				return usage(err.Error())
+			}
+		} else {
+			src, err := os.ReadFile(filepath.Join(skillDir, id+"-reviewer-prompt.md"))
+			if err != nil {
+				return usage(fmt.Sprintf("%s has no reviewer template", id))
+			}
+			body = bspFencedBody(string(src))
 		}
-		body := bspFencedBody(string(src))
 		var missing string
 		body = bspPlaceholder.ReplaceAllStringFunc(body, func(m string) string {
 			k := m[1 : len(m)-1]
@@ -172,4 +204,40 @@ func bspBlockquote(src, head string) string {
 		out.WriteString(l + "\n")
 	}
 	return out.String()
+}
+
+// bspMutationBody is the mutation slot's PASS body (see the header).
+func bspMutationBody(skillDir, diff, copies, tests string) (string, error) {
+	panel, err := os.ReadFile(filepath.Join(skillDir, "review-panel.md"))
+	if err != nil {
+		return "", err
+	}
+	const head = "### The mutation-testing brief\n"
+	brief := string(panel)
+	i := strings.Index(brief, head)
+	if i < 0 {
+		return "", fmt.Errorf("no %q section in review-panel.md", strings.TrimSpace(head))
+	}
+	brief = brief[i+len(head):]
+	if j := strings.Index(brief, "\n### "); j >= 0 {
+		brief = brief[:j]
+	}
+	opt, err := os.ReadFile(filepath.Join(skillDir, "review-panel-optional-slots.md"))
+	entry := bspBlockquote(string(opt), "> **MUTATION ENTRY CONTEXT:**")
+	if err != nil || entry == "" {
+		return "", fmt.Errorf("no MUTATION ENTRY CONTEXT blockquote in review-panel-optional-slots.md")
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "**Diff file:** %s\n\nMUTATION COPIES: %s\n\n%s\n\n%s", diff, copies, strings.TrimSpace(brief), entry)
+	for _, p := range strings.Split(tests, ",") {
+		if p == "" {
+			continue
+		}
+		src, err := os.ReadFile(p)
+		if err != nil {
+			return "", err
+		}
+		fmt.Fprintf(&b, "\n### %s\n\n```\n%s\n```\n", p, strings.TrimRight(string(src), "\n"))
+	}
+	return b.String(), nil
 }

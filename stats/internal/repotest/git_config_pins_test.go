@@ -168,7 +168,7 @@ g status --porcelain > "$DIR/after.status"
 		}
 	})
 
-	t.Run(`case 6: go — unpinned diff (incl. exec.Command(<var>, "diff")) and status are named; pinned, multi-line, composite-literal, map-index, diff(1)-program and _test.go are not`, func(t *testing.T) {
+	t.Run(`case 6: go — unpinned diff (incl. exec.Command(<var>, "diff")) and status are named; pinned, multi-line, composite-literal, map-index, diff(1)-program, flag-definition and _test.go are not`, func(t *testing.T) {
 		t.Parallel()
 		out, rc := runAudit(t, sandbox(t, map[string]string{
 			"guard.go": `func a() { names, err := runGit(env, wt, "diff", "--name-only", parent+".."+commit) }
@@ -182,6 +182,7 @@ func d() {
 func e() { args := append([]string{"-C", repo, "diff", "--name-only", "--no-renames"}, cached...) }
 func f() { out, err := exec.Command(gitBin, "diff", "--name-only").Output() }
 func g() { p, ok := lookPath(env, "diff"); d := exec.Command("diff", a, b) }
+func h() { d := fs.String("diff", "", "") }
 `,
 			"guard_test.go": `func t() { runGit(env, wt, "diff", "--name-only") }` + "\n",
 		}))
@@ -338,8 +339,9 @@ def scan_go(path, hits):
         # A literal naming the program itself — lookPath(env, "diff"),
         # exec.Command("diff", …) — is diff(1), never a git subcommand. Only
         # lookPath takes a leading identifier: exec.Command(gitBin, "diff", …)
-        # is a git diff and stays audited.
-        if re.search(r'(?:exec\.Command\(|lookPath\(\s*\w+\s*,)\s*$', text[: m.start()]):
+        # is a git diff and stays audited. A flag definition — fs.String("diff",
+        # …) — names a flag, never a git call.
+        if re.search(r'(?:exec\.Command\(|lookPath\(\s*\w+\s*,|\bfs\.String\()\s*$', text[: m.start()]):
             continue
         depth = 0
         i = m.start()

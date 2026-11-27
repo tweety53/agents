@@ -7095,7 +7095,6 @@ func TestRecordDispatchBeginPrintsTheLaunchLines(t *testing.T) {
 		{"kan-258", "panel-fix", "task-1-implementer-fix-1", nil, "recorded: dispatch 7\ndescription: Task 1/3\nRole: panel-fix\n"},
 		{"kan-258", "panel-fix", "task-1-implementer-recommit-1", nil, "recorded: dispatch 7\ndescription: Task 1/3\nRole: panel-fix\n"},
 		{"kan-259", "reviewer", "panel-2-primary", []string{"-slot", "primary"}, "recorded: dispatch 7\ndescription: panel-2-primary\n"},
-		{"kan-258", "merger", "panel-2-merger", nil, "recorded: dispatch 7\ndescription: panel-2-merger\nRole: panel-merger\n"},
 		{"kan-258", "panel-fix", "panel-fix-3", nil, "recorded: dispatch 7\ndescription: panel-fix-3\nRole: panel-fix\n"},
 		{"kan-258", "panel-fix", "panel-2-minor-fix", nil, "recorded: dispatch 7\ndescription: panel-2-minor-fix\nRole: minor-fix\n"},
 		{"kan-258", "reviewer", "fix-2-review", nil, "recorded: dispatch 7\ndescription: fix-2-review\nRole: panel-reviewer\n"},

@@ -24,7 +24,6 @@ export const SHORT_DOES: Record<string, string> = {
   "minor-fix": "Fixes review Minors",
   "no-progress-fixer": "Takes over a stuck fix",
   "panel-rerun": "Re-reviews the branch",
-  "panel-merger": "Merges findings",
   "visual-verifier": "Compares UI to mockup",
   runner: "Runs suites, returns a verdict",
   general: "Any task no other role fits",

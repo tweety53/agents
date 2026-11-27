@@ -57,7 +57,7 @@ func TestRowsTwoColumns(t *testing.T) {
 	}
 	for _, role := range []string{
 		"explorer", "plan-designer", "designer", "planner", "implementer", "no-progress-fixer", "panel-fix", "minor-fix", "panel-reviewer", "panel-rerun", "decider", "gated-reviewer",
-		"gated-re-reviewer", "visual-verifier", "runner", "general", "panel-merger",
+		"gated-re-reviewer", "visual-verifier", "runner", "general",
 		"self-review-pass", "self-review-plan", "pipeline-fix-plan", "self-review-fix", "pipeline-fix-fix",
 		"self-review-review-1", "pipeline-fix-review-1", "self-review-review-r", "pipeline-fix-review-r", "pair-judge",
 	} {
@@ -65,7 +65,7 @@ func TestRowsTwoColumns(t *testing.T) {
 			t.Errorf("role %q has no row", role)
 		}
 	}
-	for _, retired := range []string{"plan-triage", "planner-short"} {
+	for _, retired := range []string{"plan-triage", "planner-short", "panel-merger"} {
 		if roles[retired] {
 			t.Errorf("retired role %q still has a row", retired)
 		}

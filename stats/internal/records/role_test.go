@@ -8,7 +8,6 @@ func TestStoredRole(t *testing.T) {
 		{"verifier", "verify-2-gymie", "", "runner"},
 		{"verifier", "runner-1", "", "runner"},
 		{"verifier", "visual-verify-2", "", "visual-verifier"},
-		{"merger", "panel-1-merger", "", "panel-merger"},
 		{"reviewer", "panel-1-primary", "", "panel-reviewer"},
 		{"reviewer", "panel-1-primary", "panel-rerun", "panel-rerun"},
 		{"reviewer", "task-1-reviewer", "", "gated-reviewer"},
