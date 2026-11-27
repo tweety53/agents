@@ -3,7 +3,7 @@
 ## After a change lands
 
 Every change ends with one review of the run that built it, not of the product. A single agent
-reads a bundle of what happened and reports under five angles, each always present even when
+reads a bundle of what happened and reports under seven angles, each always present even when
 empty:
 
 | Angle | Asks |
@@ -13,12 +13,14 @@ empty:
 | Instruction gaps | Which missing instruction cost a review or visual-verify fix round, and what prompt update would have avoided it? |
 | Cost | What spent tokens or time working or waiting, and could be cut without losing quality? |
 | Automation | Which guard, hook, script or other automation would have avoided a problem or a manual step? |
+| Simplify | Which instruction, guard or skill section can be made smaller without losing what it protects? |
+| Cut | Which instruction, guard or skill section can be deleted: it never fires, never loads, or costs more friction than it saves? |
 
 What happens to a finding:
 
 - **A problem with a small fix is fixed and landed without asking.**
 - **A big one**, a fix touching 60 or more files, is not fixed in the pass; it is suggested.
-- **The other four angles are suggested, never applied**: you approve or decline each on the
+- **The other six angles are suggested, never applied**: you approve or decline each on the
   dashboard's Self-review view. Only Critical and Important findings are suggested.
 - **A new or extended guard, check or hook is never built by the pass**; it is suggested.
 

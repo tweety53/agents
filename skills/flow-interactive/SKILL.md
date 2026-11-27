@@ -330,7 +330,7 @@ as a request and the session stays open, saying so in one line. Stop:
 2. **Self-review**, with `-command '/flow-interactive'` and the `fi-` token.
    A `flow.self-review` stage already completed for `<name>` skips the pass: a re-run never
    records its findings twice.
-   Assemble the bundle in `<sr-dir>/bundle.md` (**2. Read the bundle and run the five angles**,
+   Assemble the bundle in `<sr-dir>/bundle.md` (**2. Read the bundle and run the seven angles**,
    `skills/flow-self-review/SKILL.md`), never printed, never committed, as the stdout of `flow
    self-review bundle -change <name>` run from the worktree — of the sources `/flow`'s bundle
    judges a change by, a `/flow-interactive` session can never have tasks.md, design.md,
@@ -338,7 +338,7 @@ as a request and the session stays open, saying so in one line. Stop:
    five report `skipped` by design, never silently; the ledger and panel render from the store
    when the session wrote rows.
    Over that bundle run steps 2–5 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`),
-   canonical for the five angles, the fix, where the fixes land, the filing and the store rows.
+   canonical for the seven angles, the fix, where the fixes land, the filing and the store rows.
    The landing push carries the fix commits' shas per item 2 of step 3 of `/flow-self-review`.
    A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes the
    mark below `-outcome stopped` instead, and continues straight into the fix **the sweep**
