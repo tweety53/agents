@@ -238,6 +238,9 @@ func (f runTimingsFake) RunInputs(_ context.Context, refs []store.ChangeRef) ([]
 		case "kan-1-a":
 		case "kan-2-b":
 			ds = ds[:3]
+		case "kan-3-c":
+			ds = []records.Dispatch{rtDispatch("task-1-implementer", "implementer", 0, 30, "2")}
+			ds[0].AgentID = "a1"
 		default:
 			return nil, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, r.ProjectKey, r.Name)
 		}
@@ -610,5 +613,53 @@ func TestSPANotCategoriesMatchesTheServerLabels(t *testing.T) {
 	want := fmt.Sprintf("NOT_CATEGORIES = new Set([%q, %q])", labelParent, labelIdle)
 	if !strings.Contains(string(src), want) {
 		t.Fatalf("web/src/api.ts lacks %s", want)
+	}
+}
+
+// TestRunTimingsRouteSplitsAgentTime: with a transcripts root, the per-run
+// route sums each dispatch's harvest.AgentTimeSplit inside the dispatch's
+// own window into totals.agentTimeSplit; without one the field is absent.
+func TestRunTimingsRouteSplitsAgentTime(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	dir := filepath.Join(root, "proj", "sess", "subagents")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ts := func(min float64) string { return strconv.Quote(rtAt(min).Format(time.RFC3339Nano)) }
+	lines := `{"type":"user","timestamp":` + ts(0) + `,"message":{"content":"go"}}
+{"type":"assistant","timestamp":` + ts(1) + `,"message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"make x"}}]}}
+{"type":"user","timestamp":` + ts(3) + `,"message":{"content":[{"type":"tool_result","tool_use_id":"t1"}]}}
+{"type":"assistant","timestamp":` + ts(40) + `,"message":{"content":[{"type":"text","text":"late"}]}}
+`
+	if err := os.WriteFile(filepath.Join(dir, "agent-a1.jsonl"), []byte(lines), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	get := func(opts ...Option) map[string]json.RawMessage {
+		srv, err := New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, nil, nil, nil, nil, nil, append([]Option{WithRunTimings(runTimingsFake{})}, opts...)...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		h := httptest.NewServer(srv.Handler())
+		defer h.Close()
+		resp, err := http.Get(h.URL + "/api/v1/stats/run/p/kan-3-c")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var got struct {
+			Totals map[string]json.RawMessage `json:"totals"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+			t.Fatal(err)
+		}
+		return got.Totals
+	}
+	want := `{"llmMs":1680000,"toolMs":120000,"humanMs":0,"byTool":{"Bash make":120000}}`
+	if got := string(get(WithTranscriptsRoot(root))["agentTimeSplit"]); got != want {
+		t.Errorf("agentTimeSplit = %s, want %s", got, want)
+	}
+	if got, ok := get()["agentTimeSplit"]; ok {
+		t.Errorf("no transcripts root: agentTimeSplit = %s, want absent", got)
 	}
 }

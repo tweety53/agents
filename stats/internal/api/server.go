@@ -207,22 +207,23 @@ type Option func(*serverOptions)
 // It exists as its own type, rather than fields tacked onto Server, so a
 // caller reads what New optionally accepts in one place.
 type serverOptions struct {
-	spa            http.Handler
-	guardRuns      GuardRunStore
-	skillLoads     SkillLoadStore
-	repricer       Repricer
-	policy         PolicyStore
-	roleCosts      RoleCostsStore
-	bottlenecks    BottlenecksStore
-	trace          TraceStore
-	roleCostsSince time.Time
-	changeFiles    ChangeFileStore
-	runTimings     RunTimingsStore
-	stateRoot      string
-	rolesTable     []byte
-	commitBase     string
-	build          string
-	agentEnd       func(agentID string) (time.Time, bool)
+	spa             http.Handler
+	guardRuns       GuardRunStore
+	skillLoads      SkillLoadStore
+	repricer        Repricer
+	policy          PolicyStore
+	roleCosts       RoleCostsStore
+	bottlenecks     BottlenecksStore
+	trace           TraceStore
+	roleCostsSince  time.Time
+	changeFiles     ChangeFileStore
+	runTimings      RunTimingsStore
+	stateRoot       string
+	transcriptsRoot string
+	rolesTable      []byte
+	commitBase      string
+	build           string
+	agentEnd        func(agentID string) (time.Time, bool)
 	// statsTimeout replaces statsWriteTimeout when set -- by tests alone
 	// (export_test.go's WithStatsTimeout), so a timeout test need not wait
 	// the real 20s out.
@@ -490,7 +491,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 		mux.HandleFunc("GET /api/v1/skill-loads", slh.counts)
 	}
 	if so.runTimings != nil {
-		rth := &runTimingsHandler{store: so.runTimings, stateRoot: so.stateRoot, now: time.Now, log: logger}
+		rth := &runTimingsHandler{store: so.runTimings, stateRoot: so.stateRoot, transcripts: so.transcriptsRoot, now: time.Now, log: logger}
 		mux.Handle("GET /api/v1/stats/run/{project}/{change}", http.TimeoutHandler(http.HandlerFunc(rth.get), so.statsTimeout, statsTimeoutMessage))
 	}
 	if so.changeFiles != nil {

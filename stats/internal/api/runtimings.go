@@ -36,6 +36,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/harvest"
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
@@ -59,6 +60,13 @@ func WithRunTimings(st RunTimingsStore) Option {
 // reads "unknown".
 func WithStateRoot(root string) Option {
 	return func(o *serverOptions) { o.stateRoot = root }
+}
+
+// WithTranscriptsRoot names the agent transcripts root the per-run route
+// reads each dispatch's harvest.AgentTimeSplit under; without it
+// totals.agentTimeSplit is left out.
+func WithTranscriptsRoot(root string) Option {
+	return func(o *serverOptions) { o.transcriptsRoot = root }
 }
 
 // usd is an amount in micro-dollars, served as dollars.
@@ -119,6 +127,12 @@ type runTotals struct {
 	// UnclaimedGuardRuns counts the project's main-checkout guard runs in
 	// the window that no change could claim.
 	UnclaimedGuardRuns int `json:"unclaimedGuardRuns"`
+	// AgentTimeSplit sums every dispatch's transcript time inside its own
+	// window into llm, tool (per tool, Bash by command word) and human
+	// time, by harvest.TimeSplit's rule. Per-run route only, and only when
+	// flowd has a transcripts root; a dispatch with no agent id or no
+	// transcript adds nothing.
+	AgentTimeSplit *harvest.TimeSplit `json:"agentTimeSplit,omitempty"`
 }
 
 type breakdownRow struct {
@@ -684,10 +698,11 @@ func lanes(stages []store.StageRun, rows []row, parent, idle []span, wallEnd int
 
 // runTimingsHandler serves the per-run route.
 type runTimingsHandler struct {
-	store     RunTimingsStore
-	stateRoot string
-	now       func() time.Time
-	log       *slog.Logger
+	store       RunTimingsStore
+	stateRoot   string
+	transcripts string
+	now         func() time.Time
+	log         *slog.Logger
 }
 
 func (h *runTimingsHandler) get(w http.ResponseWriter, r *http.Request) {
@@ -699,6 +714,30 @@ func (h *runTimingsHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, out[0])
+}
+
+// agentTimeSplit sums harvest.AgentTimeSplit over ds, each inside its own
+// [start, end) -- end the run's to while the dispatch is open.
+func agentTimeSplit(root string, ds []records.Dispatch, to time.Time) *harvest.TimeSplit {
+	sum := harvest.TimeSplit{}
+	for _, d := range ds {
+		if d.AgentID == "" {
+			continue
+		}
+		end := to
+		if d.EndedAt != nil {
+			end = *d.EndedAt
+		}
+		s, _, _ := harvest.AgentTimeSplit(root, d.AgentID, d.StartedAt, end)
+		sum.LLMMs, sum.ToolMs, sum.HumanMs = sum.LLMMs+s.LLMMs, sum.ToolMs+s.ToolMs, sum.HumanMs+s.HumanMs
+		for k, v := range s.ByTool {
+			if sum.ByTool == nil {
+				sum.ByTool = map[string]int64{}
+			}
+			sum.ByTool[k] += v
+		}
+	}
+	return &sum
 }
 
 // runError names the read that failed computing one run.
@@ -762,6 +801,9 @@ func (h *runTimingsHandler) compute(ref store.ChangeRef, in store.RunInputs, gua
 		Departures: departures(project, change, in.Dispatches, roots, saved),
 	}, now)
 	out.Project, out.Change = project, change
+	if h.transcripts != "" {
+		out.Totals.AgentTimeSplit = agentTimeSplit(h.transcripts, in.Dispatches, out.To)
+	}
 	return out
 }
 

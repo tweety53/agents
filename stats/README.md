@@ -224,7 +224,14 @@ its args. Tool calls come from each dispatch's own subagent transcript, found as
 it (`~/.claude/projects/*/*/subagents/agent-<id>.jsonl`, `FLOW_TRANSCRIPTS_DIR` overriding the root):
 one span per `tool_use` to its `tool_result`, named by tool and a short form of its input (`Bash: go
 test ./...`), kept inside its dispatch — a call started outside it is dropped, one running past its
-end cut there; `-no-transcripts` leaves them out. The output is stable for the same rows.
+end cut there. The same transcript splits the dispatch's own row: its args carry `llmMs`, `toolMs`
+(`toolMsBy` per tool, Bash by command word) and `humanMs`. The rule (`harvest.TimeSplit`): each gap
+between two consecutive timestamped transcript lines belongs to the line that ends it — an assistant
+line ends LLM time, a user line answering a `tool_use` ends tool time, any other user line (a user
+message after an assistant turn) ends human time; gaps never overlap, so the three sum to the
+dispatch's covered span. `GET /api/v1/stats/run/{project}/{change}` sums the same split over every
+dispatch into `totals.agentTimeSplit`. `-no-transcripts` leaves the tool spans and the split out. The
+output is stable for the same rows.
 
 To look at it, write it to a file and drop that file on <https://ui.perfetto.dev> (or load it in
 `chrome://tracing`):
