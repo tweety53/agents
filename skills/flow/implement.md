@@ -43,7 +43,7 @@ These ten rows are **every** Agent-tool dispatch the parent may make, across sec
 | Site | Role | Key shape | Owning section |
 |---|---|---|---|
 | implementer, one per group; a fixer per fix | `implementer`; a fixer the role whose pair **Every fix is a fresh one-shot** names | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
-| gated reviewer bundle, one per batch of returned tasks of weight 5, on a decision of more than one group | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
+| gated reviewer bundle, one per batch of returned tasks of weight 5, on a decision of more than one group or a plan with a big task | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
 | panel bundle, one per decided `panel` bundle | `panel-reviewer` on pass 1; `panel-rerun` for a re-run | `panel-<round>-<slot\|slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` | `skills/flow/review-panel.md`, the fix step |
 | minor fix, one per round that raised only Minors | `minor-fix` | `panel-<round>-minor-fix` | `skills/flow/review-panel.md`, **Panel re-runs** |
@@ -437,9 +437,9 @@ decision the pivot displaces is overridden per **Decisions**
 or rewritten — so the record carries the overridden decision beside its replacement. The amended plan is
 re-validated — `spectre validate` — before the next task dispatches.
 
-**The gated per-task reviewer runs only when the decision's `groups` holds more than one group**
-(`gated review on` in `flow-guard plan-check`'s line; `dgpvGatedReview`,
-`stats/internal/guard/plancheck.go`). On one group no gated bundle is dispatched and nothing
+**The gated per-task reviewer runs only when the decision's `groups` holds more than one group,
+or any task is marked `**Size:** big`** (`gated review on` in `flow-guard plan-check`'s line;
+`dgpvGatedReview`, `stats/internal/guard/plancheck.go`). On one group with no big task no gated bundle is dispatched and nothing
 below that names one applies: the whole-branch review panel reviews the change alone.
 
 **The gated per-task reviewer.** One combined review per task — spec compliance and

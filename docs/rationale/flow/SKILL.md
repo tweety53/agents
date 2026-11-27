@@ -504,11 +504,12 @@ stays well under the fixer's blow-up; the fixer keeps weight 3, since a fixer ed
 
 > never implementation WIP.
 
-**The gated reviewer and the mutation slot need more than one group.** On a decision of one
-implementer group the gated pass reviews the same diff the panel's `primary` reads one boundary
+**The gated reviewer and the mutation slot need more than one group or a big task.** On a decision of one
+implementer group with no big task the gated pass reviews the same diff the panel's `primary` reads one boundary
 later, so it doubles the review's cost and latency for no new reading; mutation's throwaway copies
-and test runs are sized for a change large enough to split. The threshold is the group count
-because the decision already records it, so the rule is derived, not stored
+and test runs are sized for a change large enough to split. A `**Size:** big` task is a
+large change even alone in its group, so it meets the threshold too. The threshold is the group count
+and the plan's sizes because the decision and the plan already record them, so the rule is derived, not stored
 (`dgpvGatedReview`, `stats/internal/guard/plancheck.go`).
 
 ## Moved — planning-session trims

@@ -217,7 +217,7 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, p := range d.Panel {
 		bundles = append(bundles, strings.Join(p.Slots, "+"))
 	}
-	gated := map[bool]string{true: "on", false: "off"}[dgpvGatedReview(*d)]
+	gated := map[bool]string{true: "on", false: "off"}[dgpvGatedReview(*d, tasks)]
 	fmt.Fprintf(stdout, "plan-check (%s): %s · %d groups · gated review %s · panel %s · visual %s%s%s\n", source, last, len(d.Groups), gated, strings.Join(bundles, " "), d.Visual.Verify, confidence, spend)
 	return 0
 }
@@ -388,10 +388,12 @@ type dgpvDecision struct {
 var dgpvSlots = []string{"primary", "principles", "test-sanity", "call-efficiency", "failure-modes", "mutation"}
 
 // dgpvGatedReview is the review threshold of skills/flow/plan-check-decision.md: a decision of more
-// than one implementer group turns the gated per-task reviewer on and admits the mutation slot; one
-// group is reviewed by the whole-branch panel alone, since a gated pass would re-read the diff the
-// panel's primary reads.
-func dgpvGatedReview(d dgpvDecision) bool { return len(d.Groups) > 1 }
+// than one implementer group, or a plan with a `**Size:** big` task, turns the gated per-task
+// reviewer on and admits the mutation slot; any other plan is reviewed by the whole-branch panel
+// alone, since a gated pass would re-read the diff the panel's primary reads.
+func dgpvGatedReview(d dgpvDecision, tasks []pdbTask) bool {
+	return len(d.Groups) > 1 || slices.ContainsFunc(tasks, func(t pdbTask) bool { return t.size == "big" })
+}
 
 // dgpvInvalid is why d breaks a rule the header names, "" when none.
 func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, visual bool) string {
@@ -455,8 +457,8 @@ func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, visual bool) 
 	if !slices.Contains(seen, "primary") {
 		return "no bundle carries primary"
 	}
-	if slices.Contains(seen, "mutation") && !dgpvGatedReview(d) {
-		return "mutation needs more than one group"
+	if slices.Contains(seen, "mutation") && !dgpvGatedReview(d, tasks) {
+		return "mutation needs more than one group or a big task"
 	}
 	if v := d.Visual.Verify; v != "required" && v != "skipped" && v != "not configured" {
 		return fmt.Sprintf("visual.verify %q is not required, skipped or not configured", v)
