@@ -344,8 +344,7 @@ for a range of frames: `match` when it shows no difference, else one `- <frame i
 line per difference — element, what the mockup draws, what the capture draws, the numbers. No
 sweep, spot-check, reading or per-element `n/a` line is written. The report check refuses a
 `done` step 10 while a frame line reads `match` beside a `differs:` line, reads anything else
-with none, names a frame no manifest pair holds, or the manifest leaves a cell empty or n/a in a
-column that applies to its row's class.
+with none, or names a frame no manifest pair holds.
 The per-view `- <view>: <PNG>` lines are status lines: `clean` or the defect, never a narration
 of what was read.
 

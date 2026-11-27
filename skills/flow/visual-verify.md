@@ -300,13 +300,11 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
     stack the operator already had running is left alone.
 
 The report's `frames:` line counts against the change's frame list (step 10) and names every declared frame absent from the
-per-frame lines, with its reason. `measure` fills the matrix into each pair's `cells` in the
-manifest, `visual-verification.md` (step 11) cites the frame's
+per-frame lines, with its reason. `visual-verification.md` (step 11) cites the frame's
 `<changeRoot>/visual-verification/matrix/<frame id>.json` under its entry, and the report lists
 only each frame's differences, a frame with none on its one `match` line. **The parent reads no
-image.** The report check, which `close` runs, refuses a frame line its header refuses and a
-manifest cell left empty or n/a in a column that applies to its row's class:
-**each makes the report incomplete — never a departure, and never a gap the handoff leaves for the
+image.** The report check, which `close` runs, refuses a frame line its header refuses:
+**it makes the report incomplete — never a departure, and never a gap the handoff leaves for the
 operator** — and its remainder is dispatched as `NEXT: rest` above states.
 
 **The frame list is a guard too**, which `close` runs whenever `mockups` is declared —

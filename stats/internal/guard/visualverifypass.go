@@ -100,12 +100,7 @@ import (
 //      the stack and runs `prepare --continue --started`. Under --started it
 //      ends the stage `stopped` with `STOP: stack — <urls> answers nothing
 //      after the stack was started, for <worktree>`, exit 1.
-//   8. step 6: flow-guard check-dev-stack-fresh <worktree> per survivor, in process.
-//      Exit 1 prints `NEXT: restart-stack` (the parent restarts the stack and
-//      runs `prepare --continue --started`); under --started it ends the stage
-//      `stopped` with `STOP: fingerprint — <the guard's output>`, exit 1.
-//      Exit 2 continues, the bundle reading `fingerprint: not declared —
-//      <its stderr reason>`.
+//   8. step 6: none — the stage has no fingerprint step (skills/flow/visual-verify.md).
 //   9. per row, the verifier's bundle
 //      <worktree>/.superpowers/sdd/verify-prompt-<key>.md: the absolute
 //      worktree; `changeRoot:`; the path of skills/flow/visual-verify-verifier.md
@@ -124,7 +119,7 @@ import (
 //      files `<round base>..HEAD` holds there, each at HEAD's blob — the
 //      verifier's capture run leaves them out; `mockups:` preceded by `own specs: <spec> <spec>…` (or `none`) when declared — the specs of the change's own sidecars, the only ones the verifier's capture run takes; `mockup frame:` when declared; one `app:`
 //      line per --app URL; the `## run` commands; `stack:` (`found running` or
-//      `started by this stage`), `fingerprint:` and `verify: <key>@<short sha>`
+//      `started by this stage`) and `verify: <key>@<short sha>`
 //      — this session's newest green inline verify row whose HEAD resolves in
 //      the worktree, read from `flow record dispatches`; `mockup sources:`,
 //      the absolute path of every HTML or CSS file design.md cites that
@@ -280,21 +275,12 @@ import (
 //      `captures`, `identical` (the group lines), `steps` (resolve, identical
 //      and compose, each {exit, stderr}) and `pairs[]` of {spec, frame, capture,
 //      mockup, composite, diff, exits{resolve, identical, compose, bands,
-//      matrix}, stderr, bands_file, matrix_file, bands, seams, over, cells} —
+//      matrix}, stderr, bands_file, matrix_file, bands, seams, over} —
 //      `bands` and `seams` the entries flagged by mvpOverLength and
 //      mvpOverColour (measurevisualproperties.go) or missing/extra, `over`
 //      the matrix's summary.over, each row carrying `figures`, `{<key>: {a,
 //      b}}` per over key other than `unresolved`, read from the matrix row it
-//      indexes (kan-1057 self-review, F20); `cells` step 10's matrix filled
-//      from the matrix JSON (decision cells-in-measure), one `{row, class,
-//      <column>…}` entry per matrix row, each of the 11 columns `n/a — <why>`
-//      where vrNAColumns (verifyreport.go) lists it for the class,
-//      `unresolved — <reason>` on an unresolved row, else `{a, b, delta}` —
-//      per side each leaf the column reads — vvmColumnLeaves
-//      (visualverifypass_measure.go) is canonical for which, per class — null for the side a missing or
-//      extra row lacks, and per leaf the delta the matrix row carries
-//      (vvmCells, visualverifypass_measure.go), null when the matrix did not
-//      parse; an exit is null for a step not run. `spec` is the resolved spec path the pair was measured from. A
+//      indexes (kan-1057 self-review, F20); an exit is null for a step not run. `spec` is the resolved spec path the pair was measured from. A
 //      call merges into an existing manifest of its key. A pair is keyed
 //      by (spec, frame, `prototype`): the call replaces its own spec's pairs
 //      (and any pair of a frame it measured) that were measured the same way —

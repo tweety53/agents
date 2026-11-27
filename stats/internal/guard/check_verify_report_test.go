@@ -288,32 +288,12 @@ func vrtFrame(id string) string {
 	return "- " + id + ": /c/" + id + ".png diff=0.1 — match\n"
 }
 
-// vrtCells is a frame's manifest cells: rows 10 to 12, three controls, every
-// column filled with box.width a=40 and b=40+<row>.
-func vrtCells() []any {
-	var cells []any
-	for _, n := range []int{10, 11, 12} {
-		c := map[string]any{"row": n, "class": "control"}
-		for _, col := range vrColumns {
-			c[col] = map[string]any{"a": map[string]any{"box.width": 40}, "b": map[string]any{"box.width": 40 + n}, "delta": map[string]any{}}
-		}
-		cells = append(cells, c)
-	}
-	return cells
-}
-
 // vrtManifest writes the manifest `visual-verify-pass measure` writes for key,
-// built from its own types, with frame's pair carrying over and vrtCells.
+// built from its own types, with frame's pair carrying over.
 func vrtManifest(t *testing.T, sdd, key, frame string, over ...any) {
 	t.Helper()
-	vrtManifestCells(t, sdd, key, frame, vrtCells(), over...)
-}
-
-// vrtManifestCells is vrtManifest with frame's pair carrying cells.
-func vrtManifestCells(t *testing.T, sdd, key, frame string, cells []any, over ...any) {
-	t.Helper()
 	m := vvmManifestOut{Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{},
-		Pairs: []vvmPair{{Frame: frame, Bands: []any{}, Seams: []any{}, Over: over, Cells: cells}}}
+		Pairs: []vvmPair{{Frame: frame, Bands: []any{}, Seams: []any{}, Over: over}}}
 	body, err := json.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
@@ -350,52 +330,6 @@ func TestCheckVerifyReportMatchesAndDifferences(t *testing.T) {
 		}
 		path := filepath.Join(sdd, "verify-report-"+tc.key+".md")
 		writeFile(t, path, "## Report\n"+vrtDone+tc.body)
-		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
-		}
-	}
-}
-
-// TestCheckVerifyReportManifestCells pins decisions cells-in-measure and
-// matrix-row-class: every cell of a composed frame's manifest cells is filled,
-// n/a only in a column vrNAColumns lists for its class, `unresolved — ` only
-// on an unresolved row, and a missing row's absent side null.
-func TestCheckVerifyReportManifestCells(t *testing.T) {
-	t.Parallel()
-	filled := map[string]any{"a": map[string]any{"box.width": 40}, "b": map[string]any{"box.width": 50}, "delta": map[string]any{}}
-	row := func(class string, set map[string]any) any {
-		c := map[string]any{"row": 10, "class": class}
-		for _, col := range vrColumns {
-			c[col] = filled
-		}
-		for k, v := range set {
-			c[k] = v
-		}
-		return c
-	}
-	for _, tc := range []struct {
-		name  string
-		cells []any
-		rc    int
-		want  string
-	}{
-		{"every cell filled", []any{row("control", nil)}, 0, "COMPLETE"},
-		{"text run content n/a", []any{row("text run", map[string]any{"content": "n/a — read from the composite"})}, 0, "COMPLETE"},
-		{"control border n/a", []any{row("control", map[string]any{"border": "n/a — measure failed"})}, 1, "W1 cells #10 border reads \"n/a — measure failed\" — the column applies to `control`"},
-		{"text run colour n/a", []any{row("text run", map[string]any{"colour": "n/a — none"})}, 1, "W1 cells #10 colour reads"},
-		{"empty string cell", []any{row("control", map[string]any{"fill": ""})}, 1, "W1 cells #10 fill is empty"},
-		{"null cell", []any{row("control", map[string]any{"fill": nil})}, 1, "W1 cells #10 fill is empty"},
-		{"both sides empty", []any{row("control", map[string]any{"fill": map[string]any{"a": map[string]any{}, "b": nil}})}, 1, "W1 cells #10 fill is empty"},
-		{"unresolved row", []any{row("unresolved", map[string]any{"size": "unresolved — no edge"})}, 0, "COMPLETE"},
-		{"unresolved on a control", []any{row("control", map[string]any{"size": "unresolved — no edge"})}, 1, "W1 cells #10 size reads"},
-		{"missing row, b null", []any{row("missing", map[string]any{"size": map[string]any{"a": map[string]any{"element.height": 10}, "b": nil, "delta": nil}, "border": "n/a — does not apply to a missing row"})}, 0, "COMPLETE"},
-		{"no cells", nil, 1, "W1 has no cells in the manifest"},
-	} {
-		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
-		vrtManifestCells(t, sdd, "visual-verify", "W1", tc.cells)
-		path := filepath.Join(sdd, "verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+vrtDone+vrtFrame("W1"))
 		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
 		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
 			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
@@ -458,7 +392,7 @@ func TestCheckVerifyReportBlanketDecision(t *testing.T) {
 	} {
 		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
 		pair := func(f string) vvmPair {
-			return vvmPair{Frame: f, Bands: []any{}, Seams: []any{}, Over: []any{}, Cells: vrtCells()}
+			return vvmPair{Frame: f, Bands: []any{}, Seams: []any{}, Over: []any{}}
 		}
 		body, err := json.Marshal(vvmManifestOut{Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{}, Pairs: []vvmPair{pair("A"), pair("B")}})
 		if err != nil {

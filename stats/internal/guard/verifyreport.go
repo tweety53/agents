@@ -60,9 +60,7 @@ import (
 // `- motion: <n>/<n>` line, <n> that count — a strip recorded beyond the
 // named motions goes on a sub-bullet, never into <n>. Every other status — absent,
 // `not done`, an n/a on a required step, a block citing no failing exit — is
-// an undone step. A `- fingerprint: not declared` line with no ` — <reason>`
-// is undone too: step 6 reports its exit 2 with the guard's reason, which the
-// prompt carries (kan-1010's self-review).
+// an undone step.
 //
 // With step 10 `done`, every frame id a `- <frame id>: <composite> diff=`
 // line names must be in a pair of this dispatch's manifest,
@@ -74,12 +72,6 @@ import (
 // needs one `- <frame id> differs: <element> — mockup <…>, capture <…>,
 // <numbers>` line per difference. A `match` frame with a `differs` line, or
 // another verdict with none, is undone.
-//
-// The same manifest pair's `cells` (decision cells-in-measure) are checked
-// for every such frame: absent cells, an empty cell — null, an empty string,
-// or a cell whose `a` and `b` are both empty — and a string cell other than
-// an `n/a — <why>` in a column vrNAColumns lists for the row's `class`, or an
-// `unresolved — <reason>` on an `unresolved` row, are undone.
 //
 // Given a `## Report` line `- spec: <path>`, the PNGs
 // `flow-guard resolve-visual-screenshots <worktree> <spec basename>` prints, the
@@ -138,19 +130,6 @@ var (
 	vrDiffersLine = regexp.MustCompile(`^\s*- (\S+) differs:\s*\S`)
 	// A `-rest` or `-rest-<n>` segment of a report's key: its manifest is the key's without it.
 	vrRestSegment = regexp.MustCompile(`-rest(-\d+)?\b`)
-	// Step 10's matrix columns (skills/flow/visual-verify-verifier.md), in order.
-	vrColumns = []string{"kind", "content", "colour", "size", "position", "stretch", "alignment", "border", "fill", "radius", "shadow"}
-	// The n/a columns per matrix row class (decisions matrix-row-class,
-	// content-cell-for-text): `visual-verify-pass measure` writes n/a in
-	// exactly these, and the cells check admits n/a nowhere else.
-	vrNAColumns = map[string][]string{
-		"text run":  {"content", "border", "fill", "radius", "shadow"},
-		"control":   {},
-		"fill band": {"content", "alignment", "border", "radius", "shadow"},
-		"rule":      {"content", "alignment", "border", "radius", "shadow"},
-		"missing":   {"content", "border", "fill", "radius", "shadow"},
-		"extra":     {"content", "border", "fill", "radius", "shadow"},
-	}
 )
 
 func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
@@ -378,8 +357,7 @@ func vrScopedCaptures(sdd, key string, body []byte, rerr error) []string {
 func vrComposed(path string, body []byte, err error, frames []string, verdicts map[string]string, differs map[string]int) []string {
 	var m struct {
 		Pairs []struct {
-			Frame string           `json:"frame"`
-			Cells []map[string]any `json:"cells"`
+			Frame string `json:"frame"`
 		} `json:"pairs"`
 	}
 	if err == nil {
@@ -391,18 +369,13 @@ func vrComposed(path string, body []byte, err error, frames []string, verdicts m
 	var undone []string
 	for _, f := range frames {
 		seen := false
-		var cells []map[string]any
 		for _, p := range m.Pairs {
-			if p.Frame == f {
-				seen = true
-				cells = p.Cells
-			}
+			seen = seen || p.Frame == f
 		}
 		if !seen {
 			undone = append(undone, f+" is in no pair of the manifest")
 			continue
 		}
-		undone = append(undone, vrCells(f, cells)...)
 		match := strings.HasPrefix(verdicts[f], "match")
 		switch {
 		case match && differs[f] > 0:
@@ -418,35 +391,6 @@ func vrComposed(path string, body []byte, err error, frames []string, verdicts m
 // vrBlanketCeiling is the diff above which a frame's match needs a reason of
 // its own: one decision cited by two such frames is a blanket.
 const vrBlanketCeiling = 0.03
-
-// vrCells checks one composed frame's manifest cells (decision
-// cells-in-measure).
-func vrCells(f string, cells []map[string]any) []string {
-	if cells == nil {
-		return []string{f + " has no cells in the manifest — run step 9's measure"}
-	}
-	var bad []string
-	for _, c := range cells {
-		n, _ := c["row"].(float64)
-		row := int(n)
-		class, _ := c["class"].(string)
-		for _, col := range vrColumns {
-			v := c[col]
-			s, isStr := v.(string)
-			cell, _ := v.(map[string]any)
-			a, _ := cell["a"].(map[string]any)
-			b, _ := cell["b"].(map[string]any)
-			switch {
-			case v == nil || isStr && s == "" || !isStr && len(a) == 0 && len(b) == 0:
-				bad = append(bad, fmt.Sprintf("%s cells #%d %s is empty", f, row, col))
-			case isStr && !(strings.HasPrefix(s, "n/a — ") && slices.Contains(vrNAColumns[class], col)) &&
-				!(class == "unresolved" && strings.HasPrefix(s, "unresolved — ")):
-				bad = append(bad, fmt.Sprintf("%s cells #%d %s reads %q — the column applies to `%s`", f, row, col, s, class))
-			}
-		}
-	}
-	return bad
-}
 
 // vrOwed reports whether a --frames report owes png: a capture the sidecar
 // maps to a frame of slice.
