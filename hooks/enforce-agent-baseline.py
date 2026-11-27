@@ -275,7 +275,7 @@ def names_worktree(prompt: str, worktree: str) -> bool:
 
 def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | str | None":
     """The begin argv to write once every deny check has passed, a deny reason (str) when a judged
-    role's dispatch has no saved pair-judge pick, or
+    role's dispatch has no saved pair-judge pick and its role more than one base pair, or
     None: a row already open, a dispatch with no key or no mapped role, or an unanswered store.
     The hook writes the begin; the row's end stays the parent's."""
     if LOOP_KEY_LINE.search(prompt) or loop_word(tool_input):
@@ -330,7 +330,8 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | str | Non
     pick = read_pick(os.path.join(worktree, ".superpowers", "sdd", "pair-judge", key + ".pick"))
     if pick:
         args += ["-pair-pick", pick]
-    elif role_line and (ours or not planning) and role_id in JUDGED_ROLES and os.environ.get("FLOW_HOOK_ROLE_CHECK") != "off":
+    elif (role_line and (ours or not planning) and role_id in JUDGED_ROLES and os.environ.get("FLOW_HOOK_ROLE_CHECK") != "off"
+          and not single_base_pair(role_id, cwd)):
         return (f"Dispatch blocked: `{role_id}` dispatches take the pair judge's pick, and "
                 f"`.superpowers/sdd/pair-judge/{key}.pick` is not there.\n\n"
                 f"Write the dispatch's prompt to `{worktree}/.superpowers/sdd/pair-judge/{key}.md`, run\n"
@@ -338,6 +339,19 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | str | Non
                 "(it never blocks: a judge that cannot answer prints the role's first pair), then send the "
                 "dispatch on the pair it prints (`skills/flow-contracts/model-policy.md`, **Model and effort**).")
     return args
+
+
+def single_base_pair(role_id: str, cwd: str) -> bool:
+    """Whether `flow policy get` gives the role exactly one base pair: the judge has nothing to
+    pick, so no .pick is owed (the allowed-pairs check still holds the dispatch to an admitted
+    pair). A policy that cannot be read is not single."""
+    try:
+        done = subprocess.run(["flow", "policy", "get"], capture_output=True, text=True,
+                              timeout=bound(10), check=False, cwd=cwd or None)
+        entry = json.loads(done.stdout).get(role_id) if done.returncode == 0 else None
+    except (OSError, ValueError, subprocess.SubprocessError, AttributeError):
+        return False
+    return isinstance(entry, dict) and len(entry.get("base") or []) == 1
 
 
 def read_pick(path: str) -> "str | None":

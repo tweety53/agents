@@ -709,6 +709,8 @@ func TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick(t *testing.T) {
 		{"no pick", "panel-fix", "panel-fix-2", false, true},
 		{"implementer, no pick", "implementer", "task-1-implementer", false, true},
 		{"pick saved", "panel-fix", "panel-fix-2", true, false},
+		// panel-merger has one base pair in the seeded policy: the judge has nothing to pick.
+		{"one base pair, no pick", "panel-merger", "panel-merger-1", false, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			main, wt := beginRepo(t)
@@ -727,7 +729,7 @@ func TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick(t *testing.T) {
 			if c.role == "panel-merger" {
 				model = "sonnet"
 			}
-			denied, out := runBegin(t, beginPayload(t, main, c.key+" x", "Role: "+c.role+"\nx", "flow-low", model, ""), env...)
+			denied, out := runBegin(t, beginPayload(t, main, c.key+" x", "Role: "+c.role+"\nKey: "+c.key+"\nx", "flow-low", model, ""), env...)
 			if denied != c.wantDeny {
 				t.Errorf("denied = %v (%s), want %v", denied, out, c.wantDeny)
 			}
