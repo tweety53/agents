@@ -306,7 +306,7 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
    of its own, from which `hooks/enforce-loop-dispatch.py` records the row under the loop's change;
    the parent never runs `flow record dispatch begin` or `end` for it under its own change. The fixer also adds one test or guard that fails without the fix,
    and updates a saved memory that encoded the defect.
-2. **Review once, primary only** — as item 2 there states it, on the `pipeline-fix-review-1` and `pipeline-fix-review-r` rows, keys `pipeline-fix-<k>-review-1`, `pipeline-fix-<k>-fix-r<r>` and `pipeline-fix-<k>-review-r<r>`.
+2. **Review once, primary only** — as item 2 there states it, on the `loop-review-1` and `loop-review-r` rows, keys `pipeline-fix-<k>-review-1`, `pipeline-fix-<k>-fix-r<r>` and `pipeline-fix-<k>-review-r<r>`.
 3. **Land** — it lands by
    `<agents repo>`'s `## default landing route`
    (`flow-guard project-get <agents repo> 'default landing route'`), without asking. Merge and push is

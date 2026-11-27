@@ -25,13 +25,19 @@ var legacyRoles = map[string]bool{
 var roleClass = map[string]string{
 	"panel-reviewer": "reviewer", "panel-rerun": "reviewer", "gated-reviewer": "reviewer",
 	"gated-re-reviewer": "reviewer", "self-review-pass": "reviewer",
+	"loop-review-1": "reviewer", "loop-review-r": "reviewer",
+	"minor-fix":      "panel-fix",
+	"operator-asked": "implementer", "loop-fix": "implementer",
+	"no-progress-fixer": "implementer",
+	"plan-designer":     "planner", "designer": "planner", "loop-plan": "planner",
+	// Retired roles (panel-merger, planner-short, and the self-review-* and
+	// pipeline-fix-* loop roles 0109 merged into loop-*): kept so their
+	// history rows fold as dispatch_class does.
+	"panel-merger": "merger", "planner-short": "planner",
 	"self-review-review-1": "reviewer", "self-review-review-r": "reviewer",
 	"pipeline-fix-review-1": "reviewer", "pipeline-fix-review-r": "reviewer",
-	"panel-merger":   "merger", // retired role: kept so its history rows fold as dispatch_class (0094) does
-	"minor-fix":      "panel-fix",
-	"operator-asked": "implementer", "self-review-fix": "implementer", "pipeline-fix-fix": "implementer",
-	"no-progress-fixer": "implementer",
-	"planner-short":     "planner", "plan-designer": "planner", "designer": "planner", "self-review-plan": "planner", "pipeline-fix-plan": "planner",
+	"self-review-fix": "implementer", "pipeline-fix-fix": "implementer",
+	"self-review-plan": "planner", "pipeline-fix-plan": "planner",
 	"runner": "verifier", "visual-verifier": "verifier",
 }
 

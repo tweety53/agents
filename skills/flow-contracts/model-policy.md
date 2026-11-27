@@ -88,7 +88,7 @@ operator's call, made in the editor. A role's pairs come in two tiers:
 answers from that cache, and with neither a dispatch runs on the session's own pair (`<parent model>` / `<parent effort>`, **Harness mapping** below).
 
 Each `###` heading below is the pipeline stage a role runs in (`flow stage keys`; self-review's,
-pipeline fix's and pair choice's dispatches have their own), and a role sits under exactly one, with
+the fix loop's and pair choice's dispatches have their own), and a role sits under exactly one, with
 its `Does` cell, a plain-English line on what the role does. flowd serves both, with the role's
 pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table by them.
 
@@ -133,19 +133,15 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 | Role | Does |
 |---|---|
 | `self-review-pass` | Reviews a finished change and the run that built it. |
-| `self-review-plan` | Plans the fixes for the self-review's findings. |
-| `self-review-fix` | Makes one planned self-review fix. |
-| `self-review-review-1` | First review of a self-review fix. |
-| `self-review-review-r` | Re-review once that fix is corrected. |
 
-### Pipeline fix
+### Fix loop
 
 | Role | Does |
 |---|---|
-| `pipeline-fix-plan` | Plans the fix for a defect found in the flow tooling mid-run. |
-| `pipeline-fix-fix` | Makes that tooling fix. |
-| `pipeline-fix-review-1` | First review of the tooling fix. |
-| `pipeline-fix-review-r` | Re-review once that fix is corrected. |
+| `loop-plan` | Plans the fixes for the self-review's findings, or for a defect found in the flow tooling mid-run. |
+| `loop-fix` | Makes one planned fix. |
+| `loop-review-1` | First review of that fix. |
+| `loop-review-r` | Re-review once that fix is corrected. |
 
 ### General
 

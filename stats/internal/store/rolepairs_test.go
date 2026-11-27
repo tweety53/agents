@@ -13,7 +13,8 @@ import (
 // of skills/flow-contracts/model-policy.md as it stood when the pairs moved
 // into the store, every list in table order -- as later migrations left it:
 // 0085 dropped the marked escalation pairs for the no-progress-fixer role,
-// 0102 added the designer role.
+// 0102 added the designer role, 0109 merged the self-review and pipeline-fix
+// loop roles into the loop-* roles, on the self-review rows' pairs.
 func TestRolePairsSeedMatchesTable(t *testing.T) {
 	t.Parallel()
 	st := newTestStore(t)
@@ -22,33 +23,29 @@ func TestRolePairsSeedMatchesTable(t *testing.T) {
 		t.Fatalf("RolePairs: %v", err)
 	}
 	want := map[string]store.RolePolicy{
-		"explorer":              {Base: []string{"opus/Explore@low", "opus/Explore@medium"}, Optin: []string{}},
-		"plan-designer":         {Base: []string{"opus/Plan@low", "opus/Plan@medium", "opus/Plan@high", "opus/Plan@xhigh", "fable/Plan@xhigh", "fable/Plan@high", "fable/Plan@medium"}, Optin: []string{}},
-		"planner":               {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low", "opus/flow-planner-high", "opus/flow-planner-xhigh", "fable/flow-planner-xhigh", "fable/flow-planner-high", "fable/flow-planner-medium"}, Optin: []string{}},
-		"implementer":           {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}},
-		"panel-fix":             {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}},
-		"minor-fix":             {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}},
-		"operator-asked":        {Base: []string{"opus/flow-medium", "opus/flow-high", "sonnet/flow-medium"}, Optin: []string{}},
-		"decider":               {Base: []string{"opus/flow-low"}, Optin: []string{}},
-		"gated-reviewer":        {Base: []string{"opus/flow-medium"}, Optin: []string{}},
-		"gated-re-reviewer":     {Base: []string{"opus/flow-low"}, Optin: []string{}},
-		"panel-reviewer":        {Base: []string{"opus/flow-low", "opus/flow-medium", "fable/flow-low", "fable/flow-medium"}, Optin: []string{}},
-		"panel-rerun":           {Base: []string{"opus/flow-low", "sonnet/flow-low"}, Optin: []string{}},
-		"pair-judge":            {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
-		"visual-verifier":       {Base: []string{"opus/flow-low"}, Optin: []string{}},
-		"runner":                {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
-		"general":               {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
-		"self-review-pass":      {Base: []string{"opus/flow-medium"}, Optin: []string{}},
-		"self-review-plan":      {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low"}, Optin: []string{}},
-		"self-review-fix":       {Base: []string{"opus/flow-medium", "sonnet/flow-medium"}, Optin: []string{}},
-		"self-review-review-1":  {Base: []string{"opus/flow-medium", "opus/flow-low"}, Optin: []string{}},
-		"self-review-review-r":  {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
-		"pipeline-fix-plan":     {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low"}, Optin: []string{}},
-		"pipeline-fix-fix":      {Base: []string{"opus/flow-low"}, Optin: []string{}},
-		"pipeline-fix-review-1": {Base: []string{"opus/flow-medium", "opus/flow-low"}, Optin: []string{}},
-		"pipeline-fix-review-r": {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
-		"no-progress-fixer":     {Base: []string{"opus/flow-high"}, Optin: []string{}},
-		"designer":              {Base: []string{"opus/flow-medium", "opus/flow-low", "opus/flow-high"}, Optin: []string{"fable/flow-xhigh", "fable/flow-high", "fable/flow-medium"}},
+		"explorer":          {Base: []string{"opus/Explore@low", "opus/Explore@medium"}, Optin: []string{}},
+		"plan-designer":     {Base: []string{"opus/Plan@low", "opus/Plan@medium", "opus/Plan@high", "opus/Plan@xhigh", "fable/Plan@xhigh", "fable/Plan@high", "fable/Plan@medium"}, Optin: []string{}},
+		"planner":           {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low", "opus/flow-planner-high", "opus/flow-planner-xhigh", "fable/flow-planner-xhigh", "fable/flow-planner-high", "fable/flow-planner-medium"}, Optin: []string{}},
+		"implementer":       {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}},
+		"panel-fix":         {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}},
+		"minor-fix":         {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}},
+		"operator-asked":    {Base: []string{"opus/flow-medium", "opus/flow-high", "sonnet/flow-medium"}, Optin: []string{}},
+		"decider":           {Base: []string{"opus/flow-low"}, Optin: []string{}},
+		"gated-reviewer":    {Base: []string{"opus/flow-medium"}, Optin: []string{}},
+		"gated-re-reviewer": {Base: []string{"opus/flow-low"}, Optin: []string{}},
+		"panel-reviewer":    {Base: []string{"opus/flow-low", "opus/flow-medium", "fable/flow-low", "fable/flow-medium"}, Optin: []string{}},
+		"panel-rerun":       {Base: []string{"opus/flow-low", "sonnet/flow-low"}, Optin: []string{}},
+		"pair-judge":        {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
+		"visual-verifier":   {Base: []string{"opus/flow-low"}, Optin: []string{}},
+		"runner":            {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
+		"general":           {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
+		"self-review-pass":  {Base: []string{"opus/flow-medium"}, Optin: []string{}},
+		"loop-plan":         {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low"}, Optin: []string{}},
+		"loop-fix":          {Base: []string{"opus/flow-medium", "sonnet/flow-medium"}, Optin: []string{}},
+		"loop-review-1":     {Base: []string{"opus/flow-medium", "opus/flow-low"}, Optin: []string{}},
+		"loop-review-r":     {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
+		"no-progress-fixer": {Base: []string{"opus/flow-high"}, Optin: []string{}},
+		"designer":          {Base: []string{"opus/flow-medium", "opus/flow-low", "opus/flow-high"}, Optin: []string{"fable/flow-xhigh", "fable/flow-high", "fable/flow-medium"}},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("seed = %#v\nwant %#v", got, want)

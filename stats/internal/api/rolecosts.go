@@ -87,22 +87,19 @@ func RoleOf(stored, key string) string {
 	if stored != "" && !records.IsLegacyRole(stored) { // already a roles-table role
 		return stored
 	}
-	for _, loop := range []string{"pipeline-fix", "self-review"} {
-		if !strings.HasPrefix(key, loop+"-") {
-			continue
-		}
+	if strings.HasPrefix(key, "pipeline-fix-") || strings.HasPrefix(key, "self-review-") {
 		switch {
 		case strings.HasSuffix(key, "-plan") || stored == "planner":
-			return loop + "-plan"
+			return "loop-plan"
 		case strings.HasSuffix(key, "-pass"):
 			return "self-review-pass"
 		case reviewerTail.MatchString(key):
 			if reviewerTail.FindStringSubmatch(key)[1] == "1" {
-				return loop + "-review-1"
+				return "loop-review-1"
 			}
-			return loop + "-review-r"
+			return "loop-review-r"
 		default:
-			return loop + "-fix"
+			return "loop-fix"
 		}
 	}
 	switch {

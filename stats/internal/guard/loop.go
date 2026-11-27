@@ -56,14 +56,17 @@ var (
 )
 
 // lpRole is the allowed-pairs role id (skills/flow-contracts/model-policy.md)
-// of a loop key's suffix under prefix (self-review or pipeline-fix), "" when
-// the suffix is no loop suffix.
-func lpRole(prefix, suffix string) string {
+// of a loop key's suffix -- self-review-pass for the pass, a loop-* role
+// shared by the self-review and pipeline-fix loops otherwise -- "" when the
+// suffix is no loop suffix.
+func lpRole(suffix string) string {
 	if !lpSuffix.MatchString(suffix) {
 		return ""
 	}
 	fam := lpFamily(suffix)
 	switch {
+	case fam == "pass":
+		return "self-review-pass"
 	case strings.HasPrefix(fam, "fix"):
 		fam = "fix"
 	case suffix == "review-1":
@@ -71,7 +74,7 @@ func lpRole(prefix, suffix string) string {
 	case fam == "review":
 		fam = "review-r"
 	}
-	return prefix + "-" + fam
+	return "loop-" + fam
 }
 
 // lpLoop names one loop's records: the change they are filed under, the
@@ -112,7 +115,7 @@ func lpBranchExists(env Env, git, repo, b string) bool {
 func lpFromKey(env Env, git, repo, key string) (lpLoop, string, string, string, bool) {
 	if m := lpPipelineKey.FindStringSubmatch(key); m != nil {
 		k, suffix := m[1], m[2]
-		role := lpRole("pipeline-fix", suffix)
+		role := lpRole(suffix)
 		if role == "" {
 			return lpLoop{}, "", "", fmt.Sprintf("KEY — %s: suffix %q is no loop suffix", key, suffix), false
 		}
@@ -138,7 +141,7 @@ func lpFromKey(env Env, git, repo, key string) (lpLoop, string, string, string, 
 			continue
 		}
 		name, suffix := rest[:i], rest[i+1:]
-		role := lpRole("self-review", suffix)
+		role := lpRole(suffix)
 		if role == "" || !plainChangeName(name) {
 			continue
 		}

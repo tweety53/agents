@@ -165,8 +165,8 @@ the defect it names does not exist.
 NO DELEGATION paragraphs of `skills/flow/implementer-brief.md` verbatim. Every dispatch is one-shot: no `SendMessage` to it once
 it returns.
 
-**The pairs are the `self-review-*` rows** of **Allowed pairs**
-(`skills/flow-contracts/model-policy.md`): `pass` for the pass and `fix` for the fixer, the latter
+**The pairs are the `self-review-pass` and `loop-*` rows** of **Allowed pairs**
+(`skills/flow-contracts/model-policy.md`): `self-review-pass` for the pass and `loop-fix` for the fixer, the latter
 on **the fixer pair** per **Model and effort** (`skills/flow-contracts/model-policy.md`).
 
 **Every dispatch is recorded mechanically.**
@@ -192,12 +192,12 @@ question to the operator.
    and running the `<agents repo>/.flow/project.md` `## lint` lines its files need. It never writes
    `<agents repo>/spectre/changes/`, and never merges or pushes. It reports each finding's commit, or a finding it found `big` once under way, left uncommitted.
 2. **Review once, primary only.** The fixer's diff against `origin/<agents-base>` is reviewed by one
-   fresh dispatch on the `self-review-review-1` row, key `self-review-<name>-review-1`, per
+   fresh dispatch on the `loop-review-1` row, key `self-review-<name>-review-1`, per
    `skills/flow/primary-reviewer-prompt.md` and `skills/flow/reviewer-calibration.md`, writing its
    report to `<sr-dir>/review-1.md`; the parent closes it with `flow-guard pipeline-fix end <key> <report>`,
    the report carrying its `Critical:` and `Important:` lines. Neither line ⇒ item 3. Otherwise one fresh fixer dispatch,
    key `self-review-<name>-fix-r<r>`, corrects them in the same worktree, then a fresh re-review on the
-   `self-review-review-r` row, key `self-review-<name>-review-r<r>`, `<r>` counting from 1. The loop ends at a review with neither line, and
+   `loop-review-r` row, key `self-review-<name>-review-r<r>`, `<r>` counting from 1. The loop ends at a review with neither line, and
    three reviews in a row that still carry one take **Three failed rounds** (`skills/flow-contracts/pipeline.md`). Minors
    are never fixed here and never block.
 3. **Land once.** Land by `<agents repo>`'s `## default landing route`

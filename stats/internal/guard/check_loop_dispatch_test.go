@@ -96,17 +96,15 @@ func TestLoopSuffixRoles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]string{"pass": "-pass", "plan": "-plan", "plan-2": "-plan", "fix": "-fix", "fix-3": "-fix", "fix-g1": "-fix",
-		"fix-v3": "-fix", "fix-r1": "-fix", "review-1": "-review-1", "review-2": "-review-r", "review-r1": "-review-r"}
-	for _, prefix := range []string{"self-review", "pipeline-fix"} {
-		for suffix, role := range want {
-			got := lpRole(prefix, suffix)
-			if got != prefix+role {
-				t.Errorf("%s %s: role %q, want %q", prefix, suffix, got, prefix+role)
-			}
-			if prefix+role != "pipeline-fix-pass" && len(rows[got]) == 0 {
-				t.Errorf("role %q has no row of the allowed-pairs table", got)
-			}
+	want := map[string]string{"pass": "self-review-pass", "plan": "loop-plan", "plan-2": "loop-plan", "fix": "loop-fix", "fix-3": "loop-fix", "fix-g1": "loop-fix",
+		"fix-v3": "loop-fix", "fix-r1": "loop-fix", "review-1": "loop-review-1", "review-2": "loop-review-r", "review-r1": "loop-review-r"}
+	for suffix, role := range want {
+		got := lpRole(suffix)
+		if got != role {
+			t.Errorf("%s: role %q, want %q", suffix, got, role)
+		}
+		if len(rows[got]) == 0 {
+			t.Errorf("role %q has no row of the allowed-pairs table", got)
 		}
 	}
 	for suffix, family := range map[string]string{"fix-r1": "fix-r", "review-r1": "review"} {
@@ -115,7 +113,7 @@ func TestLoopSuffixRoles(t *testing.T) {
 		}
 	}
 	for _, bad := range []string{"fix-r", "review-r", "fix-x", "review", "plan-a", "pass-1"} {
-		if got := lpRole("self-review", bad); got != "" {
+		if got := lpRole(bad); got != "" {
 			t.Errorf("suffix %q: role %q, want none", bad, got)
 		}
 	}
