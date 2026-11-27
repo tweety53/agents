@@ -193,34 +193,8 @@ flow record dispatch end -C <canonical worktree> -key verify[-<repository name>]
 **Runs only when `design.md` carries a `## Live check` section naming something to exercise**
 (**D. Basic Workflow #3 — Writing plans**, `skills/flow/brainstorm-planner.md`); a one-line
 no-runtime section, or none, skips it. A section is that no-runtime form when its first line opens
-with `None`, `No ` or `Not applicable`, however many lines its justification wraps to. Once both groups of the lint and test list have exited —
-never while either still runs — with the parent's own Bash calls: when the stack's worktree-resolved URLs do not answer, start it as **One stack for the verification tasks**
-(`skills/flow/implement.md`) does; then exercise what the section names — a proxy (an earlier capture, a neighbouring check) never stands for an item the section names unless that item is infeasible in this environment, and an unexercised item is exercised before the stage ends — and write each
-before/after figure, beside the failure look the section states, to `live-verification.md` in
-the change's directory (**A change's directory**, `skills/flow-contracts/pipeline.md`), a
-gitignored planning path written on disk and nothing else. **A before figure is measured from a
-detached worktree at the merge base** — `git -C <worktree> worktree add --detach
-<project>-worktrees/<name>-before <merge-base>`, the base's stack run from there, then stopped, and the worktree
-removed with `git worktree remove` once the figure is written — never by checking base sources out
-over the change worktree. A before figure already in
-`<abs-worktree>/.superpowers/sdd/live-before.md`, measured while pass 1's panel read
-(`skills/flow/review-panel.md`), is copied into the record only when the merge-base sha it records equals the current `git -C <abs-worktree> merge-base` — a round-boundary rebase moves the base (`skills/flow/review-panel-fix-round.md`) — and is measured again otherwise. The `## Report` gains one line, `live check — <matched | failure look>`. A figure that
-shows the failure look is the branch's own defect and takes the fix procedure
-(`skills/flow/fix.md`); a stack that will not start ends the turn as a failed
-command's environment cause does. **A step of the check the operator waives runs on its cheapest safe proxy instead** — a scratch
-database, a throwaway container — never simply dropped, and the `## Report` line names the proxy. The verifier row's `end` (**Recording.**, above) is recorded
-after this check, not before it: `-outcome blocked -cause test-failure` on a failure look,
-`-cause environment` on a stack that will not start. The stack stays up for **Visual
-verification**.
-
-**The check runs at the smallest footprint that proves its claim** — the lowest parallelism, the
-fewest inputs that still prove the claim — and widens only once that run
-passes.
-
-**A check command that outlasts the Bash tool's foreground limit runs with the tool's
-`run_in_background`**, its log and exit status written under the change's directory (**A
-change's directory**, `skills/flow-contracts/pipeline.md`) rather than a fixed `/tmp` path, and
-the parent waits on the tool's completion notice — never a hand-built `nohup` and a polling loop.
+with `None`, `No ` or `Not applicable`, however many lines its justification wraps to. **Load `skills/flow/live-check.md` only when** it runs — it carries the check's procedure, its
+footprint and its long-running commands.
 
 ### Close the stage
 
@@ -241,7 +215,7 @@ discovered later. The outcome words are the table under
 Reads the `## visual verification` section, canonical in
 `skills/flow-contracts/project-configuration-visual.md`. This stage owns its procedure — nothing else in
 this pipeline restates it. **`flow-guard visual-verify-pass prepare` runs steps 1
-and 2 below (it makes no stage mark — `flow.verify` stays open — and begins each dispatch's row) in the parent's own Bash call** — never these steps by hand, and never a subagent's:
+and 2 (**Steps 1–2**, `skills/flow/visual-verify.md`) (it makes no stage mark — `flow.verify` stays open — and begins each dispatch's row) in the parent's own Bash call** — never these steps by hand, and never a subagent's:
 
 ```bash
 flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --session-token mf-<literal-token> \
@@ -259,36 +233,10 @@ own merge base from this run's working notes. `--app` passes each app the stage 
 A worktree held in a shell variable is written braced, `--app "${W}:<app-root>=<resolved-url>"`
 — zsh reads `$W:s…` as a history modifier.
 
-1. **Resolve the section — with the guard, not by eye.** `prepare` pipes each worktree's diff into
-   `flow-guard check-visual-trigger <worktree>`; exit 2 with a `VISUAL-TRIGGER-NOT-CONFIGURED:` line on stderr
-   skips that worktree for the rest of this stage.
-2. **Match the diff** — the same call's verdict. Exit 0 → at least one changed path matched a declared
-   `ui paths` glob; continue. Exit 1, or exit 2 with a `VISUAL-TRIGGER-CANNOT-ANSWER:` line, skips the
-   worktree.
-   `flow-guard check-visual-trigger` owns the glob semantics (`**` spanning directories, a leading
-   dot-slash prefix, an absolute glob, a glob with a space); nothing here restates them.
-
-   In a run whose resolved set holds more than one worktree, every other worktree's diff is also
-   matched against the canonical worktree's `ui paths` through `flow-guard check-visual-trigger --repo
-   <repo-name>`, each path prefixed with that worktree's repository name — its main checkout's
-   basename, the name a glob such as `gymie-frontend/**` spells another repository's files with — and
-   its exit 0 makes the canonical worktree survive this step as the canonical worktree's own exit 0
-   does.
-
-   Each worktree's diff runs from its `--merge-base` — never `origin/<base>` or another ref picked by
-   hand, which matches every path the base gained since the worktree was cut as this change's own.
-
-   **On a fix run, both calls read the fix run's own diff.** Each worktree is passed
-   `--since <worktree>=<its fix-start sha>` (`skills/flow/fix.md`), so a fix run whose delta touches no `ui paths` skips this
-   stage at step 2 as exit 1 does.
-   No worktree is passed `--since` when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify`) does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the fix-start sha.
-
-**A `skipped` decision ends the stage at step 2.** When this run's decision
-(`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 6 of
-**Plan check**, `skills/flow/brainstorm.md`), `prepare` closes the stage `skipped` and prints
-`NEXT: skip — skipped at plan check — <reason>`, and every worktree surviving step 2 prints
-`Visual: skipped at plan check — <reason>`.
-`required`, `not configured` or no `visual` at all takes the load below, unchanged.
+**On a fix run, both calls read the fix run's own diff.** Each worktree is passed
+`--since <worktree>=<its fix-start sha>` (`skills/flow/fix.md`), so a fix run whose delta touches no `ui paths` skips this
+stage at step 2 as exit 1 does.
+No worktree is passed `--since` when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify`) does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the fix-start sha.
 
 **`NEXT: skip — <why>` closes the stage and dispatches nothing**, and loads nothing.
 **Load `skills/flow/visual-verify.md`** on any other closing line, and act on that line

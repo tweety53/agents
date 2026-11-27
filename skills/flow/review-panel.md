@@ -203,7 +203,7 @@ A parent-recorded `end` — any harness but claude-code, whose daemon reads no a
 
 **A live check's before figures are measured before the round's launch:** when
 `design.md`'s `## Live check` names something to exercise, the parent measures each before figure
-from the merge base the way **Live check** (`skills/flow/verify-and-handoff.md`) states and writes
+from the merge base the way **Live check** (`skills/flow/live-check.md`) states and writes
 it to `<abs-worktree>/.superpowers/sdd/live-before.md` with the merge-base sha it was measured at — never into the change's directory, a
 tracked path the suite's tree gate reads.
 

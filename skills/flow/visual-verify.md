@@ -13,7 +13,7 @@ Three sites load it, each for its own sections: `skills/flow/implement.md` for *
 **Visual verification** loads it only once
 `flow-guard visual-verify-pass prepare` closes on a line other than `NEXT: skip` — at least one worktree in
 this run's resolved set survived its step 2. That section carries the `prepare` call, which runs this
-`flow.verify` mark's steps 1 and 2; everything from step 3 on is
+`flow.verify` mark's steps 1 and 2 (**Steps 1–2**, below); everything from step 3 on is
 here. A run whose diff touches no UI path never reads this file.
 
 ## During `flow.implement`
@@ -40,7 +40,7 @@ list failing when it exits non-zero, and the whole suite, `<specs>` empty, only 
 — when its own worktree's diff from its base branch touches a `ui paths` glob and
 `decision.json` does not record `visual.verify` `skipped`, its header canonical for the rest, so a
 capture a shared-component change moved fails here rather than at `flow.verify`. When only the
-`--repo` run step 2 of **Visual verification** (`skills/flow/verify-and-handoff.md`) adds exits 0,
+`--repo` run step 2 of **Steps 1–2** (below) adds exits 0,
 for another worktree of the resolved set, its merge base from this run's working notes, the parent
 runs that `verify` after the list, against the canonical worktree's stack, under the stack
 rules of **One stack for the verification tasks** (`skills/flow/implement.md`).
@@ -205,6 +205,37 @@ closes `-outcome completed`.
 A verifier that ends without writing its report file, or whose agent dies, is closed by `close`
 `-outcome aborted` with `STOP: no report`, and blocks this handoff exactly as a failed command would,
 naming the death.
+
+## Steps 1–2
+
+What `flow-guard visual-verify-pass prepare` runs before any other step of **Visual verification**
+(`skills/flow/verify-and-handoff.md`), its header canonical:
+
+1. **Resolve the section — with the guard, not by eye.** `prepare` pipes each worktree's diff into
+   `flow-guard check-visual-trigger <worktree>`; exit 2 with a `VISUAL-TRIGGER-NOT-CONFIGURED:` line on stderr
+   skips that worktree for the rest of this stage.
+2. **Match the diff** — the same call's verdict. Exit 0 → at least one changed path matched a declared
+   `ui paths` glob; continue. Exit 1, or exit 2 with a `VISUAL-TRIGGER-CANNOT-ANSWER:` line, skips the
+   worktree.
+   `flow-guard check-visual-trigger` owns the glob semantics (`**` spanning directories, a leading
+   dot-slash prefix, an absolute glob, a glob with a space); nothing here restates them.
+
+   In a run whose resolved set holds more than one worktree, every other worktree's diff is also
+   matched against the canonical worktree's `ui paths` through `flow-guard check-visual-trigger --repo
+   <repo-name>`, each path prefixed with that worktree's repository name — its main checkout's
+   basename, the name a glob such as `gymie-frontend/**` spells another repository's files with — and
+   its exit 0 makes the canonical worktree survive this step as the canonical worktree's own exit 0
+   does.
+
+   Each worktree's diff runs from its `--merge-base` — never `origin/<base>` or another ref picked by
+   hand, which matches every path the base gained since the worktree was cut as this change's own.
+
+**A `skipped` decision ends the stage at step 2.** When this run's decision
+(`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 6 of
+**Plan check**, `skills/flow/brainstorm.md`), `prepare` closes the stage `skipped` and prints
+`NEXT: skip — skipped at plan check — <reason>`, and every worktree surviving step 2 prints
+`Visual: skipped at plan check — <reason>`.
+`required`, `not configured` or no `visual` at all takes the load of **Visual verification** (`skills/flow/verify-and-handoff.md`), unchanged.
 
 ## Steps 3–13
 
