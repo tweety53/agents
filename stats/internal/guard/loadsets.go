@@ -44,20 +44,7 @@ func loadSets(args []string, env Env, stdout, stderr io.Writer) int {
 		global = args[1]
 	}
 	f, c := r+"/skills/flow/", r+"/skills/flow-contracts/"
-	in := func(dir string, names ...string) []string {
-		out := make([]string, len(names))
-		for i, n := range names {
-			out[i] = dir + n
-		}
-		return out
-	}
-	cat := func(sets ...[]string) []string {
-		var out []string
-		for _, s := range sets {
-			out = append(out, s...)
-		}
-		return out
-	}
+	cond := conditionalLoadSets(r)
 	row := func(name string, files ...string) {
 		b := 0
 		for _, p := range files {
@@ -76,39 +63,36 @@ func loadSets(args []string, env Env, stdout, stderr io.Writer) int {
 	row("router (command + SKILL.md + pipeline.md)", router...)
 
 	fmt.Fprintln(stdout, "--- planning session (creating run) ---")
-	pd := cat(in(f, "brainstorm.md", "brainstorm-planner.md"), in(c, "jira-integration.md"))
-	pc := in(c, "worktree-resolution.md", "git-boundaries.md", "operator-prompts.md", "operator-prompts-auto-resolution.md")
-	px := in(f, "resume.md")
+	pd := catSets(inDir(f, "brainstorm.md", "brainstorm-planner.md"), inDir(c, "jira-integration.md"))
+	pc := inDir(c, "worktree-resolution.md", "git-boundaries.md", "operator-prompts.md", "operator-prompts-auto-resolution.md")
+	px := cond[0].files
 	row("  phase files + load directives", pd...)
 	row("  + cited at point of use", pc...)
-	row("  TOTAL definite", cat(always, router, pd)...)
-	row("  + conditional (flow-fix, resume)", px...)
-	row("  TOTAL incl. cited", cat(always, router, pd, pc)...)
+	row("  TOTAL definite", catSets(always, router, pd)...)
+	row("  + conditional ("+cond[0].condition+")", px...)
+	row("  TOTAL incl. cited", catSets(always, router, pd, pc)...)
 
 	fmt.Fprintln(stdout, "--- implementation session (enters via Resuming at STARTED) ---")
-	id := cat(in(f, "resume.md", "implement.md"), in(c, "worktree-resolution.md"), in(f, "review-panel.md", "verify-and-handoff.md"), in(c, "session-records.md", "git-boundaries.md"))
-	ic := cat(in(c, "operator-prompts.md", "operator-prompts-auto-resolution.md", "project-configuration-standards.md", "model-policy.md", "known-bugs.md"),
-		in(f, "primary-reviewer-prompt.md", "principles-reviewer-prompt.md", "failure-modes-reviewer-prompt.md"), in(c, "plan-amendment.md"))
-	ix := cat(in(f, "fix.md", "fix-visual.md", "cross-repo-worktrees.md", "gated-review-fix.md", "fixer-brief.md", "slot-brief.md", "review-panel-fix-round.md", "review-panel-optional-slots.md", "gated-review.md", "live-check.md"),
-		in(c, "workspace-isolation.md", "pipeline-defects.md", "progress-visibility.md", "quiet-progress.md"), in(f, "visual-verify.md"),
-		in(c, "git-boundaries-commit-chain.md", "project-configuration-visual.md", "guard-verdict-verification.md"))
+	id := catSets(inDir(f, "resume.md", "implement.md"), inDir(c, "worktree-resolution.md"), inDir(f, "review-panel.md", "verify-and-handoff.md"), inDir(c, "session-records.md", "git-boundaries.md"))
+	ic := catSets(inDir(c, "operator-prompts.md", "operator-prompts-auto-resolution.md", "project-configuration-standards.md", "model-policy.md", "known-bugs.md"),
+		inDir(f, "primary-reviewer-prompt.md", "principles-reviewer-prompt.md", "failure-modes-reviewer-prompt.md"), inDir(c, "plan-amendment.md"))
+	ix := cond[1].files
 	row("  phase files + load directives", id...)
 	row("  + cited / reviewer templates", ic...)
-	row("  + conditional (fix run, cross-repo, sdd, gated review, live check, fix round, optional slots, isolation, pipeline defects, progress, UI)", ix...)
-	row("  TOTAL definite", cat(always, router, id)...)
-	row("  TOTAL incl. cited", cat(always, router, id, ic)...)
-	row("  TOTAL worst case", cat(always, router, id, ic, ix)...)
+	row("  + conditional ("+cond[1].condition+")", ix...)
+	row("  TOTAL definite", catSets(always, router, id)...)
+	row("  TOTAL incl. cited", catSets(always, router, id, ic)...)
+	row("  TOTAL worst case", catSets(always, router, id, ic, ix)...)
 
 	fmt.Fprintln(stdout, "--- finish session (merge-and-push: run 1 chained into run 2) ---")
-	fd := cat(in(f, "integrate.md"), in(c, "git-boundaries-commit-chain.md", "jira-integration.md", "jira-integration-finish.md"), in(f, "cleanup.md"))
-	fc := in(c, "operator-prompts.md", "model-policy.md")
-	fx := cat(in(c, "finish-contract-run1.md", "finish-contract-run2.md", "artifacts-registry.md"), in(f, "unfinished-work-gate.md", "sync-onto-base.md", "sync-onto-base-visual.md", "integrate-stops.md", "integrate-own-tooling.md"),
-		in(c, "jira-followups.md", "jira-followups-join.md", "state-file.md", "project-configuration.md", "guard-verdict-verification.md"))
+	fd := catSets(inDir(f, "integrate.md"), inDir(c, "git-boundaries-commit-chain.md", "jira-integration.md", "jira-integration-finish.md"), inDir(f, "cleanup.md"))
+	fc := inDir(c, "operator-prompts.md", "model-policy.md")
+	fx := cond[2].files
 	row("  phase files + load directives", fd...)
 	row("  + cited", fc...)
-	row("  + conditional (finish contracts, registry, gate, base moved, stops, own tooling, follow-ups, state file, config, verdicts)", fx...)
-	row("  TOTAL definite", cat(always, router, fd)...)
-	row("  TOTAL incl. cited", cat(always, router, fd, fc)...)
+	row("  + conditional ("+cond[2].condition+")", fx...)
+	row("  TOTAL definite", catSets(always, router, fd)...)
+	row("  TOTAL incl. cited", catSets(always, router, fd, fc)...)
 
 	fmt.Fprintln(stdout, "--- subagents (each also inherits whatever always-on context the harness gives it) ---")
 	baseline := r + "/rules/agent-baseline.md"
@@ -119,4 +103,45 @@ func loadSets(args []string, env Env, stdout, stderr io.Writer) int {
 	row("  project-configuration.md (cited everywhere)", c+"project-configuration.md")
 	row("  state-file.md (load before any state r/w)", c+"state-file.md")
 	return 0
+}
+
+// loadSet is a conditional load set: the files a session loads only when condition holds.
+type loadSet struct {
+	condition string
+	files     []string
+}
+
+// conditionalLoadSets are the planning, implementation and finish sessions' conditional load sets
+// under repo root r, in that order — load-sets sums them and prune-candidates annotates a
+// never-loaded file with its condition.
+func conditionalLoadSets(r string) []loadSet {
+	f, c := r+"/skills/flow/", r+"/skills/flow-contracts/"
+	return []loadSet{
+		{"flow-fix, resume", inDir(f, "resume.md")},
+		{"fix run, cross-repo, sdd, gated review, live check, fix round, optional slots, isolation, pipeline defects, progress, UI",
+			catSets(inDir(f, "fix.md", "fix-visual.md", "cross-repo-worktrees.md", "gated-review-fix.md", "fixer-brief.md", "slot-brief.md", "review-panel-fix-round.md", "review-panel-optional-slots.md", "gated-review.md", "live-check.md"),
+				inDir(c, "workspace-isolation.md", "pipeline-defects.md", "progress-visibility.md", "quiet-progress.md"), inDir(f, "visual-verify.md"),
+				inDir(c, "git-boundaries-commit-chain.md", "project-configuration-visual.md", "guard-verdict-verification.md"))},
+		{"finish contracts, registry, gate, base moved, stops, own tooling, follow-ups, state file, config, verdicts",
+			catSets(inDir(c, "finish-contract-run1.md", "finish-contract-run2.md", "artifacts-registry.md"), inDir(f, "unfinished-work-gate.md", "sync-onto-base.md", "sync-onto-base-visual.md", "integrate-stops.md", "integrate-own-tooling.md"),
+				inDir(c, "jira-followups.md", "jira-followups-join.md", "state-file.md", "project-configuration.md", "guard-verdict-verification.md"))},
+	}
+}
+
+// inDir is each of names prefixed with dir.
+func inDir(dir string, names ...string) []string {
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = dir + n
+	}
+	return out
+}
+
+// catSets is sets concatenated.
+func catSets(sets ...[]string) []string {
+	var out []string
+	for _, s := range sets {
+		out = append(out, s...)
+	}
+	return out
 }

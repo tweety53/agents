@@ -5,8 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -27,6 +29,16 @@ import (
 //	never-fired <guard> runs=<n>                        a guard that ran and never refused
 //	friction <guard> incidents=<n> minutes-lost=<m> latest: <symptom>
 //	                                                    a guard or hook with two or more incidents
+//	never-loaded <file> [conditional: <condition>]      a .md under <repo>/skills/ no session loaded
+//
+// A load is what the flow-skill-load hook records (stats/internal/guard/hookskillload.go): a Read
+// of the file or a Skill call of its SKILL.md, counted per file — the hook cannot name the section
+// a Read took, so nothing is reported per section. A file a conditional load set names
+// (conditionalLoadSets, load-sets) carries that set's condition, so the pass can judge whether the
+// condition could have held in the window. A window holding no load at all — the hook unregistered,
+// or newly so — prints `never-loaded: no load recorded in the window` instead of every file.
+// <repo> is FLOW_GUARD_REPO_ROOT, the checkout scripts/flow-guard exports; unset, no never-loaded
+// line is printed.
 //
 // Helpers (records.GuardHelpers) refuse nothing and are never listed. The daemon is
 // FLOW_RECORDS_ADDR, then FLOW_ADDR, then the dev flowd — where guard runs are recorded.
@@ -87,6 +99,12 @@ func pruneCandidates(args []string, env Env, stdout, stderr io.Writer) int {
 		OccurredAt  time.Time `json:"occurredAt"`
 	}
 	var incidents []incident
+	var loads struct {
+		Rows []skillLoadRow `json:"rows"`
+	}
+	if err == nil {
+		err = get("/api/v1/skill-loads?"+q.Encode(), &loads)
+	}
 	for _, p := range projects.Projects {
 		if err != nil {
 			break
@@ -143,11 +161,55 @@ func pruneCandidates(args []string, env Env, stdout, stderr io.Writer) int {
 			friction = append(friction, fmt.Sprintf("friction %s incidents=%d minutes-lost=%d latest: %s", g, t.n, t.minutes, strings.TrimSpace(strings.SplitN(t.latest.Symptom, "\n", 2)[0])))
 		}
 	}
-	for _, lines := range [][]string{never, fired, friction} {
+	var unloaded []string
+	if root := env.Getenv("FLOW_GUARD_REPO_ROOT"); root != "" {
+		unloaded = neverLoaded(root, loads.Rows)
+	}
+	for _, lines := range [][]string{never, fired, friction, unloaded} {
 		sort.Strings(lines)
 		for _, l := range lines {
 			fmt.Fprintln(stdout, l)
 		}
 	}
 	return 0
+}
+
+// skillLoadRow is one row of GET /api/v1/skill-loads: a repo-relative path and its loads in the window.
+type skillLoadRow struct {
+	Path  string `json:"path"`
+	Loads int    `json:"loads"`
+}
+
+// neverLoaded is the never-loaded lines for root's skills/, given the window's per-path loads.
+func neverLoaded(root string, rows []skillLoadRow) []string {
+	if len(rows) == 0 {
+		return []string{"never-loaded: no load recorded in the window"}
+	}
+	loaded := map[string]bool{}
+	for _, r := range rows {
+		loaded[r.Path] = r.Loads > 0
+	}
+	cond := map[string][]string{}
+	for _, set := range conditionalLoadSets(root) {
+		for _, f := range set.files {
+			cond[f] = append(cond[f], set.condition)
+		}
+	}
+	var out []string
+	_ = filepath.WalkDir(filepath.Join(root, "skills"), func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || filepath.Ext(p) != ".md" {
+			return nil
+		}
+		rel, _ := filepath.Rel(root, p)
+		if loaded[filepath.ToSlash(rel)] {
+			return nil
+		}
+		line := "never-loaded " + filepath.ToSlash(rel)
+		if c := cond[p]; len(c) > 0 {
+			line += " conditional: " + strings.Join(c, "; ")
+		}
+		out = append(out, line)
+		return nil
+	})
+	return out
 }

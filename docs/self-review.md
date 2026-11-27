@@ -24,6 +24,10 @@ What happens to a finding:
   dashboard's Self-review view. Only Critical and Important findings are suggested.
 - **A new or extended guard, check or hook is never built by the pass**; it is suggested.
 
+The Simplify and Cut angles start from `flow-guard prune-candidates`: guards that never ran or
+never refused, guards and hooks with repeated incidents, and skill files no session loaded in the
+last 30 days, as the `flow-skill-load` hook records them.
+
 Canonical: [`skills/flow-self-review/SKILL.md`](../skills/flow-self-review/SKILL.md).
 
 ## Fixes made mid-run
