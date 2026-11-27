@@ -90,6 +90,13 @@ const (
 	// bytes observed); 16 MiB matches the client's response cap in
 	// stats/internal/client/client.go and still bounds the read.
 	maxRequestBodyBytes = 16 << 20 // 16 MiB
+
+	// maxChangeFileBytes caps one change-file save alone: a saved dispatch
+	// report or measure manifest of a large change (kan-1160) ran past
+	// maxRequestBodyBytes, and `flow change save` was refused with `request
+	// body too large`. It matches the client's response cap, so a saved file
+	// is always readable back.
+	maxChangeFileBytes = 128 << 20 // 128 MiB
 )
 
 // ChangeStore is the store dependency the change endpoints need, defined

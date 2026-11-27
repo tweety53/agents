@@ -89,7 +89,7 @@ func TestGetSelfReviewBundleLookalikeServerIsUnavailable(t *testing.T) {
 func TestGetSelfReviewBundleRefusesCapTruncatedBody(t *testing.T) {
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(bytes.Repeat([]byte("#"), 17<<20))
+		_, _ = w.Write(bytes.Repeat([]byte("#"), 129<<20))
 	}))
 	defer srv.Close()
 
@@ -122,7 +122,7 @@ func TestGetSelfReviewBundleUnreachableStoreIsUnavailable(t *testing.T) {
 // past the cap precisely so this case stays a success.
 func TestGetSelfReviewBundleAcceptsExactCapBody(t *testing.T) {
 	head := []byte("# Self-review context bundle for demo\n")
-	body := bytes.Repeat([]byte("x"), 16<<20-len(head))
+	body := bytes.Repeat([]byte("x"), 128<<20-len(head))
 	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(append(head, body...))
@@ -134,8 +134,8 @@ func TestGetSelfReviewBundleAcceptsExactCapBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSelfReviewBundle: %v", err)
 	}
-	if len(got) != 16<<20 {
-		t.Errorf("body = %d bytes, want the whole %d", len(got), 16<<20)
+	if len(got) != 128<<20 {
+		t.Errorf("body = %d bytes, want the whole %d", len(got), 128<<20)
 	}
 }
 

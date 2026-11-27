@@ -43,7 +43,7 @@ type changeFileRequest struct {
 func (h *changeFileHandler) put(w http.ResponseWriter, r *http.Request) {
 	project, name, path := r.PathValue("project"), r.PathValue("name"), r.PathValue("path")
 	var in changeFileRequest
-	if err := decodeJSONBody(w, r, &in); err != nil {
+	if err := decodeJSONBodyMax(w, r, &in, maxChangeFileBytes); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}

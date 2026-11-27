@@ -337,7 +337,12 @@ func IsDefinitiveMarkOutcome(err error) bool {
 // decodes it into v, rejecting unknown fields -- the same discipline
 // DecodeChangeBody already applies to a change's wire shape.
 func decodeJSONBody(w http.ResponseWriter, r *http.Request, v any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+	return decodeJSONBodyMax(w, r, v, maxRequestBodyBytes)
+}
+
+// decodeJSONBodyMax is decodeJSONBody under the cap max.
+func decodeJSONBodyMax(w http.ResponseWriter, r *http.Request, v any, max int64) error {
+	r.Body = http.MaxBytesReader(w, r.Body, max)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return fmt.Errorf("read request body: %w", err)

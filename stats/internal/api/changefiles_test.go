@@ -114,6 +114,23 @@ func TestChangeFilePutAcceptsABodyOverTwoMiB(t *testing.T) {
 	}
 }
 
+// TestChangeFilePutAcceptsABodyOverSixteenMiB pins the change-file cap above
+// the 16 MiB every other route is held to: a saved report of a large change
+// (kan-1160) was refused with `request body too large`.
+func TestChangeFilePutAcceptsABodyOverSixteenMiB(t *testing.T) {
+	t.Parallel()
+	st := newIntegrationStore(t)
+	projectKey := fmt.Sprintf("proj-change-files-huge-%d", time.Now().UnixNano())
+	mustPutIntegrationChange(t, st, projectKey, "kan-1160", nil)
+	ts := newChangeFilesServer(t, st)
+	url := ts.URL + "/api/v1/changes/" + projectKey + "/kan-1160/files/reports.gymie.verify-report-x.md"
+
+	raw, _ := json.Marshal(map[string]string{"body": strings.Repeat("x", 20<<20)})
+	if status, _, body := doRequest(t, http.MethodPut, url, raw); status != http.StatusNoContent {
+		t.Fatalf("PUT status %d, body %.200s", status, body)
+	}
+}
+
 // TestChangeFileGetMissingIs404 pins both absences as 404: a path never
 // saved for a known change, and a change the store does not hold.
 func TestChangeFileGetMissingIs404(t *testing.T) {

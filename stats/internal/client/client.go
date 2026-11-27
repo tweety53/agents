@@ -31,7 +31,7 @@ import (
 // above the daemon's request-body cap (internal/api.maxRequestBodyBytes)
 // because the self-review bundle of a large change is read whole and runs
 // past 2 MiB.
-const maxResponseBytes = 16 << 20
+const maxResponseBytes = 128 << 20
 
 // daemonHeaderName and daemonHeaderValue must match internal/api's
 // DaemonHeader and DaemonHeaderValue exactly. They are kept as literal
