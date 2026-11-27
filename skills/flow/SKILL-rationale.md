@@ -746,14 +746,6 @@ The state sweeps run on the captures alone and are the default on every `flow.vi
 
 `rules/design-mockups-are-specs.mdc` puts the same question to the implementer; this is the verifier's side of it.
 
-### visual-verify-verifier.md — Visual verification, step 10 (sweep 9, bounded rows)
-
-Nothing else here sees it — the composite's ratio barely moves when a row's content is right and only the whitespace around it is wrong, the per-control crop matches its control wherever it sits, and the order-and-containment sweep finds every element present and inside its container.
-
-### visual-verify-verifier.md — Visual verification, step 10 (sweep 10, non-text ink)
-
-Every sweep above starts from something the capture shows or the text says: a control, a text run, a row, a value. A line the frame draws and the capture omits is on none of those lists, and the composite's ratio barely moves for a 1px rule, so nothing above asks for it and a verifier who has matched every label and number walks away satisfied.
-
 ### visual-verify-verifier.md — Visual verification, step 10 (edge-to-edge measurement)
 
 Not `content.padding`: it boxes every non-fill pixel in the container, the other rows' text included, and a fill covering half the box flips which colour counts as `fill` (both shown by `TestMeasureVisualProperties` in `<agents repo>/stats/internal/guard/measure_visual_properties_test.go`).

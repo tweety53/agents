@@ -367,6 +367,55 @@ func TestVisualVerifyPassMeasureOverFigures(t *testing.T) {
 	}
 }
 
+// TestVisualVerifyPassMeasurePrintsFrameLines pins the verifier's one input
+// per frame: a `frame:` line naming the composite and every over row with its
+// figures, frame→capture, so no frame is judged by parsing the manifest.
+func TestVisualVerifyPassMeasurePrintsFrameLines(t *testing.T) {
+	t.Parallel()
+	f := vvmFixture(t, "a.png frame-a\nb.png frame-b\n")
+	rc, stdout, stderr := f.run(t, f.wt, "demo", "visual-verify", "tests/visual/app.spec.ts")
+	if rc != 0 {
+		t.Fatalf("exit %d, stdout %q, stderr %q", rc, stdout, stderr)
+	}
+	m := f.manifest(t, "visual-verify")
+	lines := map[string]string{}
+	for _, l := range strings.Split(stdout, "\n") {
+		if rest, ok := strings.CutPrefix(l, "frame: "); ok {
+			id, _, _ := strings.Cut(rest, " ")
+			lines[id] = l
+		}
+	}
+	for _, p := range m.Pairs {
+		l, ok := lines[p.Frame]
+		if !ok {
+			t.Fatalf("no `frame:` line for %s in %q", p.Frame, stdout)
+		}
+		if !strings.HasPrefix(l, "frame: "+p.Frame+" — "+p.Composite+" diff="+p.Diff+" — over: ") {
+			t.Fatalf("%s: line %q does not name its composite and diff", p.Frame, l)
+		}
+		if len(p.Over) == 0 {
+			if !strings.HasSuffix(l, "— over: none") {
+				t.Fatalf("%s: line %q, want over: none", p.Frame, l)
+			}
+			continue
+		}
+		for _, r := range p.Over {
+			row := r.(map[string]any)
+			want := "#" + strconv.FormatFloat(row["row"].(float64), 'f', -1, 64)
+			figs, _ := row["figures"].(map[string]any)
+			for k, v := range figs {
+				ab := v.(map[string]any)
+				if !strings.Contains(l, k+" "+ab["a"].(string)+"→"+ab["b"].(string)) {
+					t.Fatalf("%s: line %q lacks %s's %s figures %v", p.Frame, l, want, k, ab)
+				}
+			}
+			if !strings.Contains(l, want) {
+				t.Fatalf("%s: line %q lacks over row %s", p.Frame, l, want)
+			}
+		}
+	}
+}
+
 // A frame id with a directory (`kan-1083/SE1`) writes its bands file below the key's directory.
 func TestVvpWriteOutCreatesAFrameIdsDirectory(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "visual-measure-k", "kan-1083", "SE1.json")

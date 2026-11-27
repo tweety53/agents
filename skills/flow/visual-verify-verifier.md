@@ -136,8 +136,9 @@ reported BLOCKED, naming it.
    stderr in the manifest it names, `<abs-worktree>/.superpowers/sdd/visual-manifest-<key>.json`, which
    each call merges into as its header states — another spec, or a `--prototype` run over the same one,
    adds its pairs and drops none — so the manifest is never edited by hand. A
-   sidecar written later, or a recapture, runs it again. Then read the manifest and every image it
-   names — each capture, composite and cropped frame — in one turn of parallel Read calls.
+   sidecar written later, or a recapture, runs it again. Then Read, in one turn of parallel Read
+   calls, the composite every `frame:` line names and every capture no composite holds — a composed
+   capture is read through its composite, never again on its own.
    The resolver is what selects this run's fresh output from the committed baseline PNGs already
    sitting under the same `screenshots` root, rather than joining `screenshots` with a guessed
    filename: its exit 1 (zero matches) in the manifest blocks, indistinguishable from a view that
@@ -163,10 +164,14 @@ reported BLOCKED, naming it.
 10. **Compose captured frames against their mockups, if `mockups` is declared.** With a
    `<spec>.mockups` sidecar beside the capture spec, step 9's `measure` composed every pair it maps
    through `flow-guard compose-mockup-frames`, with this project's resolved `mockup frame` value as its fourth
-   argument — a sidecar's `frame` lines override it, each applying to the pairs below it — and its manifest lists one
-   `<composite path> diff=<ratio>` per pair: **read every one** and state,
-   per pair, what the difference panel's white regions are, the ratio, and where the capture
-   departs from the frame. The ratio is information, never a threshold: a pair blocks on a
+   argument — a sidecar's `frame` lines override it, each applying to the pairs below it — and printed one
+   `frame:` line per pair (its header, `stats/internal/guard/visualverifypass.go`, is canonical for
+   the shape). **That line and its composite are the frame's whole input: read every composite once**
+   and state, per pair, where the capture departs from the frame. **Never re-render, re-crop, zoom or
+   re-measure a composed frame** — no `flow-guard measure-visual-properties` call, no script crop, no
+   separate Read of its capture or `<stem>.frame.png`, no parsing of the manifest's pair: the numbers
+   of a `differs:` line are its over row's figures, or, for a difference no row names, as the
+   composite shows them. The ratio is information, never a threshold: a pair blocks on a
    departure you can name, not on a number. A compose exit 1 (a broken map — a screenshot no capture
    matched, a frame file absent, a malformed line, a capture whose size differs from the cropped
    frame) or 2 (cannot answer — a malformed `mockup frame` value included) blocks.
@@ -199,8 +204,7 @@ reported BLOCKED, naming it.
    blocks.
 
    > **The `mockups` declaration gates the frame comparison, never the sweeps.** The compose
-   > step, the band pairing, the seam pairing, the ink inventory (sweep 10), the bounded-row
-   > sweep (sweep 9) and the element × property matrix read a frame against the capture, and a
+   > step and the element × property matrix read a frame against the capture, and a
    > project declaring no `mockups` root, with no approved prototype to render (above), composes
    > nothing and runs none of them. The state sweeps run on the captures alone and are the default on every
    > `flow.verify` run, composed or not. Where a sweep's wording names the frame for something
@@ -209,64 +213,27 @@ reported BLOCKED, naming it.
    > sweep 6's order comparison needs the frame's list and does not run, as the other
    > frame-bound readings do not.
 
-   **The difference panel cannot show a structural departure, so the first read of every pair
-   is the script's band pairing, never the panel.** The composite's panels are the capture left, the frame middle and the difference right, unlabelled; a radius, a stroke width, a glyph size or a colour is read from `<stem>.frame.png` and the capture PNG themselves, never off the composite. The panel is white wherever any channel
+   The composite's panels are the capture left, the frame middle and the difference right, unlabelled. The panel is white wherever any channel
    differs, and on a real pair 20–50% of it is white from seed data, font rasterisation and the
    frame's own annotations alone. A 1px rule the capture omits, a row padding it lacks, a surface fill
    swapped for the page colour, a button border in the wrong colour: each moves the ratio by
-   under a hundredth and vanishes in that white. Beside every composite the compose step writes
-   the cropped frame as `<composite stem>.frame.png`, the capture's own size, and for every pair
-   `measure` ran `flow-guard measure-visual-properties <stem>.frame.png <capture PNG> --scale 1 --props
-   bands,seams`: the manifest lists each pair's flagged bands and seams, and its full output sits in
-   the file the manifest names. Read `delta.bands` (the script's header is canonical for the property): every band the
-   frame draws, paired with the capture's in order, a text or data difference never unpairing
-   one. **The length and colour tolerances are `mvpOverLength` and `mvpOverColour`
+   under a hundredth and vanishes in that white. **The length and colour tolerances are `mvpOverLength` and `mvpOverColour`
    (`<agents repo>/stats/internal/guard/measurevisualproperties.go`)** — `measure` flags by them, and nothing here
    restates their values; the project's `tolerance` row (**Project configuration — visual
    verification**, `skills/flow-contracts/project-configuration-visual.md`) replaces the length one.
    What the length tolerance let through is not yours to explain: `measure` prints
    `within-tolerance: <n>` and writes the rows to `<changeRoot>/visual-verification/within-tolerance.md`,
-   the appendix `visual-verification.md` points at. **Every `missing` band, every `extra` band, and every pair whose `since_pair`,
-   `gap_above` or `height` delta exceeds the length tolerance or whose `edge` or `colour` distance exceeds the colour tolerance is
-   a departure until a cause is named that a band cannot carry** — a wrapped label (a `height`
-   delta on a text band, confirmed by transcription), a frame annotation outside the app's own
-   ink; an empty-versus-populated state is precondition 2 below, a spec to fix, never a cause to
-   accept. Data never creates or removes a band, moves a divider or recolours a border, so "the
-   seed data differs" explains none of them. The pairing resyncs after an unpaired band; a pair
-   count far below the frame's band count is itself the finding that the layout differs
-   wholesale, and the composite is then read to say how.
-
-   **A band is one row of the page's structure and sees nothing across it, so the same call's
-   seam pairing is the second read: `delta.seams`, the vertical structure inside every boxed
-   band.** A segmented control with its two cell dividers gone and its wrapped labels
-   left-anchored where the frame centres them is one band in both images, the same height and
-   the same border colour, and pairs clean. For every boxed
-   band — a bordered or filled control, a card, a hairline; never a bare text row — the script
-   lists its seams (an outer border's side, a cell divider, a filled cell) paired in order, and
-   for every cell between two paired seams its text lines with their `offset` from the cell's
-   centre and their `left` and `right` insets. **Every `missing` seam, every `extra` seam, every
-   seam pair whose `since_pair` or `width` delta exceeds the length tolerance or whose `colour` distance exceeds
-   the colour tolerance, every cell whose line `count` differs, and every line whose `offset` delta exceeds the length tolerance
-   is a departure until a cause is named that a seam or a line cannot carry.** Text width never
-   moves a seam, so a data difference explains no seam; a line's width is data, so an `offset`
-   delta whose `left` delta is within the length tolerance (or whose `right` is) is a left- (right-) anchored
-   label whose text differs — the cause is then the transcription, and it is named — where an
-   `offset` delta with `left` and `right` both moved by the same amount is a label anchored to a
-   different edge than the frame's, a departure whatever the text reads. What the seams cannot
-   see — a divider in a row with no border or fill, the label of a filled cell, a glyph, a
-   corner radius — the per-control sweeps below still measure.
+   the appendix `visual-verification.md` points at.
 
    **Every departure from the mockup or the approved prototype is blocking.** It takes the fix
    procedure (`skills/flow/fix.md`) per `skills/flow/visual-verify.md` — `departure` is never a
-   closing state. A band, seam, matrix or sweep finding no named cause explains is measured once more
-   on the frame at 2x before the report is written: **corrected or gone at 2x** — a mis-measurement,
-   the corrected number standing in its place. A recorded decision is a named cause only for the deltas it names, by element and property: any other delta on the same band or element is unexplained until measured.
+   closing state. A recorded decision is a named cause only for the deltas it names, by element and property: any other delta on the same band or element is unexplained until measured.
 
    **A finding that reverses an earlier round's measured finding on the same element** — a tab bar
    13 px high, then 20 px low; axis labels present, then absent — quotes that round's report line
    (`.superpowers/sdd/verify-report-*.md` of the worktree) with its numbers, and names the commit or
    edit between the two rounds that moved the element. With no such change since, the earlier
-   number stands and the new one is re-measured at 2x on the frame before either is reported; a
+   number stands; a
    reversal that quotes no earlier numbers and names no change is not accepted.
 
    **A fill that looks like a hover is not recorded as a departure until the pointer is shown to be
@@ -293,20 +260,10 @@ reported BLOCKED, naming it.
    `skills/flow/brainstorm-planner.md` plans for a frame a sibling ticket finishes.
 
    **A full-page match — a clean composite read, a structural match — is necessary, never
-   sufficient: verify at the control level, measure rather than eyeball, and exercise the states
-   a resting frame does not show.** Full-page comparison catches wrong regions and wrong overall
-   layout, and wrong text only where the capture's data is the frame's own; it does not catch a
-   border style, an icon's glyph, or a colour step, all of
-   which are invisible at full-page scale. Before
+   sufficient: exercise the states
+   a resting frame does not show.** Before
    accepting any field, button, icon, or toggle as matching its mockup:
-   1. **Crop and zoom (2–3x) both the mockup region and the corresponding capture, side by side.**
-      Do this for every interactive control the view carries, not only ones that already look
-      suspicious at full scale. **Name the control's kind in each image first, before any
-      measurement** — a plain text field or a headline display figure; a list row carrying a
-      leading radio, or a quiet row whose only indicator is a trailing filled circle on the
-      selected one; a segmented control of N cells each fitting its own label — a differing
-      kind is a departure before any number is taken.
-   2. **Exercise every interactive state the mockup draws for that control, not only its resting
+   1. **Exercise every interactive state the mockup draws for that control, not only its resting
       one** — a focused field, a field with a value typed (so a clear icon or a validation state
       actually renders), a pressed button, an enabled toggle. A control checked only at rest has
       not been checked at all if the mockup draws it focused or active; capture that state
@@ -375,8 +332,7 @@ reported BLOCKED, naming it.
    6. **The elements of capture and frame, listed top to bottom, and every element inside its
       own container.** Write both lists — heading, chart, chips, list, link — and compare their
       order: a control present in both but in a different position relative to its siblings is a
-      departure the per-control crop never sees, since each crop matches its own control wherever
-      it sits. Then
+      departure. Then
       confirm no element's ink crosses its container's bounds into a sibling — a plotted line, a
       marker, a label — driving the out-of-range value step 8 seeded and stating whether the app
       clamps it or hides it.
@@ -398,47 +354,14 @@ reported BLOCKED, naming it.
       seeding the data where none reaches it, and state per capture the values compared and whether
       the element's claim is true of them. An element that asserts a direction its values do not show
       is a defect whatever the frame draws.
-   9. **Every row the frame bounds with a divider, hairline or container edge — a header bar, a
-      sticky bar, a toolbar, a list section, a dialog's action row — gap-measured on the side
-      facing each bound, in both images, before the row is called matching.** Which rows are
-      bounded is read from the frame, never from the capture: a capture that omits the frame's
-      hairline shows no bounded row to measure, and the band pairing above is what finds the
-      omission. The top and bottom gaps are the row band's `gap_above` and its successor's in
-      the band pairing above, already paired per image; the left and right gaps are read from
-      the `gap` block of the
-      per-control measurement below for the row's controls: the script scans past the region to
-      the next neighbour, so the number is already in
-      the JSON of every measurement this step makes and costs nothing beyond reading it. This
-      sweep runs on every such row, unprompted: the spacing rule below answers a claim or a
-      complaint, and a row nobody claimed anything about was never measured. A row
-      whose every control measures the right size is the case to suspect, not to pass: a uniform
-      container padding around correctly-sized controls is invisible to every reading but this one.
-   10. **Every non-text ink the frame draws — hairline, divider, rule, border, background fill,
-      shadow band — inventoried from the frame alone, then found in the capture one by one.**
-      The horizontal inks — every hairline, rule, fill band and border edge the frame draws across
-      the page — are the frame's bands, and the band pairing above has already listed each one
-      `missing` or paired with its colour; the vertical inks inside every bordered or filled
-      band — a control's sides, its cell dividers, a card's inner rules — are its seams, and the
-      seam pairing above has listed each one the same way; this sweep reads both lists and adds
-      the vertical inks neither can see, the dividers of a row with no border or fill: run
-      `flow-guard measure-visual-properties` with `--props runs` on the
-      frame alone, the region a full-width row through the centre of each such row, write down
-      every run whose colour is neither the
-      background's nor a text run's — its position and length — then the same region on the
-      capture, and pair the lists: a run on the frame's list with no counterpart on the
-      capture's is a departure, whatever the row's text reads. This sweep runs on a frame whose
-      content already matches and on a frame
-      already fixed for something else — a fix run re-verifies the whole frame, never the
-      element it fixed.
 
    **Every element the frame draws, on every property the script measures — a matrix per
    frame, never a list of sweeps done.** Every sweep above is anchored on one kind of element
    and asks one question: a control's kind and box, a text run's
-   content, a bounded row's gaps, a column's ink. An element outside every anchor — a headline
+   content. An element outside every anchor — a headline
    figure, a caption, a summary row, a slider's track and thumb, a row's own border — is
    transcribed at most, and a property no sweep names is read by nobody: the text sweep judges
-   what a run says and never its colour or its size, the row sweep measures the gaps around a
-   row and never how far the row stretches, and the per-control crop is asked for one number.
+   what a run says and never its colour or its size.
    Before a frame is called matching:
 
    1. **Enumerate the elements from the frame, not the capture and not the last report** —
@@ -451,25 +374,12 @@ reported BLOCKED, naming it.
       `measure` wrote to `<changeRoot>/visual-verification/matrix/<frame id>.json` —
       `flow-guard measure-visual-properties --props matrix`, which finds each image's app surface — a sheet's
       top edge on a scrim frame — lists every ink run inside it paired in order, and fills every
-      column below for every paired element, each region clipped to its image; every element it
-      merges or misses is measured by hand with the per-element calls, and a departure that
-      shows goes on the frame's `differs:` line. That file is the one copy, overwritten every pass — never a second copy under another name.
+      column below for every paired element, each region clipped to its image. That file is the one copy, overwritten every pass — never a second copy under another name.
    2. **Read the matrix `measure` filled — never transcribe it.** `measure` fills the 11
       columns — kind, content, colour, size, position, stretch, alignment, border, fill, radius,
       shadow — for every row of the frame's matrix into the pair's `cells` in the manifest.
       `vvmColumnLeaves` (`<agents repo>/stats/internal/guard/visualverifypass_measure.go`) is canonical for
-      which leaves each column reads per row class. A row is measured by hand with the call of
-      its class:
-
-      | row class | hand call |
-      |---|---|
-      | text run | `--props ink`, the crop spanning the run's container's full width |
-      | control, fill band | `--props box,radius,border,fill,shadow,content,gap` |
-      | rule, missing, extra | the row's element obj in the matrix JSON; `--props runs` on the region crossing it |
-
-      An `element.` leaf is in the full image's coordinates and `box.left`/`box.top` relative
-      to the row's padded matrix region, so a hand figure for one is measured in that frame of
-      reference, never the crop's.
+      which leaves each column reads per row class.
 
       Each cell holds the frame's figures, the capture's and their `delta`; n/a — `<why>` where
       the column does not apply to the row's class (`vrNAColumns`, `<agents repo>/stats/internal/guard/verifyreport.go`); or `unresolved — <reason>`
@@ -505,6 +415,9 @@ reported BLOCKED, naming it.
       above, and goes on a `- <frame id> differs:` line with its own row's figures as the
       manifest's `figures` carry them. A row no difference is not written.
 
+   **A hand measurement is a fix's, never the verifier's** (`skills/flow/fix.md`): the rules from
+   here to **No sidecar is never a silent skip** bind every `flow-guard measure-visual-properties`
+   call a fix makes.
    **Never judge a size, alignment, spacing, corner radius, border, fill, shadow, icon size or
    font size by eye from a resized or cropped image; measure it with
    `flow-guard measure-visual-properties`, then eyeball what it measured.** A crop is for reading text
@@ -689,7 +602,7 @@ step 8 could not close stays, which `close` hands the parent.
 **A departure found never shortens the pass:** every step still runs to its end in the same
 dispatch, and a fix round's re-verify finishing what this one left is no reason to leave it.
 **Step 10 is `done` only when every frame's matrix and sweeps are**: every composite read, every
-`over` row judged, every element the matrix merges or misses measured by hand, and every sweep
+`over` row judged, and every sweep
 run — one left for time, context or a measurement the pixels could not give is step 10 undone.
 **The report lists only what differs.** Each composed frame has its own line, never one line
 for a range of frames: `match` when it shows no difference, else one `- <frame id> differs:`

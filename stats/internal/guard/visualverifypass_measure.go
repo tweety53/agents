@@ -270,6 +270,7 @@ func (v *vvp) measure(args []string) {
 				v.say("shift: dy=%s rows=%d frame=%s", strconv.FormatFloat(p.Shift.Dy, 'f', -1, 64), p.Shift.Rows, p.Frame)
 			}
 		}
+		v.say("%s", vvmFrameLine(p))
 		m.Pairs = append(m.Pairs, p)
 	}
 	v.writeManifest(sdd, vvDir, key, spec, prototype, m, failed)
@@ -367,6 +368,40 @@ func (v *vvp) writeManifest(sdd, vvDir, key, spec string, prototype bool, m vvmM
 		panic(vvpExit(1))
 	}
 	panic(vvpExit(0))
+}
+
+// vvmFrameLine is measure's `frame:` line for one measured pair
+// (visualverifypass.go's header, step 3, is canonical for its shape).
+func vvmFrameLine(p vvmPair) string {
+	var rows []string
+	for _, o := range p.Over {
+		r, _ := o.(map[string]any)
+		n, _ := r["row"].(float64)
+		s := "#" + strconv.FormatFloat(n, 'f', -1, 64)
+		st, _ := r["status"].(string)
+		if st != "" && st != "paired" {
+			s += " " + st
+		}
+		keys, _ := r["keys"].(string)
+		figures, _ := r["figures"].(map[string]map[string]string)
+		var parts []string
+		for _, k := range strings.Split(keys, ", ") {
+			if f, ok := figures[k]; ok {
+				parts = append(parts, k+" "+f["a"]+"→"+f["b"])
+			} else if k != "" && k != st {
+				parts = append(parts, k)
+			}
+		}
+		if len(parts) > 0 {
+			s += " " + strings.Join(parts, ", ")
+		}
+		rows = append(rows, s)
+	}
+	over := "none"
+	if len(rows) > 0 {
+		over = strings.Join(rows, "; ")
+	}
+	return "frame: " + p.Frame + " — " + p.Composite + " diff=" + p.Diff + " — over: " + over
 }
 
 // vvmUnion is a then b, each line once.

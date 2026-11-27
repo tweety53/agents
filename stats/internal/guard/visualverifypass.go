@@ -339,7 +339,11 @@ import (
 //      bands,seams into <worktree>/.superpowers/sdd/visual-measure-<key>/<frame id>.json,
 //      and --props matrix into <changeRoot>/visual-verification/matrix/<frame id>.json.
 //      A pair compose did not write is recorded with its non-zero compose exit
-//      and not measured; every other pair still is.
+//      and not measured; every other pair still is, and prints
+//        frame: <frame id> — <composite> diff=<ratio> — over: <row>; … | none
+//      each <row> one `over` entry below, `#<n>[ <status>] <key> <a>→<b>, …`
+//      (a the frame, b the capture; a key with no figures bare): the
+//      verifier's whole input for that frame beside its composite.
 //   4. the manifest <worktree>/.superpowers/sdd/visual-manifest-<key>.json:
 //      `captures`, `identical` (the group lines), `steps` (resolve, identical
 //      and compose, each {exit, stderr}) and `pairs[]` of {spec, frame, capture,
