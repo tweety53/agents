@@ -32,6 +32,13 @@ func (c *ic) ghPRCreate(w string) (string, bool) {
 	return lines[len(lines)-1], err == nil
 }
 
+// ghPRView is the URL of spectre/<name>'s open PR as gh in w reports it,
+// and whether gh found one.
+func (c *ic) ghPRView(w string) (string, bool) {
+	out, err := c.cmd(w, "gh", "pr", "view", "spectre/"+c.name, "--json", "url", "-q", ".url").Output()
+	return strings.TrimSpace(string(out)), err == nil
+}
+
 // recordLandBase stores the pre-push merge base for the post-land self-review range.
 // A re-land keeps the first base: by then HEAD is its own merge base.
 func (c *ic) recordLandBase(w string) {
@@ -102,12 +109,16 @@ func (c *ic) land() {
 			}
 			pushed += w
 		case "pull request":
-			if c.prURLState != "" {
+			if w == c.canon && c.prURLState != "" {
 				pr = c.prURLState
 				c.say("PR: " + pr + " — updated by the push")
 				continue
 			}
 			url, ok := c.prArg(o)
+			if !ok {
+				url, ok = c.ghPRView(w)
+				ok = ok && strings.HasPrefix(url, "http")
+			}
 			if !ok {
 				url, ok = c.ghPRCreate(w)
 				ok = ok && strings.HasPrefix(url, "http")
@@ -135,6 +146,6 @@ func (c *ic) land() {
 	if c.route == "merge and push" {
 		c.say("NEXT: " + pass + ", end flow.self-review completed, then flow-guard integrate-change cleanup " + c.main + " " + c.name + " " + c.flags())
 	} else {
-		c.say("NEXT: " + pass + ", then print the run 1 handoff — waiting on the merge")
+		c.say("NEXT: " + pass + ", end flow.self-review completed, then print the run 1 handoff — waiting on the merge")
 	}
 }

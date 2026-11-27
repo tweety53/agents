@@ -72,7 +72,13 @@ check "pr_url: b's answer does not answer for a" \
   '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: pr — no usable gh for $WORK/a-worktrees/demo "'
 sut land "$WORK/a" demo --route "pull request" --pr-url "$WORK/b-worktrees/demo=https://forge.invalid/b/1" --pr-url "$WORK/a-worktrees/demo=https://forge.invalid/a/1"
 check "pr_url: with both answered, IN_PROGRESS records the canonical PR" \
-  '[ "$RC" -eq 0 ] && [ "$(jq -r "[.state, .prUrl] | join(\" \")" "$WORK/state.json")" = "IN_PROGRESS https://forge.invalid/a/1" ]'`},
+  '[ "$RC" -eq 0 ] && [ "$(jq -r "[.state, .prUrl] | join(\" \")" "$WORK/state.json")" = "IN_PROGRESS https://forge.invalid/a/1" ]'
+check "pr_url: the pull-request NEXT ends flow.self-review before the run 1 handoff" \
+  'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: run the self-review pass .*, end flow.self-review completed, then print the run 1 handoff"'
+printf '#!/usr/bin/env bash\n[ "$1 $2" = "pr view" ] && { echo "https://forge.invalid/$(basename "$(dirname "$PWD")")/9"; exit 0; }\nexit 1\n' >"$WORK/bin/gh"
+sut land "$WORK/a" demo --route "pull request"
+check "pr_url: a re-run with the canonical PR recorded still finds b's own PR" \
+  '[ "$RC" -eq 0 ] && printf "%s\n" "$OUT" | grep -q "^PR: https://forge.invalid/b-worktrees/9"'`},
 		{"refresh_on_recorded_base", `# --- refresh_on_recorded_base ---
 fixture
 g -C "$WORK/a" push -q origin main:refs/heads/feature/x
