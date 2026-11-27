@@ -378,12 +378,7 @@ of `skills/flow/visual-verify.md`.
 entry. At each boundary, in this order:
 
 1. **The returned group's implementer commits**, writes its report and ends; the parent's `await-rows`
-   reports it `ENDED` and the parent reads its summary head (`skills/flow/implementer-brief.md`). **A `status: DONE` head of an
-   implementer, or of a fixer that turned its group green, with no `confidence:` line skipped CONFIDENCE ONCE GREEN: the parent sends that agent one message —
-   estimate now, per your brief's CONFIDENCE ONCE GREEN, file it and answer with the `confidence:` line —
-   and continues on its answer, never blocking the group on it.** A report whose `## Open gaps` —
-   the one section of its body the parent reads — holds a gap that names no command gets the same
-   one message, asking for each gap's command.
+   reports it `ENDED` and the parent reads its summary head (`skills/flow/implementer-brief.md`).
 2. **One Bash call closes the returned group**, its verdict echoed:
    `flow-guard close-task`.
 
