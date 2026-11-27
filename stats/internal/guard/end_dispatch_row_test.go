@@ -108,6 +108,43 @@ func TestEndDispatchRowReadsTheHandbackReport(t *testing.T) {
 	}
 }
 
+// TestEndDispatchRowEndsAResumedChildsRow: a child resumed by a SendMessage whose message carries
+// its own `Key:` line ends that resume's row with the resume's commit — never re-ends the row its
+// first prompt named, whose end the first stop already wrote.
+func TestEndDispatchRowEndsAResumedChildsRow(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"stageRuns":[{"changeName":"c1","sessionToken":"mf-t2"}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	tmp := t.TempDir()
+	log := filepath.Join(tmp, "flow.log")
+	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >>"+log+"\n")
+	tr := filepath.Join(tmp, "agent.jsonl")
+	resumeSha := strings.Repeat("b", 40)
+	writeFile(t, tr, `{"type":"user","message":{"content":"Role: implementer\nKey: task-3-implementer\n"}}`+"\n"+
+		`{"type":"assistant","message":{"content":[{"type":"text","text":"commit: 3 `+strings.Repeat("a", 40)+`\n"}]}}`+"\n"+
+		`{"type":"user","message":{"content":[{"type":"tool_result","content":"Key: task-9-implementer\n"}]}}`+"\n"+
+		`{"type":"user","message":{"content":"The coordinator sent a message:\nKey: task-3-implementer-resume-1\nFIX INPUT: close-task exit 1\n"}}`+"\n"+
+		`{"type":"assistant","message":{"content":[{"type":"text","text":"commit: 3 `+resumeSha+`\n"}]}}`+"\n")
+	env := Env{Getenv: func(k string) string {
+		switch k {
+		case "FLOW_ADDR":
+			return srv.URL
+		case "PATH":
+			return filepath.Join(tmp, "bin") + ":" + os.Getenv("PATH")
+		}
+		return os.Getenv(k)
+	}, Dir: tmp}
+	var o, e bytes.Buffer
+	if rc := endDispatchRow([]string{tr, "s1", tmp}, env, &o, &e); rc != 0 {
+		t.Fatalf("rc %d: %s%s", rc, o.String(), e.String())
+	}
+	if got, _ := os.ReadFile(log); !strings.Contains(string(got), "-key task-3-implementer-resume-1 ") || !strings.Contains(string(got), "-commit "+resumeSha) {
+		t.Errorf("flow called with %q, want the resume row ended with its commit", got)
+	}
+}
+
 // TestSweepDispatchRows: a transcript 30+ minutes old with a handback report is closed from it, once;
 // a young one, one with no report and an already swept one are left alone.
 func TestSweepDispatchRows(t *testing.T) {

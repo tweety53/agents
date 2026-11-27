@@ -20,8 +20,10 @@ import (
 // it on every SubagentStop it lets through, so the parent ends no row of its
 // own (the begin is hooks/enforce-agent-baseline.py's).
 //
-// The row is the one the transcript's first prompt names on its `Key:` line
-// (else edrMetaKey's),
+// The row is the one the transcript's last prompt carrying a `Key:` line names
+// — a child resumed by a SendMessage whose message carries its own `Key:` line
+// ends that resume's row, never the first prompt's again — else the first
+// prompt's edrMetaKey,
 // under the session's change and token: the session's latest open stage run,
 // else its latest, of a change that is no loop's own (as the begin hook
 // reads them). A loop key (`pipeline-fix-…`, `self-review-…`) and a verifier
@@ -154,8 +156,8 @@ func edrOutcome(key, final string) string {
 	return "aborted"
 }
 
-// edrTranscript is the transcript's first user prompt and its last assistant
-// text.
+// edrTranscript is the transcript's last user prompt carrying a `Key:` line,
+// else its first user prompt, and its last assistant text.
 func edrTranscript(path string) (prompt, final string, err error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -176,7 +178,7 @@ func edrTranscript(path string) (prompt, final string, err error) {
 		}
 		text := edrText(rec.Message.Content)
 		switch {
-		case rec.Type == "user" && prompt == "":
+		case rec.Type == "user" && (prompt == "" || edrKey.MatchString(text)):
 			prompt = text
 		case rec.Type == "assistant" && strings.TrimSpace(text) != "":
 			final = text

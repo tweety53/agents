@@ -42,7 +42,7 @@ These ten rows are **every** Agent-tool dispatch the parent may make, across sec
 
 | Site | Role | Key shape | Owning section |
 |---|---|---|---|
-| implementer, one per group; a fixer per fix | `implementer`; a fixer the role whose pair **Every fix is a fresh one-shot** names | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
+| implementer, one per group; a fixer per fix | `implementer`; a fixer the role whose pair **Every fix is a fresh one-shot** names | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>` or `full-suite-fix-<n>`; a resumed implementer's `task-<n>-implementer-resume-<k>` (**The immediate re-commit**, below) | section **4** below, **Every fix is a fresh one-shot** |
 | gated reviewer bundle, one per batch of returned tasks of weight 5, on a decision of more than one group or a plan with a big task | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
 | panel bundle, one per decided `panel` bundle | `panel-reviewer` on pass 1; `panel-rerun` for a re-run | `panel-<round>-<slot\|slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` | `skills/flow/review-panel.md`, the fix step |
@@ -99,10 +99,27 @@ commit read off the agent's final message (the guard's header is canonical) — 
 blocked -cause …` — is ended by its own site.
 
 **Every dispatch is one-shot — a finished child is never resumed.**
-The parent never sends a `SendMessage` to a child that has written its report. Whatever a
+The parent never sends a `SendMessage` to a child that has written its report, but for
+**The immediate re-commit** (below). Whatever a
 finished child's work still needs — a guard refusal, a reviewer's `fix`, a
 full-suite failure — goes to a fresh fixer (**Every fix is a fresh one-shot**, below); a re-review
 is a fresh dispatch.
+
+**The immediate re-commit.** When `flow-guard close-task` exits 1 on a group whose implementer
+stopped under five minutes ago — inside its prompt cache — the parent resumes that implementer
+once instead of launching the re-commit fixer. It begins the resume's row, then sends the
+`SendMessage`, then waits on the key with `await-rows`:
+
+```bash
+flow record dispatch begin -C <worktree> -key task-<n>-implementer-resume-<k> -role implementer -agent-id <the implementer's agent id> -model <its model> -effort <its effort> -session-token <token>
+```
+
+The message's first line is `Key: task-<n>-implementer-resume-<k>` at column 0, its next the
+`FIX INPUT:` line the re-commit fixer would carry — the guard's printed lines. The resumed child's
+stop ends that row: `flow-guard end-dispatch-row` reads the last `Key:` line the transcript
+carries, and the harvester credits the resume's turns to that row by agent id and window. A
+second exit 1 on the same task, or an implementer that stopped five minutes ago or more, goes to
+the fresh re-commit fixer (**Every fix is a fresh one-shot**, below).
 
 Every row's own prompt or brief carries the NO DELEGATION paragraph (`skills/flow/implementer-brief.md`,
 `skills/flow/gated-reviewer-brief.md`, `skills/flow/review-panel.md`, `skills/flow/visual-verify.md`, `skills/flow-contracts/pipeline.md`) — a leaf never dispatches, so
@@ -396,8 +413,8 @@ entry. At each boundary, in this order:
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
    never stashes, reverts or resets. Every verdict is printed and read before anything
-   launches: **exit 1** is a re-commit, with nothing ticked or pushed — the re-commit row of **Every fix is a
-   fresh one-shot** (below) — and `flow-guard close-task` re-runs before anything below. **Exit 1 with a
+   launches: **exit 1** is a re-commit, with nothing ticked or pushed — **The immediate re-commit**
+   (above), else the re-commit row of **Every fix is a fresh one-shot** (below) — and `flow-guard close-task` re-runs before anything below. **Exit 1 with a
    `UI-TASK-UNMEASURED: <task-id> — <reason> — run: <command>` line and `close-task: MEASURE` is the
    other exit-1 cause, and no re-commit repairs it**: a task whose **Files:** touch the project's
    `ui paths` has no `task-<task-id>-measure.json`, one older than its last source commit, or one
@@ -575,7 +592,7 @@ Once this stage completes, continue into `skills/flow/review-panel.md`.
 
 **The parent edits no code.** Whatever a task's close, a gated pass or
 the test list still needs changed in the tree goes to a fresh one-shot dispatch — never the
-parent, never a resumed child (**Every dispatch is one-shot**, above) — on its row below. Its prompt is the implementer stub (section
+parent, never a resumed child but under **The immediate re-commit** (above) — on its row below. Its prompt is the implementer stub (section
 **4** above) under the row's own `Key:`, its `Tasks:` line the tasks it fixes and a `FIX INPUT:`
 line naming what to fix; its work is
 `skills/flow/fixer-brief.md`.
@@ -583,7 +600,7 @@ line naming what to fix; its work is
 | Fix | Key | Pair | When |
 |---|---|---|---|
 | every `fix` verdict and every Minor the gated passes left open | `task-<ids>-implementer-fix-<k>`, the ids every task it fixes, `+`-joined in plan order | the `panel-fix` role's pair | at the stage's end, one per group of at most weight 3, in series within a worktree (`skills/flow/gated-review-fix.md`) |
-| a `flow-guard close-task` exit 1 a re-commit repairs | `task-<n>-implementer-recommit-<k>` | the `panel-fix` role's pair | at once, before the next group launches |
+| a `flow-guard close-task` exit 1 a re-commit repairs | `task-<n>-implementer-recommit-<k>` | the `panel-fix` role's pair | at once, before the next group launches, when **The immediate re-commit** (above) does not resume the implementer |
 | a full-suite failure | `full-suite-fix-<n>` | the `panel-fix` role's pair | each time the test list's `VERDICT:` block names a `defect` (**The parent runs the test list**, above) |
 
 A full-suite fix takes its name from its key: the run it repairs is the test list, never the
