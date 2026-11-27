@@ -457,6 +457,19 @@ func TestPlanCheckRetriesAReportWithNoTerminalLine(t *testing.T) {
 	}
 }
 
+// TestPlanCheckAsksTheModelAtMostTwice: answers with no terminal line and no usable decision cost two
+// model calls in all, never four, and the second names why the first could not be used.
+func TestPlanCheckAsksTheModelAtMostTwice(t *testing.T) {
+	t.Parallel()
+	args, _, _ := pcFixture(t)
+	bad := pjJSON(pcAnswer("no terminal line\n", `{"groups":[]}`), "")
+	stub := pcSeq(t, bad, bad)
+	r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
+	if r.rc != 1 || stub.calls() != "2" || !strings.Contains(strings.Join(stub.argv(t), " "), "Your previous answer could not be used: plan-check decision rejected") {
+		t.Fatalf("rc=%d calls=%s err=%q argv=%q", r.rc, stub.calls(), r.err, stub.argv(t))
+	}
+}
+
 // TestPlanCheckDerivesTheTerminalLine: after the retry, a body that still ends in no terminal line but
 // holds finding lines or a confidence score is parsed, never discarded.
 func TestPlanCheckDerivesTheTerminalLine(t *testing.T) {

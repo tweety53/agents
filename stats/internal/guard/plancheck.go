@@ -43,8 +43,12 @@ import (
 // removes a confidence.json an earlier check left. -decide-only neither
 // writes nor removes it.
 //
+// One plan-check makes at most two model calls (pcAsks): an answer owed a retry — a failed call, an
+// unusable decision, a report with no terminal line — is asked once more with its reason appended to
+// the system prompt, and a usable first decision is kept over an unusable retry.
+//
 // A report whose last line is no PLAN-CHECK-* line is not accepted at first: the judge is asked once
-// more with the terminal line named (pcRetryNote); a report still lacking it is closed from its body
+// more with the terminal line named (pcNoTerminal); a report still lacking it is closed from its body
 // (pcDerive: `PLAN-CHECK-FINDINGS <n>` from its finding lines, `PLAN-CHECK-CLEAN` from a confidence
 // score alone).
 //
@@ -52,7 +56,7 @@ import (
 // alone, to `PLAN-CHECK-NOT-RUN` and the words `no confidence estimate exists`, stdout reading
 // `PLAN-CHECK-NOT-RUN — no confidence estimate`. The decision has no fallback: one failing its
 // checks, a failed call (no decider pair, the command missing or failing, the deadline) or a missing
-// separator is asked once more and then BLOCKS — exit 1, one stderr line naming the cause, reason
+// separator is retried within those two calls and then BLOCKS — exit 1, one stderr line naming the cause, reason
 // decision-unusable, nothing written — since a run on a made-up decision is an unplanned run.
 // Otherwise stdout is one line, `plan-check (judge): <report> · <n>
 // groups · panel <a+b> … · visual <verify>`, and in the full mode
@@ -80,8 +84,12 @@ var (
 	pcAnyFinding = regexp.MustCompile(`(?m)^\*\*F[0-9]+\*\* \[(?:finding|advisory|blocker)\]`)
 )
 
-// pcRetryNote is appended to the prompt of the one retry a report with no terminal line gets.
-const pcRetryNote = "\n\nYour previous answer's report did not end with a terminal line. The report's last line, before the ===DECISION=== line, must be exactly PLAN-CHECK-CLEAN or PLAN-CHECK-FINDINGS <n>, <n> the number of finding lines above it.\n"
+// pcNoTerminal is the retry reason of a report with no terminal line.
+const pcNoTerminal = "its report did not end with a terminal line. The report's last line, before the ===DECISION=== line, must be exactly PLAN-CHECK-CLEAN or PLAN-CHECK-FINDINGS <n>, <n> the number of finding lines above it."
+
+// pcAsks bounds the model calls one plan-check makes: the first, and one retry naming why the
+// first could not be used.
+const pcAsks = 2
 
 // pcHasTerminal is whether the answer's report part (all of it when no ===DECISION=== line is there)
 // ends in a PLAN-CHECK-* line.
@@ -130,12 +138,25 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 	project, _ := os.ReadFile(filepath.Join(wt, ".flow", "project.md"))
 	visual := dgpvVisualHeading.Match(project)
 
-	report, d, source, spend, cause := pcAsk(env, wt, root, lines, tasks, pdgRepositories(env, planPath, lines), visual, decideOnly)
-	if d == nil { // a decision no run goes on without: ask once more, then block
-		report, d, source, spend, cause = pcAsk(env, wt, root, lines, tasks, pdgRepositories(env, planPath, lines), visual, decideOnly)
+	var report, source, spend, cause, note string
+	var d *dgpvDecision
+	repoAt := pdgRepositories(env, planPath, lines)
+	for range pcAsks {
+		r, dd, src, sp, c, retry := pcAsk(env, wt, root, lines, tasks, repoAt, visual, decideOnly, note)
+		spend += sp
+		if dd != nil || d == nil { // a usable first answer is never traded for an unusable retry
+			report, d, source, cause = r, dd, src, c
+		}
+		if retry == "" {
+			break
+		}
+		if len(retry) > 2000 {
+			retry = retry[:2000]
+		}
+		note = "\n\nYour previous answer could not be used: " + retry + "\n"
 	}
 	if d == nil {
-		fmt.Fprintf(stderr, "plan-check: no usable decision after two asks, the run is blocked — %s\n", strings.TrimSpace(pjSpace.ReplaceAllString(cause, " ")))
+		fmt.Fprintf(stderr, "plan-check: no usable decision, the run is blocked — %s\n", strings.TrimSpace(pjSpace.ReplaceAllString(cause, " ")))
 		Reason(env, "decision-unusable")
 		return 1
 	}
@@ -251,8 +272,10 @@ func pcFindingText(report, id string) string {
 	return ""
 }
 
-// pcAsk runs the check; a nil decision or empty report is the part to fall back.
-func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []string, visual, decideOnly bool) (report string, d *dgpvDecision, source, spend, cause string) {
+// pcAsk runs the check once, note appended to the system prompt; a nil decision or empty report
+// is the part to fall back. retry is why the answer is owed one more model call ("" none): a
+// failed run, an unusable decision, or a report with no terminal line.
+func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []string, visual, decideOnly bool, note string) (report string, d *dgpvDecision, source, spend, cause, retry string) {
 	source = "fallback"
 	repo := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	promptFile, tools, limit := "plan-check-prompt.md", "Read,Grep,Glob", pcLimit
@@ -261,16 +284,16 @@ func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []s
 	}
 	prompt, err := os.ReadFile(filepath.Join(repo, "skills", "flow", promptFile))
 	if err != nil {
-		return "", nil, source, "", "plan-check prompt unreadable: " + err.Error()
+		return "", nil, source, "", "plan-check prompt unreadable: " + err.Error(), ""
 	}
 	rules, err := os.ReadFile(filepath.Join(repo, "skills", "flow", "plan-check-decision.md"))
 	if err != nil {
-		return "", nil, source, "", "plan-check prompt unreadable: " + err.Error()
+		return "", nil, source, "", "plan-check prompt unreadable: " + err.Error(), ""
 	}
 	prompt = append(append(prompt, '\n'), rules...)
 	rows, err := policyTable(env)
 	if err != nil {
-		return "", nil, source, "", err.Error()
+		return "", nil, source, "", err.Error(), ""
 	}
 	read := func(p string) string {
 		if b, err := os.ReadFile(p); err == nil {
@@ -294,18 +317,23 @@ func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []s
 		digest = append(digest[:pjDigestCap:pjDigestCap], pjTruncated...)
 	}
 	env.Dir = wt
-	result, spend, cause := pjRun(env, rows, "decider", string(prompt), digest, tools, limit)
+	result, spend, cause := pjRun(env, rows, "decider", string(prompt)+note, digest, tools, limit)
 	if cause != "" {
-		return "", nil, source, spend, cause
+		return "", nil, source, spend, cause, cause
 	}
 	if !decideOnly && !pcHasTerminal(result) {
-		// The first unusable answer is not accepted: ask once more, naming the terminal line.
-		if r2, s2, c2 := pjRun(env, rows, "decider", string(prompt)+pcRetryNote, digest, tools, limit); c2 == "" {
-			result, spend = r2, spend+s2
-		} else {
-			spend += s2
-		}
+		retry = pcNoTerminal
 	}
+	report, d, source, spend, cause = pcParse(result, prompt, tasks, repoAt, visual, decideOnly, spend)
+	if d == nil {
+		retry = cause
+	}
+	return report, d, source, spend, cause, retry
+}
+
+// pcParse splits one answer into its report and its checked decision.
+func pcParse(result string, prompt []byte, tasks []pdbTask, repoAt []string, visual, decideOnly bool, spend string) (report string, d *dgpvDecision, source, spendOut, cause string) {
+	source = "fallback"
 	loc := pcSeparator.FindStringIndex(result)
 	if loc == nil {
 		return "", nil, source, spend, "plan-check answer has no ===DECISION=== line: " + result + spend
