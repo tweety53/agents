@@ -3,9 +3,13 @@ package guard
 import (
 	"bytes"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -110,5 +114,49 @@ func TestHookEnforceLoopDispatchBytes(t *testing.T) {
 	want := "enforce-loop-dispatch: self-review-a-b not recorded (flow-guard check-loop-dispatch exit 2):\nout:/repo self-review-a-b flow-low opus implementer\nerr\n\n"
 	if rc != 0 || out != "" || errOut != want {
 		t.Errorf("rc=%d out=%q\n got: %q\nwant: %q", rc, out, errOut, want)
+	}
+}
+
+// TestHookFlowSessionActivityBytes pins the PUTs hooks/flow-session-activity.py sent before its
+// port, path and body byte for byte: the session id quoted with no safe character, Python's
+// json.dumps spacing and \u escaping, the detail cut to 500 UTF-8 bytes on a character boundary,
+// and nothing for a subagent's tool event.
+func TestHookFlowSessionActivityBytes(t *testing.T) {
+	t.Parallel()
+	var mu sync.Mutex
+	var got []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		defer mu.Unlock()
+		got = append(got, r.Method+" "+r.RequestURI+" "+r.Header.Get("Content-Type")+" "+string(b))
+	}))
+	defer srv.Close()
+	for _, stdin := range []string{
+		`{"session_id":"a b/c","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"h\u00e9llo \u2014 x\nsecond"}}`,
+		`{"session_id":"s","hook_event_name":"PreToolUse","tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Pick \ud83d\ude00?"}]}}`,
+		`{"session_id":"s","hook_event_name":"PostToolUse","tool_name":"Edit","tool_input":{"file_path":"/x/y/z.go"}}`,
+		`{"session_id":"s","hook_event_name":"Notification","message":"Claude needs your Permission"}`,
+		`{"session_id":"s","hook_event_name":"Stop"}`,
+		`{"session_id":"s","hook_event_name":"PreToolUse","tool_name":"Read","agent_id":"x"}`,
+		`{"session_id":"s","hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"description":"` + strings.Repeat(`\u00e9`, 300) + `"}}`,
+	} {
+		if out, rc := runHookInProcess(t, "flow-session-activity", stdin, "FLOW_ADDR="+srv.URL); rc != 0 || out != "" {
+			t.Errorf("rc=%d out=%q", rc, out)
+		}
+	}
+	const put = "PUT /api/v1/sessions/"
+	want := []string{
+		put + `a%20b%2Fc/activity application/json {"state": "working", "detail": "Bash: h\u00e9llo \u2014 x"}`,
+		put + `s/activity application/json {"state": "question", "detail": "Pick \ud83d\ude00?"}`,
+		put + `s/activity application/json {"state": "working", "detail": "Edit z.go"}`,
+		put + `s/activity application/json {"state": "permission", "detail": "Claude needs your Permission"}`,
+		put + `s/activity application/json {"state": "idle", "detail": ""}`,
+		put + `s/activity application/json {"state": "working", "detail": "Bash: ` + strings.Repeat(`\u00e9`, 247) + `"}`,
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("\n got: %q\nwant: %q", got, want)
 	}
 }

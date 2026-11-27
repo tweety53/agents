@@ -209,17 +209,22 @@ func pyFirstLine(s string, n int) string {
 	t := strings.TrimSpace(s)
 	line := s
 	if t != "" {
-		line = t
-		if i := strings.IndexFunc(t, func(r rune) bool {
-			return strings.ContainsRune("\n\r\v\f\x1c\x1d\x1e\u0085  ", r)
-		}); i >= 0 {
-			line = t[:i]
-		}
+		line = pySplitFirst(t)
 	}
 	if utf8.RuneCountInString(line) > n {
 		line = string([]rune(line)[:n])
 	}
 	return line
+}
+
+// pySplitFirst is Python's (s.splitlines() or [""])[0]: s up to its first line boundary.
+func pySplitFirst(s string) string {
+	if i := strings.IndexFunc(s, func(r rune) bool {
+		return strings.ContainsRune("\n\r\v\f\x1c\x1d\x1e\u0085\u2028\u2029", r)
+	}); i >= 0 {
+		return s[:i]
+	}
+	return s
 }
 
 // hookBound is a hook's wall-clock bound on a store or subprocess call: d, or 0 (none) under
