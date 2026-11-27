@@ -309,7 +309,7 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
    (`flow-guard project-get <agents repo> 'default landing route'`), without asking. Merge and push is
    `<agents repo>/scripts/flow-guard pipeline-fix land <worktree> <important|minor>`, the last argument the defect's grade as **Record each one** below defines it, run with a Bash `timeout: 600000` —
    a landing that moved `<agents repo>/stats/` restarts flowd inside the call, and a kill partway leaves it down.
-   Land runs the lint lines and tests on the rebased HEAD, and its `red:` lines feed
+   Its `red:` lines feed
    `pipeline-fix-<k>-fix-v<v>` as item 3 there states; three red lands take **Three failed rounds** above.
 
 The loop runs in the background while the run's own work continues; the run still never ends a
