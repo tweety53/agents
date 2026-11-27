@@ -403,6 +403,17 @@ func (e *eab) beginRow() (args []string, reason string) {
 			// The text flow-guard pair-judge prints for a one-candidate role.
 			return append(args, "-pair-pick", "single: the only candidate"), ""
 		}
+		if strings.HasPrefix(key, "agent-") {
+			// A tool_use_id key changes on every retry: a pick saved under it is never found.
+			return nil, "Dispatch blocked: `" + roleID + "` dispatches take the pair judge's pick, and this " +
+				"dispatch names no key to save one under.\n\n" +
+				"Name it first: an `explore-<n>` or `design-<n>` word in the description, or a " +
+				"column-0 `Key: <key>` line in the prompt.\n" +
+				"Then write the dispatch's prompt to `" + worktree + "/.superpowers/sdd/pair-judge/<key>.md`, run\n" +
+				"flow-guard pair-judge " + roleID + " " + worktree + "/.superpowers/sdd/pair-judge/<key>.md\n" +
+				"(it never blocks: a judge that cannot answer prints the role's first pair), then send the " +
+				"dispatch on the pair it prints (`skills/flow-contracts/model-policy.md`, **Model and effort**)."
+		}
 		return nil, "Dispatch blocked: `" + roleID + "` dispatches take the pair judge's pick, and " +
 			"`.superpowers/sdd/pair-judge/" + key + ".pick` is not there.\n\n" +
 			"Write the dispatch's prompt to `" + worktree + "/.superpowers/sdd/pair-judge/" + key + ".md`, run\n" +

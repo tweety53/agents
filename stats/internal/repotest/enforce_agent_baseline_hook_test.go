@@ -742,6 +742,22 @@ func TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick(t *testing.T) {
 	}
 }
 
+// TestEnforceAgentBaselineHookAsksAKeylessAgentToNameItsKey: an `agent-<tool_use_id>` key changes on
+// every retry, so its deny asks for a stable key instead of a .pick under that name.
+func TestEnforceAgentBaselineHookAsksAKeylessAgentToNameItsKey(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	main, _ := beginRepo(t)
+	env, _ := beginEnv(t, `[]`)
+	env = append(env, "FLOW_HOOK_ROLE_CHECK=on")
+	payload := beginPayload(t, main, "look around", "Role: explorer\nx", "general-purpose", "opus", "low")
+	denied, out := runBegin(t, append([]byte(`{"tool_use_id":"tu1",`), payload[1:]...), env...)
+	if !denied || strings.Contains(out, "pair-judge/agent-") ||
+		!strings.Contains(out, "explore-<n>") || !strings.Contains(out, "Key: <key>") {
+		t.Errorf("denied = %v, reason = %q, want a deny naming explore-<n> / `Key:` and no agent- path", denied, out)
+	}
+}
+
 // roleCheckPayload is a flow-session dispatch carrying the baseline pointer and, when role is set,
 // its Role line.
 func roleCheckPayload(t *testing.T, role, model, agent string) []byte {
