@@ -31,7 +31,7 @@ test.describe("reviewer findings", () => {
     const range = page.getByRole("group", { name: "Range" });
     await range.getByRole("button", { name: "14 days" }).click();
     await range.getByRole("button", { name: "Earlier" }).click();
-    await expect(range).toContainText("07-25 – 08-08");
+    await expect(range).toContainText("07-18 – 08-01");
     await expect(range.getByRole("button", { name: "Later" })).toBeEnabled();
     await expect(page.getByText("Loading…")).toHaveCount(0);
     await expect(page).toHaveScreenshot("reviewer-findings-earlier.png", { fullPage: true });
