@@ -123,15 +123,20 @@ state file's worktrees, findings in the store) through this file's own re-entry 
 
 ## 1. Load context and validate the plan
 
+**Run the driver, then follow its closing line:**
+
 ```bash
-flow stage begin -command '/flow' -stage flow.implement -session-token mf-<literal-token> <name>
-spectre validate "<name>"
-spectre list --json
+flow-guard implement-change prepare <main-checkout> <name> --session-token mf-<literal-token>
 ```
+
+Its header (`stats/internal/guard/implementchange.go`) is canonical for every step it runs — the
+`flow.implement` `begin` mark, the resolved worktree set, `spectre validate`, the base check,
+`flow workspace-id`, and `spectre list --json`'s count — and for its `NEXT:` and `STOP:` lines.
+`NEXT: execute` continues below; `NEXT: review-panel` is the every-task-checked case below.
 
 Exit `0` from `validate` is the only exit that proceeds. Exit `1` names findings in this change's
 own artifacts — most often a step checkbox left at column 0 — and each is repaired here, before any
-code is touched. Exit `2` is a usage or IO error, and `no such change "<name>"` is the one worth
+code is touched (`STOP: validate`; then run the driver again). Exit `2` is a usage or IO error, and `no such change "<name>"` is the one worth
 naming: nothing has been proposed under that name, so stop and suggest `/flow <name>`.
 
 **The change root is the change's directory** (**A change's directory**,
@@ -141,20 +146,19 @@ naming: nothing has been proposed under that name, so stop and suggest `/flow <n
 - `<changeRoot>/tasks.md` — the plan
 - `<changeRoot>/design.md` — how, when the change carries one
 
-**Every recorded base is compared with the branch it tracks before task 1 runs.** Run
-`flow-guard check-base-behind <worktree>...` over the run's resolved worktree set; its header is canonical
-for its lines. Exit 0 → continue. Exit 1 → run `flow-guard sync-base-behind <worktree>...` over the same set — one
-command that merges the tracked branch into the base, pushes the base, fetches and syncs the
-worktree onto it (its header is canonical); never a raw `git push` — and run the check again. Its exit 1
-(a conflict) and exit 2 name its stderr in the handoff and stop. Exit 2 of the check → name its stderr in the handoff and continue.
+**Every recorded base is compared with the branch it tracks before task 1 runs** — by the driver,
+`flow-guard check-base-behind` and on its exit 1 `flow-guard sync-base-behind`, which merges the
+tracked branch into the base, pushes the base, fetches and syncs the worktree onto it; never a raw
+`git push`. `STOP: base-sync` (its exit 1, a conflict, or 2) names its stderr in the handoff and
+stops; `BASE-BEHIND-UNKNOWN:` is named in the handoff and the run continues.
 
-**Whether there is anything left to implement is read off the task checkboxes**, from
-`spectre list --json`'s `{"changes":[{"id","done","total"}]}` for this change.
+**Whether there is anything left to implement is read off the task checkboxes**, the driver's
+`TASKS: <done>/<total>`.
 
-- `total == 0` → no plan spectre can read: stop, resume at `skills/flow/resume.md`.
-- `total > 0` and `done == total` → every task is already checked: close this stage and continue
-  into `skills/flow/review-panel.md`, then `skills/flow/verify-and-handoff.md` — never straight to
-  integrate.
+- `total == 0` → no plan spectre can read (`STOP: no-plan`): stop, resume at `skills/flow/resume.md`.
+- `total > 0` and `done == total` → every task is already checked: the driver closes this stage
+  (`NEXT: review-panel`); continue into `skills/flow/review-panel.md`, then
+  `skills/flow/verify-and-handoff.md` — never straight to integrate.
 
 Confirm `tasks.md` meets writing-plans quality; if it does not, invoke **superpowers:writing-plans**
 to repair it before touching code.
@@ -223,7 +227,7 @@ entry names a repository holding no worktree for this change, `## visual verific
 step, the rest of `## apps` resolution, the regression checkout's toolchain and the merge-order
 record.
 
-**Then run `flow workspace-id <name>` for this worktree's workspace id**, once per run, on a fix
+**This worktree's workspace id is the driver's `WORKSPACE-ID:` line**, once per run, on a fix
 run exactly as on the first.
 
 ## 3. Fixing
