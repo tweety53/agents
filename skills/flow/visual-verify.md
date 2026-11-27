@@ -1,10 +1,62 @@
-# Visual verification — steps 3–13
+# Visual verification
 
-Loaded by **Visual verification** (`skills/flow/verify-and-handoff.md`) only once
+The pipeline's one visual contract. A core phase file names only the project's visual check list,
+`flow-guard run-verify-list <worktree> visual`, and the `ui paths` trigger, `flow-guard
+check-visual-trigger`; every other visual rule a parent follows is here, or in the sibling this file
+names for it — `skills/flow/fix-visual.md` for a visual fix, `skills/flow/sync-onto-base-visual.md`
+for a recapture after a sync, `skills/flow/visual-verify-verifier.md` for the verifier's own steps.
+Three sites load it, each for its own sections: `skills/flow/implement.md` for **During
+`flow.implement`**, `skills/flow-interactive/SKILL.md` for **A request's visual list**, and
+**Visual verification** (`skills/flow/verify-and-handoff.md`) for **The verifier dispatch** and
+**Steps 3–13**.
+
+**Visual verification** loads it only once
 `flow-guard visual-verify-pass prepare` closes on a line other than `NEXT: skip` — at least one worktree in
 this run's resolved set survived its step 2. That section carries the `prepare` call, which runs this
 `flow.verify` mark's steps 1 and 2; everything from step 3 on is
 here. A run whose diff touches no UI path never reads this file.
+
+## During `flow.implement`
+
+**The implementer's `Visual close:` line.** An implementer stub (**Every implementer dispatch's
+prompt is a stub**, `skills/flow/implement.md`) whose group has a task naming a `ui paths` file in
+its `**Files:**` carries, in its `Visual close:` place, this line, each `<…>` filled:
+
+```text
+Visual close: <skill-dir>/fix-visual.md, **The implementer measures before it hands back** and **A fix for a visual departure runs its capture spec before it closes**, binds each task here whose commit reaches a capture spec carrying a `.mockups` sidecar — key `task-<id>`, base the commit the task started from; verifier file <skill-dir>/visual-verify-verifier.md; capture: <the `capture` command>; mockups: <the resolved `mockups` root>, frame <the `mockup frame` value>
+```
+
+**A view is verified against its mockup in the task that draws it**, so a
+departure is fixed by the implementer that drew it, and `flow.verify` confirms the change
+instead of finding it.
+
+**The capture rules ride on a task's prompt.** Every task of **One stack for the verification
+tasks** (`skills/flow/implement.md`), and every task whose `**Files:**` add or change a capture spec, carries the capture rules of step 8 of `skills/flow/visual-verify-verifier.md` by absolute path: a capture is taken in the state it names — every interaction producing that state first, each asserted, and the pointer parked clear of every control after the last click.
+
+**The test list's visual tail.** `flow-guard run-verify-list`'s `test` list (**The parent runs the
+test list**, `skills/flow/implement.md`) ends with that section's `verify` run on the specs its `specs`
+row maps for the diff — the smoke set alone when it maps nothing or no `specs` row is declared, the
+list failing when it exits non-zero, and the whole suite, `<specs>` empty, only when the operator asks for it
+— when its own worktree's diff from its base branch touches a `ui paths` glob and
+`decision.json` does not record `visual.verify` `skipped`, its header canonical for the rest, so a
+capture a shared-component change moved fails here rather than at `flow.verify`. When only the
+`--repo` run step 2 of **Visual verification** (`skills/flow/verify-and-handoff.md`) adds exits 0,
+for another worktree of the resolved set, its merge base from this run's working notes, the parent
+runs that `verify` after the list, against the canonical worktree's stack, under the stack
+rules of **One stack for the verification tasks** (`skills/flow/implement.md`).
+The section's `setup` row runs before the list when the toolchain is missing. A failure a product defect caused
+is fixed in the test list's fix round; a capture the change moved on purpose — one whose difference
+the diff makes as design.md or the task's `**Files:**` intend — is re-recorded in it: its
+committed PNGs are deleted and `capture` runs with `<spec>` substituted for its spec, writing them
+as PNGs that do not yet exist, and they are committed by the regression checkout's rules, step 12
+of **Steps 3–13** below.
+
+## A request's visual list
+
+Binds step 4 of **One request** (`skills/flow-interactive/SKILL.md`), whose `run-verify-list
+<worktree> visual` run loads this section when the request's diff touches `ui paths`.
+
+A failure that is the request's intended look is recaptured with the section's `capture` row and committed before the request lands. Where the section declares a `regression checkout`, the run first adds that repository's worktree on the change's branch, runs the section's `setup` command in it, and starts there the stack its `verify` row needs (the project's `## run`) — the one exception to the no-isolation rule; the `visual` list never falls back to the main checkout, and exits 1 naming it while it holds no worktree on the branch.
 
 ## The verifier dispatch
 
@@ -49,6 +101,12 @@ its last act before that is writing that `## Verdict`, with the full `## Report`
 > you start is unrecorded and outside the parent's closed list (**Dispatch sites — the
 > parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
 > fixing are your own Read, Bash and Edit calls.
+
+The verifier row dispatches on the `visual-verifier` role's pair, a `flow-<effort>` definition, so
+it is structurally fork-free too (the `tools:` allowlist of **Every dispatch is one-shot**,
+`skills/flow/implement.md`). A visual verifier is a mutator under **At most one mutator**
+(**4. Execute (SDD + TDD)**, `skills/flow/implement.md`) — it builds the stack from the tree and
+writes `<changeRoot>/visual-verification/`.
 
 **The prompt also carries the REPORT FORMAT paragraph**, `<agents repo>` resolved:
 
@@ -117,6 +175,11 @@ admissible statuses and the frame list, and `close`'s header for its outcomes. A
 
 **An `ESCALATE:` line above `NEXT: loop` or `NEXT: judge` makes the next round a No-progress
 escalation** (**Three failed rounds**, `skills/flow-contracts/pipeline.md`).
+
+**A visual round whose report names more departures than the visual report that opened its round
+is a round without progress too.** The visual stage's `close` prints `ESCALATE:` for it and for
+every failed round from the third on (`flow-guard visual-verify-pass`'s header canonical), and the
+next round is the escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`), never another dispatch on the base pair.
 
 **Except after `rest`, `redispatch` and `cure-environment`, `close` has run step 12** and printed
 `ROUND-BASE:`; and once the newest row of every surviving worktree is closed it has rendered the

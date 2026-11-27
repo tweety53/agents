@@ -122,8 +122,7 @@ under this one.
 rounds or tasks still ahead, a natural-looking checkpoint, the length of a phase file still to be
 read or the lines already loaded, and a list of open items that each carry
 a recommended option are never reasons to end a turn or to hand a status report to the operator
-mid-run (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). A
-shared-source fix (`skills/flow/fix-visual.md`) is never offered as "a separate change". A phase file too long for one read is read in
+mid-run (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). A phase file too long for one read is read in
 offset chunks and the run continues, and, with no explicit operator stop, is never handed to the
 operator as 're-run /flow to continue'.
 
@@ -163,13 +162,6 @@ defect is first reproduced another way — another reproducer, another capture r
 round without progress changes the approach again until the ceiling defers the item; none of them
 stops the run.
 
-**Two consecutive verify rounds whose failures all fall outside the change's specs are a round
-without progress too.** When two narrowed visual re-runs in a row fail only in specs outside the
-`specs` row's output, the next round takes one
-batched fixer on the `no-progress-fixer` role, carrying every earlier round's
-report (`skills/flow/fix.md`). When the diff touches shared rendering code every spec is
-in that output, so only the same-defect rule above applies.
-
 ### Three failed rounds
 
 **Three failed rounds of one loop are a round without progress too, whatever their defects.** A
@@ -192,11 +184,6 @@ with `flow record dispatch end -change <name> -key <key> -outcome aborted`, so n
 `flow-guard check-verify-env <url>...` dials every backend URL the project's `## run` starts; exit
 1 is an environment failure, cured by starting or restarting that backend before the round runs,
 and never counted as a failed round.
-
-**A visual round whose report names more departures than the visual report that opened its round
-is a round without progress too.** The visual stage's `close` prints `ESCALATE:` for it and for
-every failed round from the third on (`flow-guard visual-verify-pass`'s header canonical), and the
-next round is the escalation above, never another dispatch on the base pair.
 
 ### The round ceiling
 

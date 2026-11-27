@@ -29,7 +29,8 @@ a later round that contradicts it must quote them.
 Binds the fix implementer beside **The fix implementer's brief** (`skills/flow/fix.md`).
 
 **A defect whose root cause is a shared source — a style, a token, a component other screens draw
-too, the data every spec renders such as a UI-test seed or fixture — is fixed at that source, whatever else the fix moves.** A shared source's shipped look departing
+too, the data every spec renders such as a UI-test seed or fixture — is fixed at that source, whatever else the fix moves.** A shared-source fix is never offered as "a separate change"
+(**Fewest operator actions**, `skills/flow-contracts/pipeline.md`). A shared source's shipped look departing
 from one feature's frames is not such a defect (**A departure from the mockup**,
 `skills/flow-contracts/operator-prompts-auto-resolution.md`). The fix never patches the
 changed screen alone to spare the others, and its steps carry two more. Every baseline the fix
@@ -256,4 +257,11 @@ its header canonical). `-only` records no dispatch row, writes no green cache an
 A plain run is the `specs` row's selection — the
 change's tests plus the smoke tail —
 and never the whole suite. A selection naming more than 40 spec files runs the specs the change edits plus that tail, and is never refused (A WIDE SELECTION, `flow-guard run-verify-list`'s header canonical). Each failing run prints its failures in two groups, the
-change's specs and the specs outside the `specs` row's output. Two consecutive rounds whose failures all fall outside it make no progress, and escalate as **Fewest operator actions** states (`skills/flow-contracts/pipeline.md`). A non-visual command keeps its own inline re-run.
+change's specs and the specs outside the `specs` row's output. A non-visual command keeps its own inline re-run.
+
+**Two consecutive verify rounds whose failures all fall outside the change's specs are a round
+without progress too** (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`). When two narrowed visual re-runs in a row fail only in specs outside the
+`specs` row's output, the next round takes one
+batched fixer on the `no-progress-fixer` role, carrying every earlier round's
+report (`skills/flow/fix.md`). When the diff touches shared rendering code every spec is
+in that output, so only the same-defect rule of **Fewest operator actions** applies.
