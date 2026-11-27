@@ -76,6 +76,12 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    holding every finished group. The fix's next dispatch resumes from that commit: it reads
    `git -C <abs-worktree> show --stat HEAD` for the groups done, takes the first group the fix
    instructions name that the commit does not yet touch, and redoes nothing.
+   **A deferred item is ruled on before step 3 dispatches a re-verify round.** Every `not-fixed:`
+   line of the fixer's report, and every item it dismisses as covered by a decision, goes back to a
+   fixer — the fix's next dispatch — or to the judge for a ruling: fixed, or withdrawn with its
+   reason recorded beside the frame in `visual-verification.md`. Step 3 runs only once no item is
+   left unruled, so no deferral is first re-raised by the next verifier. A withdrawn item's frames
+   are still read by the closing full pass.
 
 3. **Re-run the failing check**, under `flow.verify`. In-run: the stage that reported the defect,
    re-run as `skills/flow/verify-and-handoff.md`'s Verify and Visual verification
