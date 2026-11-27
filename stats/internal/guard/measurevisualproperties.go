@@ -1526,6 +1526,17 @@ func (r *mvpRegion) measureElements() (int, [3]byte, []mvpElement) {
 		}
 	}
 	bg, _ := bgc.top()
+	// A dark page is not a light one with the colours turned down: its cards
+	// and sheets are the next shade up and can outnumber the page, so the two
+	// sides of a pair pick different modal colours. The page is what the
+	// surface's first row shows.
+	if int(bg[0])+int(bg[1])+int(bg[2]) <= 600 {
+		var top mvpCounter
+		for x := x0; x < x1; x += 4 {
+			top.add(r.at(x, t))
+		}
+		bg, _ = top.top()
+	}
 	rows := make([][]int, r.h-t)
 	for i := range rows {
 		for x := x0; x < x1; x++ {

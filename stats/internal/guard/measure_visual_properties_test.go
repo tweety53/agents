@@ -587,6 +587,28 @@ func TestMeasureVisualPropertiesElementsDarkPageLightCorners(t *testing.T) {
 	}
 }
 
+// A dark page whose card outnumbers the page itself: the card's shade must not
+// be taken for the background, or a frame and its capture that differ in card
+// size pick different backgrounds and pair no row (kan-1160 dk-NS9e).
+func TestMeasureVisualPropertiesMatrixDarkCardOutnumbersPage(t *testing.T) {
+	t.Parallel()
+	page := func(cardTop int) string {
+		return mvpPNG(t, 200, 300, func(x, y int) color.RGBA {
+			switch {
+			case x >= 20 && x < 80 && y >= 20 && y < 30:
+				return color.RGBA{0xee, 0xee, 0xee, 0xff} // text on the page
+			case y >= cardTop:
+				return color.RGBA{0x1a, 0x1a, 0x1d, 0xff} // card
+			}
+			return color.RGBA{0, 0, 0, 0xff}
+		})
+	}
+	d := mvpJSON(t, "", page(40), page(250), "--scale", "1", "--props", "matrix")
+	if got := mvpDig(d, "summary", "paired"); got != float64(1) {
+		t.Fatalf("dark page, card outnumbering it: paired %v, want 1", got)
+	}
+}
+
 // kan-1017 (sr11): `--props matrix` fills each paired element's columns in
 // one call, and a region running past the image's edge is clipped to it.
 func TestMeasureVisualPropertiesMatrix(t *testing.T) {
