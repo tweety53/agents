@@ -172,6 +172,9 @@ func runMain(m *testing.M) int {
 	if err := buildGuardCache(); err != nil {
 		return die("%v", err)
 	}
+	if err := pinGoCaches(); err != nil {
+		return die("%v", err)
+	}
 
 	fmt.Printf("setup.sh regression harness\n  repo    : %s\n  sandbox : %s\n", repoRoot, sandbox)
 	code := m.Run()
@@ -198,6 +201,25 @@ func buildGuardCache() error {
 	out, _ := exec.Command(filepath.Join(repoRoot, "scripts", "flow-guard"), "spec-root").CombinedOutput()
 	if bins, _ := filepath.Glob(filepath.Join(cache, "*", "flow-guard")); len(bins) == 0 {
 		return fmt.Errorf("building flow-guard into %s left no binary:\n%s", cache, out)
+	}
+	return nil
+}
+
+// pinGoCaches exports the operator's Go build and module caches to every child: setup.sh global
+// builds ~/.claude/hooks/flow-guard-hook, and under a sandbox HOME go's defaults would be empty
+// caches -- a cold build of minutes, and module downloads -- on every install a test runs.
+func pinGoCaches() error {
+	out, err := exec.Command("go", "env", "GOCACHE", "GOMODCACHE").Output()
+	if err != nil {
+		return fmt.Errorf("go env GOCACHE GOMODCACHE: %v", err)
+	}
+	dirs := strings.Split(strings.TrimSpace(string(out)), "\n")
+	for i, k := range []string{"GOCACHE", "GOMODCACHE"} {
+		if i < len(dirs) && dirs[i] != "" {
+			if err := os.Setenv(k, dirs[i]); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

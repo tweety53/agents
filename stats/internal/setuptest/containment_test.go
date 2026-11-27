@@ -82,13 +82,13 @@ func TestCoreExcerptsLinksAndBaseline(t *testing.T) {
 	// pinned output: the shared registration-warning helper must keep each line byte-identical.
 	g.assertContains("the unregistered block-unsafe-commands hook is reported", g.log,
 		"block-unsafe-commands hook is installed but NOT registered")
-	g.assertContains("the block-unsafe-commands registration snippet is printed", g.log, ".claude/hooks/block-unsafe-commands.py")
-	g.assertContains("the claude agent-baseline registration snippet is printed", g.log, ".claude/hooks/enforce-agent-baseline.py")
-	g.assertContains("the claude flow-active-change registration snippet is printed", g.log, ".claude/hooks/flow-active-change.py")
+	g.assertContains("the block-unsafe-commands registration snippet is printed", g.log, `.claude/hooks/flow-guard-hook\" hook block-unsafe-commands || true`)
+	g.assertContains("the claude agent-baseline registration snippet is printed", g.log, `.claude/hooks/flow-guard-hook\" hook enforce-agent-baseline || true`)
+	g.assertContains("the claude flow-active-change registration snippet is printed", g.log, `.claude/hooks/flow-guard-hook\" hook flow-active-change || true`)
 	g.assertExists("the enforce-loop-dispatch hook is installed", filepath.Join(hooks, "enforce-loop-dispatch.py"))
 	g.assertContains("an unregistered enforce-loop-dispatch hook is reported", g.log,
 		"enforce-loop-dispatch hook is installed but NOT registered")
-	g.assertContains("the claude enforce-loop-dispatch registration snippet is printed", g.log, ".claude/hooks/enforce-loop-dispatch.py")
+	g.assertContains("the claude enforce-loop-dispatch registration snippet is printed", g.log, `.claude/hooks/flow-guard-hook\" hook enforce-loop-dispatch || true`)
 
 	// An unbalanced marker renders the wrong amount of text into every block, so it must abort
 	// the run rather than ship a half-rule.

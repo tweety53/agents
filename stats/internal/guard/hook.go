@@ -18,8 +18,10 @@ import (
 )
 
 // flow-guard hook <name> — run the Claude Code hook <name> on the event payload on stdin. Each
-// hooks/<name>.py is a shim that runs this, so the hooks and the guards share one binary, one set
-// of patterns and one state reader. A hook's contract is the leading comment of its own file
+// hook is registered on ~/.claude/hooks/flow-guard-hook, the binary `setup.sh global` builds
+// (install_hook_binary), as `"$HOME/.claude/hooks/flow-guard-hook" hook <name> || true`; each
+// hooks/<name>.py is the shim an older registration still runs, over scripts/flow-guard. The hooks
+// and the guards share one binary, one set of patterns and one state reader. A hook's contract is the leading comment of its own file
 // (hook<name>.go); every hook prints what the Python hook printed, byte for byte — JSON written
 // with Python's json.dump spacing and ASCII escaping (pyDumpASCII) — and exits 0: a hook fault, a panic
 // included, lets the event through. flow-guard records no guard-run telemetry for a hook, so a hook

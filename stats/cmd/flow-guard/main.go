@@ -34,7 +34,16 @@ const usage = "usage: flow-guard <name> [arguments]\n\nruns guard <name>; its co
 // run read the same map.
 var registry = guard.Registry
 
+// builtRepoRoot is the checkout setup.sh global built this binary from, set with -ldflags -X
+// for ~/.claude/hooks/flow-guard-hook, the binary the hooks are registered on directly (no
+// scripts/flow-guard bootstrap per call). It stands in for the bootstrap's export of
+// FLOW_GUARD_REPO_ROOT, over any inherited value as there; "" for a bootstrap-built binary.
+var builtRepoRoot string
+
 func main() {
+	if builtRepoRoot != "" {
+		_ = os.Setenv("FLOW_GUARD_REPO_ROOT", builtRepoRoot)
+	}
 	if exe, err := os.Executable(); err == nil {
 		pruneCache(exe, time.Now())
 	}

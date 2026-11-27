@@ -313,6 +313,38 @@ PY
   printf '\n'
 }
 
+# install_hook_binary <dest>
+# Builds flow-guard from this checkout to <dest>, the binary every hook snippet below registers
+# directly as `"<dest>" hook <name> || true`. A hook runs on every tool call; through its
+# hooks/<name>.py shim it paid python3's start, scripts/flow-guard's bash bootstrap and the
+# source hashing that keys the bootstrap's cache, where this binary pays one Go start. No per-call
+# staleness check is needed: the bootstrap's hashing exists because a guard runs from any
+# worktree with uncommitted edits, while this binary is only ever built from the main checkout
+# this installer runs in, and every landing on it is followed by this reinstall. The checkout is
+# baked in with -ldflags -X (builtRepoRoot, stats/cmd/flow-guard/main.go), standing in for the
+# bootstrap's FLOW_GUARD_REPO_ROOT export. The build goes to a pid-named file renamed into place,
+# so a hook never execs a half-written binary; GOOS, GOARCH and GOFLAGS are removed, as the
+# bootstrap removes them. The `|| true` keeps a registration fail-open when <dest> is missing or
+# dies: only exit 2 blocks an event, and a missing binary must let it through. A failed build
+# warns and leaves any earlier binary in place; the shims stay installed, so a registration that
+# still names one keeps working.
+install_hook_binary() {
+  local dest="$1" tmp="$1.$$"
+  if ! command -v go >/dev/null 2>&1; then
+    warn "no go on PATH — $dest not built, so every hook registered on it lets its event through"
+    SKIPPED=$((SKIPPED + 1))
+    return
+  fi
+  if (cd "$SCRIPT_DIR/stats" && env -u GOOS -u GOARCH -u GOFLAGS go build \
+    -ldflags "-X 'main.builtRepoRoot=$SCRIPT_DIR'" -o "$tmp" ./cmd/flow-guard) && mv -f "$tmp" "$dest"; then
+    info "Built $dest"
+  else
+    rm -f "$tmp"
+    warn "could not build $dest from $SCRIPT_DIR/stats — every hook registered on it lets its event through"
+    SKIPPED=$((SKIPPED + 1))
+  fi
+}
+
 # install_hooks <claude-dir>
 # Installs the harness hooks, then reports on the one thing this installer will not do for
 # the user: registering them.
@@ -332,6 +364,7 @@ install_hooks() {
     hook_name=$(basename "$hook_file")
     link_into "$hook_file" "$claude_dir/hooks/$hook_name" "$hook_name"
   done
+  install_hook_binary "$claude_dir/hooks/flow-guard-hook"
   settings="$claude_dir/settings.json"
   warn_unregistered_hook "$settings" 'flow-guard sync-base-behind' sync-base-behind-permission \
     "  ⚠ The base-sync permission is not allowed, so the auto-mode classifier can stall /flow at" \
@@ -347,7 +380,7 @@ SNIPPET
       {
         "matcher": "Agent|Task",
         "hooks": [
-          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/enforce-agent-baseline.py\"" }
+          { "type": "command", "command": "\"$HOME/.claude/hooks/flow-guard-hook\" hook enforce-agent-baseline || true" }
         ]
       }
     ]
@@ -360,7 +393,7 @@ SNIPPET
       {
         "matcher": "Agent|Task",
         "hooks": [
-          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/enforce-loop-dispatch.py\"", "timeout": 300 }
+          { "type": "command", "command": "\"$HOME/.claude/hooks/flow-guard-hook\" hook enforce-loop-dispatch || true", "timeout": 300 }
         ]
       }
 SNIPPET
@@ -371,7 +404,7 @@ SNIPPET
     "UserPromptSubmit": [
       {
         "hooks": [
-          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/flow-active-change.py\"" }
+          { "type": "command", "command": "\"$HOME/.claude/hooks/flow-guard-hook\" hook flow-active-change || true" }
         ]
       }
     ]
@@ -382,7 +415,7 @@ SNIPPET
     "    $settings — PreToolUse, PostToolUse," \
     "    Notification, UserPromptSubmit, Stop and SessionEnd without a matcher — each running:" <<'SNIPPET'
 
-          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/flow-session-activity.py\"" }
+          { "type": "command", "command": "\"$HOME/.claude/hooks/flow-guard-hook\" hook flow-session-activity || true" }
 SNIPPET
   warn_unregistered_hook "$settings" flow-skill-load flow-skill-load \
     "  ⚠ The flow-skill-load hook is installed but NOT registered, so flowd records no skill" \
@@ -392,7 +425,7 @@ SNIPPET
       {
         "matcher": "Read|Skill",
         "hooks": [
-          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/flow-skill-load.py\"" }
+          { "type": "command", "command": "\"$HOME/.claude/hooks/flow-guard-hook\" hook flow-skill-load || true" }
         ]
       }
 SNIPPET
@@ -404,7 +437,7 @@ SNIPPET
     "SubagentStop": [
       {
         "hooks": [
-          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/await-own-agents.py\"" }
+          { "type": "command", "command": "\"$HOME/.claude/hooks/flow-guard-hook\" hook await-own-agents || true" }
         ]
       }
     ]
@@ -417,7 +450,7 @@ SNIPPET
       {
         "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
-          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/block-unsafe-commands.py\"", "timeout": 300 }
+          { "type": "command", "command": "\"$HOME/.claude/hooks/flow-guard-hook\" hook block-unsafe-commands || true", "timeout": 300 }
         ]
       }
 SNIPPET

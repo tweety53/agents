@@ -23,7 +23,7 @@ func TestLoopHookTimeoutsFailClosed(t *testing.T) {
 	for hook, src := range map[string]string{"enforce-loop-dispatch": "hookloopdispatch.go"} {
 		var regs []int
 		for _, line := range strings.Split(string(setup), "\n") {
-			if !strings.Contains(line, "hooks/"+hook+".py") {
+			if !strings.Contains(line, "flow-guard-hook\\\" hook "+hook+" ") {
 				continue
 			}
 			m := reg.FindStringSubmatch(line)
