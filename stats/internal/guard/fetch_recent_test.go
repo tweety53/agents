@@ -3,18 +3,26 @@ package guard
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
 
-// setFetchHead writes path non-empty (empty when !ok, as a failed fetch
-// leaves it) with a modification time age ago.
+// setFetchHead writes path as a full fetch of origin of the repository it
+// sits in leaves it (empty when !ok, as a failed fetch leaves it) with a
+// modification time age ago.
 func setFetchHead(t *testing.T, path string, ok bool, age time.Duration) {
 	t.Helper()
 	body := ""
 	if ok {
-		body = "0000000000000000000000000000000000000000\t\tbranch 'main' of origin\n"
+		repo, _, _ := strings.Cut(path, "/.git/")
+		url, _ := capture(exec.Command("git", "-C", repo, "remote", "get-url", "origin"))
+		refs, _ := capture(exec.Command("git", "-C", repo, "for-each-ref", "--format=%(refname:lstrip=3)", "refs/remotes/origin"))
+		for _, b := range strings.Fields(refs) {
+			body += "0000000000000000000000000000000000000000\tnot-for-merge\tbranch '" + b + "' of " + fetchURL(strings.TrimSpace(url)) + "\n"
+		}
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
@@ -103,6 +111,36 @@ func TestCheckBaseBehindSkipsAFetchUnder60s(t *testing.T) {
 		}
 		if got := fetchedSince(t, head, before); got != force {
 			t.Fatalf("force %v: fetched %v", force, got)
+		}
+	}
+}
+
+// TestFetchedRecentlyNeedsAFullOriginFetch: a fresh FETCH_HEAD counts only
+// when a fetch of origin's every branch wrote it -- a single-ref fetch or
+// another remote's fetch leaves origin's other refs as old as they were.
+func TestFetchedRecentlyNeedsAFullOriginFetch(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	up, down := dir+"/up.git", dir+"/down"
+	rbbGit(t, dir, "init", "-q", "-b", "main", dir+"/seed")
+	rbbGit(t, dir+"/seed", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "a")
+	rbbGit(t, dir+"/seed", "branch", "b2")
+	rbbGit(t, dir, "clone", "-q", "--bare", dir+"/seed", up)
+	rbbGit(t, dir, "clone", "-q", up, down)
+	rbbGit(t, down, "remote", "add", "other", dir+"/seed")
+	git := envGit(Env{Getenv: os.Getenv})
+	for _, c := range []struct {
+		name  string
+		fetch []string
+		want  bool
+	}{
+		{"full fetch of origin counts", []string{"origin"}, true},
+		{"single-ref fetch does not", []string{"origin", "main"}, false},
+		{"another remote's fetch does not", []string{"other"}, false},
+	} {
+		rbbGit(t, down, append([]string{"fetch", "-q"}, c.fetch...)...)
+		if got := fetchedRecently(git, down); got != c.want {
+			t.Fatalf("%s: fetchedRecently %v, want %v", c.name, got, c.want)
 		}
 	}
 }

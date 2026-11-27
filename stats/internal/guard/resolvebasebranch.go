@@ -56,9 +56,11 @@ import (
 // origin/HEAD is still resolved, just possibly out of date, which the fetch on
 // the next invocation corrects.
 //
-// WHY THE FETCH IS SKIPPED. A fetch of this repository that left a non-empty
+// WHY THE FETCH IS SKIPPED. A full fetch of origin that left a non-empty
 // FETCH_HEAD younger than originFreshFor (60s), in any of its worktrees,
 // stands in for this call's own: origin's refs are then no older than that.
+// A single-ref fetch or another remote's leaves the rest stale, so it never
+// counts.
 // A failed fetch truncates FETCH_HEAD, so it never counts, and the next call
 // fetches as before. `--fetch` always fetches: a caller about to push or
 // rebase onto origin/<base> (integrate-change's land and cleanup, the
@@ -237,23 +239,89 @@ var originFreshFor = 60 * time.Second
 // repository left a non-empty FETCH_HEAD younger than originFreshFor: the
 // repository's own FETCH_HEAD or a linked worktree's, since each worktree
 // writes its own while origin's refs are shared. Empty is a failed fetch.
-// ponytail: any fetch counts, a single-branch `git fetch origin <ref>` or
-// another remote's included; read FETCH_HEAD's lines if one ever lands
-// between a full fetch and a guard call.
+// Only a full fetch of origin counts (fullOriginFetch): a single-ref
+// `git fetch origin <ref>` or another remote's fetch leaves origin's other
+// refs as old as they were.
 func fetchedRecently(git func(...string) *exec.Cmd, dir string) bool {
 	common, ok := capture(git("-C", dir, "rev-parse", "--path-format=absolute", "--git-common-dir"))
 	if !ok {
 		return false
 	}
 	heads, _ := filepath.Glob(filepath.Join(common, "worktrees", "*", "FETCH_HEAD"))
+	var url string
+	var branches []string
 	for _, p := range append(heads, filepath.Join(common, "FETCH_HEAD")) {
-		if fi, err := os.Stat(p); err == nil && fi.Size() > 0 {
-			if age := time.Since(fi.ModTime()); age >= 0 && age < originFreshFor {
-				return true
+		fi, err := os.Stat(p)
+		if err != nil || fi.Size() == 0 {
+			continue
+		}
+		if age := time.Since(fi.ModTime()); age < 0 || age >= originFreshFor {
+			continue
+		}
+		body, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		if url == "" {
+			u, ok := capture(git("-C", dir, "remote", "get-url", "origin"))
+			refs, ok2 := capture(git("-C", dir, "for-each-ref", "--format=%(refname:lstrip=3)", "refs/remotes/origin"))
+			if !ok || !ok2 {
+				return false
 			}
+			url = fetchURL(strings.TrimSpace(u))
+			for _, b := range strings.Fields(refs) {
+				if b != "HEAD" {
+					branches = append(branches, b)
+				}
+			}
+		}
+		if fullOriginFetch(string(body), url, branches) {
+			return true
 		}
 	}
 	return false
+}
+
+// fullOriginFetch reports whether FETCH_HEAD body was written by a fetch of
+// origin (every line's source is url) that listed each of origin's
+// remote-tracking branches. A stale remote-tracking branch, deleted
+// upstream and never pruned, makes it false: the guard then just fetches.
+func fullOriginFetch(body, url string, branches []string) bool {
+	listed := map[string]bool{}
+	for _, line := range strings.Split(strings.TrimRight(body, "\n"), "\n") {
+		f := strings.SplitN(line, "\t", 3)
+		if len(f) != 3 {
+			return false
+		}
+		desc, src, ok := strings.Cut(f[2], "' of ")
+		if !ok || fetchURL(src) != url {
+			return false
+		}
+		if b, ok := strings.CutPrefix(desc, "branch '"); ok {
+			listed[b] = true
+		}
+	}
+	for _, b := range branches {
+		if !listed[b] {
+			return false
+		}
+	}
+	return len(listed) > 0
+}
+
+// fetchURL is url as git writes it into FETCH_HEAD: its user part dropped
+// and a trailing "/" and ".git" stripped (git@host:x.git -> host:x).
+func fetchURL(url string) string {
+	if scheme, rest, ok := strings.Cut(url, "://"); ok {
+		if at := strings.Index(rest, "@"); at >= 0 && at < strings.IndexAny(rest+"/", "/") {
+			rest = rest[at+1:]
+		}
+		url = scheme + "://" + rest
+	} else if at := strings.Index(url, "@"); at >= 0 && at < strings.IndexAny(url+":/", ":/") {
+		url = url[at+1:]
+	}
+	url = strings.TrimRight(url, "/")
+	return strings.TrimSuffix(url, ".git")
 }
 
 // recordedBase is the base kickoff-worktree.sh recorded on branch, or ""
