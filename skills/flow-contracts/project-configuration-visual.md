@@ -30,7 +30,7 @@ rows below is reported and its row dropped, never silently ignored.
 The commands table's header folds the same way, to `command|runs` — the same heading
 `## workspace isolation` above already establishes for a table of project-declared commands, reused
 here rather than invented a second time. **Its `Command` vocabulary is closed** too: a name outside
-the seven rows below is reported and its row dropped.
+the eight rows below is reported and its row dropped.
 
 | Command | Required | Meaning |
 |---------|----------|---------|
@@ -41,6 +41,7 @@ the seven rows below is reported and its row dropped.
 | `start` | no | Starts the stack for this stage's own probe, from the worktree; absent means `## run`. This is where a project moves a port the operator's `## run` keeps fixed. |
 | `smoke` | no | A cheap check of the toolchain, run from the capture root by `flow-guard visual-verify-pass prepare` before any verifier row is begun, once per surviving worktree: a non-zero exit is a failing preflight check named `smoke`, so a missing build or a broken harness stops the pass at `STOP: preflight` with no verifier run spent; on success it prints `SMOKE: <worktree> ok in <seconds>s`. For a Playwright project, list the specs without running them. |
 | `specs` | no | Prints the specs covering the change's touched ui paths, one per line, run from the regression checkout with `<frontend-root>` and `<merge-base>` substituted — a fix round's re-run substitutes its round base for `<merge-base>` (`skills/flow/fix.md`). Its output reaches `verify` through `verify`'s `<specs>`; an empty output runs the smoke set alone, and a non-zero exit runs it and blocks — neither falls back to the whole suite, which runs only when the operator asks for it, under `flow-guard run-verify-list -full`. Absent means `verify` runs the smoke set alone and `capture` runs as declared. |
+| `dev loop` | no | Starts an incremental dev server a fixer looks at its edits on while it iterates (**A fixer iterates on the dev loop**, `skills/flow/fix.md`), against the stack `start` brings up; prose beside the table says where it runs from and how it is stopped. What it serves is never evidence — only the closing `capture` is. Absent means every look the fixer takes is a build through the project's own build commands. |
 
 **Frames at a design-repo tag.** With `design repo` declared, a frame drawn at a tag of that
 repository is referenced by the tag and its frame id joined with a slash — cited in a plan as the

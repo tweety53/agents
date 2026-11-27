@@ -415,6 +415,12 @@ func vvCases() map[string]vvCase {
 		"case 37": {vvText(vvSection([]string{vvUIRow, vvShotsDir}, []string{vvVerifyRow, vvCaptureRow,
 			"| `specs` | `node scripts/specs-for-diff.mjs <frontend-root> <merge-base>` |"})),
 			[]vvCheck{vvExit("case 37", 0), vvNames("case 37", "VISUAL-OK"), vvOmits("case 37", "vocabulary is closed")}},
+
+		// A `dev loop` row — the fixer's incremental dev server — is accepted
+		// and optional.
+		"case dev loop": {vvText(vvSection([]string{vvUIRow, vvShotsDir}, []string{vvVerifyRow, vvCaptureRow,
+			"| `dev loop` | `./gradlew :webApp:wasmJsBrowserDevelopmentRun --continuous` |"})),
+			[]vvCheck{vvExit("case dev loop", 0), vvNames("case dev loop", "VISUAL-OK"), vvOmits("case dev loop", "vocabulary is closed")}},
 	}
 
 	// Case 35 (KAN-515 task 2): a `mockup frame` value that is not

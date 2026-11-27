@@ -289,6 +289,14 @@ on the 2× capture and the 2× mockup frame themselves, never on a `flow-guard
 compose-mockup-frames` composite. A leftover of any size — a 1dp offset included — is closed or
 named with its cause, never reported clean because it is small.
 
+**A fixer iterates on the dev loop.** Where `## visual verification` declares a `dev loop`
+command (**Project configuration — visual verification**,
+`skills/flow-contracts/project-configuration-visual.md`), the fixer starts it once and looks at each
+edit on what it serves, then stops it and runs one build and capture against the stack rebuilt from
+its fix, as below — that capture is the only evidence the verifier reads. The dev server is never
+taken to render the same pixels as that build: the closing capture decides, and a difference between
+the two is a departure the round fixes, never a pass.
+
 **A fix for a visual departure runs its capture spec before it closes.** Its verify step runs the
 project's `capture` command with the recapture list above for `<spec>`, against the stack rebuilt
 from its fix, and the fix closes only on that run's exit 0 — a red capture is fixed in the same

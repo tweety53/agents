@@ -551,13 +551,14 @@ func vvTolerance(cell string) (float64, bool) {
 // optional and nothing requires any of them (KAN-395, KAN-462, KAN-761): a
 // project with no served bundle declares no `fingerprint`, a project whose
 // `## run` already starts the stack declares no `start`, and a project with
-// no spec map declares no `specs`; each absence is silent, as `setup`'s is.
+// no spec map declares no `specs`, and a project with no incremental dev
+// server declares no `dev loop`; each absence is silent, as `setup`'s is.
 func (v *vvValidation) commandRow(line int, cells []string) {
 	disp, key := vtTrimCell(cells[0]), vtFoldCell(cells[0])
 	switch key {
-	case "setup", "verify", "capture", "fingerprint", "start", "specs", "smoke":
+	case "setup", "verify", "capture", "fingerprint", "start", "specs", "smoke", "dev loop":
 	default:
-		v.addv(line, "Command `"+disp+"` is not one of `setup`, `verify`, `capture`, `fingerprint`, `start`, `specs` or `smoke` — the vocabulary is closed, so the row is dropped")
+		v.addv(line, "Command `"+disp+"` is not one of `setup`, `verify`, `capture`, `fingerprint`, `start`, `specs`, `smoke` or `dev loop` — the vocabulary is closed, so the row is dropped")
 		return
 	}
 	if f, seen := v.cmd[key]; seen {
