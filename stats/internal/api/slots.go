@@ -67,7 +67,7 @@ func (h *slotHandler) prune() {
 }
 
 func (h *slotHandler) state() map[string]any {
-	return map[string]any{"max": h.max, "holders": slices.Clone(h.holders)}
+	return map[string]any{"max": h.max, "holders": append([]slotHolder{}, h.holders...)}
 }
 
 func (h *slotHandler) acquire(w http.ResponseWriter, r *http.Request) {

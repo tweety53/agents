@@ -37,6 +37,9 @@ func TestSlotsExcludeBeyondTheMax(t *testing.T) {
 	t.Parallel()
 	h := newSlotHandler(2)
 	h.alive = func(int) bool { return true }
+	if _, list := slotCall(t, h, "GET", "/api/v1/slots", ""); list["holders"] == nil {
+		t.Fatalf("empty listing = %v, want holders [] never null", list)
+	}
 	if !granted(t, h, "a", 1) || !granted(t, h, "b", 2) {
 		t.Fatal("first two acquires refused")
 	}
