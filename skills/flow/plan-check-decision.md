@@ -9,8 +9,10 @@ dispatch that works its tasks in plan order, one commit per task.
 - A group never holds tasks of two repositories (a multi-repository plan sorts its tasks under
   `## <repository>` headings).
 - A `**Size:** big` task is a group alone. Any other group holds at most three tasks.
-- Put tasks together when one builds on another (`**After:**`) or they touch the same files;
-  keep independent tasks in separate groups so they can run side by side.
+- Groups run one at a time, and each is a cold start — its implementer re-reads its brief, the
+  plan artifacts and the code — so fill every group to the cap, splitting only where a big task,
+  the cap or a repository forces it; put tasks together first when one builds on another
+  (`**After:**`) or they touch the same files.
 - List groups in an order every task's `**After:**` tasks come before it.
 
 **2. Review panel.** Pick the reviewers the change needs from this catalog and bundle them; each
