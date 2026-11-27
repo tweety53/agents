@@ -909,3 +909,24 @@ func TestMeasureVisualPropertiesBandsReadADarkPageByItsPerimeter(t *testing.T) {
 		t.Fatalf("light page: background/bands/top %q, want %q", got, "#ffffff 1 10")
 	}
 }
+
+// A device's rounded screen corners — a frame draws them, a capture does not —
+// are chrome, not a band the capture lacks.
+func TestMeasureVisualPropertiesBandsIgnoreDeviceCorners(t *testing.T) {
+	t.Parallel()
+	im := mvpPNG(t, 100, 200, func(x, y int) color.RGBA {
+		switch {
+		case y >= 196: // fading strip along the bottom edge, past the noise
+			return color.RGBA{0xf0, 0xf0, 0xf0, 0xff}
+		case y >= 180 && (x < 20-(y-180) || x >= 80+(y-180)):
+			return color.RGBA{0xe6, 0xe6, 0xe9, 0xff} // corner arcs
+		case y >= 50 && y < 60 && x >= 10 && x < 90:
+			return color.RGBA{0, 0, 0, 0xff}
+		}
+		return color.RGBA{0xff, 0xff, 0xff, 0xff}
+	})
+	d := mvpJSON(t, "", im, "--props", "bands")
+	if n := len(mvpList(mvpDig(d, "a", "bands"))); n != 1 {
+		t.Fatalf("%d bands, want only the one at y 50", n)
+	}
+}

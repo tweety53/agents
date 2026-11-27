@@ -631,6 +631,7 @@ type mvpRegion struct {
 	clipped          [4]bool // left, right, top, bottom: the control runs off the image there
 	clamped          [4]bool // the given region ran past the image's edge there
 	cropped          bool    // the region was given, not the whole image
+	chrome           []bool  // image pixels of a device's rounded corners (page mode, whole image), read as background
 }
 
 // mvpCorners are the region's corners, each with the two sides it touches.
@@ -707,6 +708,9 @@ func mvpOpen(env Env, path string, box *[4]int, a mvpArgs, page bool) (*mvpRegio
 			}
 		}
 		r.bg, _ = c.top()
+		if box == nil {
+			r.markChrome()
+		}
 		return r, nil
 	}
 	r.bg = r.at(0, 0)
@@ -805,6 +809,45 @@ func (r *mvpRegion) cropScrim() {
 		}
 	}
 	r.bg, _ = in.top()
+}
+
+// markChrome marks a device's rounded screen corners, which a frame draws and
+// a capture does not: the ink connected to a non-background image corner pixel,
+// a corner's arc with the fading strip along the edge beside it. Ink covering
+// 5% or more of the image is a control flush with the corner, not chrome.
+func (r *mvpRegion) markChrome() {
+	W, H := r.im.W, r.im.H
+	mark := make([]bool, W*H)
+	for _, c := range [][2]int{{0, 0}, {W - 1, 0}, {0, H - 1}, {W - 1, H - 1}} {
+		if r.isBg(r.im.at(c[0], c[1])) || mark[c[1]*W+c[0]] {
+			continue
+		}
+		seen, queue := map[int]bool{c[1]*W + c[0]: true}, [][2]int{c}
+		for i := 0; i < len(queue); i++ {
+			for _, d := range [][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+				x, y := queue[i][0]+d[0], queue[i][1]+d[1]
+				if x < 0 || y < 0 || x >= W || y >= H || seen[y*W+x] || r.isBg(r.im.at(x, y)) {
+					continue
+				}
+				seen[y*W+x] = true
+				queue = append(queue, [2]int{x, y})
+			}
+			if len(queue)*20 >= W*H {
+				break
+			}
+		}
+		if len(queue)*20 < W*H {
+			for k := range seen {
+				mark[k] = true
+			}
+		}
+	}
+	r.chrome = mark
+}
+
+// inkAt: the pixel is ink — not background, not device-corner chrome.
+func (r *mvpRegion) inkAt(x, y int) bool {
+	return !r.isBg(r.at(x, y)) && (r.chrome == nil || !r.chrome[(r.y0+y)*r.im.W+r.x0+x])
 }
 
 func (r *mvpRegion) isBg(c [3]byte) bool { return mvpDist(c, r.bg) <= r.noise }
@@ -1263,7 +1306,7 @@ func (r *mvpRegion) measureBands() []mvpBand {
 	for y < r.h {
 		var edge mvpCounter
 		for x := 0; x < r.w; x++ {
-			if c := r.at(x, y); !r.isBg(c) {
+			if c := r.at(x, y); r.inkAt(x, y) {
 				edge.add(c)
 			}
 		}
@@ -1276,7 +1319,7 @@ func (r *mvpRegion) measureBands() []mvpBand {
 		for ; y < r.h; y++ {
 			inked := false
 			for x := 0; x < r.w; x++ {
-				if c := r.at(x, y); !r.isBg(c) {
+				if c := r.at(x, y); r.inkAt(x, y) {
 					ink.add(c)
 					inked = true
 				}
@@ -1540,7 +1583,7 @@ func (r *mvpRegion) measureElements() (int, [3]byte, []mvpElement) {
 	rows := make([][]int, r.h-t)
 	for i := range rows {
 		for x := x0; x < x1; x++ {
-			if mvpDist(r.at(x, t+i), bg) > 30 {
+			if mvpDist(r.at(x, t+i), bg) > 30 && (r.chrome == nil || !r.chrome[(r.y0+t+i)*r.im.W+r.x0+x]) {
 				rows[i] = append(rows[i], x)
 			}
 		}
