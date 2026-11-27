@@ -43,7 +43,7 @@ Every slot id a `panel` bundle names maps to one prompt:
 | `call-efficiency` | **Call-efficiency** — second callers, a read repeated in one request, a query per list item | `call-efficiency-reviewer-prompt.md` |
 | `failure-modes` | **Failure-modes** — error return, timeout, partial write, concurrent re-entry | `failure-modes-reviewer-prompt.md` |
 | `security` | **Security** — injection, authorisation, secrets, trust boundary; added by `flow-guard plan-check` when a task's `**Files:**` matches the project's `## security paths`, never picked by the decider | `security-reviewer-prompt.md` |
-| `mutation` | **Mutation** — sabotage-proofing | the mutation-testing brief below, own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
+| `mutation` | **Mutation** — sabotage-proofing | **The mutation-testing brief** (`skills/flow/review-panel-optional-slots.md`), own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
 
 A role a bundle drops leaves the bundle dispatching the roles it still names, and a bundle left
 naming none is not dispatched.
@@ -85,7 +85,7 @@ model passed explicitly as the Agent tool's own `model` parameter — and both `
 are recorded. A slot carries no model of its own.
 
 **Load `skills/flow/review-panel-optional-slots.md`** before dispatching any round that
-dispatches `mutation` — it carries the mutation slot's prompt and **The throwaway worktree**.
+dispatches `mutation` — it carries the mutation slot's prompt, **The mutation-testing brief** and **The throwaway worktree**.
 
 **A panel runs as decided.** No slot outside the decided panel is ever added by diff
 size, touched area, or any other automatic trigger: beyond the decided panel, anything reaches the
@@ -267,31 +267,6 @@ role is `not run`.
 roles, every `flow record finding`, `status` and `incident` call, the fix and every re-run decision
 stay the parent's. A `duplicate:` line is a candidate fold the parent confirms or rejects under
 **Bundled dispatch**'s several-roles rule.
-
-### The mutation-testing brief
-
-Wherever the panel dispatches Mutation, the dispatch prompt carries a mutation-testing
-brief: for each behaviour the diff changes, mutate it — flip a condition, drop a guard, move a
-boundary, remove a branch, move an interaction off its target, overlay an earlier commit's tree and
-run the tests — and establish whether an existing test fails. A mutation only counts once its edit
-landed: every mutation must confirm its edit landed before the tests run — the target changed
-where the slot intended, not nowhere and not somewhere else. An edit that never applied must be
-redone with a working mechanism: it is a refusal, never a **surviving mutant**, and it never buys
-a test. A mutation no test catches is a
-**surviving mutant**, an ordinary finding that blocks the handoff exactly as any other, unless it is
-withdrawn with a reason under the fix round's handback. A reproducer never `cd`s — it runs each tool against its directory with `go -C`, `make -C` or `npm --prefix` and names every file as `$PWD/<path>` — and makes its edit through a patch file or a fixed-string replacement, never through shell quoting nested inside another quoted string. A reproducer adds no file under `$PWD`: a Go test it adds is written under `mktemp -d` and passed to `go test -overlay <json>`, whose `Replace` map names the test's path in the package, a Go mutation goes through the same overlay, its `Replace` map naming the mutated source's path and its mutated copy under `mktemp -d`, and every other file it writes lives in its own `mktemp -d` directory. Its test command filters by the name prefix the mutated code's test family
-shares (`-run '^TestCheckPanel'`), never by a full test name, so a test the fix adds under that
-prefix still kills the mutant and the run's cost does not grow with the package; only when the
-family shares no prefix does it run every test of the package, file or module the mutated code
-belongs to.
-Every test run of a mutant passes the test runner's no-cache flag — `-count=1` for `go test` — because a cached result never sees a mutated file a test reads through a subprocess.
-The slot's own mutant runs are scoped before the first mutation too: it measures one run of the mutated code's whole package, and when that run's seconds times the number of mutants it plans passes 15 minutes, every mutant run filters by the name prefix the mutated code's test family shares (`-run '^TestCheckPanel'`), never a full test name (group-allowed-pairs-roles self-review: the slot ran the whole guard package per mutant and timed out at 15 minutes; the prefix-filtered retry finished in 88 s).
-**A class that survived twice is not mutated again.** A mutant's class is its mutation operator together with the code shape it hits — a mapping branch (a `case`, map entry or `if` arm that translates one value into another) with its mutation left unasserted, a dropped guard of one kind, a boundary of one comparison form. The first surviving mutant of a class does not stop it; once two mutants of the same class have survived, the slot runs no further mutant of that class: it finds the remaining sites of the same shape in the diff by reading (`grep` or the source), and reports them in one finding that names both surviving mutants' reproducers and every other site as `path:line`, each marked `by reading`. Those sites are unproven by a run, so that finding asserts only that the shape recurs and that the two shown sites' test gaps are shown. The mutant runs go to classes not yet seen. A class whose mutant was killed is not closed: its other sites are still mutated as the brief requires. Every distinct class the diff contains is still mutated at least once.
-
-The slot never forces a full rebuild of its copy — no `--rerun-tasks`, `clean`, cache-busting flag or deleting build output — whatever the build tool; it measures one scoped run before its first mutation; and it runs one build at a time in its copy, never starting another while an earlier one, a backgrounded one included, still runs.
-A Gradle run that fails with `Timeout waiting to lock journal` is waited out and retried with backoff, a few minutes in total — the lock sits in the shared Gradle home, held by another worktree's daemon; never run `gradle --stop` or kill a daemon another worktree owns, and if the lock is still held the mutant is reported `unproven (journal lock held by <pid from the message>)`, never skipped silently.
-Never symlink a shared `node_modules` into your copy: run `npm ci` inside the copy, which installs its own — over a symlink it empties the shared directory.
-Never run `git worktree add`: you work only in the copies your prompt lists, which the parent creates and removes (**The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`); a comparison against the base reads `git show <base>:<path>` or `git diff <base> -- <path>`, never a checkout of your own.
 
 ### Principles
 

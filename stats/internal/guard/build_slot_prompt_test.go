@@ -119,7 +119,7 @@ func TestBuildSlotPromptMutation(t *testing.T) {
 			t.Errorf("prompt lacks %q", want)
 		}
 	}
-	if strings.Contains(s, "### Principles") {
+	if strings.Contains(s, "## The throwaway worktree") || strings.Contains(s, "### Principles") {
 		t.Errorf("the mutation brief ran past its section")
 	}
 	if r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation+primary", "-diff", "/d", "-copies", "/w"}, Env{}); r.rc != 2 {

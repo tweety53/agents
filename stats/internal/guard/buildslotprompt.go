@@ -30,8 +30,8 @@ import (
 //
 // mutation, always alone, has no template: its PASS section is the diff
 // line, a MUTATION COPIES line (-copies, required: the throwaway copies it
-// mutates and tests in), the body of review-panel.md's **The
-// mutation-testing brief**, and review-panel-optional-slots.md's MUTATION
+// mutates and tests in), the body of review-panel-optional-slots.md's **The
+// mutation-testing brief** section, and that file's MUTATION
 // ENTRY CONTEXT blockquote with each -tests file inlined beneath it.
 //
 // Exit 0 written; 2 usage, an id with no template, mutation bundled or
@@ -208,23 +208,22 @@ func bspBlockquote(src, head string) string {
 
 // bspMutationBody is the mutation slot's PASS body (see the header).
 func bspMutationBody(skillDir, diff, copies, tests string) (string, error) {
-	panel, err := os.ReadFile(filepath.Join(skillDir, "review-panel.md"))
+	opt, err := os.ReadFile(filepath.Join(skillDir, "review-panel-optional-slots.md"))
 	if err != nil {
 		return "", err
 	}
-	const head = "### The mutation-testing brief\n"
-	brief := string(panel)
+	const head = "\n## The mutation-testing brief\n"
+	brief := string(opt)
 	i := strings.Index(brief, head)
 	if i < 0 {
-		return "", fmt.Errorf("no %q section in review-panel.md", strings.TrimSpace(head))
+		return "", fmt.Errorf("no %q section in review-panel-optional-slots.md", strings.TrimSpace(head))
 	}
 	brief = brief[i+len(head):]
-	if j := strings.Index(brief, "\n### "); j >= 0 {
+	if j := strings.Index(brief, "\n## "); j >= 0 {
 		brief = brief[:j]
 	}
-	opt, err := os.ReadFile(filepath.Join(skillDir, "review-panel-optional-slots.md"))
 	entry := bspBlockquote(string(opt), "> **MUTATION ENTRY CONTEXT:**")
-	if err != nil || entry == "" {
+	if entry == "" {
 		return "", fmt.Errorf("no MUTATION ENTRY CONTEXT blockquote in review-panel-optional-slots.md")
 	}
 	var b strings.Builder

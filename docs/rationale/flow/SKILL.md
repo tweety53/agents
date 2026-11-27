@@ -265,7 +265,7 @@ Each passage below sat inline in a run-loaded phase file beside the rule it moti
 
 > **The ceiling is a record-and-review bound, not a stop**
 
-### review-panel.md — The mutation-testing brief
+### review-panel-optional-slots.md — The mutation-testing brief
 
 > the declaration
 > `flow-guard run-reproducer` reads as the mutation convention

@@ -31,14 +31,14 @@ func TestReviewersNeverAddAWorktree(t *testing.T) {
 	if !strings.Contains(block, "`git worktree add`") {
 		t.Errorf("READ-ONLY REVIEW does not forbid `git worktree add`")
 	}
-	panel := read("skills/flow/review-panel.md")
-	i = strings.Index(panel, "### The mutation-testing brief")
+	panel := read("skills/flow/review-panel-optional-slots.md")
+	i = strings.Index(panel, "## The mutation-testing brief")
 	if i < 0 {
-		t.Fatal("skills/flow/review-panel.md: no mutation-testing brief")
+		t.Fatal("skills/flow/review-panel-optional-slots.md: no mutation-testing brief")
 	}
 	mut := panel[i:]
-	if j := strings.Index(mut[4:], "\n### "); j >= 0 {
-		mut = mut[:j+4]
+	if j := strings.Index(mut[3:], "\n## "); j >= 0 {
+		mut = mut[:j+3]
 	}
 	for _, want := range []string{"Never run `git worktree add`", "`git show <base>:<path>`"} {
 		if !strings.Contains(mut, want) {
