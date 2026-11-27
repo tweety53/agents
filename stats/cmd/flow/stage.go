@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/caller"
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/stages"
@@ -70,7 +71,10 @@ stage only.
 With no change named, the change is the branch (less spectre/) of the
 checkout holding -C, when that checkout carries .superpowers/sdd/<name>
 or spectre/changes/<name>. With no -harness, $FLOW_HARNESS, else
-claude-code under CLAUDECODE=1, else unknown. With no -session-token,
+claude-code under CLAUDECODE=1, else unknown. With no -session-token, the
+calling agent's token, cc-<$CLAUDE_CODE_SESSION_ID>-<agent> -- the agent
+being -caller-agent (which the block-unsafe-commands hook inserts into a
+subagent's flow call), else main -- and with no harness session id,
 <change>-<UTC time of the mark>.
 
 -session-token, where given, must be a literal, unique token this command
@@ -285,9 +289,13 @@ func validateSessionToken(sessionToken string) error {
 }
 
 // defaultSessionToken is the token a mark given no -session-token carries:
-// the change name (or the -jira-key mark's journal name) and the mark's UTC
-// time to the second.
-func defaultSessionToken(f stageIdentityFlags) string {
+// the calling agent's (internal/caller) under a harness session, else the
+// change name (or the -jira-key mark's journal name) and the mark's UTC time
+// to the second.
+func defaultSessionToken(f stageIdentityFlags, getenv func(string) string) string {
+	if t := caller.Token(getenv); t != "" {
+		return t
+	}
 	return journalName(f) + "-" + time.Now().UTC().Format("20060102T150405Z")
 }
 
@@ -394,7 +402,7 @@ func runStageBegin(ctx context.Context, args []string, getenv func(string) strin
 		request = requestFlag
 	}
 	if *sessionTokenFlag == "" {
-		*sessionTokenFlag = defaultSessionToken(f)
+		*sessionTokenFlag = defaultSessionToken(f, getenv)
 	}
 	if err := validateSessionToken(*sessionTokenFlag); err != nil {
 		stageErr(stderr, "begin", err)
@@ -779,7 +787,7 @@ func runStageWrap(ctx context.Context, args []string, getenv func(string) string
 		return 2
 	}
 	if *sessionTokenFlag == "" {
-		*sessionTokenFlag = defaultSessionToken(f)
+		*sessionTokenFlag = defaultSessionToken(f, getenv)
 	}
 	if err := validateSessionToken(*sessionTokenFlag); err != nil {
 		stageErr(stderr, "wrap", err)

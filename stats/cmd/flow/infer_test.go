@@ -151,19 +151,53 @@ func TestRecordDispatchEndInfersChange(t *testing.T) {
 	}
 }
 
-// The session token is never inferred: subagents share their parent's
-// CLAUDE_CODE_SESSION_ID, and the store supersedes open runs by token, so a
-// token looked up by session would let an executor's mark close its
-// coordinator's run. Dispatch end still requires one.
-func TestRecordDispatchEndStillRequiresToken(t *testing.T) {
+// The session token is the calling agent's: with no -session-token, a
+// dispatch end under Claude Code carries cc-<session>-<agent>, a subagent's
+// call (-caller-agent, which the block-unsafe-commands hook inserts) its own,
+// the main thread's "main" -- so an executor's marks never supersede its
+// coordinator's. With no harness session it is still required.
+func TestRecordDispatchEndInfersCallerToken(t *testing.T) {
 	t.Parallel()
 	wt := changeWorktree(t, "kan-11")
+	st := &sessionStore{}
+	srv := st.server(t)
+	end := func(env testEnv, lead ...string) (int, string) {
+		t.Helper()
+		var stdout, stderr bytes.Buffer
+		args := append(lead, "record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", wt,
+			"-key", "impl-1", "-outcome", "completed")
+		code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr)
+		return code, stderr.String()
+	}
 	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = "s-11"
+	if code, errs := end(env); code != 0 || st.bodies[len(st.bodies)-1]["sessionToken"] != "cc-s-11-main" {
+		t.Fatalf("main thread: exit %d token %v, want cc-s-11-main; stderr:\n%s", code, st.bodies[len(st.bodies)-1]["sessionToken"], errs)
+	}
+	if code, errs := end(env, "-caller-agent", "a7"); code != 0 || st.bodies[len(st.bodies)-1]["sessionToken"] != "cc-s-11-a7" {
+		t.Fatalf("subagent: exit %d token %v, want cc-s-11-a7; stderr:\n%s", code, st.bodies[len(st.bodies)-1]["sessionToken"], errs)
+	}
+	if code, errs := end(newTestEnv(t)); code != 2 || !strings.Contains(errs, "-session-token") {
+		t.Fatalf("no session: exit %d, want 2 naming -session-token; stderr:\n%s", code, errs)
+	}
+}
+
+// A stage begin with no -session-token under Claude Code carries the calling
+// agent's token, not a per-mark one, so its next begin supersedes its own run.
+func TestStageBeginInfersCallerToken(t *testing.T) {
+	t.Parallel()
+	wt := changeWorktree(t, "kan-13")
+	env := newTestEnv(t)
+	env["CLAUDE_CODE_SESSION_ID"] = "s-13"
+	st := &sessionStore{}
+	srv := st.server(t)
 	var stdout, stderr bytes.Buffer
-	code := run(context.Background(), []string{"record", "dispatch", "end", "-addr", deadPortAddr(t), "-timeout", "300ms", "-C", wt,
-		"-key", "impl-1", "-outcome", "completed"}, env.get, strings.NewReader(""), &stdout, &stderr)
-	if code != 2 || !strings.Contains(stderr.String(), "-session-token") {
-		t.Fatalf("exit %d, want 2 naming -session-token; stderr:\n%s", code, stderr.String())
+	if code := run(context.Background(), []string{"-caller-agent", "b2", "stage", "begin", "-addr", srv.URL, "-timeout", "500ms", "-C", wt,
+		"-command", "/flow", "-stage", "flow.implement"}, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
+	}
+	if got := st.bodies[len(st.bodies)-1]["sessionToken"]; got != "cc-s-13-b2" {
+		t.Errorf("token = %v, want cc-s-13-b2", got)
 	}
 }
 

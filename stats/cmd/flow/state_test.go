@@ -115,7 +115,7 @@ func (e testEnv) stateRoot() string { return e["FLOW_STATE_DIR"] }
 // otherwise leak that export into every test -- a test that wants one sets it.
 func newTestEnv(t *testing.T) testEnv {
 	t.Helper()
-	return testEnv{"FLOW_STATE_DIR": t.TempDir(), "FLOW_RECORDS_ADDR": "", "FLOW_ADDR": ""}
+	return testEnv{"FLOW_STATE_DIR": t.TempDir(), "FLOW_RECORDS_ADDR": "", "FLOW_ADDR": "", "CLAUDE_CODE_SESSION_ID": "", "FLOW_CALLER_AGENT": ""}
 }
 
 func deadPortAddr(t *testing.T) string {

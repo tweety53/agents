@@ -23,6 +23,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/tweety53/agents/stats/internal/api"
+	"github.com/tweety53/agents/stats/internal/caller"
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/records"
@@ -895,6 +896,15 @@ func parseRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags, args []str
 	return true, 0
 }
 
+// callerToken fills an absent -session-token with the calling agent's
+// (internal/caller), so an explicit token wins and, with no harness session,
+// the flag stays required.
+func callerToken(token *string, getenv func(string) string) {
+	if *token == "" {
+		*token = caller.Token(getenv)
+	}
+}
+
 // requireRecordFlags reports the first of flags whose value is empty as the
 // caller mistake it is. Each pair is the flag's name and the value the
 // caller gave it, in the order the usage block lists them, so a caller
@@ -1117,12 +1127,13 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 	policyRole := fset.String("policy-role", "", "the allowed-pairs role the dispatch's prompt names on its `Role:` line -- optional: Role costs counts the row under it (the hook that begins the row passes it)")
 	pairPick := fset.String("pair-pick", "", "the pair judge's `<source>: <reason>` for this dispatch's pair -- optional: omitted where no judge picked the pair (skills/flow-contracts/model-policy.md, Model and effort)")
 	key := fset.String("key", "", "this dispatch's own literal label, unique within the run -- what the end call closes, and what makes a replayed write land on one row (required)")
-	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
+	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (default: the calling agent's, as flow stage begin infers it; required where none is inferred)")
 	startedAt := fset.String("started-at", "", "a back-filled row's real start instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it writes the row")
 
 	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
+	callerToken(sessionToken, getenv)
 	if *request < 0 {
 		fmt.Fprintf(stderr, "flow: -request %d is not a request number: pass the positive /flow-interactive request id, or omit it\n", *request)
 		return 2
@@ -1362,7 +1373,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 	var f recordIdentityFlags
 	registerRecordIdentityFlags(fset, &f, getenv)
 	key := fset.String("key", "", "the literal label this dispatch's begin call carried (required)")
-	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
+	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (default: the calling agent's, as flow stage begin infers it; required where none is inferred)")
 	commit := fset.String("commit", "", "the commit sha this dispatch produced")
 	outcome := fset.String("outcome", "", "how the dispatch ended -- one of: "+strings.Join(recordOutcomes, ", "))
 	cause := fset.String("cause", "", "why the outcome is blocked -- one of: "+strings.Join(recordCauses, ", ")+"; required with -outcome blocked, refused with any other outcome")
@@ -1375,6 +1386,7 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
+	callerToken(sessionToken, getenv)
 	if !requireChangeCheckout(ctx, f.addr, f.timeout, f.dir, f.change, stderr) {
 		return 2
 	}
@@ -1603,6 +1615,7 @@ func runRecordDispatchBackfill(ctx context.Context, args []string, getenv func(s
 	if err := fset.Parse(args); err != nil || fset.NArg() != 0 {
 		return 2
 	}
+	callerToken(v["session-token"], getenv)
 	if !panelFixKeyOK(*v["key"], stderr) {
 		return 2
 	}
@@ -3424,12 +3437,13 @@ func runRecordDecision(ctx context.Context, args []string, getenv func(string) s
 	fset.SetOutput(stderr)
 	var f recordIdentityFlags
 	registerRecordIdentityFlags(fset, &f, getenv)
-	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
+	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (default: the calling agent's, as flow stage begin infers it; required where none is inferred)")
 	file := fset.String("file", "", "path to the decision JSON body, or \"-\" to read it from stdin (required)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
+	callerToken(sessionToken, getenv)
 	if !requireRecordFlags(stderr,
 		[2]string{"-session-token", *sessionToken},
 		[2]string{"-file", *file},

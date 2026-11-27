@@ -17,9 +17,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/tweety53/agents/stats/internal/caller"
 )
 
-const usage = `usage: flow <command> [arguments]
+const usage = `usage: flow [-caller-agent <agent id>] <command> [arguments]
+
+-caller-agent names the subagent making the call (the block-unsafe-commands
+hook inserts it); a -session-token left out is that agent's (flow stage -h).
 
 commands:
   state get <name>    print the change's current state
@@ -72,13 +77,22 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), handledSignals...)
 	defer stop()
 
-	os.Exit(run(ctx, os.Args[1:], os.Getenv, os.Stdin, os.Stdout, os.Stderr))
+	os.Exit(run(ctx, caller.Export(os.Args[1:]), os.Getenv, os.Stdin, os.Stdout, os.Stderr))
 }
 
 // run is the whole of main's logic, factored out so tests can drive it
 // directly with in-memory streams and a cancellable context -- no
 // subprocess needed, per go-cli's "testable main" pattern.
 func run(ctx context.Context, args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if rest, agent := caller.Strip(args); agent != "" {
+		outer := getenv
+		args, getenv = rest, func(k string) string {
+			if k == caller.AgentEnv {
+				return agent
+			}
+			return outer(k)
+		}
+	}
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usage)
 		return 2
