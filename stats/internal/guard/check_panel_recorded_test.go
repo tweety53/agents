@@ -25,6 +25,9 @@ func TestCheckPanelRecorded(t *testing.T) {
 	if rc := run("Critical: 0\nImportant: 1\nMinor: 0\n", `[{"round":0,"slot":"primary"}]`); rc != 0 {
 		t.Errorf("recorded: rc %d, want 0", rc)
 	}
+	if rc := run("Critical: 1\nImportant: 2\nMinor: 0\n", `[{"round":0,"slot":"primary"},{"round":1,"slot":"primary"}]`); rc != 1 {
+		t.Errorf("partly recorded: rc %d, want 1", rc)
+	}
 	if rc := run("Critical: 0\nImportant: 0\nMinor: 0\n", gated); rc != 0 {
 		t.Errorf("nothing raised: rc %d, want 0", rc)
 	}

@@ -11,8 +11,8 @@ import (
 )
 
 // flow-guard check-panel-recorded <worktree> <round> — a round's panel reports
-// that count findings (their Critical/Important/Minor header lines) while the
-// change's store holds no panel-slot row for that round: the parent never ran
+// count more findings (the sum of their Critical/Important/Minor header lines)
+// than the change's store holds panel-slot rows for that round: the parent never ran
 // `flow record finding`, so the rendered record would say `findings-total: 0`
 // (kan-1158). Exit 0 recorded or nothing raised, 1 unrecorded (the report files
 // named), 2 usage. The change is the worktree's directory name; rows of the
@@ -34,16 +34,20 @@ func checkPanelRecorded(args []string, env Env, stdout, stderr io.Writer) int {
 	worktree := args[0]
 	reports, _ := filepath.Glob(filepath.Join(worktree, ".superpowers/sdd", fmt.Sprintf("panel-report-%d-*.md", round)))
 	var raised []string
+	want := 0
 	for _, r := range reports {
 		body, _ := os.ReadFile(r)
+		n := 0
 		for _, m := range cprCount.FindAllSubmatch(body, -1) {
-			if n, _ := strconv.Atoi(string(m[1])); n > 0 {
-				raised = append(raised, r)
-				break
-			}
+			k, _ := strconv.Atoi(string(m[1]))
+			n += k
+		}
+		if n > 0 {
+			raised = append(raised, r)
+			want += n
 		}
 	}
-	if len(raised) == 0 {
+	if want == 0 {
 		return 0
 	}
 	out, _, rc := pcFlow(env, false, "record", "findings", "-change", filepath.Base(worktree), "-C", worktree)
@@ -56,12 +60,16 @@ func checkPanelRecorded(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "check-panel-recorded: flow record findings exit %d\n", rc)
 		return 1
 	}
+	got := 0
 	for _, r := range rows {
 		if r.Round == round && r.Slot != "gated-reviewer" {
-			return 0
+			got++
 		}
 	}
+	if got >= want {
+		return 0
+	}
 	Reason(env, "panel-unrecorded")
-	fmt.Fprintf(stderr, "check-panel-recorded: round %d reports raise findings but the store holds no panel row for it — record them (flow record finding -from findings-%d.jsonl): %v\n", round, round, raised)
+	fmt.Fprintf(stderr, "check-panel-recorded: round %d reports raise %d findings but the store holds %d panel rows for it — record them (flow record finding -from findings-%d.jsonl): %v\n", round, want, got, round, raised)
 	return 1
 }
