@@ -433,7 +433,7 @@ func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, i
 // the wrong column into the wrong field.
 const dispatchColumns = `id, seq, stage_run_id, task_id, role, slot, model, commit_sha, outcome,
 	          cause, session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
-	          diff_base, effort, round_base, pair_pick, request, closes_loop, retimed, policy_role, cause_detail`
+	          diff_base, effort, round_base, pair_pick, request, retimed, policy_role, cause_detail`
 
 // qualifiedDispatchColumns is dispatchColumns with every name qualified by
 // alias, for the one statement that needs it -- an UPDATE ... FROM, where
@@ -498,7 +498,7 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 	if err := row.Scan(
 		&d.ID, &d.Seq, &d.StageRunID, &taskID, &d.Role, &slot, &d.Model, &commitSHA, &outcome,
 		&cause, &sessionToken, &d.StartedAt, &d.EndedAt, &bag, &notes, &agentID, &dispatchKey,
-		&diffBase, &d.Effort, &roundBase, &pairPick, &d.Request, &d.ClosesLoop, &retimed, &policyRole, &causeDetail,
+		&diffBase, &d.Effort, &roundBase, &pairPick, &d.Request, &retimed, &policyRole, &causeDetail,
 	); err != nil {
 		return records.Dispatch{}, err
 	}
@@ -725,7 +725,6 @@ func insertDispatch(ctx context.Context, q interface {
 			cause = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.cause END,
 			cause_detail = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.cause_detail END,
 			outcome = CASE WHEN `+reBegin+` THEN NULL ELSE dispatches.outcome END,
-			closes_loop = CASE WHEN `+reBegin+` THEN false ELSE dispatches.closes_loop END,
 			agent_id = CASE WHEN `+reBegin+` THEN EXCLUDED.agent_id ELSE dispatches.agent_id END,
 			diff_base = CASE WHEN `+reBegin+` THEN COALESCE(EXCLUDED.diff_base, dispatches.diff_base) ELSE dispatches.diff_base END,
 			slot = EXCLUDED.slot,
@@ -903,7 +902,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 	out, err := scanDispatchRow(s.pool.QueryRow(ctx, `
 		UPDATE dispatches d
 		SET commit_sha = $5, outcome = $6, ended_at = CASE WHEN $12 THEN $7 WHEN d.agent_id = 'inline' AND dispatch_class(d.role) = 'verifier' THEN GREATEST(d.ended_at, $7) ELSE COALESCE(d.ended_at, $7) END, started_at = COALESCE($13, d.started_at), agent_id = COALESCE($8, d.agent_id),
-		    cause = $9, cause_detail = $15, diff_base = COALESCE($11, d.diff_base), closes_loop = d.closes_loop OR $14,
+		    cause = $9, cause_detail = $14, diff_base = COALESCE($11, d.diff_base),
 		    metrics = CASE WHEN $10::text IS NULL THEN d.metrics
 		               ELSE jsonb_set(
 		                     d.metrics || jsonb_build_object(
@@ -920,7 +919,7 @@ func (s *Store) EndDispatch(ctx context.Context, projectKey, change string, in r
 		projectKey, change, in.SessionToken, in.Key,
 		nullIfEmpty(in.CommitSHA), nullIfEmpty(in.Outcome), in.EndedAt, nullIfEmpty(in.AgentID),
 		nullIfEmpty(in.Cause),
-		reportParam, nullIfEmpty(in.DiffBase), in.ReEnd, movedStart, in.ClosesLoop, nullIfEmpty(in.CauseDetail),
+		reportParam, nullIfEmpty(in.DiffBase), in.ReEnd, movedStart, nullIfEmpty(in.CauseDetail),
 	))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

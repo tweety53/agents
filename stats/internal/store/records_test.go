@@ -1779,59 +1779,6 @@ func TestEndDispatchRecordsCauseDetail(t *testing.T) {
 	}
 }
 
-// TestEndDispatchRecordsClosesLoop: `flow record dispatch end -closes-loop`
-// stores closesLoop on the row and RunRecord reads it back; a re-end without
-// it, as a transcript restamp sends, keeps it; a row ended without it reads
-// false (KAN-1122).
-func TestEndDispatchRecordsClosesLoop(t *testing.T) {
-	st, _ := newRecordStore(t)
-	ctx := context.Background()
-	projectKey := fmt.Sprintf("proj-end-dispatch-closes-loop-%d", time.Now().UnixNano())
-	seedChange(t, st, projectKey, "kan-1")
-
-	const token = "mf-kan1122-closes-loop"
-	begin := baseBeginInput(projectKey, "kan-1", "/flow", "SDD + TDD per task")
-	begin.SessionToken = ptr(token)
-	if _, err := st.BeginStage(ctx, begin); err != nil {
-		t.Fatalf("BeginStage: %v", err)
-	}
-	for _, key := range []string{"visual-verify-fix-1", "visual-verify-fix-2"} {
-		d := baseDispatch("verifier", "sonnet")
-		d.SessionToken, d.Key, d.RoundBase = token, key, "abc1234"
-		if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
-			t.Fatalf("RecordDispatch %s: %v", key, err)
-		}
-	}
-	start := baseDispatch("verifier", "sonnet").StartedAt
-	end := func(key string, closes bool, after time.Duration) records.Dispatch {
-		t.Helper()
-		out, err := st.EndDispatch(ctx, projectKey, "kan-1", records.DispatchEnd{
-			SessionToken: token, Key: key, Outcome: "completed", ClosesLoop: closes, EndedAt: start.Add(after),
-		})
-		if err != nil {
-			t.Fatalf("EndDispatch %s: %v", key, err)
-		}
-		return out
-	}
-	if got := end("visual-verify-fix-1", true, time.Minute); !got.ClosesLoop {
-		t.Errorf("EndDispatch's own returned row: ClosesLoop false, want true")
-	}
-	end("visual-verify-fix-1", false, 2*time.Minute)
-	end("visual-verify-fix-2", false, time.Minute)
-
-	rec, err := st.RunRecord(ctx, projectKey, "kan-1")
-	if err != nil {
-		t.Fatalf("RunRecord: %v", err)
-	}
-	got := map[string]bool{}
-	for _, d := range rec.Dispatches {
-		got[d.Key] = d.ClosesLoop
-	}
-	if !got["visual-verify-fix-1"] || got["visual-verify-fix-2"] {
-		t.Errorf("stored closesLoop = %v, want visual-verify-fix-1 true, kept across a re-end without it, and visual-verify-fix-2 false", got)
-	}
-}
-
 // TestRenderedLedgerCallsAStoredDispatchWithNoMetricsNotMeasured renders a
 // dispatch that came OUT OF THE STORE, rather than one built as a Go
 // composite literal in the test, and pins that an unmeasured one still
@@ -6295,46 +6242,6 @@ func TestRecordDispatchRefusesOperatorKeyReuseAndMissingRequest(t *testing.T) {
 	}
 	if err := begin("fi-a", "operator-2", nil); !errors.Is(err, store.ErrOperatorAskedNoRequest) {
 		t.Errorf("no request: %v, want ErrOperatorAskedNoRequest", err)
-	}
-}
-
-// TestRecordDispatchReBeginClearsClosesLoop: a re-begin of an aborted row
-// clears closesLoop with the row's other end facts, so the re-run's completed
-// end without -closes-loop reads false (KAN-1122).
-func TestRecordDispatchReBeginClearsClosesLoop(t *testing.T) {
-	st, _ := newRecordStore(t)
-	ctx := context.Background()
-	pk := fmt.Sprintf("proj-repro-closes-loop-%d", time.Now().UnixNano())
-	seedChange(t, st, pk, "kan-1")
-	const token = "mf-repro-closes-loop"
-	b := baseBeginInput(pk, "kan-1", "/flow", "SDD + TDD per task")
-	b.SessionToken = ptr(token)
-	if _, err := st.BeginStage(ctx, b); err != nil {
-		t.Fatal(err)
-	}
-	d := baseDispatch("verifier", "sonnet")
-	d.SessionToken, d.Key, d.RoundBase = token, "visual-verify-fix-1", "abc1234"
-	if _, err := st.RecordDispatch(ctx, pk, "kan-1", d); err != nil {
-		t.Fatal(err)
-	}
-	start := d.StartedAt
-	end := func(outcome string, closes bool, after time.Duration) records.Dispatch {
-		out, err := st.EndDispatch(ctx, pk, "kan-1", records.DispatchEnd{SessionToken: token, Key: d.Key, Outcome: outcome, ClosesLoop: closes, EndedAt: start.Add(after)})
-		if err != nil {
-			t.Fatalf("end %s: %v", outcome, err)
-		}
-		return out
-	}
-	end("completed", true, time.Minute)
-	end("aborted", false, 2*time.Minute)
-	d2 := d
-	d2.StartedAt = start.Add(3 * time.Minute)
-	if _, err := st.RecordDispatch(ctx, pk, "kan-1", d2); err != nil {
-		t.Fatal(err)
-	}
-	got := end("completed", false, 5*time.Minute)
-	if got.ClosesLoop {
-		t.Fatalf("re-begun row ended without -closes-loop reads ClosesLoop true")
 	}
 }
 

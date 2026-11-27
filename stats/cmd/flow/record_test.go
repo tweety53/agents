@@ -1175,30 +1175,21 @@ func TestDispatchEndCauseRejectedWithoutBlocked(t *testing.T) {
 	}
 }
 
-// TestDispatchEndClosesLoopRefusedOffCompleted pins that -closes-loop is
-// meaningful only beside a completed outcome: with aborted, timed-out or no
-// outcome it is refused before the store is contacted (KAN-1122).
-func TestDispatchEndClosesLoopRefusedOffCompleted(t *testing.T) {
+// TestDispatchEndClosesLoopFlagGone pins that `dispatch end` no longer has a
+// -closes-loop flag: it is refused as an unknown flag before the store is
+// contacted.
+func TestDispatchEndClosesLoopFlagGone(t *testing.T) {
 	t.Parallel()
 	env := newTestEnv(t)
-	for _, outcome := range []string{"aborted", "timed-out", ""} {
-		t.Run("outcome="+outcome, func(t *testing.T) {
-			outcomeArgs := []string{}
-			if outcome != "" {
-				outcomeArgs = append(outcomeArgs, "-outcome", outcome)
-			}
-			code, _, stderr, contacted, _ := causeEndRun(t, env, append(outcomeArgs, "-closes-loop")...)
-
-			if code != 2 {
-				t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
-			}
-			if contacted {
-				t.Error("the store was contacted for -closes-loop off a completed outcome -- it must be refused first")
-			}
-			if !strings.Contains(stderr.String(), "-closes-loop") {
-				t.Errorf("stderr does not name -closes-loop:\n%s", stderr.String())
-			}
-		})
+	code, _, stderr, contacted, _ := causeEndRun(t, env, "-outcome", "completed", "-closes-loop")
+	if code != 2 {
+		t.Fatalf("exit code = %d, want 2; stderr:\n%s", code, stderr.String())
+	}
+	if contacted {
+		t.Error("the store was contacted for an unknown flag")
+	}
+	if !strings.Contains(stderr.String(), "closes-loop") {
+		t.Errorf("stderr does not name the flag:\n%s", stderr.String())
 	}
 }
 
@@ -6611,46 +6602,6 @@ func TestDispatchEndDiffBaseCarriedOnWire(t *testing.T) {
 	}
 	if sent := send(t); sent["diffBase"] != nil {
 		t.Errorf("diffBase = %v, want no key when -diff-base is omitted", sent["diffBase"])
-	}
-}
-
-// TestDispatchEndClosesLoopCarriedOnWire pins `dispatch end -closes-loop`:
-// the flag reaches the daemon as closesLoop true, and an end without it
-// sends no closesLoop key (KAN-1122).
-func TestDispatchEndClosesLoopCarriedOnWire(t *testing.T) {
-	t.Parallel()
-	send := func(t *testing.T, extra ...string) map[string]any {
-		t.Helper()
-		repo := recordRepo(t, "kan-1122")
-		env := newTestEnv(t)
-		var gotBody []byte
-		srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-			var err error
-			gotBody, err = readAll(r)
-			if err != nil {
-				t.Errorf("read request body: %v", err)
-			}
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"id":7,"seq":48,"role":"verifier","model":"opus","endedAt":"2026-11-15T00:55:20Z"}`))
-		}))
-		defer srv.Close()
-		var stdout, stderr bytes.Buffer
-		args := append([]string{"record", "dispatch", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
-			"-change", "kan-1122", "-key", "visual-verify-fix-3-gymie", "-session-token", "mf-k1122", "-outcome", "completed"}, extra...)
-		if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
-			t.Fatalf("exit code = %d, want 0; stderr:\n%s", code, stderr.String())
-		}
-		var sent map[string]any
-		if err := json.Unmarshal(gotBody, &sent); err != nil {
-			t.Fatalf("decode request body: %v\nbody: %s", err, gotBody)
-		}
-		return sent
-	}
-	if sent := send(t, "-closes-loop"); sent["closesLoop"] != true {
-		t.Errorf("closesLoop = %v, want true", sent["closesLoop"])
-	}
-	if sent := send(t); sent["closesLoop"] != nil {
-		t.Errorf("closesLoop = %v, want no key when -closes-loop is omitted", sent["closesLoop"])
 	}
 }
 

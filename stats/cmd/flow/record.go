@@ -281,7 +281,7 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -key key -session-token token
                              [-commit sha] [-outcome outcome] [-cause cause] [-cause-detail text]
                              [-agent-id id] [-tokens k=v,...] [-ended-at instant]
-                             [-diff-base sha[,sha...]] [-closes-loop]
+                             [-diff-base sha[,sha...]]
        flow record dispatch backfill [-addr url] [-timeout dur] [-C dir]
                              -change name [-task id] -role role [-slot name]
                              -model model [-effort level] [-agent-id id|none]
@@ -1364,7 +1364,6 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 	tokens := fset.String("tokens", "", "the token usage a same-session (inline) dispatch spent, as comma-separated key=value pairs over: input, output, cache-read, cache-creation (optional -- for a harness that writes no transcript the harvester could credit the inline row from)")
 	endedAt := fset.String("ended-at", "", "a back-filled row's real end instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it closes the row")
 	diffBase := fset.String("diff-base", "", "corrects the sha (or comma-joined shas) begin recorded as the HEAD this dispatch verified -- optional: omitted, begin's value stands")
-	closesLoop := fset.Bool("closes-loop", false, "this scoped visual-verify verifier row closed the fix loop -- passed by flow-guard visual-verify-pass close alone, and only with -outcome completed (skills/flow/verify-fix-loop.md)")
 
 	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
@@ -1392,10 +1391,6 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 	}
 	if *causeDetail != "" && *cause == "" {
 		fmt.Fprintln(stderr, "flow: -cause-detail is only valid with -cause")
-		return 2
-	}
-	if *closesLoop && *outcome != "completed" {
-		fmt.Fprintf(stderr, "flow: -closes-loop is only valid with -outcome completed, not -outcome %q\n", *outcome)
 		return 2
 	}
 	if err := validateSessionToken(*sessionToken); err != nil {
@@ -1473,7 +1468,6 @@ func runRecordDispatchEnd(ctx context.Context, args []string, getenv func(string
 		EndedAt:      ended,
 		CommitAt:     commitAt,
 		DiffBase:     *diffBase,
-		ClosesLoop:   *closesLoop,
 	}
 	out, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Dispatch, error) {
 		return cl.EndDispatch(ctx, projectKey, f.change, in)
