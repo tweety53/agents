@@ -1358,7 +1358,7 @@ func (b *buc) discardsUnstaged(verb string, args []string, target string) string
 		return "" // a change's own worktree: its fixer restores stray baselines
 	}
 	// a tree-ish or --source overwrites the index too, so staged edits are lost as well
-	diff := []string{"diff", "--name-only"}
+	diff := []string{"diff", "--no-renames", "--name-only"}
 	if treeIsh {
 		diff = append(diff, "HEAD")
 	}

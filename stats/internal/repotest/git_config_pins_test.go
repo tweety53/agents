@@ -340,8 +340,11 @@ def scan_go(path, hits):
         # exec.Command("diff", …) — is diff(1), never a git subcommand. Only
         # lookPath takes a leading identifier: exec.Command(gitBin, "diff", …)
         # is a git diff and stays audited. A flag definition — fs.String("diff",
-        # …) — names a flag, never a git call.
+        # …) — names a flag, never a git call. A word in a bucSet(…) list is a
+        # verb or a program block-unsafe-commands matches against, never a call.
         if re.search(r'(?:exec\.Command\(|lookPath\(\s*\w+\s*,|\bfs\.String\()\s*$', text[: m.start()]):
+            continue
+        if re.search(r'\bbucSet\([^()]*$', text[: m.start()]):
             continue
         depth = 0
         i = m.start()

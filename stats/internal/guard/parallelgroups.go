@@ -208,7 +208,7 @@ func pgMerge(env Env, wt string, copies []string, stdout, stderr io.Writer) int 
 	}
 	for _, cp := range copies {
 		cp = pcAbs(env, cp)
-		if st, ok := capture(git("-C", cp, "status", "--porcelain")); !ok || strings.TrimSpace(st) != "" {
+		if st, ok := capture(git("-C", cp, "status", "--porcelain", "--untracked-files=normal")); !ok || strings.TrimSpace(st) != "" {
 			fmt.Fprintf(stdout, "BLOCKED: %s — uncommitted changes (or git status failed); it and every later copy are kept\n", cp)
 			Reason(env, "copy-uncommitted")
 			return 1
