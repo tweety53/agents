@@ -59,7 +59,7 @@ The panel's `call-efficiency` slot, dispatched when the decision's `panel` carri
       missing test) unless the extra call is what makes it wrong.
     - Do not invent findings to look useful. An empty Critical/Important section after a
       genuine review is a valid and expected result.
-    - Do not report a call as wasteful from the diff alone when its cost depends on runtime data you cannot see — say what to measure instead and name `/call-efficiency-audit` (`skills/call-efficiency-audit/SKILL.md`) as the method.
+    - Do not report a call as wasteful from the diff alone when its cost depends on runtime data you cannot see — say what to measure instead.
 
     ## Calibration
 
@@ -91,7 +91,3 @@ The panel's `call-efficiency` slot, dispatched when the decision's `panel` carri
     **Ready for the human gate?** [Yes | No | With fixes]
     **Reasoning:** [why]
 ```
-**Placeholders:**
-- `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
-  `<abs-worktree>/.superpowers/sdd/fix-round-N.diff`, per
-  **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).

@@ -42,7 +42,7 @@ These eleven rows are **every** Agent-tool dispatch the parent may make, across 
 
 | Site | Role | Key shape | Owning section |
 |---|---|---|---|
-| implementer, one per group; a fixer per fix | `implementer`; a fixer the role whose pair **Every fix is a fresh one-shot** names | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>`, `task-<ids>-implementer-pick-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
+| implementer, one per group; a fixer per fix | `implementer`; a fixer the role whose pair **Every fix is a fresh one-shot** names | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>` or `full-suite-fix-<n>` | section **4** below, **Every fix is a fresh one-shot** |
 | gated reviewer bundle, one per batch of returned tasks of weight 5 | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | section **4** below, **The gated per-task reviewer** |
 | panel bundle, one per decided `panel` bundle | `panel-reviewer` on pass 1; `panel-rerun` for a re-run | `panel-<round>-<slot\|slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | findings merger, one per round once its dispatches have ended | `panel-merger` | `panel-<round>-merger` | `skills/flow/review-panel.md`, **The findings merger** |

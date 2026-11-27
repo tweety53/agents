@@ -120,8 +120,3 @@ The panel's `test-sanity` slot, dispatched when the decision's `panel` carries i
     **Ready for the human gate?** [Yes | No | With fixes]
     **Reasoning:** [why]
 ```
-
-**Placeholders:**
-- `[DIFF_PATH]` — `<abs-worktree>/.superpowers/sdd/final-review.diff`, or on a targeted re-run
-  `<abs-worktree>/.superpowers/sdd/fix-round-N.diff`, per
-  **Panel re-runs** (`skills/flow/review-panel-fix-round.md`).

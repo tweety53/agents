@@ -29,8 +29,8 @@ in the parent's session; `flow record dispatches` lists its rows, and when none 
 the prompt's column-0 `Key:` line, else the description's first word; the role the prompt's
 `Role:` line mapped back as launchRoleID (stats/cmd/flow/record.go) maps it; the call's model and
 effort. The begin is written only after every deny check has passed, so a
-launch the hook denies leaves no row. The row's end stays the parent's (decision
-begin-moves-end-stays). The ledger never denies a dispatch: a dispatch with no key or no mapped
+launch the hook denies leaves no row. The row's end is await-own-agents.py's, through
+flow-guard end-dispatch-row. The ledger never denies a dispatch: a dispatch with no key or no mapped
 role, a begin `flow` refuses, an unreachable store, no stage begin for the session, a stage run
 with no session token, an absent or failing `flow` CLI, or an unparseable answer lets the dispatch
 through with no begin. Nothing is begun once the session's change is FINISHED in the store.

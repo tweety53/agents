@@ -200,7 +200,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > reproduce a failing block from its log rather than printing the whole log. Never print a
 > generated file — a lockfile, a snapshot, a bundle, a build artifact.
 
-> **AFTER A COMPACTION:** Your context is compacted near 150,000 tokens: a summary takes the
+> **AFTER A COMPACTION:** Your context is compacted near its window's limit: a summary takes the
 > place of your earlier turns. When your context opens with such a summary, re-read this brief
 > before your next action — the summary does not carry it.
 
