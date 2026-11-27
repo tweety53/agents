@@ -39,10 +39,12 @@ change's directory lives on disk in its worktree only (**A change's directory**,
 ## Branch backup
 
 A change's branch lives on the remote from the moment its worktree exists: `git worktree add` is
-followed by `git push -u origin <branch>`, and every commit a run makes on the branch — a task
-commit, a fixup, a panel fix — is followed by `git push origin <branch>` from the same parent
-call that made or verified it. The one deferred push is a visual-verify commit in a `regression checkout` worktree
-(`skills/flow/visual-verify.md`): integrate's push below carries it. A lost worktree is then rebuilt with `git worktree add <path>
+followed by `git push -u origin <branch>`, and every commit a run makes on the branch — a fixup,
+a panel fix — is followed by `git push origin <branch>` from the same parent
+call that made or verified it. Two pushes are deferred: a task commit `flow-guard close-task`
+closed is pushed once at `flow.implement`'s end, and before any stop or handoff inside it (**Push
+at the stage boundary**, `skills/flow/implement.md`); a visual-verify commit in a `regression checkout` worktree
+(`skills/flow/visual-verify.md`) is carried by integrate's push below. A lost worktree is then rebuilt with `git worktree add <path>
 origin/<branch>`. The one rewrite is integrate's reshape (`git reset --soft`, then
 the implementation commit), so that run's push is `git push --force-with-lease origin <branch>`, made
 before the self-review pass, so a run that stops before its route still

@@ -10,7 +10,7 @@ import (
 
 // A task whose Files touch `ui paths` closes only over a measure record that
 // exists, is no older than the task's last source commit and carries no
-// flagged row; the refusal prints the command, and nothing is ticked or pushed.
+// flagged row; the refusal prints the command, and nothing is ticked.
 func TestCloseTaskRefusesAnUnmeasuredUITask(t *testing.T) {
 	t.Parallel()
 	fx := ctFixture(t, true, "0")

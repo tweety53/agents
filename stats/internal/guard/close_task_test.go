@@ -7,10 +7,11 @@ import (
 	"testing"
 )
 
-// The close-task fixture: the change "demo" on branch spectre/demo, pushed
-// to a real bare origin, with close-task run in-process against real
-// commits. Only `flow` is a stub; `git` on PATH is a wrapper that logs each
-// push into the same log as the stub, then execs the real git.
+// The close-task fixture: the change "demo" on branch spectre/demo with a
+// real bare origin, close-task run in-process against real commits. Only
+// `flow` is a stub; `git` on PATH is a wrapper that logs each push into the
+// same log as the stub, then execs the real git — so a push close-task must
+// not make shows in the log.
 
 type ctFx struct {
 	wt, peer, base, log string
@@ -95,10 +96,11 @@ func ctEqual(t *testing.T, got, want []string) {
 	}
 }
 
-// smoke: core — a task's close: its commit checked, ticked and pushed
+// smoke: core — a task's close: its commit checked and ticked, never pushed
+// (the branch is pushed once at flow.implement's end)
 func TestCloseTask(t *testing.T) {
 	t.Parallel()
-	t.Run("clean: every task ticked, one push", func(t *testing.T) {
+	t.Run("clean: every task ticked, nothing pushed", func(t *testing.T) {
 		t.Parallel()
 		fx := ctFixture(t, true, "0")
 		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
@@ -109,10 +111,9 @@ func TestCloseTask(t *testing.T) {
 		ctEqual(t, fx.calls(t), []string{
 			"flow tasks tick -C " + fx.wt + " demo 1",
 			"flow tasks tick -C " + fx.wt + " demo 2",
-			"git -C " + fx.wt + " push origin spectre/demo",
 		})
-		if got := tcfGit(t, fx.wt+".origin", "rev-parse", "spectre/demo"); got != s2 {
-			t.Errorf("origin spectre/demo at %s, want %s", got, s2)
+		if got := tcfGit(t, fx.wt+".origin", "for-each-ref", "refs/heads/spectre/demo"); got != "" {
+			t.Errorf("origin carries spectre/demo (%s), want it unpushed", got)
 		}
 	})
 	t.Run("a commit off HEAD or unknown: exit 1, no tick, no push", func(t *testing.T) {
@@ -130,14 +131,12 @@ func TestCloseTask(t *testing.T) {
 	t.Run("a bare task id resolves through its Task-Id trailer", func(t *testing.T) {
 		t.Parallel()
 		fx := ctFixture(t, true, "0")
-		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+		fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
 		fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
 		if r := fx.run(fx.wt, "demo", fx.base, "1"); r.rc != 0 {
 			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
 		}
-		if got := tcfGit(t, fx.wt+".origin", "log", "--format=%H", "spectre/demo"); !strings.Contains(got, s1) {
-			t.Errorf("origin lacks task 1's commit %s", s1)
-		}
+		ctEqual(t, fx.calls(t), []string{"flow tasks tick -C " + fx.wt + " demo 1"})
 	})
 	t.Run("a task argument without a commit is a usage error", func(t *testing.T) {
 		t.Parallel()
@@ -149,25 +148,16 @@ func TestCloseTask(t *testing.T) {
 		}
 		ctEqual(t, fx.calls(t), nil)
 	})
-	for _, c := range []struct {
-		name   string
-		origin bool
-		tickRC string
-	}{
-		{"a failed tick is exit 2, the push still runs", true, "1"},
-		{"a failed push is exit 2", false, "0"},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			fx := ctFixture(t, c.origin, c.tickRC)
-			s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-			if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.rc != 2 {
-				t.Fatalf("exit %d, want 2\n%s", r.rc, r.out)
-			}
-			ctEqual(t, fx.calls(t), []string{"flow tasks tick -C " + fx.wt + " demo 1", "git -C " + fx.wt + " push origin spectre/demo"})
-		})
-	}
-	t.Run("map form: one push per distinct worktree", func(t *testing.T) {
+	t.Run("a failed tick is exit 2", func(t *testing.T) {
+		t.Parallel()
+		fx := ctFixture(t, true, "1")
+		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
+		if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.rc != 2 {
+			t.Fatalf("exit %d, want 2\n%s", r.rc, r.out)
+		}
+		ctEqual(t, fx.calls(t), []string{"flow tasks tick -C " + fx.wt + " demo 1"})
+	})
+	t.Run("map form — no worktree pushed", func(t *testing.T) {
 		t.Parallel()
 		fx := ctFixture(t, true, "0").withPeer(t)
 		s3 := fx.commit(t, fx.wt, "three", "3", "c.txt", "c\n")
@@ -177,11 +167,9 @@ func TestCloseTask(t *testing.T) {
 		}
 		ctEqual(t, fx.calls(t), []string{
 			"flow tasks tick -C " + fx.wt + " demo 3",
-			"git -C " + fx.wt + " push origin spectre/demo",
-			"git -C " + fx.peer + " push origin spectre/demo",
 		})
-		if got := tcfGit(t, filepath.Clean(fx.peer+".origin"), "rev-parse", "spectre/demo"); got != p3 {
-			t.Errorf("peer origin at %s, want %s", got, p3)
+		if got := tcfGit(t, filepath.Clean(fx.peer+".origin"), "for-each-ref", "refs/heads/spectre/demo"); got != "" {
+			t.Errorf("peer origin carries spectre/demo (%s), want it unpushed", got)
 		}
 	})
 }

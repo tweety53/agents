@@ -397,9 +397,8 @@ entry. At each boundary, in this order:
    ```
 
    `flow-guard close-task` checks that each task's commit exists; only when it does,
-   `flow tasks tick` per **The guard's pass ticks the task.** (below), and
-   `git -C <worktree> push origin spectre/<name>` per **Branch backup**
-   (`skills/flow-contracts/git-boundaries.md`): the parent pushes, never the implementer.
+   `flow tasks tick` per **The guard's pass ticks the task.** (below). It never pushes: the
+   branch is pushed once at this stage's end (**Push at the stage boundary**, below).
 
    `<canonical-worktree>` is the worktree created or resumed in **2. Isolate the workspace**
    above, `<name>` this run's resolved name. **On a change whose resolved worktree set spans more
@@ -413,7 +412,7 @@ entry. At each boundary, in this order:
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and
    never stashes, reverts or resets. Every verdict is printed and read before anything
-   launches: **exit 1** is a re-commit, with nothing ticked or pushed — **The immediate re-commit**
+   launches: **exit 1** is a re-commit, with nothing ticked — **The immediate re-commit**
    (above), else the re-commit row of **Every fix is a fresh one-shot** (below) — and `flow-guard close-task` re-runs before anything below. **Exit 1 with a
    `UI-TASK-UNMEASURED: <task-id> — <reason> — run: <command>` line and `close-task: MEASURE` is the
    other exit-1 cause, and no re-commit repairs it**: a task whose **Files:** touch the project's
@@ -421,7 +420,7 @@ entry. At each boundary, in this order:
    carrying a flagged row. The same re-commit row's fresh one-shot takes the printed line instead:
    it runs the printed command and, where the record is flagged, fixes what the rows name, commits
    and measures again, before `flow-guard close-task` re-runs; **exit 2 — a guard's not-a-verdict close (an unreadable plan, a task it
-   cannot resolve, a commit range git cannot resolve, a usage error), or a failed tick or push —
+   cannot resolve, a commit range git cannot resolve, a usage error), or a failed tick —
    stops the run**: re-committing cannot repair an inability, so it is never folded into
    the re-commit loop.
 
@@ -578,6 +577,12 @@ The parent's own `## lint` runs and boundary checks are bound by the FOREGROUND 
 > thing. A claim you did not run is worth less than one you did: a doc comment, a type signature
 > and a passing test can each read plausibly and be false. Run it before you accept it, and run it
 > before you reject it.
+
+**Push at the stage boundary.** Before `flow stage end` below, and before any stop or handoff
+inside this stage, the parent runs `git -C <worktree> push origin spectre/<name>` once per
+worktree of the resolved set, each its own call with its exit code checked, per **Branch backup**
+(`skills/flow-contracts/git-boundaries.md`): the parent pushes, never the implementer. A failed
+push stops the run with git's output, so no commit exists only locally when the run stops.
 
 On BLOCKED: pause and report. Never guess. A `question:` line `edit denied — <file> — <edit>`
 (**AN EDIT DENIED IS REPORTED, NEVER ROUTED AROUND**, `skills/flow/implementer-brief.md`) is not a

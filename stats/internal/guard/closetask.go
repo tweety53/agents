@@ -10,7 +10,9 @@ import (
 )
 
 // flow-guard close-task — the task-close step of skills/flow/implement.md: tick
-// and push every task a returning implementer committed.
+// every task a returning implementer committed. It never pushes: the branch is
+// pushed once at flow.implement's end, and before any stop inside it (Branch
+// backup, skills/flow-contracts/git-boundaries.md).
 //
 // Usage: flow-guard close-task <canonical-worktree> <name> <merge-base> <task-id>[:<sha|worktree=sha[,worktree=sha…]>]…
 //
@@ -21,22 +23,19 @@ import (
 //
 // In this order:
 //  1. Every task's commit — every map pair's — must exist in its worktree
-//     and sit on that worktree's HEAD, the branch the push below sends; a
-//     commit that does not is refused (exit 1) before anything is ticked or
-//     pushed, so a task never ticks over work that would not leave the
-//     machine.
+//     and sit on that worktree's HEAD, the branch the stage-end push sends; a
+//     commit that does not is refused (exit 1) before anything is ticked, so
+//     a task never ticks over work that would not leave the machine.
 //     A task whose **Files:** touch the project's `ui paths` is refused the
 //     same way (exit 1) unless check-ui-task-measured passes it: its
 //     task-<id>-measure.json exists, is no older than its last source commit
 //     and carries no flagged row. The refusal prints the command to run.
 //  2. `flow tasks tick -C <canonical> <name> <id>` for every task.
-//  3. `git -C <worktree> push origin spectre/<name>` once per distinct
-//     worktree, in first-named order.
 //
-// A failed tick or push is exit 2; every tick and push is still attempted.
+// A failed tick is exit 2; every tick is still attempted.
 //
 // Exit 0 closed; 1 a commit is missing or off the branch — commit it, then
-// re-run — or a UI task is unmeasured, stale or flagged; 2 a tick or push failed, or a usage error.
+// re-run — or a UI task is unmeasured, stale or flagged; 2 a tick failed, or a usage error.
 //
 // A call that times out is inspected before it is retried: `git status
 // --porcelain=v2 --branch` and `git stash list` in the worktree first. A
@@ -54,7 +53,7 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	canonical, name, mergeBase := args[0], args[1], args[2]
 	git := envGit(env)
-	var ids, worktrees []string // worktrees: distinct, in first-named order — one push each
+	var ids []string
 	refused, unmeasured := false, false
 	for _, a := range args[3:] {
 		id, commit, given := strings.Cut(a, ":")
@@ -85,9 +84,6 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 				fmt.Fprintf(stderr, "close-task: task %s: %s is not a commit on %s's HEAD — commit the task there, then re-run\n", id, sha, wt)
 				refused = true
 			}
-			if !slices.Contains(worktrees, wt) {
-				worktrees = append(worktrees, wt)
-			}
 		}
 		if why, msg := utmJudge(env, measured, name, id); why == "measure-missing" || why == "measure-stale" || why == "measure-not-clean" {
 			fmt.Fprintf(stderr, "UI-TASK-UNMEASURED: %s — %s\n", id, msg)
@@ -96,12 +92,12 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if unmeasured {
 		Reason(env, "ui-task-not-measured")
-		fmt.Fprintln(stderr, "close-task: MEASURE — nothing was ticked or pushed")
+		fmt.Fprintln(stderr, "close-task: MEASURE — nothing was ticked")
 		return 1
 	}
 	if refused {
 		Reason(env, "commit-not-on-branch")
-		fmt.Fprintln(stderr, "close-task: RE-COMMIT — nothing was ticked or pushed")
+		fmt.Fprintln(stderr, "close-task: RE-COMMIT — nothing was ticked")
 		return 1
 	}
 
@@ -113,15 +109,6 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 		if code != 0 {
 			fmt.Fprintf(stderr, "close-task: STOP — flow tasks tick failed for task %s\n", id)
 			Reason(env, "tick-failed")
-			rc = 2
-		}
-	}
-	for _, wt := range worktrees {
-		cmd := git("-C", wt, "push", "origin", "spectre/"+name)
-		cmd.Stdout, cmd.Stderr = stdout, stderr
-		if cmd.Run() != nil {
-			fmt.Fprintf(stderr, "close-task: STOP — git push failed in %s\n", wt)
-			Reason(env, "push-failed")
 			rc = 2
 		}
 	}
