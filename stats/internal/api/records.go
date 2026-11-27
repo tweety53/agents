@@ -295,7 +295,11 @@ func ApplyDispatchEnd(ctx context.Context, rw RecordWriter, projectKey, change s
 	if in.EndedAt.IsZero() {
 		in.EndedAt = time.Now()
 	}
-	return rw.EndDispatch(ctx, projectKey, change, in)
+	out, err := rw.EndDispatch(ctx, projectKey, change, in)
+	if err == nil {
+		notifyDispatchEnd()
+	}
+	return out, err
 }
 
 // ApplyDispatchEndAt closes a row as ApplyDispatchEnd does, then, when the

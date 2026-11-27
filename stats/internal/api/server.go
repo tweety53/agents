@@ -440,6 +440,7 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	mux.HandleFunc("GET /api/v1/projects", ph.projects)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches", withChangeProject(cs, logger, rh.recordDispatch))
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/end", withChangeProject(cs, logger, rh.endDispatch))
+	mux.HandleFunc("GET /api/v1/records/{project}/{change}/dispatches/wait", rh.waitDispatches)
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/dispatches/retime", withChangeProject(cs, logger, rh.retimeDispatchRow))
 	mux.HandleFunc("POST /api/v1/records/{project}/{change}/findings", withChangeProject(cs, logger, rh.recordFinding))
 	mux.HandleFunc("PATCH /api/v1/records/{project}/{change}/findings/{ref}", withChangeProject(cs, logger, rh.setFindingStatus))
