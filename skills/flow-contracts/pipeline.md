@@ -263,99 +263,16 @@ five-minute one, so a subagent that waits, or is resumed after a gap, pays a ful
 
 ## Pipeline defects found mid-run
 
-**A `/flow` run that hits a defect in the pipeline itself fixes it within the
-run, unless the fix is `big`.** The pipeline is everything `<agents repo>` ships — a skill, a
-contract, a guard, the `flow` CLI or flowd, a rule — and any saved memory that encodes its
-behaviour. For this section alone `<agents repo>` is a repository the run was given
-(**Reporting back**, `rules/agent-baseline.md`), whichever project the run is in.
-
-**Predict the class before any work, from the blast radius — never from a plan.** Count the
-files the fix must touch: the defective file, its test, and every file `grep -rl` finds in
-`<agents repo>` citing the name or section the fix changes. The fix is `big` when that count is 60 or more. A `big` fix is
-deferred to self-review, and so is one found `big` once under way, which stops there. **Nothing
-else is ever deferred** — not "after the loop", not to the self-review, not to the operator: a
-non-`big` fix lands before the run's final report, and `flow-guard integrate-change commit` stops on a
-`deferred` line under 60 files.
-
-**A fix that reaches outside `<agents repo>` is never `big` for that alone** — a fix to the
-project's own dev tooling (`<project>/.flow/project.md`, build scripts, dev-stack or test-harness config)
-is made like any other. It is committed on the change's own branch in that repository's worktree,
-where it rides the run's route; a repository the change holds no worktree in takes a worktree off
-its default branch, landed by its own `## default landing route`. Production stays out of reach
-(`rules/never-touch-production.mdc`).
-
-**A design choice never makes a fix `big`** — the fixer weighs the options and
-takes the recommended one without asking, whether the choice is where a check lives, a name, a
-scope, a mechanism or whether a guard or a test is added: the fix takes the simplest option
-and notes it, the smallest change that closes the defect, no refactor and no detour.
-
-`<agents-base>` is `<agents repo>`'s own default branch —
-`git -C <agents repo> symbolic-ref --short refs/remotes/origin/HEAD` with its `origin/` prefix
-dropped — never the project's `<default-branch>`, which `<agents repo>` may not carry.
-
-**Every dispatch in the loop is one-shot.** No `SendMessage` to a finished child, and no child
-parks a question for a resume. **Each in-run fix runs the fix of 3. Fix every `flow-fix` finding that is not
-`big`** (`skills/flow-self-review/SKILL.md`), canonical for its fixer pair,
-the paragraphs every prompt carries, the no-progress escalation, and each item the steps below
-cite. One loop carries one defect, `<k>` one more than the highest `<n>` of any
-`pipeline-fix-*-<n>` change record in flowd, worktree name, ref, or `flow.loop-k-used` mark —
-whatever change it was for — so `<k>` is unique across
-`<agents repo>` and no two loops, concurrent or later, share a key (`flow-guard pipeline-fix start`
-refuses any other `<k>`); its name
-`pipeline-fix-<name>-<k>`, `<name>` the running change, stands for `self-review-<name>` there —
-the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-base>` for
-`<fix-base>`; the parent is that file's "this session".
-
-1. **Fix** — the parent creates the fix's own worktree with
-   `<agents repo>/scripts/flow-guard pipeline-fix start <name> <k>` — never the main checkout, never the
-   change's own worktree. `pipeline-fix start`
-   comes before any edit, a parent's hand fix included: `pipeline-fix land` refuses a worktree not on
-   the loop branch `start` creates. It dispatches one fixer, `pipeline-fix-<k>-fix`, its prompt carrying the defect, its evidence and the counted blast
-   radius, as item 1 there states. The prompt carries its `Key: pipeline-fix-<k>-fix` as a line
-   of its own, from which `hooks/enforce-loop-dispatch.py` records the row under the loop's change;
-   the parent never runs `flow record dispatch begin` or `end` for it under its own change. The fixer also adds one test or guard that fails without the fix,
-   and updates a saved memory that encoded the defect.
-2. **Review once, primary only** — as item 2 there states it, on the `loop-review-1` and `loop-review-r` rows, keys `pipeline-fix-<k>-review-1`, `pipeline-fix-<k>-fix-r<r>` and `pipeline-fix-<k>-review-r<r>`.
-3. **Land** — it lands by
-   `<agents repo>`'s `## default landing route`
-   (`flow-guard project-get <agents repo> 'default landing route'`), without asking. Merge and push is
-   `<agents repo>/scripts/flow-guard pipeline-fix land <worktree> <important|minor>`, the last argument the defect's grade as **Record each one** below defines it, run with a Bash `timeout: 600000` —
-   a landing that moved `<agents repo>/stats/` restarts flowd inside the call, and a kill partway leaves it down.
-   Its `red:` lines feed
-   `pipeline-fix-<k>-fix-v<v>` as item 3 there states; three red lands take **Three failed rounds** above.
-
-The loop runs in the background while the run's own work continues; the run still never ends a
-turn with one of its children in flight.
-
-**Record each one.** Every in-run fix, landed or deferred, is one line in the run's narrative —
-`narrative.md` on `/flow` (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`) —
-and one decision bullet in the run's summary
-(**Summary and live-stack line, before every handoff**, below):
-
-```text
-In-run pipeline fix: <agents sha | deferred> — <the defect, one line> (blast radius <N> files)
-```
-
-The sha, there and in the store row below, is the defect's task commit — its first, when the plan
-holds several — re-read by its subject on `<agents-base>` after landing, as item 2 of that fix
-states. A landed fix is also one row in the flow store, recorded once its sha is on
-`<agents-base>`:
-
-```bash
-flow self-review finding -change <name> -angle flow-fix -disposition fixed -ref <sha> -blast-radius <N> -severity <important|minor> -note '<the defect, one line>'
-```
-
-`-severity` grades the defect: `important` when it blocked a step of the run, `minor` otherwise.
+**Load `skills/flow-contracts/pipeline-defects.md` only when** a run hits a defect in the pipeline
+itself — a skill, a contract, a guard, the `flow` CLI or flowd, a rule, or a saved memory that
+encodes its behaviour; it carries the whole in-run fix procedure, its blast-radius class and its
+record.
 
 **A confidence estimate below 100% is one row of its own**, never a self-review finding:
 `flow confidence tags` lists the tags in use and `flow confidence record` files the estimate —
 by the planner triaging a plan check (**Plan triage**, `skills/flow/plan-triage.md`) and by
 whoever turns a task group green (**CONFIDENCE ONCE GREEN**, `skills/flow/implementer-brief.md`).
 `flow confidence` with no argument prints both usages.
-
-On the merge-and-push route `flow-guard pipeline-fix land` records that row itself once its push succeeds — `<name>` read off the branch `pipeline-fix-<name>-<k>`, `-ref` the loop's first commit, `-blast-radius` the number of files the loop's diff touches, `-note` that commit's subject — in the flowd project of the directory it runs from, so the parent runs it from the running change's own working directory; on any other route the parent records the row with the command above.
-
-A deferred fix records no row here; the self-review pass records it once it decides it.
 
 ## Wrong state for this command
 
@@ -376,64 +293,19 @@ explicitly chooses to override. Never advance from a wrong starting state silent
 ## Progress visibility
 
 **`/flow` registers nothing with the harness's task-list mechanism.** Its live progress view on
-Claude Code is the `flow-task-list` mod (`mods/flow-task-list/`): a band above the prompt with one
-row per subagent, drawn from each dispatch's description, and a hint-line tail naming the tracker
-key where the change name leads with one and the phase — read from the run's own `flow stage` marks
-(**Stage marks**, below) — and the plan's done tasks over its total (`19/25`), read from the change's `tasks.md` and its
-worktree's git log on every draw, followed by ` │ ` and a tally of those rows by emoji. A task counts
-as done when it is ticked or a commit carrying its `Task-Id:` trailer is on the change branch since its
-base — `branch.<current>.flowBase` when recorded (its `refs/remotes/origin/` ref first), otherwise
-`refs/remotes/origin/HEAD`, as `<agents repo>/stats/internal/guard/taskrecords.go` resolves it — so a gated task counts before its deferred tick.
-Only the change's worktree in the session's own repository is read: a task whose commit lands in a peer
-repository's worktree counts once it is ticked. Work no subagent carries — brainstorming, an inline-executed task, a finish step —
-shows on the main agent's own `main` row, always first on the band, as `main: <label>`, `in progress` while the
-main turn runs and `waiting` between turns while a subagent still runs, and never numbered as a task.
-Its label is the top-level unit the main agent is on, never a subtask or a Bash command: the latest
-open unit of its own status lines (`rules/be-brief.mdc`) naming a task of the running change's plan,
-else the stage key the run's latest `flow stage begin` named, else the latest open unit of its own
-status lines, else none. A status-line unit is the main agent's own when no subagent row shares its key — its
-name before any `(`, `:` or ` —`, a trailing ` review` dropped — or names one of its task numbers; a
-`done` line closes its unit, and a `blocked` one lasts only until the next main turn starts. A status
-line is never a row of its own. Nested under the `main` row, the band lists each running subagent row with its elapsed
-time and a state word read from its description: `re-review` for a review past its first round
-(`review-2`, `panel-2-…`), one re-run after a fix (`visual-verify-fix-1`, `task-3+4-reviewer-fix-1`) or one naming a
-re-review, `review` for any other review, `fix` for a fix, `in progress` for any other agent. A row with a `Task <x>/<n>`
-prefix is a `review` or `re-review` only when its words are exactly that — `Tasks 3+4+7/<n> (review)` — and `in
-progress` otherwise, whatever its title names. A subagent that failed is drawn `blocked` among the running rows, in
-spawn order, until the next main turn starts. Below those it lists each task of the running change's plan that is neither ticked nor landed and named by
-neither a running row's nor the `main` row's `Task <x>/<n>` prefix as a `pending` row, read from the change's
-`tasks.md` in its worktree on every draw — never stored. Only when no task is pending, the last two done subagent
-rows dispatched under the change the run's latest `flow stage begin` named — with no change marked, the last two
-done since the current main turn began — are drawn above the running rows, in the order they finished, in the room
-the running rows leave; a running row is never left out for a done one. The band draws
-at most five rows besides the `main` row.
+Claude Code is the `flow-task-list` mod (`mods/flow-task-list/`). **Load
+`skills/flow-contracts/progress-visibility.md` only when** the harness lacks the mod, or the run
+edits the mod, the board's rows or labels, or `tasks.md`'s checkbox markers — it carries the
+band's rows, the numbering rules, the view-never-a-record rule and the equivalent block a harness
+without the mod prints.
 
 **Every subagent dispatch's description is the board row's label**, in the shape
 **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`) states — no emoji and
-no state of its own: the mod adds both, and numbers a task's row from its `Task <x>/<n>` prefix. A row
-is numbered only when every task its prefix names is a task of the running change's plan and `<n>` is
-that plan's size, as `Task <x>/<n>` — a group of tasks 3, 4 and 7 as `Task 3+4+7/<n>` while it runs; every
-other row — an in-run pipeline fix, a panel or fix-round row — is shown unnumbered, and no row is numbered by its
-dispatch order. Once done, a row with a `Task <x>/<n>` prefix shows its highest task alone over its own `<n>` —
-that group as `Task 7/<n>` — whether or not a plan is running.
+no state of its own: the mod adds both, and numbers a task's row from its `Task <x>/<n>` prefix.
 Claude Code's own agent panel, not the board, shows a running agent's latest tool-call
 description, so every dispatch prompt also tells the agent to open each tool call's description
 with its dispatch description's unit and its round (`Task 30/31 review-1 — run the drawer tests`,
 `Visual verify review-2 — resolve the specs`).
-
-**The progress view is a view, never a record.** No command, guard or contract reads it back as
-evidence of what was done. `tasks.md` remains the single source of truth for a
-plan's completion state, and `<agents repo>/scripts/flow-guard check-unfinished-work` reads that file.
-
-**No third checkbox marker is added to `tasks.md`** to carry an in-progress state; the in-progress
-count comes from no persisted record at all — the board's rows are session state, never written
-to disk.
-
-**On a harness without the mod, `/flow` prints the equivalent block instead** — a count
-line naming how many steps are done, in progress and open, followed by one line per step marked
-done or not done. One step per whichever cited stage is running at the time, at that stage's own
-granularity — brainstorming checklist items and artifacts on the creating/resuming branch, tasks on
-the implementation branch, a finish run's steps on the integrate/cleanup branch.
 
 ## Quiet progress
 
@@ -442,30 +314,8 @@ start, with `flow-guard project-get <main-checkout> progress --enum quiet` (**Pr
 `skills/flow-contracts/project-configuration.md`): exit 0 turns the mode on for the whole run; exit
 1 leaves it off; exit 3 is reported by name and leaves it off.
 
-**With the mode on, the run writes no status prose of its own on a routine event** — dispatching a
-subagent, a subagent returning clean, sending a subagent a decision, waiting on a background agent,
-a guard passing, a commit landing. This suspends the per-unit and what-I-am-on lines of the
-"Keep the user posted" paragraph of `rules/be-brief.mdc` for the run, and nothing else in that
-rule: a turn still ends only where it says.
-
-**It likewise writes nothing for** a bookkeeping note about a plan-field correction ("Q2
-re-captured unchanged, so its baseline is dropped from task 14's Files.") or an end-of-turn
-progress summary ("Task 13 passed review and is ticked … Task 14 … is running now."), a narrated
-step ("Now commit the frontend link and run close-task for tasks 1–6.", "Run RED first.", "Now the
-fix."), or a stage-level status line ("🔍 Review panel (primary + principles) — in review"). When
-nothing needs the operator — no stop, no auto-resolution line, no handoff — the turn ends with no
-text at all.
-
-**What still prints:**
-
-- a stop for the operator — a question, a `## Question` handback, a blocked step;
-- one line per auto-resolution taken, naming the question and the option (**Auto-resolution**,
-  `skills/flow-contracts/operator-prompts.md`);
-- the handoff block;
-- everything on the **Never compress** list of `rules/be-brief.mdc`, in full.
-
-**Progress visibility** above is unaffected: the flow-task-list mod's view, and the equivalent block
-a harness without it prints, are not the run's status prose.
+**Load `skills/flow-contracts/quiet-progress.md` only when** that call exits 0 — it carries what the
+mode silences and what still prints.
 
 ## Stage marks
 

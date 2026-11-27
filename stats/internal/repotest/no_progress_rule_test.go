@@ -36,9 +36,9 @@ func TestNoProgressRule(t *testing.T) {
 			t.Errorf("pipeline.md's Fewest operator actions lacks %q", want)
 		}
 	}
-	fix := strings.Join(strings.Fields(section(t, "skills/flow-contracts/pipeline.md", "Pipeline defects found mid-run")), " ")
-	if want := "three red lands take **Three failed rounds** above."; !strings.Contains(fix, want) {
-		t.Errorf("pipeline.md's Pipeline defects found mid-run lacks %q", want)
+	fix := repoText(t, "skills/flow-contracts/pipeline-defects.md")
+	if want := "three red lands take **Three failed rounds** (`skills/flow-contracts/pipeline.md`)."; !strings.Contains(fix, want) {
+		t.Errorf("pipeline-defects.md lacks %q", want)
 	}
 	// Every loop's own file cites the rule.
 	loops := []struct{ file, phrase string }{
