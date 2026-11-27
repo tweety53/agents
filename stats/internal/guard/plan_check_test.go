@@ -74,8 +74,8 @@ func TestPlanCheckWritesReportAndDecision(t *testing.T) {
 	if !strings.Contains(r.stdout, "plan-check (judge):") {
 		t.Errorf("stdout %q does not name the judge as the source", r.stdout)
 	}
-	if !strings.Contains(r.stdout, " · 2 groups · gated review on · ") {
-		t.Errorf("stdout %q does not turn the gated review on for two groups", r.stdout)
+	if !strings.Contains(r.stdout, " · 2 groups · panel ") || strings.Contains(r.stdout, "gated") {
+		t.Errorf("stdout %q names a gated review, or lacks the groups and panel", r.stdout)
 	}
 }
 
@@ -327,10 +327,9 @@ func TestDgpvInvalidGroupSizeLimit(t *testing.T) {
 	}
 }
 
-// TestDgpvInvalidMutationNeedsTwoGroups: the review threshold — a decision of one implementer group
-// and no big task turns the gated per-task reviewer off (its pass would re-read the diff the panel's primary reads)
-// and refuses the mutation slot; two groups turn both on.
-func TestDgpvInvalidMutationNeedsTwoGroups(t *testing.T) {
+// TestDgpvInvalidMutationNeedsNoGroupCount: the mutation slot is the review panel's own pick — a
+// decision of one implementer group and no big task may name it as two groups may.
+func TestDgpvInvalidMutationNeedsNoGroupCount(t *testing.T) {
 	t.Parallel()
 	tasks := []pdbTask{{id: "1", size: "small", taskLine: 1}, {id: "2", size: "small", taskLine: 2}}
 	panel := []dgpvEntry{{Slots: []string{"primary"}}, {Slots: []string{"mutation"}}}
@@ -338,26 +337,11 @@ func TestDgpvInvalidMutationNeedsTwoGroups(t *testing.T) {
 	one.Visual.Verify = "not configured"
 	two := one
 	two.Groups = []dgpvEntry{{Tasks: []string{"1"}}, {Tasks: []string{"2"}}}
-	if dgpvGatedReview(one, tasks) || !dgpvGatedReview(two, tasks) {
-		t.Errorf("gated review: one group %v, two groups %v; want off, on", dgpvGatedReview(one, tasks), dgpvGatedReview(two, tasks))
-	}
-	if got := dgpvInvalid(one, tasks, make([]string, 4), false); got != "mutation needs more than one group or a big task" {
+	if got := dgpvInvalid(one, tasks, make([]string, 4), false); got != "" {
 		t.Errorf("one group: dgpvInvalid = %q", got)
 	}
 	if got := dgpvInvalid(two, tasks, make([]string, 4), false); got != "" {
 		t.Errorf("two groups: dgpvInvalid = %q", got)
-	}
-}
-
-// TestDgpvInvalidMutationAdmitsABigTask: one group holding a `**Size:** big` task is large enough
-// for the gated reviewer and the mutation slot.
-func TestDgpvInvalidMutationAdmitsABigTask(t *testing.T) {
-	t.Parallel()
-	tasks := []pdbTask{{id: "1", size: "big", taskLine: 1}}
-	d := dgpvDecision{Groups: []dgpvEntry{{Tasks: []string{"1"}}}, Panel: []dgpvEntry{{Slots: []string{"primary"}}, {Slots: []string{"mutation"}}}}
-	d.Visual.Verify = "not configured"
-	if got := dgpvInvalid(d, tasks, make([]string, 3), false); got != "" {
-		t.Errorf("one group with a big task: dgpvInvalid = %q", got)
 	}
 }
 
