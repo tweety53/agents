@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/caller"
 )
 
 // flow-guard end-dispatch-row <agent-transcript> <session-id> <cwd> [<final-message>] — close a
@@ -24,9 +26,11 @@ import (
 // — a child resumed by a SendMessage whose message carries its own `Key:` line
 // ends that resume's row, never the first prompt's again — else the first
 // prompt's edrMetaKey,
-// under the session's change and token: the session's latest open stage run,
+// under the session's change -- the session's latest open stage run,
 // else its latest, of a change that is no loop's own (as the begin hook
-// reads them). A loop key (`pipeline-fix-…`, `self-review-…`) and a verifier
+// reads them) -- and its dispatcher's token, the one the begin hook recorded
+// it under: caller.For the session and the sidecar's `parentAgentId`, the
+// main thread's when it names none. A loop key (`pipeline-fix-…`, `self-review-…`) and a verifier
 // key (`visual-verify…`, which visual-verify-pass close ends) are left alone.
 //
 // The outcome reads the agent's final message — the hook payload's
@@ -82,7 +86,8 @@ func endDispatchRow(args []string, env Env, stdout, stderr io.Writer) int {
 			return na(key + " is ended by its own loop or guard")
 		}
 	}
-	change, token := edrSessionChange(env, args[1])
+	change := edrSessionChange(env, args[1])
+	token := caller.For(args[1], edrParent(args[0]))
 	if change == "" || token == "" {
 		return na("no flow change for session " + args[1])
 	}
@@ -142,6 +147,17 @@ func edrMetaKey(transcript string) string {
 		return ""
 	}
 	return "agent-" + meta.ToolUseID
+}
+
+// edrParent is the agent that launched transcript's agent, off its sidecar's `parentAgentId`; ""
+// for the main thread's child or without a sidecar.
+func edrParent(transcript string) string {
+	b, _ := os.ReadFile(strings.TrimSuffix(transcript, ".jsonl") + ".meta.json")
+	var meta struct {
+		Parent string `json:"parentAgentId"`
+	}
+	_ = json.Unmarshal(b, &meta)
+	return meta.Parent
 }
 
 func edrOutcome(key, final string) string {
@@ -219,9 +235,9 @@ func edrText(raw json.RawMessage) string {
 	return b.String()
 }
 
-// edrSessionChange is the session's change and token from flowd's stage
+// edrSessionChange is the session's change from flowd's stage
 // runs, as hooks/enforce-agent-baseline.py's session_change reads them.
-func edrSessionChange(env Env, sessionID string) (change, token string) {
+func edrSessionChange(env Env, sessionID string) string {
 	addr := env.Getenv("FLOW_ADDR")
 	if addr == "" {
 		addr = "http://127.0.0.1:4173"
@@ -229,7 +245,7 @@ func edrSessionChange(env Env, sessionID string) (change, token string) {
 	q := url.Values{"session_id": {sessionID}, "sort": {"-started_at"}, "limit": {"50"}}
 	resp, err := (&http.Client{Timeout: 3 * time.Second, Transport: &http.Transport{}}).Get(addr + "/api/v1/stage-runs?" + q.Encode())
 	if err != nil {
-		return "", ""
+		return ""
 	}
 	defer resp.Body.Close()
 	var body struct {
@@ -240,7 +256,7 @@ func edrSessionChange(env Env, sessionID string) (change, token string) {
 		} `json:"stageRuns"`
 	}
 	if json.NewDecoder(resp.Body).Decode(&body) != nil {
-		return "", ""
+		return ""
 	}
 	var pick *struct {
 		ChangeName   string  `json:"changeName"`
@@ -261,9 +277,9 @@ func edrSessionChange(env Env, sessionID string) (change, token string) {
 		}
 	}
 	if pick == nil {
-		return "", ""
+		return ""
 	}
-	return pick.ChangeName, pick.SessionToken
+	return pick.ChangeName
 }
 
 // flow-guard sweep-dispatch-rows <subagents-dir> <session-id> <cwd> — close the rows of agents whose
@@ -317,7 +333,7 @@ func sweepDispatchRows(args []string, env Env, stdout, stderr io.Writer) int {
 // end-dispatch-row leaves them to it, so a round that was interrupted, superseded or never
 // launched an agent would otherwise leave its rows open for good.
 func sweepVisualVerifyRows(args []string, env Env) {
-	change, _ := edrSessionChange(env, args[1])
+	change := edrSessionChange(env, args[1])
 	if change == "" {
 		return
 	}

@@ -168,7 +168,7 @@ func TestVisualVerifyPassUsage(t *testing.T) {
 		// No harness in the environment either: "no harness" is a usage error
 		// only where envHarness has nothing to fall back to.
 		getenv := func(k string) string {
-			if k == "CLAUDECODE" || k == "FLOW_HARNESS" {
+			if k == "CLAUDECODE" || k == "FLOW_HARNESS" || k == "CLAUDE_CODE_SESSION_ID" || k == "FLOW_SESSION_TOKEN" {
 				return ""
 			}
 			return f.getenv(k)

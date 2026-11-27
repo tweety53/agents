@@ -18,3 +18,21 @@ func TestEnvHarness(t *testing.T) {
 		}
 	}
 }
+
+// envToken: $FLOW_SESSION_TOKEN, else the calling agent's token (internal/caller), else "".
+func TestEnvToken(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct{ flow, session, agent, want string }{
+		{"mf-x", "s", "a", "mf-x"},
+		{"", "s", "a", "cc-s-a"},
+		{"", "s", "", "cc-s-main"},
+		{"", "", "a", ""},
+	} {
+		env := Env{Getenv: func(k string) string {
+			return map[string]string{"FLOW_SESSION_TOKEN": c.flow, "CLAUDE_CODE_SESSION_ID": c.session, "FLOW_CALLER_AGENT": c.agent}[k]
+		}}
+		if got := envToken(env); got != c.want {
+			t.Errorf("%+v: envToken = %q, want %q", c, got, c.want)
+		}
+	}
+}

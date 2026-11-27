@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/tweety53/agents/stats/internal/caller"
 )
 
 // flow-guard hook enforce-agent-baseline — the PreToolUse hook that blocks subagent dispatches
@@ -42,18 +44,18 @@ import (
 // row).
 //
 // It begins, best-effort, in a flow session, a dispatch's ledger row when none is open (KAN-1115,
-// decision hook-same-file): the session's change and session token are read off the store as its
+// decision hook-same-file): the session's change is read off the store as its
 // latest open stage run, else its latest, of any command, skipping a loop's own runs -- a change
 // named `pipeline-fix-...` or `self-review-...`, whose stage runs check-loop-dispatch's begins open
-// in the parent's session; `flow record dispatches` lists its rows, and when none is open (empty
+// in the parent's session; the row's session token is the dispatcher's, caller.For the session and
+// the payload's `agent_id` (the main thread's without one); `flow record dispatches` lists its rows, and when none is open (empty
 // `outcome`) under the dispatch's key the hook runs `flow record dispatch begin` itself -- the key
 // the prompt's column-0 `Key:` line, else the description's first word; the role the prompt's
 // `Role:` line mapped back as launchRoleID (stats/cmd/flow/record.go) maps it; the call's model and
 // effort. The begin is written only after every deny check has passed, so a launch the hook denies
 // leaves no row. The row's end is the await-own-agents hook's, through flow-guard
 // end-dispatch-row. The ledger never denies a dispatch: a dispatch with no key or no mapped role, a
-// begin `flow` refuses, an unreachable store, no stage begin for the session, a stage run with no
-// session token, an absent or failing `flow` CLI, or an unparseable answer lets the dispatch
+// begin `flow` refuses, an unreachable store, no stage begin for the session, an absent or failing `flow` CLI, or an unparseable answer lets the dispatch
 // through with no begin. Nothing is begun once the session's change is FINISHED in the store.
 //
 // A planning agent (Explore, Plan) is begun under its `explore-<n>` or `design-<n>` key; one
@@ -160,7 +162,7 @@ func enforceAgentBaseline(env Env, payload map[string]any, stdout, _ io.Writer) 
 		_, _ = io.WriteString(stdout, hookDenyJSON(reason))
 		change := ""
 		if e.sessionID != "" {
-			change, _, _, _ = eabSessionChange(env, e.sessionID)
+			change, _, _ = eabSessionChange(env, e.sessionID)
 		}
 		hookRecordIncident(env, "enforce-agent-baseline", reason, e.cwd, change)
 	}
@@ -353,7 +355,8 @@ func (e *eab) beginRow() (args []string, reason string) {
 	if key == "" || role == "" || e.sessionID == "" || !cwdOK || !e.inFlowRun() {
 		return nil, ""
 	}
-	change, project, token, stage := eabSessionChange(e.env, e.sessionID)
+	change, project, stage := eabSessionChange(e.env, e.sessionID)
+	token := caller.For(e.sessionID, strOf(e.payload["agent_id"]))
 	if change == "" {
 		return nil, ""
 	}
@@ -361,7 +364,7 @@ func (e *eab) beginRow() (args []string, reason string) {
 	if project != "" && eabProjectKey(main) != project {
 		return nil, ""
 	}
-	if token == "" || main == "" {
+	if main == "" {
 		return nil, ""
 	}
 	worktree := main + "-worktrees/" + change
@@ -543,7 +546,7 @@ func (e *eab) changeFinished() bool {
 	if e.sessionID == "" {
 		return false
 	}
-	change, key, _, _ := eabSessionChange(e.env, e.sessionID)
+	change, key, _ := eabSessionChange(e.env, e.sessionID)
 	if key == "" {
 		if _, ok := e.payload["cwd"].(string); ok {
 			key = eabProjectKey(eabMainCheckout(e.env, e.cwd))
@@ -560,17 +563,17 @@ func (e *eab) changeFinished() bool {
 // eabSessionChange is the session's latest open stage run, else its latest stage run, of any
 // command, skipping a loop's own runs -- a change named `pipeline-fix-...` or `self-review-...`,
 // whose stage runs check-loop-dispatch's begins open in the parent's session: its change, project
-// key, session token and stage. An open run wins over a later one already ended, so a
+// key and stage. An open run wins over a later one already ended, so a
 // pipeline-fix run that began and ended inside an open sdd-tdd run does not name the session's
 // change from then on (kan-1099 self-review, F12: row 139 was never begun). All "" when the store
 // does not answer.
-func eabSessionChange(env Env, sessionID string) (change, project, token, stage string) {
+func eabSessionChange(env Env, sessionID string) (change, project, stage string) {
 	// ponytail: an open run older than the 50 latest is missed; filter ended_at server-side if that bites.
 	q := url.Values{"session_id": {sessionID}, "sort": {"-started_at"}, "limit": {"50"}}
 	v, err := hookGetJSON(env, hookFlowAddr(env)+"/api/v1/stage-runs?"+q.Encode(), hookBound(env, 2*time.Second))
 	body, _ := v.(map[string]any)
 	if err != nil || body == nil {
-		return "", "", "", ""
+		return "", "", ""
 	}
 	list, _ := body["stageRuns"].([]any)
 	var runs []map[string]any
@@ -589,7 +592,7 @@ func eabSessionChange(env Env, sessionID string) (change, project, token, stage 
 	if run == nil && len(runs) > 0 {
 		run = runs[0]
 	}
-	return strOf(run["changeName"]), strOf(run["projectKey"]), strOf(run["sessionToken"]), strOf(run["stage"])
+	return strOf(run["changeName"]), strOf(run["projectKey"]), strOf(run["stage"])
 }
 
 // eabMainCheckout is cwd's main checkout, from its git common dir; "" outside a repository.

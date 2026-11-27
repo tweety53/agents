@@ -21,13 +21,13 @@ import (
 //
 // Usage:
 //   flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> \
-//     --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... \
+//     --harness <h> [--session-token mf-<t>] --merge-base <worktree>=<sha>... \
 //     [--worktree <worktree>]... [--since <worktree>=<sha>]... \
 //     [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... \
 //     [--app <worktree>:<app-root>=<url>]... \
 //     [--continue [--started]]
 //   flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> \
-//     --session-token mf-<t>
+//     [--session-token mf-<t>]
 //   flow-guard visual-verify-pass close --check-only <report> <motions named> [--mockups <dir>] [--design <design.md>]
 //   flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype]
 //
@@ -37,7 +37,8 @@ import (
 //   <name>                the plain change name
 //   <key>                 the stage's dispatch key (`visual-verify`, or the
 //                         one **The loop** gives a round's re-run)
-//   --harness, --session-token  the stage's begin mark; the token is mf-<t>
+//   --harness, --session-token  the stage's begin mark; a token given is mf-<t>,
+//                         one left out envToken's (the calling agent's)
 //   --merge-base          each worktree's merge base — one per worktree of the
 //                         set, required without --continue
 //   --worktree            every other worktree of the run's resolved set
@@ -324,7 +325,7 @@ import (
 //   closed <key> <outcome>                   close, on each row end
 //
 // Exit 0 on a NEXT: line; 1 on a STOP: line; 2 a usage error (a missing or
-// unknown subcommand or argument, a token not mf-<t>, no --harness, a
+// unknown subcommand or argument, a token given not mf-<t>, no token given or inferred, no --harness, a
 // --merge-base, --since or --round-base not <worktree>=<sha>, an --app not
 // <worktree>:<app-root>=<url>, a --defects not <worktree>=<frame>[,<frame>…]
 // or with no --round-base for its worktree, --started without --continue, a <motions
@@ -338,8 +339,8 @@ import (
 // line; exit 2 is a usage error or an unreadable input.
 func init() { Registry["visual-verify-pass"] = visualVerifyPass }
 
-const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> [--harness <h>] --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... [--app <worktree>:<app-root>=<url>]... [--continue [--started]]\n" +
-	"       flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> --session-token mf-<t>\n" +
+const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> [--harness <h>] [--session-token mf-<t>] --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... [--app <worktree>:<app-root>=<url>]... [--continue [--started]]\n" +
+	"       flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> [--session-token mf-<t>]\n" +
 	"       flow-guard visual-verify-pass close --check-only <report> <motions named> [--mockups <dir>] [--design <design.md>]\n" +
 	"       flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype]"
 
@@ -513,8 +514,13 @@ func (v *vvp) parse(args []string, prepare bool) {
 			v.usage("--defects for " + w + " without --round-base")
 		}
 	}
-	if !strings.HasPrefix(v.token, "mf-") || len(v.token) == 3 {
+	if v.token == "" {
+		v.token = envToken(v.env)
+	} else if !strings.HasPrefix(v.token, "mf-") || len(v.token) == 3 {
 		v.usage("--session-token mf-<literal-token> is required")
+	}
+	if v.token == "" {
+		v.usage("--session-token mf-<literal-token> is required outside a Claude Code session")
 	}
 	if prepare && v.harness == "" {
 		v.usage("--harness is required")

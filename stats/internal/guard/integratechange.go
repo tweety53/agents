@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/caller"
 )
 
 // The contract below moved here from the header of the deleted
@@ -86,7 +88,8 @@ type ic struct {
 //	integrate-change.sh cleanup <main-checkout> <name>
 //
 // Every subcommand also takes --harness <harness> and --session-token
-// <literal token> (else envHarness and $FLOW_SESSION_TOKEN) for its stage
+// <literal token> (else envHarness and envToken: $FLOW_SESSION_TOKEN, else the calling
+// agent's token, internal/caller) for its stage
 // marks; a mark the store cannot take is a warning on stderr, never a stop.
 //
 // prepare  resolves the worktree set (the state file's `worktrees` map, else
@@ -235,7 +238,7 @@ func (c *ic) parse(args []string) {
 		c.die("change-name-not-plain", "change name '%s' is not a plain change name", name)
 	}
 	c.name = name
-	c.harness, c.token = envHarness(c.env), c.env.Getenv("FLOW_SESSION_TOKEN")
+	c.harness, c.token = envHarness(c.env), envToken(c.env)
 	rest := args[3:]
 	for i := 0; i < len(rest); i++ {
 		next := func() string {
@@ -269,7 +272,7 @@ func (c *ic) parse(args []string) {
 		}
 	}
 	if c.harness == "" || c.token == "" {
-		c.die("harness-or-token-missing", "--harness and --session-token are required (or FLOW_HARNESS or CLAUDECODE=1 / FLOW_SESSION_TOKEN)")
+		c.die("harness-or-token-missing", "--harness and --session-token are required (or FLOW_HARNESS or CLAUDECODE=1 / FLOW_SESSION_TOKEN or a Claude Code session)")
 	}
 }
 
@@ -875,6 +878,14 @@ func isFixOf(dir, name string) bool {
 // passes no --harness: $FLOW_HARNESS, else claude-code under Claude Code's
 // CLAUDECODE=1, else "" -- the `flow` CLI's resolveHarness, less its
 // "unknown" floor, so a guard still refuses a mark it cannot attribute.
+// envToken is $FLOW_SESSION_TOKEN, else the calling agent's token (internal/caller), else "".
+func envToken(env Env) string {
+	if t := env.Getenv("FLOW_SESSION_TOKEN"); t != "" {
+		return t
+	}
+	return caller.Token(env.Getenv)
+}
+
 func envHarness(env Env) string {
 	if h := env.Getenv("FLOW_HARNESS"); h != "" {
 		return h

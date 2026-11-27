@@ -25,7 +25,7 @@ import (
 // list's `verifier` row. --key is the row's key, `verify` by default; a re-run
 // passes `verify-<k>` or a fix round's `verify-fix-<k>` (skills/flow/fix.md).
 // --harness and --session-token default as integrate-change's do (envHarness,
-// $FLOW_SESSION_TOKEN).
+// envToken).
 //
 // In order, every step's lines printed as its guard prints them:
 //
@@ -219,7 +219,7 @@ func (c *ic) parseVerify(args []string) (model, effort, key string, claimed bool
 		c.die("change-name-not-plain", "change name '%s' is not a plain change name", args[1])
 	}
 	c.name = args[1]
-	c.harness, c.token = envHarness(c.env), c.env.Getenv("FLOW_SESSION_TOKEN")
+	c.harness, c.token = envHarness(c.env), envToken(c.env)
 	key = "verify"
 	rest := args[2:]
 	for i := 0; i < len(rest); i++ {
@@ -251,7 +251,7 @@ func (c *ic) parseVerify(args []string) (model, effort, key string, claimed bool
 		c.die("usage", "%s", usage)
 	}
 	if c.harness == "" || c.token == "" {
-		c.die("harness-or-token-missing", "--harness and --session-token are required (or FLOW_HARNESS or CLAUDECODE=1 / FLOW_SESSION_TOKEN)")
+		c.die("harness-or-token-missing", "--harness and --session-token are required (or FLOW_HARNESS or CLAUDECODE=1 / FLOW_SESSION_TOKEN or a Claude Code session)")
 	}
 	return model, effort, key, claimed
 }

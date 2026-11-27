@@ -29,16 +29,20 @@ func TestEndDispatchRow(t *testing.T) {
 	for _, c := range []struct {
 		name, prompt, final, want string
 		payload                   string
+		meta                      string
 	}{
-		{"implementer", "Role: implementer\nKey: task-3-implementer\n", "status: DONE\ncommit: 3 " + sha + "\n", "-key task-3-implementer -session-token mf-t2 -outcome completed -commit " + sha, ""},
-		{"multi-repo implementer", "Key: task-3-implementer\n", "status: DONE\ncommit: 3 /wt/a=" + sha + ",/wt/b=" + strings.Repeat("b", 40) + "\n", "-outcome completed -commit " + sha, ""},
-		{"gated fix", "Key: task-1+2-reviewer\n", "task 1: clean — x\ntask 2: fix — y\n", "-key task-1+2-reviewer -session-token mf-t2 -outcome fix", ""},
-		{"gated clean", "Key: task-1-reviewer\n", "task 1: clean — x\n", "-outcome clean", ""},
-		{"no final message", "Key: panel-1-primary\n", "", "", ""},
-		{"gated verdict only in the hook payload", "Key: task-1-reviewer\n", "", "-outcome fix", "task 1: fix — y\n"},
-		{"gated verdicts as a bullet list", "Key: task-1+2-reviewer-fix-2\n", "## Verdict\nOne still needs a fix.\n\n- task 1: clean — x\n- task 2: fix — y\n", "-outcome fix", ""},
-		{"loop key", "Key: pipeline-fix-3-fix\n", "done", "", ""},
-		{"no key", "hello", "done", "", ""},
+		// The row is ended under its dispatcher's token: the main thread's, else the parent agent
+		// the sidecar names -- the token the begin hook recorded it under.
+		{"a nested agent's child", "Key: task-4-implementer\n", "done\n", "-key task-4-implementer -session-token cc-s1-a9 -outcome completed", "", `{"parentAgentId":"a9"}`},
+		{"implementer", "Role: implementer\nKey: task-3-implementer\n", "status: DONE\ncommit: 3 " + sha + "\n", "-key task-3-implementer -session-token cc-s1-main -outcome completed -commit " + sha, "", ""},
+		{"multi-repo implementer", "Key: task-3-implementer\n", "status: DONE\ncommit: 3 /wt/a=" + sha + ",/wt/b=" + strings.Repeat("b", 40) + "\n", "-outcome completed -commit " + sha, "", ""},
+		{"gated fix", "Key: task-1+2-reviewer\n", "task 1: clean — x\ntask 2: fix — y\n", "-key task-1+2-reviewer -session-token cc-s1-main -outcome fix", "", ""},
+		{"gated clean", "Key: task-1-reviewer\n", "task 1: clean — x\n", "-outcome clean", "", ""},
+		{"no final message", "Key: panel-1-primary\n", "", "", "", ""},
+		{"gated verdict only in the hook payload", "Key: task-1-reviewer\n", "", "-outcome fix", "task 1: fix — y\n", ""},
+		{"gated verdicts as a bullet list", "Key: task-1+2-reviewer-fix-2\n", "## Verdict\nOne still needs a fix.\n\n- task 1: clean — x\n- task 2: fix — y\n", "-outcome fix", "", ""},
+		{"loop key", "Key: pipeline-fix-3-fix\n", "done", "", "", ""},
+		{"no key", "hello", "done", "", "", ""},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
@@ -51,6 +55,9 @@ func TestEndDispatchRow(t *testing.T) {
 				content += `{"type":"assistant","message":{"content":[{"type":"text","text":` + jsonString(c.final) + `}]}}` + "\n"
 			}
 			writeFile(t, tr, content)
+			if c.meta != "" {
+				writeFile(t, filepath.Join(tmp, "agent.meta.json"), c.meta)
+			}
 			env := Env{Getenv: func(k string) string {
 				switch k {
 				case "FLOW_ADDR":
