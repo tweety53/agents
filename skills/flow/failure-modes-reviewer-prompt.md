@@ -90,6 +90,8 @@
     that clears it as `path:line`, and each value the failure left unconfirmed. Then, per
     clearing line and per unconfirmed value, the `path:line` that re-confirms it or
     `none`; a clearing line with any `none` is the issue below it became.
+    When step 1 lists nothing — the diff touches no such state — this section is the one line
+    `None — <why>`.
 
     ### Summary
     [what behaviours this diff changed or added, which of the four lenses bore on them,

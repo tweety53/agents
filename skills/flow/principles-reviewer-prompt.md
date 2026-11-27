@@ -119,6 +119,8 @@
     Each state the required step listed, the facts it summarises, every line that writes it
     as `path:line`, and a verdict per writer: derives from every fact, or the issue below it
     became.
+    When step 1 lists nothing — the diff touches no such state — this section is the one line
+    `None — <why>`.
 
     ### Summary
     [what the diff touches, which principle groups bore on it, whether project

@@ -98,6 +98,8 @@
 
     Each state the required step listed, with every line that writes it as `path:line` and
     its verdict: still correct, or the issue below it became.
+    When step 1 lists nothing — the diff touches no such state — this section is the one line
+    `None — <why>`.
 
     ### Issues
 
