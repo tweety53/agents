@@ -137,6 +137,8 @@ this file in full first: its prompt is a stub naming this file, never these para
 
 > **STASH:** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output.
 
+> **FILE EDITS:** change a file with the Edit or Write tool, never with an inline script — `python3 -c`/heredoc, `sed -i`, `perl -i`, a `cat >` redirect. A file-path allow rule covers the Edit tool; a shell edit falls to the permission classifier, which may deny it and stop the run.
+
 > **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
 > `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
 > before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
