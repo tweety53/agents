@@ -158,6 +158,11 @@ type rawLine struct {
 	MessageCount      int64             `json:"messageCount"`
 	CompactMetadata   *rawCompactMeta   `json:"compactMetadata"`
 	ToolUseResult     *rawToolUseResult `json:"toolUseResult"`
+	// Origin is who wrote a user line: human for one typed, peer for a
+	// subagent's message, task-notification for a background task's.
+	Origin *struct {
+		Kind string `json:"kind"`
+	} `json:"origin"`
 }
 
 // rawToolUseResult is a user line's top-level "toolUseResult" object, the

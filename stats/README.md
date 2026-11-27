@@ -234,7 +234,9 @@ end cut there; `-no-transcripts` leaves the tool spans out. Every stage run and 
 the time split flowd stored for it: its args carry `llmMs`, `toolMs` (`toolMsBy` per tool, Bash by
 command word) and `humanMs`. The rule (`harvest.TimeSplit`): each gap between two consecutive
 timestamped transcript lines belongs to the line that ends it — an assistant line ends LLM time, a
-user line answering a `tool_use` ends tool time, any other user line (a user message after an
+user line answering a `tool_use` ends tool time, and so does one the harness wrote for a subagent's
+message or a background task's notification (filed under its `origin.kind`, `peer` or
+`task-notification`), any other user line (a user message after an
 assistant turn) ends human time; gaps never overlap, so the three sum to the row's covered span.
 `GET /api/v1/stats/run/{project}/{change}` sums the stored dispatch splits into
 `totals.agentTimeSplit`, and splits `totals.idleMs` the same way into `totals.idleSplit`: the

@@ -13,8 +13,11 @@ import (
 // belongs to the line that ends it -- an assistant line ends llm time (the
 // model was generating it), a user line answering a tool_use ends tool time
 // (the tool was running; filed under the first answered tool, Bash by its
-// command word), any other user line ends human time (a user message after
-// an assistant turn: someone was typing). Gaps never overlap, so the three
+// command word), a user line the harness wrote for a subagent's message or
+// a background task's notification ends tool time too (a delegated agent or
+// task was running; filed under its origin, peer or task-notification), any
+// other user line ends human time (a user message after an assistant turn:
+// someone was typing). Gaps never overlap, so the three
 // sum to the window's covered span; a line stamped before its predecessor
 // adds nothing.
 //
@@ -100,6 +103,8 @@ func TranscriptGaps(raw []byte) []Gap {
 				g.Class = GapLLM
 			case tool != "":
 				g.Class, g.Tool = GapTool, tool
+			case raw.Type == "user" && raw.Origin != nil && (raw.Origin.Kind == "peer" || raw.Origin.Kind == "task-notification"):
+				g.Class, g.Tool = GapTool, raw.Origin.Kind
 			case raw.Type == "user":
 				g.Class = GapHuman
 			}

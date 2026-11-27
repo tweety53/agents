@@ -99,6 +99,26 @@ func TestTranscriptGapsSplitEachGap(t *testing.T) {
 	}
 }
 
+// TestTranscriptGapsFileHarnessMessagesAsTool: a user line the harness
+// wrote -- a subagent's hand-back (origin peer), a background task's
+// notification (origin task-notification) -- ends a tool gap filed under
+// its origin, not human time; a line a human typed (origin human) stays
+// human.
+func TestTranscriptGapsFileHarnessMessagesAsTool(t *testing.T) {
+	t.Parallel()
+	gaps := harvest.TranscriptGaps([]byte(`{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","message":{"content":[{"type":"text","text":"waiting"}]}}
+{"type":"user","timestamp":"2026-01-01T00:10:00Z","isMeta":true,"origin":{"kind":"peer"},"message":{"content":"Another Claude session sent a message"}}
+{"type":"user","timestamp":"2026-01-01T00:11:00Z","origin":{"kind":"task-notification"},"message":{"content":"<task-notification>"}}
+{"type":"user","timestamp":"2026-01-01T00:11:30Z","origin":{"kind":"human"},"message":{"content":"next"}}
+`))
+	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	got := harvest.SplitGaps(gaps, t0, t0.Add(time.Hour))
+	want := harvest.TimeSplit{ToolMs: 660_000, HumanMs: 30_000, ByTool: map[string]int64{"peer": 600_000, "task-notification": 60_000}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("split:\n got %+v\nwant %+v", got, want)
+	}
+}
+
 // TestTokenTranscriptPath: a cc- token names its agent's transcript -- the
 // session's own file for main, the agent's subagents file otherwise -- and
 // an mf-/fi- token names none.
