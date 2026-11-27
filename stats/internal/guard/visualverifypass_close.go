@@ -433,8 +433,8 @@ func (v *vvp) endStage() {
 // vvcPath is an absolute path token of a report line.
 var vvcPath = regexp.MustCompile(`/[^\s,;]+`)
 
-// commit is step 12 (decision close-commits-final-reports): the report's
-// `spec:` path, every PNG, and the full app suite's spec, zip and resolved
+// commit is step 12 (decision close-commits-final-reports): the manifest's
+// specs and composites, every PNG the report names, and the full app suite's spec, zip and resolved
 // PNGs — each in the checkout it lives in,
 // pathspec-scoped, under `test: record the <key> visual verification` with
 // trailer `Flow-Key: flow.visual-verify`. A checkout on a branch other than
@@ -461,12 +461,23 @@ func (v *vvp) commit(w string, report []byte) {
 		}
 		byTop[top] = append(byTop[top], p)
 	}
+	// The spec and each composite are the manifest's, never a report line.
+	var m vvmManifestOut
+	if b, err := os.ReadFile(vrManifestPath(filepath.Join(w, ".superpowers", "sdd", "verify-report-"+v.key+".md"))); err == nil {
+		_ = json.Unmarshal(b, &m)
+	}
+	for _, s := range m.Specs {
+		add(s)
+	}
+	for _, p := range m.Pairs {
+		add(p.Composite)
+	}
 	for _, l := range strings.Split(string(report), "\n") {
 		l = strings.TrimSpace(l)
 		if !strings.HasPrefix(l, "- ") {
 			continue
 		}
-		isSpec := strings.HasPrefix(l, "- spec:") || strings.HasPrefix(l, "- full app suite")
+		isSpec := strings.HasPrefix(l, "- full app suite")
 		for _, p := range vvcPath.FindAllString(l, -1) {
 			if isSpec || strings.HasSuffix(p, ".png") {
 				add(p)
@@ -523,15 +534,15 @@ func (v *vvp) gitChild(dir string, args ...string) (string, bool) {
 var vvcFrameID = regexp.MustCompile(`[A-Za-z0-9][\w.-]*/[A-Za-z0-9][\w.-]*`)
 
 // vvcReportFrames is the comma-joined frame ids of a report's `- frames:` line
-// (`<n>/<m> — <id>; <id>: <reason>`), "" when it names none.
+// (`<id>; <id>: <reason>`), "" when it names none.
 func vvcReportFrames(report []byte) string {
 	var ids []string
 	for _, l := range strings.Split(string(report), "\n") {
-		m := flFramesLine.FindStringSubmatch(l)
+		m := vrFramesLine.FindStringSubmatch(l)
 		if m == nil {
 			continue
 		}
-		ids = append(ids, vvcFrameID.FindAllString(m[3], -1)...)
+		ids = append(ids, vvcFrameID.FindAllString(m[1], -1)...)
 	}
 	return strings.Join(ids, ",")
 }

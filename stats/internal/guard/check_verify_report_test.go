@@ -148,22 +148,24 @@ func TestCheckVerifyReportStep10WithACitedPrototype(t *testing.T) {
 }
 
 // TestCheckVerifyReportAccountsForEveryCapture pins that every PNG the
-// resolver prints for the report's `- spec:` names its own view line
-// (group-allowed-pairs-roles self-review); a view no frame is composed for
-// owes nothing more.
+// resolver prints for the manifest's spec names its own view line
+// (group-allowed-pairs-roles self-review), and every manifest frame its own
+// verdict line.
 func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 	t.Parallel()
 	const allDone = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
 	for _, tc := range []struct {
 		name, drop, shots string
+		spec              bool
 		rc                int
 		want              string
 	}{
-		{"every capture accounted", "", "tests/visual", 0, "VERIFY-REPORT-COMPLETE"},
-		{"a capture unnamed", "- a-open: ", "tests/visual", 1, "a-open-darwin.png is on no"},
-		{"frame lines removed", "/vv/a-roles-darwin.png", "tests/visual", 0, "VERIFY-REPORT-COMPLETE"},
-		{"no spec line", "- spec: ", "tests/visual", 0, "VERIFY-REPORT-COMPLETE"},
-		{"resolver finds nothing", "", "nowhere", 0, "VERIFY-REPORT-COMPLETE"},
+		{"every capture accounted", "", "tests/visual", true, 0, "VERIFY-REPORT-COMPLETE"},
+		{"a capture unnamed", "- a-open: ", "tests/visual", true, 1, "a-open-darwin.png is on no"},
+		{"a frame verdict omitted", "- mock-frame-03: ", "tests/visual", true, 1, "mock-frame-03 has no `- mock-frame-03: match | differs` line"},
+		{"a frame omitted but named on the frames line", "- mock-frame-03: ", "tests/visual", true, 0, "VERIFY-REPORT-COMPLETE"},
+		{"no spec in the manifest", "- a-open: ", "tests/visual", false, 0, "VERIFY-REPORT-COMPLETE"},
+		{"resolver finds nothing", "", "nowhere", true, 0, "VERIFY-REPORT-COMPLETE"},
 	} {
 		root := t.TempDir()
 		writeFile(t, filepath.Join(root, ".flow/project.md"), rvsSection(tc.shots))
@@ -172,18 +174,24 @@ func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 		writeFile(t, filepath.Join(snaps, "a-roles-darwin.png"), "")
 		lines := []string{
 			allDone,
-			"- spec: <root>/tests/visual/a.spec.ts\n",
 			"- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + " — clean\n",
 			"- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + " — clean\n",
-			"- mock-frame-03: <root>/vv/a-roles-darwin.png diff=n/a — match\n",
+			"- mock-frame-03: match\n",
+		}
+		if strings.Contains(tc.name, "frames line") {
+			lines = append(lines, "- frames: mock-frame-03: capture unchanged since abc1234\n")
 		}
 		var body strings.Builder
 		for _, l := range lines {
 			if tc.drop == "" || !strings.Contains(l, tc.drop) {
-				body.WriteString(strings.ReplaceAll(l, "<root>", root))
+				body.WriteString(l)
 			}
 		}
-		vrtManifest(t, filepath.Join(root, ".superpowers/sdd"), "visual-verify", "mock-frame-03")
+		var specs []string
+		if tc.spec {
+			specs = []string{filepath.Join(root, "tests/visual/a.spec.ts")}
+		}
+		vrtManifest(t, filepath.Join(root, ".superpowers/sdd"), "visual-verify", "mock-frame-03", specs)
 		path := filepath.Join(root, ".superpowers/sdd/verify-report-visual-verify.md")
 		writeFile(t, path, "## Report\n"+body.String())
 		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
@@ -218,11 +226,11 @@ func TestCheckVerifyReportAccountsForAnUnchangedView(t *testing.T) {
 		writeFile(t, filepath.Join(snaps, "a-open-darwin.png"), "")
 		writeFile(t, filepath.Join(snaps, "a-roles-darwin.png"), "")
 		body := allDone +
-			"- spec: " + filepath.Join(root, "tests/visual/a.spec.ts") + "\n" +
 			"- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + tc.open + "\n" +
-			"- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + tc.roles + "\n"
+			"- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + tc.roles + "\n" +
+			"- frames: mock-frame-03: capture unchanged since abc1234\n"
 		sdd := filepath.Join(root, ".superpowers/sdd")
-		m := vvmManifestOut{Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{},
+		m := vvmManifestOut{Specs: []string{filepath.Join(root, "tests/visual/a.spec.ts")}, Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{},
 			Pairs: []vvmPair{{Frame: "mock-frame-03", Capture: filepath.Join(snaps, "a-roles-darwin.png")}}}
 		mb, err := json.Marshal(m)
 		if err != nil {
@@ -285,14 +293,14 @@ const vrtDone = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done 
 
 // vrtFrame is a composed frame's one `match` line.
 func vrtFrame(id string) string {
-	return "- " + id + ": /c/" + id + ".png diff=0.1 — match\n"
+	return "- " + id + ": match\n"
 }
 
 // vrtManifest writes the manifest `visual-verify-pass measure` writes for key,
-// built from its own types, with frame's pair carrying over.
-func vrtManifest(t *testing.T, sdd, key, frame string, over ...any) {
+// built from its own types, over specs, with frame's pair carrying over.
+func vrtManifest(t *testing.T, sdd, key, frame string, specs []string, over ...any) {
 	t.Helper()
-	m := vvmManifestOut{Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{},
+	m := vvmManifestOut{Specs: specs, Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{},
 		Pairs: []vvmPair{{Frame: frame, Bands: []any{}, Seams: []any{}, Over: over}}}
 	body, err := json.Marshal(m)
 	if err != nil {
@@ -309,7 +317,7 @@ func vrtManifest(t *testing.T, sdd, key, frame string, over ...any) {
 func TestCheckVerifyReportMatchesAndDifferences(t *testing.T) {
 	t.Parallel()
 	over := []any{map[string]any{"row": 1, "status": "missing", "keys": ""}, map[string]any{"row": 3, "status": "paired", "keys": "box.width"}}
-	const differs = "- W1: /c/W1.png diff=0.1 — differs\n- W1 differs: Try button — mockup x 40–740, capture x 48–728, inset 8 px a side\n- W1 differs: List label — mockup ink, capture grey #777\n"
+	const differs = "- W1: differs\n- W1 differs: Try button — mockup x 40–740, capture x 48–728, inset 8 px a side\n- W1 differs: List label — mockup ink, capture grey #777\n"
 	for _, tc := range []struct {
 		name, key, body string
 		manifest        bool
@@ -319,14 +327,14 @@ func TestCheckVerifyReportMatchesAndDifferences(t *testing.T) {
 		{"match line alone", "visual-verify", vrtFrame("W1"), true, 0, "COMPLETE"},
 		{"difference lines alone", "visual-verify", differs, true, 0, "COMPLETE"},
 		{"rest report reads its key's manifest", "visual-verify-rest-2", vrtFrame("W1"), true, 0, "COMPLETE"},
-		{"a verdict with no difference line", "visual-verify", "- W1: /c/W1.png diff=0.1 — differs\n", true, 1, "W1 reads neither match nor lists a `- W1 differs:"},
+		{"a verdict with no difference line", "visual-verify", "- W1: differs\n", true, 1, "W1 reads neither match nor lists a `- W1 differs:"},
 		{"a match beside a difference line", "visual-verify", vrtFrame("W1") + "- W1 differs: rail — mockup 8 px, capture 6 px\n", true, 1, "W1 reads match and has 1 `- W1 differs:` lines"},
 		{"no manifest", "visual-verify", vrtFrame("W1"), false, 1, "no readable manifest"},
 		{"a frame in no pair", "visual-verify", vrtFrame("W2"), true, 1, "W2 is in no pair of the manifest"},
 	} {
 		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
 		if tc.manifest {
-			vrtManifest(t, sdd, "visual-verify", "W1", over...)
+			vrtManifest(t, sdd, "visual-verify", "W1", nil, over...)
 		}
 		path := filepath.Join(sdd, "verify-report-"+tc.key+".md")
 		writeFile(t, path, "## Report\n"+vrtDone+tc.body)
@@ -351,10 +359,10 @@ func TestCheckVerifyReportFrames(t *testing.T) {
 	spec := filepath.Join(root, "tests/visual/a.spec.ts")
 	writeFile(t, spec+".mockups", "frame none\na-open.png fo\na-roles.png fr\n")
 	sdd := filepath.Join(root, ".superpowers/sdd")
-	vrtManifest(t, sdd, "visual-verify", "fr")
-	roles := vrtDone + "- spec: " + spec + "\n- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + " — clean\n" +
-		"- fr: " + root + "/vv/a-roles-darwin.png diff=n/a — match\n"
-	open := vrtDone + "- spec: " + spec + "\n- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + " — clean\n"
+	vrtManifest(t, sdd, "visual-verify", "fr", []string{spec})
+	roles := vrtDone + "- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + " — clean\n" +
+		"- fr: match\n"
+	open := vrtDone + "- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + " — clean\n"
 	for _, tc := range []struct {
 		name, key, body string
 		args            []string
@@ -382,19 +390,19 @@ func TestCheckVerifyReportFrames(t *testing.T) {
 func TestCheckVerifyReportBlanketDecision(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
-		name, a, b string
-		rc         int
-		want       string
+		name, da, db, a, b string
+		rc                 int
+		want               string
 	}{
-		{"one decision over both frames", "0.1003 — match (decision d1)", "0.1087 — match (decision d1)", 1, "decision d1 excuses 2 frames"},
-		{"a reason each", "0.1003 — match (decision d1)", "0.1087 — match (decision d2)", 0, "COMPLETE"},
-		{"shared decision below the ceiling", "0.01 — match (decision d1)", "0.02 — match (decision d1)", 0, "COMPLETE"},
+		{"one decision over both frames", "0.1003", "0.1087", "d1", "d1", 1, "decision d1 excuses 2 frames"},
+		{"a reason each", "0.1003", "0.1087", "d1", "d2", 0, "COMPLETE"},
+		{"shared decision below the ceiling", "0.01", "0.02", "d1", "d1", 0, "COMPLETE"},
 	} {
 		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
-		pair := func(f string) vvmPair {
-			return vvmPair{Frame: f, Bands: []any{}, Seams: []any{}, Over: []any{}}
+		pair := func(f, diff string) vvmPair {
+			return vvmPair{Frame: f, Diff: diff, Bands: []any{}, Seams: []any{}, Over: []any{}}
 		}
-		body, err := json.Marshal(vvmManifestOut{Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{}, Pairs: []vvmPair{pair("A"), pair("B")}})
+		body, err := json.Marshal(vvmManifestOut{Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{}, Pairs: []vvmPair{pair("A", tc.da), pair("B", tc.db)}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -402,10 +410,7 @@ func TestCheckVerifyReportBlanketDecision(t *testing.T) {
 		design := filepath.Join(sdd, "design.md")
 		writeFile(t, design, "**ID:** d1\n\n**ID:** d2\n")
 		path := filepath.Join(sdd, "verify-report-visual-verify.md")
-		frame := func(id, rest string) string {
-			return strings.Replace(vrtFrame(id), "diff=0.1 — match", "diff="+rest, 1)
-		}
-		writeFile(t, path, "## Report\n"+vrtDone+frame("A", tc.a)+frame("B", tc.b))
+		writeFile(t, path, "## Report\n"+vrtDone+"- A: match (decision "+tc.a+")\n- B: match (decision "+tc.b+")\n")
 		r := runGuard("check-verify-report", []string{path, "0", "--design", design}, Env{Getenv: os.Getenv})
 		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
 			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)

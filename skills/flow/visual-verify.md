@@ -299,7 +299,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
 13. **Stop the stack step 5 started** — the parent, once the verifier's report is in. A
     stack the operator already had running is left alone.
 
-The report's `frames:` line counts against the change's frame list (step 10) and names every declared frame absent from the
+The report's `frames:` line names every frame of the change's frame list (step 10) absent from the
 per-frame lines, with its reason. `visual-verification.md` (step 11) cites the frame's
 `<changeRoot>/visual-verification/matrix/<frame id>.json` under its entry, and the report lists
 only each frame's differences, a frame with none on its one `match` line. **The parent reads no
@@ -334,7 +334,7 @@ round base's — pixels or DOM — outside those regions is a regression, report
 naming the region and the fix whose diff moved it, even where the new capture still matches the
 mockup.
 
-**One decision never excuses several large frames.** `check-verify-report` refuses a report where two or more frames with `diff=` above 0.03 cite the same `(decision <ID>)` on their frame line; each such frame needs a reason of its own.
+**One decision never excuses several large frames.** `check-verify-report` refuses a report where two or more frames whose manifest `diff` is above 0.03 cite the same `(decision <ID>)` on their frame line; each such frame needs a reason of its own.
 
 **A departure caused by missing account data is fixed by adding the data, never explained away.** When a
 frame shows an element the render lacks because the seeded account lacks the data that shows it —

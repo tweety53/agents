@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -56,11 +57,22 @@ func (f *vvpFix) report(key, root, verdict, body string) string {
 	r := "## Verdict\n- Model: opus\n" + verdict + "\n\n## Report\n- setup: not declared\n- fingerprint: exit 0\n- capture: exit 0\n" +
 		"- full app suite: created — " + shots + "/full-app-suite.spec.ts, 1 screens, capture exit 0\n" +
 		"- full app suite zip: " + shots + "/full-app-suite.zip, 1 PNGs\n" +
-		"- spec: " + shots + "/home.spec.ts\n- home: " + shots + "/home.spec.ts-home.png\n" +
+		"- home: " + shots + "/home.spec.ts-home.png\n" +
 		"- per view, no frame composed: home sweeps: text done\n" + body
 	path := filepath.Join(f.wt, ".superpowers/sdd/verify-report-"+key+".md")
 	writeFile(f.t, path, r)
+	f.manifest(path, shots)
 	return path
+}
+
+// manifest writes the manifest of report's key over shots' capture spec,
+// with pairs.
+func (f *vvpFix) manifest(report, shots string, pairs ...vvmPair) {
+	m, err := json.Marshal(vvmManifestOut{Specs: []string{shots + "/home.spec.ts"}, Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{}, Pairs: append([]vvmPair{}, pairs...)})
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	writeFile(f.t, vrManifestPath(report), string(m))
 }
 
 func vvcVerdict(capture, steps, cause string, departures ...string) string {
@@ -507,6 +519,31 @@ func TestCloseCheckOnlyFailsOnJudgeGap(t *testing.T) {
 	}
 }
 
+// TestCloseCheckOnlyDerivesMechanicalLines: close reads the spec, each frame's
+// composite and diff, and the frame count from the manifest, so a report
+// carrying only judgements is complete; a manifest frame with no verdict line,
+// nor named on the frames line, still leaves it incomplete.
+func TestCloseCheckOnlyDerivesMechanicalLines(t *testing.T) {
+	t.Parallel()
+	f := vvcFixture(t, "| `mockups` | `design/mockups` |\n")
+	writeFile(t, filepath.Join(f.wt, "tests/visual/home.spec.ts.mockups"), "home.png f1\n")
+	design := filepath.Join(f.wt, "spectre/changes/demo/design.md")
+	shots := filepath.Join(f.wt, "tests/visual")
+	pair := vvmPair{Spec: shots + "/home.spec.ts", Frame: "f1", Capture: shots + "/home.spec.ts-home.png", Diff: "0.01", Bands: []any{}, Seams: []any{}, Over: []any{}}
+	args := func(path string) []string {
+		f.manifest(path, shots, pair)
+		return []string{"--check-only", path, "0", "--design", design, "--mockups", filepath.Join(f.wt, "design/mockups")}
+	}
+	path := f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- f1: match\n- steps: "+vvcSteps+"\n")
+	if rc, out, _ := f.run("close", args(path)...); rc != 0 {
+		t.Errorf("a judgement-only report: exit %d, want 0\n%s", rc, out)
+	}
+	path = f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
+	if rc, out, _ := f.run("close", args(path)...); rc != 1 || !strings.Contains(out, "f1 has no `- f1: match | differs` line") {
+		t.Errorf("a frame verdict omitted: exit %d, want 1 naming f1\n%s", rc, out)
+	}
+}
+
 func TestCloseCheckOnlyMockupsNeedsDesign(t *testing.T) {
 	t.Parallel()
 	f := vvcFixture(t, "")
@@ -545,7 +582,7 @@ func TestVisualVerifyPassCloseRefusesAStaleRecord(t *testing.T) {
 
 func TestVvcReportFramesNamesTheRemaindersOwnFrames(t *testing.T) {
 	t.Parallel()
-	r := []byte("- frames: 3/3 — v2/LD12 (earlier pass, report a.md), v2/LD6, v2/LD1\n")
+	r := []byte("- frames: v2/LD12 (earlier pass, report a.md), v2/LD6, v2/LD1\n")
 	if got := vvcReportFrames(r); got != "v2/LD12,v2/LD6,v2/LD1" {
 		t.Fatalf("got %q", got)
 	}

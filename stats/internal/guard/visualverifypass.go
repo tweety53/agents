@@ -223,8 +223,8 @@ import (
 //   5. otherwise the row ends `-outcome completed`, commits, ends the stage,
 //      and prints `NEXT: done`.
 // Every commit is step 12 (decision close-commits-final-reports), never made
-// after `rest`, `redispatch` or `cure-environment`: the report's `- spec:`
-// path, every PNG it names, the full app suite's spec and zip its `- full app
+// after `rest`, `redispatch` or `cure-environment`: the manifest's specs and
+// composites, every PNG the report names, the full app suite's spec and zip its `- full app
 // suite` lines name and the suite PNGs flow-guard resolve-visual-screenshots
 // resolves for that spec — each path that
 // exists committed in the checkout it lives in (a regression checkout's

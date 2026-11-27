@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -64,15 +65,15 @@ import (
 // (`round 1, Q1`, `answer-2 Q1`, `question Q4`) — kan-1102 self-review, F1.
 //
 // With --frames, the frames a `-rest` remainder's own report names (close
-// passes them), the declared list is the declared frames among them, and the
-// frames line's <m> is compared with that count.
+// passes them), the declared list is the declared frames among them.
 //
 // Every report line below is read from the report's `## Report` heading to
 // the next `## ` heading alone: a `## Verdict` departure line never stands in
 // for a per-frame line (decision verdict-only-handback).
 //
-// THE SIDECARS are `<spec>.mockups` beside every spec the report's
-// `- spec: <path>` lines name; a missing sidecar contributes no frame. A
+// THE SIDECARS are `<spec>.mockups` beside every spec of the dispatch
+// manifest's `specs` (verifyreport.go's vrManifestPath); a missing manifest
+// or sidecar contributes no frame. A
 // sidecar line is `<screenshot name> <frame id>`, `#` comments and blank lines
 // ignored.
 //
@@ -82,10 +83,7 @@ import (
 //                                 line — the id may follow other ids joined
 //                                 by ` / `, `- <id> / <frame id> <…>:` — and
 //                                 the `- frames:` line does not name it
-// and, for the report:
-//   no frames line                the report carries no `- frames: <n>/<m>`
-//                                 line while design.md declares a frame
-//   frames <n>/<m> below <k> declared   <m> is smaller than the declared count
+//                                 `<frame id>: <reason>`
 //
 // Prints ONE verdict line to stdout:
 //   FRAME-LIST-COMPLETE: <report file> — <k> declared
@@ -103,8 +101,6 @@ const frameListUsage = "%s: usage: frame-list check, run in-process by visual-ve
 // verifier report's per-frame and `- frames:` lines.
 
 var (
-	flSpecLine   = regexp.MustCompile(`^\s*- spec:\s*(\S+)\s*$`)
-	flFramesLine = regexp.MustCompile(`^\s*- frames:\s*(\d+)/(\d+)(.*)$`)
 	// flConsidered is a decision's rejected-alternatives line: its frames are not declared.
 	flConsidered = regexp.MustCompile(`(?m)^\s*\*\*Considered:\*\*.*$`)
 	// flAnswered is an id in answer position, `Q1=A`: a question label, never a frame.
@@ -174,38 +170,35 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 
 	lines := flReportLines(report)
 	sidecar := map[string]bool{}
-	framesLine := []string(nil)
-	for _, line := range lines {
-		if m := flSpecLine.FindStringSubmatch(line); m != nil {
-			data, err := os.ReadFile(m[1] + ".mockups")
-			if err != nil {
-				continue
-			}
-			for _, l := range strings.Split(string(data), "\n") {
-				f := strings.Fields(l)
-				if len(f) >= 2 && !strings.HasPrefix(f[0], "#") && f[0] != "frame" {
-					sidecar[f[1]] = true
-				}
+	var manifest vvmManifestOut
+	if b, err := os.ReadFile(vrManifestPath(args[2])); err == nil {
+		_ = json.Unmarshal(b, &manifest)
+	}
+	for _, spec := range manifest.Specs {
+		data, err := os.ReadFile(spec + ".mockups")
+		if err != nil {
+			continue
+		}
+		for _, l := range strings.Split(string(data), "\n") {
+			f := strings.Fields(l)
+			if len(f) >= 2 && !strings.HasPrefix(f[0], "#") && f[0] != "frame" {
+				sidecar[f[1]] = true
 			}
 		}
-		if m := flFramesLine.FindStringSubmatch(line); m != nil {
-			framesLine = m
+	}
+	framesLine := ""
+	for _, line := range lines {
+		if m := vrFramesLine.FindStringSubmatch(line); m != nil {
+			framesLine = m[1]
 		}
 	}
 
 	var gaps []string
-	if len(declared) > 0 {
-		if framesLine == nil {
-			gaps = append(gaps, "no frames line")
-		} else if m, _ := strconv.Atoi(framesLine[2]); m < len(declared) {
-			gaps = append(gaps, fmt.Sprintf("frames %s/%s below %d declared", framesLine[1], framesLine[2], len(declared)))
-		}
-	}
 	for _, id := range declared {
 		// A frame the frames line names absent with its reason had no capture, so no sidecar line either.
-		// Only an entry's leading id counts — `<id>: <reason>` after the `—` or a `;`/`,` separator —
-		// never an id the reason text cites.
-		absent := framesLine != nil && regexp.MustCompile(`(^|[—;,])\s*`+regexp.QuoteMeta(id)+`\s*:`).MatchString(framesLine[3])
+		// Only an entry's leading id counts — `<id>: <reason>` at the line's start or after a `—`, `;`
+		// or `,` separator — never an id the reason text cites.
+		absent := regexp.MustCompile(`(^|[—;,])\s*` + regexp.QuoteMeta(id) + `\s*:`).MatchString(framesLine)
 		if !sidecar[id] && !absent {
 			gaps = append(gaps, "no sidecar line: "+id)
 		}

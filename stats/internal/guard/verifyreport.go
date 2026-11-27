@@ -62,18 +62,24 @@ import (
 // `not done`, an n/a on a required step, a block citing no failing exit — is
 // an undone step.
 //
-// With step 10 `done`, every frame id a `- <frame id>: <composite> diff=`
-// line names must be in a pair of this dispatch's manifest,
+// The report carries judgements alone: the spec, each frame's composite and
+// diff, and the frame count are read from this dispatch's manifest,
 // `visual-manifest-<key>.json` beside <report file>, <key> the report's own
-// less any `-rest` or `-rest-<n>` segment — never the committed matrix JSON;
-// a missing or unreadable manifest, or a frame in none of its pairs, is
-// undone. The report lists only what differs: the frame line's verdict, after
-// ` — `, reads `match` for a frame with no difference, and any other verdict
-// needs one `- <frame id> differs: <element> — mockup <…>, capture <…>,
-// <numbers>` line per difference. A `match` frame with a `differs` line, or
-// another verdict with none, is undone.
+// less any `-rest` or `-rest-<n>` segment — never the committed matrix JSON.
 //
-// Given a `## Report` line `- spec: <path>`, the PNGs
+// With step 10 `done`, every frame id a `- <frame id>: match | differs`
+// line names must be in a pair of that manifest; a missing or unreadable
+// manifest, or a frame in none of its pairs, is undone. Every frame of the
+// manifest's pairs (of --frames' list alone, when given) needs its own
+// per-frame line or a mention on the `- frames:` line; each frame with neither
+// is undone. The report lists only what differs: the frame line's verdict
+// reads `match` for a frame with no difference, and `differs` needs one
+// `- <frame id> differs: <element> — mockup <…>, capture <…>, <numbers>` line
+// per difference. A `match` frame with a `differs` line, or another verdict
+// with none, is undone. A `match` citing `(decision <id>)` on two frames
+// whose manifest diff is above vrBlanketCeiling is undone.
+//
+// For each spec of the manifest's `specs`, the PNGs
 // `flow-guard resolve-visual-screenshots <worktree> <spec basename>` prints, the
 // worktree three directories above <report file>, each need a
 // `- <view>: <absolute PNG path>` line; each gap is undone. A view whose own
@@ -82,7 +88,7 @@ import (
 // file — and only for a capture one of the manifest's pairs holds: a scoped
 // fix round's verifier does not read a framed view whose capture is unchanged
 // (skills/flow/visual-verify-verifier.md step 9), and reads every other. No
-// `- spec:` line, a wire contract naming an endpoint, or a resolver exit other
+// readable manifest, a wire contract naming an endpoint, or a resolver exit other
 // than 0 skips the check (group-allowed-pairs-roles self-review: two round-1
 // reports named only the prototype-framed captures). With --frames — the
 // frames a `-rest` remainder's own report names, which close passes — a
@@ -117,16 +123,10 @@ var (
 	vrWireContract = regexp.MustCompile(`^\s*- wire contract:\s*(.*)$`)
 	// A backticked HTML or CSS path design.md cites (kan-1017).
 	vrMockupSource = regexp.MustCompile("`([^`\\s]+\\.(?:html|htm|css))`")
-	// A composed frame's `- <frame id>: <composite> diff=` line.
-	vrPlatformSuffix = regexp.MustCompile(`-(darwin|linux|win32)$`)
-	vrFrameLine      = regexp.MustCompile(`^\s*- (\S+): (\S+) diff=`)
-	// A frame line's numeric diff and the decision its match cites.
-	vrFrameDiff = regexp.MustCompile(`diff=([0-9.]+)\b.*\(decision ([^\s)]+)\)`)
-	// The capture spec a `## Report` names: every PNG the resolver prints for
-	// it needs its own view line (group-allowed-pairs-roles self-review).
-	vrSpecLine = regexp.MustCompile(`^\s*- spec:\s*(\S+)`)
-	// A frame line's verdict, and a composed frame's `differs:` line.
-	vrVerdict     = regexp.MustCompile(`diff=\S*\s+—\s+(.*)$`)
+	// A composed frame's `- <frame id>: match | differs` line, and the decision its match cites.
+	vrFrameLine   = regexp.MustCompile(`^\s*- (\S+): ((?:match|differs)\b.*)$`)
+	vrDecision    = regexp.MustCompile(`\(decision ([^\s)]+)\)`)
+	vrFramesLine  = regexp.MustCompile(`^\s*- frames:\s*(.*)$`)
 	vrDiffersLine = regexp.MustCompile(`^\s*- (\S+) differs:\s*\S`)
 	// A `-rest` or `-rest-<n>` segment of a report's key: its manifest is the key's without it.
 	vrRestSegment = regexp.MustCompile(`-rest(-\d+)?\b`)
@@ -177,10 +177,9 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	inReport := false
 	noView := false
 	var frames []string
-	spec := ""
+	framesLine := ""
 	var reportLines []string
 	verdicts, differs := map[string]string{}, map[string]int{}
-	blanket := map[string][]string{}
 	for _, line := range strings.Split(string(data), "\n") {
 		// Every line is read from `## Report` to the next `## ` heading alone:
 		// the `## Verdict` block above it is the handback, not the record.
@@ -191,8 +190,8 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 			continue
 		}
 		reportLines = append(reportLines, line)
-		if m := vrSpecLine.FindStringSubmatch(line); m != nil && spec == "" {
-			spec = m[1]
+		if m := vrFramesLine.FindStringSubmatch(line); m != nil {
+			framesLine = m[1]
 		}
 		if m := vrStepsLine.FindStringSubmatch(line); m != nil {
 			for _, item := range strings.Split(m[1], " | ") {
@@ -205,14 +204,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if m := vrFrameLine.FindStringSubmatch(line); m != nil {
 			frames = append(frames, m[1])
-			if d := vrFrameDiff.FindStringSubmatch(line); d != nil {
-				if r, _ := strconv.ParseFloat(d[1], 64); r > vrBlanketCeiling {
-					blanket[d[2]] = append(blanket[d[2]], m[1])
-				}
-			}
-			if v := vrVerdict.FindStringSubmatch(line); v != nil {
-				verdicts[m[1]] = strings.TrimSpace(v[1])
-			}
+			verdicts[m[1]] = strings.TrimSpace(m[2])
 		}
 		if m := vrDiffersLine.FindStringSubmatch(line); m != nil {
 			differs[m[1]]++
@@ -278,20 +270,35 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 			undone = append(undone, strings.TrimSpace(id+" "+s))
 		}
 	}
-	// The manifest is read once for both consumers below (KAN-1122).
-	mpath := filepath.Join(filepath.Dir(args[0]), "visual-manifest-"+vrRestSegment.ReplaceAllString(strings.TrimSuffix(strings.TrimPrefix(filepath.Base(args[0]), "verify-report-"), ".md"), "")+".json")
+	// The manifest is read once for every consumer below (KAN-1122): the spec,
+	// each frame's diff and the frame list are its, never the report's.
+	mpath := vrManifestPath(args[0])
 	mbody, merr := os.ReadFile(mpath)
+	var manifest vvmManifestOut
+	mok := merr == nil && json.Unmarshal(mbody, &manifest) == nil
 	if status["10"] == "done" && len(frames) > 0 {
 		undone = append(undone, vrComposed(mpath, mbody, merr, frames, verdicts, differs)...)
+	}
+	if status["10"] == "done" && mok {
+		undone = append(undone, vrUnjudged(manifest.Pairs, reportLines, framesLine, slice)...)
+	}
+	blanket := map[string][]string{}
+	for _, p := range manifest.Pairs {
+		d := vrDecision.FindStringSubmatch(verdicts[p.Frame])
+		if r, _ := strconv.ParseFloat(p.Diff, 64); d != nil && r > vrBlanketCeiling && !slices.Contains(blanket[d[1]], p.Frame) {
+			blanket[d[1]] = append(blanket[d[1]], p.Frame)
+		}
 	}
 	for _, id := range slices.Sorted(maps.Keys(blanket)) {
 		if fs := blanket[id]; len(fs) > 1 {
 			undone = append(undone, fmt.Sprintf("decision %s excuses %d frames above diff=%v (%s) — each needs its own reason", id, len(fs), vrBlanketCeiling, strings.Join(fs, ", ")))
 		}
 	}
-	if spec != "" && !noView {
+	if !noView {
 		key := vrRestSegment.ReplaceAllString(strings.TrimSuffix(strings.TrimPrefix(filepath.Base(args[0]), "verify-report-"), ".md"), "")
-		undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, reportLines, vrScopedCaptures(filepath.Dir(args[0]), key, mbody, merr), slice)...)
+		for _, spec := range manifest.Specs {
+			undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, reportLines, vrScopedCaptures(filepath.Dir(args[0]), key, mbody, merr), slice)...)
+		}
 	}
 	if len(undone) > 0 {
 		fmt.Fprintf(stdout, "VERIFY-REPORT-INCOMPLETE: %s — %s\n", args[0], strings.Join(undone, "; "))
@@ -300,6 +307,13 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "VERIFY-REPORT-COMPLETE: %s\n", args[0])
 	return 0
+}
+
+// vrManifestPath is the manifest of report's dispatch: visual-manifest-<key>.json
+// beside it, <key> the report's own less any `-rest` or `-rest-<n>` segment.
+func vrManifestPath(report string) string {
+	key := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(report), "verify-report-"), ".md")
+	return filepath.Join(filepath.Dir(report), "visual-manifest-"+vrRestSegment.ReplaceAllString(key, "")+".json")
 }
 
 // vrUnaccounted resolves the spec's captures and names each one no
@@ -385,6 +399,23 @@ func vrComposed(path string, body []byte, err error, frames []string, verdicts m
 		}
 	}
 	slices.Sort(undone)
+	return undone
+}
+
+// vrUnjudged names each frame of pairs — of slice alone when it is not nil —
+// with no per-frame verdict line that the frames line does not name either:
+// the manifest is the frame list a verifier cannot shorten.
+func vrUnjudged(pairs []vvmPair, lines []string, framesLine string, slice []string) []string {
+	var undone []string
+	for _, p := range pairs {
+		f := p.Frame
+		if slice != nil && !slices.Contains(slice, f) || flPerFrame(f, lines) || flToken(f).MatchString(framesLine) {
+			continue
+		}
+		if l := fmt.Sprintf("%s has no `- %s: match | differs` line", f, f); !slices.Contains(undone, l) {
+			undone = append(undone, l)
+		}
+	}
 	return undone
 }
 

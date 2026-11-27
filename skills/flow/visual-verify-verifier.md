@@ -220,8 +220,7 @@ reported BLOCKED, naming it.
    re-captures the same list, not the views its fix touched, and the specs `capture` runs are
    chosen to reach every frame on it, never the other way round — a denominator the verifier
    derives from the specs it happened to run is the partial pass wearing a fraction. The report's
-   `frames:` line counts against that list and names every declared frame absent from the
-   per-frame lines, with its reason.
+   `frames:` line names every declared frame absent from the per-frame lines, with its reason.
    In a scoped fix round, a frame that neither step 9's `changed:` line, the prompt's `moved:`, nor
    the prompt's `defects:` — the frames this round's defects name, always judged even when their
    capture did not change — names is not read again (step 9). The `frames:` line names
@@ -336,7 +335,9 @@ for a range of frames: `match` when it shows no difference, else one `- <frame i
 line per difference — element, what the mockup draws, what the capture draws, the numbers. No
 sweep, spot-check, reading or per-element `n/a` line is written. The report check refuses a
 `done` step 10 while a frame line reads `match` beside a `differs:` line, reads anything else
-with none, or names a frame no manifest pair holds.
+with none, names a frame no manifest pair holds, or leaves a manifest frame with neither its own
+line nor a place on the `frames:` line. The spec, composite paths, `diff` ratios and frame counts
+are the manifest's, never re-typed into the report.
 The per-view `- <view>: <PNG>` lines are status lines: `clean` or the defect, never a narration
 of what was read.
 
@@ -369,16 +370,12 @@ attribution beside it — one cause drawn on 34 frames is one line, never one li
 - full app suite: <created | updated> — <absolute spec path>, <n> screens, capture exit <n>
 - full app suite zip: <absolute zip path>, <n> PNGs | not written — <reason>
 - identical: <the PNG names of one byte-identical group> — <why the views draw the same pixels, or the defect> | none
-- spec: <absolute spec path>
 - <view>: <absolute PNG path> — clean | <the defect seen> | capture unchanged since <round base>
-- measure: exit <n> — <absolute manifest path>
-- mockups: <not declared | no map for <spec> | exit <n>>
-- <frame id>: <absolute composite path> diff=<ratio> — match | differs
+- <frame id>: match | differs
 - <frame id> differs: <element> — mockup <what it draws>, capture <what it draws>, <numbers>
-- frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
+- frames: <every declared frame id with no line above and why> | none absent
 - motion: <named motions recorded>/<named> — <each motion id: its strip directory, frame count, and `clean` or each departing frame's index and what it shows> | n/a — no motions named
   - <a strip recorded beyond the named motions>
 - wire contract: <method> <path> — <the shape and wire names read, and the acceptance behaviour seen, or each departure> | n/a — no wire contract named
-- visual-verification.md: written | not written — no view captured
 - steps: 4 <status> | 8 <status> | 9 <status> | 10 <status> | 11 <status> | motion <status>
 ```

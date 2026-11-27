@@ -18,48 +18,44 @@ func TestCheckFrameList(t *testing.T) {
 	cases := []struct {
 		name    string
 		sidecar string // "" writes no sidecar
-		report  string // %SPEC% is replaced by the spec path
+		report  string
 		rc      int
 		want    string
 	}{
 		{"every declared frame captured and reported",
 			"q1 Q1\nq2 Q2\n# comment\nm1 M1\n",
-			"- spec: %SPEC%\n- Q1: /c/q1.png diff=0.1 — match\n- Q2 bands: 3/3 paired\n- M1: /c/m1.png diff=0.2 — match\n- frames: 3/3 — none absent\n",
+			"- Q1: match\n- Q2 bands: 3/3 paired\n- M1: match\n",
 			0, "FRAME-LIST-COMPLETE"},
 		{"a declared frame named absent with its reason",
 			"q1 Q1\nq2 Q2\nm1 M1\n",
-			"- spec: %SPEC%\n- Q1: /c/q1.png diff=0.1 — match\n- M1: /c/m1.png diff=0.2 — match\n- frames: 2/3 — Q2: reached only by inference from Q1\n",
+			"- Q1: match\n- M1: match\n- frames: Q2: reached only by inference from Q1\n",
 			0, "3 declared"},
 		{"a frame named absent with its reason needs no sidecar line",
 			"q1 Q1\nm1 M1\n",
-			"- spec: %SPEC%\n- Q1: /c/q1.png diff=0.1 — match\n- M1: /c/m1.png diff=0.2 — match\n- frames: 2/3 — Q2: reached only by inference from Q1\n",
+			"- Q1: match\n- M1: match\n- frames: Q2: reached only by inference from Q1\n",
 			0, "3 declared"},
 		{"a reason citing a declared frame does not mark it absent",
 			"m1 M1\n",
-			"- spec: %SPEC%\n- M1: /c/m1.png diff=0.2 — match\n- frames: 1/3 — Q2: reached only by inference from Q1\n",
+			"- M1: match\n- frames: Q2: reached only by inference from Q1\n",
 			1, "no sidecar line: Q1; no report line: Q1"},
-		// KAN-549: design.md declared more frames than the verifier counted.
-		{"verifier counted fewer than declared",
+		// KAN-549: design.md declared more frames than the verifier reached.
+		{"verifier reported fewer than declared",
 			"q1 Q1\nq2 Q2\nm1 M1\n",
-			"- spec: %SPEC%\n- Q1: /c/q1.png diff=0.1 — match\n- frames: 1/1\n",
-			1, "frames 1/1 below 3 declared; no report line: M1; no report line: Q2"},
+			"- Q1: match\n",
+			1, "no report line: M1; no report line: Q2"},
 		{"no sidecar line for a declared frame",
 			"q1 Q1\nq2 Q2\n",
-			"- spec: %SPEC%\n- Q1: x\n- Q2: x\n- M1: x\n- frames: 3/3\n",
+			"- Q1: x\n- Q2: x\n- M1: x\n",
 			1, "no sidecar line: M1"},
 		{"no sidecar file at all",
 			"",
-			"- spec: %SPEC%\n- Q1: x\n- Q2: x\n- M1: x\n- frames: 3/3\n",
+			"- Q1: x\n- Q2: x\n- M1: x\n",
 			1, "no sidecar line: M1; no sidecar line: Q1; no sidecar line: Q2"},
 		// kan-1008's self-review: one per-frame line naming two frames reports both.
 		{"a per-frame line naming frames joined by a slash",
 			"q1 Q1\nq2 Q2\nm1 M1\n",
-			"- spec: %SPEC%\n- Q1 / Q2 / M1 bands: 3/3 paired — match\n- frames: 3/3 — none absent\n",
+			"- Q1 / Q2 / M1 bands: 3/3 paired — match\n",
 			0, "FRAME-LIST-COMPLETE"},
-		{"no frames line",
-			"q1 Q1\nq2 Q2\nm1 M1\n",
-			"- spec: %SPEC%\n- Q1: x\n- Q2: x\n- M1: x\n",
-			1, "no frames line"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -84,9 +80,10 @@ func TestCheckFrameList(t *testing.T) {
 			if err := os.WriteFile(designPath, []byte(design), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(report, []byte("## Report\n"+strings.ReplaceAll(tc.report, "%SPEC%", spec)), 0o644); err != nil {
+			if err := os.WriteFile(report, []byte("## Report\n"+tc.report), 0o644); err != nil {
 				t.Fatal(err)
 			}
+			flManifest(t, report, spec)
 			r := runGuard("check-frame-list", []string{designPath, mockups, report}, Env{Getenv: os.Getenv})
 			if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
 				t.Fatalf("rc=%d out=%q; want rc=%d containing %q", r.rc, r.out, tc.rc, tc.want)
@@ -103,6 +100,13 @@ func TestCheckFrameList(t *testing.T) {
 			t.Fatalf("args %q: rc=%d out=%q; want exit 2", args, r.rc, r.out)
 		}
 	}
+}
+
+// flManifest writes report's dispatch manifest naming spec, the one place the
+// check reads the spec from.
+func flManifest(t *testing.T, report, spec string) {
+	t.Helper()
+	writeFile(t, vrManifestPath(report), `{"specs":["`+spec+`"],"pairs":[]}`)
 }
 
 // TestCheckFrameListExpandsRangesAndSkipsConsidered pins kan-1009's
@@ -130,14 +134,15 @@ func TestCheckFrameListExpandsRangesAndSkipsConsidered(t *testing.T) {
 		if err := os.WriteFile(d, []byte(design), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(r, []byte("## Report\n"+strings.ReplaceAll(report, "%SPEC%", spec)), 0o644); err != nil {
+		if err := os.WriteFile(r, []byte("## Report\n"+report), 0o644); err != nil {
 			t.Fatal(err)
 		}
+		flManifest(t, r, spec)
 		return runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
 	}
 	const design = "Frames `docs/design/mockups/LM-R1.png` … `docs/design/mockups/LM-R4.png`.\n" +
 		"  **Considered:** bare `R<n>.png` — `R1.png`/`R2.png` already exist.\n"
-	const all = "- spec: %SPEC%\n- LM-R1: x\n- LM-R2: x\n- LM-R3: x\n- LM-R4: x\n- frames: 4/4\n"
+	const all = "- LM-R1: x\n- LM-R2: x\n- LM-R3: x\n- LM-R4: x\n"
 	if r := check(design, all); r.rc != 0 || !strings.Contains(r.out, "4 declared") {
 		t.Errorf("full report: rc=%d out=%q; want 0 with 4 declared", r.rc, r.out)
 	}
@@ -145,7 +150,7 @@ func TestCheckFrameListExpandsRangesAndSkipsConsidered(t *testing.T) {
 	if r.rc != 1 || !strings.Contains(r.out, "no report line: LM-R2") || strings.Contains(r.out, ": R1") || strings.Contains(r.out, ": R2") {
 		t.Errorf("gap report: rc=%d out=%q; want 1 naming LM-R2 and no R1/R2", r.rc, r.out)
 	}
-	if r := check("Frames LM-R1 … X3.\n", "- spec: %SPEC%\n- LM-R1: x\n- frames: 1/1\n"); r.rc != 0 || !strings.Contains(r.out, "1 declared") {
+	if r := check("Frames LM-R1 … X3.\n", "- LM-R1: x\n"); r.rc != 0 || !strings.Contains(r.out, "1 declared") {
 		t.Errorf("mixed-prefix range: rc=%d out=%q; want 0 with 1 declared", r.rc, r.out)
 	}
 	// A huge numeric span costs one check per mockup, never one per integer.
@@ -182,11 +187,11 @@ func TestCheckFrameListSkipsAnsweredQuestionLabels(t *testing.T) {
 	if err := os.WriteFile(d, []byte(design), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(r, []byte("## Report\n\n- frames: 0/0\n"), 0o644); err != nil {
+	if err := os.WriteFile(r, []byte("## Report\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	res := runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
-	if res.rc != 1 || !strings.Contains(res.out, "below 2 declared") || !strings.Contains(res.out, "no sidecar line: AX1") || !strings.Contains(res.out, "no sidecar line: AXF1") {
+	if res.rc != 1 || !strings.Contains(res.out, "no sidecar line: AX1") || !strings.Contains(res.out, "no sidecar line: AXF1") {
 		t.Errorf("rc=%d out=%q; want 1 with 2 declared, AX1 and AXF1 named", res.rc, res.out)
 	}
 	for _, id := range []string{"Q1", "Q2", "R2"} {
@@ -219,10 +224,11 @@ func TestCheckFrameListReadsReportAlone(t *testing.T) {
 	if err := os.WriteFile(design, []byte("Frames Q1 and Q2.\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	body := "## Verdict\n- Q2: fill differs from the mockup\n\n## Report\n- spec: " + spec + "\n- Q1: /c/q1.png diff=0.1 — match\n- frames: 2/2\n"
+	body := "## Verdict\n- Q2: fill differs from the mockup\n\n## Report\n- Q1: match\n"
 	if err := os.WriteFile(report, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	flManifest(t, report, spec)
 	r := runGuard("check-frame-list", []string{design, mockups, report}, Env{Getenv: os.Getenv})
 	if r.rc != 1 || !strings.Contains(r.out, "no report line: Q2") {
 		t.Fatalf("rc=%d out=%q; want exit 1 naming no report line: Q2", r.rc, r.out)
@@ -250,9 +256,10 @@ func TestCheckFrameListSkipsCitedQuestionLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 	d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
-	if err := os.WriteFile(r, []byte("## Report\n- spec: "+spec+"\n- hero: x\n- frames: 1/1\n"), 0o644); err != nil {
+	if err := os.WriteFile(r, []byte("## Report\n- hero: x\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	flManifest(t, r, spec)
 	check := func(design string) guardResult {
 		t.Helper()
 		if err := os.WriteFile(d, []byte(design), 0o644); err != nil {
@@ -296,17 +303,17 @@ func TestCheckFrameListDeclaresCitedSubDirectoryFrames(t *testing.T) {
 	check := func(design string, ids ...string) guardResult {
 		t.Helper()
 		var side, rep strings.Builder
-		rep.WriteString("## Report\n- spec: " + spec + "\n")
+		rep.WriteString("## Report\n")
 		for i, id := range ids {
 			fmt.Fprintf(&side, "shot%d %s\n", i, id)
 			rep.WriteString("- " + id + ": ok\n")
 		}
-		fmt.Fprintf(&rep, "- frames: %d/%d\n", len(ids), len(ids))
 		for p, b := range map[string]string{spec + ".mockups": side.String(), r: rep.String(), d: design} {
 			if err := os.WriteFile(p, []byte(b), 0o644); err != nil {
 				t.Fatal(err)
 			}
 		}
+		flManifest(t, r, spec)
 		return runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
 	}
 	a := "Frames: `docs/design/mockups/kan-1084/` (FV1, P3), SL1 from `docs/design/mockups/kan-1083/`.\nPushed header (P3).\n"
@@ -345,17 +352,17 @@ func TestCheckFrameListRootNeedsAnExplicitCitationBesideASubDirectory(t *testing
 	check := func(design string, ids ...string) guardResult {
 		t.Helper()
 		var side, rep strings.Builder
-		rep.WriteString("## Report\n- spec: " + spec + "\n")
+		rep.WriteString("## Report\n")
 		for i, id := range ids {
 			fmt.Fprintf(&side, "shot%d %s\n", i, id)
 			rep.WriteString("- " + id + ": ok\n")
 		}
-		fmt.Fprintf(&rep, "- frames: %d/%d\n", len(ids), len(ids))
 		for p, b := range map[string]string{spec + ".mockups": side.String(), r: rep.String(), d: design} {
 			if err := os.WriteFile(p, []byte(b), 0o644); err != nil {
 				t.Fatal(err)
 			}
 		}
+		flManifest(t, r, spec)
 		return runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
 	}
 	a := "Frames: `docs/design/mockups/v2-plan/` (A1). The kernel keeps rules R1–R49 (R1, R6, R2).\n"
@@ -394,11 +401,12 @@ func TestCheckFrameListFrames(t *testing.T) {
 		rc         int
 		want       string
 	}{
-		{"the slice reported", "- Q1: x\n- Q2: x\n- frames: 2/2\n", []string{"--frames", "Q1,Q2"}, 0, "FRAME-LIST-COMPLETE: " + report + " — 2 declared"},
-		{"a slice frame unreported", "- Q1: x\n- frames: 1/2 — none absent\n", []string{"--frames", "Q1,Q2"}, 1, "no report line: Q2"},
-		{"the whole list without --frames", "- Q1: x\n- Q2: x\n- frames: 2/2\n", nil, 1, "frames 2/2 below 3 declared; no report line: M1"},
+		{"the slice reported", "- Q1: x\n- Q2: x\n", []string{"--frames", "Q1,Q2"}, 0, "FRAME-LIST-COMPLETE: " + report + " — 2 declared"},
+		{"a slice frame unreported", "- Q1: x\n", []string{"--frames", "Q1,Q2"}, 1, "no report line: Q2"},
+		{"the whole list without --frames", "- Q1: x\n- Q2: x\n", nil, 1, "FRAME-LIST-GAP: " + report + " — no report line: M1"},
 	} {
-		writeFile(t, report, "## Report\n- spec: "+spec+"\n"+tc.body)
+		writeFile(t, report, "## Report\n"+tc.body)
+		flManifest(t, report, spec)
 		r := runGuard("check-frame-list", append([]string{design, mockups, report}, tc.args...), Env{Getenv: os.Getenv})
 		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
 			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
