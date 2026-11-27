@@ -429,7 +429,7 @@ func TestEnforceAgentBaselineHookBeginsTheRow(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	main, _ := beginRepo(t)
-	want := "record dispatch begin -C " + main + " -change c1 -role panel-fix -model opus -effort low -key panel-fix-2 -session-token mf-t1 -policy-role panel-fix"
+	want := "record dispatch begin -C " + main + " -change c1 -role panel-fix -model opus -effort low -key panel-fix-2 -session-token cc-s1-main -policy-role panel-fix"
 	env, log := beginEnv(t, `[]`)
 	if denied, out := runBegin(t, beginPayload(t, main, "panel-fix-2 fix", "Role: panel-fix\nfix", "flow-low", "opus", ""), env...); denied {
 		t.Fatalf("denied: %s", out)
@@ -459,7 +459,7 @@ func TestEnforceAgentBaselineHookReadsTheOpenStageRun(t *testing.T) {
 	if denied, out := runBegin(t, beginPayload(t, main, "task-52-implementer-fix-3 finish remainder", "Role: implementer\nKey: task-52-implementer-fix-3\nfix", "flow-low", "opus", ""), env...); denied {
 		t.Fatalf("denied: %s", out)
 	}
-	want := "record dispatch begin -C " + main + " -change c1 -role implementer -model opus -effort low -task 52 -key task-52-implementer-fix-3 -session-token mf-t1 -policy-role implementer"
+	want := "record dispatch begin -C " + main + " -change c1 -role implementer -model opus -effort low -task 52 -key task-52-implementer-fix-3 -session-token cc-s1-main -policy-role implementer"
 	if got := flowCalls(t, log, "record dispatch begin"); len(got) != 1 || got[0] != want {
 		t.Errorf("begins = %q, want [%q]", got, want)
 	}
@@ -492,7 +492,7 @@ func TestEnforceAgentBaselineHookSkipsALoopsOpenStageRun(t *testing.T) {
 			if denied, out := runBegin(t, beginPayload(t, main, "task-3-implementer finish", "Role: implementer\nKey: task-3-implementer\nfix", "flow-low", "opus", ""), env...); denied {
 				t.Fatalf("denied: %s", out)
 			}
-			want := "record dispatch begin -C " + main + " -change c1 -role implementer -model opus -effort low -task 3 -key task-3-implementer -session-token mf-t1 -policy-role implementer"
+			want := "record dispatch begin -C " + main + " -change c1 -role implementer -model opus -effort low -task 3 -key task-3-implementer -session-token cc-s1-main -policy-role implementer"
 			if got := flowCalls(t, log, "record dispatch begin"); len(got) != 1 || got[0] != want {
 				t.Errorf("begins = %q, want [%q]", got, want)
 			}

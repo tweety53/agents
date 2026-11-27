@@ -12,7 +12,7 @@ import (
 // A problem report typed as a plain message, with no /flow prefix, needs to know which
 // change it belongs to before the SKILL.md rule can turn it into a fix run. The change name
 // is not carried in session state a hook can read directly, but every /flow run marks its
-// own stages with `flow stage begin -command '/flow' ... -session-token mf-<token> <name>`,
+// own stages with `flow stage begin -command '/flow' ... <name>`,
 // and the stats daemon harvests those marks out of the session's transcript into its store,
 // binding each to the session that made it. This hook asks the store for this session's latest
 // stage-begin mark of any command, skipping a loop's own runs -- a change named `pipeline-fix-...`
