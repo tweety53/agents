@@ -21,54 +21,8 @@ verdict.
 
 **An item no change to the tree can finish** is recorded as a guard false positive per **A verdict the operator calls
 structural** below, and the run continues to the
-landing route. The outstanding items and their dispositions go into the
-message of the commit that carries the planning artifacts and into the handoff's `**Decisions:**`
-lines. The three courses below are never offered.
-
-## The three courses
-
-On `OUTSTANDING` the operator is offered **exactly three** courses:
-
-| Course | What run 1 then does |
-|--------|----------------------|
-| **Stop — I'll finish it first** *(recommended)* | stop, leaving the change at `IN_PROGRESS` with nothing staged, committed or pushed |
-| **Continue — integrate anyway** | proceed to the landing question, carrying the outstanding list into the handoff — and, where the operator called the verdict structural, records it as a guard false positive per **A verdict the operator calls structural** (`skills/flow/unfinished-work-gate.md`) |
-| **File or join a Jira follow-up, then continue** | put the outstanding items on a follow-up issue — joining an open one where the operator confirms a candidate, otherwise filing a new one — then proceed |
-
-The breakdown is relayed with the guard's own hand-verification procedure, so the operator can
-verify before choosing, per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`).
-
-**Stop is marked as the recommendation, and the reason is stated rather than left to be inferred.**
-
-There is no fourth course, and in particular none that hands back to `/flow`'s implement phase inline. The filed
-issue is labelled and linked per
-**Labels and body of issues the pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`).
-
-**File or join a Jira follow-up** puts the outstanding items on a follow-up issue and continues.
-See **Follow-up issues** (`skills/flow-contracts/jira-followups.md`) for the search, the
-confirmation, and how it is labelled; a filing that fails is one skipped-with-reason line and the
-run still continues.
-
-**A filing that fails is one skipped-with-reason line, and the run still proceeds** — the same
-degradation every other Jira write in this pipeline has, per
-**Never blocking** (`skills/flow-contracts/jira-integration.md`). Creation can fail for the usual
-reasons (auth, permission, an unknown project key or label) and there may be no tracker configured
-at all. None of them changes the operator's answer, which was *continue*: the outstanding list still
-reaches the handoff, which is where this change requires the
-durable record to be. A failed filing is never silently upgraded to **Stop**, and never passes
-unmentioned.
-
-**Three more outcomes of that course behave the same way**, and all three belong to
-**Follow-up issues** (`skills/flow-contracts/jira-followups.md`) rather than here: the search
-that finds a candidate asks the operator to confirm the join before writing to it, a declined
-confirmation files a new follow-up instead, and a search that *fails* files nothing and says so. Each
-is one line and none of them stops the run or changes the answer already given. That file is
-canonical for all of it — including the ordering of a join's three writes and what a partial one
-reports.
-
-**What the operator integrated over is recorded where a transcript is not**: the outstanding list
-goes into the message of the commit that carries the planning artifacts, and into run 1's handoff.
-The signals that produce that list are the script's own.
+landing route. The outstanding items and their dispositions go into the handoff's `**Decisions:**`
+lines.
 
 ## A verdict the operator calls structural
 

@@ -53,8 +53,7 @@ refused for auth, permission, an unknown project key, a label the project does n
 missing required field, and a session may have no Atlassian tooling at all. Any of those is one
 `⚠ Jira: skipped — <reason>` line and the command continues, per
 **Never blocking** (`skills/flow-contracts/jira-integration.md`). A command whose operator chose an option that
-*includes* filing — run 1's "File or join a Jira follow-up, then continue" is the one that exists today — still
-does the rest of what that option promised; the filing failing does not silently convert the answer
+*includes* filing still does the rest of what that option promised; the filing failing does not silently convert the answer
 into a different one, and it is never left unmentioned.
 
 ### Follow-up issues
