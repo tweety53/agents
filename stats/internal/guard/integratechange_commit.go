@@ -63,7 +63,7 @@ func (c *ic) commit() {
 				c.stopAs("subject-not-given", "commit-two", "no implementation subject given for "+c.wt[o]+" — pass "+c.wt[o]+"=<subject>")
 			}
 			if !c.commitTwo(c.wt[o], subj, c.squashed[o]) {
-				c.stopAs("commit-two-failed", "commit-two", "the implementation or plan commit failed in "+c.wt[o]+" — report its lines")
+				c.stopAs("commit-two-failed", "commit-two", "the implementation commit failed in "+c.wt[o]+" — report its lines")
 			}
 			os.Remove(f)
 		}
@@ -87,9 +87,8 @@ func icReadTrimmed(f string) string {
 // in wt, refused (false, its verdict printed) where wt is a main checkout or
 // not on spectre/<name>: it stages everything and commits it under subj — skipped, not
 // failed, when nothing is staged — with `Flow-Key: flow.commit-two` and each
-// trailer (a squashed commit's `Task-Id: <n>`) in its trailer block, then
-// commits anything left under c.planMsg the same way. The change directory
-// is in neither commit: `<spec root>/changes/` must be gitignored (false,
+// trailer (a squashed commit's `Task-Id: <n>`) in its trailer block. The
+// change directory is not in it: `<spec root>/changes/` must be gitignored (false,
 // named, otherwise), and `<spec root>/changes/<name>/` is first untracked,
 // kept on disk, where an older tooling committed it. False on any git
 // failure, its own lines passed through.
@@ -120,6 +119,5 @@ func (c *ic) commitTwo(wt, subj string, trailers []string) bool {
 		impl = append(impl, "--trailer", t)
 	}
 	return c.gitPass("-C", wt, "rm", "-r", "-q", "-f", "--cached", "--ignore-unmatch", "--", changes+c.name) &&
-		c.gitPass("-C", wt, "add", "-A", "--", ".") && commit(impl...) &&
-		c.gitPass("-C", wt, "add", "-A") && commit("-m", c.planMsg)
+		c.gitPass("-C", wt, "add", "-A", "--", ".") && commit(impl...)
 }

@@ -48,7 +48,7 @@ type ic struct {
 	childEnv       []string
 
 	main, name, harness, token string
-	planMsg, route             string
+	route                      string
 	squashed                   map[int][]string // by order index: the Task-Id trailers each reshape folds
 	prArgs, subjects           []string
 
@@ -67,7 +67,7 @@ type ic struct {
 // integrateChange is integrate-change.sh — the mechanical half of a bare /flow at IN_PROGRESS:
 // run 1 (integrate) and run 2 (cleanup), sequenced through the existing
 // guards so the parent agent does only what needs judgement — the commit
-// subjects, the narrative paragraph, the self-review pass's dispatches and
+// subjects, the self-review pass's dispatches and
 // filing prompt, the Jira calls, and every stop that needs the operator.
 //
 // skills/flow-contracts/finish-contract-run1.md and finish-contract-run2.md
@@ -234,7 +234,6 @@ func (c *ic) parse(args []string) {
 	}
 	c.name = name
 	c.harness, c.token = c.env.Getenv("FLOW_HARNESS"), c.env.Getenv("FLOW_SESSION_TOKEN")
-	c.planMsg = "chore(spectre): plan " + name
 	rest := args[3:]
 	for i := 0; i < len(rest); i++ {
 		next := func() string {
