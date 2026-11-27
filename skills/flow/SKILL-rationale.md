@@ -168,12 +168,9 @@ Each passage below sat inline in a run-loaded phase file beside the rule it moti
 
 - ***A final report that is a block closes its dispatch `-outcome blocked -cause <cause>`, never `completed`.*** — The cause is what makes environment-caused blocks a query the store answers instead of a footnote in one run's ledger.
 
-### visual-verify.md — A pass over more than 25 frames runs as up to four shards at once
+### visual-verify.md — A pass is one verifier per worktree, whatever its frame count
 
-- *…up to four shards at once* — Only an unscoped pass with one surviving worktree shards — a set whose other worktrees dispatch no verifier included, since its keys, lanes and loop verdict are a single worktree's: sharding every pass and every survivor meant a `CLOSES-LOOP` verdict aggregated across shards and per-(worktree, shard) state in `close`, about 600 lines of Go against 350, and the aggregated verdict was the most error-prone part.
-- *`prepare` runs step 8's `setup` and `capture` itself* — concurrent Playwright runs of one spec race on its PNGs, spec and sidecar, and a serial capture verifier ahead of the shards costs a dispatch of latency on every sharded pass.
-- *The parent runs each shard's `close` one after another* — the parent never runs two at once, so a stage-file lock in `close` would guard a concurrency that never occurs.
-- *A shard's writing state check signs in as an account it registers fresh* — a write on the seeded account another shard's hand captures read disturbs them, and the disturbed capture reads as a departure that becomes a fix task against a defect that does not exist.
+- *…whatever its frame count* — A verifier that judges each frame from its composite and its `over` rows and reports only differences reads 30 frames in about two minutes, less than one shard of a sharded pass took over the same frames; shards added a `close` per slice, record parts to merge and per-shard keys, and every extra row is one more that can be left open.
 
 ### visual-verify.md — Visual verification, step 3 (pre-flight)
 

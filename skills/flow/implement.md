@@ -50,7 +50,7 @@ These eleven rows are **every** Agent-tool dispatch the parent may make, across 
 | minor fix, one per round that raised only Minors | `minor-fix` | `panel-<round>-minor-fix` | `skills/flow/review-panel.md`, **Panel re-runs** |
 | fix implementer, one per fix | `implementer` | `fix-<k>-implementer` | `skills/flow/fix.md`, step 2 |
 | fix reviewer, one per fix | `panel-reviewer` | `fix-<k>-review` | `skills/flow/fix.md`, step 4 |
-| verifier, one per worktree, or one per shard of a sharded pass | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`, `-s<i>of<n>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
+| verifier, one per worktree | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
 | runner, one per test-list run | `runner` | `runner-<n>` | section **4** below, **The runner runs the test list**, and `skills/flow/verify-and-handoff.md`, **Inline verify** |
 | in-run pipeline fix fixer and review, one each per loop step | none — its `Key:` line names its role | `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-r<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-1`, `pipeline-fix-<k>-review-r<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
 
@@ -244,9 +244,7 @@ agent of any name — may be in flight against a given worktree at any moment** 
 one: it reads an immutable commit range, and any number of them may run beside the one mutator.
 Dispatches into different worktrees remain free to run concurrently. A visual verifier is a
 mutator here too — it builds the stack from the tree and writes `<changeRoot>/visual-verification/`.
-The shards of one sharded `flow.verify` pass (`skills/flow/visual-verify.md`)
-are the one exception: up to four verifiers of that pass run at once in one worktree, each writing
-only its own slice's files. This explicitly overrides
+This explicitly overrides
 `superpowers:subagent-driven-development`'s parallel dispatch guidance and
 `superpowers:dispatching-parallel-agents` for same-worktree tasks. The invariant is the working
 tree, not the build tool, and it holds however file-disjoint two tasks look on paper. **A mutating dispatch's

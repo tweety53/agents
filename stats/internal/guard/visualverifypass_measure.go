@@ -79,18 +79,11 @@ type vvmManifestOut struct {
 // or an output directory it cannot create.
 func (v *vvp) measure(args []string) {
 	prototype := false
-	var frames []string // --frames: the slice, nil for every frame
 	var pos []string
-	for i := 0; i < len(args); i++ {
-		switch a := args[i]; {
+	for _, a := range args {
+		switch {
 		case a == "--prototype":
 			prototype = true
-		case a == "--frames":
-			if i+1 == len(args) || args[i+1] == "" {
-				v.usage("--frames takes <frame>[,<frame>…]")
-			}
-			frames = strings.Split(args[i+1], ",")
-			i++
 		case strings.HasPrefix(a, "--"):
 			v.usage("unknown argument '" + a + "'")
 		default:
@@ -178,7 +171,7 @@ func (v *vvp) measure(args []string) {
 	// A prototype frame carries the 52px status line the capture does not: crop it, keep the rest at 1x.
 	own := "frame scale=1 status=52 border=0 bare\n"
 	for _, f := range mockupsLines(body) {
-		if prototype && len(cmfMatchCapture(f[0], m.Captures)) == 0 || frames != nil && !slices.Contains(frames, f[1]) {
+		if prototype && len(cmfMatchCapture(f[0], m.Captures)) == 0 {
 			continue
 		}
 		lines = append(lines, line{f[0], f[1]})
@@ -188,9 +181,6 @@ func (v *vvp) measure(args []string) {
 	if prototype && readErr == nil {
 		sidecar = filepath.Join(bandsDir, "prototype.mockups")
 		v.writeOut(sidecar, own)
-	} else if frames != nil && readErr == nil {
-		sidecar = filepath.Join(bandsDir, filepath.Base(spec)+".mockups")
-		v.writeOut(sidecar, vvmSlice(body, frames))
 	}
 	composeArgs := []string{sidecar, mockups, vvDir}
 	if frameArg != "" {
@@ -760,17 +750,4 @@ func mockupsLines(body []byte) [][2]string {
 		}
 	}
 	return out
-}
-
-// vvmSlice is a sidecar's body less every pair line whose frame is not in
-// frames: `frame`, comment and blank lines stay, so each pair keeps its geometry.
-func vvmSlice(body []byte, frames []string) string {
-	var b strings.Builder
-	for _, l := range strings.SplitAfter(string(body), "\n") {
-		if f := strings.Fields(l); len(f) == 2 && f[0] != "frame" && !strings.HasPrefix(f[0], "#") && !slices.Contains(frames, f[1]) {
-			continue
-		}
-		b.WriteString(l)
-	}
-	return b.String()
 }

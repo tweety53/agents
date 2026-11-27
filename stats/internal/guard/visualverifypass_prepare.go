@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -53,7 +52,6 @@ func (v *vvp) prepare() {
 		v.preflight(survivors)
 	}
 	stack := v.probe(survivors)
-	v.captureShards(survivors)
 	v.dispatch(survivors, stack)
 }
 
@@ -269,8 +267,7 @@ func (v *vvp) captureRoot(w string) string {
 // too, render-frames runs first on design.md and those sidecars, so the
 // tagged frames they cite exist before check-sidecar-reach, compose and
 // check-frame-list read them (kan-1096). Of the sidecars reach-checked, only
-// the change's own (own) go on to shard and, unsharded too, to the bundle's
-// `own specs:` line; a --defects pass keeps every sidecar holding a defect frame. Every failing check is collected, then one
+// the change's own (own) go on to the bundle's `own specs:` line; a --defects pass keeps every sidecar holding a defect frame. Every failing check is collected, then one
 // `STOP:` line names them all.
 func (v *vvp) preflight(survivors []string) {
 	var fails, sidecars []string
@@ -357,7 +354,6 @@ func (v *vvp) preflight(survivors []string) {
 		v.stop("preflight-failed", "stopped", "preflight — "+strings.Join(fails, "; "))
 	}
 	v.sidecars = sidecars
-	v.shard(survivors, sidecars)
 }
 
 // own is whether a `<spec>.mockups` sidecar is the change's own: it or its
@@ -405,219 +401,10 @@ func (v *vvp) ownSpecs(w string) string {
 	return strings.Join(specs, " ")
 }
 
-// shard writes a sharded pass's `spec` and `slice` lines to the stage file
-// and deletes every earlier record part (decisions
-// shard-unscoped-single-worktree, four-shards-slices-grow): a pass with one
-// surviving worktree, with `mockups` declared and more than 25 frames to
-// check, shards — a set of several worktrees included, since its one survivor
-// is still one verifier. An unscoped pass checks the change's list. A scoped
-// pass (--round-base) checks the frames its --defects name when it names any
-// (and shards only when they are more than 25), else every frame on the list
-// that no passing recapture of the round stands for — what its verifier still
-// reads (KAN-1091: a partial check over 25 screenshots ran as one reviewer
-// that named its own batches s1, s2, s3). The `spec` lines name only the specs
-// whose sidecar lines it judges, never the rest of what the `specs` row reaches.
-func (v *vvp) shard(survivors, sidecars []string) {
-	if len(survivors) != 1 {
-		return
-	}
-	w := survivors[0]
-	scoped := len(v.roundBase) > 0
-	byDefects := scoped && len(v.defects[w]) > 0
-	if byDefects && len(v.defects[w]) <= 25 {
-		return
-	}
-	var stand []string // specs a passing recapture of the round stands for: their frames are not read again
-	if scoped && !byDefects {
-		stand = rcCaptured(v.env, v.captureRoot(w), v.roundBase)
-	}
-	mock := v.cells(w)["mockups"]
-	if mock == "" {
-		return
-	}
-	var lines [][3]string
-	var specs []string // the specs whose sidecar frames this pass judges: the only ones captured
-	listed := map[string]bool{}
-	for _, sc := range sidecars {
-		body, _ := os.ReadFile(sc)
-		for _, f := range mockupsLines(body) {
-			spec := strings.TrimSuffix(sc, ".mockups")
-			if byDefects && !slices.Contains(v.defects[w], f[1]) || slices.Contains(stand, asSpecOut(v.captureRoot(w), spec)) {
-				continue
-			}
-			lines = append(lines, [3]string{spec, f[0], f[1]})
-			if !slices.Contains(specs, spec) {
-				specs = append(specs, spec)
-			}
-			listed[f[1]] = true
-		}
-	}
-	changeRoot := filepath.Join(v.canon, specRootLeaf(v.canon, io.Discard), "changes", v.name)
-	var extra []string
-	design, derr := os.ReadFile(filepath.Join(changeRoot, "design.md"))
-	entries, eerr := os.ReadDir(cellPath(w, mock))
-	if byDefects {
-		for _, id := range v.defects[w] {
-			if !listed[id] && !slices.Contains(extra, id) {
-				extra = append(extra, id)
-			}
-		}
-	} else if derr == nil && eerr == nil {
-		for _, id := range flDeclared(design, cellPath(w, mock), entries) {
-			if !listed[id] {
-				extra = append(extra, id)
-			}
-		}
-	}
-	cut := vvpSlices(lines, extra)
-	if len(cut) < 2 {
-		return
-	}
-	for _, s := range specs {
-		v.appendStage("spec " + s)
-	}
-	for i, s := range cut {
-		v.appendStage(fmt.Sprintf("slice s%dof%d %s", i+1, len(cut), strings.Join(s, ",")))
-	}
-	parts, _ := filepath.Glob(filepath.Join(changeRoot, "visual-verification", "record-s*.md"))
-	for _, p := range parts {
-		if err := os.Remove(p); err != nil {
-			v.die("cannot-write", "cannot remove %s: %v", p, err)
-		}
-	}
-}
-
-// vvpSlices cuts the change's frames into the slices of a sharded pass
-// (decisions four-shards-slices-grow, slice-by-frame-id): lines are the
-// sidecars' (spec, screenshot, frame) lines in order, extra the declared
-// frames no line maps. A group is the frames one screenshot joins,
-// transitively, across every spec, extra one group of its own taken first;
-// groups keep their first appearance's order. n = min(4, ⌈F/25⌉); slices
-// s1…s(n-1) each close at the first group boundary at or past ⌈F/n⌉ frames
-// and the last takes the rest, so fewer slices come back when the groups run
-// out, never an empty one. One slice is an unsharded pass.
-func vvpSlices(lines [][3]string, extra []string) [][]string {
-	parent := map[string]string{}
-	var order []string
-	find := func(f string) string {
-		for parent[f] != f {
-			f = parent[f]
-		}
-		return f
-	}
-	add := func(f string) {
-		if _, ok := parent[f]; !ok {
-			parent[f] = f
-			order = append(order, f)
-		}
-	}
-	for _, f := range extra {
-		add(f)
-		parent[find(f)] = find(extra[0])
-	}
-	shot := map[[2]string]string{}
-	for _, l := range lines {
-		add(l[2])
-		k := [2]string{l[0], l[1]}
-		if g, ok := shot[k]; ok {
-			parent[find(l[2])] = find(g)
-		} else {
-			shot[k] = l[2]
-		}
-	}
-	var groups [][]string
-	at := map[string]int{}
-	for _, f := range order {
-		r := find(f)
-		i, ok := at[r]
-		if !ok {
-			i = len(groups)
-			at[r] = i
-			groups = append(groups, nil)
-		}
-		groups[i] = append(groups[i], f)
-	}
-	n := min(4, (len(order)+24)/25)
-	if n < 2 {
-		return [][]string{order}
-	}
-	target := (len(order) + n - 1) / n
-	var out [][]string
-	var cur []string
-	for _, g := range groups {
-		cur = append(cur, g...)
-		if len(cur) >= target && len(out) < n-1 {
-			out = append(out, cur)
-			cur = nil
-		}
-	}
-	if len(cur) > 0 {
-		out = append(out, cur)
-	}
-	return out
-}
-
 // taskCaptured is the specs of w's capture root a task's capture still
 // stands for (rcTaskCaptured), over every worktree with a merge base.
 func (v *vvp) taskCaptured(w string) []string {
 	return rcTaskCaptured(v.env, v.captureRoot(w), v.mergeBase)
-}
-
-// captureShards is step 8's capture on a sharded pass (decisions
-// prepare-captures-sharded, capture-failure-falls-back-serial): `setup`, then
-// one `capture <spec> --workers=<flow-guard capture-workers> --retries=1 --update-snapshots=all` with every `spec` line's path
-// for `<spec>`, space-joined, once per pass; a
-// non-zero exit drops the slices and the pass runs one verifier. The flags sit
-// right after the specs, inside the row, so a row ending `; }` still parses.
-func (v *vvp) captureShards(survivors []string) {
-	var specs []string
-	sliced, captured := false, false
-	for _, l := range v.readStage() {
-		switch l[0] {
-		case "spec":
-			specs = append(specs, l[1])
-		case "slice":
-			sliced = true
-		case "captured":
-			captured = true
-		}
-	}
-	if !sliced || captured || vvpShardSeg.MatchString(v.key) {
-		return
-	}
-	w := survivors[0]
-	cells := v.cells(w)
-	// A spec a task's capture stands for is not taken again; with none
-	// left nothing runs -- an empty `<spec>` would be the whole suite.
-	stand := v.taskCaptured(w)
-	specs = slices.DeleteFunc(specs, func(s string) bool { return slices.Contains(stand, asSpecOut(v.captureRoot(w), s)) })
-	var cmds []string
-	if c := strings.TrimSpace(cells["setup"]); c != "" && len(specs) > 0 {
-		cmds = append(cmds, c)
-	}
-	// One run for every other spec, across capture-workers' count of workers.
-	if len(specs) > 0 {
-		cmds = append(cmds, strings.ReplaceAll(cells["capture"], "<spec>", strings.Join(specs, " ")+fmt.Sprintf(" --workers=%d --retries=1 --update-snapshots=all", captureWorkers(runtime.NumCPU()))))
-	}
-	for _, c := range cmds {
-		if rc, _ := kwRun(v.env, v.captureRoot(w), "sh", "-c", c); rc != 0 {
-			v.say("SHARDS: none — %s exit %d", c, rc)
-			v.dropStage("slice")
-			return
-		}
-	}
-	v.appendStage("captured")
-}
-
-// dropStage rewrites the stage file without its lines whose first word is word.
-func (v *vvp) dropStage(word string) {
-	var b strings.Builder
-	for _, l := range v.readStage() {
-		if l[0] != word {
-			b.WriteString(strings.TrimSpace(l[0]+" "+l[1]) + "\n")
-		}
-	}
-	v.writeOut(v.stagePath(), b.String())
 }
 
 // frameFiles is the change's design.md, when present, and every
@@ -799,33 +586,13 @@ func (v *vvp) dispatch(survivors []string, stack string) {
 	}
 	type row struct{ key, w string }
 	var rows []row
-	// A shard key keeps its segment last, after any `-<repository name>`.
-	shard := vvpShardSeg.FindString(v.key)
-	named := ""
 	for _, w := range survivors {
-		if size > 1 && strings.HasSuffix(strings.TrimSuffix(v.key, shard), "-"+v.repoName(w)) {
-			named = w
+		if size > 1 && strings.HasSuffix(v.key, "-"+v.repoName(w)) {
+			rows = []row{{v.key, w}}
 			break
 		}
 	}
 	stage := v.readStage()
-	if shard == "" {
-		for _, l := range stage {
-			if k, _, _ := strings.Cut(l[1], " "); l[0] == "slice" {
-				key := v.key
-				if size > 1 && named == "" {
-					key += "-" + v.repoName(survivors[0])
-				}
-				rows = append(rows, row{key + "-" + k, survivors[0]})
-			}
-		}
-	}
-	if rows == nil && named != "" {
-		rows = []row{{v.key, named}}
-	}
-	if rows == nil && shard != "" {
-		rows = []row{{v.key, survivors[0]}}
-	}
 	if rows == nil {
 		for _, w := range survivors {
 			k := v.key
@@ -860,12 +627,7 @@ func (v *vvp) dispatch(survivors []string, stack string) {
 		}
 		if rb != "" && !vrRestSegment.MatchString(r.key) {
 			line := rb + " " + time.Now().UTC().Format(time.RFC3339Nano)
-			d := v.defects[r.w]
-			if slice := vvpSlice(stage, r.key); slice != "" {
-				// A shard re-checks, and answers for, only the defects in its own slice.
-				d = slices.DeleteFunc(slices.Clone(d), func(id string) bool { return !slices.Contains(strings.Split(slice, ","), id) })
-			}
-			if len(d) > 0 {
+			if d := v.defects[r.w]; len(d) > 0 {
 				line += " " + strings.Join(d, ",")
 			}
 			v.writeOut(rf, line+"\n")
@@ -1019,14 +781,7 @@ func (v *vvp) bundle(key, w, stack, relay string, green []struct{ Key, DiffBase 
 	line("")
 	line("## Measure")
 	line("")
-	measure := "measure: flow-guard visual-verify-pass measure " + w + " " + v.name + " " + vrRestSegment.ReplaceAllString(key, "") + " <spec path>"
-	frames := ""
-	if slice := vvpSlice(stage, key); slice != "" {
-		line("slice: %s %s", strings.TrimPrefix(vvpShardSeg.FindString(key), "-"), slice)
-		frames = " --frames " + slice
-		measure += frames
-	}
-	line("%s", measure)
+	line("measure: flow-guard visual-verify-pass measure %s %s %s <spec path>", w, v.name, vrRestSegment.ReplaceAllString(key, ""))
 	line("")
 	line("## Report checks")
 	line("")
@@ -1035,7 +790,7 @@ func (v *vvp) bundle(key, w, stack, relay string, green []struct{ Key, DiffBase 
 	if m := cells["mockups"]; m != "" {
 		mockups = " --mockups " + cellPath(w, m)
 	}
-	line("check: flow-guard visual-verify-pass close --check-only %s <motions named>%s --design %s%s", report, mockups, design, frames)
+	line("check: flow-guard visual-verify-pass close --check-only %s <motions named>%s --design %s", report, mockups, design)
 	line("")
 	line("## Mockup sources")
 	line("")
@@ -1086,7 +841,7 @@ func (v *vvp) attempts(b *strings.Builder, key, w string, stage [][2]string) {
 			continue
 		}
 		k, rw, _ := strings.Cut(l[1], " ")
-		if rw == w && k != key && vvpShardSeg.FindString(k) == vvpShardSeg.FindString(key) {
+		if rw == w && k != key {
 			earlier = append(earlier, k)
 		}
 	}

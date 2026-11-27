@@ -2,7 +2,6 @@ package guard
 
 import (
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -26,7 +25,3 @@ func TestCaptureWorkers(t *testing.T) {
 		t.Errorf("an argument: rc=%d, want 2", r.rc)
 	}
 }
-
-// vvpWorkersFlag is the worker flag prepare's shard capture carries on this
-// machine, with its trailing space.
-var vvpWorkersFlag = "--workers=" + strconv.Itoa(captureWorkers(runtime.NumCPU())) + " --retries=1 "

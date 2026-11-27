@@ -303,7 +303,7 @@ A worktree held in a shell variable is written braced, `--app "${W}:<app-root>=<
    **On a fix run, both calls read the fix run's own diff.** Each worktree is passed
    `--since <worktree>=<its fix-start sha>` (`skills/flow/fix.md`), so a fix run whose delta touches no `ui paths` skips this
    stage at step 2 as exit 1 does.
-   No worktree is passed `--since` when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify`), or on a sharded pass the newest row of any shard index, does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the fix-start sha.
+   No worktree is passed `--since` when the change's newest verifier dispatch row (the newest row `flow record dispatches -change <name>` returns with `role` `verifier` and a `key` starting with `visual-verify`) does not have `outcome` `completed` — an earlier run's UI change that was never verified may lie before the fix-start sha.
 
 **A `skipped` decision ends the stage at step 2.** When this run's decision
 (`<abs-worktree>/.superpowers/sdd/decision.json`) records `visual.verify` `skipped` (step 6 of

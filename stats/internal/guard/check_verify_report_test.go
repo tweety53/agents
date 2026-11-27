@@ -403,10 +403,9 @@ func TestCheckVerifyReportManifestCells(t *testing.T) {
 	}
 }
 
-// TestCheckVerifyReportFrames pins decisions manifest-per-shard and
-// lead-shard-owns-shared (KAN-1121): with --frames a shard's report owes no
-// capture the spec's sidecar maps only to frames outside its slice, and a
-// capture no sidecar line maps is owed by the `-s1of<n>` report alone.
+// TestCheckVerifyReportFrames: with --frames a remainder's report owes no
+// capture the spec's sidecar maps only to frames outside its list, nor one no
+// sidecar line maps.
 func TestCheckVerifyReportFrames(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
@@ -418,7 +417,7 @@ func TestCheckVerifyReportFrames(t *testing.T) {
 	spec := filepath.Join(root, "tests/visual/a.spec.ts")
 	writeFile(t, spec+".mockups", "frame none\na-open.png fo\na-roles.png fr\n")
 	sdd := filepath.Join(root, ".superpowers/sdd")
-	vrtManifest(t, sdd, "visual-verify-s2of2", "fr")
+	vrtManifest(t, sdd, "visual-verify", "fr")
 	roles := vrtDone + "- spec: " + spec + "\n- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + " — clean\n" +
 		"- fr: " + root + "/vv/a-roles-darwin.png diff=n/a — match\n"
 	open := vrtDone + "- spec: " + spec + "\n- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + " — clean\n"
@@ -428,9 +427,9 @@ func TestCheckVerifyReportFrames(t *testing.T) {
 		rc              int
 		want            string
 	}{
-		{"a later shard owes its slice's captures alone", "visual-verify-s2of2", roles, []string{"--frames", "fr"}, 0, "VERIFY-REPORT-COMPLETE"},
-		{"without --frames every capture is owed", "visual-verify-s2of2", roles, nil, 1, "a-open-darwin.png is on no"},
-		{"the lead shard owes the unmapped capture", "visual-verify-s1of2", open, []string{"--frames", "fo"}, 1, "a-extra-darwin.png is on no"},
+		{"a remainder owes its own frames' captures alone", "visual-verify-rest", roles, []string{"--frames", "fr"}, 0, "VERIFY-REPORT-COMPLETE"},
+		{"without --frames every capture is owed", "visual-verify-rest", roles, nil, 1, "a-open-darwin.png is on no"},
+		{"a remainder owes no unmapped capture", "visual-verify-rest", open, []string{"--frames", "fo"}, 0, "VERIFY-REPORT-COMPLETE"},
 	} {
 		path := filepath.Join(sdd, "verify-report-"+tc.key+".md")
 		writeFile(t, path, "## Report\n"+tc.body)
@@ -439,7 +438,7 @@ func TestCheckVerifyReportFrames(t *testing.T) {
 			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
 		}
 	}
-	if r := runGuard("check-verify-report", []string{filepath.Join(sdd, "verify-report-visual-verify-s2of2.md"), "0", "--frames"}, Env{Getenv: os.Getenv}); r.rc != 2 {
+	if r := runGuard("check-verify-report", []string{filepath.Join(sdd, "verify-report-visual-verify-rest.md"), "0", "--frames"}, Env{Getenv: os.Getenv}); r.rc != 2 {
 		t.Errorf("--frames with no value: rc=%d out=%q; want exit 2", r.rc, r.out)
 	}
 }

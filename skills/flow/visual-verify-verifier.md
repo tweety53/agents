@@ -8,19 +8,7 @@ motion step and the `## Verdict` and `## Report` templates, run as written.
 <the denial text, verbatim>` where `exit <n>` would stand, and the step's status is `blocked` —
 never an exit code the command did not return.
 
-**A sharded dispatch judges its own slice.** A bundle carrying a `slice: s<i>of<n> <frame,…>` line
-is shard i of n of one pass, the others running at once against the same stack
-(`skills/flow/visual-verify.md`). `prepare` has already run step 4's `setup` and step 8's `capture`
-of every spec, so a shard runs neither, edits no capture spec or sidecar, and reports both
-`exit 0 — run by prepare`. Only `-s1of<n>` updates the full app suite, rebuilds its zip, and it alone owns every view no frame is composed for — the
-prototype render and `measure --prototype` included — the motions and the `identical` lines; every
-other shard reports `full app suite: not run`. Step 9 runs the `measure`
-call the bundle names, `--frames` included, and reads only the views its slice's frames map,
-`-s1of<n>` also every view no sidecar line maps. Step 10 composes and judges the slice's frames
-alone, and its `- frames:` line counts the slice's declared frames. Step 11 writes
-`<changeRoot>/visual-verification/record-s<i>of<n>.md`, opening with `Pass: <the key less its shard segment>`, never `visual-verification.md`, which
-`close` rebuilds from every shard's part. The `exits:` line never names the shard's key: `close`
-reads every number on it as an exit.
+**The `exits:` line never names the dispatch's key**: `close` reads every number on it as an exit.
 
 **Run only the steps below.** Add no pre-check of your own — no reading `.env`, credentials or
 config files, no probing the stack beyond what a step names. A step that cannot proceed is
@@ -298,7 +286,7 @@ strip shows no intermediate frame; a gesture's content follows the pointer in ev
 settles where the motion's end state says** — plus any frame rule the project's own instructions
 state. A frame that breaks one is a departure, named by its index and what it shows.
 
-11. **Write `<changeRoot>/visual-verification.md`**, opening with the line `Pass: <this row's key>` (the key less any shard segment; `close` refuses a record naming another pass), whenever any view was captured — one entry per view: its screenshot
+11. **Write `<changeRoot>/visual-verification.md`**, opening with the line `Pass: <this row's key>` (`close` refuses a record naming another pass), whenever any view was captured — one entry per view: its screenshot
     path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
     pair, the composite's path in `<changeRoot>/visual-verification/`, the frame id, its `diff=`
     ratio, what was seen, its
@@ -319,7 +307,7 @@ state. A frame that breaks one is a departure, named by its index and what it sh
     run's handoff, not the committed record. **One entry per motion the motion step recorded**: its
     id, its strip's directory relative to the record, its frame count, and each departing frame's
     index and what it shows — or `clean`.
-    **A scoped pass and a `-rest` pass rewrite the whole record**, never only their own slice: every
+    **A scoped pass and a `-rest` pass rewrite the whole record**, never only the frames they re-check: every
     view and pair of the change's list, each entry carrying its latest result under the key of the pass
     that produced it — a frame an earlier pass found departing and this pass re-checked done reads
     `done` under this pass's key, and a frame this pass did not re-check keeps its entry with the key

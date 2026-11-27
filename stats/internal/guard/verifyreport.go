@@ -92,12 +92,10 @@ import (
 // (skills/flow/visual-verify-verifier.md step 9), and reads every other. No
 // `- spec:` line, a wire contract naming an endpoint, or a resolver exit other
 // than 0 skips the check (group-allowed-pairs-roles self-review: two round-1
-// reports named only the prototype-framed captures). With --frames, a shard's
-// slice, a capture the spec's `<spec>.mockups` maps only to frames outside the
-// slice is owed no line, and a capture no sidecar line maps is owed only by a
-// report whose key — its file name less `verify-report-`, `.md` and any
-// `-rest[-<n>]` — carries `-s1of` (decisions manifest-per-shard,
-// lead-shard-owns-shared).
+// reports named only the prototype-framed captures). With --frames — the
+// frames a `-rest` remainder's own report names, which close passes — a
+// capture the spec's `<spec>.mockups` maps to no frame of that list is owed no
+// line.
 //
 // Prints ONE verdict line to stdout:
 //   VERIFY-REPORT-COMPLETE: <report file>
@@ -159,7 +157,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-verify-report"
 	const usage = "verify-report check, run in-process by visual-verify-pass close: <report file> <motions named> [--design <design.md>] [--frames <frame>[,<frame>…]]"
 	design := ""
-	var slice []string // --frames: the shard's slice, nil for every frame
+	var slice []string // --frames: a remainder's own frames, nil for every frame
 	if i := slices.Index(args, "--frames"); i >= 0 {
 		if i+1 == len(args) || args[i+1] == "" {
 			fmt.Fprintf(stderr, "%s: usage: %s\n", prog, usage)
@@ -314,7 +312,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if spec != "" && !noView {
 		key := vrRestSegment.ReplaceAllString(strings.TrimSuffix(strings.TrimPrefix(filepath.Base(args[0]), "verify-report-"), ".md"), "")
-		undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, reportLines, vrScopedCaptures(filepath.Dir(args[0]), key, mbody, merr), slice, strings.Contains(key, "-s1of"))...)
+		undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, reportLines, vrScopedCaptures(filepath.Dir(args[0]), key, mbody, merr), slice)...)
 	}
 	if len(undone) > 0 {
 		fmt.Fprintf(stdout, "VERIFY-REPORT-INCOMPLETE: %s — %s\n", args[0], strings.Join(undone, "; "))
@@ -330,7 +328,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 // checked: step 9 blocks on it.
 // A `capture unchanged since` line accounts only for a capture in scoped, the
 // captures a scoped row may leave unread (vrScopedCaptures).
-func vrUnaccounted(wt, spec string, env Env, lines, scoped, slice []string, lead bool) []string {
+func vrUnaccounted(wt, spec string, env Env, lines, scoped, slice []string) []string {
 	var buf strings.Builder
 	if resolveVisualScreenshots([]string{wt, filepath.Base(spec)}, env, &buf, io.Discard) != 0 {
 		return nil
@@ -339,7 +337,7 @@ func vrUnaccounted(wt, spec string, env Env, lines, scoped, slice []string, lead
 	var gaps []string
 	sidecar, _ := os.ReadFile(spec + ".mockups")
 	for _, png := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
-		if slice != nil && !vrOwed(png, sidecar, slice, lead) {
+		if slice != nil && !vrOwed(png, sidecar, slice) {
 			continue
 		}
 		m := regexp.MustCompile(`(?m)^\s*- (\S+): ` + regexp.QuoteMeta(png) + `(\s.*)?$`).FindStringSubmatch(report)
@@ -450,20 +448,13 @@ func vrCells(f string, cells []map[string]any) []string {
 	return bad
 }
 
-// vrOwed reports whether a shard's report owes png (decisions
-// manifest-per-shard, lead-shard-owns-shared): a capture the sidecar maps to a
-// frame of slice, or one it maps to no frame when the report is the lead
-// shard's.
-func vrOwed(png string, sidecar []byte, slice []string, lead bool) bool {
-	mapped := false
+// vrOwed reports whether a --frames report owes png: a capture the sidecar
+// maps to a frame of slice.
+func vrOwed(png string, sidecar []byte, slice []string) bool {
 	for _, l := range mockupsLines(sidecar) {
-		if len(cmfMatchCapture(l[0], []string{png})) == 0 {
-			continue
-		}
-		if slices.Contains(slice, l[1]) {
+		if len(cmfMatchCapture(l[0], []string{png})) > 0 && slices.Contains(slice, l[1]) {
 			return true
 		}
-		mapped = true
 	}
-	return !mapped && lead
+	return false
 }

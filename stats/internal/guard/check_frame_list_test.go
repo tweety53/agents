@@ -374,9 +374,8 @@ func TestCheckFrameListRootNeedsAnExplicitCitationBesideASubDirectory(t *testing
 	}
 }
 
-// TestCheckFrameListFrames pins decision manifest-per-shard's guard half
-// (KAN-1121): with --frames a shard's report owes only the declared frames of
-// its slice, its frames line counted against them alone.
+// TestCheckFrameListFrames: with --frames a remainder's report owes only the
+// declared frames of that list, its frames line counted against them alone.
 func TestCheckFrameListFrames(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -388,7 +387,7 @@ func TestCheckFrameListFrames(t *testing.T) {
 	writeFile(t, spec+".mockups", "q1 Q1\nq2 Q2\nm1 M1\n")
 	design := filepath.Join(dir, "design.md")
 	writeFile(t, design, "Frames Q1, Q2 and M1.\n")
-	report := filepath.Join(dir, "verify-report-visual-verify-s1of2.md")
+	report := filepath.Join(dir, "verify-report-visual-verify-rest.md")
 	for _, tc := range []struct {
 		name, body string
 		args       []string

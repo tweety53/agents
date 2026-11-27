@@ -930,65 +930,11 @@ func vvpFrames(prefix string, from, to int) []string {
 	return ids
 }
 
-// vvpOwnShots is one (spec, screenshot, frame) line per frame, each frame on
-// a screenshot of its own.
-func vvpOwnShots(spec string, frames []string) [][3]string {
-	var lines [][3]string
-	for _, f := range frames {
-		lines = append(lines, [3]string{spec, "shot-" + f + ".png", f})
-	}
-	return lines
-}
-
-// TestVvpSlices pins decisions four-shards-slices-grow and slice-by-frame-id:
-// n = min(4, ⌈F/25⌉) contiguous slices, each closing at the first group
-// boundary at or past ⌈F/n⌉ frames, a group being the frames one screenshot
-// joins across every spec; fewer slices when the groups run out, never an
-// empty one; a declared frame with no sidecar line in the first.
-func TestVvpSlices(t *testing.T) {
-	t.Parallel()
-	sizes := func(s [][]string) []int {
-		var n []int
-		for _, x := range s {
-			n = append(n, len(x))
-		}
-		return n
-	}
-	joined := vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 60))
-	joined[20][1] = joined[19][1] // F20 and F21 drawn on one screenshot
-	twoSpecs := append(vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 60)),
-		[3]string{"b.spec.ts", "y.png", "F5"}, [3]string{"b.spec.ts", "y.png", "F50"})
-	oneBig := vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 60))
-	for i := 0; i < 45; i++ {
-		oneBig[i][1] = "all.png"
-	}
-	for _, tc := range []struct {
-		name  string
-		lines [][3]string
-		extra []string
-		want  []int
-		check func(s [][]string) bool
-	}{
-		{"25 frames stay one slice", vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 25)), nil, []int{25}, nil},
-		{"60 frames cut into three of 20", vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 60)), nil, []int{20, 20, 20}, func(s [][]string) bool { return s[1][0] == "F21" }},
-		{"130 frames keep four, slices grow", vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 130)), nil, []int{33, 33, 33, 31}, nil},
-		{"a cut inside a screenshot moves forward", joined, nil, []int{21, 20, 19}, func(s [][]string) bool { return s[0][20] == "F21" }},
-		{"a frame two specs map joins its group", twoSpecs, nil, []int{20, 20, 20}, func(s [][]string) bool { return slices.Contains(s[0], "F50") }},
-		{"groups that run out make fewer slices", oneBig, nil, []int{45, 15}, nil},
-		{"a frame with no sidecar line goes first", vvpOwnShots("a.spec.ts", vvpFrames("F", 1, 59)), []string{"Z1"}, []int{20, 20, 20}, func(s [][]string) bool { return s[0][0] == "Z1" }},
-	} {
-		got := vvpSlices(tc.lines, tc.extra)
-		if !slices.Equal(sizes(got), tc.want) || tc.check != nil && !tc.check(got) {
-			t.Errorf("%s: slices %v, want sizes %v", tc.name, got, tc.want)
-		}
-	}
-}
-
-// vvpShardFixture is a prepare fixture declaring `mockups`, whose `specs` row
+// vvpFramesFixture is a prepare fixture declaring `mockups`, whose `specs` row
 // prints one capture spec mapping n frames, one screenshot each, its `setup`
 // and `capture` rows fixture scripts logging every run to run.log; capture
 // writes shot-F1.png when png is set.
-func vvpShardFixture(t *testing.T, n int, capture string) *vvpFix {
+func vvpFramesFixture(t *testing.T, n int, capture string) *vvpFix {
 	t.Helper()
 	f := vvpFixture(t, "| `mockups` | `design/mockups` |\n")
 	b, _ := os.ReadFile(filepath.Join(f.wt, ".flow/project.md"))
@@ -1015,11 +961,10 @@ func vvpShardFixture(t *testing.T, n int, capture string) *vvpFix {
 	return f
 }
 
-// TestVisualVerifyPassPrepareShards pins decisions
-// shard-unscoped-single-worktree, prepare-captures-sharded,
-// capture-failure-falls-back-serial, bundle-names-measure-call and
-// shard-key-segment (KAN-1121).
-func TestVisualVerifyPassPrepareShards(t *testing.T) {
+// TestVisualVerifyPassPrepareOneVerifier: a pass is one verifier per worktree
+// whatever its frame count — 60 frames begin one row, prepare captures
+// nothing itself, and the bundle names the plain measure and check calls.
+func TestVisualVerifyPassPrepareOneVerifier(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	runLog := func(f *vvpFix) string { b, _ := os.ReadFile(filepath.Join(f.wt, "run.log")); return string(b) }
@@ -1028,91 +973,26 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		return string(b)
 	}
 	spec := func(f *vvpFix) string { return filepath.Join(f.wt, "tests/visual/a.spec.ts") }
-	part := func(f *vvpFix) string {
-		return filepath.Join(f.wt, "spectre/changes/demo/visual-verification/record-s1of2.md")
-	}
 
-	t.Run("25 frames run one unsharded verifier", func(t *testing.T) {
+	t.Run("60 frames run one verifier", func(t *testing.T) {
 		t.Parallel()
-		f := vvpShardFixture(t, 25, "")
-		writeFile(t, part(f), "# old\n")
+		f := vvpFramesFixture(t, 60, "")
 		rc, out, _ := f.prepare()
-		if rc != 0 || strings.Contains(f.stageFile(), "slice ") || len(vvpLines(out, "DISPATCH: ")) != 1 || !strings.Contains(out, "DISPATCH: visual-verify ") || runLog(f) != "" {
+		d := vvpLines(out, "DISPATCH: ")
+		if rc != 0 || len(d) != 1 || !strings.HasPrefix(d[0], "DISPATCH: visual-verify ") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: dispatch 1") || runLog(f) != "" {
 			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, f.stageFile())
 		}
-		if !strings.Contains(bundle(f, "visual-verify"), "measure: flow-guard visual-verify-pass measure "+f.wt+" demo visual-verify <spec path>\n") {
-			t.Fatalf("the unsharded bundle names no measure call:\n%s", bundle(f, "visual-verify"))
-		}
-		if _, err := os.Stat(part(f)); err != nil {
-			t.Fatalf("an unsharded pass deleted an old record part: %v", err)
+		b := bundle(f, "visual-verify")
+		if !strings.Contains(b, "measure: flow-guard visual-verify-pass measure "+f.wt+" demo visual-verify <spec path>\n") || strings.Contains(b, "--frames") || strings.Contains(b, "slice:") {
+			t.Fatalf("the bundle's measure or check call:\n%s", b)
 		}
 	})
 
-	t.Run("60 frames run three shards", func(t *testing.T) {
-		t.Parallel()
-		f := vvpShardFixture(t, 60, "")
-		writeFile(t, part(f), "# old\n")
-		rc, out, calls := f.prepare()
-		s := f.stageFile()
-		slice2 := strings.Join(vvpFrames("F", 21, 40), ",")
-		for _, want := range []string{"spec " + spec(f) + "\n", "slice s1of3 " + strings.Join(vvpFrames("F", 1, 20), ",") + "\n", "slice s2of3 " + slice2 + "\n", "captured\n", "row visual-verify-s3of3 " + f.wt + "\n"} {
-			if !strings.Contains(s, want) {
-				t.Errorf("stage file lacks %q", want)
-			}
-		}
-		d := vvpLines(out, "DISPATCH: ")
-		if rc != 0 || len(d) != 3 || !strings.HasPrefix(d[1], "DISPATCH: visual-verify-s2of3 ") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: dispatch 3") ||
-			!strings.Contains(calls, "-key visual-verify-s1of3 ") || runLog(f) != "setup\ncapture "+spec(f)+" "+vvpWorkersFlag+"--update-snapshots=all\n" {
-			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, s)
-		}
-		b := bundle(f, "visual-verify-s2of3")
-		for _, want := range []string{"slice: s2of3 " + slice2 + "\n", "measure: flow-guard visual-verify-pass measure " + f.wt + " demo visual-verify-s2of3 <spec path> --frames " + slice2 + "\n",
-			"design.md --frames " + slice2 + "\n"} {
-			if !strings.Contains(b, want) {
-				t.Errorf("the s2of3 bundle lacks %q:\n%s", want, b)
-			}
-		}
-		if _, err := os.Stat(part(f)); !os.IsNotExist(err) {
-			t.Errorf("a sharded pass left an old record part (stat err %v)", err)
-		}
-	})
-
-	t.Run("every spec with a judged sidecar is captured in one run", func(t *testing.T) {
-		t.Parallel()
-		f := vvpShardFixture(t, 60, "")
-		writeFile(t, filepath.Join(f.wt, "design/mockups/G1.png"), "png\n")
-		writeFile(t, filepath.Join(f.wt, "tests/visual/b.spec.ts"), "shot('shot-G1.png')\n")
-		writeFile(t, filepath.Join(f.wt, "tests/visual/b.spec.ts.mockups"), "shot-G1.png G1\n")
-		writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts tests/visual/b.spec.ts\n")
-		gitRun(t, f.wt, "add", "-A")
-		gitRun(t, f.wt, "commit", "-qm", "second spec")
-		f.green()
-		if rc, out, _ := f.prepare(); rc != 0 || runLog(f) != "setup\ncapture "+spec(f)+" "+filepath.Join(f.wt, "tests/visual/b.spec.ts")+" "+vvpWorkersFlag+"--update-snapshots=all\n" {
-			t.Fatalf("exit %d, run log %q\n%s", rc, runLog(f), out)
-		}
-	})
-
-	t.Run("a spec the row reaches with no sidecar is not captured", func(t *testing.T) {
-		t.Parallel()
-		f := vvpShardFixture(t, 60, "")
-		for _, n := range []string{"b", "c"} {
-			writeFile(t, filepath.Join(f.wt, "tests/visual/"+n+".spec.ts"), "shot('"+n+".png')\n")
-		}
-		writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts tests/visual/b.spec.ts tests/visual/c.spec.ts\n")
-		gitRun(t, f.wt, "add", "-A")
-		gitRun(t, f.wt, "commit", "-qm", "unjudged specs")
-		f.green()
-		rc, out, _ := f.prepare()
-		if st := f.stageFile(); rc != 0 || strings.Contains(st, "b.spec.ts") || strings.Contains(st, "c.spec.ts") || runLog(f) != "setup\ncapture "+spec(f)+" "+vvpWorkersFlag+"--update-snapshots=all\n" {
-			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, st)
-		}
-	})
-
-	// earlier is a shard fixture whose `specs` row reaches a.spec.ts and two
+	// earlier is a frames fixture whose `specs` row reaches a.spec.ts and two
 	// sidecar-carrying specs of earlier changes, b and c, committed before the
 	// merge base; only a.spec.ts changes after it.
 	earlier := func(t *testing.T, frames int) *vvpFix {
-		f := vvpShardFixture(t, frames, "")
+		f := vvpFramesFixture(t, frames, "")
 		for _, n := range []string{"b", "c"} {
 			writeFile(t, filepath.Join(f.wt, "design/mockups/"+n+"1.png"), "png\n")
 			writeFile(t, filepath.Join(f.wt, "tests/visual/"+n+".spec.ts"), "shot('shot-"+n+"1.png')\n")
@@ -1130,31 +1010,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		return f
 	}
 
-	t.Run("a spec whose sidecar is another change's is neither captured nor judged", func(t *testing.T) {
-		t.Parallel()
-		f := earlier(t, 60)
-		f.green()
-		rc, out, _ := f.prepare()
-		if st := f.stageFile(); rc != 0 || !strings.Contains(st, "spec "+spec(f)+"\n") || strings.Contains(st, "b.spec.ts") || strings.Contains(st, "c.spec.ts") ||
-			runLog(f) != "setup\ncapture "+spec(f)+" "+vvpWorkersFlag+"--update-snapshots=all\n" {
-			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, st)
-		}
-	})
-
-	t.Run("a round base the change's own spec predates captures nothing", func(t *testing.T) {
-		t.Parallel()
-		f := earlier(t, 60)
-		rb := vgHead(t, f.wt)
-		writeFile(t, filepath.Join(f.wt, "src/ui/app.tsx"), "round\n")
-		gitRun(t, f.wt, "commit", "-qam", "the round's fix")
-		f.green()
-		rc, out, _ := f.prepare("--round-base", f.wt+"="+rb)
-		if st := f.stageFile(); rc != 0 || strings.Contains(st, "spec ") || runLog(f) != "" {
-			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, st)
-		}
-	})
-
-	t.Run("an unsharded pass's bundle names only the change's own spec to capture", func(t *testing.T) {
+	t.Run("the bundle names only the change's own spec to capture", func(t *testing.T) {
 		t.Parallel()
 		f := earlier(t, 10)
 		f.green()
@@ -1164,7 +1020,7 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		}
 	})
 
-	t.Run("an unsharded pass with no own sidecar names none to capture", func(t *testing.T) {
+	t.Run("a pass with no own sidecar names none to capture", func(t *testing.T) {
 		t.Parallel()
 		f := earlier(t, 10)
 		rb := vgHead(t, f.wt)
@@ -1177,147 +1033,6 @@ func TestVisualVerifyPassPrepareShards(t *testing.T) {
 		}
 	})
 
-	t.Run("a capture row ending in a block takes the flags inside it", func(t *testing.T) {
-		t.Parallel()
-		f := vvpShardFixture(t, 60, "")
-		pm := filepath.Join(f.wt, ".flow/project.md")
-		b, _ := os.ReadFile(pm)
-		writeFile(t, pm, strings.Replace(string(b), "`./cap <spec>`", "`true && { ./cap <spec>; }`", 1))
-		gitRun(t, f.wt, "add", "-A")
-		gitRun(t, f.wt, "commit", "-qm", "block row")
-		f.green()
-		if rc, out, _ := f.prepare(); rc != 0 || strings.Contains(out, "SHARDS: none") || runLog(f) != "setup\ncapture "+spec(f)+" "+vvpWorkersFlag+"--update-snapshots=all\n" {
-			t.Fatalf("exit %d, run log %q\n%s", rc, runLog(f), out)
-		}
-	})
-
-	t.Run("a failed capture falls back to one verifier", func(t *testing.T) {
-		t.Parallel()
-		f := vvpShardFixture(t, 60, "exit 1\n")
-		rc, out, _ := f.prepare()
-		if rc != 0 || !strings.Contains(out, "SHARDS: none — ./cap "+spec(f)+" "+vvpWorkersFlag+"--update-snapshots=all exit 1") || len(vvpLines(out, "DISPATCH: ")) != 1 ||
-			!strings.Contains(out, "DISPATCH: visual-verify ") || strings.Contains(f.stageFile(), "slice ") {
-			t.Fatalf("exit %d\n%s\n%s", rc, out, f.stageFile())
-		}
-	})
-
-	t.Run("a missing merge-base baseline stops no shard", func(t *testing.T) {
-		t.Parallel()
-		shots := filepath.Join("tests/visual/a.spec.ts-snapshots")
-		f := vvpShardFixture(t, 60, "mkdir -p "+shots+" && printf png > "+shots+"/shot-F1-darwin.png\n")
-		rc, out, _ := f.prepare()
-		if rc != 0 || strings.Contains(out, "MERGE-BASE-SPEC: ") || len(vvpLines(out, "DISPATCH: ")) != 3 {
-			t.Fatalf("exit %d\n%s", rc, out)
-		}
-		args := []string{f.wt, "demo", "visual-verify-2-s3of3", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", f.wt + ":.=" + f.app.URL}
-		args[2] = "visual-verify-2-s2of3"
-		if rc, out, _ = f.run("prepare", args...); rc != 0 {
-			t.Fatalf("s2 redispatch: exit %d\n%s", rc, out)
-		}
-		report := func(k string) string { return filepath.Join(f.wt, ".superpowers/sdd/verify-report-"+k+".md") }
-		if b := bundle(f, "visual-verify-2-s2of3"); !strings.Contains(b, report("visual-verify-s2of3")) || strings.Contains(b, report("visual-verify-s1of3")) {
-			t.Fatalf("the s2 redispatch's previous attempt is not its own index's alone:\n%s", b)
-		}
-	})
-
-	// kan-1099 ran ~32 frames as one verifier: its set held the regression
-	// checkout's worktree beside the one surviving worktree.
-	t.Run("one survivor of a two-worktree set shards", func(t *testing.T) {
-		t.Parallel()
-		f := vvpShardFixture(t, 60, "")
-		// The regression checkout, a worktree of the set whose diff touches no
-		// UI path: it holds the spec, its sidecar and a baseline at its merge
-		// base, and edits the spec after it, so the spec is the change's own.
-		w := filepath.Join(filepath.Dir(f.wt), "gymie-playwright")
-		shot := "tests/visual/a.spec.ts-snapshots/shot-F1-darwin.png"
-		for _, p := range []string{"tests/visual/a.spec.ts", "tests/visual/a.spec.ts.mockups"} {
-			b, _ := os.ReadFile(filepath.Join(f.wt, p))
-			writeFile(t, filepath.Join(w, p), string(b))
-		}
-		writeFile(t, filepath.Join(w, shot), "png\n")
-		writeFile(t, filepath.Join(w, ".flow/project.md"), "# project\n")
-		writeFile(t, filepath.Join(w, ".gitignore"), "setup\ncap\n")
-		log := filepath.Join(f.wt, "run.log")
-		writeExec(t, filepath.Join(w, "setup"), "#!/bin/sh\necho setup >> "+log+"\n")
-		writeExec(t, filepath.Join(w, "cap"), "#!/bin/sh\necho \"capture $*\" >> "+log+"\nprintf new > "+shot+"\n")
-		fixtureRepo(t, w, repoShape{Branch: "spectre/demo"})
-		gitRun(t, w, "add", "-A")
-		gitRun(t, w, "commit", "-qm", "base")
-		mb := vgHead(t, w)
-		own, _ := os.ReadFile(filepath.Join(w, "tests/visual/a.spec.ts"))
-		writeFile(t, filepath.Join(w, "tests/visual/a.spec.ts"), string(own)+"// the change's own\n")
-		gitRun(t, w, "commit", "-qam", "the change's own")
-		b, _ := os.ReadFile(filepath.Join(f.wt, ".flow/project.md"))
-		gitRun(t, w, "remote", "add", "origin", "x/regress")
-		writeFile(t, filepath.Join(f.wt, ".flow/project.md"), strings.Replace(string(b), "| `screenshots` | `tests/visual` |\n", "| `screenshots` | `tests/visual` |\n| `regression checkout` | `"+w+"` |\n| `regression repo` | `x/regress` |\n", 1))
-		gitRun(t, f.wt, "add", "-A")
-		gitRun(t, f.wt, "commit", "-qm", "regression checkout")
-		f.green()
-
-		rc, out, calls := f.prepare("--worktree", w, "--merge-base", w+"="+mb)
-		s := f.stageFile()
-		d := vvpLines(out, "DISPATCH: ")
-		if rc != 0 || len(d) != 3 || !strings.HasPrefix(d[1], "DISPATCH: visual-verify-demo-s2of3 ") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: dispatch 3") ||
-			!strings.Contains(calls, "-key visual-verify-demo-s1of3 ") || !strings.Contains(s, "row visual-verify-demo-s3of3 "+f.wt+"\n") ||
-			runLog(f) != "setup\ncapture "+filepath.Join(w, "tests/visual/a.spec.ts")+" "+vvpWorkersFlag+"--update-snapshots=all\n" {
-			t.Fatalf("exit %d, run log %q\n%s\n%s", rc, runLog(f), out, s)
-		}
-		args := []string{f.wt, "demo", "visual-verify-rest-demo-s2of3", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", f.wt + ":.=" + f.app.URL}
-		rc, out, _ = f.run("prepare", args...)
-		if d := vvpLines(out, "DISPATCH: "); rc != 0 || len(d) != 1 || !strings.HasPrefix(d[0], "DISPATCH: visual-verify-rest-demo-s2of3 ") || strings.Count(runLog(f), "capture ") != 1 {
-			t.Fatalf("a suffixed shard's remainder: exit %d, run log %q\n%s", rc, runLog(f), out)
-		}
-		// A key the parent already suffixed shards under that suffix.
-		args = []string{f.wt, "demo", "visual-verify-fix-1-full-demo", "--harness", "claude", "--session-token", "mf-tok",
-			"--merge-base", f.wt + "=" + f.mb, "--app", f.wt + ":.=" + f.app.URL, "--worktree", w, "--merge-base", w + "=" + mb}
-		rc, out, _ = f.run("prepare", args...)
-		if d := vvpLines(out, "DISPATCH: "); rc != 0 || len(d) != 3 || !strings.HasPrefix(d[2], "DISPATCH: visual-verify-fix-1-full-demo-s3of3 ") {
-			t.Fatalf("a suffixed pass key: exit %d\n%s", rc, out)
-		}
-	})
-
-	t.Run("a scoped pass shards over more than 25 frames, each shard holding its own defects", func(t *testing.T) {
-		t.Parallel()
-		f := vvpShardFixture(t, 60, "")
-		round := func(key string) string {
-			b, _ := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/visual-round-"+key+".txt"))
-			return string(b)
-		}
-		rc, out, _ := f.prepare("--round-base", f.wt+"="+f.mb, "--defects", f.wt+"="+strings.Join(vvpFrames("F", 1, 30), ","))
-		s := f.stageFile()
-		d := vvpLines(out, "DISPATCH: ")
-		if rc != 0 || len(d) != 2 || !strings.HasPrefix(d[0], "DISPATCH: visual-verify-s1of2 ") || !strings.HasPrefix(d[1], "DISPATCH: visual-verify-s2of2 ") ||
-			!strings.Contains(s, "slice s1of2 "+strings.Join(vvpFrames("F", 1, 15), ",")+"\n") {
-			t.Fatalf("30 defects: exit %d\n%s\n%s", rc, out, s)
-		}
-		for key, want := range map[string]string{"visual-verify-s1of2": strings.Join(vvpFrames("F", 1, 15), ","), "visual-verify-s2of2": strings.Join(vvpFrames("F", 16, 30), ",")} {
-			if f := strings.Fields(round(key)); len(f) != 3 || f[2] != want {
-				t.Errorf("round file of %s = %q, want defects %s", key, round(key), want)
-			}
-		}
-		g := vvpShardFixture(t, 60, "")
-		if rc, out, _ := g.prepare("--round-base", g.wt+"="+g.mb, "--defects", g.wt+"="+strings.Join(vvpFrames("F", 1, 25), ",")); rc != 0 || strings.Contains(g.stageFile(), "slice ") || len(vvpLines(out, "DISPATCH: ")) != 1 {
-			t.Fatalf("25 defects: exit %d\n%s", rc, out)
-		}
-		// No defects named: the scoped verifier still reads every frame no passing recapture
-		// stands for, so 60 frames and no receipt shard into three, each its own round file.
-		h := vvpShardFixture(t, 60, "")
-		if rc, out, _ := h.prepare("--round-base", h.wt+"="+h.mb); rc != 0 || !strings.Contains(h.stageFile(), "slice s3of3 ") || len(vvpLines(out, "DISPATCH: ")) != 3 {
-			t.Fatalf("--round-base with no defects over 60 frames: exit %d\n%s", rc, out)
-		}
-		if b, err := os.ReadFile(filepath.Join(h.wt, ".superpowers/sdd/visual-round-visual-verify-s2of3.txt")); err != nil || len(strings.Fields(string(b))) != 2 {
-			t.Errorf("shard round file %q (%v), want `<base> <instant>` and no defects", b, err)
-		}
-	})
-
-	t.Run("a set with two survivors never shards", func(t *testing.T) {
-		t.Parallel()
-		g := vvpShardFixture(t, 60, "")
-		w, mb := g.sibling("gymie-frontend")
-		if rc, out, _ := g.prepare("--worktree", w, "--merge-base", w+"="+mb, "--app", w+":.="+g.app.URL); rc != 0 || strings.Contains(g.stageFile(), "slice ") {
-			t.Fatalf("two worktrees: exit %d\n%s", rc, out)
-		}
-	})
 }
 
 func TestFoldedVisualGuardsAreUnregistered(t *testing.T) {

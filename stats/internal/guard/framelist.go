@@ -63,9 +63,9 @@ import (
 // digits written directly after `round <n>, `, `answer-<n> ` or the word `question `, any case
 // (`round 1, Q1`, `answer-2 Q1`, `question Q4`) — kan-1102 self-review, F1.
 //
-// With --frames, a shard's slice (skills/flow/visual-verify.md), the declared
-// list is the declared frames in the slice, and the frames line's <m> is
-// compared with that count (decision manifest-per-shard).
+// With --frames, the frames a `-rest` remainder's own report names (close
+// passes them), the declared list is the declared frames among them, and the
+// frames line's <m> is compared with that count.
 //
 // Every report line below is read from the report's `## Report` heading to
 // the next `## ` heading alone: a `## Verdict` departure line never stands in
@@ -133,7 +133,7 @@ func flToken(id string) *regexp.Regexp {
 
 func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-frame-list"
-	var slice []string // --frames: the shard's slice, nil for every frame
+	var slice []string // --frames: a remainder's own frames, nil for every frame
 	if i := slices.Index(args, "--frames"); i >= 0 {
 		if i+1 == len(args) || args[i+1] == "" {
 			fmt.Fprintf(stderr, frameListUsage, prog)

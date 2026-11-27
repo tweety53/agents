@@ -28,8 +28,8 @@ import (
 //     [--continue [--started]]
 //   flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> \
 //     --session-token mf-<t>
-//   flow-guard visual-verify-pass close --check-only <report> <motions named> [--mockups <dir>] [--design <design.md>] [--frames <frame>[,<frame>…]]
-//   flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype] [--frames <frame>[,<frame>…]]
+//   flow-guard visual-verify-pass close --check-only <report> <motions named> [--mockups <dir>] [--design <design.md>]
+//   flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype]
 //
 // Arguments:
 //   <canonical-worktree>  the change's canonical worktree, where its rows are
@@ -94,21 +94,6 @@ import (
 //      collected; then one line names them all (no stage mark is ended):
 //        STOP: preflight — <guard>: <evidence>[; <guard>: <evidence>…]   exit 1
 //      No verifier row is begun on any STOP.
-//  6a. with no failing check, a pass with one
-//      surviving worktree — the set's other worktrees, a regression
-//      checkout's among them, dispatch no verifier — and `mockups` declared
-//      counts F, the distinct frame ids of the capture specs'
-//      sidecar lines plus the declared frames no line maps (decision
-//      shard-unscoped-single-worktree); a scoped pass (--round-base) counts
-//      the frames its --defects name instead, else every listed frame no
-//      passing round recapture (rcCaptured) stands for, and
-//      each of its shards' round files carries only the defects in its own
-//      slice (KAN-1091). Above 25 it writes one `spec <abs>`
-//      line per capture spec and one `slice s<i>of<n> <frame,…>` line per
-//      slice vvpSlices cuts (decisions four-shards-slices-grow,
-//      slice-by-frame-id), and deletes every
-//      <changeRoot>/visual-verification/record-s*.md. Otherwise it writes
-//      nothing and the pass runs unsharded.
 //   7. step 5 (decision parent-starts-the-stack): a short GET of each
 //      survivor's --app URLs, any answer counting. A survivor nothing answers
 //      for prints `NEXT: start-stack` (exit 0, no row begun): the parent starts
@@ -121,18 +106,6 @@ import (
 //      `stopped` with `STOP: fingerprint — <the guard's output>`, exit 1.
 //      Exit 2 continues, the bundle reading `fingerprint: not declared —
 //      <its stderr reason>`.
-//  9a. on a stage with `slice` lines and a key with no shard segment
-//      (decision prepare-captures-sharded): unless a `captured` line is there,
-//      `setup` and one `capture <spec> --update-snapshots=all`, `<spec>`
-//      every `spec` line's path a task's capture does not stand for
-//      (rcTaskCaptured) space-joined (kan-1087: its verifier ran 4
-//      specs, 70 tests, as one run of 8.5 minutes),
-//      run from the capture root (the flags follow the specs inside the row, so a
-//      row of any shape parses; a `capture` row must not carry its own
-//      `--update-snapshots`, a row's later flag wins in Playwright), then `captured` is appended; a non-zero
-//      exit prints `SHARDS: none — <command> exit <n>`, drops the `slice`
-//      lines and continues unsharded (decision
-//      capture-failure-falls-back-serial).
 //   9. per row, the verifier's bundle
 //      <worktree>/.superpowers/sdd/verify-prompt-<key>.md: the absolute
 //      worktree; `changeRoot:`; the path of skills/flow/visual-verify-verifier.md
@@ -167,18 +140,14 @@ import (
 //      `## Incomplete attempt`: the worktree's previous row's report path and
 //      the `verdict <key> <line>` lines the stage file holds for it; a
 //      `visual-verify-<n>` key adds `## Previous attempt`: every earlier
-//      report path of the worktree (decision redispatch-bundle-by-path) — of
-//      its own shard index only, on a shard key. Every bundle carries a
-//      `## Measure` section (decision bundle-names-measure-call): on a shard
-//      key `slice: s<i>of<n> <slice>`, then
-//        measure: flow-guard visual-verify-pass measure <worktree> <name> <key less any -rest[-<n>]> <spec path>[ --frames <slice>]
-//      and a `## Report checks` section, the two guard calls close's step 2
-//      runs on the report, for the verifier to run first (kan-1084 … kan-1087:
-//      11 of 12 incomplete first reports carried a frame-list gap the
-//      verifier's own check-verify-report run could not show it):
-//        check: the in-process verify-report check (visual-verify-pass close) <report> <motions named> --design <changeRoot>/design.md[ --frames <slice>]
-//        check: the in-process frame-list check (visual-verify-pass close) <changeRoot>/design.md <mockups root> <report>[ --frames <slice>]
-//      the second only with `mockups` declared.
+//      report path of the worktree (decision redispatch-bundle-by-path). Every
+//      bundle carries a `## Measure` section (decision bundle-names-measure-call):
+//        measure: flow-guard visual-verify-pass measure <worktree> <name> <key less any -rest[-<n>]> <spec path>
+//      and a `## Report checks` section, the one `close --check-only` call
+//      running close's step 2 guards on the report, for the verifier to run
+//      first (kan-1084 … kan-1087: 11 of 12 incomplete first reports carried a
+//      frame-list gap the verifier's own check-verify-report run could not show it):
+//        check: flow-guard visual-verify-pass close --check-only <report> <motions named>[ --mockups <mockups root>] --design <changeRoot>/design.md
 //  10. one `flow record dispatch begin -C <canonical-worktree> -change <name>
 //      -role verifier -model <model> -effort <effort> -key <key> -session-token <t>
 //      -diff-base <HEAD>[,<sibling HEAD>…] [-round-base <sha>]` per survivor,
@@ -186,10 +155,7 @@ import (
 //      (a failed read or an unusable row
 //      ends the stage `stopped` with `STOP: pair — <why>`, exit 1) — a sibling is a worktree whose diff
 //      the survivor's `ui paths` matched under --repo; keys suffixed
-//      `-<repository name>` when the set holds more than one worktree; on a
-//      stage with `slice` lines one row per `slice` line instead, keyed
-//      `<key>-s<i>of<n>`, the segment after any `-<repository name>`
-//      (`visual-verify-gymie-s2of3`; decision shard-key-segment) — each
+//      `-<repository name>` when the set holds more than one worktree — each
 //      appending `row <key> <worktree>` to the stage file and printing
 //      `DISPATCH: <key> <bundle> — description "<key>", subagent_type
 //      flow-<effort>, model <model>, prompt opens "Role: visual-verifier"`, the
@@ -208,8 +174,7 @@ import (
 // step 1–3 check: it reads the survivors, their merge bases and siblings and
 // the set's size from the stage file, and its own --app and --round-base
 // flags, then runs steps 8–11. A key ending in a survivor's
-// `-<repository name>` runs that worktree alone, its key unchanged; a shard
-// key, ending `-s<i>of<n>`, runs its one row. A
+// `-<repository name>` runs that worktree alone, its key unchanged. A
 // survivor no --app pair names and no `preflight apps` row resolves is a
 // usage error, exit 2, `no --app passed for <worktree>` (kan-1102
 // self-review, F3).
@@ -224,11 +189,10 @@ import (
 //   2. the in-process verify-report check (visual-verify-pass close) <report> <motions named> --design
 //      <changeRoot>/design.md and, with `mockups` declared,
 //      the in-process frame-list check (visual-verify-pass close) <changeRoot>/design.md <mockups root> <report>, in
-//      process (exit 2 from either is this call's exit 2); on a shard key both
-//      are passed `--frames` with the stage file's `slice` of the key's shard
-//      segment. The record the row owns — <changeRoot>/visual-verification.md, or on a shard
-//      its visual-verification/record-s<i>of<n>.md — must open with a `Pass: <key>` line, the
-//      key less any shard segment (KAN-1155: a record naming fix-13-rest after fix-21-rest
+//      process (exit 2 from either is this call's exit 2); on a `-rest` key
+//      both are passed `--frames` with the frames its report names.
+//      <changeRoot>/visual-verification.md must open with a `Pass: <key>` line
+//      (KAN-1155: a record naming fix-13-rest after fix-21-rest
 //      closed done landed unnoticed); another key or none is the one line
 //      `RECORD-STALE: <record> names <key>, not this pass <key> — …`, and no record file is
 //      no line. A check-verify-report exit 1, a check-frame-list exit 1 naming any gap
@@ -237,17 +201,15 @@ import (
 //      (the remainder's bundle reads them), prints them, then one
 //        NEXT: rest <key>-rest[-<n>][-<repository name>]       exit 0
 //      — `-rest`, then `-rest-<n>` from 2, placed before any
-//      `-<repository name>` suffix, the shard segment kept last
-//      (`visual-verify-rest-s2of4`). No commit; the stage stays open.
+//      `-<repository name>` suffix. No commit; the stage stays open.
 //   3. the report's `## Verdict` block: `exits:` naming a non-zero exit is a
 //      block, its `cause:` (environment when absent). The blocked count is the
-//      stage's blocked rows of the worktree and the key's shard index. The
-//      stage's first such report of the worktree and shard index ends the row
+//      stage's blocked rows of the worktree. The
+//      stage's first such report of the worktree ends the row
 //      `blocked -cause <cause>` and prints
-//        NEXT: redispatch visual-verify-<n>[-fix-<k>[-full]][-<repository name>][-s<i>of<n>]   (<n> from 2)
-//      — the closing key's `-fix-<k>[-full]` segment, its shard segment and its
-//      `-<repository name>` suffix kept (`visual-verify-2-fix-3`,
-//      `visual-verify-2-s2of3`) — with no commit. From the second: cause `environment` ends the row the
+//        NEXT: redispatch visual-verify-<n>[-fix-<k>[-full]][-<repository name>]   (<n> from 2)
+//      — the closing key's `-fix-<k>[-full]` segment and its
+//      `-<repository name>` suffix kept (`visual-verify-2-fix-3`) — with no commit. From the second: cause `environment` ends the row the
 //      same way and prints `NEXT: cure-environment <next key>`, no commit;
 //      `test-failure` or `missing-fixture` ends the row `blocked`, commits
 //      (step 12), ends the stage and prints `NEXT: loop`.
@@ -285,10 +247,6 @@ import (
 //      with no such file prints neither. Every `completed` close, scoped or
 //      not, then rewrites visual-prototype.txt with those lines when the map
 //      exists.
-// On the `loop`, `judge` and `done` paths (steps 3–5) a shard's close rewrites
-// <changeRoot>/visual-verification.md as the
-// `record-s<i>of<n>.md` parts that exist, joined in shard order by one blank
-// line (decision record-parts-merged-by-close).
 // Every commit is step 12 (decision close-commits-final-reports), never made
 // after `rest`, `redispatch` or `cure-environment`: the report's `- spec:`
 // path, every PNG it names, the full app suite's spec and zip its `- full app
@@ -303,7 +261,7 @@ import (
 // Nothing to commit makes no commit. Then, always:
 //   ROUND-BASE: <worktree>=<git -C <worktree> rev-parse HEAD>
 // The stage verdict is `stopped` when the newest row of any surviving worktree
-// or shard index is `blocked`, else `completed`; no stage mark is made. Then
+// is `blocked`, else `completed`; no stage mark is made. Then
 // `flow record render -change <name> -kind ledger -repo <canonical-worktree>`
 // and `STAGE: <outcome>`. Rows end through `flow record dispatch end -C
 // <canonical-worktree> -change <name> -key <key> -session-token <t>
@@ -326,13 +284,7 @@ import (
 //      piped into flow-guard compose-mockup-frames <sidecar> <mockups root>
 //      <changeRoot>/visual-verification [<mockup frame>] (no fourth argument
 //      under --prototype or without a declared `mockup frame`). Neither: the
-//      manifest carries no pairs. With --frames, only the sidecar's lines
-//      whose frame is in the slice — every `frame`, comment and blank line
-//      kept — copied to
-//      <worktree>/.superpowers/sdd/visual-measure-<key>/<spec basename>.mockups
-//      and composed from there; a frame outside the slice is neither composed
-//      nor measured, and its `.frame.png` is left alone (decision
-//      manifest-per-shard).
+//      manifest carries no pairs.
 //   3. per sidecar line (a pair), with the cropped `<stem>.frame.png` as the
 //      frame when compose wrote one, else the mockup itself:
 //      flow-guard measure-visual-properties <frame> <capture> --scale 1 --props
@@ -401,9 +353,6 @@ import (
 //   begin <RFC 3339 instant>
 //   set <worktrees in the resolved set>
 //   worktree <path> <repository name> <merge base> <round base or ->[ <sibling>=<its merge base>,…]
-//   spec <absolute capture spec path>        prepare, on a sharded pass
-//   slice s<i>of<n> <frame>[,<frame>…]       prepare, on a sharded pass
-//   captured                                 prepare, once a sharded pass's capture ran
 //   row <key> <worktree>
 //   verdict <key> <guard verdict line>       close, on a remainder
 //   blocked <key>                            close, on a report with a non-zero exit
@@ -426,8 +375,8 @@ func init() { Registry["visual-verify-pass"] = visualVerifyPass }
 
 const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... [--app <worktree>:<app-root>=<url>]... [--continue [--started]]\n" +
 	"       flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> --session-token mf-<t>\n" +
-	"       flow-guard visual-verify-pass close --check-only <report> <motions named> [--mockups <dir>] [--design <design.md>] [--frames <frame>[,<frame>…]]\n" +
-	"       flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype] [--frames <frame>[,<frame>…]]"
+	"       flow-guard visual-verify-pass close --check-only <report> <motions named> [--mockups <dir>] [--design <design.md>]\n" +
+	"       flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype]"
 
 // vvpExit unwinds a step to visualVerifyPass with its exit code.
 type vvpExit int
@@ -670,9 +619,6 @@ func (v *vvp) repoName(w string) string {
 //	begin <RFC 3339 instant>
 //	set <worktrees in the resolved set>
 //	worktree <path> <repository name> <merge base> <round base or ->[ <sibling>=<its merge base>,…]
-//	spec <absolute capture spec path>
-//	slice s<i>of<n> <frame>[,<frame>…]
-//	captured
 //	row <key> <worktree>
 //	verdict <key> <guard verdict line>
 //	blocked <key>

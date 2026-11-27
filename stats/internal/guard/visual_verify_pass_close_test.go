@@ -633,69 +633,6 @@ func TestVisualVerifyPassCloseKeepsTheRound(t *testing.T) {
 	}
 }
 
-// TestVisualVerifyPassCloseShards pins decisions shard-key-segment,
-// shard-unscoped-single-worktree, record-parts-merged-by-close and
-// closes-serial-no-lock (KAN-1121): a shard's blocked count, remainder and
-// redispatch keys are its own index's, its report guards run on its slice,
-// the stage ends only once every index's newest row is closed, and
-// visual-verification.md is the shards' parts joined in order.
-func TestVisualVerifyPassCloseShards(t *testing.T) {
-	smoke.Heavy(t)
-	t.Parallel()
-	f := vvcFixture(t, "")
-	f.appendRow("visual-verify-s1of3", f.wt)
-	f.appendRow("visual-verify-s2of3", f.wt)
-	writeFile(t, f.stagePath(), f.stageFile()+"blocked visual-verify-s1of3\n")
-	f.report("visual-verify-s2of3", f.wt, vvcVerdict("1", vvcBlocked, "environment"), "- steps: "+vvcBlocked+"\n")
-	if rc, out, _ := f.close("visual-verify-s2of3"); rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: redispatch visual-verify-2-s2of3") {
-		t.Fatalf("another index's block counted: exit %d\n%s", rc, out)
-	}
-
-	// A shard of a set of several worktrees: the repository name, then the
-	// shard segment, on its remainder and its redispatch alike.
-	m := vvcFixture(t, "")
-	writeFile(t, m.stagePath(), strings.Replace(m.stageFile(), "set 1\n", "set 2\n", 1))
-	m.appendRow("visual-verify-demo-s2of3", m.wt)
-	m.report("visual-verify-demo-s2of3", m.wt, vvcVerdict("0", "10 not done", ""), "- steps: 10 not done\n")
-	if rc, out, _ := m.close("visual-verify-demo-s2of3"); rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: rest visual-verify-rest-demo-s2of3") {
-		t.Fatalf("a suffixed shard's remainder: exit %d\n%s", rc, out)
-	}
-	m.appendRow("visual-verify-rest-demo-s2of3", m.wt)
-	m.report("visual-verify-rest-demo-s2of3", m.wt, vvcVerdict("1", vvcBlocked, "environment"), "- steps: "+vvcBlocked+"\n")
-	if rc, out, _ := m.close("visual-verify-rest-demo-s2of3"); rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: redispatch visual-verify-2-demo-s2of3") {
-		t.Fatalf("a suffixed shard's redispatch: exit %d\n%s", rc, out)
-	}
-
-	g := vvcFixture(t, "| `mockups` | `design/mockups` |\n")
-	vv := filepath.Join(g.wt, "spectre/changes/demo/visual-verification")
-	writeFile(t, filepath.Join(g.wt, "spectre/changes/demo/design.md"), "# design\n\nFrames f1 and f2.\n")
-	writeFile(t, filepath.Join(g.wt, "design/mockups/f2.png"), "png\n")
-	writeFile(t, filepath.Join(g.wt, "tests/visual/home.spec.ts.mockups"), "one.png f1\ntwo.png f2\n")
-	writeFile(t, filepath.Join(vv, "record-s1of2.md"), "Pass: visual-verify\n# s1\n")
-	writeFile(t, filepath.Join(vv, "record-s2of2.md"), "Pass: visual-verify-rest\n# s2\n")
-	writeFile(t, g.stagePath(), strings.Replace(g.stageFile(), "row visual-verify "+g.wt+"\n", "", 1)+
-		"slice s1of2 f1\nslice s2of2 f2\nrow visual-verify-s1of2 "+g.wt+"\nrow visual-verify-s2of2 "+g.wt+"\n")
-	undone := strings.Replace(vvcSteps, "10 done", "10 not done", 1)
-	g.report("visual-verify-s2of2", g.wt, vvcVerdict("0", undone, ""), "- frames: 1/1\n- f2 note: composed\n- steps: "+undone+"\n")
-	if rc, out, _ := g.close("visual-verify-s2of2"); rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: rest visual-verify-rest-s2of2") {
-		t.Fatalf("a shard's remainder: exit %d\n%s", rc, out)
-	}
-	g.appendRow("visual-verify-rest-s2of2", g.wt)
-	g.report("visual-verify-rest-s2of2", g.wt, vvcVerdict("0", vvcSteps, ""), "- frames: 1/1\n- f2 note: composed\n- steps: "+vvcSteps+"\n")
-	rc, out, calls := g.close("visual-verify-rest-s2of2")
-	if rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: done") || strings.Contains(out, "STAGE:") || strings.Contains(calls, "stage end") {
-		t.Fatalf("the last index closed first ended the stage, or its slice's report was refused: exit %d\n%s\n%s", rc, out, calls)
-	}
-	g.report("visual-verify-s1of2", g.wt, vvcVerdict("0", vvcSteps, ""), "- frames: 1/1\n- f1 note: composed\n- steps: "+vvcSteps+"\n")
-	rc, out, calls = g.close("visual-verify-s1of2")
-	if rc != 0 || !strings.Contains(out, "STAGE: completed") || strings.Contains(calls, "stage ") {
-		t.Fatalf("every index closed: exit %d\n%s\n%s", rc, out, calls)
-	}
-	if b, _ := os.ReadFile(filepath.Join(filepath.Dir(vv), "visual-verification.md")); string(b) != "Pass: visual-verify\n# s1\n\nPass: visual-verify-rest\n# s2\n" {
-		t.Fatalf("visual-verification.md = %q, want the parts joined in shard order", b)
-	}
-}
-
 // TestVisualVerifyPassCloseRemainderClosesTheLoop pins decision
 // rest-closes-the-loop: a `-rest` remainder reads the continued key's round
 // file and manifest, so a remainder that completes a scoped pass whose frames
@@ -975,12 +912,12 @@ func TestVvcParseVerdictIgnoresParenthesisedCounts(t *testing.T) {
 }
 
 func TestCloseOwesNoMergeBaseCapture(t *testing.T) {
-	// A shard report carrying a merge-base capture owed line is asked no capture.
+	// A report carrying a merge-base capture owed line is asked no capture.
 	o := vvcFixture(t, "")
-	o.appendRow("visual-verify-s1of2", o.wt)
+	o.appendRow("visual-verify-2", o.wt)
 	owed := "4 done | 8 done | 9 done | 10 blocked — merge-base capture owed | 11 done | motion n/a — no motion named"
-	o.report("visual-verify-s1of2", o.wt, vvcVerdict("0", owed, ""), "- merge-base capture owed: /abs/a.spec.ts\n- steps: "+owed+"\n")
-	if rc, out, _ := o.close("visual-verify-s1of2"); rc != 0 || strings.Contains(out, "MERGE-BASE-SPEC") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: rest visual-verify-rest-s1of2") {
+	o.report("visual-verify-2", o.wt, vvcVerdict("0", owed, ""), "- merge-base capture owed: /abs/a.spec.ts\n- steps: "+owed+"\n")
+	if rc, out, _ := o.close("visual-verify-2"); rc != 0 || strings.Contains(out, "MERGE-BASE-SPEC") || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: rest visual-verify-2-rest") {
 		t.Fatalf("an owed merge-base capture: exit %d\n%s", rc, out)
 	}
 }

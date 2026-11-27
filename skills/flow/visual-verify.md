@@ -124,29 +124,10 @@ admissible statuses and the frame list, and `close`'s header for its outcomes. A
 escalation** (**Three failed rounds**, `skills/flow-contracts/pipeline.md`).
 
 **Except after `rest`, `redispatch` and `cure-environment`, `close` has run step 12** and printed
-`ROUND-BASE:`; and once the newest row of every surviving worktree, and of every shard index on a sharded pass, is closed it has rendered the
+`ROUND-BASE:`; and once the newest row of every surviving worktree is closed it has rendered the
 ledger and printed `STAGE: stopped` when any is `blocked`, else `STAGE: completed`. It ends no stage mark: `flow.verify` is ended once, by **Verify** (`skills/flow/verify-and-handoff.md`). An exit 2 is a usage error or an unreadable input, corrected and `close` run again.
 
-**A pass over more than 25 frames runs as up to four shards at once.** On an unscoped pass — the
-first — with one surviving worktree, with `mockups` declared and more than
-25 frames on the change's list, or on a scoped pass over more than 25 frames — the `--defects` it names, else every listed frame no passing recapture of the round stands for; within it a frame whose capture is byte-identical to one a report judged on a line of its own is carried forward, `flow-guard visual-verify-pass`'s `measure` step 5 canonical —
-(each shard's round file then carries only the defects in its slice, and a shard's manifest holds only its slice, so
-`close` derives `CLOSES-LOOP: no` for it — the next full run closes the loop), `prepare` cuts the frames into n = min(4, ⌈F/25⌉) slices, runs
-step 8's `setup` and one `capture` of the specs whose sidecar frames the pass judges (a spec the `specs` row reaches with no such sidecar is not captured) itself, and begins one row per slice, keyed
-`<stage key>-s<i>of<n>`, the segment after any `-<repository name>` suffix — `visual-verify-s2of4`,
-`visual-verify-fix-3-full-s1of3`, `visual-verify-gymie-s2of3`;
-`flow-guard visual-verify-pass`'s header is canonical for the cut. Every other pass runs one
-verifier per worktree, as above. The `DISPATCH:` lines go out in one message, the shards running at
-once against one stack. A shard's bundle names its slice on a `slice:` line and passes it to the
-`measure` call as `--frames <slice>`. Only `-s1of<n>`'s prompt names the change's motions; every
-other shard's reads `motions: none`, and its `close` is passed `0`. A non-zero `setup` or `capture`
-exit prints `SHARDS: none — <command> exit <n>` and begins one unsharded row instead, whose
-verifier runs step 8 and reports the failure.
-The parent runs each shard's `close` as its own Bash call, one after another, never two at once.
-It acts on a shard's `rest`, `redispatch` or `cure-environment` at once, and on `loop` or `judge`
-only once every shard of the pass has closed; on `judge`, every shard row still open is ended by its
-own key. One fix round transcribes every shard report that names a defect (the fix procedure,
-`skills/flow/fix.md`).
+**A pass is one verifier per worktree, whatever its frame count.** Within a scoped pass a frame whose capture is byte-identical to one a report judged on a line of its own is carried forward, `flow-guard visual-verify-pass`'s `measure` step 5 canonical.
 
 **An environment cure that changes what the stack serves — a served root switched, a worktree added
 to the set — voids every earlier pass**, so the next re-dispatch runs unscoped: its `prepare` is
@@ -269,7 +250,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    counts when it or its spec changed in `<capture root>`'s diff from its `--round-base`, else its
    `--since`, else its `--merge-base`; a `--defects` pass keeps every sidecar holding a defect frame.
    Another change's sidecar-carrying spec the `specs` row reaches is neither captured nor judged — its
-   committed baseline guards it through `verify` — and with no sidecar of the change's own, nothing is captured. On an unsharded pass the verifier's own capture run (step 8 of `skills/flow/visual-verify-verifier.md`) takes the bundle's `own specs:` line, the same sidecars' specs.
+   committed baseline guards it through `verify` — and with no sidecar of the change's own, nothing is captured. The verifier's own capture run (step 8 of `skills/flow/visual-verify-verifier.md`) takes the bundle's `own specs:` line, the same sidecars' specs.
 
    **Any failing check ends the stage here**: no verifier is dispatched, `prepare` stops the pass —
    no stage mark is made — and its `STOP:` line names every failing check with the evidence above.

@@ -47,9 +47,7 @@ func (v *vvp) close() {
 
 	// The report guards: an incomplete report is never accepted.
 	var frames []string
-	if slice := vvpSlice(stage, v.key); slice != "" {
-		frames = []string{"--frames", slice}
-	} else if strings.Contains(v.key, "-rest") { // the repository suffix follows the segment
+	if strings.Contains(v.key, "-rest") { // the repository suffix follows the segment
 		// A remainder answers for the frames its own report names; the other
 		// captures of the specs it measures belong to earlier passes.
 		if ids := vvcReportFrames(body); ids != "" {
@@ -78,7 +76,7 @@ func (v *vvp) close() {
 	if exits {
 		prior := 0
 		for _, l := range stage {
-			if k, _, _ := strings.Cut(l[1], " "); l[0] == "blocked" && v.rowWorktree(stage, k) == w && vvpShardSeg.FindString(k) == vvpShardSeg.FindString(v.key) {
+			if k, _, _ := strings.Cut(l[1], " "); l[0] == "blocked" && v.rowWorktree(stage, k) == w {
 				prior++
 			}
 		}
@@ -98,7 +96,6 @@ func (v *vvp) close() {
 		v.endRow("blocked", "-cause", cause)
 		v.recordJudged(w, body, design)
 		v.commit(w, body)
-		v.joinRecords(changeRoot)
 		v.endStage()
 		v.escalate(w, changeRoot, departures)
 		v.next("loop")
@@ -110,7 +107,6 @@ func (v *vvp) close() {
 		}
 		v.recordJudged(w, body, design)
 		v.commit(w, body)
-		v.joinRecords(changeRoot)
 		v.escalate(w, changeRoot, departures)
 		v.next("judge")
 	}
@@ -127,7 +123,6 @@ func (v *vvp) close() {
 	}
 	v.recordJudged(w, body, design)
 	v.commit(w, body)
-	v.joinRecords(changeRoot)
 	v.endStage()
 	switch {
 	case scoped && why == "":
@@ -195,7 +190,6 @@ func (v *vvp) checkOnly(args []string) {
 		v.usage("<motions named> '" + args[1] + "' is not a count")
 	}
 	design, mockups := "", ""
-	var frames []string
 	for i := 2; i < len(args); i += 2 {
 		if i+1 >= len(args) {
 			v.usage(args[i] + " takes a value")
@@ -205,8 +199,6 @@ func (v *vvp) checkOnly(args []string) {
 			design = v.abs(args[i+1])
 		case "--mockups":
 			mockups = v.abs(args[i+1])
-		case "--frames":
-			frames = []string{"--frames", args[i+1]}
 		default:
 			v.usage("unknown argument '" + args[i] + "'")
 		}
@@ -217,7 +209,7 @@ func (v *vvp) checkOnly(args []string) {
 	if _, err := os.Stat(report); err != nil {
 		v.die("cannot-read", "cannot read %s: %v", report, err)
 	}
-	verdicts, gap := v.reportChecks(report, design, mockups, frames)
+	verdicts, gap := v.reportChecks(report, design, mockups, nil)
 	if gap != "" {
 		verdicts = append(verdicts, gap)
 	}
@@ -443,26 +435,10 @@ func (v *vvp) rowWorktree(stage [][2]string, key string) string {
 	return w
 }
 
-// suffix is `-<repository name>` when the set holds more than one worktree,
-// then the key's shard segment, `-s<i>of<n>`.
+// suffix is `-<repository name>` when the set holds more than one worktree.
 func (v *vvp) suffix(w string) string {
-	shard := vvpShardSeg.FindString(v.key)
 	if v.setSize > 1 {
-		return "-" + v.repoName(w) + shard
-	}
-	return shard
-}
-
-// vvpShardSeg is a shard key's `-s<i>of<n>` segment (decision shard-key-segment).
-var vvpShardSeg = regexp.MustCompile(`-s([0-9]+)of([0-9]+)$`)
-
-// vvpSlice is the stage file's `slice` of key's shard segment, "" for none.
-func vvpSlice(stage [][2]string, key string) string {
-	seg := vvpShardSeg.FindString(key)
-	for _, l := range stage {
-		if k, slice, _ := strings.Cut(l[1], " "); seg != "" && l[0] == "slice" && "-"+k == seg {
-			return slice
-		}
+		return "-" + v.repoName(w)
 	}
 	return ""
 }
@@ -517,21 +493,17 @@ var vvcRecordPass = regexp.MustCompile(`(?m)^Pass: *(\S+) *$`)
 
 // recordPassCheck refuses a record a pass leaves stale (KAN-1155: the change
 // landed with a visual-verification.md naming fix-13-rest after fix-21-rest
-// closed done). The record this row owns — visual-verification.md, or its
-// record-s<i>of<n>.md part on a shard — must carry a `Pass: <key>` line naming
-// this row's key less its shard segment; one that names another pass, or none,
-// is the verdict line an incomplete report is. No record file at all is no
-// verdict: step 11 writes it only when a view was captured.
+// closed done). visual-verification.md must carry a `Pass: <key>` line naming
+// this row's key; one that names another pass, or none, is the verdict line an
+// incomplete report is. No record file at all is no verdict: step 11 writes it
+// only when a view was captured.
 func (v *vvp) recordPassCheck(changeRoot string) string {
 	rec := filepath.Join(changeRoot, "visual-verification.md")
-	if m := vvpShardSeg.FindStringSubmatch(v.key); m != nil {
-		rec = filepath.Join(changeRoot, "visual-verification", fmt.Sprintf("record-s%sof%s.md", m[1], m[2]))
-	}
 	b, err := os.ReadFile(rec)
 	if err != nil {
 		return ""
 	}
-	want := vvpShardSeg.ReplaceAllString(v.key, "")
+	want := v.key
 	got := "no pass"
 	if m := vvcRecordPass.FindSubmatch(b); m != nil {
 		got = string(m[1])
@@ -540,30 +512,6 @@ func (v *vvp) recordPassCheck(changeRoot string) string {
 		return ""
 	}
 	return fmt.Sprintf("RECORD-STALE: %s names %s, not this pass %s — rewrite it whole under this pass's key, opening with `Pass: %s` (step 11 of skills/flow/visual-verify-verifier.md)", rec, got, want, want)
-}
-
-// joinRecords rewrites <changeRoot>/visual-verification.md as the shards' record-s<i>of<n>.md parts that exist, in shard order, on a
-// shard's close (decision record-parts-merged-by-close).
-func (v *vvp) joinRecords(changeRoot string) {
-	m := vvpShardSeg.FindStringSubmatch(v.key)
-	if m == nil {
-		return
-	}
-	n, _ := strconv.Atoi(m[2])
-	vvDir := filepath.Join(changeRoot, "visual-verification")
-	var parts []string
-	for i := 1; i <= n; i++ {
-		part := filepath.Join(vvDir, fmt.Sprintf("record-s%dof%d.md", i, n))
-		b, err := os.ReadFile(part)
-		if os.IsNotExist(err) {
-			continue
-		}
-		if err != nil {
-			v.die("cannot-read", "cannot read %s: %v", part, err)
-		}
-		parts = append(parts, strings.TrimRight(string(b), "\n"))
-	}
-	v.writeOut(filepath.Join(changeRoot, "visual-verification.md"), strings.Join(parts, "\n\n")+"\n")
 }
 
 var vvcRest = regexp.MustCompile(`-rest(?:-([0-9]+))?$`)
@@ -602,7 +550,7 @@ func (v *vvp) endRow(outcome string, flags ...string) {
 // ledger and prints `STAGE: <outcome>`.
 func (v *vvp) endStage() {
 	stage := v.readStage()
-	// The newest row of each worktree and shard index (decision shard-key-segment).
+	// The newest row of each worktree.
 	newest, closed := map[string]string{}, map[string]string{}
 	var order []string
 	for _, l := range stage {
@@ -611,29 +559,23 @@ func (v *vvp) endStage() {
 		case "worktree":
 			order = append(order, k)
 		case "row":
-			newest[rest+" "+vvpShardSeg.FindString(k)] = k
+			newest[rest] = k
 		case "closed":
 			closed[k] = rest
 		}
 	}
 	outcome := "completed"
 	for _, w := range order {
-		seen := false
-		for lane, k := range newest {
-			if !strings.HasPrefix(lane, w+" ") {
-				continue
-			}
-			seen = true
-			o, ok := closed[k]
-			if !ok {
-				return
-			}
-			if o == "blocked" {
-				outcome = "stopped"
-			}
-		}
+		k, seen := newest[w]
 		if !seen {
 			return
+		}
+		o, ok := closed[k]
+		if !ok {
+			return
+		}
+		if o == "blocked" {
+			outcome = "stopped"
 		}
 	}
 	if out, rc := v.flow("record", "render", "-change", v.name, "-kind", "ledger", "-repo", v.canon); rc != 0 {
