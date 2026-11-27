@@ -96,6 +96,7 @@ func (v *vvp) close() {
 			v.next("cure-environment " + nextKey)
 		}
 		v.endRow("blocked", "-cause", cause)
+		v.recordJudged(w, body, design)
 		v.commit(w, body)
 		v.joinRecords(changeRoot)
 		v.endStage()
@@ -107,6 +108,7 @@ func (v *vvp) close() {
 		if judgeGap != "" {
 			v.say("%s", judgeGap)
 		}
+		v.recordJudged(w, body, design)
 		v.commit(w, body)
 		v.joinRecords(changeRoot)
 		v.escalate(w, changeRoot, departures)
@@ -123,6 +125,7 @@ func (v *vvp) close() {
 		// A lost snapshot only keeps the next scoped round's full run.
 		_ = os.WriteFile(filepath.Join(w, ".superpowers", "sdd", "visual-prototype.txt"), []byte(snap), 0o644)
 	}
+	v.recordJudged(w, body, design)
 	v.commit(w, body)
 	v.joinRecords(changeRoot)
 	v.endStage()
@@ -133,6 +136,20 @@ func (v *vvp) close() {
 		v.say("CLOSES-LOOP: no — %s", why)
 	}
 	v.next("done")
+}
+
+// recordJudged rewrites the worktree's visual-judged.txt from the row's
+// manifest (judgedAfter); a lost write only makes the next scoped round
+// re-judge those frames.
+func (v *vvp) recordJudged(w string, report []byte, design string) {
+	sdd := filepath.Join(w, ".superpowers", "sdd")
+	var m vvmManifestOut
+	b, err := os.ReadFile(filepath.Join(sdd, "visual-manifest-"+vrRestSegment.ReplaceAllString(v.key, "")+".json"))
+	if err != nil || json.Unmarshal(b, &m) != nil {
+		return
+	}
+	d, _ := os.ReadFile(design)
+	_ = writeJudged(sdd, judgedAfter(readJudged(sdd), m.Pairs, report, d))
 }
 
 // reportChecks runs the report guards on report: the verdict lines of an
@@ -287,8 +304,12 @@ func (v *vvp) closesLoop(w, design string, report []byte, snap string) (scoped b
 		}
 	}
 	lines := flReportLines(report)
+	var carried []string
+	if len(defects) == 0 {
+		carried = vvpCarried(readJudged(sdd), m.Pairs)
+	}
 	for _, p := range m.Pairs {
-		if v.captureChanged(p.Capture, base) && !flPerFrame(p.Frame, lines) {
+		if v.captureChanged(p.Capture, base) && !flPerFrame(p.Frame, lines) && !slices.Contains(carried, p.Frame) {
 			return true, p.Frame + ": its capture changed since " + base + " and the report has no line of its own for it"
 		}
 	}

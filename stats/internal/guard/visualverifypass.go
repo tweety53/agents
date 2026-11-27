@@ -374,7 +374,18 @@ import (
 //      — each frame of this call's pairs whose capture is absent, untracked
 //      or differs from its blob at the round base (decision
 //      changed-by-blob-hash) — or `changed: none — round base <sha>`; with no
-//      such file, no `changed:` line. Then it prints
+//      such file, no `changed:` line. A round file naming no --defects frame
+//      also carries a frame forward, leaving it off `changed:`, when its
+//      capture's sha-256 equals its line in <worktree>/.superpowers/sdd/visual-judged.txt,
+//      printing first
+//        carried: <n> — <frame id> …: capture identical to the one a report judged frame by frame
+//      close step 5's per-frame-line condition does not hold a carried frame,
+//      and before every commit (step 12) close rewrites visual-judged.txt
+//      from the row's manifest pairs: `<sha-256 hex> <frame id>` for each frame
+//      the report gave its own per-frame line with no over-tolerance row
+//      excused by a `decision <ID>` whose design.md entry (its `**Considered:**`
+//      line aside) names more than one of the manifest's frames; any other
+//      frame keeps its line only while its capture still hashes to it. Then it prints
 //        MANIFEST: <path>
 //   Exit 0 when every step exited 0, 1 when any did not, 2 on a usage error
 //   or an output directory or file it cannot write.
