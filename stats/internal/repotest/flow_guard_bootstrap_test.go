@@ -146,7 +146,7 @@ func copyRealSources(t *testing.T) string {
 	dst := t.TempDir()
 	src := filepath.Join(repoRoot(t), "stats")
 	files := []string{"go.mod", "go.sum"}
-	for _, dir := range []string{"cmd/flow-guard", "internal/guard", "internal/records", "internal/modelpolicy", "internal/testcost"} {
+	for _, dir := range []string{"cmd/flow-guard", "internal/guard", "internal/records", "internal/modelpolicy", "internal/testcost", "internal/shlex"} {
 		matches, err := filepath.Glob(filepath.Join(src, dir, "*.go"))
 		if err != nil {
 			t.Fatal(err)
@@ -317,7 +317,7 @@ func TestFlowGuardBootstrap(t *testing.T) {
 		cache := t.TempDir()
 		env := withPath(bootstrapEnv(cache), fakeGoPath(t, path, fakeGoBuild))
 		want := len(keyAfter(t, fix, env, cache))
-		for _, pkg := range []string{"records", "modelpolicy"} {
+		for _, pkg := range []string{"records", "modelpolicy", "shlex"} {
 			dir := filepath.Join(fix, "stats/internal", pkg)
 			writeFile(t, filepath.Join(dir, "x_test.go"), "package "+pkg+"\n", 0o644)
 			if got := len(keyAfter(t, fix, env, cache)); got != want {

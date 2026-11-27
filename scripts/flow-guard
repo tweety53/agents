@@ -28,10 +28,10 @@
 # exactly the sources the binary is built from — stats/go.mod, stats/go.sum,
 # and the non-test .go files of stats/cmd/flow-guard/, stats/internal/guard/,
 # stats/internal/records/, stats/internal/modelpolicy/,
-# and stats/internal/testcost/ (the only packages
+# stats/internal/testcost/ and stats/internal/shlex/ (the only packages
 # it imports from this module: unfinishedwork.go imports records,
 # modelpolicy.go and loop.go modelpolicy,
-# testcost.go testcost) — named relative to stats/, so two
+# testcost.go testcost, hookblockunsafecommands.go shlex) — named relative to stats/, so two
 # checkouts with the same sources share one binary and a _test.go edit never
 # forces a rebuild. A tree without one of those packages keys without it.
 # The binary lives at
@@ -82,7 +82,7 @@ flow_guard_key() {
   (
     cd "$1" || exit 1
     files=(go.mod go.sum)
-    for f in cmd/flow-guard/*.go internal/guard/*.go internal/records/*.go internal/modelpolicy/*.go internal/testcost/*.go; do
+    for f in cmd/flow-guard/*.go internal/guard/*.go internal/records/*.go internal/modelpolicy/*.go internal/testcost/*.go internal/shlex/*.go; do
       case "$f" in *_test.go) ;; *) [ -f "$f" ] && files+=("$f") ;; esac
     done
     if command -v sha256sum >/dev/null 2>&1; then
