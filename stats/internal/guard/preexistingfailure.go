@@ -54,7 +54,7 @@ func preExistingFailure(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "no-merge-base")
 		return 2
 	}
-	diff, ok := capture(git("-C", wt, "diff", "--name-only", mb))
+	diff, ok := capture(git("-C", wt, "diff", "--no-renames", "--name-only", mb))
 	if !ok {
 		fmt.Fprintf(stderr, "%s: %s: git diff --name-only %s failed\n", prog, wt, mb)
 		Reason(env, "diff-failed")
