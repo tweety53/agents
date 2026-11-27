@@ -333,13 +333,9 @@ func TestNameLooksUpDocumentedKey(t *testing.T) {
 	}
 }
 
-// skillPath and interactiveSkillPath locate flow-fast's and
-// flow-interactive's SKILL.md relative to this package, at the same depth
-// as readmePath above.
-const (
-	skillPath            = "../../../skills/flow-fast/SKILL.md"
-	interactiveSkillPath = "../../../skills/flow-interactive/SKILL.md"
-)
+// interactiveSkillPath locates flow-interactive's SKILL.md relative to this
+// package, at the same depth as readmePath above.
+const interactiveSkillPath = "../../../skills/flow-interactive/SKILL.md"
 
 // stageKeysHeading locates the section the drift guard extracts from.
 const stageKeysHeading = "## Stage keys"
@@ -393,18 +389,10 @@ func extractFlowFastSkillKeys(t *testing.T, skillPath string) map[string]bool {
 	return keys
 }
 
-// TestStageKeysMatchFlowFastSkillTable pins the /flow-fast vocabulary to
-// flow-fast's own Stage keys table: every key the skill names carries
-// /flow-fast in stages.Table, and no other key does. Compared as sets --
-// the skill groups its keys by phase file, the vocabulary by README row,
-// so order is not a fact either side states.
-func TestStageKeysMatchFlowFastSkillTable(t *testing.T) {
-	assertSkillTableMatches(t, stages.FlowFast, skillPath)
-}
-
 // TestStageKeysMatchFlowInteractiveSkillTable pins the /flow-interactive
-// vocabulary to flow-interactive's own Stage keys table, both ways, as
-// TestStageKeysMatchFlowFastSkillTable does for /flow-fast (KAN-1061).
+// vocabulary to flow-interactive's own Stage keys table: every key the skill
+// names carries /flow-interactive in stages.Table, and no other key does.
+// Compared as sets -- order is not a fact either side states (KAN-1061).
 func TestStageKeysMatchFlowInteractiveSkillTable(t *testing.T) {
 	assertSkillTableMatches(t, stages.FlowInteractive, interactiveSkillPath)
 }
