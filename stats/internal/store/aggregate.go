@@ -1054,10 +1054,7 @@ const reviewerScopeSQL = `
 			SELECT d.id, d.change_id, d.agent_id, c.project_key, s.slot
 			FROM dispatches d
 			JOIN changes c ON c.id = d.change_id
-			-- A gated review (task-<n>[+<m>...]-reviewer[-fix-<k>]) records no slot; its
-			-- findings carry slot gated-reviewer.
-			CROSS JOIN LATERAL unnest(string_to_array(COALESCE(d.slot,
-				CASE WHEN d.dispatch_key ~ '^task-[0-9+]+-reviewer' THEN 'gated-reviewer' END), '+')) AS s(slot)
+			CROSS JOIN LATERAL unnest(string_to_array(d.slot, '+')) AS s(slot)
 			WHERE d.started_at >= $1 AND d.started_at < $2
 			  AND ($3::text IS NULL OR c.project_key = $3)
 			  AND ($4::text IS NULL OR d.model = $4)
@@ -1079,8 +1076,6 @@ const reviewerScopeSQL = `
 		roster_slots AS (
 			SELECT jsonb_path_query(decision, '$.panel[*].slots[*]') #>> '{}' AS slot
 			FROM decisions
-			UNION
-			SELECT 'gated-reviewer'
 		)
 `
 
@@ -1213,9 +1208,6 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 			return nil, fmt.Errorf("store: reviewers: scan: %w", err)
 		}
 		row.Description = extraDispatchDescriptions[row.Slot]
-		if row.Slot == "gated-reviewer" {
-			row.Description = "Gated review — checks each implementer group's risky tasks as they land, before the panel"
-		}
 		out = append(out, row)
 	}
 	if err := rows.Err(); err != nil {

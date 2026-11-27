@@ -17,8 +17,6 @@ export const SHORT_DOES: Record<string, string> = {
   implementer: "Writes the code",
   "panel-fix": "Fixes review findings",
   "operator-asked": "Does what you asked",
-  "gated-reviewer": "Reviews risky tasks",
-  "gated-re-reviewer": "Re-checks risky tasks",
   "panel-reviewer": "Reviews the branch",
   decider: "Checks the plan",
   "minor-fix": "Fixes review Minors",

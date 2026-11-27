@@ -1197,16 +1197,6 @@ func TestRenderDispatchEndingBeforeStart(t *testing.T) {
 	}
 }
 
-func TestRenderPanelOmitsGatedRows(t *testing.T) {
-	out := records.RenderPanel(records.Run{Change: "demo", Findings: []records.Finding{
-		{Ref: "F1", Slot: "primary", Severity: "Minor", Status: "fixed"},
-		{Ref: "F2", Slot: records.GatedReviewerSlot, Severity: "Important", Status: "fixed"},
-	}})
-	if !strings.Contains(out, "findings-total: 1\n") || strings.Contains(out, "F2") {
-		t.Fatalf("gated row rendered:\n%s", out)
-	}
-}
-
 // TestRenderLedgerNamesTheRequest pins F5 of kan-1081's self-review: an
 // operator-asked row names the /flow-interactive request it ran for, read
 // from the row's own Request, never derived from its key.

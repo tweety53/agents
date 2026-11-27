@@ -137,11 +137,11 @@ func RoleOf(stored, key string) string {
 		}
 		return "planner"
 	case "reviewer":
-		if strings.HasPrefix(key, "task-") {
+		if strings.HasPrefix(key, "task-") { // the retired per-task review's, folded into the panel's roles
 			if strings.Contains(key, "-reviewer-fix") {
-				return "gated-re-reviewer"
+				return "panel-rerun"
 			}
-			return "gated-reviewer"
+			return "panel-reviewer"
 		}
 		if m := panelRound.FindStringSubmatch(key); m != nil {
 			if m[1] == "0" { // round 0 is the initial panel, 1..n fix rounds

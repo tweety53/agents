@@ -124,26 +124,6 @@ func lineageCell(f Finding) string {
 	return strings.Join(parts, "; ")
 }
 
-// RenderGatedFindings renders the gated per-task reviewers' findings
-// (GatedReviewerSlot) as a table, the rows RenderPanel leaves out; false
-// when the run holds none.
-func RenderGatedFindings(r Run) (string, bool) {
-	var b strings.Builder
-	b.WriteString("| ID | Task | Severity | Location | Note | Status |\n")
-	b.WriteString("|---|---|---|---|---|---|\n")
-	found := false
-	for _, f := range r.Findings {
-		if f.Slot != GatedReviewerSlot {
-			continue
-		}
-		found = true
-		fmt.Fprintf(&b, "| %s | %s | %s | %s | %s | %s |\n",
-			tableCell(f.Ref), tableCell(f.TaskID), tableCell(f.Severity),
-			tableCell(f.Location), tableCell(f.Note), tableCell(f.Status))
-	}
-	return b.String(), found
-}
-
 // RenderPanel renders a change's findings, dispatches, and pass log as the
 // review panel record that `flow record render -kind panel` writes under
 // the worktree's untracked .superpowers/sdd/reviews/.
@@ -171,11 +151,7 @@ func RenderGatedFindings(r Run) (string, bool) {
 // A finding with no recorded reproducer renders the exemption form
 // `none — <reason>` rather than no line at all, so every finding keeps
 // exactly one reproducer line.
-//
-// A gated per-task reviewer's row (GatedReviewerSlot) is no panel finding
-// and is left out of the record and both totals.
 func RenderPanel(r Run) string {
-	r.Findings = PanelFindings(r.Findings)
 	var b strings.Builder
 
 	fmt.Fprintf(&b, "# Review panel — %s\n\n", neutraliseMarkers(r.Change))

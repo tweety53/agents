@@ -36,11 +36,10 @@ func TestEndDispatchRow(t *testing.T) {
 		{"a nested agent's child", "Key: task-4-implementer\n", "done\n", "-key task-4-implementer -session-token cc-s1-a9 -outcome completed", "", `{"parentAgentId":"a9"}`},
 		{"implementer", "Role: implementer\nKey: task-3-implementer\n", "status: DONE\ncommit: 3 " + sha + "\n", "-key task-3-implementer -session-token cc-s1-main -outcome completed -commit " + sha, "", ""},
 		{"multi-repo implementer", "Key: task-3-implementer\n", "status: DONE\ncommit: 3 /wt/a=" + sha + ",/wt/b=" + strings.Repeat("b", 40) + "\n", "-outcome completed -commit " + sha, "", ""},
-		{"gated fix", "Key: task-1+2-reviewer\n", "task 1: clean — x\ntask 2: fix — y\n", "-key task-1+2-reviewer -session-token cc-s1-main -outcome fix", "", ""},
-		{"gated clean", "Key: task-1-reviewer\n", "task 1: clean — x\n", "-outcome clean", "", ""},
+		// A task-<ids>-reviewer key, the retired gated review's, ends as any other row does.
+		{"task reviewer key", "Key: task-1+2-reviewer\n", "task 1: clean — x\ntask 2: fix — y\n", "-key task-1+2-reviewer -session-token cc-s1-main -outcome completed", "", ""},
 		{"no final message", "Key: panel-1-primary\n", "", "", "", ""},
-		{"gated verdict only in the hook payload", "Key: task-1-reviewer\n", "", "-outcome fix", "task 1: fix — y\n", ""},
-		{"gated verdicts as a bullet list", "Key: task-1+2-reviewer-fix-2\n", "## Verdict\nOne still needs a fix.\n\n- task 1: clean — x\n- task 2: fix — y\n", "-outcome fix", "", ""},
+		{"final message only in the hook payload", "Key: panel-1-primary\n", "", "-key panel-1-primary -session-token cc-s1-main -outcome completed", "done\n", ""},
 		{"loop key", "Key: pipeline-fix-3-fix\n", "done", "", "", ""},
 		{"no key", "hello", "done", "", "", ""},
 	} {
@@ -83,8 +82,8 @@ func TestEndDispatchRow(t *testing.T) {
 }
 
 // TestEndDispatchRowReadsTheHandbackReport: a child that reports through the SubagentHandback tool
-// ends on a tool call with no text part; its message is the final message, so a gated reviewer's
-// verdict lines close the row `fix`, not `aborted`.
+// ends on a tool call with no text part; its message is the final message, so its commit line
+// closes the row with that commit.
 func TestEndDispatchRowReadsTheHandbackReport(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -95,8 +94,9 @@ func TestEndDispatchRowReadsTheHandbackReport(t *testing.T) {
 	log := filepath.Join(tmp, "flow.log")
 	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >>"+log+"\n")
 	tr := filepath.Join(tmp, "agent.jsonl")
-	writeFile(t, tr, `{"type":"user","message":{"role":"user","content":"Key: task-1-reviewer\n"}}`+"\n"+
-		`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"SubagentHandback","input":{"message":"task 1: fix — y\n"}}]}}`+"\n")
+	sha := strings.Repeat("c", 40)
+	writeFile(t, tr, `{"type":"user","message":{"role":"user","content":"Key: operator-3\n"}}`+"\n"+
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"SubagentHandback","input":{"message":"commit: request-9 `+sha+`\n"}}]}}`+"\n")
 	env := Env{Getenv: func(k string) string {
 		switch k {
 		case "FLOW_ADDR":
@@ -110,8 +110,8 @@ func TestEndDispatchRowReadsTheHandbackReport(t *testing.T) {
 	if rc := endDispatchRow([]string{tr, "s1", tmp}, env, &o, &e); rc != 0 {
 		t.Fatalf("rc %d: %s%s", rc, o.String(), e.String())
 	}
-	if got, _ := os.ReadFile(log); !strings.Contains(string(got), "-outcome fix") {
-		t.Errorf("flow called with %q, want -outcome fix", got)
+	if got, _ := os.ReadFile(log); !strings.Contains(string(got), "-outcome completed -commit "+sha) {
+		t.Errorf("flow called with %q, want -outcome completed -commit %s", got, sha)
 	}
 }
 

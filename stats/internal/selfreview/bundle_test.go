@@ -90,7 +90,7 @@ func TestBundleAssemblySkipsAbsentSources(t *testing.T) {
 
 	// A change the store has never heard of renders nothing: the ledger
 	// needs dispatch rows and the panel needs any row at all.
-	if !strings.Contains(bundle, "found: 0 of 11 sources; skipped: 11 of 11 sources") {
+	if !strings.Contains(bundle, "found: 0 of 10 sources; skipped: 10 of 10 sources") {
 		t.Errorf("summary line wrong:\n%s", bundle)
 	}
 	if strings.Contains(bundle, "## .superpowers/sdd/ledgers/demo.md") {
@@ -98,9 +98,6 @@ func TestBundleAssemblySkipsAbsentSources(t *testing.T) {
 	}
 	if strings.Contains(bundle, "## .superpowers/sdd/reviews/demo-panel.md") {
 		t.Errorf("no rows at all, yet a panel section rendered:\n%s", bundle)
-	}
-	if !strings.Contains(bundle, "skipped: gated per-task reviewer findings (absent)") {
-		t.Errorf("no gated rows, yet the gated source is not reported absent:\n%s", bundle)
 	}
 	if !strings.Contains(bundle, "skipped: git log --stat (absent)") {
 		t.Errorf("no repository recorded, yet git log resolved:\n%s", bundle)
@@ -283,7 +280,7 @@ func TestBundleAssemblyGitLogFallsBackToChangeBranch(t *testing.T) {
 	}
 	// One found source — the git log; every other source a flow-fast run
 	// has no change directory to read and no store rows to render.
-	if !strings.Contains(bundle, "found: 1 of 11 sources; skipped: 10 of 11 sources") {
+	if !strings.Contains(bundle, "found: 1 of 10 sources; skipped: 9 of 10 sources") {
 		t.Errorf("summary line wrong:\n%s", bundle)
 	}
 }
@@ -579,7 +576,7 @@ func TestBundleServesRecordedSummaryFirst(t *testing.T) {
 	for _, want := range []string{
 		"## change summary",
 		"what changed and why",
-		"found: 1 of 11 sources",
+		"found: 1 of 10 sources",
 	} {
 		if !strings.Contains(bundle, want) {
 			t.Errorf("bundle missing %q:\n%s", want, bundle)
@@ -599,7 +596,7 @@ func TestBundleSkipsAbsentSummary(t *testing.T) {
 		t.Fatalf("Bundle: %v", err)
 	}
 
-	if !strings.Contains(bundle, "found: 0 of 11 sources; skipped: 11 of 11 sources") {
+	if !strings.Contains(bundle, "found: 0 of 10 sources; skipped: 10 of 10 sources") {
 		t.Errorf("summary line wrong:\n%s", bundle)
 	}
 	if !strings.Contains(bundle, "skipped: change summary (absent)") {
@@ -627,7 +624,7 @@ func TestBundleNamesRecordsLossWhenPanelRanWithoutDispatches(t *testing.T) {
 	}
 	// The note is a note, not a source: the found/skipped line still
 	// counts exactly the nine real sources.
-	if !strings.Contains(bundle, "found: 0 of 11 sources; skipped: 11 of 11 sources") {
+	if !strings.Contains(bundle, "found: 0 of 10 sources; skipped: 10 of 10 sources") {
 		t.Errorf("found/skipped line disturbed by the note:\n%s", bundle)
 	}
 	if strings.Contains(bundle, "skipped: note:") {
@@ -863,34 +860,6 @@ func TestRequestsLogPrintsEachCommitOnce(t *testing.T) {
 	}
 	if !strings.Contains(log[three:], "commit "+c3) {
 		t.Errorf("request 3 lacks its own commit %s:\n%s", c3, log)
-	}
-}
-
-func TestBundleServesGatedReviewerFindings(t *testing.T) {
-	t.Parallel()
-	g := &fakeGit{responses: map[string]string{}, failOn: map[string]bool{}}
-	run := records.Run{Change: "demo", Findings: []records.Finding{
-		{Ref: "F1", Slot: records.GatedReviewerSlot, TaskID: "6", Severity: "Important", Location: "skills/flow/implement.md:12", Note: "no Model: line", Status: "fixed"},
-		{Ref: "F2", Slot: "primary", Severity: "Minor", Note: "panel row", Status: "fixed"},
-	}}
-	bundle, err := Bundle("demo", run, "", false, false, "", nil, nil, g)
-	if err != nil {
-		t.Fatalf("Bundle: %v", err)
-	}
-	const heading = "## gated per-task reviewer findings"
-	i := strings.Index(bundle, heading)
-	if i < 0 {
-		t.Fatalf("no gated section:\n%s", bundle)
-	}
-	if !strings.Contains(bundle, "| F1 | 6 | Important |") {
-		t.Errorf("gated row missing:\n%s", bundle)
-	}
-	if strings.Contains(bundle[i:], "F2") {
-		t.Errorf("panel row F2 leaked into the gated section:\n%s", bundle[i:])
-	}
-	panel := bundle[:i]
-	if j := strings.Index(panel, "## .superpowers/sdd/reviews/demo-panel.md"); j < 0 || strings.Contains(panel[j:], "F1") {
-		t.Errorf("panel section missing or carries the gated F1:\n%s", panel)
 	}
 }
 

@@ -650,7 +650,7 @@ func TestSeedRunCostsFixture(t *testing.T) {
 	if len(stages) < 4 {
 		t.Errorf("stage lanes = %v, want at least 4", stages)
 	}
-	for _, want := range []string{"planner", "explorer", "planned implementer", "gated reviewer", "gated fixer", "verify list",
+	for _, want := range []string{"planner", "explorer", "planned implementer", "gated fixer", "verify list",
 		"visual verifier", "in-run fix (verify)", "in-run fix (visual verify)", "panel reviewer", "merger", "panel fixer"} {
 		if !slices.Contains(categories, want) {
 			t.Errorf("category lanes = %v, missing %q", categories, want)

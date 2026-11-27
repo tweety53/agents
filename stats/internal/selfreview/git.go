@@ -433,8 +433,7 @@ var changeFiles = []string{"tasks.md", "design.md", "narrative.md", "visual-veri
 // a ref. build names the serving daemon's own build, the note leading the
 // bundle's notes when non-empty: a source reported skipped that the tree
 // holds then reads as a daemon older than the source, never as an absence
-// (KAN-771). The gated per-task reviewers' findings, which the panel record
-// leaves out, follow the panel as their own source.
+// (KAN-771).
 func Bundle(change string, run records.Run, summary string, summaryFound bool, panelRan bool, build string, repos []string, requests []records.Request, g Runner) (string, error) {
 	if !records.ValidChangeName(change) {
 		return "", fmt.Errorf("change name %q is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'", change)
@@ -489,8 +488,6 @@ func Bundle(change string, run records.Run, summary string, summaryFound bool, p
 	add(".superpowers/sdd/ledgers/"+change+".md", ledger, ledgerOK)
 	panel, _ := records.RenderKind("panel", run)
 	add(".superpowers/sdd/reviews/"+change+"-panel.md", panel, run.HasRows())
-	gated, ok := records.RenderGatedFindings(run)
-	add("gated per-task reviewer findings", gated, ok)
 	toolErrors, ok := records.RenderToolErrors(run)
 	add("failed tool calls per dispatch", toolErrors, ok)
 

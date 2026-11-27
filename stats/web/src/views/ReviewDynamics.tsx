@@ -24,8 +24,7 @@ export function byEffort(a: string, b: string): number {
 
 // CURRENT_SLOTS is every slot the heatmap shows: the panel's current slots,
 // as the panelSlots internal/api records against -- a retired slot is not
-// shown -- plus gated-reviewer, which no dispatch row carries but the store
-// derives for every gated review (slotSQL).
+// shown.
 const CURRENT_SLOTS = new Set([
   "primary",
   "principles",
@@ -33,7 +32,6 @@ const CURRENT_SLOTS = new Set([
   "call-efficiency",
   "failure-modes",
   "mutation",
-  "gated-reviewer",
 ]);
 
 function Heatmap({ cells, previous }: { cells: HeatCell[]; previous: HeatCell[] }) {

@@ -136,7 +136,7 @@ func TestEndStaleDispatchRowsReadsTheHandbackReport(t *testing.T) {
 	endStaleDispatchRows([]string{filepath.Join(tmp, "chg")}, env, &o, &e)
 	got, _ := os.ReadFile(log)
 	for _, want := range []string{"-key panel-0-primary -session-token t -outcome completed -agent-id aaa -ended-at", "-commit " + sha,
-		"-key task-3-reviewer -session-token t -outcome fix -agent-id bbb"} {
+		"-key task-3-reviewer -session-token t -outcome completed -agent-id bbb"} {
 		if !strings.Contains(string(got), want) {
 			t.Errorf("missing %q in %s", want, got)
 		}

@@ -109,10 +109,10 @@ func TestReviewDynamicsSeries(t *testing.T) {
 	for _, p := range got.Series {
 		points[pointKey{p.Bucket.UTC(), p.Metric, p.Series}] = p
 	}
-	// The gated rows count exactly as Reviewers counts them: change d's
-	// dispatch under opus · low in week 1, change e's batched one under
-	// sonnet · high in week 2, both under the derived slot name; change f's
-	// slot-less non-gated row appears nowhere.
+	// The folded task reviews count exactly as Reviewers counts them: change
+	// d's dispatch under opus · low in week 1, change e's batched one under
+	// sonnet · high in week 2, both under slot primary beside the panel's own
+	// primary rows; change f's slot-less row appears nowhere.
 	want := []struct {
 		bucket         time.Time
 		metric, series string
@@ -128,12 +128,10 @@ func TestReviewDynamicsSeries(t *testing.T) {
 		{week1, "fix-rounds", "max", 2, 3},
 		{week1, "changes", "changes", 3, 3},
 		{week2, "changes", "changes", 2, 2},
-		{week1, "per-dispatch-slot", "primary", 2, 1},
+		{week1, "per-dispatch-slot", "primary", 2, 2},
 		{week1, "per-dispatch-slot", "principles", 1, 1},
 		{week1, "per-dispatch-slot", "test-sanity", 0, 1},
-		{week1, "per-dispatch-slot", "gated-reviewer", 2, 1},
-		{week2, "per-dispatch-slot", "primary", 0, 1},
-		{week2, "per-dispatch-slot", "gated-reviewer", 2, 1},
+		{week2, "per-dispatch-slot", "primary", 1, 2},
 		{week1, "per-dispatch-model", "opus", 2.5, 2},
 		{week1, "per-dispatch-model", "sonnet", 0, 1},
 		{week1, "per-dispatch-effort", "medium", 3, 1},
@@ -148,7 +146,7 @@ func TestReviewDynamicsSeries(t *testing.T) {
 	}
 	for _, p := range got.Series {
 		if p.Metric == "per-dispatch-slot" && p.Series != "primary" && p.Series != "principles" &&
-			p.Series != "test-sanity" && p.Series != "gated-reviewer" {
+			p.Series != "test-sanity" {
 			t.Errorf("unexpected per-dispatch-slot series %q", p.Series)
 		}
 	}
@@ -184,47 +182,37 @@ func TestReviewDynamicsSeries(t *testing.T) {
 	if s := got.Summary; s.Changes != 5 || s.FindingsPerChange != 1.6 || s.CriticalImportantPerChange != 1.2 || s.MeanFixRounds != 0.8 {
 		t.Errorf("Summary = %+v, want 5 changes, 1.6 findings, 1.2 critical+important, 0.8 rounds", s)
 	}
-	var gatedSlots []string
-	for _, cell := range got.Heat {
-		if cell.Slot == "gated-reviewer" {
-			gatedSlots = append(gatedSlots, cell.Model+" · "+cell.Effort)
-		}
-	}
-	if fmt.Sprint(gatedSlots) != "[opus · low sonnet · high]" {
-		t.Errorf("gated heat cells = %v, want the week 1 one under opus · low and the week 2 one under sonnet · high", gatedSlots)
-	}
-	// A day-bucketed window over week 1 alone holds exactly change d's
-	// gated cell, and its previous range holds none of the gated fixture.
+	// A day-bucketed window over week 1 alone holds change d's folded
+	// review as the one primary cell under opus · low, and its previous
+	// range holds none of the fixture.
 	d1, err := st.ReviewDynamics(ctx, store.Period{From: week1, To: week1.Add(7 * 24 * time.Hour)}, &project)
 	if err != nil {
 		t.Fatalf("ReviewDynamics week 1: %v", err)
 	}
-	var gated []store.HeatCell
+	var folded []store.HeatCell
 	for _, cell := range d1.Heat {
-		if cell.Slot == "gated-reviewer" {
-			gated = append(gated, cell)
+		if cell.Slot == "primary" && cell.Effort == "low" {
+			folded = append(folded, cell)
 		}
 	}
-	if len(gated) != 1 || gated[0] != (store.HeatCell{Slot: "gated-reviewer", Model: "opus", Effort: "low", Dispatches: 1, Important: 2}) {
-		t.Errorf("week 1 gated cells = %+v, want one opus · low of 1 dispatch, 2 important", gated)
+	if len(folded) != 1 || folded[0] != (store.HeatCell{Slot: "primary", Model: "opus", Effort: "low", Dispatches: 1, Important: 2}) {
+		t.Errorf("week 1 primary low cells = %+v, want one opus · low of 1 dispatch, 2 important", folded)
 	}
-	for _, cell := range d1.PreviousHeat {
-		if cell.Slot == "gated-reviewer" {
-			t.Errorf("previous-range gated cell = %+v, want none", cell)
-		}
+	if len(d1.PreviousHeat) != 0 {
+		t.Errorf("previous-range cells = %+v, want none", d1.PreviousHeat)
 	}
 }
 
 // seedGatedDynamics adds three reviewed changes to seedDynamics' project:
-// one gated review in week 1 (change d, task-1-reviewer, opus · low), one
-// batched gated review in week 2 (change e, task-2+3-reviewer, sonnet ·
-// high) — each recording no slot, as a gated review does, and filing two
-// findings under slot gated-reviewer joined by dispatch seq, the major
-// spelling folding to important through canonical_severity — and one
-// slot-less non-gated reviewer row (change f), which belongs to no slot and
-// stays invisible everywhere. The instants sit mid-week, so every existing
-// point keeps its bucket. It hands back the same store and project
-// seedDynamics handed out.
+// one retired per-task review in week 1 (change d, task-1-reviewer, opus ·
+// low), one batched one in week 2 (change e, task-2+3-reviewer, sonnet ·
+// high) — each as migration 0120 left it, role panel-reviewer and slot
+// primary, filing two findings under slot primary joined by dispatch seq, the
+// major spelling folding to important through canonical_severity — and one
+// slot-less reviewer row (change f), which belongs to no slot and stays
+// invisible everywhere. The instants sit mid-week, so every existing point
+// keeps its bucket. It hands back the same store and project seedDynamics
+// handed out.
 func seedGatedDynamics(st *store.Store, project string) (*store.Store, string) {
 	fx := dynamicsFixture{st: st, project: project}
 	for _, c := range []string{"d", "e", "f"} {
@@ -233,9 +221,9 @@ func seedGatedDynamics(st *store.Store, project string) (*store.Store, string) {
 		}
 	}
 	gated := func(change, model, effort, key string, at time.Time) {
-		seq := fx.dispatch(change, "reviewer", "", model, effort, key, "completed", at)
-		fx.finding(change, key+"-f1", "gated-reviewer", "important", 1, &seq)
-		fx.finding(change, key+"-f2", "gated-reviewer", "major", 1, &seq)
+		seq := fx.dispatch(change, "panel-reviewer", "primary", model, effort, key, "completed", at)
+		fx.finding(change, key+"-f1", "primary", "important", 1, &seq)
+		fx.finding(change, key+"-f2", "primary", "major", 1, &seq)
 	}
 	gated("d", "opus", "low", "task-1-reviewer", week1.Add(70*time.Hour))
 	gated("e", "sonnet", "high", "task-2+3-reviewer", week2.Add(70*time.Hour))
@@ -259,14 +247,13 @@ func TestReviewDynamicsHeatSummary(t *testing.T) {
 	}
 
 	wantHeat := []store.HeatCell{
-		{Slot: "gated-reviewer", Model: "sonnet", Effort: "high", Dispatches: 1, Important: 2},
-		{Slot: "primary", Model: "sonnet", Effort: "high", Dispatches: 1},
+		{Slot: "primary", Model: "sonnet", Effort: "high", Dispatches: 2, Important: 2},
 	}
 	if fmt.Sprint(got.Heat) != fmt.Sprint(wantHeat) {
 		t.Errorf("Heat = %+v, want %+v", got.Heat, wantHeat)
 	}
 	wantPrev := []store.HeatCell{
-		{Slot: "gated-reviewer", Model: "opus", Effort: "low", Dispatches: 1, Important: 2},
+		{Slot: "primary", Model: "opus", Effort: "low", Dispatches: 1, Important: 2},
 		{Slot: "primary", Model: "opus", Effort: "medium", Dispatches: 1, Critical: 1, Minor: 1},
 		{Slot: "principles", Model: "opus", Effort: "medium", Dispatches: 1, Important: 1},
 		{Slot: "test-sanity", Model: "sonnet", Effort: "low", Dispatches: 1},

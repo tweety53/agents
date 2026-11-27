@@ -36,10 +36,7 @@ import (
 // The outcome reads the agent's final message — the hook payload's
 // `last_assistant_message` when passed, else the transcript's last assistant
 // text, which a stopping agent's transcript may not hold yet:
-//   - a gated reviewer bundle (`task-<ids>-reviewer…`): `fix` when any
-//     `task <n>: fix` line, else `clean` when any `task <n>: clean` line;
-//   - any other row: `completed`;
-//   - a gated bundle naming no verdict: `aborted`;
+//   - a final message: `completed`;
 //   - no final message at all: the row is left open, never written `aborted` — an empty read is not
 //     a verdict, and the parent's own end or sweep-dispatch-rows closes it from the real report.
 //
@@ -54,11 +51,8 @@ import (
 func init() { Registry["end-dispatch-row"] = endDispatchRow }
 
 var (
-	edrKey        = regexp.MustCompile(`(?m)^Key:[ \t]*(\S+)[ \t]*$`)
-	edrCommit     = regexp.MustCompile(`(?m)^commit:[ \t]*\S+[ \t]+(?:[^=\s]+=)?([0-9a-f]{40})\b`)
-	edrGatedKey   = regexp.MustCompile(`^task-[0-9]+(?:\+[0-9]+)*-reviewer`)
-	edrGatedFix   = regexp.MustCompile(`(?m)^[ \t]*(?:[-*][ \t]+)?task [0-9]+: fix\b`)
-	edrGatedClean = regexp.MustCompile(`(?m)^[ \t]*(?:[-*][ \t]+)?task [0-9]+: clean\b`)
+	edrKey    = regexp.MustCompile(`(?m)^Key:[ \t]*(\S+)[ \t]*$`)
+	edrCommit = regexp.MustCompile(`(?m)^commit:[ \t]*\S+[ \t]+(?:[^=\s]+=)?([0-9a-f]{40})\b`)
 )
 
 func endDispatchRow(args []string, env Env, stdout, stderr io.Writer) int {
@@ -94,7 +88,7 @@ func endDispatchRow(args []string, env Env, stdout, stderr io.Writer) int {
 	if strings.TrimSpace(final) == "" {
 		return na(key + " left a no final message; its row stays open")
 	}
-	outcome := edrOutcome(key, final)
+	outcome := "completed"
 	end := []string{"record", "dispatch", "end", "-C", args[2], "-change", change, "-key", key, "-session-token", token, "-outcome", outcome}
 	if c := edrCommit.FindAllStringSubmatch(final, -1); len(c) > 0 {
 		end = append(end, "-commit", c[len(c)-1][1])
@@ -158,18 +152,6 @@ func edrParent(transcript string) string {
 	}
 	_ = json.Unmarshal(b, &meta)
 	return meta.Parent
-}
-
-func edrOutcome(key, final string) string {
-	switch {
-	case !edrGatedKey.MatchString(key):
-		return "completed"
-	case edrGatedFix.MatchString(final):
-		return "fix"
-	case edrGatedClean.MatchString(final):
-		return "clean"
-	}
-	return "aborted"
 }
 
 // edrTranscript is the transcript's last user prompt carrying a `Key:` line,

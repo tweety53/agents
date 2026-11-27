@@ -196,50 +196,6 @@
    ]
   },
   {
-   "role": "gated-reviewer",
-   "group": "Implementation",
-   "dispatches": 386,
-   "priced": 218,
-   "failed": 10,
-   "costUSD": 122.08498030000004,
-   "agentSeconds": 50954.94358100001,
-   "medianSeconds": 67.3245585,
-   "pairs": [
-    {
-     "pair": "opus \u00b7 low",
-     "costUSD": 122.08498030000004,
-     "dispatches": 305
-    },
-    {
-     "pair": "opus \u00b7 medium",
-     "costUSD": 0,
-     "dispatches": 81
-    }
-   ]
-  },
-  {
-   "role": "gated-re-reviewer",
-   "group": "Implementation",
-   "dispatches": 69,
-   "priced": 22,
-   "failed": 0,
-   "costUSD": 11.898497400000004,
-   "agentSeconds": 5261.502418,
-   "medianSeconds": 50.894308,
-   "pairs": [
-    {
-     "pair": "opus \u00b7 low",
-     "costUSD": 11.898497400000004,
-     "dispatches": 55
-    },
-    {
-     "pair": "sonnet \u00b7 low",
-     "costUSD": 0,
-     "dispatches": 14
-    }
-   ]
-  },
-  {
    "role": "operator-asked",
    "group": "Implementation",
    "dispatches": 21,
@@ -272,19 +228,56 @@
    ]
   },
   {
+   "role": "panel-reviewer",
+   "group": "Review",
+   "dispatches": 695,
+   "priced": 304,
+   "failed": 16,
+   "costUSD": 233.9110370000001,
+   "agentSeconds": 144928.5911889999,
+   "medianSeconds": 153.238408,
+   "pairs": [
+    {
+     "pair": "opus \u00b7 low",
+     "costUSD": 176.59859810000003,
+     "dispatches": 476
+    },
+    {
+     "pair": "opus \u00b7 medium",
+     "costUSD": 44.350679199999995,
+     "dispatches": 127
+    },
+    {
+     "pair": "opus \u00b7 high",
+     "costUSD": 9.8736382,
+     "dispatches": 3
+    },
+    {
+     "pair": "sonnet \u00b7 low",
+     "costUSD": 3.0881215000000006,
+     "dispatches": 84
+    },
+    {
+     "pair": "fable \u00b7 medium",
+     "costUSD": 0,
+     "dispatches": 5
+    }
+   ]
+  },
+  {
    "role": "panel-rerun",
    "group": "Review",
-   "dispatches": 711,
-   "priced": 179,
+   "dispatches": 780,
+   "priced": 201,
    "failed": 12,
-   "costUSD": 192.65242439999994,
-   "agentSeconds": 134448.474615,
+   "costUSD": 204.55092179999994,
+   "agentSeconds": 139709.977033,
    "medianSeconds": 71.581001,
    "pairs": [
     {
      "pair": "opus \u00b7 low",
-     "costUSD": 108.41478249999999,
-     "dispatches": 427
+     "costUSD": 120.3132799,
+     "dispatches": 482
     },
     {
      "pair": "opus \u00b7 medium",
@@ -294,7 +287,7 @@
     {
      "pair": "sonnet \u00b7 low",
      "costUSD": 2.7276471,
-     "dispatches": 237
+     "dispatches": 251
     },
     {
      "pair": "opus \u00b7 default",
@@ -352,43 +345,6 @@
      "pair": "opus \u00b7 default",
      "costUSD": 0,
      "dispatches": 64
-    }
-   ]
-  },
-  {
-   "role": "panel-reviewer",
-   "group": "Review",
-   "dispatches": 309,
-   "priced": 86,
-   "failed": 6,
-   "costUSD": 111.82605670000007,
-   "agentSeconds": 93973.64760799991,
-   "medianSeconds": 153.238408,
-   "pairs": [
-    {
-     "pair": "opus \u00b7 low",
-     "costUSD": 54.51361779999999,
-     "dispatches": 171
-    },
-    {
-     "pair": "opus \u00b7 medium",
-     "costUSD": 44.350679199999995,
-     "dispatches": 46
-    },
-    {
-     "pair": "opus \u00b7 high",
-     "costUSD": 9.8736382,
-     "dispatches": 3
-    },
-    {
-     "pair": "sonnet \u00b7 low",
-     "costUSD": 3.0881215000000006,
-     "dispatches": 84
-    },
-    {
-     "pair": "fable \u00b7 medium",
-     "costUSD": 0,
-     "dispatches": 5
     }
    ]
   },
@@ -605,8 +561,6 @@
    "roles": {
     "decider": 18.0181918,
     "explorer": 53.029627000000005,
-    "gated-re-reviewer": 10.226910000000002,
-    "gated-reviewer": 100.67543550000006,
     "implementer": 1159.1746704000002,
     "loop-fix": 49.846562000000006,
     "loop-plan": 82.69527,
@@ -614,8 +568,8 @@
     "loop-review-r": 0.7832448999999999,
     "panel-fix": 127.36141439999999,
     "panel-merger": 7.464325599999999,
-    "panel-rerun": 162.64108079999997,
-    "panel-reviewer": 93.17104370000006,
+    "panel-rerun": 172.86799079999997,
+    "panel-reviewer": 193.84647920000012,
     "plan-designer": 88.17787940000001,
     "planner": 386.19504520000015,
     "self-review-pass": 59.7404542,
@@ -627,8 +581,6 @@
    "roles": {
     "decider": 1.0624424000000001,
     "explorer": 1.2477458,
-    "gated-re-reviewer": 1.6715874,
-    "gated-reviewer": 21.409544800000003,
     "implementer": 252.03555240000017,
     "loop-fix": 5.854020599999999,
     "loop-plan": 13.876763799999999,
@@ -636,8 +588,8 @@
     "loop-review-r": 0.48818420000000007,
     "panel-fix": 43.60101250000001,
     "panel-merger": 1.6181853000000002,
-    "panel-rerun": 30.01134359999999,
-    "panel-reviewer": 18.655013,
+    "panel-rerun": 31.68293099999999,
+    "panel-reviewer": 40.0645578,
     "plan-designer": 4.630721,
     "planner": 25.446255799999996,
     "self-review-pass": 5.106333200000001,

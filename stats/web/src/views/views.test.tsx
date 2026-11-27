@@ -2112,28 +2112,6 @@ describe("review dynamics", () => {
     expect(screen.queryByRole("group", { name: "Projects" })).toBeNull();
   });
 
-  it("review dynamics shows the gated-reviewer row a slot-less gated dispatch derives to", async () => {
-    const rows = reviewDynamicsRows();
-    fetchStatsViewMock.mockResolvedValue(
-      envelope("review-dynamics", {
-        ...rows,
-        // A gated review records no slot; the store names its cell
-        // gated-reviewer. It is a slot the pipeline dispatches today, so
-        // the view shows it — and bugbot stays filtered out.
-        heat: [
-          { slot: "primary", model: "opus", effort: "low", dispatches: 4, critical: 1, important: 2, minor: 5 },
-          { slot: "gated-reviewer", model: "opus", effort: "low", dispatches: 3, critical: 0, important: 1, minor: 0 },
-          { slot: "bugbot", model: "opus", effort: "low", dispatches: 2, critical: 0, important: 1, minor: 0 },
-        ],
-      }),
-    );
-    render(<ReviewDynamics />);
-    const heat = (await screen.findByText(/Findings per dispatch: slot/)).closest(".dynamics-panel") as HTMLElement;
-    await waitFor(() =>
-      expect(within(heat).getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["primary", "gated-reviewer"]),
-    );
-  });
-
   it("review dynamics opens on the last 7 days and picks 7, 14, 30 or 60", async () => {
     fetchStatsViewMock.mockResolvedValue(envelope("review-dynamics", reviewDynamicsRows()));
     render(<ReviewDynamics />);

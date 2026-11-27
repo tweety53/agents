@@ -15,8 +15,7 @@ import (
 // than the change's store holds panel-slot rows for that round: the parent never ran
 // `flow record finding`, so the rendered record would say `findings-total: 0`
 // (kan-1158). Exit 0 recorded or nothing raised, 1 unrecorded (the report files
-// named), 2 usage. The change is the worktree's directory name; rows of the
-// `gated-reviewer` slot are task reviews, not the panel's.
+// named), 2 usage. The change is the worktree's directory name.
 func init() { Registry["check-panel-recorded"] = checkPanelRecorded }
 
 var cprCount = regexp.MustCompile(`(?m)^(?:Critical|Important|Minor): (\d+)`)
@@ -52,8 +51,7 @@ func checkPanelRecorded(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	out, _, rc := pcFlow(env, false, "record", "findings", "-change", filepath.Base(worktree), "-C", worktree)
 	var rows []struct {
-		Round int    `json:"round"`
-		Slot  string `json:"slot"`
+		Round int `json:"round"`
 	}
 	if rc != 0 || json.Unmarshal(out, &rows) != nil {
 		Reason(env, "store-unreadable")
@@ -62,7 +60,7 @@ func checkPanelRecorded(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	got := 0
 	for _, r := range rows {
-		if r.Round == round && r.Slot != "gated-reviewer" {
+		if r.Round == round {
 			got++
 		}
 	}

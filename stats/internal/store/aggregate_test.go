@@ -2856,12 +2856,12 @@ func TestTrendFoldsSelfReviewIntoItsChange(t *testing.T) {
 	}
 }
 
-// TestReviewersCountsGatedReviews: a gated review (task-<n>-reviewer, its
-// re-check task-<n>-reviewer-fix-<k>, a batched task-<n>+<m>-reviewer)
-// records no slot on its dispatch but
-// files its findings as slot gated-reviewer; Reviewers counts it as that
-// slot, in no panel roster.
-func TestReviewersCountsGatedReviews(t *testing.T) {
+// TestReviewersCountsFoldedTaskReviews: a retired per-task review
+// (task-<n>-reviewer, its re-check task-<n>-reviewer-fix-<k>, a batched
+// task-<n>+<m>-reviewer), as migration 0120 left it -- slot primary on the
+// dispatch and its findings -- counts under the primary slot, beside the
+// panel's own primary reviews.
+func TestReviewersCountsFoldedTaskReviews(t *testing.T) {
 	t.Parallel()
 	st, _ := newRecordStore(t)
 	ctx := context.Background()
@@ -2869,24 +2869,30 @@ func TestReviewersCountsGatedReviews(t *testing.T) {
 	seedChange(t, st, projectKey, "kan-1")
 	started := time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
 	for i, key := range []string{"task-3-reviewer", "task-3-reviewer-fix-1", "task-4+5+6-reviewer"} {
-		d := baseDispatch("reviewer", "opus")
-		d.Key, d.StartedAt = key, started.Add(time.Duration(i)*time.Minute)
+		d := baseDispatch("panel-reviewer", "opus")
+		d.Key, d.Slot, d.StartedAt = key, "primary", started.Add(time.Duration(i)*time.Minute)
 		disp, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
 		if err != nil {
 			t.Fatalf("RecordDispatch: %v", err)
 		}
 		in := baseFinding(fmt.Sprintf("G%d", i), 1)
-		in.Slot, in.Severity, in.Status, in.DispatchSeq = "gated-reviewer", "important", "fixed", &disp.Seq
+		in.Slot, in.Severity, in.Status, in.DispatchSeq = "primary", "important", "fixed", &disp.Seq
 		if _, _, err := st.UpsertFinding(ctx, projectKey, "kan-1", in); err != nil {
 			t.Fatalf("UpsertFinding: %v", err)
 		}
+	}
+	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-1", records.Decision{
+		SessionToken: "mf-reviewers-test",
+		Decision:     json.RawMessage(`{"panel": [{"slots": ["primary"]}]}`),
+	}); err != nil {
+		t.Fatalf("RecordDecision: %v", err)
 	}
 	rows, err := st.Reviewers(ctx, store.Period{From: started.Add(-time.Hour), To: started.Add(time.Hour)}, &projectKey, nil)
 	if err != nil {
 		t.Fatalf("Reviewers: %v", err)
 	}
-	if len(rows) != 1 || rows[0].Slot != "gated-reviewer" || rows[0].Dispatches != 3 || rows[0].Important != 3 || rows[0].Description == "" {
-		t.Fatalf("rows = %+v, want one gated-reviewer row: 3 dispatches (one a batched review), 3 important, described", rows)
+	if len(rows) != 1 || rows[0].Slot != "primary" || rows[0].Dispatches != 3 || rows[0].Important != 3 {
+		t.Fatalf("rows = %+v, want one primary row: 3 dispatches (one a batched review), 3 important", rows)
 	}
 }
 

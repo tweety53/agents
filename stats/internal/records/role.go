@@ -39,9 +39,6 @@ var roleClass = map[string]string{
 	"self-review-plan": "planner", "pipeline-fix-plan": "planner",
 	// runner, retired for run-verify-list's own re-run (0110).
 	"runner": "verifier", "visual-verifier": "verifier",
-	// gated-reviewer and gated-re-reviewer, retired with the gated per-task
-	// review (0119).
-	"gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer",
 }
 
 // Class is role's coarse class: reviewer, implementer, panel-fix, merger,

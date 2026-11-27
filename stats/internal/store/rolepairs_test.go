@@ -15,7 +15,7 @@ import (
 // 0085 dropped the marked escalation pairs for the no-progress-fixer role,
 // 0102 added the designer role, 0109 merged the self-review and pipeline-fix
 // loop roles into the loop-* roles, on the self-review rows' pairs, 0119
-// dropped the gated-reviewer and gated-re-reviewer roles.
+// dropped the gated per-task review's two roles.
 func TestRolePairsSeedMatchesTable(t *testing.T) {
 	t.Parallel()
 	st := newTestStore(t)

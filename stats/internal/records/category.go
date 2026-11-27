@@ -26,11 +26,11 @@ var Categories = []CategoryRow{
 	{ID: "in-run-fix-visual-verify", Label: "in-run fix (visual verify)", Key: regexp.MustCompile(`^tasks?-[\d+]+-implementer`), Opener: "visual-verify"},
 	{ID: "in-run-fix-verify", Label: "in-run fix (verify)", Key: regexp.MustCompile(`^tasks?-[\d+]+-implementer`), Opener: "verify"},
 	{ID: "planned-implementer", Label: "planned implementer", Key: regexp.MustCompile(`^tasks?-[\d+]+-implementer`)},
-	{ID: "gated-reviewer", Label: "gated reviewer", Key: regexp.MustCompile(`^tasks?-[\d+]+-reviewer`)},
 	{ID: "panel-fixer", Label: "panel fixer", Key: regexp.MustCompile(`^panel-fix-`)},
 	{ID: "merger", Label: "merger", Key: regexp.MustCompile(`^panel-\d+-merger`)},
 	{ID: "minor-fixer", Label: "minor fixer", Key: regexp.MustCompile(`^panel-\d+-minor-fix$`)},
-	{ID: "panel-reviewer", Label: "panel reviewer", Key: regexp.MustCompile(`^panel-\d+-`)},
+	// A task-<ids>-reviewer key is the retired per-task review's, folded into the panel's (0120).
+	{ID: "panel-reviewer", Label: "panel reviewer", Key: regexp.MustCompile(`^(panel-\d+-|tasks?-[\d+]+-reviewer)`)},
 	{ID: "runner", Label: "runner", Key: regexp.MustCompile(`^runner-\d+$`)},
 	{ID: "full-suite-fixer", Label: "full-suite fixer", Key: regexp.MustCompile(`^full-suite-fix-\d+$`)},
 	{ID: "planner", Label: "planner", Key: regexp.MustCompile(`^(plan|design)-\d+$`)},

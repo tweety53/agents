@@ -27,7 +27,7 @@ func TestStoredRole(t *testing.T) {
 func TestClassFoldsRolesTableRolesToTheCoarseClass(t *testing.T) {
 	for role, want := range map[string]string{
 		"runner": "verifier", "visual-verifier": "verifier", "panel-reviewer": "reviewer",
-		"gated-re-reviewer": "reviewer", "panel-merger": "merger", "minor-fix": "panel-fix",
+		"panel-rerun": "reviewer", "panel-merger": "merger", "minor-fix": "panel-fix",
 		"plan-designer": "planner", "designer": "planner", "operator-asked": "implementer",
 		"explorer": "explorer", "reviewer": "reviewer", "decider": "decider",
 		"loop-plan": "planner", "loop-fix": "implementer", "loop-review-1": "reviewer", "loop-review-r": "reviewer",

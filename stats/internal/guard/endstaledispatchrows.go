@@ -59,7 +59,7 @@ func endStaleDispatchRows(args []string, env Env, stdout, stderr io.Writer) int 
 			continue
 		}
 		end := append([]string{"record", "dispatch", "end", "-C", worktree, "-change", change,
-			"-key", r.Key, "-session-token", r.SessionToken, "-outcome", handbackOutcome(r.Key, transcript),
+			"-key", r.Key, "-session-token", r.SessionToken, "-outcome", handbackOutcome(transcript),
 			"-agent-id", r.AgentID, "-ended-at", last.UTC().Format(time.RFC3339Nano)}, handbackCommit(transcript)...)
 		_, e, rc := pcFlow(env, false, end...)
 		if rc != 0 {
@@ -103,10 +103,10 @@ func handbackReport(transcript string) string {
 	return final
 }
 
-// handbackOutcome is end-dispatch-row's outcome for a delivered report, else `aborted`.
-func handbackOutcome(key, transcript string) string {
+// handbackOutcome is end-dispatch-row's outcome for a delivered report, `completed`, else `aborted`.
+func handbackOutcome(transcript string) string {
 	if final := handbackReport(transcript); strings.TrimSpace(final) != "" {
-		return edrOutcome(key, final)
+		return "completed"
 	}
 	return "aborted"
 }

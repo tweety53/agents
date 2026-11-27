@@ -6290,7 +6290,7 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 		var stdout, stderr bytes.Buffer
 		code := run(context.Background(),
 			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
-				"-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-dispatch-seq", "4", "-from", file},
+				"-slot", "primary", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-dispatch-seq", "4", "-from", file},
 			env.get, strings.NewReader(""), &stdout, &stderr)
 		return code, stderr.String()
 	}
@@ -6321,9 +6321,9 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 	}
 	for i, want := range []struct{ task, severity, location, note string }{{"1", "Minor", "a.go:1", "x"}, {"2", "Important", "b.go:2", "y"}} {
 		f := posted[i]
-		if f.Slot != "gated-reviewer" || f.Round != 0 || f.DispatchSeq == nil || *f.DispatchSeq != 4 ||
+		if f.Slot != "primary" || f.Round != 0 || f.DispatchSeq == nil || *f.DispatchSeq != 4 ||
 			f.TaskID != want.task || f.Severity != want.severity || f.Location != want.location || f.Note != want.note {
-			t.Errorf("(a) posted[%d] = %+v, want slot gated-reviewer, round 0, dispatch-seq 4 and %+v", i, f, want)
+			t.Errorf("(a) posted[%d] = %+v, want slot primary, round 0, dispatch-seq 4 and %+v", i, f, want)
 		}
 	}
 	data, _ := os.ReadFile(file)
@@ -6396,7 +6396,7 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 	var stdout, stderrF bytes.Buffer
 	code = run(context.Background(),
 		[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
-			"-ref", "F7", "-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-from", file},
+			"-ref", "F7", "-slot", "primary", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-from", file},
 		env.get, strings.NewReader(""), &stdout, &stderrF)
 	if code != 2 || !strings.Contains(stderrF.String(), "-ref") {
 		t.Errorf("(f) -ref with -from exit %d stderr %q, want 2 naming -ref", code, stderrF.String())
@@ -6406,7 +6406,7 @@ func TestRecordFindingFromAssignsRefs(t *testing.T) {
 		stderrF.Reset()
 		code = run(context.Background(),
 			[]string{"record", "finding", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "kan-918",
-				form, "-slot", "gated-reviewer", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-from", file},
+				form, "-slot", "primary", "-round", "0", "-status", "open", "-reproducer", "none — a gated pass", "-from", file},
 			env.get, strings.NewReader(""), &stdout, &stderrF)
 		if code != 2 || !strings.Contains(stderrF.String(), "-ref and -from cannot be combined") {
 			t.Errorf("(f) %s with -from exit %d stderr %q, want 2 refusing the combination", form, code, stderrF.String())
@@ -7111,24 +7111,6 @@ func TestRecordDispatchBeginPrintsTheLaunchLines(t *testing.T) {
 		if stdout != c.want {
 			t.Errorf("-key %s: stdout = %q, want %q", c.key, stdout, c.want)
 		}
-	}
-}
-
-func TestRecordNextRoundSkipsGatedRows(t *testing.T) {
-	t.Parallel()
-	repo := recordRepo(t, "demo")
-	env := newTestEnv(t)
-	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"change":"demo","dispatches":[],"passes":[],"mutations":[],
-		  "findings":[{"ref":"F1","round":0,"slot":"gated-reviewer","severity":"Important","note":"n","status":"open"}]}`))
-	}))
-	defer srv.Close()
-	var stdout, stderr bytes.Buffer
-	code := run(context.Background(),
-		[]string{"record", "next-round", "-addr", srv.URL, "-timeout", "500ms", "-C", repo, "-change", "demo"},
-		env.get, strings.NewReader(""), &stdout, &stderr)
-	if code != 0 || strings.TrimSpace(stdout.String()) != "0" {
-		t.Fatalf("exit %d stdout %q, want 0 and 0; stderr:\n%s", code, stdout.String(), stderr.String())
 	}
 }
 

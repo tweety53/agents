@@ -45,21 +45,21 @@
     "key": "task-7-reviewer",
     "role": "reviewer",
     "opener": "",
-    "category": "gated-reviewer",
+    "category": "panel-reviewer",
     "describe": "Reviewing task 7"
   },
   {
     "key": "task-7-reviewer-1",
     "role": "reviewer",
     "opener": "",
-    "category": "gated-reviewer",
+    "category": "panel-reviewer",
     "describe": "task-7-reviewer-1"
   },
   {
     "key": "task-7-reviewer-fix-1",
     "role": "reviewer",
     "opener": "",
-    "category": "gated-reviewer",
+    "category": "panel-reviewer",
     "describe": "Reviewing task 7 after fix 1"
   },
   {

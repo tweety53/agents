@@ -153,9 +153,9 @@ func TestRunTimingsShareSumsToWallClock(t *testing.T) {
 	if planned.ShareMs != rtMin(42.5) || planned.BusyMs != rtMin(50) {
 		t.Errorf("planned implementer share %d busy %d, want %d %d", planned.ShareMs, planned.BusyMs, rtMin(42.5), rtMin(50))
 	}
-	rev := rtRow(t, got.Breakdowns["category"], "gated reviewer")
+	rev := rtRow(t, got.Breakdowns["category"], "panel reviewer")
 	if rev.ShareMs != rtMin(12.5) || rev.BusyMs != rtMin(20) {
-		t.Errorf("gated reviewer share %d busy %d, want %d %d", rev.ShareMs, rev.BusyMs, rtMin(12.5), rtMin(20))
+		t.Errorf("panel reviewer share %d busy %d, want %d %d", rev.ShareMs, rev.BusyMs, rtMin(12.5), rtMin(20))
 	}
 }
 

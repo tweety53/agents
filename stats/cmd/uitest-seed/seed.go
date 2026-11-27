@@ -1188,7 +1188,7 @@ const runCostsTasks = `# Tasks
 
 // runCostsRuns is the run-costs fixture (decision prototype-is-the-spec):
 // kan-301 holds a row of every lane the prototype draws -- planner,
-// explorer, planned implementer, gated reviewer and fixer, verify list
+// explorer, planned implementer, gated fixer, verify list
 // per repo, visual verifier, in-run fixes, panel reviewers, merger, panel
 // fixer -- a group key, a row without tokens, a superseded stage, claimed
 // guard runs in two repositories' worktrees, one unclaimed main-checkout

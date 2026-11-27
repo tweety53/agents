@@ -70,13 +70,6 @@ const (
 	servedEffortSQL = `COALESCE(NULLIF(d.metrics->>'effort', ''), d.effort)`
 )
 
-// slotSQL is d's review slot as Reviewers reads it (reviewerScopeSQL): the
-// recorded slot, or 'gated-reviewer' for a gated review — task-<n>[+<m>...]-
-// reviewer[-fix-<k>] records none and files its findings under that slot.
-// NULL on every other slot-less row, which drops out of both queries here.
-const slotSQL = `COALESCE(d.slot,
-	CASE WHEN d.dispatch_key ~ '^task-[0-9+]+-reviewer' THEN 'gated-reviewer' END)`
-
 // modelVersionSQL is a dispatch d's model version: the harvested
 // modelVersion, else its recorded model when that is a full ID, else
 // "<family> (version unrecorded)" (model-version-split).
@@ -112,8 +105,8 @@ var implBadOutcomes = []string{"blocked", "aborted", "failed", "stopped", "cance
 //   - vv-first-pass (first-pass): share of those changes with 0 rounds.
 //
 // Per-dispatch metrics bucket each reviewer dispatch by its own started_at
-// and count the findings joined to it by dispatch and slot, deriving a
-// gated review's slot and unnesting a bundle's as Reviewers does (slotSQL):
+// and count the findings joined to it by dispatch and slot, unnesting a
+// bundle's slot as Reviewers does; a slot-less row drops out:
 //
 //   - per-dispatch-slot (<slot>): findings ÷ dispatches carrying the slot.
 //   - per-dispatch-model (<family>), per-dispatch-model-version
@@ -188,7 +181,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 		WITH cohort AS (
 			SELECT d.change_id, min(d.started_at) AS first_at
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
-			WHERE dispatch_class(d.role) = 'reviewer' AND `+slotSQL+` IS NOT NULL
+			WHERE dispatch_class(d.role) = 'reviewer' AND d.slot IS NOT NULL
 			  AND ($3::text IS NULL OR c.project_key = $3)`+`
 			GROUP BY d.change_id
 			HAVING min(d.started_at) >= $1 AND min(d.started_at) < $2
@@ -250,7 +243,7 @@ func (s *Store) dynamicsFor(ctx context.Context, period Period, project *string,
 	err = s.scanRows(ctx, "review per dispatch", `
 		WITH d AS (
 			SELECT d.id, d.started_at, model_family(`+servedModelSQL+`) AS model, `+modelVersionSQL+` AS version, `+servedEffortSQL+` AS effort,
-				unnest(string_to_array(`+slotSQL+`, '+')) AS slot
+				unnest(string_to_array(d.slot, '+')) AS slot
 			FROM dispatches d JOIN changes c ON c.id = d.change_id
 			WHERE dispatch_class(d.role) = 'reviewer'
 			  AND d.started_at >= $1 AND d.started_at < $2
