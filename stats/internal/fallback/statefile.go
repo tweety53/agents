@@ -13,11 +13,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
-// DefaultStateRoot is the root of every project's state directory, exactly
-// as skills/flow-contracts/state-file-internals.md names it.
-const DefaultStateRoot = "/Users/tweety53/Agents/flow/state"
+// DefaultStateRoot is records.DefaultStateRoot, the root of every
+// project's state directory.
+const DefaultStateRoot = records.DefaultStateRoot
 
 // StateRoot returns the root of every project's state directory:
 // FLOW_STATE_DIR when getenv answers it (a test's own isolated root),

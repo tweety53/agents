@@ -8,10 +8,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // flow-guard hook <name> — run the Claude Code hook <name> on the event payload on stdin. Each
@@ -20,7 +23,8 @@ import (
 // (hook<name>.go); every hook prints what the Python hook printed, byte for byte — JSON written
 // with Python's json.dump spacing and ASCII escaping (pyDumpASCII) — and exits 0: a hook fault, a panic
 // included, lets the event through. flow-guard records no guard-run telemetry for a hook, so a hook
-// makes no flowd call its contract does not name.
+// makes no flowd call its contract does not name; with Env.HookRuns set (flow-guard's main sets
+// it to records.HookRunsPath) each run appends its wall time to that local file instead.
 //
 // Exit 2 on a missing or unknown hook name (usage).
 func init() { Registry["hook"] = hook }
@@ -34,6 +38,10 @@ func hook(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard hook <name>")
 		return 2
+	}
+	if env.HookRuns != "" {
+		start := time.Now()
+		defer appendHookRun(env.HookRuns, args[0], start) // runs after the recover below
 	}
 	defer func() { _ = recover() }() // fail open: a hook fault never blocks work
 	var raw []byte
@@ -49,6 +57,24 @@ func hook(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	hooks[args[0]](env, payload, stdout, stderr)
 	return 0
+}
+
+// appendHookRun appends hook's run, start to now, to path as one records.HookRun line: one
+// O_APPEND write, so concurrent hooks never interleave, and no flowd call -- flowd ingests the
+// file on its own schedule (cmd/flowd/hookruns.go). Every failure is swallowed: the measurement
+// never changes the hook's answer.
+func appendHookRun(path, hook string, start time.Time) {
+	now := time.Now()
+	line, err := json.Marshal(records.HookRun{Hook: hook, DurationUS: now.Sub(start).Microseconds(), At: now.UTC()})
+	if err != nil {
+		return
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	_, _ = f.Write(append(line, '\n'))
+	_ = f.Close()
 }
 
 // pyDumpASCII is Python's json.dumps(v): ", " and ": " separators, every character outside

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -14,7 +15,8 @@ import (
 // only the most recent change, each dimension is ordered by total, P50/P95
 // come from the run durations -- a guard's its work, duration less wait_ms,
 // the wait ranked apart as guard-wait and a stamped
-// bootstrap_ms as guard-bootstrap --, and the wall clock is the kept change's first
+// bootstrap_ms as guard-bootstrap --, hook runs that fell inside a kept
+// change's wall clock by hook, and the wall clock is the kept change's first
 // start to last end.
 func TestBottlenecksRanksEachDimension(t *testing.T) {
 	t.Parallel()
@@ -57,6 +59,14 @@ func TestBottlenecksRanksEachDimension(t *testing.T) {
 	exec(`UPDATE guard_runs SET wait_ms = 400, bootstrap_ms = 30 WHERE project_key = $1 AND duration_ms = 500`, pk)
 	exec(`INSERT INTO verify_runs (change_id, kind, label, seconds, tests, failed, exit_code, recorded_at)
 		VALUES ($1,'run-verify-list','lint',30,1,0,0,$2)`, newID, at(2450))
+	hook := fmt.Sprintf("hook-%d", time.Now().UnixNano()) // hook_runs carry no project: a name of this test's own
+	if err := st.RecordHookRuns(ctx, []records.HookRun{
+		{Hook: hook, DurationUS: 4000, At: at(2010)},
+		{Hook: hook, DurationUS: 8000, At: at(2490)},
+		{Hook: hook, DurationUS: 99_000_000, At: at(500)}, // inside the old change only
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	rows, wall, err := st.Bottlenecks(ctx, &pk, 1)
 	if err != nil {
@@ -67,6 +77,9 @@ func TestBottlenecksRanksEachDimension(t *testing.T) {
 	}
 	got := map[string]store.BottleneckRow{}
 	for _, r := range rows {
+		if r.Dimension == "hook" && r.Name != hook {
+			continue // another test's, or the live machine's, hook runs
+		}
 		got[r.Dimension+"/"+r.Name] = r
 	}
 	want := map[string]store.BottleneckRow{
@@ -80,6 +93,7 @@ func TestBottlenecksRanksEachDimension(t *testing.T) {
 		"guard-wait/check-a":      {Runs: 1, TotalMs: 400, P50Ms: 400, P95Ms: 400},
 		"guard-bootstrap/check-a": {Runs: 1, TotalMs: 30, P50Ms: 30, P95Ms: 30},
 		"verify/lint":             {Runs: 1, TotalMs: 30_000, P50Ms: 30_000, P95Ms: 30_000},
+		"hook/" + hook:            {Runs: 2, TotalMs: 12, P50Ms: 6, P95Ms: 8},
 	}
 	if len(got) != len(want) {
 		t.Errorf("rows = %+v, want %d rows", rows, len(want))

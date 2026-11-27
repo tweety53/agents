@@ -34,6 +34,10 @@ type Env struct {
 	SlotGate  bool
 	SlotPoll  time.Duration
 	SlotRenew time.Duration
+	// HookRuns is the append-only file `flow-guard hook` records each run's
+	// wall time in (records.HookRunsPath); flow-guard's main sets it, so a
+	// test's zero Env writes nothing.
+	HookRuns string
 	// SurvivorsExpire, when non-nil, replaces the survivors bound's timer:
 	// the bound fires when it receives, so a test decides when (or never).
 	SurvivorsExpire <-chan time.Time

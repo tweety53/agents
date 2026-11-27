@@ -8,7 +8,7 @@ import (
 // BottleneckRow is one name's time within one dimension of the bottleneck
 // ranking: how many runs it had, their summed and P50/P95 duration in
 // milliseconds. Dimension is stage, role, role-class, guard, guard-wait,
-// guard-bootstrap or verify.
+// guard-bootstrap, hook or verify.
 type BottleneckRow struct {
 	Dimension string
 	Name      string
@@ -25,7 +25,9 @@ type BottleneckRow struct {
 // its worktree names the change's worktree, as ChangeGuardRuns claims it) --
 // its work, duration_ms less wait_ms, under guard and the wait, where there
 // was one, under guard-wait, and the bootstrap before it, where stamped,
-// under guard-bootstrap --
+// under guard-bootstrap --, hook runs by hook (hook_runs carry no project
+// or worktree: a run counts once when it ended inside any kept change's
+// first-start-to-last-end window),
 // and verify runs by label. WallMs is the summed wall clock of those
 // changes -- each change's first stage-run start to its last stage-run end
 // -- the denominator a row's share is read against. Rows come ordered by
@@ -34,6 +36,7 @@ func (s *Store) Bottlenecks(ctx context.Context, project *string, last int) (row
 	q, err := s.pool.Query(ctx, `
 		WITH picked AS (
 			SELECT c.id, c.project_key, c.name,
+				MIN(sr.started_at) AS first, MAX(COALESCE(sr.ended_at, sr.started_at)) AS last,
 				EXTRACT(EPOCH FROM MAX(COALESCE(sr.ended_at, sr.started_at)) - MIN(sr.started_at)) * 1000 AS wall
 			FROM changes c JOIN stage_runs sr ON sr.change_id = c.id
 			WHERE $1::text IS NULL OR c.project_key = $1
@@ -58,6 +61,10 @@ func (s *Store) Bottlenecks(ctx context.Context, project *string, last int) (row
 			CROSS JOIN LATERAL (VALUES ('guard', g.duration_ms - g.wait_ms), ('guard-wait', NULLIF(g.wait_ms, 0)),
 				('guard-bootstrap', g.bootstrap_ms)) w(dim, ms)
 			WHERE w.ms IS NOT NULL
+			UNION ALL
+			SELECT 'hook', h.hook, h.duration_us / 1000.0
+			FROM hook_runs h
+			WHERE EXISTS (SELECT 1 FROM picked p WHERE h.ran_at BETWEEN p.first AND p.last)
 			UNION ALL
 			SELECT 'verify', v.label, v.seconds * 1000
 			FROM verify_runs v JOIN picked p ON p.id = v.change_id

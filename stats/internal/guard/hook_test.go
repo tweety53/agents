@@ -11,6 +11,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
+
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // runHookInProcess runs `flow-guard hook <name>` in-process on stdin, with the store at a dead
@@ -196,4 +199,36 @@ func TestHookFlowActiveChangeBytes(t *testing.T) {
 		}
 		mu.Unlock()
 	}
+}
+
+// TestHookRecordsItsWallTime: with Env.HookRuns naming a file, each hook run
+// appends one records.HookRun line -- the hook's name, its wall time in
+// microseconds, its end -- and a fault the hook recovers from is still
+// recorded.
+func TestHookRecordsItsWallTime(t *testing.T) {
+	t.Parallel()
+	log := filepath.Join(t.TempDir(), "hook-runs.jsonl")
+	env := Env{Getenv: func(string) string { return "" }, Dir: t.TempDir(), HookRuns: log}
+	before := time.Now()
+	for _, stdin := range []string{`{"tool_name":"Read"}`, `not json`} {
+		env.Stdin = strings.NewReader(stdin)
+		if rc := Registry["hook"]([]string{"enforce-agent-baseline"}, env, io.Discard, io.Discard); rc != 0 {
+			t.Fatalf("rc %d", rc)
+		}
+	}
+	body, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSuffix(string(body), "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("lines = %q, want one per run", lines)
+	}
+	for _, l := range lines {
+		var r records.HookRun
+		if err := json.Unmarshal([]byte(l), &r); err != nil || r.Hook != "enforce-agent-baseline" || r.DurationUS < 0 || r.At.Before(before) {
+			t.Errorf("line %q (%v), want the hook, a duration and its end", l, err)
+		}
+	}
+
 }

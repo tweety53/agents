@@ -197,7 +197,11 @@ guard (claimed by worktree as the per-run page claims them) — a run's work, `d
 `wait_ms` (the time it spent on a heavy slot or blocked in `await-rows`, migration
 `0112_guard_run_wait.sql`), the wait ranked apart under `guard-wait` and the `scripts/flow-guard`
 bootstrap before the run (`bootstrap_ms`, `0113_guard_run_bootstrap.sql`, from the
-`$EPOCHREALTIME` stamp it exports as `FLOW_GUARD_START`) under `guard-bootstrap` — and `verify_runs` by label. Each
+`$EPOCHREALTIME` stamp it exports as `FLOW_GUARD_START`) under `guard-bootstrap` —, `hook_runs` by
+hook (`0114_hook_runs.sql`: each `flow-guard hook <name>` run appends its wall time to the state
+root's `hook-runs.jsonl` with no flowd call — about 17 µs a run — and the dev daemon ingests the file
+on its harvest tick; a hook run carries no project or worktree, so it counts once when it ended inside
+any ranked change's wall clock) and `verify_runs` by label. Each
 dimension prints its top 10 — name, runs, total, share of the changes' summed wall clock (first
 stage-run start to last end), p50, p95 — then one line of the top 5 time sinks across dimensions,
 role class left out. Dimensions overlap, so shares do not add up across them. Ranking only; no UI.
