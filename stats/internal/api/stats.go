@@ -52,6 +52,8 @@ type StatsStore interface {
 	// SetSessionActivity backs PUT /api/v1/sessions/{session}/activity
 	// (decision session-activity-hooks); the board reads it back.
 	SetSessionActivity(ctx context.Context, sessionID, state, detail string) error
+	// EndSessionPermission backs the same PUT for a subagent's tool call.
+	EndSessionPermission(ctx context.Context, sessionID, detail string) error
 	CostPerChange(ctx context.Context, period store.Period, project, model, change *string) ([]store.CostPerChangeRow, error)
 	StageLeaderboard(ctx context.Context, period store.Period, project, model *string) ([]store.StageLeaderboardRow, error)
 	// StageLeaderboardProjects backs the stage-leaderboard response's projects (decision leaderboard-project-spend-method).

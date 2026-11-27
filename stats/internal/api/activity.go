@@ -24,6 +24,9 @@ func (h *statsHandler) putSessionActivity(w http.ResponseWriter, r *http.Request
 	var in struct {
 		State  string `json:"state"`
 		Detail string `json:"detail"`
+		// Subagent marks a subagent's tool call: it only ends a
+		// permission wait (store.EndSessionPermission).
+		Subagent bool `json:"subagent"`
 	}
 	if err := decodeJSONBody(w, r, &in); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -38,7 +41,13 @@ func (h *statsHandler) putSessionActivity(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := h.store.SetSessionActivity(r.Context(), session, in.State, in.Detail); err != nil {
+	var err error
+	if in.Subagent {
+		err = h.store.EndSessionPermission(r.Context(), session, in.Detail)
+	} else {
+		err = h.store.SetSessionActivity(r.Context(), session, in.State, in.Detail)
+	}
+	if err != nil {
 		status, msg := mapStoreError(h.logger, fmt.Sprintf("set activity for session %s", session), err)
 		writeError(w, status, msg)
 		return

@@ -35,6 +35,10 @@ func (f *fakeStore) SetSessionActivity(context.Context, string, string, string) 
 	return nil
 }
 
+func (f *fakeStore) EndSessionPermission(context.Context, string, string) error {
+	return nil
+}
+
 func (f *fakeStore) LiveStateBoard(_ context.Context, _ store.Period, project, _ *string) ([]store.LiveStateRow, error) {
 	f.lastStatsProject = project
 	return f.liveStateBoard, f.liveStateBoardErr
@@ -124,6 +128,7 @@ type statsFake struct {
 	pageAsked        string
 	liveStateBoard   []store.LiveStateRow
 	activity         map[string][2]string
+	endedPermission  []string
 	lastChange       *string
 	costPerChange    []store.CostPerChangeRow
 	stageLeaderboard []store.StageLeaderboardRow

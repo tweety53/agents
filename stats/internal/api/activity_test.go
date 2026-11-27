@@ -27,6 +27,28 @@ func (f *statsFake) SetSessionActivity(_ context.Context, sessionID, state, deta
 	return nil
 }
 
+// EndSessionPermission on statsFake records the call; the store's own test
+// pins what it does to the row.
+func (f *statsFake) EndSessionPermission(_ context.Context, sessionID, detail string) error {
+	f.endedPermission = append(f.endedPermission, sessionID+" "+detail)
+	return nil
+}
+
+// TestSessionActivitySubagentPut pins that a subagent's report reaches
+// EndSessionPermission, never SetSessionActivity: it may end a permission
+// wait, never overwrite the main thread's state.
+func TestSessionActivitySubagentPut(t *testing.T) {
+	t.Parallel()
+	sts := &statsFake{}
+	ts := newStatsTestServer(t, sts)
+	if got := putActivity(t, ts.URL, "s-1", `{"state":"working","detail":"Read","subagent":true}`); got != http.StatusNoContent {
+		t.Fatalf("subagent PUT: status %d, want 204", got)
+	}
+	if len(sts.activity) != 0 || len(sts.endedPermission) != 1 || sts.endedPermission[0] != "s-1 Read" {
+		t.Errorf("set %v, ended %v; want no set and one end for s-1 Read", sts.activity, sts.endedPermission)
+	}
+}
+
 func putActivity(t *testing.T, url, session, body string) int {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodPut, url+"/api/v1/sessions/"+session+"/activity", bytes.NewReader([]byte(body)))

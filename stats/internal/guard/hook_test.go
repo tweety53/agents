@@ -123,7 +123,7 @@ func TestHookEnforceLoopDispatchBytes(t *testing.T) {
 // TestHookFlowSessionActivityBytes pins the PUTs hooks/flow-session-activity.py sent before its
 // port, path and body byte for byte: the session id quoted with no safe character, Python's
 // json.dumps spacing and \u escaping, the detail cut to 500 UTF-8 bytes on a character boundary,
-// and nothing for a subagent's tool event.
+// and a subagent's tool event marked "subagent": true, so flowd lets it only end a permission wait.
 func TestHookFlowSessionActivityBytes(t *testing.T) {
 	t.Parallel()
 	var mu sync.Mutex
@@ -155,6 +155,7 @@ func TestHookFlowSessionActivityBytes(t *testing.T) {
 		put + `s/activity application/json {"state": "working", "detail": "Edit z.go"}`,
 		put + `s/activity application/json {"state": "permission", "detail": "Claude needs your Permission"}`,
 		put + `s/activity application/json {"state": "idle", "detail": ""}`,
+		put + `s/activity application/json {"state": "working", "detail": "Read", "subagent": true}`,
 		put + `s/activity application/json {"state": "working", "detail": "Bash: ` + strings.Repeat(`\u00e9`, 247) + `"}`,
 	}
 	mu.Lock()

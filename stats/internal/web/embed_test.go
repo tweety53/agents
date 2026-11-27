@@ -356,6 +356,10 @@ func (fakeStore) SetSessionActivity(context.Context, string, string, string) err
 	return nil
 }
 
+func (fakeStore) EndSessionPermission(context.Context, string, string) error {
+	return nil
+}
+
 func (fakeStore) LiveStateBoard(context.Context, store.Period, *string, *string) ([]store.LiveStateRow, error) {
 	return nil, nil
 }

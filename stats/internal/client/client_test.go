@@ -850,6 +850,10 @@ func (stubStageStore) SetSessionActivity(context.Context, string, string, string
 	return nil
 }
 
+func (stubStageStore) EndSessionPermission(context.Context, string, string) error {
+	return nil
+}
+
 func (stubStageStore) LiveStateBoard(context.Context, store.Period, *string, *string) ([]store.LiveStateRow, error) {
 	return nil, errStageStoreNotImplemented
 }

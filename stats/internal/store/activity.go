@@ -24,3 +24,23 @@ func (s *Store) SetSessionActivity(ctx context.Context, sessionID, state, detail
 	}
 	return nil
 }
+
+// EndSessionPermission reports a subagent's tool call in session sessionID.
+// A permission notification carries no agent, so a subagent's prompt sets
+// the session's own state, and the main thread -- waiting on that subagent --
+// may report nothing for minutes. A subagent's tool call after it shows the
+// prompt was answered, so a permission state becomes working, detail naming
+// the call. Any other state is left alone -- a subagent's call answers no
+// open question and wakes no idle main thread -- and no row is created.
+// ponytail: any subagent's call ends the wait, since the notification names
+// none; a prompt still open while a sibling subagent works reads as working.
+func (s *Store) EndSessionPermission(ctx context.Context, sessionID, detail string) error {
+	_, err := s.pool.Exec(ctx, `
+		UPDATE session_activity SET state = 'working', detail = $2, updated_at = now()
+		WHERE session_id = $1 AND state = 'permission'
+	`, sessionID, detail)
+	if err != nil {
+		return fmt.Errorf("store: end session permission: %w", err)
+	}
+	return nil
+}

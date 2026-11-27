@@ -17,6 +17,7 @@ import (
 //	PreToolUse on AskUserQuestion  -> question, the first question's text
 //	Notification naming permission -> permission, the notification's message
 //	PreToolUse, PostToolUse        -> working, the tool and its short label
+//	  ... of a subagent            -> the same, marked "subagent": true
 //	UserPromptSubmit               -> working
 //	Stop                           -> idle
 //	SessionEnd                     -> ended
@@ -45,7 +46,11 @@ func flowSessionActivity(env Env, payload map[string]any, _, _ io.Writer) {
 			detail = detail[:len(detail)-1]
 		}
 	}
-	body := pyDumpASCII(pyObj{{"state", state}, {"detail", detail}})
+	fields := pyObj{{"state", state}, {"detail", detail}}
+	if event := payload["hook_event_name"]; (event == "PreToolUse" || event == "PostToolUse") && pyTruthy(payload["agent_id"]) {
+		fields = append(fields, pyObj{{"subagent", true}}...)
+	}
+	body := pyDumpASCII(fields)
 	req, err := http.NewRequest(http.MethodPut, hookFlowAddr(env)+"/api/v1/sessions/"+pyQuoteURL(sessionID, "")+"/activity", strings.NewReader(body))
 	if err != nil {
 		return
@@ -63,9 +68,11 @@ func sessionActivity(p map[string]any) (state, detail string, ok bool) {
 	// A subagent's tool events fire under the parent's session_id and carry
 	// agent_id (https://code.claude.com/docs/en/hooks); they must not overwrite
 	// the main thread's state, e.g. turn an open question back to working
-	// (kan-1048 self-review, 1-J). Its Notification still reaches the board.
+	// (kan-1048 self-review, 1-J). Its Notification still reaches the board,
+	// and names no agent, so its tool calls go out marked "subagent": flowd
+	// lets one only end a permission wait (store.EndSessionPermission).
 	if tool && pyTruthy(p["agent_id"]) {
-		return "", "", false
+		return "working", sessionAction(p), true
 	}
 	switch {
 	case event == "PreToolUse" && p["tool_name"] == "AskUserQuestion":
