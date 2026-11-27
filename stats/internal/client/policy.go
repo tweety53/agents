@@ -103,3 +103,13 @@ func (c *Client) Bottlenecks(ctx context.Context, project string, last int) (jso
 	}
 	return out, nil
 }
+
+// TraceSpans reads GET /api/v1/stats/trace: one change's timed rows.
+func (c *Client) TraceSpans(ctx context.Context, project, change string) (json.RawMessage, error) {
+	q := url.Values{"project": {project}, "change": {change}}
+	var out json.RawMessage
+	if err := c.getPolicyJSON(ctx, c.baseURL+"/api/v1/stats/trace?"+q.Encode(), &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

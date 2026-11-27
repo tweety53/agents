@@ -214,6 +214,7 @@ type serverOptions struct {
 	policy         PolicyStore
 	roleCosts      RoleCostsStore
 	bottlenecks    BottlenecksStore
+	trace          TraceStore
 	roleCostsSince time.Time
 	changeFiles    ChangeFileStore
 	runTimings     RunTimingsStore
@@ -509,6 +510,10 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	if so.bottlenecks != nil {
 		bh := &bottlenecksHandler{store: so.bottlenecks, log: logger}
 		mux.Handle("GET /api/v1/stats/bottlenecks", http.TimeoutHandler(http.HandlerFunc(bh.get), so.statsTimeout, statsTimeoutMessage))
+	}
+	if so.trace != nil {
+		th := &traceHandler{store: so.trace, log: logger}
+		mux.Handle("GET /api/v1/stats/trace", http.TimeoutHandler(http.HandlerFunc(th.get), so.statsTimeout, statsTimeoutMessage))
 	}
 	if so.policy != nil {
 		eh := &policyHandler{store: so.policy, table: so.rolesTable, logger: logger}

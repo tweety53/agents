@@ -66,6 +66,7 @@ commands:
   jira transition      move an issue to a pipeline position via flowd (see: flow jira)
   workspace-id <name>  print a change's workspace id, derived from its name
   stats bottlenecks    rank where the last N changes spent wall-clock time (see: flow stats)
+  stats trace <change> print a change as Chrome trace JSON for Perfetto (see: flow stats)
 `
 
 // handledSignals is the one list of signals this CLI treats as termination

@@ -198,6 +198,32 @@ dimension prints its top 10 — name, runs, total, share of the changes' summed 
 stage-run start to last end), p50, p95 — then one line of the top 5 time sinks across dimensions,
 role class left out. Dimensions overlap, so shares do not add up across them. Ranking only; no UI.
 
+## Trace
+
+`flow stats trace [-project key] [-no-transcripts] [-o file] <change>` prints one change as
+[Chrome Trace Event Format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU)
+JSON, one event per line, from `GET /api/v1/stats/trace?project=P&change=C`: the change's
+`stage_runs`, `requests`, `dispatches`, `guard_runs` (claimed by worktree, as **Bottlenecks** claims
+them) and `verify_runs` (a guard or verify run starts at its recorded end less its duration). The
+change is one process (`process_name` `<project>/<change>`); its threads are lanes, top to bottom —
+`request`, `stage`, one per dispatch named `<role> <dispatch key>` (`#<seq>` without a key), that
+dispatch's `<lane> tools`, `guard`, `verify` — each named by `thread_name` and ordered by
+`thread_sort_index`. Every row is a complete event (`"ph":"X"`, `ts`/`dur` in microseconds from the
+change's first row, its start in `otherData.t0`); a row overlapping the previous one in its lane
+spills into `<lane> (2)`, … A row still open ends at the trace's last instant with `"open": true` in
+its args. Tool calls come from each dispatch's own subagent transcript, found as the harvester finds
+it (`~/.claude/projects/*/*/subagents/agent-<id>.jsonl`, `FLOW_TRANSCRIPTS_DIR` overriding the root):
+one span per `tool_use` to its `tool_result`, named by tool and a short form of its input (`Bash: go
+test ./...`), kept inside its dispatch — a call started outside it is dropped, one running past its
+end cut there; `-no-transcripts` leaves them out. The output is stable for the same rows.
+
+To look at it, write it to a file and drop that file on <https://ui.perfetto.dev> (or load it in
+`chrome://tracing`):
+
+```bash
+flow stats trace -o /tmp/trace.json kan-1167-dispatch-recording-guard
+```
+
 ## Confidence estimates
 
 `flow confidence record` files a below-100% estimate with its gaps and tags (`flow confidence tags`

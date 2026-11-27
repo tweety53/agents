@@ -867,14 +867,11 @@ const subagentsDirName = "subagents"
 // finished once its report exists. found is false where no such file, or
 // no timestamped line in it, exists.
 func AgentTranscriptEnd(root, agentID string) (end time.Time, found bool, err error) {
-	paths, err := filepath.Glob(filepath.Join(root, "*", "*", subagentsDirName, "agent-"+agentID+".jsonl"))
-	if err != nil || len(paths) == 0 {
+	raw, found, err := readAgentTranscript(root, agentID)
+	if !found {
 		return time.Time{}, false, err
 	}
-	raw, err := os.ReadFile(paths[0])
-	if err != nil {
-		return time.Time{}, false, err
-	}
+	found = false
 	for line := range bytes.Lines(raw) {
 		var rec struct {
 			Timestamp time.Time `json:"timestamp"`
@@ -884,6 +881,17 @@ func AgentTranscriptEnd(root, agentID string) (end time.Time, found bool, err er
 		}
 	}
 	return end, found, nil
+}
+
+// readAgentTranscript reads agentID's own transcript under root; found is
+// false where no such file exists.
+func readAgentTranscript(root, agentID string) (raw []byte, found bool, err error) {
+	paths, err := filepath.Glob(filepath.Join(root, "*", "*", subagentsDirName, "agent-"+agentID+".jsonl"))
+	if err != nil || len(paths) == 0 {
+		return nil, false, err
+	}
+	raw, err = os.ReadFile(paths[0])
+	return raw, err == nil, err
 }
 
 // ReadDispatchMeta reads the sidecar meta file alongside transcriptPath
