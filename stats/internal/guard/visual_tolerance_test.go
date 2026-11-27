@@ -147,8 +147,10 @@ func TestVvmFoldShift(t *testing.T) {
 		t.Fatalf("over rows left %s, want the shift's row 1, the colour row and the missing row", got)
 	}
 
-	// At the threshold, and for offsets that differ row by row, nothing folds.
+	// At the threshold with one paired row unmoved, and for offsets that
+	// differ row by row, nothing folds.
 	matrix, over = vvmShiftFixture(vvmShiftRows, 55)
+	matrix = append(matrix, map[string]any{"a": map[string]any{"top": 9200.0}, "b": map[string]any{"top": 9200.0}})
 	if shift := vvmFoldShift(matrix, &over, mvpOverLength); shift != nil || len(over) != vvmShiftRows+2 {
 		t.Fatalf("%d rows folded (%+v, %d left); a shift needs more than %d", vvmShiftRows, shift, len(over), vvmShiftRows)
 	}
@@ -158,6 +160,40 @@ func TestVvmFoldShift(t *testing.T) {
 	}
 	if shift := vvmFoldShift(matrix, &over, mvpOverLength); shift != nil {
 		t.Fatalf("rows with differing offsets folded: %+v", shift)
+	}
+}
+
+// A frame moved whole by a few px is one offset row however few rows it has;
+// one paired row that did not move makes it per-element again. Missing and
+// extra rows are classed `pairing`, every row stays on over, and the length
+// tolerance is still 2px.
+func TestVvmTriageUniformOffset(t *testing.T) {
+	t.Parallel()
+	if mvpOverLength != 2 {
+		t.Fatalf("mvpOverLength %v, want 2 — triage never widens the tolerance", mvpOverLength)
+	}
+	if tol, _ := vvTolerance(""); tol != 2 {
+		t.Fatalf("default tolerance %v, want 2", tol)
+	}
+	matrix, over := vvmShiftFixture(3, 4)
+	shift := vvmFoldShift(matrix, &over, mvpOverLength)
+	if shift == nil || !shift.Uniform || shift.Rows != 3 || shift.Row != 1 {
+		t.Fatalf("shift %+v, want a uniform 3-row offset standing on row 1", shift)
+	}
+	vvmTriage(over, shift)
+	var got []string
+	for _, o := range over {
+		r := o.(map[string]any)
+		got = append(got, fmt.Sprintf("%v:%v", r["row"], r["triage"]))
+	}
+	if s := strings.Join(got, ","); s != "1:offset,4:<nil>,5:pairing" {
+		t.Fatalf("over %s, want the offset row, the colour row and the pairing row", s)
+	}
+
+	matrix, over = vvmShiftFixture(3, 4)
+	matrix = append(matrix, map[string]any{"a": map[string]any{"top": 9200.0}, "b": map[string]any{"top": 9200.0}})
+	if shift := vvmFoldShift(matrix, &over, mvpOverLength); shift != nil || len(over) != 5 {
+		t.Fatalf("a non-uniform shift folded (%+v, %d rows left); want every row kept", shift, len(over))
 	}
 }
 

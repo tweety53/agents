@@ -52,11 +52,13 @@ type vvmPair struct {
 // it paired and Row the first of them. Or vvmFoldShift folded Rows over rows
 // whose only over keys are vertical positions and whose elements all sit Dy px
 // (within 1px of each other) from the frame's: Row is the one of them left on
-// the pair's `over` list to stand for the defect.
+// the pair's `over` list to stand for the defect. Uniform marks a fold whose
+// dy every paired row of the frame shares, however few rows that is.
 type vvmShift struct {
-	Dy   float64 `json:"dy"`
-	Rows int     `json:"rows"`
-	Row  int     `json:"row"`
+	Dy      float64 `json:"dy"`
+	Rows    int     `json:"rows"`
+	Row     int     `json:"row"`
+	Uniform bool    `json:"uniform,omitempty"`
 }
 
 // vvmShiftRows is how many rows must share one dy before they are one defect.
@@ -574,7 +576,8 @@ func vvmFigure(v any) (string, bool) {
 var vvmShiftKeys = []string{"gap", "since_pair", "gap.top", "gap.bottom", "box.top", "box.bottom", "ink.top"}
 
 // vvmFoldShift folds a whole-frame shift into one over row: when more than
-// vvmShiftRows paired over rows carry only vvmShiftKeys and sit the same dy
+// vvmShiftRows paired over rows — or any number of them, when every paired
+// matrix row's dy sits inside their 1px window (a uniform offset) — carry only vvmShiftKeys and sit the same dy
 // (b.top − a.top, within 1px of each other, beyond tol) from the frame's, a
 // constant offset is one defect — a shared bar, a scroll position — not one
 // per row. The first of them stays on over, the rest leave it, and the
@@ -614,10 +617,23 @@ func vvmFoldShift(matrix []map[string]any, over *[]any, tol float64) *vvmShift {
 			lo, hi = i, j+1
 		}
 	}
-	if hi-lo <= vvmShiftRows {
+	if hi == lo {
 		return nil
 	}
 	run := cands[lo:hi]
+	uniform := true
+	for _, r := range matrix {
+		a, _ := r["a"].(map[string]any)
+		b, _ := r["b"].(map[string]any)
+		at, okA := a["top"].(float64)
+		bt, okB := b["top"].(float64)
+		if okA && okB && (bt-at < run[0].dy || bt-at > run[len(run)-1].dy) {
+			uniform = false
+		}
+	}
+	if hi-lo <= vvmShiftRows && !uniform {
+		return nil
+	}
 	folded := map[int]bool{}
 	first := run[0].row
 	for _, c := range run {
@@ -629,7 +645,24 @@ func vvmFoldShift(matrix []map[string]any, over *[]any, tol float64) *vvmShift {
 		row, _ := r["row"].(float64)
 		return folded[int(row)] && int(row) != first
 	})
-	return &vvmShift{Dy: run[len(run)/2].dy, Rows: len(run), Row: first}
+	return &vvmShift{Dy: run[len(run)/2].dy, Rows: len(run), Row: first, Uniform: uniform}
+}
+
+// vvmTriage classes the over rows before any model reads them: `triage` is
+// `pairing` on a missing or extra row — an element one side lacks, or a
+// pairing artefact — and `offset` on the row standing for a folded shift.
+// Every row stays on over, blocking; the tolerance is not touched.
+func vvmTriage(over []any, shift *vvmShift) {
+	for _, o := range over {
+		r, _ := o.(map[string]any)
+		row, _ := r["row"].(float64)
+		switch {
+		case r["status"] == "missing" || r["status"] == "extra":
+			r["triage"] = "pairing"
+		case shift != nil && int(row) == shift.Row:
+			r["triage"] = "offset"
+		}
+	}
 }
 
 func vvmExists(p string) bool { _, err := os.Stat(p); return err == nil }
