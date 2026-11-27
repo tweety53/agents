@@ -20,20 +20,10 @@ one of its sections.
 **Check guard presence** per **Guard presence check** (`skills/flow-contracts/pipeline.md`),
 already run at the top of this invocation.
 
-**A change to `<agents repo>`'s own tooling integrates with the branch's copy of it.** When the
-canonical repository is `<agents repo>` and `git -C <canonical-worktree> diff --name-only
-<base>...HEAD` names a path under `scripts/`, `stats/` or `skills/` — the three trees whose
-installed copies a run executes — every `flow-guard integrate-change` call this file and
-`skills/flow/cleanup.md` make resolves to the branch's own copy and runs with a `flow` built from
-the branch, both first on `PATH`:
-
-```bash
-cd <canonical-worktree>/stats && go build -o <scratch>/bin/flow ./cmd/flow
-PATH=<scratch>/bin:<canonical-worktree>/scripts:$PATH flow-guard integrate-change prepare <main-checkout> <name> --session-token mf-<literal-token>
-```
-
-The installed script and CLI predate the change, and the script builds its guards from its own
-checkout (`<agents repo>/scripts/flow-guard`) while taking `flow` from `PATH`.
+**Load `skills/flow/integrate-own-tooling.md` only when** the canonical repository is `<agents repo>`
+and `git -C <canonical-worktree> diff --name-only <base>...HEAD` names a path under `scripts/`,
+`stats/` or `skills/` — it carries **A change to `<agents repo>`'s own tooling integrates with the
+branch's copy of it**.
 
 ```bash
 flow-guard integrate-change prepare <main-checkout> <name> --session-token mf-<literal-token>
@@ -49,22 +39,11 @@ the exit contract. A stop closes the stage mark it was in `stopped`; the parent 
 that stopped once the stop is handled. Three stops in a row of one call take **Three failed
 rounds** (`skills/flow-contracts/pipeline.md`), applied inline from every earlier `STOP:` line — only
 stops the parent can cure itself. A stop that exists to ask the operator — `STOP: main-checkout`,
-`STOP: base-mismatch` — is never counted toward it: it is asked as its bullet below says, every time.
+`STOP: base-mismatch` — is never counted toward it: it is asked as its bullet in `skills/flow/integrate-stops.md` says, every time.
 
 - **`NEXT:` naming `cleanup`** — every worktree returned `RUN2` → `skills/flow/cleanup.md` <!-- refs-guard:allow -->
-- **`STOP: main-checkout`** → stop at `IN_PROGRESS` and report every repository's lines together,
-  per **Surface main-checkout drift before the preflight**
-  (`skills/flow-contracts/finish-contract-run1.md`); the operator cleans the main checkout and
-  re-runs. A `DRIFT-SWITCHED:` line is relayed as printed and asks nothing: `prepare` already switched that clean checkout back to its default branch and carried on, per **Surface main-checkout drift before the preflight** (`skills/flow-contracts/finish-contract-run1.md`).
-- **`STOP: preflight` or `STOP: base`** → stop, report what the script reported, relay the guard's
-  hand-verification procedure per **Hand-verifying a guard verdict** (`skills/flow-contracts/pipeline.md`), and ask
-  the operator.
-- **`STOP: base-mismatch`** → report the line and ask the operator. A worktree on its default branch whose origin lacks the base another worktree records is not a stop: `prepare` creates that base on its origin from the default branch, records it as the worktree's base with the first and third commands below (the merge base unchanged, since the new base sits at the default branch's commit), leaves moving the branch to the base-moved sync, and prints one `BASE-CREATED:` line.
-  The answer that moves the worktree is `git -C <wt> config branch.spectre/<name>.flowBase <b>`,
-  `git -C <wt> rebase --onto origin/<b> <its recorded merge base>`,
-  `flow state add-worktree -C <the change's canonical worktree> <name> <wt> $(git -C <wt> merge-base HEAD origin/<b>)`, then re-run
-  `prepare`.
-- **`STOP: no-remote`** → per **The routes** (`skills/flow-contracts/finish-contract-run1.md`).
+- **Any other `STOP:` line** → **Load `skills/flow/integrate-stops.md`** — it carries each stop's
+  handling.
 
 ## 1. Check for unfinished work
 
@@ -74,14 +53,12 @@ the branch is not merged** (`skills/flow-contracts/finish-contract-run1.md`).
 - **`STOP: unfinished-work`** → **Load `skills/flow/unfinished-work-gate.md`** — the run
   finishes the unfinished work itself, asks nothing, and re-runs `prepare`, per its
   **Finish it — never a prompt**.
-- **`STOP: no-verdict`** → a guard of the gate printed no verdict line, or exited non-zero without
-  one: stop and ask, reporting its output.
 
 ## 2. Ask how the branch should land
 
 `prepare` then reads the base-moved line the preflight printed after `RUN1` and, on `MOVED`, runs the sync of **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`). A
 `REFUSE`, an exit 2 or an empty resolved set is `STOP: base-moved`, handled as `STOP: preflight`
-above. **Load `skills/flow/sync-onto-base.md` only when** the script stops on `sync-conflict` or
+(`skills/flow/integrate-stops.md`). **Load `skills/flow/sync-onto-base.md` only when** the script stops on `sync-conflict` or
 `sync`, the rebase is resolved in place there, and `prepare` is re-run. `STOP: rebase-lint` is
 the project's `## lint` list failing on, or rewriting tracked files of, the rebased tree: report it and stop at
 `IN_PROGRESS`.
@@ -136,18 +113,8 @@ configured default. `land` runs the route of **The routes**
 `STOP: landing-route` — no route given or configured — asks the landing question of step 2, then
 re-runs `land` with `--route`.
 
-**Every git step here can fail, and none of them may fail silently.** `STOP: push`, `STOP: sync`,
-`STOP: sync-conflict`, `STOP: rebase-lint` and `STOP: state` are
-reported with the command's own output, leaving the change at `IN_PROGRESS`; `STOP: base` and
-`STOP: no-remote` are handled as in **Deciding which run this is** above; a conflict on the merge-and-push route's one re-sync is resolved per
-**Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) and `land` re-run as the one
-retry.
-
-**`STOP: pr`** — no usable `gh`: print the forge's create-PR URL and ask whether it was opened.
-**Human confirmation is a legitimate substitute for an API probe** on a forge with no usable CLI. If
-the answer is No, leave `prUrl` null and say what to do next. Either answer re-runs `land` adding
-`--pr-url <worktree>=<url>` or `--pr-url <worktree>=none` for the worktree the stop names, every
-earlier `--pr-url` kept.
+**Every git step here can fail, and none of them may fail silently** — each `STOP:` line is
+handled per `skills/flow/integrate-stops.md`.
 
 ## 5. Run the self-review pass
 

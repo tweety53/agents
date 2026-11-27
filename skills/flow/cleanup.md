@@ -12,7 +12,7 @@ only when** a stop below cites one of its sections.
 
 **A self-hosting change refreshes the tooling before cleanup.** Under the condition of **A change
 to `<agents repo>`'s own tooling integrates with the branch's copy of it**
-(`skills/flow/integrate.md`), once the branch has landed, run from outside every worktree (Bash
+(`skills/flow/integrate-own-tooling.md`), once the branch has landed, run from outside every worktree (Bash
 `timeout: 600000`):
 
 ```bash
