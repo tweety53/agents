@@ -8,7 +8,7 @@ import (
 // BottleneckRow is one name's time within one dimension of the bottleneck
 // ranking: how many runs it had, their summed and P50/P95 duration in
 // milliseconds. Dimension is stage, role, role-class, guard, guard-wait,
-// guard-bootstrap, hook or verify.
+// guard-bootstrap, hook, verify, llm, tool or human.
 type BottleneckRow struct {
 	Dimension string
 	Name      string
@@ -28,7 +28,11 @@ type BottleneckRow struct {
 // under guard-bootstrap --, hook runs by hook (hook_runs carry no project
 // or worktree: a run counts once when it ended inside any kept change's
 // first-start-to-last-end window),
-// and verify runs by label. WallMs is the summed wall clock of those
+// verify runs by label, and the stored transcript time splits
+// (0115_time_splits.sql) -- every dispatch's, named agent, and every stage
+// run's linked to a parent transcript (not a subagent's, which re-counts its
+// dispatch), named parent -- as llm and human by those names and tool by
+// tool, one run per split. WallMs is the summed wall clock of those
 // changes -- each change's first stage-run start to its last stage-run end
 // -- the denominator a row's share is read against. Rows come ordered by
 // dimension, then total descending.
@@ -68,6 +72,22 @@ func (s *Store) Bottlenecks(ctx context.Context, project *string, last int) (row
 			UNION ALL
 			SELECT 'verify', v.label, v.seconds * 1000
 			FROM verify_runs v JOIN picked p ON p.id = v.change_id
+			UNION ALL
+			SELECT t.dim, t.name, t.ms
+			FROM (
+				SELECT x.time_split AS ts, 'agent' AS who
+				FROM dispatches x JOIN picked p ON p.id = x.change_id
+				WHERE jsonb_typeof(x.time_split) = 'object'
+				UNION ALL
+				SELECT sr.time_split, 'parent'
+				FROM stage_runs sr JOIN picked p ON p.id = sr.change_id
+				WHERE jsonb_typeof(sr.time_split) = 'object' AND sr.transcript_path NOT LIKE '%/subagents/%'
+			) s
+			CROSS JOIN LATERAL (
+				VALUES ('llm', s.who, (s.ts->>'llmMs')::numeric), ('human', s.who, (s.ts->>'humanMs')::numeric)
+				UNION ALL
+				SELECT 'tool', e.key, e.value::numeric FROM jsonb_each_text(COALESCE(s.ts->'byTool', '{}')) e
+			) t(dim, name, ms)
 		)
 		SELECT dim, name, COUNT(*)::int, ROUND(SUM(ms))::bigint,
 			ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY ms))::bigint,

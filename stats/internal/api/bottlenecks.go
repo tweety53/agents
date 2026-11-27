@@ -45,7 +45,7 @@ type BottlenecksResponse struct {
 }
 
 // bottleneckDimensions is the order the ranking prints its tables in.
-var bottleneckDimensions = []string{"stage", "role", "role-class", "guard", "guard-wait", "guard-bootstrap", "hook", "verify"}
+var bottleneckDimensions = []string{"stage", "role", "role-class", "guard", "guard-wait", "guard-bootstrap", "hook", "verify", "llm", "tool", "human"}
 
 type bottlenecksHandler struct {
 	store BottlenecksStore

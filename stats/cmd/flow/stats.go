@@ -22,8 +22,10 @@ role and by role class, guard runs by guard -- their work, the run less
 the time it spent waiting (a heavy slot, await-rows between reads), the
 wait ranked apart under guard-wait and the scripts/flow-guard bootstrap
 before it under guard-bootstrap --, hook runs by hook (each run counted
-once when it ended inside any ranked change's wall clock), and verify runs
-by label. Each
+once when it ended inside any ranked change's wall clock), verify runs
+by label, and the transcript time split flowd stored per dispatch (named
+agent) and per stage run of the parent session (named parent): llm and
+human time by those names, tool time by tool. Each
 dimension prints its top 10 as name, runs, total, share of the changes'
 summed wall clock, p50 and p95; one closing line names the top 5 time sinks
 across dimensions (role class left out, as it re-counts the roles).

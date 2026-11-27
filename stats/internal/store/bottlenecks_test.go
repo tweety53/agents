@@ -16,7 +16,10 @@ import (
 // come from the run durations -- a guard's its work, duration less wait_ms,
 // the wait ranked apart as guard-wait and a stamped
 // bootstrap_ms as guard-bootstrap --, hook runs that fell inside a kept
-// change's wall clock by hook, and the wall clock is the kept change's first
+// change's wall clock by hook, the stored time splits as llm, tool (per
+// tool) and human -- named agent for a dispatch's, parent for a stage run's
+// linked to a parent transcript; a subagent-linked stage run's and a JSON
+// null split add nothing -- and the wall clock is the kept change's first
 // start to last end.
 func TestBottlenecksRanksEachDimension(t *testing.T) {
 	t.Parallel()
@@ -52,6 +55,13 @@ func TestBottlenecksRanksEachDimension(t *testing.T) {
 	stage(newID, "flow.verify", 1, 2400, 2500)
 	exec(`INSERT INTO dispatches (change_id, seq, role, model, started_at, ended_at) VALUES
 		($1,1,'panel-reviewer','opus',$2,$3), ($1,2,'operator-asked','opus',$3,$4)`, newID, at(2000), at(2060), at(2100))
+	exec(`UPDATE dispatches SET time_split = $2 WHERE change_id = $1 AND seq = 1`, newID,
+		`{"llmMs":40000,"toolMs":20000,"humanMs":0,"byTool":{"Bash go":15000,"Read":5000}}`)
+	exec(`UPDATE dispatches SET time_split = 'null' WHERE change_id = $1 AND seq = 2`, newID)
+	exec(`UPDATE stage_runs SET transcript_path = '/t/s.jsonl', time_split = $2 WHERE change_id = $1 AND stage = 'flow.verify'`, newID,
+		`{"llmMs":60000,"toolMs":30000,"humanMs":10000,"byTool":{"Bash go":30000}}`)
+	exec(`UPDATE stage_runs SET transcript_path = '/t/s/subagents/agent-a.jsonl', time_split = '{"llmMs":1}'
+		WHERE change_id = $1 AND stage = 'flow.implement' AND attempt = 1`, newID)
 	exec(`INSERT INTO guard_runs (project_key, guard, worktree, exit_code, outcome, duration_ms, recorded_at) VALUES
 		($1,'check-a','/x/p-worktrees/new',0,'clear',500,$2),
 		($1,'check-a','/x/p-worktrees/new/sub',0,'clear',1500,$2),
@@ -94,6 +104,12 @@ func TestBottlenecksRanksEachDimension(t *testing.T) {
 		"guard-bootstrap/check-a": {Runs: 1, TotalMs: 30, P50Ms: 30, P95Ms: 30},
 		"verify/lint":             {Runs: 1, TotalMs: 30_000, P50Ms: 30_000, P95Ms: 30_000},
 		"hook/" + hook:            {Runs: 2, TotalMs: 12, P50Ms: 6, P95Ms: 8},
+		"llm/agent":               {Runs: 1, TotalMs: 40_000, P50Ms: 40_000, P95Ms: 40_000},
+		"llm/parent":              {Runs: 1, TotalMs: 60_000, P50Ms: 60_000, P95Ms: 60_000},
+		"human/agent":             {Runs: 1, TotalMs: 0, P50Ms: 0, P95Ms: 0},
+		"human/parent":            {Runs: 1, TotalMs: 10_000, P50Ms: 10_000, P95Ms: 10_000},
+		"tool/Bash go":            {Runs: 2, TotalMs: 45_000, P50Ms: 22_500, P95Ms: 29_250},
+		"tool/Read":               {Runs: 1, TotalMs: 5000, P50Ms: 5000, P95Ms: 5000},
 	}
 	if len(got) != len(want) {
 		t.Errorf("rows = %+v, want %d rows", rows, len(want))
