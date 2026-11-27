@@ -65,6 +65,41 @@ func TestNoProgressRule(t *testing.T) {
 	}
 }
 
+// TestRoundCeilingRule pins the round ceiling: defined once, in pipeline.md's
+// **Fewest operator actions**, run by `flow-guard round-ceiling`, configured
+// by `## fix round ceiling`, cited by fix.md's fix loop, and carried as the
+// one deferred item a handoff may name.
+func TestRoundCeilingRule(t *testing.T) {
+	t.Parallel()
+	rule := strings.Join(strings.Fields(section(t, "skills/flow-contracts/pipeline.md", "Fewest operator actions")), " ")
+	for _, want := range []string{
+		"### The round ceiling",
+		"**The round ceiling bounds a loop's rounds on one item, never the run.**",
+		"`flow-guard round-ceiling <worktree> <failed rounds>`",
+		"`NEXT: defer`",
+		"A deferral waives no gate",
+	} {
+		if !strings.Contains(rule, want) {
+			t.Errorf("pipeline.md's Fewest operator actions lacks %q", want)
+		}
+	}
+	if strings.Contains(rule, "No round count ends") {
+		t.Error("pipeline.md still says no round count ends a loop")
+	}
+	for _, l := range []struct{ file, phrase string }{
+		{"skills/flow/fix.md", "for **Three failed rounds** and for **The round ceiling**"},
+		{"skills/flow-contracts/project-configuration.md", "| `## fix round ceiling` |"},
+		{"skills/flow-contracts/handoff-blocks.md", "an item **The round ceiling** (`skills/flow-contracts/pipeline.md`) deferred"},
+	} {
+		if !strings.Contains(repoText(t, l.file), l.phrase) {
+			t.Errorf("%s lacks %q", l.file, l.phrase)
+		}
+	}
+	if strings.Contains(repoText(t, "skills/flow/fix.md"), "No round count ends the loop.") {
+		t.Error("skills/flow/fix.md still says no round count ends the loop")
+	}
+}
+
 // TestCapsNeverStop pins that a cap bounds an approach, never the run: it is
 // defined once, in pipeline.md's **Caps never stop the run**.
 func TestCapsNeverStop(t *testing.T) {

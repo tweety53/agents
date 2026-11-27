@@ -149,10 +149,10 @@ any status report that offers to continue is this rule broken too.
 **A wait on background subagents is one `flow-guard await-rows` call, never a turn end** (**Turn
 discipline**, `skills/flow/implement.md`).
 
-**No round count ends a re-review or a re-verification.** A review-panel fix round, a gated
+A review-panel fix round, a gated
 per-task re-review, a verify stage's fix loop, a verifier re-dispatch, the implement phase's
 full-suite fix and a guard or integrate call re-run after a stop each repeat until their own clean
-close. **A round that makes no progress — the same defect identity, on the same
+close or **The round ceiling** below. **A round that makes no progress — the same defect identity, on the same
 evidence, after a fix — changes the run's approach instead of stopping or asking.** The next fix
 is a fresh dispatch of that loop's own fixer row on the `no-progress-fixer` role (**Allowed
 pairs**, `skills/flow-contracts/model-policy.md`, recorded with its pair), its prompt
@@ -160,7 +160,8 @@ carrying `Role: no-progress-fixer` and every earlier round's report
 verbatim and naming the approach that failed; a loop whose fix the parent applies inline applies
 it from those same reports by a different approach. Where the evidence itself may be wrong, the
 defect is first reproduced another way — another reproducer, another capture route. A further
-round without progress changes the approach again; none of them stops the run.
+round without progress changes the approach again until the ceiling defers the item; none of them
+stops the run.
 
 **Two consecutive verify rounds whose failures all fall outside the change's specs are a round
 without progress too.** When two narrowed visual re-runs in a row fail only in specs outside the
@@ -173,7 +174,7 @@ in that output, so only the same-defect rule above applies.
 
 **Three failed rounds of one loop are a round without progress too, whatever their defects.** A
 failed round is one that ends without the loop's own clean close. The fix loop counts three failed rounds of one site of **The fix loop** (`skills/flow/fix.md`), a round as that site's row defines it. The fourth round, and each
-later one, is the fresh dispatch above — its fixer —
+later one below the ceiling, is the fresh dispatch above — its fixer —
 on the `no-progress-fixer` role carrying every earlier round's report
 verbatim and naming the approach that failed. It is never a stop and never an ask.
 
@@ -196,6 +197,30 @@ and never counted as a failed round.
 is a round without progress too.** The visual stage's `close` prints `ESCALATE:` for it and for
 every failed round from the third on (`flow-guard visual-verify-pass`'s header canonical), and the
 next round is the escalation above, never another dispatch on the base pair.
+
+### The round ceiling
+
+**The round ceiling bounds a loop's rounds on one item, never the run.** After each failed round
+of a loop above, `flow-guard round-ceiling <worktree> <failed rounds>` names the next one, the
+failed rounds counted as **Three failed rounds** counts them: `NEXT: retry`, the loop's own fixer;
+`NEXT: rethink`, the escalation of **Three failed rounds**; `NEXT: defer`, once the failed rounds
+reach the project's `## fix round ceiling` (`skills/flow-contracts/project-configuration.md`), 6
+when the key is absent. The guard's header is canonical for its output and exit codes.
+
+**`NEXT: defer` takes the item out of its loop and the run continues.** No further round is
+dispatched on that item; every other step of the run goes on in the same turn. The item is
+recorded once, as one line in the run's narrative (**Write `IN_PROGRESS`**,
+`skills/flow/verify-and-handoff.md`; a `/flow-interactive` request's report) and one
+`**Decisions:**` bullet of the run's summary:
+
+```text
+Deferred at the round ceiling: <the item, one line> — <failed rounds> failed rounds; approaches tried: <each, one phrase>; reports: <each round's report path>
+```
+
+**A deferral waives no gate.** A deferred item that a landing check still reads — a red `lint` or
+`test` line, a `flow.verify` not ended `completed`, an open Critical or Important finding — holds
+the landing: the change never lands red (**The sweep**, `skills/flow-contracts/known-bugs.md`), and
+the run's handoff carries the item on its `**Decisions:**` line for the operator to take up.
 
 ### Caps never stop the run
 

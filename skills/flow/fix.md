@@ -23,8 +23,8 @@ loop, step 3 of `skills/flow-self-review/SKILL.md`.
 `skills/flow/implement.md`), its work `skills/flow/fixer-brief.md`, the evidence named on its
 `FIX INPUT:` line and read verbatim (VERBATIM REPORT — THE FACT, there).
 
-**No round count ends the loop.** **Fewest operator actions** (`skills/flow-contracts/pipeline.md`)
-is canonical for that, for a round that makes no progress, and for **Three failed rounds** — a
+**Fewest operator actions** (`skills/flow-contracts/pipeline.md`)
+is canonical for a round that makes no progress, for **Three failed rounds** and for **The round ceiling** — a
 round being the **One round** column of the site's row: the fourth round after three failed ones
 is the fresh dispatch of **Three failed rounds**.
 
