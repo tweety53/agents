@@ -402,6 +402,15 @@ func TestChangePlan(t *testing.T) {
 	mkdir(t, case11s+"/spectre/changes")
 	canon11sDir := plan(canon11s, "x-repo-plan")
 	env11, calls11 := store("11", `{"source":"store","complete":true,"records":[{"projectKey":"proj-a","name":"x-repo-plan","worktrees":{"`+case11s+`":null,"`+canon11s+`":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}]}`)
+	// The same record with PATH holding the stub alone: no jq on it.
+	_, calls11n := store("11n", `{"source":"store","complete":true,"records":[{"projectKey":"proj-a","name":"x-repo-plan","worktrees":{"`+case11s+`":null,"`+canon11s+`":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}]}`)
+	bin11n := filepath.Dir(calls11n)
+	env11n := Env{Getenv: func(k string) string {
+		if k == "PATH" {
+			return bin11n
+		}
+		return os.Getenv(k)
+	}}
 	case12, canon12 := work+"/case12-satellite", work+"/case12-canonical"
 	satellite(case12, "storepeer:canon-plan")
 	canon12Dir := plan(canon12, "canon-plan")
@@ -443,6 +452,7 @@ func TestChangePlan(t *testing.T) {
 
 	rows = append(rows,
 		row{name: "store-resolves-absent-dir: the record's worktrees map resolves the plan's directory", fn: "dir", worktree: case11s, change: "x-repo-plan", want: canon11sDir, env: env11},
+		row{name: "store-resolves-without-jq: the store resolves with no jq on PATH", fn: "dir", worktree: case11s, change: "x-repo-plan", want: canon11sDir, env: env11n},
 		row{name: "store-resolves-satellite-without-peers: the record under the link's canonical id resolves", fn: "path", worktree: case12, change: "sat-change", want: canon12Dir + "/tasks.md", env: env12},
 		row{name: "store-ambiguity-refuses: two resolving projects refuse with the ambiguity code 3", fn: "dir", worktree: case13, change: "ambig-plan", rc: 3, env: env13,
 			wantErr: ptr("change-plan: ambiguous state-record resolution for 'ambig-plan': project proj-a resolves to " + tree13a + "/spectre/changes/ambig-plan\n" +

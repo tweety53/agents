@@ -201,14 +201,9 @@ func changePlanPeerRoot(env Env, worktree, specRoot, peerName string) (string, b
 // changePlanStoreDir is _change_plan_store_dir: the change directory the
 // state store's `flow state find <key>` records point at. 0 exactly one
 // match, 1 none or the store is unusable, 3 more than one (named on stderr).
-// jq is required only because the bash helper requires it; this port parses
-// the JSON itself.
 func changePlanStoreDir(env Env, stderr io.Writer, key string) (string, int) {
 	flow, ok := lookPath(env, "flow")
 	if !ok {
-		return "", 1
-	}
-	if _, ok := lookPath(env, "jq"); !ok {
 		return "", 1
 	}
 	cmd := exec.Command(flow, "state", "find", key)
@@ -236,7 +231,7 @@ func changePlanStoreDir(env Env, stderr io.Writer, key string) (string, int) {
 		for tree := range r.Worktrees {
 			trees = append(trees, tree)
 		}
-		sort.Strings(trees) // jq's `keys[]` order
+		sort.Strings(trees)
 		for _, tree := range trees {
 			if tree == "" {
 				continue
