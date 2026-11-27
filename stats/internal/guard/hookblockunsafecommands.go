@@ -78,7 +78,7 @@ import (
 //
 // Byte-identical to hooks/block-unsafe-commands.py, the Python original it replaced, on the golden
 // corpus testdata/block-unsafe-commands-golden.json, save case 145's `-caller-agent` rewrite, which
-// the Python hook never made: every regular expression keeps Python's
+// the Python hook never made, and the bare-`cat` cases whose entry carries a `note`: every regular expression keeps Python's
 // Unicode `\s`, `\w`, `\d` and `\b` (pyposix.go), and a lookahead the RE2 syntax lacks is a check
 // in code after the match. Where Python raised an exception the hook did not catch, this panics,
 // and hook()'s recover makes it the same silent exit.
@@ -88,8 +88,8 @@ import (
 // in a repo's reflog, rather than trying to model the shell. Variable expansion is the same
 // approximation, one step further: `NAME=value` assignments collected positionally from the
 // command text only, values kept literal, within-line use before an assignment left unexpanded —
-// never environment state, which a one-shot hook process cannot know. The bare-`cat` check is a
-// line scan: a heredoc body line opening with `cat > <file>` is denied too.
+// never environment state, which a one-shot hook process cannot know. The bare-`cat` check reads
+// command text only (bareCatText): a heredoc body, a quoted string and a `-c` string are not.
 func init() { hooks["block-unsafe-commands"] = withCallerAgent(blockUnsafeCommands) }
 
 var bucEditTools = map[string]bool{"Edit": true, "Write": true, "MultiEdit": true, "NotebookEdit": true}
@@ -311,9 +311,10 @@ func blockUnsafeCommands(env Env, payload map[string]any, stdout, _ io.Writer) {
 	}
 }
 
-// bareCat is BARE_CAT_RE.search: a match whose trailing whitespace reaches a line end, the end of
-// the command, `;`, `&`, `)` or `||`.
+// bareCat is BARE_CAT_RE.search over bareCatText(command): a match whose trailing whitespace
+// reaches a line end, the end of the command, `;`, `&`, `)` or `||`.
 func bareCat(command string) bool {
+	command = bareCatText(command)
 	for _, m := range bucBareCatRE.FindAllStringIndex(command, -1) {
 		rest := command[m[1]:]
 		ws := strings.TrimLeftFunc(rest, pyIsSpace)
@@ -323,6 +324,92 @@ func bareCat(command string) bool {
 		}
 	}
 	return false
+}
+
+// bareCatText is command with what no shell reads as a command blanked: every heredoc body
+// (bucFindOpener, bucHeredocEnd) — save the `$(...)` and backtick spans an unquoted one runs
+// (substSpans), or the whole body when those cannot be read — and every quoted span, its newlines
+// included, save the `$(...)` and backtick spans inside double quotes. A blanked character is an
+// `x`, never a space, so a quoted target (`cat > "f"`) stays one word. A backtick span reads as
+// `( … )`, so a `cat > f` it runs is a command start and end. A `bash -c '…'` string is quoted
+// text, as it is to every other rule of this hook.
+func bareCatText(command string) string {
+	lines := strings.Split(command, "\n")
+	var kept []string
+	for k := 0; k < len(lines); {
+		line := lines[k]
+		kept = append(kept, line)
+		k++
+		o, ok := bucFindOpener(line)
+		if !ok {
+			continue
+		}
+		end := bucHeredocEnd(lines, k, o.delim, o.tabs)
+		if end < 0 {
+			continue
+		}
+		if o.unquoted {
+			body := strings.Join(lines[k:end], "\n")
+			if spans, ok := substSpans(strings.ReplaceAll(body, "\\`", "")); ok {
+				kept = append(kept, spans...)
+			} else {
+				kept = append(kept, lines[k:end]...)
+			}
+		}
+		k = end
+	}
+	rs := []rune(strings.Join(kept, "\n"))
+	out := make([]rune, 0, len(rs))
+	var quote rune // 0, '\'' or '"'
+	depth := 0     // open `$(` inside double quotes
+	tick := false  // inside a backtick span
+	for i := 0; i < len(rs); i++ {
+		c := rs[i]
+		switch {
+		case quote == '\'':
+			if c == '\'' {
+				quote = 0
+			}
+			c = 'x'
+		case c == '\\' && i+1 < len(rs):
+			if quote == '"' && depth == 0 && !tick {
+				out = append(out, 'x', 'x')
+			} else {
+				out = append(out, c, rs[i+1])
+			}
+			i++
+			continue
+		case c == '`':
+			tick = !tick
+			c = '('
+			if !tick {
+				c = ')'
+			}
+		case quote == '"' && depth > 0:
+			if c == '(' {
+				depth++
+			} else if c == ')' {
+				depth--
+			}
+		case quote == '"' && tick:
+		case quote == '"':
+			if c == '"' {
+				quote = 0
+			}
+			if c == '$' && i+1 < len(rs) && rs[i+1] == '(' {
+				depth = 1
+				out = append(out, c, '(')
+				i++
+				continue
+			}
+			c = 'x'
+		case c == '\'' || c == '"':
+			quote = c
+			c = 'x'
+		}
+		out = append(out, c)
+	}
+	return string(out)
 }
 
 func fullGoTest(command string) bool {

@@ -23,7 +23,9 @@ import (
 //	git show e75c4fdab:hooks/block-unsafe-commands.py > /tmp/buc.py
 //	BLOCK_UNSAFE_GOLDEN_PY=/tmp/buc.py go test ./internal/guard/ -run TestHookBlockUnsafeCommandsGolden
 //
-// which rewrites the JSON from Python instead of comparing. A case the corpus has no entry for fails.
+// which rewrites the JSON from Python instead of comparing, save the cases whose entry carries a
+// `note`: those bytes are the Go hook's own — a deliberate departure from Python, the note saying
+// why — and a capture keeps them as they stand. A case the corpus has no entry for fails.
 
 const bucGoldenFile = "testdata/block-unsafe-commands-golden.json"
 
@@ -33,6 +35,8 @@ type bucOut struct {
 	Stdout string `json:"stdout"`
 	Stderr string `json:"stderr"`
 	Exit   int    `json:"exit"`
+	// Note marks a case whose bytes are the Go hook's own, never Python's, and says why.
+	Note string `json:"note,omitempty"`
 }
 
 // bucPayload is a PreToolUse payload as Claude Code sends it; a nil cwd leaves the key out.
@@ -440,6 +444,22 @@ func bucCases() []bucCase {
 	b("bare cat in a heredoc body", "{ROOT}", "cat > /tmp/a <<'EOF'\ncat > f\nEOF")
 	b("bare cat after &", "{ROOT}", "x & cat > f")
 	b("bare cat with CR", "{ROOT}", "cat > f\r")
+	// Go-only cases (a `note` in the corpus): the bare-cat rule reads only command text.
+	b("bare cat in an unquoted heredoc body", "{ROOT}", "cat > /tmp/a <<EOF\ncat > f\nEOF")
+	b("bare cat in a <<- heredoc body", "{ROOT}", "cat > /tmp/a <<-\"EOF\"\n\tcat > f\n\tEOF")
+	b("bare cat after ; in a flow heredoc body", "{ROOT}", "flow record summary -file - <<'EOF'\nthen; cat > f\nEOF")
+	b("bare cat in an unquoted heredoc body's substitution", "{ROOT}", "cat > /tmp/a <<EOF\n$(cat > f)\nEOF")
+	b("bare cat in double quotes", "{ROOT}", `echo "cat > f"`)
+	b("bare cat after ; in double quotes", "{ROOT}", `echo "a; cat > f"`)
+	b("bare cat after ; in single quotes", "{ROOT}", `echo 'a; cat > f'`)
+	b("bare cat on a line of a multi-line quote", "{ROOT}", "git commit -m 'a\ncat > f\n'")
+	b("bare cat in a double-quoted substitution", "{ROOT}", `echo "$(cat > f)"`)
+	b("bare cat in a backtick substitution", "{ROOT}", "echo `cat > f`")
+	b("bare cat in bash -c", "{ROOT}", `bash -c 'cat > f'`)
+	b("bare cat in sh -c", "{ROOT}", `sh -c "cat > f"`)
+	b("bare cat after ;", "{ROOT}", "echo; cat > f")
+	b("bare cat after a quoted word", "{ROOT}", `echo "x" && cat >> f`)
+	b("cat with a heredoc after &&", "{ROOT}", "true && cat > f <<'EOF'\nx\nEOF")
 	b("data write tee -a >/dev/null", "{ROOT}", "tee -a {MAIN}/f.txt >/dev/null <<'EOF'\nx\nEOF")
 	b("data write into worktree", "{MAIN}", "cat > {WT}/f.txt <<'EOF'\nrm f.txt\nEOF")
 	b("data write with trailing blank lines", "{MAIN}", "cat > {WT}/f.txt <<'EOF'\nrm f.txt\nEOF\n\n  \n")
@@ -672,7 +692,7 @@ func bucRunGo(stdin, root string, env []string) bucOut {
 		Stdin:     strings.NewReader(stdin),
 	}
 	rc := Registry["hook"]([]string{"block-unsafe-commands"}, e, &out, &errb)
-	return bucOut{out.String(), errb.String(), rc}
+	return bucOut{Stdout: out.String(), Stderr: errb.String(), Exit: rc}
 }
 
 func bucRunPython(t *testing.T, py, stdin, root string, env []string) bucOut {
@@ -690,7 +710,7 @@ func bucRunPython(t *testing.T, py, stdin, root string, env []string) bucOut {
 	} else if err != nil {
 		t.Fatal(err)
 	}
-	return bucOut{out.String(), errb.String(), rc}
+	return bucOut{Stdout: out.String(), Stderr: errb.String(), Exit: rc}
 }
 
 // TestHookBlockUnsafeCommandsGolden: the Go hook prints, on every corpus case, the bytes the Python
@@ -706,7 +726,15 @@ func TestHookBlockUnsafeCommandsGolden(t *testing.T) {
 	}
 	if py := os.Getenv("BLOCK_UNSAFE_GOLDEN_PY"); py != "" {
 		golden := map[string]bucOut{}
+		if data, err := os.ReadFile(bucGoldenFile); err == nil {
+			if err := json.Unmarshal(data, &golden); err != nil {
+				t.Fatal(err)
+			}
+		}
 		for _, c := range cases {
+			if golden[c.name].Note != "" {
+				continue // the Go hook's own bytes, never Python's
+			}
 			golden[c.name] = unroot(bucRunPython(t, py, bucExpand(c.stdin, root), root, env))
 		}
 		data, err := json.MarshalIndent(golden, "", "  ")
@@ -740,6 +768,7 @@ func TestHookBlockUnsafeCommandsGolden(t *testing.T) {
 		go func() {
 			defer func() { <-sem; wg.Done() }()
 			got := unroot(bucRunGo(bucExpand(c.stdin, root), root, env))
+			want.Note = ""
 			if got != want {
 				mu.Lock()
 				t.Errorf("%s\n got: %#v\nwant: %#v", c.name, got, want)

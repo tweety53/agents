@@ -1114,6 +1114,36 @@
     "stderr": "",
     "exit": 0
   },
+  "bare cat after ;": {
+    "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"permissionDecision\": \"deny\", \"permissionDecisionReason\": \"a bare `cat \u003e \u003cfile\u003e` reads stdin, which a Bash call never has, so it waits until the call times out \\u2014 write the file with the Write tool, or give cat a heredoc (`cat \u003e \u003cfile\u003e \u003c\u003c'EOF'`)\"}}",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, and a cat after ; is a command."
+  },
+  "bare cat after ; in a flow heredoc body": {
+    "stdout": "",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, never a heredoc body, whatever separator a body line holds (Python denied it)."
+  },
+  "bare cat after ; in double quotes": {
+    "stdout": "",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, never a double-quoted string (Python denied it)."
+  },
+  "bare cat after ; in single quotes": {
+    "stdout": "",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, never a single-quoted string (Python denied it)."
+  },
+  "bare cat after a quoted word": {
+    "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"permissionDecision\": \"deny\", \"permissionDecisionReason\": \"a bare `cat \u003e \u003cfile\u003e` reads stdin, which a Bash call never has, so it waits until the call times out \\u2014 write the file with the Write tool, or give cat a heredoc (`cat \u003e \u003cfile\u003e \u003c\u003c'EOF'`)\"}}",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, and a quote before \u0026\u0026 ends before the cat command."
+  },
   "bare cat and stash together": {
     "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"permissionDecision\": \"deny\", \"permissionDecisionReason\": \"a bare `cat \u003e \u003cfile\u003e` reads stdin, which a Bash call never has, so it waits until the call times out \\u2014 write the file with the Write tool, or give cat a heredoc (`cat \u003e \u003cfile\u003e \u003c\u003c'EOF'`)\"}}",
     "stderr": "",
@@ -1149,10 +1179,65 @@
     "stderr": "",
     "exit": 0
   },
-  "bare cat in a heredoc body": {
+  "bare cat in a \u003c\u003c- heredoc body": {
+    "stdout": "",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, never a \u003c\u003c- heredoc body."
+  },
+  "bare cat in a backtick substitution": {
     "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"permissionDecision\": \"deny\", \"permissionDecisionReason\": \"a bare `cat \u003e \u003cfile\u003e` reads stdin, which a Bash call never has, so it waits until the call times out \\u2014 write the file with the Write tool, or give cat a heredoc (`cat \u003e \u003cfile\u003e \u003c\u003c'EOF'`)\"}}",
     "stderr": "",
-    "exit": 0
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, and a backtick substitution is command text (Python allowed it)."
+  },
+  "bare cat in a double-quoted substitution": {
+    "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"permissionDecision\": \"deny\", \"permissionDecisionReason\": \"a bare `cat \u003e \u003cfile\u003e` reads stdin, which a Bash call never has, so it waits until the call times out \\u2014 write the file with the Write tool, or give cat a heredoc (`cat \u003e \u003cfile\u003e \u003c\u003c'EOF'`)\"}}",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, and a $(...) inside double quotes is command text."
+  },
+  "bare cat in a heredoc body": {
+    "stdout": "",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, never a heredoc body, which is the writer's data (Python denied it)."
+  },
+  "bare cat in an unquoted heredoc body": {
+    "stdout": "",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, never an unquoted heredoc body outside its substitutions."
+  },
+  "bare cat in an unquoted heredoc body's substitution": {
+    "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"permissionDecision\": \"deny\", \"permissionDecisionReason\": \"a bare `cat \u003e \u003cfile\u003e` reads stdin, which a Bash call never has, so it waits until the call times out \\u2014 write the file with the Write tool, or give cat a heredoc (`cat \u003e \u003cfile\u003e \u003c\u003c'EOF'`)\"}}",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, and a $(...) an unquoted heredoc body runs is command text."
+  },
+  "bare cat in bash -c": {
+    "stdout": "",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, and like every other rule of this hook it does not read inside a -c string."
+  },
+  "bare cat in double quotes": {
+    "stdout": "",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, never a quoted string."
+  },
+  "bare cat in sh -c": {
+    "stdout": "",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, and like every other rule of this hook it does not read inside a -c string."
+  },
+  "bare cat on a line of a multi-line quote": {
+    "stdout": "",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, never a line inside a multi-line quoted string (Python denied it)."
   },
   "bare cat padded": {
     "stdout": "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"permissionDecision\": \"deny\", \"permissionDecisionReason\": \"a bare `cat \u003e \u003cfile\u003e` reads stdin, which a Bash call never has, so it waits until the call times out \\u2014 write the file with the Write tool, or give cat a heredoc (`cat \u003e \u003cfile\u003e \u003c\u003c'EOF'`)\"}}",
@@ -1258,6 +1343,12 @@
     "stdout": "",
     "stderr": "",
     "exit": 0
+  },
+  "cat with a heredoc after \u0026\u0026": {
+    "stdout": "",
+    "stderr": "",
+    "exit": 0,
+    "note": "Go only: the bare-cat rule reads command text alone, and a cat given a heredoc has input of its own."
   },
   "cd $VAR then commit": {
     "stdout": "",
