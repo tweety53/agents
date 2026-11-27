@@ -118,3 +118,20 @@ func TestAwaitDetachedLost(t *testing.T) {
 		t.Errorf("rc %d stdout %q", rc, o.String())
 	}
 }
+
+// TestAwaitDetachedRecordsItsSleepAsWait: the polling sleep is the run's wait, not work.
+func TestAwaitDetachedRecordsItsSleepAsWait(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "out.log"), "")
+	writeFile(t, filepath.Join(dir, "pid"), strconv.Itoa(os.Getpid())+"\n")
+	env := detachedEnv(dir)
+	env.Reasons = &Reasons{}
+	var o, e bytes.Buffer
+	if rc := awaitDetached([]string{dir, "-timeout", "1"}, env, &o, &e); rc != 0 {
+		t.Fatalf("rc %d", rc)
+	}
+	if w := env.Reasons.Wait(); w < 900*time.Millisecond {
+		t.Errorf("wait %s, want about the 1s slept", w)
+	}
+}

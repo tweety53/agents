@@ -106,7 +106,9 @@ func awaitDetached(args []string, env Env, stdout, stderr io.Writer) int {
 			io.WriteString(stdout, tailLines(log, 10))
 			return 0
 		}
-		time.Sleep(min(time.Second, time.Until(deadline)))
+		pause := min(time.Second, time.Until(deadline))
+		time.Sleep(pause)
+		recordWait(env, pause) // the polling sleep is the run's wait, not its work
 	}
 }
 
