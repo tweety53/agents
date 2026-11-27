@@ -21,14 +21,14 @@ router (command + SKILL.md + pipeline.md)              137 bytes  ~    34 tok
 --- implementation session (enters via Resuming at STARTED) ---
   phase files + load directives                          0 bytes  ~     0 tok
   + cited / reviewer templates                           0 bytes  ~     0 tok
-  + conditional (fix run, cross-repo, sdd, gated fix, fix round, optional slots, isolation, UI)       0 bytes  ~     0 tok
+  + conditional (fix run, cross-repo, sdd, gated review, live check, fix round, optional slots, isolation, pipeline defects, progress, UI)       0 bytes  ~     0 tok
   TOTAL definite                                       168 bytes  ~    42 tok
   TOTAL incl. cited                                    168 bytes  ~    42 tok
   TOTAL worst case                                     168 bytes  ~    42 tok
 --- finish session (merge-and-push: run 1 chained into run 2) ---
   phase files + load directives                          0 bytes  ~     0 tok
   + cited                                                0 bytes  ~     0 tok
-  + conditional (finish contracts, registry, gate, base moved, follow-ups, state file, config, verdicts)       0 bytes  ~     0 tok
+  + conditional (finish contracts, registry, gate, base moved, stops, own tooling, follow-ups, state file, config, verdicts)       0 bytes  ~     0 tok
   TOTAL definite                                       168 bytes  ~    42 tok
   TOTAL incl. cited                                    168 bytes  ~    42 tok
 --- subagents (each also inherits whatever always-on context the harness gives it) ---
@@ -87,7 +87,7 @@ func TestLoadSets(t *testing.T) {
 				flow++
 			}
 		}
-		if len(lines) != 154 || flow != 8 || strings.Contains(r.err, "SKILL.md") {
+		if len(lines) != 157 || flow != 8 || strings.Contains(r.err, "SKILL.md") {
 			t.Fatalf("lines=%d flow.md=%d stderr=\n%s", len(lines), flow, r.err)
 		}
 	})

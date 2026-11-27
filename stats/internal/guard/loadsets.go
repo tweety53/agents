@@ -76,9 +76,9 @@ func loadSets(args []string, env Env, stdout, stderr io.Writer) int {
 	row("router (command + SKILL.md + pipeline.md)", router...)
 
 	fmt.Fprintln(stdout, "--- planning session (creating run) ---")
-	pd := cat(in(f, "brainstorm.md", "brainstorm-planner.md"), in(c, "jira-integration.md", "plan-provenance.md", "build-green.md"))
+	pd := cat(in(f, "brainstorm.md", "brainstorm-planner.md"), in(c, "jira-integration.md"))
 	pc := in(c, "worktree-resolution.md", "git-boundaries.md", "operator-prompts.md", "operator-prompts-auto-resolution.md")
-	px := in(f, "withdrawal.md", "resume.md")
+	px := in(f, "resume.md")
 	row("  phase files + load directives", pd...)
 	row("  + cited at point of use", pc...)
 	row("  TOTAL definite", cat(always, router, pd)...)
@@ -89,12 +89,12 @@ func loadSets(args []string, env Env, stdout, stderr io.Writer) int {
 	id := cat(in(f, "resume.md", "implement.md"), in(c, "worktree-resolution.md"), in(f, "review-panel.md", "verify-and-handoff.md"), in(c, "session-records.md", "git-boundaries.md"))
 	ic := cat(in(c, "operator-prompts.md", "operator-prompts-auto-resolution.md", "project-configuration-standards.md", "model-policy.md", "known-bugs.md"),
 		in(f, "primary-reviewer-prompt.md", "principles-reviewer-prompt.md", "failure-modes-reviewer-prompt.md"), in(c, "plan-amendment.md"))
-	ix := cat(in(f, "fix.md", "fix-visual.md", "cross-repo-worktrees.md", "gated-review-fix.md", "fixer-brief.md", "slot-brief.md", "review-panel-fix-round.md", "review-panel-optional-slots.md", "review-panel-experimental-slot.md"),
-		in(c, "workspace-isolation.md"), in(f, "visual-verify.md"),
+	ix := cat(in(f, "fix.md", "fix-visual.md", "cross-repo-worktrees.md", "gated-review-fix.md", "fixer-brief.md", "slot-brief.md", "review-panel-fix-round.md", "review-panel-optional-slots.md", "gated-review.md", "live-check.md"),
+		in(c, "workspace-isolation.md", "pipeline-defects.md", "progress-visibility.md", "quiet-progress.md"), in(f, "visual-verify.md"),
 		in(c, "git-boundaries-commit-chain.md", "project-configuration-visual.md", "guard-verdict-verification.md"))
 	row("  phase files + load directives", id...)
 	row("  + cited / reviewer templates", ic...)
-	row("  + conditional (fix run, cross-repo, sdd, gated fix, fix round, optional slots, isolation, UI)", ix...)
+	row("  + conditional (fix run, cross-repo, sdd, gated review, live check, fix round, optional slots, isolation, pipeline defects, progress, UI)", ix...)
 	row("  TOTAL definite", cat(always, router, id)...)
 	row("  TOTAL incl. cited", cat(always, router, id, ic)...)
 	row("  TOTAL worst case", cat(always, router, id, ic, ix)...)
@@ -102,11 +102,11 @@ func loadSets(args []string, env Env, stdout, stderr io.Writer) int {
 	fmt.Fprintln(stdout, "--- finish session (merge-and-push: run 1 chained into run 2) ---")
 	fd := cat(in(f, "integrate.md"), in(c, "git-boundaries-commit-chain.md", "jira-integration.md", "jira-integration-finish.md"), in(f, "cleanup.md"))
 	fc := in(c, "operator-prompts.md", "model-policy.md")
-	fx := cat(in(c, "finish-contract-run1.md", "finish-contract-run2.md", "artifacts-registry.md"), in(f, "unfinished-work-gate.md", "sync-onto-base.md", "sync-onto-base-visual.md"),
+	fx := cat(in(c, "finish-contract-run1.md", "finish-contract-run2.md", "artifacts-registry.md"), in(f, "unfinished-work-gate.md", "sync-onto-base.md", "sync-onto-base-visual.md", "integrate-stops.md", "integrate-own-tooling.md"),
 		in(c, "jira-followups.md", "jira-followups-join.md", "state-file.md", "project-configuration.md", "guard-verdict-verification.md"))
 	row("  phase files + load directives", fd...)
 	row("  + cited", fc...)
-	row("  + conditional (finish contracts, registry, gate, base moved, follow-ups, state file, config, verdicts)", fx...)
+	row("  + conditional (finish contracts, registry, gate, base moved, stops, own tooling, follow-ups, state file, config, verdicts)", fx...)
 	row("  TOTAL definite", cat(always, router, fd)...)
 	row("  TOTAL incl. cited", cat(always, router, fd, fc)...)
 
