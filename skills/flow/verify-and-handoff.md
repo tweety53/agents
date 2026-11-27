@@ -8,23 +8,23 @@ Loaded by `skills/flow/SKILL.md` once `skills/flow/review-panel.md` closes clean
 **Load `skills/flow-contracts/worktree-resolution.md`** before resolving this run's worktree set,
 below.
 
-```bash
-flow stage begin -command '/flow' \
-  -stage flow.verify \
-  -session-token mf-<literal-token> \
-  <name>
-```
-
-**First, validate the section and export what it declares — with the script, not by eye.** Run
+**Run the driver, then follow its closing line** — one Bash call, `<model>` and `<effort>` the
+parent's own session pair:
 
 ```bash
-flow-guard prepare-workspace <worktree>
+flow-guard verify-change <main-checkout> <name> --model <model> --effort <effort> \
+  [--key <key>] [--cache-index-claimed] --session-token mf-<literal-token>
 ```
 
-once per worktree in this run's resolved set — the same set **2. Isolate the workspace**
-(`skills/flow/implement.md`) resolved, non-empty by construction — never a raw read of the state
-file's `worktrees` map. Per **Resolving a change's worktrees**
-(`skills/flow-contracts/worktree-resolution.md`), report an empty resolved set and do not proceed.
+Its header (`stats/internal/guard/verifychange.go`) is canonical for every step it runs — the
+`flow.verify` `begin` mark, this run's resolved worktree set, `flow-guard prepare-workspace` per
+worktree, the base check, both groups of **Inline verify** per worktree under **Recording**'s keys,
+and the ledger render of **Close the stage** — and for its `NEXT:` and `STOP:` lines. `NEXT:` names
+what follows, in order: `auto-detect <worktree> <list>` runs that list's auto-detected commands by
+hand, `live-check` is **Live check** below, `visual-verification` is **Visual verification**.
+`--key` is omitted on the run's first verify and is a re-run's key (**Recording**, below) otherwise.
+`STOP: no-worktrees` is the empty resolved set: per **Resolving a change's worktrees**
+(`skills/flow-contracts/worktree-resolution.md`), report it and do not proceed.
 
 `flow-guard prepare-workspace` validates the worktree's isolation table first, then — only
 if that passes — derives and exports the variables the project's `## workspace isolation` section
@@ -33,7 +33,7 @@ to stdout. Exit 0 means the printed lines are what to carry forward into `## lin
 below (nothing printed means the project declares no `## workspace isolation` section). A non-zero
 exit is the dropped-row case (exit 1, relay the script's own lines verbatim and stop) or the
 cannot-answer case (exit 2, stop the same way) — stop **before** `## lint` and `## test`, without
-writing the state file.
+writing the state file: the driver's `STOP: prepare-workspace`.
 
 **Load `skills/flow-contracts/workspace-isolation.md` by section, only the one each trigger
 needs** — `grep -n` for its heading plus `sed -n` for that section, never the whole file: **The
@@ -44,17 +44,17 @@ empty id** when it exited 1, and nothing when it exited 2; the ordinary exit-0 r
 it by name on stderr instead. On an exit-0 run whose stderr names a `cache index` row, probe the
 project's cache here, claim a free index atomically, and record that claim in the cache itself under
 an entry naming this workspace, per **The cache index**
-(`skills/flow-contracts/workspace-isolation.md`).
+(`skills/flow-contracts/workspace-isolation.md`) — the driver's `STOP: cache-index` — then run the
+driver again with `--cache-index-claimed`.
 
 **When `flow-guard` is missing on `PATH`**, the run stops with one message naming `setup.sh global`; never a hand substitute.
 
-**Then compare every recorded base with the branch it tracks, on the run's first `flow.verify` only.** Run
-
-```bash
-flow-guard check-base-behind <worktree>...
-```
-
-over the same resolved set; its header is canonical for its lines. Exit 0 → continue. Exit 1 → run `flow-guard sync-base-behind <worktree>...` — the guard itself merges the tracked branch into the base, pushes the base (unasked: **What still stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`; the guard refuses an empty merge commit, whose refspec would delete the remote base, kan-1087 self-review F4), fetches and syncs the worktree onto it; never a raw `git push` — then run **Verify** again from its `begin` mark. Exit 2 → name its stderr in the handoff and continue.
+**Every recorded base is compared with the branch it tracks, on the run's first `flow.verify` only** —
+by the driver, `flow-guard check-base-behind` and on its exit 1 `flow-guard sync-base-behind`, which
+merges the tracked branch into the base, pushes the base (unasked: **What still stops**,
+`skills/flow-contracts/operator-prompts-auto-resolution.md`), fetches and syncs the worktree onto
+it; never a raw `git push`. `STOP: base-sync` names its stderr in the handoff and stops;
+`BASE-BEHIND-UNKNOWN:` is named in the handoff and the run continues.
 
 **This step does not call the project's `create` command.** `create` is called by whatever starts
 the project's applications, per **Project configuration**
@@ -71,29 +71,19 @@ report carries a fixable defect — it carries the whole procedure.
 ### Inline verify
 
 **A worktree with nothing outside its change directory runs none of the list below.** In a run
-whose resolved set holds more than one worktree, a worktree is skipped when this prints nothing, its
-merge base from this run's working notes:
-
-```bash
-git -C <worktree> diff --name-only <merge-base>..HEAD ':(exclude)spectre/changes/<name>'
-```
-
+whose resolved set holds more than one worktree, the driver skips it, printing `SKIPPED:`.
 The `## Report` names a skipped worktree as `- <worktree> — skipped, nothing outside its change
 directory`.
 
-Resolve the commands `flow-guard project-get <worktree> lint` and `flow-guard project-get <worktree> test` print
-(auto-detect on exit 1).
-Export the `KEY=value` lines `flow-guard prepare-workspace` printed for that worktree, then run the lint
-commands, then the test commands, in the order printed — `flow-guard run-verify-list` appends
+`flow-guard run-verify-list` appends
 the spec-reach check to the lint list itself (`Spec reach: not
 configured` is the ordinary case for a project with no `regression checkout`). Run
 every command in order and do not stop at the first failure.
 The lint commands and the test commands run as two groups at once, each
-in the order printed, in the one Bash call of **Recording** below, which the parent runs itself,
-writing its own session's pair into those arguments as `<model>` and `<effort>`; the `## Report` lists every command in the order
+in the order printed, in the driver's one Bash call; the `## Report` lists every command in the order
 printed. **Nothing runs them later** —
 `/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
-While a stack is up for this run, the test commands start only after `flow-guard check-dev-stack-fresh
+While a stack is up for this run, the driver starts only after `flow-guard check-dev-stack-fresh
 <worktree>` exits 0 or 2; exit 1 restarts the stack first, from the project's `## stop` when it declares a command, then its
 `## run`, so no suite runs against a build older than the last commit; a stack
 that will not start ends the turn as a failed command's environment cause does.
@@ -120,10 +110,6 @@ chunk pays the suite's start-up again.
 ```
 
 The parent writes this `## Report` itself and shows it as this stage's output.
-`flow-guard prepare-workspace`, both `flow-guard project-get` calls and this stage's `begin` mark are one Bash
-call; the lint and test run, this run's `flow record dispatch begin`, and the ledger render below
-are one more.
-
 `flow-guard run-verify-list <worktree> lint` and `flow-guard run-verify-list <worktree> test` are the two groups: each runs its list as above, stdin detached, and prints that list's `## Report` lines, its exit codes canonical in its header — never a runner built by hand. On a change whose diff touches `ui paths`, the `test` group also ends with the project's `## visual verification` `verify` row, on the specs its `specs` row maps (the smoke set alone, `--grep @smoke`, with no `specs` row or one that maps nothing; the whole suite only when the operator asks), run from the change's worktree of the `regression checkout` repo, unless decision.json records the visual verify skipped.
 The test group skips what the list's last green run on a clean tree already covered: every command
 when HEAD is the sha that run recorded, otherwise each command whose `# inputs:` pathspecs the delta
@@ -195,18 +181,10 @@ key's first `startedAt`, and a row started before the commit never covers it. `v
 `-outcome blocked -cause environment` by the parent.
 
 ```bash
-flow-guard run-verify-list <worktree> lint <name> verify[-<repository name>] mf-<literal-token> <model> <effort> [<canonical worktree>] & l=$!
-flow-guard run-verify-list <worktree> test <name> verify[-<repository name>] mf-<literal-token> <model> <effort> [<canonical worktree>]; t=$?
-wait "$l"; echo "lint: $? test: $t"
-# … only after the `general` triage of an `undecided` command answered `environment`:
+# only after the `general` triage of an `undecided` command answered `environment`:
 flow record dispatch end -C <canonical worktree> -key verify[-<repository name>] \
   -session-token mf-<literal-token> -outcome blocked -cause environment
 ```
-
-Both groups go out in one Bash call under one key, as the block above writes them — never two calls in
-turn, never a second key.
-
-`<canonical worktree>` is the worktree holding `<project>/spectre/changes/<name>`; pass it when verifying any other worktree of a multi-repo change.
 
 `flow-guard run-verify-list` runs `flow-guard prepare-workspace <worktree>` itself before its first command and gives every command the `KEY=value` lines it prints, a value the caller's environment already sets winning; the caller exports nothing.
 
@@ -248,17 +226,12 @@ the parent waits on the tool's completion notice — never a hand-built `nohup` 
 
 **Load `skills/flow-contracts/session-records.md`** before reading the render outcome below.
 
-**Confirm this run recorded a ledger** — rendering into the canonical worktree, the member of
+**Confirm this run recorded a ledger** — the driver renders it into the canonical worktree, the member of
 this run's resolved set whose own change directory (**A change's directory**,
-`skills/flow-contracts/pipeline.md`) holds `tasks.md` (the same member **1. Check for unfinished work**, `skills/flow/integrate.md`, passes
-check-unfinished-work), never into whichever worktree this pass runs in, so a multi-worktree run
-writes one copy, not one per worktree:
+`skills/flow-contracts/pipeline.md`) holds `tasks.md`, so a multi-worktree run
+writes one copy, not one per worktree.
 
-```bash
-flow record render -change <name> -kind ledger -repo <canonical-worktree>
-```
-
-Read the outcome word, not the exit code. `rendered: <dest>` is ordinary. **`MISSING: ledger — no
+Read the outcome word the driver relays, not the exit code. `rendered: <dest>` is ordinary. **`MISSING: ledger — no
 rows for <name>` means this run recorded no dispatch at all**, reported plainly here rather than
 discovered later. The outcome words are the table under
 **Rendering the session records** (`skills/flow-contracts/session-records.md`).

@@ -44,6 +44,7 @@ type icExit int
 // reads, and run's OUT/RC.
 type ic struct {
 	env            Env
+	prog           string // the guard name its own stderr lines open with
 	stdout, stderr io.Writer
 	childEnv       []string
 
@@ -162,7 +163,7 @@ type ic struct {
 // worktree it removes; every child runs in `/` too, save the calls the bash
 // ran in a subshell `cd`, which keep their own directory.
 func integrateChange(args []string, env Env, stdout, stderr io.Writer) (code int) {
-	c := &ic{env: env, stdout: stdout, stderr: stderr, stopOutcome: "stopped",
+	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "integrate-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
 	defer func() {
 		if r := recover(); r != nil {
@@ -207,7 +208,7 @@ func icChildEnv(env Env) []string {
 
 func (c *ic) die(id, format string, a ...any) {
 	Reason(c.env, id)
-	fmt.Fprintf(c.stderr, "integrate-change: "+format+"\n", a...)
+	fmt.Fprintf(c.stderr, c.prog+": "+format+"\n", a...)
 	panic(icExit(2))
 }
 
@@ -405,7 +406,7 @@ func (c *ic) markBegin(stage string) {
 	cmd := c.cmd("/", "flow", "stage", "begin", "-C", c.main, "-command", "/flow", "-stage", stage,
 		"-harness", c.harness, "-session-token", c.token, c.name)
 	if cmd.Run() != nil {
-		fmt.Fprintf(c.stderr, "integrate-change: warning: flow stage begin %s failed\n", stage)
+		fmt.Fprintf(c.stderr, "%s: warning: flow stage begin %s failed\n", c.prog, stage)
 	}
 }
 
@@ -418,7 +419,7 @@ func (c *ic) markEnd(stage, outcome string, reason ...string) {
 	}
 	cmd := c.cmd("/", "flow", append(args, c.name)...)
 	if cmd.Run() != nil {
-		fmt.Fprintf(c.stderr, "integrate-change: warning: flow stage end %s failed\n", stage)
+		fmt.Fprintf(c.stderr, "%s: warning: flow stage end %s failed\n", c.prog, stage)
 	}
 	c.openStage = ""
 }

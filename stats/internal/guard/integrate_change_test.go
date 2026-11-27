@@ -118,6 +118,7 @@ case "$1 $2" in
   "self-review findings") cat "$W/sr-findings.json" 2>/dev/null || echo '[]' ;;
   "self-review bundle") printf 'found: 1 of 1 sources; skipped: 0 of 1 sources\n' ;;
   "self-review finding") echo "$*" >>"$W/fixed.log" ;;
+  "record dispatch") echo "$*" >>"$W/dispatch.log" ;;
   "record dispatches") cat "$W/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-02T00:00:00Z"}]' ;;
   "record decisions") echo '[]' ;;
   "record passes") echo '[{"id":1,"round":0,"note":"roster: full"}]' ;;
@@ -299,7 +300,11 @@ func icServe(t *testing.T, tmp string) {
 		Dir:       "/",
 	}
 	var out, errOut bytes.Buffer
-	rc := Registry["integrate-change"](args, env, &out, &errOut)
+	guard := vars["IC_GUARD"] // a case driving another phase driver names it
+	if guard == "" {
+		guard = "integrate-change"
+	}
+	rc := Registry[guard](args, env, &out, &errOut)
 	for name, b := range map[string][]byte{"sut.out": out.Bytes(), "sut.err": errOut.Bytes(), "sut.rc": []byte(strconv.Itoa(rc))} {
 		if err := os.WriteFile(tmp+"/"+name, b, 0o644); err != nil {
 			t.Fatal(err)
