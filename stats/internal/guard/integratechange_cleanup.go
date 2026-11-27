@@ -170,7 +170,7 @@ func (c *ic) cleanup() {
 		c.run("refresh-main-checkout", m, base)
 	}
 	c.markEnd("flow.cleanup", "completed")
-	c.say("NEXT: print the Finished handoff (skills/flow/cleanup.md) — its Learning: and Prompt tuning: lines included")
+	c.say("NEXT: print the Finished handoff (skills/flow/cleanup.md)")
 }
 
 // bashIn is `(cd <dir> && bash -c <command>)`, both streams passed

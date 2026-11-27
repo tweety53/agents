@@ -360,7 +360,7 @@ check "Jira Done is handed to the parent" \
 check "cleanup begins one flow.cleanup after land's flow.land and ends it completed" \
   '[ "$(grep -c "stage begin" "$WORK/stages.log")" = 3 ] && grep -q "stage begin .*-stage flow.cleanup" "$WORK/stages.log" && tail -1 "$WORK/stages.log" | grep -q "stage end .*-stage flow.cleanup -outcome completed"'
 check "cleanup ends on NEXT: Finished handoff" 'printf "%s" "$OUT" | tail -1 | grep -q "^NEXT: print the Finished handoff"'
-check "the NEXT line names the template and its never-omitted lines" 'printf "%s" "$OUT" | tail -1 | grep -qF "(skills/flow/cleanup.md) — its Learning: and Prompt tuning: lines included"'`},
+check "the NEXT line names the template and no line the template lacks" 'printf "%s" "$OUT" | tail -1 | grep -qxF "NEXT: print the Finished handoff (skills/flow/cleanup.md)"'`},
 		{"run2_preflight", `# --- run2_preflight ---
 fixture
 for r in a b; do g -C "$WORK/$r-worktrees/demo" push -q origin HEAD:main; done
