@@ -109,7 +109,6 @@ Worktree:   <absolute worktree path>
 
 Review the diff, then run it:
   <the review command that matches the git state on the Staged line — see below>
-  open -na "IntelliJ IDEA" --args "<absolute worktree path>"
 
 <what the operator does next>
 
@@ -226,6 +225,3 @@ at `IN_PROGRESS` and prints its own interrupted-run report, every field of which
 run-only — what that run left behind, which the state file does not record.
 `/flow-status` regenerates one of the two `IN_PROGRESS` renderings above for such a change, by
 the test just given.
-
-Which path each `open` line names, and why `open -na` rather than the `idea` shim, are
-**IntelliJ commands** (`pipeline.md`).

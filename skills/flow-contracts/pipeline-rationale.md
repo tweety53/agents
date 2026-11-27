@@ -190,12 +190,6 @@ change artifact**: , and none is to be added: a budget on a per-change artifact 
 facts the paragraph above requires kept. Brevity here is a judgment the review panel and the
 operator make, never a number a script checks.
 
-## IntelliJ commands
-
-`open` resolves the
-app by name (bundle `com.jetbrains.intellij`), returns immediately instead of blocking the shell,
-and reuses a running instance.
-
 ## Finish contract
 
 ### Run 1 — the branch is not merged

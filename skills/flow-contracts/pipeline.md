@@ -51,8 +51,7 @@ finishing — integration is not a stage, it is the first half of finishing.
 
 ## Command surface
 
-One command, `/flow`, drives the whole pipeline, plus one read-only command (`/flow-status`),
-one that creates a change at `STARTED` and stops there (`/flow-plan`), one conversational session that lands each
+One command, `/flow`, drives the whole pipeline, plus one that creates a change at `STARTED` and stops there (`/flow-plan`), one conversational session that lands each
 request as it goes and writes no state file (`/flow-interactive`) and one standalone,
 non-pipeline command (`/flow-self-review`). **No command accepts
 a flag**, save one: `--base <branch>` on a run that creates a change — `/flow`, `/flow-plan` —
@@ -74,7 +73,6 @@ An argument that is none of those is **reported**, not silently ignored.
 | *(none — a plain message)* | `IN_PROGRESS`, in the session whose last `/flow` run marked the change | fix run; state unchanged — **A plain message at `IN_PROGRESS`** (`skills/flow/SKILL.md`) — then, unless an open question is left, integrate in the same invocation |
 | `/flow` | `IN_PROGRESS`, bare — or the change's name alone (**Change name resolution (all `/flow*` commands)**) | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
 | `/flow` | `FINISHED` | wrong-state handoff — the change is dropped |
-| `/flow-status` | any — read-only, never block | unchanged |
 
 Which phase file marks each `flow.*` key is **Stage keys** (`skills/flow/stage-keys.md`).
 
@@ -526,7 +524,7 @@ Next:
 - **Only what the operator must act on.** Do not restate the plan, enumerate completed internal
   steps, or repeat content available at a path you just gave.
 - **Link, never paste.** Diffs and plans are given as absolute paths.
-- **Every path is absolute** — in handoffs, in IntelliJ commands. Never a
+- **Every path is absolute** — in handoffs. Never a
   relative path, never `../<other-app>`, and never a main-checkout path while an apply worktree
   holds the work — and no `/flow` step checks out, stages or commits in the main checkout. Resolve
   app roots from `git worktree list` or the state file's `worktrees` keys.
@@ -577,7 +575,7 @@ Its own `**Summary:**` carries the first bullet above alone, and its block is th
 ### The block each state renders
 
 The block a state hands off is defined in **The block each state renders**
-(`skills/flow-contracts/handoff-blocks.md`). `/flow-status` loads it; `/flow`
+(`skills/flow-contracts/handoff-blocks.md`); `/flow`
 carries only the block it prints.
 
 ## Artifact brevity
@@ -601,24 +599,6 @@ This narrows the "code, commits, docs and specs stay full" carve-out the be-brie
 (`rules/be-brief.mdc`) states — for the artifacts named above, and for no other file.
 
 **No length guard and no byte budget measures a change artifact.**
-
-## IntelliJ commands
-
-Every state that waits on a human prints a copy-paste command in its handoff, save where the table
-below says none:
-
-```bash
-open -na "IntelliJ IDEA" --args "<absolute path>"
-```
-
-Use `open -na`, not the `idea` shim — that shim is not on this machine's PATH.
-
-| State | Path to open |
-|-------|--------------|
-| `STARTED` | none — the `STARTED` handoff is the summary, the decision and the next commands alone |
-| `IN_PROGRESS` | apply worktree root — `/flow-status`'s regenerated block only; `/flow`'s own handoff omits it |
-
-Paths are absolute, resolved from `git worktree list`. Never emit a relative path.
 
 ## Guard resolution
 
@@ -665,7 +645,7 @@ Jira-related step.
 
 ## Change name resolution (all `/flow*` commands)
 
-`<name>` is **optional** on `/flow` and `/flow-status`.
+`<name>` is **optional** on `/flow`.
 
 **The candidate set is `flow state resolve -C <main-checkout>`'s `candidates` — never a
 hand-written HTTP call, never a directory listing of your own.** It prints one JSON object:
@@ -685,7 +665,7 @@ Once the candidate set is built:
 - Exactly one match → use it automatically; announce which change was picked.
 - Multiple matches → **AskUserQuestion** listing each (name, state, last modified) — never guess.
 - Zero matches → fall back to that command's normal "no change" handling (e.g. a creating `/flow`
-  run asks what to build; `/flow-status` reports no open changes).
+  run asks what to build).
 
 **An argument that is exactly a candidate's name names that change and nothing else.** At
 `IN_PROGRESS`, `/flow <name>` is a bare invocation for that change — an integrate run, never a fix
