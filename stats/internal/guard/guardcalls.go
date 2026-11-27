@@ -84,37 +84,25 @@ func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "cannot-list-files")
 		return 2
 	}
+	// The files are scanned concurrently and their findings written in
+	// list order, so the output and the read error reported -- the first in
+	// list order -- are those of a sequential scan.
+	finds := make([]strings.Builder, len(files))
+	counts := make([]int, len(files))
+	errs := make([]error, len(files))
+	parallelEach(len(files), func(i int) {
+		counts[i], errs[i] = gcTextFile(&finds[i], root, files[i])
+	})
 	var out strings.Builder
 	n := 0
-	for _, rel := range files {
-		b, err := os.ReadFile(filepath.Join(root, rel))
-		if err != nil {
-			fmt.Fprintf(stderr, "check-guard-calls: cannot read %s: %v\n", rel, err)
+	for i, rel := range files {
+		if errs[i] != nil {
+			fmt.Fprintf(stderr, "check-guard-calls: cannot read %s: %v\n", rel, errs[i])
 			Reason(env, "cannot-read")
 			return 2
 		}
-		sc := bufio.NewScanner(bytes.NewReader(b))
-		sc.Buffer(nil, 1<<24)
-		for line := 1; sc.Scan(); line++ {
-			for _, m := range gcCall.FindAllStringSubmatch(sc.Text(), -1) {
-				if m[2] == "" && Registry[m[1]] == nil {
-					fmt.Fprintf(&out, "%s:%d: flow-guard %s names no registered guard — fix the name or register the guard (rule A)\n", rel, line, m[1])
-					n++
-				}
-			}
-			for _, m := range gcBare.FindAllStringSubmatch(sc.Text(), -1) {
-				if gcTypo(m[1]) {
-					fmt.Fprintf(&out, "%s:%d: flow-guard %s names no registered guard — fix the name or register the guard (rule A)\n", rel, line, m[1])
-					n++
-				}
-			}
-			for _, m := range gcShell.FindAllStringSubmatch(sc.Text(), -1) {
-				if Registry[m[1]] != nil {
-					fmt.Fprintf(&out, "%s:%d: %s.sh is the deleted shim spelling — write flow-guard %s (rule B)\n", rel, line, m[1], m[1])
-					n++
-				}
-			}
-		}
+		out.WriteString(finds[i].String())
+		n += counts[i]
 	}
 	gn, err := gcGoLiterals(&out, root)
 	if err != nil {
@@ -136,14 +124,50 @@ func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
 	return 0
 }
 
+// gcTextFile is rules A and B over the one text file rel. It returns the
+// finding count.
+func gcTextFile(out io.Writer, root, rel string) (int, error) {
+	b, err := os.ReadFile(filepath.Join(root, rel))
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	sc := bufio.NewScanner(bytes.NewReader(b))
+	sc.Buffer(nil, 1<<24)
+	for line := 1; sc.Scan(); line++ {
+		for _, m := range gcCall.FindAllStringSubmatch(sc.Text(), -1) {
+			if m[2] == "" && Registry[m[1]] == nil {
+				fmt.Fprintf(out, "%s:%d: flow-guard %s names no registered guard — fix the name or register the guard (rule A)\n", rel, line, m[1])
+				n++
+			}
+		}
+		for _, m := range gcBare.FindAllStringSubmatch(sc.Text(), -1) {
+			if gcTypo(m[1]) {
+				fmt.Fprintf(out, "%s:%d: flow-guard %s names no registered guard — fix the name or register the guard (rule A)\n", rel, line, m[1])
+				n++
+			}
+		}
+		for _, m := range gcShell.FindAllStringSubmatch(sc.Text(), -1) {
+			if Registry[m[1]] != nil {
+				fmt.Fprintf(out, "%s:%d: %s.sh is the deleted shim spelling — write flow-guard %s (rule B)\n", rel, line, m[1], m[1])
+				n++
+			}
+		}
+	}
+	return n, nil
+}
+
 // gcGoLiterals is rule B over the string literals of every non-test .go file
-// under root/stats. It returns the finding count.
+// under root/stats. It returns the finding count. The files are lexed
+// concurrently (parallelEach) and their findings written in walk order, so
+// the output and the error reported -- the first in walk order -- are those
+// of a sequential scan.
 func gcGoLiterals(out io.Writer, root string) (int, error) {
 	stats := filepath.Join(root, "stats")
 	if !isDir(stats) {
 		return 0, nil
 	}
-	n := 0
+	var paths []string
 	err := filepath.WalkDir(stats, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -151,35 +175,59 @@ func gcGoLiterals(out io.Writer, root string) (int, error) {
 		if d.IsDir() && (d.Name() == "node_modules" || d.Name() == "testdata") {
 			return filepath.SkipDir
 		}
-		if d.IsDir() || !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
-			return nil
+		if !d.IsDir() && strings.HasSuffix(p, ".go") && !strings.HasSuffix(p, "_test.go") {
+			paths = append(paths, p)
 		}
-		src, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(root, p)
-		fset := token.NewFileSet()
-		file := fset.AddFile(rel, -1, len(src))
-		var sc scanner.Scanner
-		sc.Init(file, src, nil, 0)
-		for {
-			pos, tok, lit := sc.Scan()
-			if tok == token.EOF {
-				return nil
-			}
-			if tok != token.STRING {
-				continue
-			}
-			for _, m := range gcShell.FindAllStringSubmatch(lit, -1) {
-				if Registry[m[1]] != nil {
-					fmt.Fprintf(out, "%s:%d: %s.sh is the deleted shim spelling — write flow-guard %s (rule B)\n", rel, fset.Position(pos).Line, m[1], m[1])
-					n++
-				}
-			}
-		}
+		return nil
 	})
-	return n, err
+	if err != nil {
+		return 0, err
+	}
+	finds := make([]strings.Builder, len(paths))
+	counts := make([]int, len(paths))
+	errs := make([]error, len(paths))
+	parallelEach(len(paths), func(i int) {
+		counts[i], errs[i] = gcGoFile(&finds[i], root, paths[i])
+	})
+	n := 0
+	for i := range paths {
+		if errs[i] != nil {
+			return 0, errs[i]
+		}
+		fmt.Fprint(out, finds[i].String())
+		n += counts[i]
+	}
+	return n, nil
+}
+
+// gcGoFile is rule B over the string literals of the one .go file p. It
+// returns the finding count.
+func gcGoFile(out io.Writer, root, p string) (int, error) {
+	src, err := os.ReadFile(p)
+	if err != nil {
+		return 0, err
+	}
+	rel, _ := filepath.Rel(root, p)
+	fset := token.NewFileSet()
+	file := fset.AddFile(rel, -1, len(src))
+	var sc scanner.Scanner
+	sc.Init(file, src, nil, 0)
+	n := 0
+	for {
+		pos, tok, lit := sc.Scan()
+		if tok == token.EOF {
+			return n, nil
+		}
+		if tok != token.STRING {
+			continue
+		}
+		for _, m := range gcShell.FindAllStringSubmatch(lit, -1) {
+			if Registry[m[1]] != nil {
+				fmt.Fprintf(out, "%s:%d: %s.sh is the deleted shim spelling — write flow-guard %s (rule B)\n", rel, fset.Position(pos).Line, m[1], m[1])
+				n++
+			}
+		}
+	}
 }
 
 // gcCompanions is rule C over names: one finding per check-* name with no
