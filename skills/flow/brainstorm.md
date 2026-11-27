@@ -42,7 +42,7 @@ mark is a passive record for the stats (**Stage marks**, `skills/flow-contracts/
 never refuses, and a failed mark is one line in the run's narrative, never a stop.
 
 ```bash
-flow stage begin -command '/flow' -stage flow.plan -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.plan <name>
 ```
 
 ```json
@@ -159,7 +159,7 @@ it:
 
 ```bash
 flow decision render -file <abs-worktree>/.superpowers/sdd/decision.json -session-model '<the model named in this session's own system prompt>'
-flow record decision -change <name> -session-token mf-<literal-token> -file <abs-worktree>/.superpowers/sdd/decision.json
+flow record decision -change <name> -file <abs-worktree>/.superpowers/sdd/decision.json
 ```
 
 The render exits 0 on a printed block and 2 on a usage error or an unreadable file.

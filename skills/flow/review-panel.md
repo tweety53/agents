@@ -7,7 +7,7 @@ stage closes, on every implementation run — creating, resumed, or fix. Dispatc
 dispatch: mapping each slot id to its prompt and spawning each bundle.
 
 ```bash
-flow stage begin -command '/flow' -stage flow.review -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.review <name>
 ```
 
 **The pass log is store rows, rendered — never a hand-written file.** Every fact this file records
@@ -190,10 +190,9 @@ launch and end it when its agent stops (**Dispatch sites — the parent's closed
 
 ```bash
 flow record dispatch begin -change <name> -role panel-reviewer -slot <slot|slot+slot> -model <m> -effort <e> \
-  -key panel-<round>-<slot|slot+slot> \
-  -session-token mf-<literal-token>
+  -key panel-<round>-<slot|slot+slot>
 flow record dispatch end -change <name> -key panel-<round>-<slot|slot+slot> \
-  -session-token mf-<literal-token> -outcome completed \
+  -outcome completed \
   [-ended-at "$(date -u -r <report-file> +%Y-%m-%dT%H:%M:%SZ)"]
 ```
 

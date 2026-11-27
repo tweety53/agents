@@ -86,8 +86,9 @@ row its description's first word names. The `Role:` line is the **Role** column'
 **The hook writes the row's begin.** On a flow dispatch with no open row for its key,
 `hooks/enforce-agent-baseline.py` runs `flow record dispatch begin` itself once its other checks
 pass — the key from the prompt's `Key:` line, else the description's first word; the role from the
-prompt's `Role:` line; the model and effort from the Agent call; the session token and change from
-the session's latest stage run that is not a loop's own (`pipeline-fix-…`, `self-review-…`). The parent runs no `begin` of its own for such a row. A row
+prompt's `Role:` line; the model and effort from the Agent call; the change from
+the session's latest stage run that is not a loop's own (`pipeline-fix-…`, `self-review-…`); the
+session token the dispatcher's (**Stage marks**, `skills/flow-contracts/pipeline.md`). The parent runs no `begin` of its own for such a row. A row
 whose begin needs a flag the Agent call cannot carry — an
 operator-asked row's `-request` — is still begun by its own
 site, and the hook then finds it open and writes nothing.
@@ -111,7 +112,7 @@ once instead of launching the re-commit fixer. It begins the resume's row, then 
 `SendMessage`, then waits on the key with `await-rows`:
 
 ```bash
-flow record dispatch begin -C <worktree> -key task-<n>-implementer-resume-<k> -role implementer -agent-id <the implementer's agent id> -model <its model> -effort <its effort> -session-token <token>
+flow record dispatch begin -C <worktree> -key task-<n>-implementer-resume-<k> -role implementer -agent-id <the implementer's agent id> -model <its model> -effort <its effort>
 ```
 
 The message's first line is `Key: task-<n>-implementer-resume-<k>` at column 0, its next the
@@ -143,7 +144,7 @@ state file's worktrees, findings in the store) through this file's own re-entry 
 **Run the driver, then follow its closing line:**
 
 ```bash
-flow-guard implement-change prepare <main-checkout> <name> --session-token mf-<literal-token>
+flow-guard implement-change prepare <main-checkout> <name>
 ```
 
 Its header (`stats/internal/guard/implementchange.go`) is canonical for every step it runs — the
@@ -282,13 +283,13 @@ A row a site records by hand carries no
 `-agent-id`: the daemon captures the agent's identifier, and the harvester fills the row's empty
 `agent_id` from the launch result afterwards. `-agent-id` is accepted on both
 calls as recorded intent the daemon never overwrites, for a caller that knows the id. `-key` is this dispatch's own literal label,
-unique within the run's session token — `task-<ids>-implementer`, reused identically in both calls.
+unique within the dispatcher's session token — `task-<ids>-implementer`, reused identically in both calls.
 Inside a `for` loop it may expand the loop variable — `$k`, `${k}`, or a `#`/`%` strip of it — the
 only shapes the harvester reads; any other expansion leaves the row without its agent.
 `-role` is one of `implementer`, `reviewer`, `panel-fix` or `verifier` (**Verify**,
 `skills/flow/verify-and-handoff.md`); `-task` is the task's
-flat integer id, omitted for a dispatch against no single task. `-session-token` takes a literal,
-never a shell substitution. The start and end instants are the daemon's own — never
+flat integer id, omitted for a dispatch against no single task. No `-session-token`: the CLI
+infers the dispatcher's (**Stage marks**, `skills/flow-contracts/pipeline.md`). The start and end instants are the daemon's own — never
 caller inputs.
 **A dispatch recorded only after it finished is a back-fill, and is one call** — `flow record dispatch backfill`, carrying `begin`'s flags and `end`'s together with the dispatch's real `-started-at` and `-ended-at`, both required — never a `begin` and `end` pair, whose instants would read the back-fill's own moment.
 

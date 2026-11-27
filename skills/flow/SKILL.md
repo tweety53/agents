@@ -85,8 +85,7 @@ store, makes the message an ordinary turn, never a wrong-state handoff, since no
 **Nothing is asked.** The session decides: a message that reads as a change request is run as a
 fix, and one that reads as a question is answered as an ordinary turn.
 
-**The run.** Announce `Using flow for change <name> — fix run from a plain message`, generate this
-run's own session token per **Generate this run's session token once** below, and continue at `skills/flow/fix.md` with the verbatim message
+**The run.** Announce `Using flow for change <name> — fix run from a plain message`, and continue at `skills/flow/fix.md` with the verbatim message
 as the fix instructions — nothing else about the fix run changes.
 
 **Not a trigger.** A question, a discussion, an unrelated task, a session that never ran `/flow`,
@@ -102,10 +101,8 @@ section has produced it, per **Change name resolution (all `/flow*` commands)**
 (`skills/flow-contracts/pipeline.md`). This router reads state above using
 a guess or the best available name, which is legal for a read; it is never legal for a mark.
 
-**Generate this run's session token once, right here** — shaped as **Stage marks**
-(`skills/flow-contracts/pipeline.md`) states — and reuse that exact value in every `flow record` command this run makes, including inside every
-phase file it dispatches into; a later `/flow` invocation generates its own. `<literal-token>` is
-that string written in place of the placeholder. A `stage begin` carries it too.
+**No mark or record carries a session token**: the CLI infers the calling agent's, per **Stage
+marks** (`skills/flow-contracts/pipeline.md`).
 
 ## Full-suite instruction
 

@@ -26,10 +26,10 @@ and `git -C <canonical-worktree> diff --name-only <base>...HEAD` names a path un
 branch's copy of it**.
 
 ```bash
-flow-guard integrate-change prepare <main-checkout> <name> --session-token mf-<literal-token>
+flow-guard integrate-change prepare <main-checkout> <name>
 ```
 
-Every call takes the run's `--harness` and `--session-token`, relays each
+Every call takes the run's `--harness` and `--session-token` when given (both inferred otherwise), relays each
 guard's own lines, and ends on one machine-readable line — `NEXT:` (exit 0) or `STOP: <kind>` (exit
 1); exit 2 is a usage error or an unreadable state record, reported and stopped on — or a guard
 missing beside the script, whose steps then run by hand from
@@ -83,7 +83,7 @@ when one is usable — say so, open or closed-unmerged, before the operator answ
 **Load `skills/flow-contracts/git-boundaries-commit-chain.md`** before writing the subjects below.
 
 ```bash
-flow-guard integrate-change commit <main-checkout> <name> <worktree>="<type>(<module>): <what the implementation does>"... --session-token mf-<literal-token>
+flow-guard integrate-change commit <main-checkout> <name> <worktree>="<type>(<module>): <what the implementation does>"...
 ```
 
 `<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff — the
@@ -102,7 +102,7 @@ and pushes each reshaped branch `--force-with-lease` — per **Run 1 — the bra
 Call it with the parent's own shell outside every worktree in the set.
 
 ```bash
-flow-guard integrate-change land <main-checkout> <name> [--route "<route>"] --session-token mf-<literal-token>
+flow-guard integrate-change land <main-checkout> <name> [--route "<route>"]
 ```
 
 `--route` carries the operator's answer to the landing question; without it `land` takes the
@@ -142,7 +142,7 @@ When the stage was ended `stopped` first, `land`'s begin no longer holds it open
 pass whose `completed` end follows, with the run's own harness and token:
 
 ```bash
-flow stage begin -C <main-checkout> -command '/flow' -stage flow.self-review -session-token mf-<literal-token> <name>
+flow stage begin -C <main-checkout> -command '/flow' -stage flow.self-review <name>
 ```
 
 On merge and push, `cleanup` (`skills/flow/cleanup.md`) then refuses with `STOP: self-review-report`

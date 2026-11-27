@@ -12,7 +12,7 @@ the branch, both first on `PATH`:
 
 ```bash
 cd <canonical-worktree>/stats && go build -o <scratch>/bin/flow ./cmd/flow
-PATH=<scratch>/bin:<canonical-worktree>/scripts:$PATH flow-guard integrate-change prepare <main-checkout> <name> --session-token mf-<literal-token>
+PATH=<scratch>/bin:<canonical-worktree>/scripts:$PATH flow-guard integrate-change prepare <main-checkout> <name>
 ```
 
 The installed script and CLI predate the change, and the script builds its guards from its own

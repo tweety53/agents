@@ -13,7 +13,7 @@ parent's own session pair:
 
 ```bash
 flow-guard verify-change <main-checkout> <name> --model <model> --effort <effort> \
-  [--key <key>] [--cache-index-claimed] --session-token mf-<literal-token>
+  [--key <key>] [--cache-index-claimed]
 ```
 
 Its header (`stats/internal/guard/verifychange.go`) is canonical for every step it runs — the
@@ -183,7 +183,7 @@ key's first `startedAt`, and a row started before the commit never covers it. `v
 ```bash
 # only after the `general` triage of an `undecided` command answered `environment`:
 flow record dispatch end -C <canonical worktree> -key verify[-<repository name>] \
-  -session-token mf-<literal-token> -outcome blocked -cause environment
+  -outcome blocked -cause environment
 ```
 
 `flow-guard run-verify-list` runs `flow-guard prepare-workspace <worktree>` itself before its first command and gives every command the `KEY=value` lines it prints, a value the caller's environment already sets winning; the caller exports nothing.
@@ -218,7 +218,7 @@ this pipeline restates it. **`flow-guard visual-verify-pass prepare` runs steps 
 and 2 (**Steps 1–2**, `skills/flow/visual-verify.md`) (it makes no stage mark — `flow.verify` stays open — and begins each dispatch's row) in the parent's own Bash call** — never these steps by hand, and never a subagent's:
 
 ```bash
-flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --session-token mf-<literal-token> \
+flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> \
   --merge-base <worktree>=<sha> [--worktree <worktree>] [--since <worktree>=<sha>] \
   [--round-base <worktree>=<sha>] [--defects <worktree>=<frame>[,<frame>…]] [--app <worktree>:<app-root>=<resolved-url>]
 ```

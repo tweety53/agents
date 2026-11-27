@@ -131,7 +131,7 @@ A verifier whose worktree's `ui paths` also match a sibling worktree's diff — 
 prints the next step — the parent's own Bash call, once the report file exists:
 
 ```bash
-flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> --session-token mf-<literal-token>
+flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named>
 ```
 
 `<motions named>` is the count of motions this dispatch's prompt named, `0` for `motions: none`.
@@ -320,7 +320,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    directory under it; the guard checks it as that repository's own worktree. The guard's header is canonical for
    each check's rule.
 
-   Before them, once per stage, it runs the verify-green check on `<canonical-worktree> <name> mf-<literal-token>`
+   Before them, once per stage, it runs the verify-green check on `<canonical-worktree> <name> <the stage's token>`
    with the set's other worktrees after it; `stats/internal/guard/verifygreen.go`'s header is canonical for the verdict. Its exit 1 →
    no verifier is dispatched: **Verify** has not closed green on this HEAD, so `prepare` ends the
    stage `stopped` with `STOP: verify-not-green`, the run returns to **Verify**, and visual

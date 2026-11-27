@@ -331,20 +331,24 @@ exits 0. Never branch on its exit code; a failed mark is one line in the run's n
 the harness actually running the mark — `$FLOW_HARNESS`, else `claude-code` on Claude Code; a
 harness that sets neither passes `-harness <its name>`. A `flow record` call given `-C` inside the
 change's worktree carries no `-change`: the CLI reads the change off that checkout's branch.
-The session token is never inferred: subagents share their parent's harness session id, and the
-store supersedes a token's open run on its next begin, so one session-wide token would let a
-subagent's mark close its parent's run.
+**The session token is the calling agent's, and inferred.** A `flow stage` or `flow record` call,
+and a `flow-guard` call that marks or records, carries no `-session-token`: the CLI uses
+`cc-<harness session id>-<agent id>`, `main` on the main thread. Subagents share their parent's
+harness session id, and the store supersedes a token's open run on its next begin, so the agent id
+is what keeps a subagent's mark from closing its parent's run: the block-unsafe-commands hook adds
+`-caller-agent <agent id>` to a subagent's `flow` and `flow-guard` calls
+(`stats/internal/caller/caller.go`). A call the hook cannot see as one — inside `bash -c` or a
+quoted string — runs under the main thread's token, so a mark or record is always its own
+top-level call. A harness with no session id passes `-session-token <literal>`; an explicit token
+always wins.
 
 ```bash
-flow stage begin -command '/flow' -stage flow.plan -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.plan <name>
 # … the phase's own work …
 flow stage end   -command '/flow' -stage flow.plan -outcome completed <name>
 ```
 
-**The session token** a `stage begin` and the run's `flow record` commands carry — the
-dispatch hook reads it off the latest stage run to record a dispatch's row — ends in the run's start time, UTC to
-the second — read once with `date -u +%Y%m%dT%H%M%SZ` and typed as a literal,
-`mf-k1028-20261023T183402Z` — never a shell substitution, and reused unchanged for the whole run.
+The dispatch hooks begin and end a dispatch's row under its dispatcher's token, the same way.
 
 ## Handoff output
 

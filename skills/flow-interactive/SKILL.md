@@ -23,10 +23,9 @@ interactive change; report anything else rather than ignoring it. The base is th
 `origin/HEAD` names; from the worktree's creation on, `<base>` is what
 `flow-guard resolve-base-branch <worktree>` prints.
 
-**Every mark is a literal call.** `fi-<literal-token>` is one
-token generated once per invocation, shaped as **Stage marks** (`skills/flow-contracts/pipeline.md`)
-states, and typed the same in every `flow record` command — never a shell substitution, per the
-CLI's own usage text. A mark carries none. `<n>` is the request's number in the session.
+**Every mark is a literal call**, carrying no session token: the CLI infers the calling agent's,
+per **Stage marks** (`skills/flow-contracts/pipeline.md`). `<n>` is the request's number in the
+session.
 
 **Guardrails, the whole list.** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output. Never dispatch a subagent, save the request's own executor
 (**3. Execute**), the self-review pass's own
@@ -142,7 +141,7 @@ defect met mid-session is fixed per **Pipeline defects found mid-run**
 itself, the log — then the code. Never answer from code alone.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.plan -request <n> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.plan -request <n> <name>
 flow stage end   -command '/flow-interactive' -stage flow.plan -outcome completed <name>
 ```
 
@@ -167,7 +166,7 @@ ask the operator through **AskUserQuestion**, per **Unanswered mid-run asks**
 (`skills/flow-contracts/pipeline.md`):
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.plan -request <n> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.plan -request <n> <name>
 flow record request begin -change <name> -n <n> -brainstorm-reason '<why>'
 flow stage end   -command '/flow-interactive' -stage flow.plan -outcome completed <name>
 ```
@@ -177,7 +176,7 @@ coordinator: it implements, verifies, lands, reinstalls and UI-checks, steps 3a�
 needing no code — a question, a lookup — ends `answered` with no dispatch and no judge call.
 
 The coordinator writes the brief to `<abs-worktree>/.superpowers/sdd/pair-judge/operator-<k>.md`
-(the ask, what step 1 found, the paths to touch, `<name>`, `<n>`, the `fi-` token, and "execute steps
+(the ask, what step 1 found, the paths to touch, `<name>`, `<n>`, and "execute steps
 3a–7 of `skills/flow-interactive/SKILL.md`", and the report shape: Verdict, Findings, Decisions, Not done, a `commit: request-<n> <40-hex sha>` line naming the last landed sha (the line the stop hook's `end-dispatch-row` reads into the dispatch row; omit it when nothing landed), the base sha, and one `Red:` line per test added or changed; for a request that changes a default time window or filter of a view, the UI-test fixtures, pinned instants and visual baselines that default moves, so the executor fixes them in the same pass), runs `flow-guard pair-judge operator-asked <that file>`
 and dispatches on the pair it prints (**Model and effort**, `skills/flow-contracts/model-policy.md`; no
 pair is written into this skill), recorded and dispatched as **Operator-asked subagents** below says.
@@ -191,7 +190,7 @@ under the **fix ledger** (**The fix ledger**, `skills/flow/fix.md`): `flow-guard
 <abs-worktree>` runs after each.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.implement -request <n> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.implement -request <n> <name>
 flow stage end   -command '/flow-interactive' -stage flow.implement -outcome completed <name>
 ```
 
@@ -209,14 +208,14 @@ exiting 0 on a tree clean before and after it, writes `HEAD` to the worktree's `
 request's last commit.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> <name>
 flow stage end   -command '/flow-interactive' -stage flow.verify -outcome completed <name>
 ```
 
 **5. Land.** One call lands the request and marks `flow.land` around its push:
 
 ```bash
-flow interactive land -C <worktree> -n <n> -session-token fi-<literal-token>
+flow interactive land -C <worktree> -n <n>
 ```
 
 Exit 0 prints `commit: <sha>` and `base: <sha>`; on the request's first landing that `base:` is the
@@ -242,7 +241,7 @@ again inside the same request. The stage's end is its own call, made after the s
 never chained to its begin. The order is fixed: the stage's begin is made first, the page opened and the screenshot taken only after it, the screenshot read, and the end made last; a screenshot taken before the begin, or an end made before the screenshot, is refused by the Request-end guard (check 3) and the check is redone.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> <name>
 flow stage end   -command '/flow-interactive' -stage flow.verify -outcome completed|failed [-screenshot <path>] [-reason '<the defect, one line>'] <name>
 ```
 
@@ -278,7 +277,7 @@ two agents of one request never share a key. A dispatch the hook refuses ends it
 once.
 
 ```bash
-flow record dispatch begin -change <name> -role operator-asked -model <model> -effort <level> -key operator-<k> -request <n> -session-token fi-<literal-token>
+flow record dispatch begin -change <name> -role operator-asked -model <model> -effort <level> -key operator-<k> -request <n>
 ```
 
 The Agent call's `description` opens with `operator-<k>`, its prompt carries `Role:
@@ -289,7 +288,7 @@ worktree, commits on `<name>`; the executor of step 3 runs steps 3a–7 itself, 
 agent's commits land through steps 4–8 as any other. Its report is relayed, not re-told.
 
 ```bash
-flow record dispatch end -change <name> -key operator-<k> -session-token fi-<literal-token> -outcome <outcome> -agent-id <the agent's id> [-commit <last sha it landed>]
+flow record dispatch end -change <name> -key operator-<k> -outcome <outcome> -agent-id <the agent's id> [-commit <last sha it landed>]
 ```
 
 Every end names the agent's id, an aborted row's included, so its tokens are measured; a `completed` end of a request that landed carries `-commit`, the last sha that agent landed. A row whose agent is given up on or replaced is ended `aborted` before the replacement's begin, so no row stays open with no outcome.
@@ -327,7 +326,7 @@ as a request and the session stays open, saying so in one line. Stop:
 
 1. The in-flight request lands (unless the stop drops it); queued requests not started end
    `dropped` and are listed in the stop report.
-2. **Self-review**, with `-command '/flow-interactive'` and the `fi-` token.
+2. **Self-review**, with `-command '/flow-interactive'`.
    A `flow.self-review` stage already completed for `<name>` skips the pass: a re-run never
    records its findings twice.
    Assemble the bundle in `<sr-dir>/bundle.md` (**2. Read the bundle and run the seven angles**,
@@ -348,7 +347,7 @@ as a request and the session stays open, saying so in one line. Stop:
    session's requests, never the stop invocation's diff.
 
    ```bash
-   flow stage begin -command '/flow-interactive' -stage flow.self-review -session-token mf-<literal-token> <name>
+   flow stage begin -command '/flow-interactive' -stage flow.self-review <name>
    flow stage end   -command '/flow-interactive' -stage flow.self-review -outcome completed <name>
    ```
 
@@ -360,7 +359,7 @@ as a request and the session stays open, saying so in one line. Stop:
    --delete <name>`.
 
    ```bash
-   flow stage begin -command '/flow-interactive' -stage flow.cleanup -session-token mf-<literal-token> <name>
+   flow stage begin -command '/flow-interactive' -stage flow.cleanup <name>
    flow stage end   -command '/flow-interactive' -stage flow.cleanup -outcome completed <name>
    ```
 
@@ -377,7 +376,7 @@ as a request and the session stays open, saying so in one line. Stop:
 
 `/flow-interactive <key or name>` on an open session reuses its worktree — recreated from the
 remote branch, else `origin/<base>`, when gone, with
-`mkdir -p <changeRoot>` run in it — marks `flow.plan`, generates a new token, continues
+`mkdir -p <changeRoot>` run in it — marks `flow.plan`, continues
 numbering after the highest recorded request,
 and takes an open request from the dead session as the current one: its stages re-run as new
 attempts under the same number.

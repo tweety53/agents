@@ -38,13 +38,11 @@ below). The session still writes an addition to an
 existing change's `design.md` itself. Every "you" elsewhere in this skill addresses the running
 session.
 
-**Generate this session's token once, right here — `fp-<literal-token>`, a short unique literal
-string, exactly as `/flow` generates `mf-<literal-token>` (**Stage marks**, `skills/flow-contracts/pipeline.md`)
-— for the `flow record` commands a capture makes, and mark the session as soon as the Jira key is
-known:**
+**Mark the session as soon as the Jira key is known** — with no session token, which the CLI
+infers (**Stage marks**, `skills/flow-contracts/pipeline.md`):
 
 ```bash
-flow stage begin -command '/flow-plan' -stage plan.session -session-token fp-<literal-token> -jira-key <KEY>
+flow stage begin -command '/flow-plan' -stage plan.session -jira-key <KEY>
 ```
 
 `<KEY>` is the resolved Jira key, uppercase, exactly as **Resolution (how `jiraIssue` is decided)**
@@ -172,8 +170,7 @@ when it did not at start. The creation is a Jira write like any other: `## jira`
 the change is unlinked — named by its descriptive slug alone, as `/flow` names an unlinked change.
 
 **Then run `/flow`'s own planning sections, in this order, each as written there** — this mode
-restates none of them, and every `mf-<literal-token>` they show is this session's
-`fp-<literal-token>`:
+restates none of them:
 
 1. **A. Resolve the change and write `STARTED`** (`skills/flow/brainstorm.md`) — the key is
    already resolved above, so its candidate lookup, the name, the In Progress transition and the
@@ -185,7 +182,7 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
 
    ```bash
    flow stage end -command '/flow-plan' -stage plan.session -jira-key <KEY> -outcome started
-   flow stage begin -command '/flow-plan' -stage flow.plan -session-token fp-<literal-token> <name>
+   flow stage begin -command '/flow-plan' -stage flow.plan <name>
    ```
 
 4. Write the planner's ticket, `<abs-worktree>/.superpowers/sdd/planner/ticket.md`: the Jira
