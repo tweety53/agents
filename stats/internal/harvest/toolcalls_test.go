@@ -1,6 +1,7 @@
 package harvest_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -128,6 +129,29 @@ func TestTokenTranscriptPath(t *testing.T) {
 		path, ok, found, err := harvest.TokenTranscriptPath(root, c.token)
 		if err != nil || path != c.path || ok != c.ok || found != c.found {
 			t.Errorf("%s: path=%q ok=%v found=%v err=%v, want %q %v %v", c.token, path, ok, found, err, c.path, c.ok, c.found)
+		}
+	}
+}
+
+// TestTranscriptGapsKeyBashByItsCommand: a Bash call is filed under the
+// first word of the command it runs, past a leading cd and variable
+// assignments, so `cd <dir> && go test` is Bash go, not Bash cd.
+func TestTranscriptGapsKeyBashByItsCommand(t *testing.T) {
+	t.Parallel()
+	for cmd, want := range map[string]string{
+		"go test ./...":                      "Bash go",
+		"cd /w/stats && go test ./...":       "Bash go",
+		"cd /w; cd stats\nmake -s web-dist":  "Bash make",
+		"S=/tmp/x; D=$S/y; git -C $D status": "Bash git",
+		"FOO=1 BAR=2 python3 - <<'EOF'":      "Bash python3",
+		"cd /w":                              "Bash",
+	} {
+		in, _ := json.Marshal(map[string]string{"command": cmd})
+		raw := `{"type":"assistant","timestamp":"2026-01-01T00:00:00Z","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":` + string(in) + `}]}}` + "\n" +
+			`{"type":"user","timestamp":"2026-01-01T00:00:05Z","message":{"content":[{"type":"tool_result","tool_use_id":"t1"}]}}` + "\n"
+		gaps := harvest.TranscriptGaps([]byte(raw))
+		if len(gaps) != 1 || gaps[0].Tool != want {
+			t.Errorf("%q: gaps = %+v, want one %s gap", cmd, gaps, want)
 		}
 	}
 }

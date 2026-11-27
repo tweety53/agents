@@ -188,7 +188,9 @@ func SessionTranscriptPath(root, session string) (path string, found bool, err e
 	return paths[0], true, nil
 }
 
-// toolKey is tool, and for Bash its command's first word.
+// toolKey is tool, and for Bash the command word it runs: the first word of
+// the first command segment (split on ; & | and newlines) that is not a cd,
+// past any leading NAME=value assignments.
 func toolKey(tool string, input json.RawMessage) string {
 	if tool != "Bash" {
 		return tool
@@ -197,8 +199,16 @@ func toolKey(tool string, input json.RawMessage) string {
 		Command string `json:"command"`
 	}
 	_ = json.Unmarshal(input, &in)
-	if f := strings.Fields(in.Command); len(f) > 0 {
-		return tool + " " + f[0]
+	segs := strings.FieldsFunc(in.Command, func(r rune) bool { return strings.ContainsRune(";&|\n", r) })
+	for _, seg := range segs {
+		for _, w := range strings.Fields(seg) {
+			if w == "cd" {
+				break
+			}
+			if !strings.Contains(w, "=") {
+				return tool + " " + w
+			}
+		}
 	}
 	return tool
 }
