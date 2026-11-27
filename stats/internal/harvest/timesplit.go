@@ -119,6 +119,14 @@ func TranscriptGaps(raw []byte) []Gap {
 	return out
 }
 
+// ToolLabels names, for humans, the tool keys that are not tools: the
+// harness-written wait lines Gaps files under their origin kind. The raw key
+// stays what is stored and emitted; renderers show the label beside it.
+var ToolLabels = map[string]string{
+	"peer":              "Agent wait",
+	"task-notification": "Background task wait",
+}
+
 // SplitGaps sums gaps into a TimeSplit, each clipped to [from, to).
 func SplitGaps(gaps []Gap, from, to time.Time) TimeSplit {
 	var out TimeSplit

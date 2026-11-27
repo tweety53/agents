@@ -69,3 +69,35 @@ func TestBottlenecksRoute(t *testing.T) {
 		t.Errorf("last=0 status %d, want 400", bad.StatusCode)
 	}
 }
+
+// TestBottlenecksToolLabel: a harness wait key in the tool dimension keeps
+// its raw name and carries the readable label beside it; other keys none.
+func TestBottlenecksToolLabel(t *testing.T) {
+	f := &fakeBottlenecks{rows: []store.BottleneckRow{
+		{Dimension: "tool", Name: "peer", Runs: 1, TotalMs: 30},
+		{Dimension: "tool", Name: "task-notification", Runs: 1, TotalMs: 20},
+		{Dimension: "tool", Name: "Bash go", Runs: 1, TotalMs: 10},
+	}}
+	fs := newFakeStore()
+	srv, err := api.New(config.Config{Host: "127.0.0.1", DSN: "unused"}, fs, fs, fs, fs, nil, api.WithBottlenecks(f))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	resp, err := http.Get(ts.URL + "/api/v1/stats/bottlenecks")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var got api.BottlenecksResponse
+	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"peer": "Agent wait", "task-notification": "Background task wait", "Bash go": ""}
+	for _, b := range got.Ranked["tool"] {
+		if b.Label != want[b.Name] {
+			t.Errorf("%s label = %q, want %q", b.Name, b.Label, want[b.Name])
+		}
+	}
+}

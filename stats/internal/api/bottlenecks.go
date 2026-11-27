@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/tweety53/agents/stats/internal/harvest"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -25,13 +26,15 @@ func WithBottlenecks(s BottlenecksStore) Option {
 // Bottleneck is one ranked row: Share is TotalMs over the window's summed
 // wall clock (dimensions overlap, so shares across them do not add to 1).
 type Bottleneck struct {
-	Dimension string  `json:"dimension"`
-	Name      string  `json:"name"`
-	Runs      int     `json:"runs"`
-	TotalMs   int64   `json:"totalMs"`
-	Share     float64 `json:"share"`
-	P50Ms     int64   `json:"p50Ms"`
-	P95Ms     int64   `json:"p95Ms"`
+	Dimension string `json:"dimension"`
+	Name      string `json:"name"`
+	// Label is a tool key's readable name (harvest.ToolLabels), absent for others.
+	Label   string  `json:"label,omitempty"`
+	Runs    int     `json:"runs"`
+	TotalMs int64   `json:"totalMs"`
+	Share   float64 `json:"share"`
+	P50Ms   int64   `json:"p50Ms"`
+	P95Ms   int64   `json:"p95Ms"`
 }
 
 // BottlenecksResponse is the ranking: the top 10 per dimension in
@@ -82,6 +85,9 @@ func rankBottlenecks(rows []store.BottleneckRow, wall int64, last int) Bottlenec
 	out := BottlenecksResponse{Last: last, WallMs: wall, Dimensions: bottleneckDimensions, Ranked: map[string][]Bottleneck{}, Sinks: []Bottleneck{}}
 	for _, r := range rows {
 		b := Bottleneck{Dimension: r.Dimension, Name: r.Name, Runs: r.Runs, TotalMs: r.TotalMs, P50Ms: r.P50Ms, P95Ms: r.P95Ms}
+		if r.Dimension == "tool" {
+			b.Label = harvest.ToolLabels[r.Name]
+		}
 		if wall > 0 {
 			b.Share = float64(r.TotalMs) / float64(wall)
 		}

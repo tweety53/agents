@@ -31,7 +31,8 @@ own subagent transcript under ~/.claude/projects (FLOW_TRANSCRIPTS_DIR
 overrides it), one span per tool_use to its tool_result, kept inside the
 dispatch; -no-transcripts leaves them out. Each stage run and dispatch
 carries the transcript time split flowd stored for it into llmMs, toolMs
-(toolMsBy per tool, Bash by command word) and humanMs (harvest.TimeSplit
+(toolMsBy per tool, Bash by command word; toolLabels names its harness
+wait keys, peer and task-notification) and humanMs (harvest.TimeSplit
 states the rule). The project defaults to the one
 flowd knows the change under. -o writes the JSON to a file and prints its
 event count. Exits 1 when flowd cannot be reached or has no such change, 2
@@ -222,6 +223,15 @@ func buildTrace(project, change string, spans []traceSpan, root string, stderr i
 			args["llmMs"], args["toolMs"], args["humanMs"] = split.LLMMs, split.ToolMs, split.HumanMs
 			if split.ByTool != nil {
 				args["toolMsBy"] = split.ByTool
+				labels := map[string]string{}
+				for k := range split.ByTool {
+					if l := harvest.ToolLabels[k]; l != "" {
+						labels[k] = l
+					}
+				}
+				if len(labels) > 0 {
+					args["toolLabels"] = labels
+				}
 			}
 		}
 		emit(s.Kind, s.Lane, s.Name, s.Start, end, args)

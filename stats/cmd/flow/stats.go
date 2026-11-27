@@ -37,11 +37,20 @@ cannot be reached, 2 on a usage mistake.
 type bottleneckRow struct {
 	Dimension string  `json:"dimension"`
 	Name      string  `json:"name"`
+	Label     string  `json:"label"`
 	Runs      int     `json:"runs"`
 	TotalMs   int64   `json:"totalMs"`
 	Share     float64 `json:"share"`
 	P50Ms     int64   `json:"p50Ms"`
 	P95Ms     int64   `json:"p95Ms"`
+}
+
+// name is the raw name, its readable label beside it where flowd sent one.
+func (r bottleneckRow) name() string {
+	if r.Label == "" {
+		return r.Name
+	}
+	return r.Name + " (" + r.Label + ")"
 }
 
 type bottlenecksReport struct {
@@ -93,13 +102,13 @@ func runStats(ctx context.Context, args []string, getenv func(string) string, st
 		tw := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)
 		fmt.Fprintln(tw, "name\truns\ttotal\tshare\tp50\tp95")
 		for _, r := range rep.Ranked[d] {
-			fmt.Fprintf(tw, "%s\t%d\t%s\t%.1f%%\t%s\t%s\n", r.Name, r.Runs, dur(r.TotalMs), r.Share*100, dur(r.P50Ms), dur(r.P95Ms))
+			fmt.Fprintf(tw, "%s\t%d\t%s\t%.1f%%\t%s\t%s\n", r.name(), r.Runs, dur(r.TotalMs), r.Share*100, dur(r.P50Ms), dur(r.P95Ms))
 		}
 		_ = tw.Flush()
 	}
 	sinks := make([]string, len(rep.Sinks))
 	for i, r := range rep.Sinks {
-		sinks[i] = fmt.Sprintf("%s %s %s (%.1f%%)", r.Dimension, r.Name, dur(r.TotalMs), r.Share*100)
+		sinks[i] = fmt.Sprintf("%s %s %s (%.1f%%)", r.Dimension, r.name(), dur(r.TotalMs), r.Share*100)
 	}
 	fmt.Fprintf(stdout, "\ntime sinks: %s\n", strings.Join(sinks, "; "))
 	return 0

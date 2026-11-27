@@ -4,12 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/tweety53/agents/stats/internal/harvest"
 )
 
 // traceSpansFixture is flowd's answer for one small change: a request, two
@@ -141,5 +146,28 @@ func TestStatsTrace(t *testing.T) {
 	}
 	if code, _, _ := call(); code != 2 {
 		t.Errorf("no change = %d, want 2", code)
+	}
+}
+
+// TestStatsTraceToolLabels: a span's toolMsBy keeps its raw keys, and the
+// harness wait keys among them get their readable names in toolLabels.
+func TestStatsTraceToolLabels(t *testing.T) {
+	t.Parallel()
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := start.Add(time.Minute)
+	spans := []traceSpan{{Kind: "stage", Lane: "stage", Name: "s", Start: start, End: &end,
+		Split: &harvest.TimeSplit{ToolMs: 3, ByTool: map[string]int64{"peer": 1, "task-notification": 1, "Read": 1}}}}
+	tr := buildTrace("p", "c", spans, "", io.Discard)
+	for _, e := range tr.TraceEvents {
+		if e.Ph != "X" {
+			continue
+		}
+		if by := e.Args["toolMsBy"].(map[string]int64); by["peer"] != 1 {
+			t.Errorf("toolMsBy = %v, raw key lost", by)
+		}
+		want := map[string]string{"peer": "Agent wait", "task-notification": "Background task wait"}
+		if got, _ := e.Args["toolLabels"].(map[string]string); !maps.Equal(got, want) {
+			t.Errorf("toolLabels = %v, want %v", got, want)
+		}
 	}
 }
