@@ -341,7 +341,7 @@ flow self-review finding -change <name> -angle flow-fix -disposition fixed -ref 
 
 **A confidence estimate below 100% is one row of its own**, never a self-review finding:
 `flow confidence tags` lists the tags in use and `flow confidence record` files the estimate —
-by the planner triaging a plan check (**Plan review**, `skills/flow/brainstorm-planner.md`) and by
+by the planner triaging a plan check (**Plan triage**, `skills/flow/plan-triage.md`) and by
 whoever turns a task group green (**CONFIDENCE ONCE GREEN**, `skills/flow/implementer-brief.md`).
 `flow confidence` with no argument prints both usages.
 
@@ -550,7 +550,7 @@ covers:
   (what was added, changed, fixed or removed, and the purpose stated in the plan's own `## Why`),
   never only the mechanics of the run. A reader who never opens the diff still learns what shipped.
 - the pair each of this run's dispatches ran on, per **Model and effort**
-  (`skills/flow/brainstorm-planner.md`) — so the operator reads the run's model policy off the
+  (`skills/flow-contracts/model-policy.md`) — so the operator reads the run's model policy off the
   summary without opening the ledger;
 - findings fixed, and findings withdrawn;
 - commits made — repo and a one-line description each, each commit named by its subject, never by

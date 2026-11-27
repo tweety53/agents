@@ -37,7 +37,7 @@ configured** — by the headless plan check at **Plan check** (`skills/flow/brai
 run reads them from the recorded `decision.json`.
 
 **Every dispatch runs on its role's pair, picked by `flow-guard pair-judge` at dispatch time** —
-**Model and effort** (`skills/flow/brainstorm-planner.md`) is canonical.
+**Model and effort** (`skills/flow-contracts/model-policy.md`) is canonical.
 
 **A plain-language session instruction overrides the pair(s) it names for this run only** —
 "use opus for the panel", "implement on sonnet" — per **Model policy**

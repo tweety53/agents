@@ -26,7 +26,7 @@ green names the run — its command and exit — else the line is carried to the
 
 **One re-review bundle**, once the last fixer's return has run, carries every task whose pass was `fix` — under
 `task-<n+n>-reviewer-fix-<k>`, the same convention as the fixer's key, each pass on its own fix
-diff, its findings file `findings-gated-<n+n>-fix-<k>.jsonl`. The re-dispatched bundle runs on the `gated-re-reviewer` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`),
+diff, its findings file `findings-gated-<n+n>-fix-<k>.jsonl`. The re-dispatched bundle runs on the `gated-re-reviewer` role's pair (**Model and effort**, `skills/flow-contracts/model-policy.md`),
 its prompt opening with the line `Role: gated-re-reviewer` in place of the original bundle's.
 The re-dispatched bundle's Agent-tool `description` is `Tasks <ids>/<N> (re-review)` — `Task <x>/<N> (re-review)`
 for one task — so the `flow-task-list` mod shows its row as a re-review.

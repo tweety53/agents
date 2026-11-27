@@ -336,7 +336,7 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | str | Non
                 f"Write the dispatch's prompt to `{worktree}/.superpowers/sdd/pair-judge/{key}.md`, run\n"
                 f"flow-guard pair-judge {role_id} {worktree}/.superpowers/sdd/pair-judge/{key}.md\n"
                 "(it never blocks: a judge that cannot answer prints the role's first pair), then send the "
-                "dispatch on the pair it prints (`skills/flow/brainstorm-planner.md`, **Model and effort**).")
+                "dispatch on the pair it prints (`skills/flow-contracts/model-policy.md`, **Model and effort**).")
     return args
 
 
@@ -410,7 +410,7 @@ def effort_reason(payload: dict, tool_input: dict) -> "str | None":
     return (f"Dispatch blocked: `subagent_type: {agent or '<none>'}` carries no effort and the call "
             "sets none, so it would run at the model's built-in effort.\n\n"
             "Run `flow-guard pair-judge <role> <prompt file>` and re-send on the pair it prints "
-            "(`skills/flow/brainstorm-planner.md`, **Model and effort**): a `flow-<effort>` type, or "
+            "(`skills/flow-contracts/model-policy.md`, **Model and effort**): a `flow-<effort>` type, or "
             "an `Explore`/`Plan` type with the pair's `effort` set on the call.")
 
 

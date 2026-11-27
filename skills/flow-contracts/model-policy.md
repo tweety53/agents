@@ -14,7 +14,7 @@ The reasoning behind this file lives in `skills/flow-contracts/model-policy-rati
 
 **Every dispatch runs on its role's pair**: the pair `flow-guard pair-judge` picks from the role's
 allowed pairs at dispatch time, or, for a role the judge does not cover, the role's first pair
-(**Model and effort**, `skills/flow/brainstorm-planner.md`). Nothing records a pair ahead of the
+(**Model and effort**, below). Nothing records a pair ahead of the
 dispatch. Half of the implementer's `opus/flow-low` picks are moved to `sonnet/flow-low` by
 the judge itself, so the two split that case evenly. The parent
 session runs on the harness's own model for the whole of `/flow`. This **explicitly overrides**
@@ -42,6 +42,31 @@ neither the write into the store nor the render out of it invents a model slug.
   set at dispatch time instead, which every harness supports equally: the implementer and panel
   dispatches each name their model explicitly, and the ledger line for that dispatch is what
   records that they did.
+
+## Model and effort
+
+**A dispatch's pair is picked by the pair judge**, at dispatch time: write the dispatch's prompt
+to `<abs-worktree>/.superpowers/sdd/pair-judge/<key>.md`, `<key>` the dispatch's key or, for an
+Explore or Plan agent, `explore-<n>` / `design-<n>`, then
+
+```bash
+flow-guard pair-judge <role> <abs-worktree>/.superpowers/sdd/pair-judge/<key>.md
+```
+
+It prints one line, `<model> <effort> <judge|fallback|single> <reason>`, and saves it beside the
+prompt as `<key>.pick`, which the dispatch hook records with the row. The judge picks only among
+the role's allowed pairs in flowd; no pair is ever written into a prompt or a skill. A judge
+that cannot answer never blocks: it prints the role's first candidate with source `fallback`. A
+role the judge does not cover (it exits 2) runs on its first `base` pair in `flow policy get`.
+Besides the prompt, the judge reads only the file parts it names: `` `<abs-path>#<heading text>` ``
+(in backticks; that markdown section) or `<abs-path>:<a>-<b>` / `:<a>` (those lines); a bare
+`tasks.md` gives the sections of the tasks the prompt names, and any other bare path nothing.
+
+A pair is a model and an agent type joined by `/`: `opus/flow-low` dispatches
+`subagent_type: flow-low` on `model: opus`; `opus/flow-planner-medium` is `flow-planner-medium` on
+`opus`; `opus/Explore@low` is `subagent_type: Explore` with `effort: low`. Every dispatch has a
+role from **Allowed pairs** (below). A plain-language session instruction overrides the pair it names
+for this run only (**Model policy**, above).
 
 ## Allowed pairs
 

@@ -11,17 +11,15 @@ import (
 
 func TestPlanCheckTriageScope(t *testing.T) {
 	t.Parallel()
-	text := repoText(t, "skills/flow/brainstorm-planner.md")
+	text := repoText(t, "skills/flow/plan-triage.md")
 	i := strings.Index(text, "**A dispatch whose prompt names a `plan-check.md` report triages it.**")
 	if i < 0 {
-		t.Fatal("skills/flow/brainstorm-planner.md lacks the triage paragraph")
+		t.Fatal("skills/flow/plan-triage.md lacks the triage paragraph")
 	}
 	para := text[i:]
-	j := strings.Index(para, "### Model and effort")
-	if j < 0 {
-		t.Fatal("the triage paragraph is not followed by ### Model and effort")
+	if !strings.Contains(repoText(t, "skills/flow/brainstorm.md"), "`skills/flow/plan-triage.md`") {
+		t.Error("skills/flow/brainstorm.md's plan check does not name skills/flow/plan-triage.md")
 	}
-	para = para[:j]
 	if strings.Contains(para, "### Decide") {
 		t.Error("a ### Decide heading remains")
 	}

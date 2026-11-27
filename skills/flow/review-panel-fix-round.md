@@ -151,7 +151,7 @@ confirmed as a real defect, the fix subagent reads and follows **superpowers:sys
 from its file before writing its fix — on Claude Code the newest
 `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`, since a `flow-*` agent
 carries no Skill tool. **Dispatch it on the `panel-fix` role's pair** from `flow-guard pair-judge` (**Model and effort**,
-`skills/flow/brainstorm-planner.md`), `subagent_type` the pair's agent type with its `model` passed as
+`skills/flow-contracts/model-policy.md`), `subagent_type` the pair's agent type with its `model` passed as
 the Agent tool's own `model` parameter, and `-model`/`-effort` below carry that pair.
 
 A Minor fixed or withdrawn blocks nothing; a Minor left `open` or `deferred` blocks exactly as a

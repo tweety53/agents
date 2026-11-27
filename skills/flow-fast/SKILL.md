@@ -62,7 +62,7 @@ dispatch's last sibling.
 ## Dynamic decisions
 
 Every dispatch runs on its role's pair, per **Model and effort**
-(`skills/flow/brainstorm-planner.md`).
+(`skills/flow-contracts/model-policy.md`).
 
 Every dispatch's `description` and `Role:` line follow **Dispatch sites — the parent's closed list** (`skills/flow/implement.md`).
 

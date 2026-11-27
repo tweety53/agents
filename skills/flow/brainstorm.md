@@ -88,7 +88,7 @@ request verbatim — to `<abs-worktree>/.superpowers/sdd/planner/ticket.md`. A `
 **Capturing a new change** (`skills/flow-plan/SKILL.md`) states.
 
 **Every planner dispatch is fresh and one-shot**, on `subagent_type: flow-planner-<effort>` with
-the `planner` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`). Its prompt
+the `planner` role's pair (**Model and effort**, `skills/flow-contracts/model-policy.md`). Its prompt
 carries the Role line, `Role: planner`, the two agent-baseline sentences, the
 report-tersely line, the **PLANNING DELEGATION** paragraph below, the change name and the absolute
 worktree.
@@ -98,7 +98,7 @@ run's planner dispatches from 1, so the hooks begin and end its dispatch row.
 > **PLANNING DELEGATION:** You may dispatch fresh `Explore` and `Plan` subagents through the
 > `Agent` tool while you plan, per **B. Basic Workflow #1 — Brainstorming** (`skills/flow/brainstorm-planner.md`) — never a
 > `fork`, and never an agent that edits files or commits. Each dispatch runs on its own Role's pair
-> (**Model and effort**, `skills/flow/brainstorm-planner.md`), and every dispatch prompt carries the line
+> (**Model and effort**, `skills/flow-contracts/model-policy.md`), and every dispatch prompt carries the line
 > `Role: explorer` (an Explore agent) or `Role: plan-designer` (a Plan agent) and the two sentences of **Propagate this**
 > (`~/.claude/rules/agent-baseline.md`) verbatim. The agents investigate and propose; you
 > decide, and every choice is written as a question of the round file. Fixing, implementing and
@@ -133,7 +133,7 @@ token spend.
    `skills/flow/brainstorm-planner.md`). **Before asking anything, read `## Undrawn`** in the round
    file's design draft: non-empty, or a designer review open, the parent refuses to ask the
    convergence confirm, runs `flow-guard design-repo <abs-worktree>` and, on exit 0, dispatches
-   the one `designer` in this same turn (**The designer**, `skills/flow/brainstorm-planner.md`);
+   the one `designer` in this same turn (**The designer**, `skills/flow/designer-brief.md`);
    on exit 1 the next round has the planner draw the items into the prototype. A final dispatch
    that leaves `design.md`'s `## Undrawn` non-empty is handled the same way, then a fresh final
    dispatch takes the drawn frames. Every later planner dispatch's prompt, the final one included, carries the
@@ -205,7 +205,7 @@ returned `PLAN-WRITTEN`, in `/flow`'s creating run and a `/flow-plan` capture. A
    report's last line is `PLAN-CHECK-CLEAN`, `PLAN-CHECK-FINDINGS <n>` or `PLAN-CHECK-NOT-RUN`.
 2. **`PLAN-CHECK-CLEAN`** and no `confidence <n>%` below 100 on the guard's stdout line — go on.
 3. **`PLAN-CHECK-FINDINGS`, or a `confidence <n>%` below 100** — dispatch a fresh final planner, its prompt naming the report's
-   absolute path; it triages the report per **Plan review** (`skills/flow/brainstorm-planner.md`).
+   absolute path and `skills/flow/plan-triage.md`; it triages the report per **Plan triage** (`skills/flow/plan-triage.md`).
    Its `QUESTIONS` return is relayed as step 2 of the section above relays a round, and a fresh
    final dispatch takes the answers. Its `PLAN-WRITTEN` return closes the check; nothing is
    checked a second time.

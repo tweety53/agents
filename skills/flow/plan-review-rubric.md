@@ -76,8 +76,8 @@ an iteration order, names the key or the sort that decides the pairing; a positi
 none stated is a `finding` closed by a line in `design.md`. A task that names a step by number or
 index, a count, or a cross-reference matches the artifact it cites (the numbered list, the frame
 list, the file it points at); a mismatch is a `finding` quoting both sides. A gap that closes only
-by running it is a probe step in the task it concerns (**Plan review**,
-`skills/flow/brainstorm-planner.md`); a task that should carry one and does not is a `finding`.
+by running it is a probe step in the task it concerns (**Plan triage**,
+`skills/flow/plan-triage.md`); a task that should carry one and does not is a `finding`.
 
 ## Codebase details
 

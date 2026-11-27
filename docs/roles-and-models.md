@@ -32,5 +32,4 @@ self-review, pipeline fix, plus a `general` role for anything else and the pair 
 full list, with one line on what each does, is the **Allowed pairs** section of the canonical file.
 
 Canonical: [`skills/flow-contracts/model-policy.md`](../skills/flow-contracts/model-policy.md)
-(roles, tiers, overrides) and **Model and effort** in
-[`skills/flow/brainstorm-planner.md`](../skills/flow/brainstorm-planner.md) (the judge call).
+(roles, tiers, overrides, and **Model and effort**, the judge call).

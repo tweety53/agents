@@ -80,7 +80,7 @@ slots were added this way and why (the operator's own words) with `flow record p
 **Model and effort belong to the dispatch's role, not the slot**: every pass-1 panel dispatch runs
 on role `panel-reviewer`, and every fix-round re-run on role `panel-rerun`
 (**Panel re-runs**), each on the pair `flow-guard pair-judge` picks for it (**Model and effort**,
-`skills/flow/brainstorm-planner.md`) — the dispatch's `subagent_type` is the pair's agent type, the
+`skills/flow-contracts/model-policy.md`) — the dispatch's `subagent_type` is the pair's agent type, the
 model passed explicitly as the Agent tool's own `model` parameter — and both `model` and `-effort`
 are recorded. A slot carries no model of its own.
 

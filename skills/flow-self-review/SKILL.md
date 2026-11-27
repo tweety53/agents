@@ -167,7 +167,7 @@ it returns.
 
 **The pairs are the `self-review-*` rows** of **Allowed pairs**
 (`skills/flow-contracts/model-policy.md`): `pass` for the pass and `fix` for the fixer, the latter
-on **the fixer pair** per **Model and effort** (`skills/flow/brainstorm-planner.md`).
+on **the fixer pair** per **Model and effort** (`skills/flow-contracts/model-policy.md`).
 
 **Every dispatch is recorded mechanically.**
 `<agents repo>/hooks/enforce-loop-dispatch.py` hands each Agent call whose prompt carries a

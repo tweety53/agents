@@ -67,8 +67,8 @@ Investigate read-only, then present the design.
 
 - **Now or later is never asked.** Where the options are doing work the design needs in this
   change or deferring it to a later change or ticket, now is taken and recorded under
-  `## Decisions`. The one exception is the plan check's confidence question (**Plan review**,
-  below).
+  `## Decisions`. The one exception is the plan check's confidence question (**Plan triage**,
+  `skills/flow/plan-triage.md`).
 
 - **A round file opens with `## Summary`** — at most ten lines: the decisions the operator's answers settled
   and what is still open. The Summary names no auto-taken decision — an auto-taken pick lives only
@@ -77,81 +77,12 @@ Investigate read-only, then present the design.
   far, the operator's words verbatim beside the question and its round — so the latest round file
   alone is the design's whole state.
 
-- **A mockup is read from where the project declares mockups**, the `## visual verification`
-  section (**Project configuration — visual verification**,
-  `skills/flow-contracts/project-configuration-visual.md`), never copied into an app repository; a
-  design specified by a mockup that is not there yet is not approvable until it is.
-- **Shared constants are listed before any frame is approved.** For a change that carries UI, read
-  the constants its frames share — bar heights, the title's y, rail colours, row heights, greys,
-  label wording — from the app's own token file, and list them in `design.md` under
-  `## Shared constants`, one per item: ``- `<name>`: <value> — <token and file it was read from>``.
-  A frame that disagrees with the list is corrected in the frame, or the list is changed by an
-  explicit decision recorded in `design.md` — never left for `flow.verify` to find. Where two
-  frames the plan cites disagree with each other (copy, label case, order), `design.md` names the
-  governing frame and why, or records the departure, before the plan is written (the lens
-  **Design critic** of `skills/flow/plan-review-rubric.md`). Each frame of the change states every listed
-  constant — the value it draws, or `n/a` where it does not draw it — in
-  a sidecar `<frame id>.constants` beside it, one `<name>: <value>` per line, or in
-  `data-const-<name>="<value>"` attributes in an HTML frame. A sidecar's value is read off that
-  frame — measured on its PNG with `flow-guard measure-visual-properties`, or read from the design
-  source at the frame's tag — never copied from the list, which is what it is checked against.
-  `flow-guard check-frame-constants <design.md> <frames dir or frame file>...`, given the change's
-  frames, exits 0 before the design is approved; it exits 1 naming each frame that leaves a listed
-  constant unstated and each constant two frames draw differently. A rendered frame's sidecar sits
-  in its tag's directory, which is never committed: the check is this gate's, re-stated if the
-  frames are rendered afresh. Whoever adds or changes a listed constant runs
-  `flow-guard check-frame-constants` in the same step and fixes every frame it names — each
-  `FRAME-CONSTANT-ADD:` line it prints is the sidecar line to add, its value read off the frame. Every colour a cited frame uses is also mapped to a theme token, or a
-  new one the design adds, before the design is approved — never a hex at the use site.
-- **A computed rule is run against every cited frame.** Where a screen's rows, titles or copy come
-  from a computed rule, the planner runs it for each cited frame and compares; every mismatch is
-  decided before the design is approved.
-- **Every visible element a task builds is drawn before the design is approved, and the
-  `designer` draws what the mockups leave undrawn.** For a change that carries UI, list in
-  `design.md` under `## Undrawn`, from the tasks as written, each element, state, icon, copy string,
-  alignment and chrome variant (title placement, close control) that no cited frame draws, and each
-  icon the project's icon set lacks — never inferred from a design template, a sibling screen or
-  the nearest component. `flow-guard design-repo <abs-worktree>` — never
-  `flow-guard project-get`, never the main checkout — says who draws them. Exit 0 prints
-  `<clone> <remote>`: the planner leaves the items listed and returns, and **whenever a planner
-  return leaves `## Undrawn` non-empty (the round file's design draft, or `design.md`), the session
-  that dispatched it dispatches one `designer`** (**The designer**, below) for the whole list in
-  the same turn, unasked; the next planner dispatch replaces each item with the frame id the
-  designer returned. Exit 1, no design repo: the planner draws every item into the prototype HTML
-  (`plan-visual-prototype`, below), cites it and empties the list. Exit 2 is a defect fixed in the
-  run. **The answer to an undrawn item is always draw**: it is never put to the operator as a
-  question, and neither ruling it out nor reusing something as is is ever offered. With a design
-  repo the only operator step for the items is **The designer review**, below, which ends before
-  the convergence confirm (**Convergence**, below) is asked. The design is not approvable while
-  `## Undrawn` holds an item. An implementer meeting an element the plan missed reports it in its
-  REPORT FILE and builds the nearest drawn pattern.
-- **A visible change is prototyped before its design is approved** (`plan-visual-prototype`). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
-  no mockup frame already specifies it, build a clickable prototype of the proposed result with
-  sample data as a single HTML file under `<project>-worktrees/<name>/.superpowers/sdd/`, and
-  iterate it on the operator's feedback each round until they approve; that approval is the convergence confirm's
-  **approve the design and move on** (**Convergence**, below). The prototype is
-  built on the app's own shell and styles — the real header and nav, the project's theme,
-  stylesheet tokens and existing component classes, the content width and chart size of the
-  sibling views — never a standalone restyle. The file draws the proposed page
-  alone — no caption, note or screenshot beside it — since `flow.verify` renders the whole
-  file as the capture's frame; a note to the operator goes in the message. **The operator sees the prototype
-  whenever one exists**: a planner only writes the file; the session that dispatched it publishes
-  it with the Artifact tool after every return that wrote or changed it and prints its URL —
-  `/flow`'s parent in the relay. Where the harness has no Artifact tool, that session prints the file's absolute path
-  and says it could not be published. Cite the approved file, with its Artifact URL
-  or, where it could not be published, that it was not, from `design.md`'s `## Context` as the
-  spec the implementation and `flow.verify` compare
-  against. A change with nothing visible builds none. Where the confirm is not asked — the
-  `## decisions: recommended` mode, which takes the recommendation (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`)
-  — the published prototype is the spec without an approval round. **The approved prototype is
-  the source of truth**: any departure from it found later in the run — by a reviewer,
-  verify or `flow.verify` — is fixed to match it, auto-resolved and never asked, as **A departure
-from the mockup** (`skills/flow-contracts/operator-prompts-auto-resolution.md`) resolves it; a UI
-  change the operator wants after using it is a later change, not this one.
+- **A change that carries UI, or can alter what a user sees, loads `skills/flow/brainstorm-ui.md`**
+  — the mockup, shared-constant, computed-rule, undrawn and prototype items of this checklist.
 
 ### Explore and design agents
 
-**Every Explore and Plan agent** runs on its role's pair (**Model and effort** below) — `explorer`
+**Every Explore and Plan agent** runs on its role's pair (**Model and effort**, `skills/flow-contracts/model-policy.md`) — `explorer`
 for an Explore agent, `plan-designer` for a Plan agent — passed as the Agent tool's `model` and
 `effort`. Its prompt carries the two agent-baseline sentences and the report-tersely line
 (`~/.claude/rules/dispatch-carries-the-baseline.md`) and a narrow, explicit scope: what to look at,
@@ -182,84 +113,14 @@ alternatives shown only when they help the operator decide.
 
 ### The designer
 
-**One `designer` dispatch draws every `## Undrawn` item** (**Every visible element a task builds is
-drawn**, above), key `designer-<k>`, `<k>` counting from 1 per change, on the pair the pair judge picks for it
-(**Model and effort** below, the prompt saved as `pair-judge/designer-<k>.md` first — a small
-adjustment round is judged on its own prompt, never given the role's first pair by default), on a
-`flow-*` agent type, since it writes. Its prompt carries the two
-agent-baseline sentences, the report-tersely line, `Role: designer`, the `## Undrawn` list
-verbatim, the `<clone> <remote>` `flow-guard design-repo` printed, the frames already cited, and on an adjustment the operator's words verbatim. The
-designer:
-
-1. works in a git worktree of that design-repo clone, `<design clone>-worktrees/<change
-   name>` on branch `<change name>` — created from the clone's default branch when absent, reused
-   as it stands when present;
-2. reads that repository's own instructions first — its `CLAUDE.md`, `AGENTS.md`, README, style
-   guide and tokens — and follows them exactly, inventing no style they do not state;
-3. runs that repository's own stack where its instructions name one (a local server, a build, a
-   render tool — gymie-design's is a local node server and Playwright), from its worktree, on a
-   port of its own and never touching a server the operator runs; where they name no server, it
-   serves the worktree with a plain static one. The server the review page (item 4) is served on
-   stays running until the operator approves (**The designer review**, below);
-4. draws each listed item as frames in that repository's own frame format, its copy in the voice
-   those instructions set, and where they give no answer the simplest plausible copy, listed in
-   its report — it never asks. Every frame it draws carries the description that repository's frames
-   carry, in the same form (gymie-design's: id, title, a behaviour caption, a LINKED line) — never
-   fewer than the frames beside it have. **Every drawn frame is part of the repository's current
-   pages** — placed on the existing page and section its instructions say such a frame belongs to,
-   never an orphan file — **and every new thing is also collected on one separate review page** for
-   the change, in the repository's own page format, named after the change: each new frame with its
-   description and a link to where it lives in the current pages, so the operator opens one page and
-   searches for nothing. That review page is the only page of the review: every drawn or changed
-   frame is on it, rendered in full, with its id, title, behaviour caption and LINKED line, and the
-   operator needs no other URL, page or published copy. Where the stack renders, it renders every drawn frame,
-   reads each image and fixes what the instructions' own checks would flag. Before it reports it
-   opens the review page and checks that every `#<frame id>` anchor resolves and every frame
-   renders;
-5. commits on the branch, tags that commit `<change name>-designer-<k>` (`<k>` the dispatch's) and
-   pushes the branch and the tag — `flow-guard render-frames` resolves a frame at a tag only
-   (`skills/flow-contracts/project-configuration-visual.md`, **Frames at a design-repo tag**) — and
-   reports the review page's URL, once with a `#<frame id>` anchor per drawn or changed frame, each
-   with the frame's title — the only URL in the report: no link to another page, no PNG, no
-   Artifact copy; a report without it is incomplete and the planner sends the designer back for
-   it. It also reports each frame id and path drawn, on an adjustment the frame ids changed, the
-   copy it wrote without a rule, the tag and the commit sha. The planner cites each frame as
-   `<mockups root>/<tag>/<frame id>.png` with that tag; an adjustment's dispatch cites its own,
-   newer tag.
-
-The dispatching session appends that report to the latest round file's `## Answers`, where the next planner dispatch reads it. The designer is outside **The cap** above.
-
-**The designer review** is an interactive pre-step of the approval, run by the session that
-dispatched the planner after every return that drew or changed frames. That session prints the
-review page's anchored URLs, every one in full, first — the operator reviews on that live page, and
-is given no other URL, no PNG and no Artifact copy — then, after an adjustment, the frame ids that
-changed, then the design-repo branch and commit.
-It then asks through **AskUserQuestion**: **Continue with the planning** *(recommended)* or the
-operator's own words on what to change. Words naming a change are one more `designer` dispatch on
-the same worktree, carrying them verbatim; it applies them on the review page, keeps its server
-running and reports which frame ids changed, then the review runs
-again on its return; **Continue with the planning** ends the review, the session stops the server the
-designer left running, **lands the design branch** and planning goes on. No convergence confirm is
-asked while a review is open, and the confirm never carries the drawn frames.
-
-**Landing the design branch is the approval's own step, unasked.** From the designer's worktree the
-session pushes `HEAD:<default branch>` of the `design repo` clone — a fast-forward, the default
-branch being what `git symbolic-ref --short refs/remotes/origin/HEAD` names with its `origin/` prefix
-dropped — after rebasing the branch onto a fresher `origin/<default branch>` where the push is
-refused as non-fast-forward, then runs `git -C <design clone> pull --ff-only`. The branch and its
-`<change name>-designer-<k>` tags stay pushed, so `flow-guard render-frames` still resolves each
-frame at its tag. A rebase conflict or any other refusal is a defect fixed in the run, never a stop.
-The unapproved branch is never landed: a review that never reaches **Continue with the planning**
-lands nothing. Where the review is not asked (below) the drawn frames stand and the same landing
-runs once the plan is written.
-
-Where the confirm is not asked (`## decisions: recommended`) the review is not asked either: the drawn frames stand.
+**The designer** — its dispatch, review and landing — is `skills/flow/designer-brief.md`, loaded by
+the session that dispatches it.
 
 ### Convergence
 
 **The confirm is never asked while `## Undrawn` holds an item or a designer review is open**: the
 session that would ask it refuses, strikes it from the round's questions and goes to **The
-designer**, above, instead.
+designer** (`skills/flow/designer-brief.md`) instead.
 
 **A round ends on one question, asked last:** state what you believe settled — the answers and
 the decisions the design now rests on — then ask **Anything unclear before I move on?** with two
@@ -386,77 +247,5 @@ reported and stops the plan.
 **Every plan is checked** (**Plan check**, `skills/flow/brainstorm.md`); return `PLAN-WRITTEN`
 alone. A fix run's re-plan is never reviewed.
 
-**A dispatch whose prompt names a `plan-check.md` report triages it.** It reads the report,
-`proposal.md`, `design.md` and `tasks.md`; it opens a file under
-`<abs-worktree>/.superpowers/sdd/planner/` only for a finding whose fix turns on a round's answer.
-Fix in the artifacts a finding with one obvious fix. A finding whose fix would change a
-`## Decisions` entry returns `QUESTIONS`, the next `round-<r>.md` quoting the finding verbatim
-beside the options. Write each finding still standing into `design.md`'s `## Risks` as
-`Accepted: <the finding> — <why>` — a contest of the reviewer's reading names the path:line it
-rests on — re-run `spectre validate`, and return `PLAN-WRITTEN`.
-
-**A `closes with: plan` gap is fixed, never deferred.** The triaging planner applies it in the
-artifacts and re-runs `spectre validate`, whatever the score and whatever the mode, `## decisions:
-recommended` included; it is never written to `## Risks` as `Accepted`.
-
-**A `closes with: running it` gap is a probe step in the plan.** The planner writes the gap's
-probe and its fallback into the task it concerns, so the implementer runs it on reaching that
-task, and also writes the gap into `## Risks` as `Accepted: <the gap> — <why>`.
-
-**A confidence below 100% is put to the operator, before anything is triaged.** When
-`<abs-worktree>/.superpowers/sdd/confidence.json` exists and its `score` is below 100, the
-triaging dispatch's first return is `QUESTIONS`, its round file holding one question:
-`### Q<n>. The plan check is <score>% confident this plan is executed as written — raise it now?`
-Its `**Context:**` lists every entry of the file's `gaps` that closes with `operator` or `running
-it`, verbatim, each followed by the suggestion that closes it — the question the operator would be
-asked, or what only running the work can show. It has exactly two options, **Raise it** — apply
-every suggestion now — and **Later** *(recommended)* — file the estimate and go on. Under the
-`## decisions: recommended` mode (**Auto-resolution**,
-`skills/flow-contracts/operator-prompts-auto-resolution.md`) the question is not asked and
-**Later** is taken. A gap that closes with `operator` is not asked in this round: it is asked
-only once the answer is **Raise it**.
-
-- **Raise it** — the fresh final planner that takes the answer triages the report as above, with
-  every gap in scope: a `closes with: operator` gap is one more `QUESTIONS` round. It then files
-  the estimate with `-disposition raised`.
-- **Later** — it defers only the `operator` gaps: each is written into `## Risks` as
-  `Accepted: <the gap> — deferred at the confidence question`, the report's other
-  findings are triaged as above, and the estimate is filed with `-disposition later`.
-
-**Filing is list, then reuse or create.** Run `flow confidence tags`; for each kind of gap, reuse
-a printed tag that fits it, and write a new lowercase kebab-case tag only when none does — a tag
-names the kind of gap (`unchecked-premise`, `missing-fixture`), never the change. Then, once:
-
-```bash
-flow confidence record -change <name> -stage plan -score <score> -disposition <raised|later> \
-  -gap '<one entry of gaps, verbatim>' [-gap …] -tag <tag> [-tag …]
-```
-
-`<score>` is `confidence.json`'s, the cold reader's number: it is never re-estimated after the
-gaps are closed. Exit 2 is a refused estimate — correct the flag its stderr names and re-run; an
-unreachable store warns and exits 0, and the planner goes on.
-
-### Model and effort
-
-**A dispatch's pair is picked by the pair judge**, at dispatch time: write the dispatch's prompt
-to `<abs-worktree>/.superpowers/sdd/pair-judge/<key>.md`, `<key>` the dispatch's key or, for an
-Explore or Plan agent, `explore-<n>` / `design-<n>`, then
-
-```bash
-flow-guard pair-judge <role> <abs-worktree>/.superpowers/sdd/pair-judge/<key>.md
-```
-
-It prints one line, `<model> <effort> <judge|fallback|single> <reason>`, and saves it beside the
-prompt as `<key>.pick`, which the dispatch hook records with the row. The judge picks only among
-the role's allowed pairs in flowd; no pair is ever written into a prompt or a skill. A judge
-that cannot answer never blocks: it prints the role's first candidate with source `fallback`. A
-role the judge does not cover (it exits 2) runs on its first `base` pair in `flow policy get`.
-Besides the prompt, the judge reads only the file parts it names: `` `<abs-path>#<heading text>` ``
-(in backticks; that markdown section) or `<abs-path>:<a>-<b>` / `:<a>` (those lines); a bare
-`tasks.md` gives the sections of the tasks the prompt names, and any other bare path nothing.
-
-A pair is a model and an agent type joined by `/`: `opus/flow-low` dispatches
-`subagent_type: flow-low` on `model: opus`; `opus/flow-planner-medium` is `flow-planner-medium` on
-`opus`; `opus/Explore@low` is `subagent_type: Explore` with `effort: low`. Every dispatch has a
-role from **Allowed pairs** (`skills/flow-contracts/model-policy.md`). A plain-language session instruction overrides the pair it names
-for this run only (**Model policy**, `skills/flow-contracts/model-policy.md`).
+**A dispatch whose prompt names a `plan-check.md` report triages it** per
+`skills/flow/plan-triage.md`, which that dispatch alone loads.

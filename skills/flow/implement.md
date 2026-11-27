@@ -272,7 +272,7 @@ caller inputs.
 **A dispatch recorded only after it finished is a back-fill, and is one call** — `flow record dispatch backfill`, carrying `begin`'s flags and `end`'s together with the dispatch's real `-started-at` and `-ended-at`, both required — never a `begin` and `end` pair, whose instants would read the back-fill's own moment.
 
 **`-model` is the model this dispatch was actually given — the `implementer` role's pair**
-(**Model and effort**, `skills/flow/brainstorm-planner.md`, or the run's session-instruction
+(**Model and effort**, `skills/flow-contracts/model-policy.md`, or the run's session-instruction
 override when one was given for the implementer role), `-effort` its effort, and the dispatch's `subagent_type` is
 `flow-<effort>` with that `model` passed as the Agent tool's own `model` parameter — the
 definition carries the effort, the dispatch carries the model. Name it explicitly — never by
@@ -452,7 +452,7 @@ the discipline **Bundled dispatch** (`skills/flow/review-panel.md`) applies to p
 **The bundle is a batch of weight 5**: returned tasks not yet reviewed accumulate, in plan order, and
 at the boundary where their weight reaches 5 — a `**Size:** big` task weighing 3, every other task 1 —
 or where no implementer of the repository is left in flight or queued, every one of them, of one repository, goes out in one reviewer Agent call beside the implementers the boundary launches, on the
-`gated-reviewer` role's pair (**Model and effort**, `skills/flow/brainstorm-planner.md`), its prompt opening with the
+`gated-reviewer` role's pair (**Model and effort**, `skills/flow-contracts/model-policy.md`), its prompt opening with the
 line `Role: gated-reviewer`. A fix re-review bundle runs on its own row instead, its prompt opening
 with `Role: gated-re-reviewer` (`skills/flow/gated-review-fix.md`). Each task inside the bundle keeps its own pass: its own
 commit-range diff `git diff <task-sha>^..<task-sha>` — a real commit diff, never a snapshot of

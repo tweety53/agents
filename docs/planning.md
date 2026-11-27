@@ -24,8 +24,7 @@ view of the dashboard lists every filed estimate by tag.
 
 Canonical: [`skills/flow/plan-check-prompt.md`](../skills/flow/plan-check-prompt.md) and the lenses
 in [`skills/flow/plan-review-rubric.md`](../skills/flow/plan-review-rubric.md); the triage of the
-report is **Plan review** in
-[`skills/flow/brainstorm-planner.md`](../skills/flow/brainstorm-planner.md).
+report is [`skills/flow/plan-triage.md`](../skills/flow/plan-triage.md).
 
 ## The decision: how it is built and reviewed
 

@@ -1108,7 +1108,7 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 	diffBase := fset.String("diff-base", "", "the sha the diff this dispatch was given was computed from, where it was given a delta, or a comma-joined list of shas where it was given one delta per worktree -- optional, since an implementer and a slot reading the whole diff record none")
 	roundBase := fset.String("round-base", "", "the fix round's base sha a scoped visual-verify re-run verifies from -- optional: omitted on every unscoped dispatch, the loop's closing run included")
 	policyRole := fset.String("policy-role", "", "the allowed-pairs role the dispatch's prompt names on its `Role:` line -- optional: Role costs counts the row under it (the hook that begins the row passes it)")
-	pairPick := fset.String("pair-pick", "", "the pair judge's `<source>: <reason>` for this dispatch's pair -- optional: omitted where no judge picked the pair (skills/flow/brainstorm-planner.md, Model and effort)")
+	pairPick := fset.String("pair-pick", "", "the pair judge's `<source>: <reason>` for this dispatch's pair -- optional: omitted where no judge picked the pair (skills/flow-contracts/model-policy.md, Model and effort)")
 	key := fset.String("key", "", "this dispatch's own literal label, unique within the run -- what the end call closes, and what makes a replayed write land on one row (required)")
 	sessionToken := fset.String("session-token", "", "the run's own literal session token, unchanged from the mark that opened the run -- never a shell substitution (required)")
 	startedAt := fset.String("started-at", "", "a back-filled row's real start instant, RFC 3339 -- optional: omitted, the daemon stamps the moment it writes the row")
