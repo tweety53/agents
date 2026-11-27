@@ -58,8 +58,8 @@ prompt as `<key>.pick`, which the dispatch hook records with the row. The judge 
 the role's allowed pairs in flowd; no pair is ever written into a prompt or a skill. A judge
 that cannot answer never blocks: it prints the role's first candidate with source `fallback`. A
 role the judge does not cover (it exits 2) runs on its first `base` pair in `flow policy get`.
-A role with exactly one `base` pair needs no judge call: the hook asks for no `.pick`, and the
-dispatch runs on that pair. Besides the prompt, the judge reads only the file parts it names: `` `<abs-path>#<heading text>` ``
+A role with exactly one `base` pair needs no judge call: the hook asks for no `.pick`, records
+`-pair-pick single: the only candidate` on the row, and the dispatch runs on that pair. Besides the prompt, the judge reads only the file parts it names: `` `<abs-path>#<heading text>` ``
 (in backticks; that markdown section) or `<abs-path>:<a>-<b>` / `:<a>` (those lines); a bare
 `tasks.md` gives the sections of the tasks the prompt names, and any other bare path nothing.
 

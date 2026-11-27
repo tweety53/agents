@@ -723,7 +723,7 @@ func TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			env, _ := beginEnv(t, `[]`)
+			env, log := beginEnv(t, `[]`)
 			env = append(env, "FLOW_HOOK_ROLE_CHECK=on")
 			model := "opus"
 			if c.role == "panel-merger" {
@@ -735,6 +735,12 @@ func TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick(t *testing.T) {
 			}
 			if c.wantDeny && !strings.Contains(out, "pair-judge "+c.role) {
 				t.Errorf("reason = %q, want the pair-judge command for %s", out, c.role)
+			}
+			if c.role == "panel-merger" {
+				begins := flowCalls(t, log, "record dispatch begin")
+				if len(begins) != 1 || !strings.HasSuffix(begins[0], " -pair-pick single: the only candidate") {
+					t.Errorf("begins = %q, want one ending in `-pair-pick single: the only candidate`", begins)
+				}
 			}
 		})
 	}

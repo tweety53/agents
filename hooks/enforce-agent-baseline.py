@@ -330,8 +330,11 @@ def begin_row(payload: dict, tool_input: dict, prompt: str) -> "list | str | Non
     pick = read_pick(os.path.join(worktree, ".superpowers", "sdd", "pair-judge", key + ".pick"))
     if pick:
         args += ["-pair-pick", pick]
-    elif (role_line and (ours or not planning) and role_id in JUDGED_ROLES and os.environ.get("FLOW_HOOK_ROLE_CHECK") != "off"
-          and not single_base_pair(role_id, cwd)):
+    elif (role_line and (ours or not planning) and role_id in JUDGED_ROLES and os.environ.get("FLOW_HOOK_ROLE_CHECK") != "off"):
+        if single_base_pair(role_id, cwd):
+            # The text flow-guard pair-judge prints for a one-candidate role.
+            args += ["-pair-pick", "single: the only candidate"]
+            return args
         return (f"Dispatch blocked: `{role_id}` dispatches take the pair judge's pick, and "
                 f"`.superpowers/sdd/pair-judge/{key}.pick` is not there.\n\n"
                 f"Write the dispatch's prompt to `{worktree}/.superpowers/sdd/pair-judge/{key}.md`, run\n"
