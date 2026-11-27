@@ -351,7 +351,13 @@ func TestAwaitOwnAgentsHookBackgroundLiveness(t *testing.T) {
 		}
 		return out
 	}
-	noLsof := "PATH=" + t.TempDir()
+	// An lsof that fails stands for one missing too: an emptied PATH would also hide the bash and
+	// go the hook's flow-guard bootstrap runs on.
+	stub := t.TempDir()
+	if err := os.WriteFile(filepath.Join(stub, "lsof"), []byte("#!/bin/sh\nexit 2\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	noLsof := "PATH=" + stub + string(os.PathListSeparator) + os.Getenv("PATH")
 	age := func(path string, d time.Duration) {
 		t.Helper()
 		when := time.Now().Add(-d)
@@ -369,10 +375,10 @@ func TestAwaitOwnAgentsHookBackgroundLiveness(t *testing.T) {
 	tr := launch("bgquiet", quiet)
 	age(quiet, 10*time.Second)
 	if out := run(tr, noLsof); !strings.Contains(out, `"decision": "block"`) {
-		t.Errorf("lsof missing, file modified 10 s ago: out %q; want a block", out)
+		t.Errorf("lsof failing, file modified 10 s ago: out %q; want a block", out)
 	}
 	age(quiet, 10*time.Minute)
 	if out := run(tr, noLsof); out != "" {
-		t.Errorf("lsof missing, file modified 10 min ago: out %q; want allow", out)
+		t.Errorf("lsof failing, file modified 10 min ago: out %q; want allow", out)
 	}
 }

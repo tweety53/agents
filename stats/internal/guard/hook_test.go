@@ -72,3 +72,19 @@ func TestHookUnknownName(t *testing.T) {
 		t.Errorf("rc=%d, want 2", rc)
 	}
 }
+
+// TestHookAwaitOwnAgentsBytes pins the block hooks/await-own-agents.py printed before its port,
+// byte for byte, trailing newline included: a child still running at a zero wait.
+func TestHookAwaitOwnAgentsBytes(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "agent-c1.meta.json"), []byte(`{"parentAgentId":"p","finished":false}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stdin := `{"agent_id":"p","agent_transcript_path":"` + filepath.Join(dir, "agent-p.jsonl") + `"}`
+	out, rc := runHookInProcess(t, "await-own-agents", stdin, "AWAIT_CHILDREN_SECONDS=0")
+	want := `{"decision": "block", "reason": "Agents you launched are still running (c1). Stop again to keep waiting for them -- ending your turn on your own would lose your 5-minute prompt cache."}` + "\n"
+	if rc != 0 || out != want {
+		t.Errorf("rc=%d\n got: %q\nwant: %q", rc, out, want)
+	}
+}
