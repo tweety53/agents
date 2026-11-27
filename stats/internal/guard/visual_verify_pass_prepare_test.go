@@ -86,8 +86,9 @@ func vvpFixture(t *testing.T, extra string) *vvpFix {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// No Claude Code session: a token is inferred only where a case sets one.
 	f.environ = append(os.Environ(), "PATH="+f.bin+":"+os.Getenv("PATH"),
-		"FLOW_GUARD_REPO_ROOT="+repo)
+		"FLOW_GUARD_REPO_ROOT="+repo, "CLAUDE_CODE_SESSION_ID=", "FLOW_CALLER_AGENT=", "FLOW_SESSION_TOKEN=")
 	return f
 }
 
@@ -168,7 +169,7 @@ func TestVisualVerifyPassUsage(t *testing.T) {
 		// No harness in the environment either: "no harness" is a usage error
 		// only where envHarness has nothing to fall back to.
 		getenv := func(k string) string {
-			if k == "CLAUDECODE" || k == "FLOW_HARNESS" || k == "CLAUDE_CODE_SESSION_ID" || k == "FLOW_SESSION_TOKEN" {
+			if k == "CLAUDECODE" || k == "FLOW_HARNESS" {
 				return ""
 			}
 			return f.getenv(k)
