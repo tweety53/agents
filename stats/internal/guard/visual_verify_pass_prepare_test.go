@@ -1097,3 +1097,15 @@ func TestVisualVerifyPassPrepareKickoffSkipsReposLinkDoesNotName(t *testing.T) {
 		t.Fatalf("an unnamed repository demanded a worktree\n%s", out)
 	}
 }
+
+func TestVisualVerifyPassPrepareClosesSupersededRows(t *testing.T) {
+	t.Parallel()
+	f := vvpFixture(t, "")
+	f.rows = "[" + vgRow("verify", vgHead(t, f.wt)) +
+		`,{"key":"visual-verify-3","role":"visual-verifier","outcome":""},{"key":"visual-verify-4","role":"visual-verifier","outcome":"completed"}]`
+	rc, out, calls := f.prepare()
+	end := "record dispatch end -C " + f.wt + " -change demo -key visual-verify-3 -session-token mf-tok -outcome aborted\n"
+	if rc != 0 || !strings.Contains(calls, end) || strings.Contains(calls, "-key visual-verify-4 -session-token") || strings.Contains(calls, "dispatch end -C "+f.wt+" -change demo -key visual-verify ") {
+		t.Fatalf("exit %d\n%s\n%s", rc, out, calls)
+	}
+}

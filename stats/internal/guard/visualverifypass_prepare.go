@@ -606,6 +606,13 @@ func (v *vvp) dispatch(survivors []string, stack string) {
 	green := v.greenRows()
 	model, effort := v.pair()
 	begun := []string{}
+	if !v.cont {
+		keys := []string{}
+		for _, r := range rows {
+			keys = append(keys, r.key)
+		}
+		v.closeSuperseded(keys)
+	}
 	for _, r := range rows {
 		bundle := v.bundle(r.key, r.w, stack, relay, green, stage)
 		heads := []string{}
@@ -661,6 +668,26 @@ func (v *vvp) dispatch(survivors []string, stack string) {
 		v.say("DISPATCH: %s %s — description %q, subagent_type flow-%s, model %s, prompt opens \"Role: visual-verifier\"", r.key, bundle, r.key, effort, model)
 	}
 	v.next(fmt.Sprintf("dispatch %d", len(rows)))
+}
+
+// closeSuperseded ends, aborted, every still-open visual-verifier row of
+// this change whose key a new pass (keep) replaces, so none outlives its
+// supersession until a later sweep (kan-1160 self-review, F2).
+func (v *vvp) closeSuperseded(keep []string) {
+	raw, err := pfdRead(v.env, v.env.Dispatches, "dispatches", v.name, v.canon)
+	var rows []struct{ Key, Role, Outcome string }
+	if err == nil {
+		err = json.Unmarshal(raw, &rows)
+	}
+	if err != nil {
+		return // the begin below reports an unreachable store
+	}
+	for _, r := range rows {
+		if r.Role == "visual-verifier" && r.Outcome == "" && r.Key != "" && !slices.Contains(keep, r.Key) {
+			v.flow("record", "dispatch", "end", "-C", v.canon, "-change", v.name, "-key", r.Key,
+				"-session-token", v.token, "-outcome", "aborted")
+		}
+	}
 }
 
 // relayContract is skills/flow/visual-verify.md's paragraph opening
