@@ -483,12 +483,7 @@ parent's inline fix drops all four, so a Minor now costs about what writing its
 ### implement.md — Every fix is a fresh one-shot
 
 The inline parent pays for its fixes on its own large, growing context; a fresh fixer does the same turns on a small one. That supersedes the inline parent implementing under panel dispatch for its
-implementer half on every class but `micro`, and the parent fixing the
-gated reviewer's Minors under `sdd`: the gated Minors and `fix` verdicts go to one fixer at the
-stage's end — one dispatch per stage, not the rejected per-boundary fixer.
-
-One stage-end fixer's cost grows faster than its load: each tool call re-reading the whole growing context. A twenty-finding cap did not hold. So the stage-end fix caps a fixer at weight 3, the implementer
-groups' own cap, and fixers of one worktree run in series because they share it.
+implementer half on every class but `micro`.
 
 ### implement.md — The immediate re-commit
 
@@ -499,27 +494,14 @@ full cache rewrite of a context larger than a fresh fixer's, which is why the wi
 one resume per task keeps a fix that does not converge on the no-progress path. The resume gets its
 own row, keyed `-resume-`, so it records on the implementer's pair and never re-ends the group's row.
 
-### gated-review.md — The gated per-task reviewer
+### Retired — the gated per-task reviewer
 
-A gated bundle is a batch of weight 5, not the implementer group: small groups pay one reviewer dispatch each, each re-reading the brief, the prompt
-and the three artifacts for one to three small diffs. Weight 5 halves that count while a bundle
-stays well under the fixer's blow-up; the fixer keeps weight 3, since a fixer edits and re-tests where a reviewer only reads.
-
-> **one dispatch per bundle of gate-fired tasks, never one per task** (the review-dispatch count tracks the change's size, never its task count).
-
-> **The gated reviewer runs on `big` alone** (Below `big` the panel follows the last boundary at once, so the
-> gate-fired tasks become its review focus instead; the accepted cost is that per-task gated-review
-> yield is no longer measured on `micro`, `small` and `regular`).
-
-> never implementation WIP.
-
-**The gated reviewer and the mutation slot need more than one group or a big task.** On a decision of one
-implementer group with no big task the gated pass reviews the same diff the panel's `primary` reads one boundary
-later, so it doubles the review's cost and latency for no new reading; mutation's throwaway copies
-and test runs are sized for a change large enough to split. A `**Size:** big` task is a
-large change even alone in its group, so it meets the threshold too. The threshold is the group count
-and the plan's sizes because the decision and the plan already record them, so the rule is derived, not stored
-(`dgpvGatedReview`, `stats/internal/guard/plancheck.go`).
+The review panel is the only review (operator decision). A gated per-task pass read each task's
+diff before the panel's `primary` read the same commits again, so it added a review round's cost
+and latency without a reading the panel lacks. With it went its roles (`gated-reviewer`,
+`gated-re-reviewer`, dropped by migration 0119), its stage-end fixer and re-review, and the
+group-count gate on the `mutation` slot: that slot is the panel's own, decided by the panel's rules
+alone. Rows recorded under the retired roles and keys stay readable.
 
 ## Moved — planning-session trims
 
@@ -823,12 +805,12 @@ decision` refuses `high` on those three pairs, so a planner cannot drift back to
 escalation is a dispatch record, never a decision pair, and stays valid. The operator will watch
 fix and implementation quality after landing and revisit if it falls.
 
-## brainstorm-planner.md — Model and effort, panel effort roll and gated `high`
+## brainstorm-planner.md — Model and effort, panel effort roll and operator-gated `high`
 
 Panels ran costlier than most changes need — `medium` below the 90 band, and a free choice above
 it, `high` included — and a hard-seam panel dispatch could reach `high` on the planner's say
 alone, without the operator ever seeing it. **panel-effort-roll-60-40:** every pass-1 panel
-dispatch and gated per-task reviewer bundle takes `low` below `effort_roll` 60 and `medium` at or
+dispatch takes `low` below `effort_roll` 60 and `medium` at or
 above it, reusing the roll the since-deleted `plan-class` printed. **Rejected — a new independent
 `<name>paneleffort` roll:** a Go change and a ninth output line for no behaviour the shared roll
 lacks. **Rejected — keeping the planner's free choice above 90:** it leaves the ungated `high`
@@ -837,17 +819,7 @@ explicit **Yes** to a per-dispatch question added to the plan gate's AskUserQues
 fix run whose instructions report a lower-effort attempt already failed. **Rejected — a third
 option on the gate question:** the gate has exactly two options by contract. **Rejected —
 enforcing in `flow record decision`:** a Go change the ticket did not ask for; prose suffices for
-a planner-written record. **gated-bundle-never-high** : the gated per-task
-reviewer bundle runs at the panel roll's effort and never `high` — the decision JSON records no
-pair for it, so a raised effort had nowhere to be recorded and nothing that dispatches it reads one. **gated-reviewer-opus-medium** (operator-approved) supersedes its effort clause: the
-bundle runs on `opus` at `medium` always, pinned by the `gated-reviewer` row of **Allowed pairs**
-(`skills/flow-contracts/model-policy.md`), and each pass is a primary pass scoped to its own task's
-commit diff and `tasks.md` entry with the sections it cites. **Rejected — keeping the roll's
-effort:** a `low` reviewer on a big change's riskiest tasks bought little, and a pair the decision
-never records was unenforceable. **gated-rereview-opus-low** (operator-chosen): a fix
-re-review bundle runs on `opus` at `low`, pinned by its own `gated-re-reviewer`
-row, because a re-review reads only a small fix diff; the first pass stays at `medium`, and a
-handshake retry keeps its original bundle's pair.
+a planner-written record.
 
 ## brainstorm-planner.md — Decide, step 6 visual verification (visual-verify-decided-at-decide)
 

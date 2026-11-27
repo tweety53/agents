@@ -204,12 +204,6 @@
   "snippet": "**The outstanding items are the integrate run's own** — that run's outstanding w"
  },
  {
-  "question": "After fixers finish, how are tasks that failed review re-checked and what happens after three failed re-reviews?",
-  "kind": "any",
-  "file": "skills/flow/gated-review-fix.md",
-  "snippet": "**One re-review bundle**, once the last fixer's return has run, carries every ta"
- },
- {
   "question": "What should an implementer do when their measurements show the plan is wrong?",
   "kind": "any",
   "file": "skills/flow-contracts/plan-amendment.md",
@@ -298,12 +292,6 @@
   "kind": "late",
   "file": "rules/commit-scope-is-the-module.mdc",
   "snippet": "## The four prohibited shapes - **The change name** — `feat(kan-239-run-2-assert"
- },
- {
-  "question": "What are the description and role label for the second-round review bundle, and what closes earlier findings?",
-  "kind": "late",
-  "file": "skills/flow/gated-review-fix.md",
-  "snippet": "**One re-review bundle**, once the last fixer's return has run, carries every ta"
  },
  {
   "question": "What are the two failure directions of trusting or overriding a blocked gate, and where is a confirmed false alarm recorded?",

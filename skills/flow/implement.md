@@ -36,14 +36,13 @@ implementer, reviewer, slot or fix subagent launched first, by the wait of **Tur
 
 ### Dispatch sites — the parent's closed list
 
-These ten rows are **every** Agent-tool dispatch the parent may make, across sections **1**,
+These nine rows are **every** Agent-tool dispatch the parent may make, across sections **1**,
 **2** and **4** below, `skills/flow/review-panel.md`, `skills/flow/verify-and-handoff.md` and
 `skills/flow-contracts/pipeline.md`'s **Pipeline defects found mid-run**:
 
 | Site | Role | Key shape | Owning section |
 |---|---|---|---|
-| implementer, one per group; a fixer per fix | `implementer`; a fixer the role whose pair **Every fix is a fresh one-shot** names | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<ids>-implementer-fix-<k>`, `task-<n>-implementer-recommit-<k>` or `full-suite-fix-<n>`; a resumed implementer's `task-<n>-implementer-resume-<k>` (**The immediate re-commit**, below) | section **4** below, **Every fix is a fresh one-shot** |
-| gated reviewer bundle, one per batch of returned tasks of weight 5, on a decision of more than one group or a plan with a big task | `gated-reviewer`; a fix re-review `gated-re-reviewer` | `task-<n+n+n>-reviewer` | `skills/flow/gated-review.md`, **The gated per-task reviewer** |
+| implementer, one per group; a fixer per fix | `implementer`; a fixer the role whose pair **Every fix is a fresh one-shot** names | `task-<ids>-implementer`, ids `+`-joined in plan order; a fixer's `task-<n>-implementer-recommit-<k>` or `full-suite-fix-<n>`; a resumed implementer's `task-<n>-implementer-resume-<k>` (**The immediate re-commit**, below) | section **4** below, **Every fix is a fresh one-shot** |
 | panel bundle, one per decided `panel` bundle | `panel-reviewer` on pass 1; `panel-rerun` for a re-run | `panel-<round>-<slot\|slot+slot>` | `skills/flow/review-panel.md`, **Bundled dispatch** |
 | panel-fix, one per chunk of at most 10 findings | `panel-fix` | `panel-fix-<round>[-<chunk>]` | `skills/flow/review-panel.md`, the fix step |
 | minor fix, one per round that raised only Minors | `minor-fix` | `panel-<round>-minor-fix` | `skills/flow/review-panel.md`, **Panel re-runs** |
@@ -66,7 +65,7 @@ own change.
 delegated** — every `flow-guard check-*`, `flow-guard run-reproducer`,
 `flow-guard prepare-workspace`, `## lint`, `## test`, every `flow record` and `flow stage` call,
 worktree add and remove, every report read and every diff walk. Not to a "verify" reader, a
-"re-verify" or "mutation re-verify" agent, a helper, a background task, or a subagent under any
+"re-verify" agent, a helper, a background task, or a subagent under any
 other name. A call that names
 no row above is not made.
 
@@ -76,9 +75,9 @@ it needs — paths to the run's artifacts, reports and records — never the par
 `hooks/enforce-agent-baseline.py` denies a fork in a flow session.
 
 **Every dispatch's Agent-tool `description` names what it carries, in the operator's status-line
-shape.** A dispatch carrying plan tasks — an implementer, a gated reviewer bundle — names them
+shape.** A dispatch carrying plan tasks — an implementer — names them
 by plan id over the plan's task count, then a few words in parentheses: `Task 3/22 (port guard)`
-for one task, `Tasks 3+4+7/22 (review)` for a group, its ids in the order its key lists them. Every other row is its key and a few
+for one task, `Tasks 3+4+7/22 (port guards)` for a group, its ids in the order its key lists them. Every other row is its key and a few
 words, with no parentheses: `panel-1-primary correctness review`. The `flow-task-list` mod
 (`mods/flow-task-list/`) reads that prefix to number its row. The daemon stamps a launch onto the
 row its description's first word names. The `Role:` line is the **Role** column's id above.
@@ -123,14 +122,14 @@ second exit 1 on the same task, or an implementer that stopped five minutes ago 
 the fresh re-commit fixer (**Every fix is a fresh one-shot**, below).
 
 Every row's own prompt or brief carries the NO DELEGATION paragraph (`skills/flow/implementer-brief.md`,
-`skills/flow/gated-reviewer-brief.md`, `skills/flow/review-panel.md`, `skills/flow/visual-verify.md`, `skills/flow-contracts/pipeline.md`) — a leaf never dispatches, so
+`skills/flow/review-panel.md`, `skills/flow/visual-verify.md`, `skills/flow-contracts/pipeline.md`) — a leaf never dispatches, so
 nothing exists below these rows.
 **The `flow-<effort>` family (`agents/flow-low.md`, `agents/flow-medium.md`, `agents/flow-high.md`
 — three definitions, one per effort, each carrying `effort:` and no
 `model:`) carries a `tools:` allowlist that omits
 `Agent`** — the NO DELEGATION paragraph is backed by a capability the dispatched agent
-structurally does not have, not by prompt text alone. This covers the panel bundle,
-panel-fix and gated per-task reviewer rows. Every row takes the effort its role's pair names; the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`) is the `no-progress-fixer` role's.
+structurally does not have, not by prompt text alone. This covers the panel bundle
+and panel-fix rows. Every row takes the effort its role's pair names; the no-progress escalation of **Fewest operator actions** (`skills/flow-contracts/pipeline.md`) is the `no-progress-fixer` role's.
 
 **The return.** Once `await-rows` reports a dispatch's key `ENDED` (**Turn discipline**), read its verdict from its final
 message and continue to the next stage.
@@ -436,10 +435,8 @@ entry. At each boundary, in this order:
    stops the run**: re-committing cannot repair an inability, so it is never folded into
    the re-commit loop.
 
-3. **A second Bash call readies the due reviewer bundle's diffs**, when a batch is due (**The
-   gated per-task reviewer**, `skills/flow/gated-review.md`), and **the next message launches the next wave's implementers
-   and the due reviewer bundle**, each with `run_in_background: true`, then waits on them with
-   `await-rows` (**Turn discipline**, below). After the last group, the due reviewer bundle goes out alone.
+3. **The next message launches the next wave's implementers**, each with `run_in_background: true`, then waits on them with
+   `await-rows` (**Turn discipline**, below).
 
 **The guard's pass ticks the task.** Mark a **task's** checkbox `[x]` (`flow tasks tick`)
 once `flow-guard close-task`'s checks pass on its commit. A step's checkbox tracks
@@ -458,17 +455,8 @@ decision the pivot displaces is overridden per **Decisions**
 or rewritten — so the record carries the overridden decision beside its replacement. The amended plan is
 re-validated — `spectre validate` — before the next task dispatches.
 
-**The gated per-task reviewer runs only when the decision's `groups` holds more than one group,
-or any task is marked `**Size:** big`** (`gated review on` in `flow-guard plan-check`'s line;
-`dgpvGatedReview`, `stats/internal/guard/plancheck.go`). On one group with no big task no gated bundle is dispatched and nothing
-below that names one applies: the whole-branch review panel reviews the change alone.
-
-**Load `skills/flow/gated-review.md` only when** the gated per-task reviewer runs, by the rule
-above — it carries the bundle's batching, its recording, its stub prompt and its passes.
-
 **The last group's guard pass is the stage's last boundary.** `final-review.diff` is written and
-the slots dispatched once it has passed, every gated reviewer bundle has returned, the stage-end
-gated fix and its re-review have closed clean (`skills/flow/gated-review-fix.md`), and, when the test
+the slots dispatched once it has passed and, when the test
 list carries its visual tail, the parent's test-list run has passed, after any fix; the review panel's pre-work may ride the last boundary's Bash call. No
 panel verdict is taken, and no round after pass 1 is dispatched, on a red branch.
 
@@ -480,7 +468,7 @@ parent then waits with `<agents repo>/scripts/flow-guard await-rows <abs-worktre
 — one foreground call that returns `ENDED <key> <outcome>` per key, re-issued on `WAITING` — never a
 `sleep` or `until` loop and never by ending its turn. `await-rows … -any` returns as soon as one
 named key is `ENDED`, the rest on `WAITING`: the parent waits that way when the keys' children can
-be acted on one at a time — a group boundary's implementer beside the due reviewer bundle — acts on
+be acted on one at a time — a wave's implementers — acts on
 the ended key's return, and re-issues the wait on the keys still open. A child's completion notification arriving
 meanwhile is harmless. Once a key is `ENDED`, one `test -s` settles its
 report; an absent file takes that dispatch's no-report path (**The return**), and a child still
@@ -494,8 +482,8 @@ stated once here and cited — never restated — from `skills/flow/review-panel
 `skills/flow/verify-and-handoff.md` wherever they read a report or a diff:
 
 - **Never open a report.** The parent opens no report or evidence file a dispatched agent wrote. A
-  dispatch's verdict is its final message — an implementer's, fixer's or gated bundle's summary
-  head (`skills/flow/implementer-brief.md`, `skills/flow/gated-reviewer-brief.md`), the verifier's
+  dispatch's verdict is its final message — an implementer's or fixer's summary
+  head (`skills/flow/implementer-brief.md`), the verifier's
   `## Verdict`, the `merge-panel-findings` output — and a judgement that needs a report body goes to the
   agent passed that path: the fixer through `FIX INPUT:`, the planner. A file a guard or
   `flow` parses, and output the operator must see, are not the parent's reads.
@@ -506,7 +494,7 @@ stated once here and cited — never restated — from `skills/flow/review-panel
   `tail` (`| tail -20`, the failing block reproduced from the log file on a failure) — already the
   rule for implementers (TARGETED TESTS); it binds the parent's own `## lint` and `## test` runs the same way.
 - **Phase files read once per run.** `implement.md`, `review-panel.md`, `verify-and-handoff.md`
-  — and `fix.md`, `cross-repo-worktrees.md`, `gated-review.md`, `gated-review-fix.md`,
+  — and `fix.md`, `cross-repo-worktrees.md`,
   `implementer-brief.md`, `fixer-brief.md`, `review-panel-fix-round.md`, `review-panel-optional-slots.md`,
   `visual-verify.md` when their load directive or stage loads them — are each read in full
   once, at the start of the stage that needs them; a later need is served by
@@ -543,7 +531,7 @@ Once this stage completes, continue into `skills/flow/review-panel.md`.
 
 ### Every fix is a fresh one-shot
 
-**The parent edits no code.** Whatever a task's close, a gated pass or
+**The parent edits no code.** Whatever a task's close or
 the test list still needs changed in the tree goes to a fresh one-shot dispatch — never the
 parent, never a resumed child but under **The immediate re-commit** (above) — on its row below. Its prompt is the implementer stub (section
 **4** above) under the row's own `Key:`, its `Tasks:` line the tasks it fixes and a `FIX INPUT:`
@@ -552,7 +540,6 @@ line naming what to fix; its work is
 
 | Fix | Key | Pair | When |
 |---|---|---|---|
-| every `fix` verdict and every Minor the gated passes left open | `task-<ids>-implementer-fix-<k>`, the ids every task it fixes, `+`-joined in plan order | the `panel-fix` role's pair | at the stage's end, one per group of at most weight 3, in series within a worktree (`skills/flow/gated-review-fix.md`) |
 | a `flow-guard close-task` exit 1 a re-commit repairs | `task-<n>-implementer-recommit-<k>` | the `panel-fix` role's pair | at once, before the next group launches, when **The immediate re-commit** (above) does not resume the implementer |
 | a full-suite failure | `full-suite-fix-<n>` | the `panel-fix` role's pair | each time the test list's `VERDICT:` block names a `defect` (**The parent runs the test list**, above) |
 

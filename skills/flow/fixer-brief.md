@@ -1,6 +1,6 @@
 # Fixer brief
 
-Every fix dispatch — a gated fix, a re-commit, a full-suite fix, a review panel's fix chunk, a
+Every fix dispatch — a re-commit, a full-suite fix, a review panel's fix chunk, a
 Minors fix, a verify fix — is the implementer stub (**4. Execute (SDD + TDD)**,
 `skills/flow/implement.md`) carrying a `FIX INPUT:` line and the line `Fix brief:` naming this file.
 It reads `implementer-brief.md` and then this file in full first; every paragraph below binds it.

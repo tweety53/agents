@@ -19,7 +19,13 @@ each pass's REPORT FILE path are filled in by that brief.
 > here.
 
 > **READ-ONLY REVIEW:** Do not mutate the working tree, index, HEAD, or branch. Inspect with
-> Read, Grep, and git show/diff only.
+> Read, Grep, and git show/diff only. No command that writes: no `git checkout`, `git restore`,
+> `git reset`, `git stash`, `git clean`, `git worktree add`, no commit, no index change, and no
+> file edit outside your own report file — the panel's mutating slots are the one declared
+> exception, and they work in throwaway copies the parent creates, not this tree.
+
+> **GO CHANGES:** When a reviewed diff includes a `*.go` file, read and follow the `go-code-review` skill
+> first. A diff with no `.go` file skips this.
 
 > **REPORT FILE:** write your full report to
 > `<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md` before you end your turn — every

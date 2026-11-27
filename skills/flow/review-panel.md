@@ -349,8 +349,7 @@ skip-the-render shortcut.
 ## Panel re-runs
 
 **Load `skills/flow/review-panel-fix-round.md` only when** a round has recorded a Critical or
-Important finding, or the test list beside pass 1 named a `defect`, before that round's fix opens, or a section of it is cited at the point of use (the full-suite fix, the gated
-reviewer's fix, the stage-diff check) — it carries every fix round's procedure: the
+Important finding, or the test list beside pass 1 named a `defect`, before that round's fix opens, or a section of it is cited at the point of use (the full-suite fix, the stage-diff check) — it carries every fix round's procedure: the
 fix commit routes, which slots re-run and on what, the round close, the fix chunks and the
 non-convergence loop, while the fix subagent's dispatch paragraphs and dispatch record stay in
 this file.

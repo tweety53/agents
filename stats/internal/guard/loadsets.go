@@ -118,8 +118,8 @@ func conditionalLoadSets(r string) []loadSet {
 	f, c := r+"/skills/flow/", r+"/skills/flow-contracts/"
 	return []loadSet{
 		{"flow-fix, resume", inDir(f, "resume.md")},
-		{"fix run, cross-repo, sdd, gated review, live check, fix round, optional slots, isolation, pipeline defects, progress, UI",
-			catSets(inDir(f, "fix.md", "fix-visual.md", "cross-repo-worktrees.md", "gated-review-fix.md", "fixer-brief.md", "slot-brief.md", "review-panel-fix-round.md", "review-panel-optional-slots.md", "gated-review.md", "live-check.md"),
+		{"fix run, cross-repo, sdd, live check, fix round, optional slots, isolation, pipeline defects, progress, UI",
+			catSets(inDir(f, "fix.md", "fix-visual.md", "cross-repo-worktrees.md", "fixer-brief.md", "slot-brief.md", "review-panel-fix-round.md", "review-panel-optional-slots.md", "live-check.md"),
 				inDir(c, "workspace-isolation.md", "pipeline-defects.md", "progress-visibility.md", "quiet-progress.md"), inDir(f, "visual-verify.md"),
 				inDir(c, "git-boundaries-commit-chain.md", "project-configuration-visual.md", "guard-verdict-verification.md"))},
 		{"finish contracts, registry, gate, base moved, stops, own tooling, follow-ups, state file, config, verdicts",

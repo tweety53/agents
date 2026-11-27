@@ -10,7 +10,7 @@ key where the change name leads with one and the phase — read from the run's o
 worktree's git log on every draw, followed by ` │ ` and a tally of those rows by emoji. A task counts
 as done when it is ticked or a commit carrying its `Task-Id:` trailer is on the change branch since its
 base — `branch.<current>.flowBase` when recorded (its `refs/remotes/origin/` ref first), otherwise
-`refs/remotes/origin/HEAD`, as `<agents repo>/stats/internal/guard/taskrecords.go` resolves it — so a gated task counts before its deferred tick.
+`refs/remotes/origin/HEAD`, as `<agents repo>/stats/internal/guard/taskrecords.go` resolves it.
 Only the change's worktree in the session's own repository is read: a task whose commit lands in a peer
 repository's worktree counts once it is ticked. Work no subagent carries — brainstorming, an inline-executed task, a finish step —
 shows on the main agent's own `main` row, always first on the band, as `main: <label>`, `in progress` while the
@@ -23,7 +23,7 @@ name before any `(`, `:` or ` —`, a trailing ` review` dropped — or names on
 `done` line closes its unit, and a `blocked` one lasts only until the next main turn starts. A status
 line is never a row of its own. Nested under the `main` row, the band lists each running subagent row with its elapsed
 time and a state word read from its description: `re-review` for a review past its first round
-(`review-2`, `panel-2-…`), one re-run after a fix (`visual-verify-fix-1`, `task-3+4-reviewer-fix-1`) or one naming a
+(`review-2`, `panel-2-…`), one re-run after a fix (`visual-verify-fix-1`) or one naming a
 re-review, `review` for any other review, `fix` for a fix, `in progress` for any other agent. A row with a `Task <x>/<n>`
 prefix is a `review` or `re-review` only when its words are exactly that — `Tasks 3+4+7/<n> (review)` — and `in
 progress` otherwise, whatever its title names. A subagent that failed is drawn `blocked` among the running rows, in

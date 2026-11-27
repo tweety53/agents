@@ -148,8 +148,7 @@ any status report that offers to continue is this rule broken too.
 **A wait on background subagents is one `flow-guard await-rows` call, never a turn end** (**Turn
 discipline**, `skills/flow/implement.md`).
 
-A review-panel fix round, a gated
-per-task re-review, a verify stage's fix loop, a verifier re-dispatch, the implement phase's
+A review-panel fix round, a verify stage's fix loop, a verifier re-dispatch, the implement phase's
 full-suite fix and a guard or integrate call re-run after a stop each repeat until their own clean
 close or **The round ceiling** below. **A round that makes no progress — the same defect identity, on the same
 evidence, after a fix — changes the run's approach instead of stopping or asking.** The next fix

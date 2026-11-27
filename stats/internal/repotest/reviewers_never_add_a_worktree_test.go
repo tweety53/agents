@@ -19,10 +19,10 @@ func TestReviewersNeverAddAWorktree(t *testing.T) {
 		}
 		return string(b)
 	}
-	brief := read("skills/flow/gated-reviewer-brief.md")
+	brief := read("skills/flow/slot-brief.md")
 	i := strings.Index(brief, "**READ-ONLY REVIEW:**")
 	if i < 0 {
-		t.Fatal("skills/flow/gated-reviewer-brief.md: no READ-ONLY REVIEW block")
+		t.Fatal("skills/flow/slot-brief.md: no READ-ONLY REVIEW block")
 	}
 	block := brief[i:]
 	if j := strings.Index(block, "\n\n"); j >= 0 {

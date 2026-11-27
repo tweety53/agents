@@ -1316,8 +1316,8 @@ func implementerTask(key string) string {
 }
 
 // taskWorkKey is implementerTask for a task's own work, "" for a fix
-// round's key: a gated-review fix is separate work recorded after the
-// task's row completes (skills/flow/gated-review-fix.md).
+// round's key: a task fix is separate work recorded after the task's row
+// completes.
 func taskWorkKey(key string) string {
 	if strings.Contains(key, "-implementer-fix-") {
 		return ""

@@ -249,7 +249,7 @@ func ApplyDispatchRecord(ctx context.Context, rw RecordWriter, projectKey, chang
 	if records.Class(in.Role) == "reviewer" && in.Slot != "" {
 		for _, slot := range strings.Split(strings.ToLower(strings.TrimSpace(in.Slot)), "+") {
 			if !panelSlots[slot] && !(strings.HasPrefix(slot, "exp-") && len(slot) > len("exp-")) {
-				return records.Dispatch{}, fmt.Errorf("%w: slot %q is not a review-panel slot: name only panel slots (skills/flow/review-panel.md), and record a gated per-task or self-review reviewer without -slot", ErrInvalidRecord, slot)
+				return records.Dispatch{}, fmt.Errorf("%w: slot %q is not a review-panel slot: name only panel slots (skills/flow/review-panel.md), and record a self-review reviewer without -slot", ErrInvalidRecord, slot)
 			}
 		}
 	}

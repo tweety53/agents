@@ -76,11 +76,11 @@ pathspec-scoped commit would drop.
 ## Commits outside every task
 
 **Commits outside every task carry a `Flow-Key:` trailer.** A commit a run makes on a change
-branch outside every task — the parent's full-suite fix, a fix's implementer (`fix-<k>-implementer`), a panel fix or a gated reviewer's fix
+branch outside every task — the parent's full-suite fix, a fix's implementer (`fix-<k>-implementer`), a panel fix
 committed on top, the `minor-fix` subagent's review-Minors commit, `flow.verify`'s capture
 commit, the brainstorm's handoff-asset commit, integrate's implementation commit —
 carries `-m "Flow-Key: <key>"`, `<key>` the dispatch key its round is recorded under
-(`full-suite-fix-<n>`, `panel-fix-<round>`, `task-<n+n>-implementer-fix-<k>`) or, where the stage
+(`full-suite-fix-<n>`, `panel-fix-<round>`) or, where the stage
 records no such row, the stage key (`flow.review`, `flow.verify`, `flow.plan`,
 `flow.land`). A task's own commit
 carries `Task-Id:` instead.

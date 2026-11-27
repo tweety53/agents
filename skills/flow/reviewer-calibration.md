@@ -1,8 +1,7 @@
 # Reviewer calibration
 
-The severity scale the panel's **Primary** slot (`skills/flow/primary-reviewer-prompt.md`) and the
-gated per-task reviewer (**4. Execute (SDD + TDD)**, `skills/flow/implement.md`) categorize findings
-by. The reader is the dispatched reviewer.
+The severity scale the panel's **Primary** slot (`skills/flow/primary-reviewer-prompt.md`)
+categorizes findings by. The reader is the dispatched reviewer.
 
 Categorize by actual severity — not everything is Critical, and a nitpick is never one.
 

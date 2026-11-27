@@ -132,7 +132,7 @@ func TestPruneCandidatesNeverLoaded(t *testing.T) {
 	if r.rc != 0 {
 		t.Fatalf("rc = %d, want 0; out:\n%s", r.rc, r.out)
 	}
-	want := "never-loaded skills/flow/fix.md conditional: fix run, cross-repo, sdd, gated review, live check, fix round, optional slots, isolation, pipeline defects, progress, UI\n" +
+	want := "never-loaded skills/flow/fix.md conditional: fix run, cross-repo, sdd, live check, fix round, optional slots, isolation, pipeline defects, progress, UI\n" +
 		"never-loaded skills/flow/zeta.md\n"
 	if !strings.HasSuffix(r.stdout, want) || strings.Contains(r.stdout, "SKILL.md") || strings.Contains(r.stdout, "run.go") {
 		t.Errorf("stdout:\n%s\nwant suffix:\n%s", r.stdout, want)

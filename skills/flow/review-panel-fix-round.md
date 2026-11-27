@@ -156,7 +156,7 @@ round, one above the review round whose findings it fixes: the fix after `panel-
 `panel-fix-1`. A fix commit's
 `Flow-Key:` trailer names that same fix round. The round's first
 chunk's `-key` is exactly `panel-fix-<round>`; each further chunk appends `-<n>`
-(`panel-fix-<round>-2`, `-3`, …), contiguous from 2. A gated reviewer's fix round is no `panel-fix-<round>` key: it records under its own key, `-role panel-fix` (`skills/flow/gated-review-fix.md`), and a fix's implementer under `fix-<k>-implementer` (`skills/flow/fix.md`). Where a finding is
+(`panel-fix-<round>-2`, `-3`, …), contiguous from 2. A fix's implementer records under `fix-<k>-implementer` (`skills/flow/fix.md`), never a `panel-fix-<round>` key. Where a finding is
 confirmed as a real defect, the fix subagent reads and follows **superpowers:systematic-debugging**
 from its file before writing its fix — on Claude Code the newest
 `~/.claude/plugins/cache/*/superpowers/*/skills/systematic-debugging/SKILL.md`, since a `flow-*` agent

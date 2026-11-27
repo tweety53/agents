@@ -44,7 +44,6 @@ func TestNoProgressRule(t *testing.T) {
 	loops := []struct{ file, phrase string }{
 		{"skills/flow/fix.md", "a round being the **One round** column of the site's row: the fourth round after three failed ones is the fresh dispatch of **Three failed rounds**"},
 		{"skills/flow/implement.md", "its rounds escalate as **The fix loop** (`skills/flow/fix.md`) states"},
-		{"skills/flow/gated-review-fix.md", "Its rounds escalate as **The fix loop** (`skills/flow/fix.md`) states"},
 		{"skills/flow/review-panel-fix-round.md", "Its rounds escalate as **The fix loop** (`skills/flow/fix.md`) states"},
 		{"skills/flow/visual-verify.md", "as do three remainders of one dispatch that each close `NEXT: rest` (**Three failed rounds**, there)"},
 		{"skills/flow/visual-verify.md", "Three re-dispatches that each close `NEXT: redispatch` take **Three failed rounds**"},
