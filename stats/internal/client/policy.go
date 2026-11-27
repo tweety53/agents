@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 )
 
 // Policy fetches every role's pairs via GET /api/v1/policy, returned as the
@@ -87,4 +88,18 @@ func (c *Client) getPolicyJSON(ctx context.Context, url string, out any) error {
 		return fmt.Errorf("%w: response body is not valid JSON", ErrUnavailable)
 	}
 	return nil
+}
+
+// Bottlenecks reads GET /api/v1/stats/bottlenecks: the wall-clock ranking
+// of the last `last` changes, project "" meaning every project.
+func (c *Client) Bottlenecks(ctx context.Context, project string, last int) (json.RawMessage, error) {
+	q := url.Values{"last": {strconv.Itoa(last)}}
+	if project != "" {
+		q.Set("project", project)
+	}
+	var out json.RawMessage
+	if err := c.getPolicyJSON(ctx, c.baseURL+"/api/v1/stats/bottlenecks?"+q.Encode(), &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }

@@ -213,6 +213,7 @@ type serverOptions struct {
 	repricer       Repricer
 	policy         PolicyStore
 	roleCosts      RoleCostsStore
+	bottlenecks    BottlenecksStore
 	roleCostsSince time.Time
 	changeFiles    ChangeFileStore
 	runTimings     RunTimingsStore
@@ -504,6 +505,10 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	if so.roleCosts != nil {
 		rch := &roleCostsHandler{store: so.roleCosts, since: so.roleCostsSince, table: so.rolesTable, log: logger}
 		mux.Handle("GET /api/v1/stats/role-costs", http.TimeoutHandler(http.HandlerFunc(rch.get), so.statsTimeout, statsTimeoutMessage))
+	}
+	if so.bottlenecks != nil {
+		bh := &bottlenecksHandler{store: so.bottlenecks, log: logger}
+		mux.Handle("GET /api/v1/stats/bottlenecks", http.TimeoutHandler(http.HandlerFunc(bh.get), so.statsTimeout, statsTimeoutMessage))
 	}
 	if so.policy != nil {
 		eh := &policyHandler{store: so.policy, table: so.rolesTable, logger: logger}

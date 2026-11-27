@@ -65,6 +65,7 @@ commands:
   confidence tags|record  list the confidence-estimate tags in use; file one estimate below 100% (see: flow confidence)
   jira transition      move an issue to a pipeline position via flowd (see: flow jira)
   workspace-id <name>  print a change's workspace id, derived from its name
+  stats bottlenecks    rank where the last N changes spent wall-clock time (see: flow stats)
 `
 
 // handledSignals is the one list of signals this CLI treats as termination
@@ -133,6 +134,8 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdin i
 		return runJira(ctx, args[1:], getenv, stdout, stderr)
 	case "workspace-id":
 		return runWorkspaceID(ctx, args[1:], stdout, stderr)
+	case "stats":
+		return runStats(ctx, args[1:], getenv, stdout, stderr)
 	case "interactive":
 		return runInteractive(ctx, args[1:], getenv, stdout, stderr)
 	default:

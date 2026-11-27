@@ -187,6 +187,17 @@ migration `0082_guard_run_headless.sql`) and counted as one run of its role; cal
 that migration were never stored. The stats SPA's
 **Role costs** view draws it.
 
+## Bottlenecks
+
+`flow stats bottlenecks [-last N] [-project key] [-json]` reads
+`GET /api/v1/stats/bottlenecks?last=N[&project=]` and ranks where the last N changes (default 20,
+ordered by their latest stage run) spent wall-clock time, from rows already recorded: ended
+`stage_runs` by stage key, ended `dispatches` by role and by `dispatch_class(role)`, `guard_runs` by
+guard (claimed by worktree as the per-run page claims them) and `verify_runs` by label. Each
+dimension prints its top 10 — name, runs, total, share of the changes' summed wall clock (first
+stage-run start to last end), p50, p95 — then one line of the top 5 time sinks across dimensions,
+role class left out. Dimensions overlap, so shares do not add up across them. Ranking only; no UI.
+
 ## Confidence estimates
 
 `flow confidence record` files a below-100% estimate with its gaps and tags (`flow confidence tags`
