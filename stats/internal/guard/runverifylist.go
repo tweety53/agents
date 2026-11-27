@@ -102,9 +102,32 @@
 // named branch that names no change (pwChangeName), /flow-fast's and
 // /flow-interactive's, which carries no workspace; a prepare-workspace that
 // exits non-zero prints its output and exits 2 before any command (kan-1099
-// self-review, F16). This script retries
-// nothing — the one inline re-run of a failing command stays the caller's,
-// and a race-marked command takes **The loop** whatever its re-run exits.
+// self-review, F16).
+//
+// THE ONE RE-RUN (request 65: the runner agent that re-ran a failing command
+// for its flake-or-defect evidence is retired). A `test` list re-runs each
+// `## test` command that exited non-zero once, at the same HEAD, all at once,
+// after the list and before its report, and its block gains, after its output
+// lines, one of
+//   flake-or-defect: flaky — passed on its re-run
+//   flake-or-defect: defect — failed again
+//   flake-or-defect: defect — data race, not re-run
+//   flake-or-defect: defect — data race on its re-run
+//   flake-or-defect: undecided — failed again naming no failing test: triage it by a `general` agent
+// "failed again" needs a Go `--- FAIL: <name>` line in the re-run's output; a
+// command whose first run carries a data race is never re-run. A flaky
+// command counts as passed: the list exits by the re-run, as THE NARROWED
+// RUN exits by the tests that failed twice. The block's `exit <n>` and
+// `full output:` stay the first run's. The visual `verify` row is never
+// re-run here: its one re-run is the narrowed `-only` run. A `test` list
+// ends with
+//   VERDICT: PASS
+// or
+//   VERDICT: FAIL
+//     failing: <name> — defect|undecided
+//     failing: `<verify row>` — visual: re-run narrowed
+// one `failing:` line per Go test the first run's output names, else one for
+// the command. A `lint` list is never re-run.
 //
 // THE GREEN SHA (KAN-887's self-review: verify re-ran the whole list minutes
 // after a green test-list run, the delta a test rename). A `test` run that
@@ -1124,7 +1147,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		record = func(verb string, flags ...string) bool {
 			argv := []string{"record", "dispatch", verb, "-C", wt, "-change", change}
 			if verb == "begin" {
-				argv = append(argv, "-role", "runner", "-model", model, "-effort", effort, "-agent-id", "inline")
+				argv = append(argv, "-role", "verifier", "-model", model, "-effort", effort, "-agent-id", "inline")
 				// The verified worktree's HEAD, which check-verify-green judges
 				// the row by (decision verify-row-records-head); a worktree git
 				// cannot resolve records none, and that row is never green.
@@ -1337,7 +1360,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		for _, l := range lines {
 			fmt.Fprintf(stdout, "  %s\n", l)
 		}
-		if bytes.Contains(out, []byte("WARNING: DATA RACE")) || bytes.Contains(out, []byte("race detected during execution of test")) {
+		if rvlRace(out) {
 			fmt.Fprintln(stdout, "  data race — never environmental")
 		}
 		if rc != 0 && keep != "" {
@@ -1420,8 +1443,27 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 			run(c, c, fmt.Sprint(i))
 		}
 	}
+	var verdict []string // THE ONE RE-RUN: each failing test command's VERDICT line
 	if list == "test" {
 		results := rgtRun(context.Background(), argvs, max(len(argvs), 1), outDir, abs(wt), cmdEnv)
+		// THE ONE RE-RUN: every failing command but a data race runs once
+		// more, at the same HEAD, all at once, into its own directory.
+		var again [][]string
+		var againOf []int
+		for j, r := range results[:len(argvs)] {
+			if out, _ := os.ReadFile(r.out); r.rc != 0 && !rvlRace(out) {
+				again, againOf = append(again, argvs[j]), append(againOf, j)
+			}
+		}
+		rerun := map[int]rgtJob{}
+		if len(again) > 0 {
+			dir := filepath.Join(outDir, "rerun")
+			os.MkdirAll(dir, 0o777)
+			for k, r := range rgtRun(context.Background(), again, len(again), dir, abs(wt), cmdEnv) {
+				rerun[againOf[k]] = r
+			}
+		}
+		j := -1
 		for i, c := range cmds {
 			if passedAt[i] {
 				fmt.Fprintf(stdout, "- `%s` — skipped, passed at %s\n", c, headSHA)
@@ -1435,9 +1477,38 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				fmt.Fprintf(stdout, "- `%s` — skipped, no input changed since %s passed the list\n", c, since)
 				continue
 			}
-			r := results[0]
-			results = results[1:]
+			j++
+			r := results[j]
+			was := failed
 			report(c, r.rc, r.out, list+"-"+fmt.Sprint(i))
+			if r.rc != 0 {
+				out, _ := os.ReadFile(r.out)
+				class, why := "defect", "data race, not re-run"
+				if re, ok := rerun[j]; ok {
+					again, _ := os.ReadFile(re.out)
+					switch {
+					case re.rc == 0:
+						class, why = "flaky", "passed on its re-run"
+						failed, r.rc = was, 0
+					case rvlRace(again):
+						why = "data race on its re-run"
+					case len(rvlFailingTests(again)) > 0:
+						why = "failed again"
+					default:
+						class, why = "undecided", "failed again naming no failing test: triage it by a `general` agent"
+					}
+				}
+				fmt.Fprintf(stdout, "  flake-or-defect: %s — %s\n", class, why)
+				if class != "flaky" {
+					names := rvlFailingTests(out)
+					if len(names) == 0 {
+						names = []string{"`" + c + "`"}
+					}
+					for _, n := range names {
+						verdict = append(verdict, n+" — "+class)
+					}
+				}
+			}
 			if r.rc == 0 {
 				passed = append(passed, c)
 			} else if sha := escaped(c); sha != "" {
@@ -1588,6 +1659,10 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 					name = fmt.Sprintf("visual-%s-r%d", mode, round)
 				}
 				report(cmd, results[0].rc, results[0].out, name)
+				if results[0].rc != 0 {
+					// Its one re-run is the narrowed one, -only.
+					verdict = append(verdict, "`"+cmd+"` — visual: re-run narrowed")
+				}
 				if results[0].rc == 0 {
 					passed = append(passed, cmd)
 					if _, err := os.Stat(failingFile); err == nil && rounded && mode == "plain" && keep != "" {
@@ -1608,6 +1683,16 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				if flaky := rvlSummaryBlocks(visualLog, "flaky"); len(flaky) > 0 {
 					fmt.Fprintf(stdout, "  flaky (%d): %s — passed on retry: fix each at its source\n", len(flaky), strings.Join(flaky, " "))
 				}
+			}
+		}
+	}
+	if list == "test" {
+		if failed == 0 {
+			fmt.Fprintln(stdout, "VERDICT: PASS")
+		} else {
+			fmt.Fprintln(stdout, "VERDICT: FAIL")
+			for _, v := range verdict {
+				fmt.Fprintf(stdout, "  failing: %s\n", v)
 			}
 		}
 	}
@@ -1733,6 +1818,25 @@ type rgtJob struct {
 // share one capture file -- one descriptor, so the harness's own write order
 // is kept -- and a file rather than a pipe, so a background process a
 // harness leaves holding its output never delays the run.
+// rvlRace reports whether a command's output carries a data race.
+func rvlRace(out []byte) bool {
+	return bytes.Contains(out, []byte("WARNING: DATA RACE")) || bytes.Contains(out, []byte("race detected during execution of test"))
+}
+
+var rvlFailLine = regexp.MustCompile(`(?m)^\s*--- FAIL: (\S+)`)
+
+// rvlFailingTests is every Go test a command's output names as failed, in
+// order, each once.
+func rvlFailingTests(out []byte) []string {
+	var names []string
+	for _, m := range rvlFailLine.FindAllSubmatch(out, -1) {
+		if n := string(m[1]); !slices.Contains(names, n) {
+			names = append(names, n)
+		}
+	}
+	return names
+}
+
 func rgtRun(ctx context.Context, argvs [][]string, jobs int, tmpDir, dir string, childEnv []string) []rgtJob {
 	results := make([]rgtJob, len(argvs))
 	sem := make(chan struct{}, jobs)

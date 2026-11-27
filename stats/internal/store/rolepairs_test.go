@@ -37,7 +37,6 @@ func TestRolePairsSeedMatchesTable(t *testing.T) {
 		"panel-rerun":       {Base: []string{"opus/flow-low", "sonnet/flow-low"}, Optin: []string{}},
 		"pair-judge":        {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
 		"visual-verifier":   {Base: []string{"opus/flow-low"}, Optin: []string{}},
-		"runner":            {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
 		"general":           {Base: []string{"sonnet/flow-low"}, Optin: []string{}},
 		"self-review-pass":  {Base: []string{"opus/flow-medium"}, Optin: []string{}},
 		"loop-plan":         {Base: []string{"opus/flow-planner-medium", "opus/flow-planner-low"}, Optin: []string{}},

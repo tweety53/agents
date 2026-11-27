@@ -50,7 +50,7 @@ These ten rows are **every** Agent-tool dispatch the parent may make, across sec
 | fix implementer, one per fix | `implementer` | `fix-<k>-implementer` | `skills/flow/fix.md`, step 2 |
 | fix reviewer, one per fix | `panel-reviewer` | `fix-<k>-review` | `skills/flow/fix.md`, step 4 |
 | verifier, one per worktree | `visual-verifier` | `visual-verify` (`-2`, `-retry`, `-rest`, `-rest-<n>`, `-fix-<k>`) | `skills/flow/visual-verify.md`, **The verifier dispatch** |
-| runner, one per test-list run | `runner` | `runner-<n>` | section **4** below, **The runner runs the test list**, and `skills/flow/verify-and-handoff.md`, **Inline verify** |
+| triage, one per `undecided` line of the test list's `VERDICT:` block | `general` | `triage-<n>` | section **4** below, **The parent runs the test list**, and `skills/flow/verify-and-handoff.md`, **Inline verify** |
 | in-run pipeline fix fixer and review, one each per loop step | none — its `Key:` line names its role | `pipeline-fix-<k>-fix` (`-fix-g<g>`, `-fix-r<r>`, `-fix-v<v>`), `pipeline-fix-<k>-review-1`, `pipeline-fix-<k>-review-r<r>` | `skills/flow-contracts/pipeline.md`, **Pipeline defects found mid-run** |
 
 **Every dispatch's prompt carries its Role line** — `Role: <role id>`, a line of its own, the id
@@ -64,10 +64,10 @@ own change.
 
 **Everything else in those sections is the parent's own Bash and Read work, never
 delegated** — every `flow-guard check-*`, `flow-guard run-reproducer`,
-`flow-guard prepare-workspace`, `## lint`, every `flow record` and `flow stage` call,
+`flow-guard prepare-workspace`, `## lint`, `## test`, every `flow record` and `flow stage` call,
 worktree add and remove, every report read and every diff walk. Not to a "verify" reader, a
 "re-verify" or "mutation re-verify" agent, a helper, a background task, or a subagent under any
-other name; the `## test` list is the runner's. A call that names
+other name. A call that names
 no row above is not made.
 
 **No row is ever a fork.** No `/flow*` phase, and no loop a phase or the self-review runs,
@@ -337,24 +337,25 @@ it fixes, and two lines before its REPORT FILE line: `Fix brief: <skill-dir>/fix
 Every fixer of every stage — this file's rows below, the review panel's chunks and Minors fix,
 `skills/flow/fix.md`'s verify fix — takes this one shape.
 
-**The runner runs the test list — never an implementer, never the parent.** Once the plan-last
+**The parent runs the test list — never an implementer.** Once the plan-last
 group — the group holding the plan's last task — has passed the guard, by its commit, the parent
-dispatches one runner per worktree in this run's resolved set, one worktree after another, in the
-background, skipping a worktree the skip rule of **Inline verify**
-(`skills/flow/verify-and-handoff.md`) prints nothing for. Its prompt is the implementer stub's
-first lines under `Role: runner` and `Key: runner-<n>`, `<n>` counting this run's runners from 1,
-its `Read <skill-dir>/runner-brief.md in full first` line, the `Worktree:` line, `COMMANDS:` —
-`flow-guard run-verify-list <worktree> test`, by hand in the order `## test` lists it only where
-that exits 3 — and `REPORT FILE: <abs-worktree>/.superpowers/sdd/runner-report-<n>.md`; its pair is
-the `runner` role's. The green sha each run records in its own worktree is what lets **Inline
-verify** skip what no later commit touched. The parent reads the runner's final message only:
-`VERDICT: PASS` goes on; `VERDICT: FAIL` with `flaky` evidence goes on once the runner's re-run has
-passed; `defect` is fixed at its root cause by a fresh one-shot `full-suite-fix-<n>` (**Every fix is
-a fresh one-shot** below), its `FIX INPUT:` the runner's `failing:` lines and `full output:` path,
-then a fresh runner re-runs only what failed — a visual `verify` row narrowed as **Narrowed visual
-re-runs** states (`skills/flow/fix-visual.md`), any other failing test by name — and re-runs the list once,
-after the last fix, when those pass: each `full-suite-fix-<n>`/runner pair is one round, and three
-failed rounds take **Three failed rounds** (`skills/flow-contracts/pipeline.md`). The commit
+runs `flow-guard run-verify-list <worktree> test` — by hand in the order `## test` lists it only where
+that exits 3 — for each worktree in this run's resolved set, one worktree after another, skipping a
+worktree the skip rule of **Inline verify** (`skills/flow/verify-and-handoff.md`) prints nothing for,
+under that section's **A command that can outrun the shell tool's foreground limit**. The green sha
+each run records in its own worktree is what lets **Inline verify** skip what no later commit
+touched. The list re-runs each failing command once itself and ends with its `VERDICT:` block, the
+script's header canonical (THE ONE RE-RUN); the parent reads that block only: `VERDICT: PASS` goes on,
+a command its re-run passed counted passed as `flaky`; a `defect` line is fixed at its root cause by a
+fresh one-shot `full-suite-fix-<n>` (**Every fix is a fresh one-shot** below), its `FIX INPUT:` the
+`failing:` lines and the `full output:` paths; an `undecided` line is first triaged by one `general`
+agent, `Role: general` and `Key: triage-<n>`, `<n>` counting this run's triages from 1, its prompt the
+`failing:` line and the command's `full output:` path, its answer `defect` or `environment` with the
+evidence — a `defect` is then fixed as above, an `environment` cause ends the turn as **Inline verify**
+says. After a fix the parent re-runs only what failed — a visual `verify` row narrowed as **Narrowed
+visual re-runs** states (`skills/flow/fix-visual.md`), any other failing test by name — and re-runs the
+list once, after the last fix, when those pass: each `full-suite-fix-<n>` and its re-run is one round,
+and three failed rounds take **Three failed rounds** (`skills/flow-contracts/pipeline.md`). The commit
 carries `-m "Flow-Key: full-suite-fix-<n>"` (**Commits outside every task**,
 `skills/flow-contracts/git-boundaries.md`).
 `flow-guard run-verify-list`'s `test` list ends with that section's `verify` run on the specs its `specs`
@@ -365,7 +366,7 @@ list failing when it exits non-zero, and the whole suite, `<specs>` empty, only 
 capture a shared-component change moved fails here rather than at `flow.verify`. When only the
 `--repo` run step 2 of **Visual verification** (`skills/flow/verify-and-handoff.md`) adds exits 0,
 for another worktree of the resolved set, its merge base from this run's working notes, the parent
-has a runner run that `verify` after the list, against the canonical worktree's stack, under the stack
+runs that `verify` after the list, against the canonical worktree's stack, under the stack
 rules of **One stack for the verification tasks** below.
 The section's `setup` row runs before the list when the toolchain is missing. A failure a product defect caused
 is fixed in this step's fix round; a capture the change moved on purpose — one whose difference
@@ -547,8 +548,7 @@ stated once here and cited — never restated — from `skills/flow/review-panel
   --stat` and the specific hunks a finding names, never the whole diff.
 - **Test/lint output through `tail`.** A targeted test or lint run's output is piped through
   `tail` (`| tail -20`, the failing block reproduced from the log file on a failure) — already the
-  rule for implementers (TARGETED TESTS); it binds the parent's own `## lint` runs and the runner's
-  commands the same way.
+  rule for implementers (TARGETED TESTS); it binds the parent's own `## lint` and `## test` runs the same way.
 - **Phase files read once per run.** `implement.md`, `review-panel.md`, `verify-and-handoff.md`
   — and `fix.md`, `cross-repo-worktrees.md`, `gated-review-fix.md`,
   `implementer-brief.md`, `fixer-brief.md`, `review-panel-fix-round.md`, `review-panel-optional-slots.md`,
@@ -592,7 +592,7 @@ line naming what to fix; its work is
 |---|---|---|---|
 | every `fix` verdict and every Minor the gated passes left open | `task-<ids>-implementer-fix-<k>`, the ids every task it fixes, `+`-joined in plan order | the `panel-fix` role's pair | at the stage's end, one per group of at most weight 3, in series within a worktree (`skills/flow/gated-review-fix.md`) |
 | a `flow-guard close-task` exit 1 a re-commit repairs | `task-<n>-implementer-recommit-<k>` | the `panel-fix` role's pair | at once, before the next group launches |
-| a full-suite failure | `full-suite-fix-<n>` | the `panel-fix` role's pair | each time a runner reports a `defect` (**The runner runs the test list**, above) |
+| a full-suite failure | `full-suite-fix-<n>` | the `panel-fix` role's pair | each time the test list's `VERDICT:` block names a `defect` (**The parent runs the test list**, above) |
 
 A full-suite fix takes its name from its key: the run it repairs is the test list, never the
 full suite, which is `flow-guard run-verify-list -full` and runs only when the operator asks.

@@ -28,6 +28,8 @@ import (
 // bashSpecReachRow is the row the bash twin appends for its check-spec-reach.sh sibling, which no longer exists.
 var bashSpecReachRow = regexp.MustCompile("- `check-spec-reach\\.sh <ROOT>` — exit [0-9]+\n(  .*\n)*")
 
+var rvlVerdictLines = regexp.MustCompile(`(?m)^(?:  flake-or-defect: .*|VERDICT: .*|  failing: .*)\n`)
+
 func TestRunVerifyList(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
@@ -101,6 +103,8 @@ func TestRunVerifyList(t *testing.T) {
 		// The recording arguments (kan-1033) and the visual list (kan-1052
 		// self-review, F2) postdate the bash: its usage line lacks them.
 		g := res{grc, strings.NewReplacer(" [<change> <key> <session-token> <model> <effort> [<canonical-worktree>]]", "", "lint|test|visual", "lint|test").Replace(norm(gr, o.String(), e.String()))}
+		// THE ONE RE-RUN's lines postdate the bash too.
+		g.out = rvlVerdictLines.ReplaceAllString(g.out, "")
 
 		bargs := make([]string, len(args))
 		for i, a := range args {
@@ -349,7 +353,7 @@ func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 		writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+cmds+"\n```\n")
 	}
 	rec := []string{"kan-1", "verify", "mf-k1", "opus", "low"}
-	begin := "flow record dispatch begin -C " + wt + " -change kan-1 -role runner -model opus -effort low -agent-id inline -key verify -session-token mf-k1\n"
+	begin := "flow record dispatch begin -C " + wt + " -change kan-1 -role verifier -model opus -effort low -agent-id inline -key verify -session-token mf-k1\n"
 	end := "flow record dispatch end -C " + wt + " -change kan-1 -key verify -session-token mf-k1 -outcome completed\n"
 
 	project("echo first >> " + log + "\necho last >> " + log)
@@ -359,7 +363,7 @@ func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 	}
 
 	project("echo ran >> " + log + "; exit 1")
-	if rc, calls := run(append([]string{wt, "test"}, rec...)...); rc != 1 || calls != begin+"ran\n"+strings.Replace(end, "-outcome completed", "-outcome blocked -cause test-failure", 1) {
+	if rc, calls := run(append([]string{wt, "test"}, rec...)...); rc != 1 || calls != begin+"ran\nran\n"+strings.Replace(end, "-outcome completed", "-outcome blocked -cause test-failure", 1) {
 		t.Errorf("a failing list: exit %d, calls:\n%s", rc, calls)
 	}
 
@@ -1336,6 +1340,63 @@ func TestRunVerifyListSkipsACommandGreenAtHead(t *testing.T) {
 	}
 }
 
+// TestRunVerifyListClassifiesAFailingTestCommand: THE ONE RE-RUN — a failing
+// `test` command runs once more at the same HEAD: passing then, it is flaky
+// and the list exits by the re-run; failing again with a failing Go test
+// named, a defect; failing again naming none, undecided; a data race is a
+// defect never re-run. The list ends with its VERDICT block.
+func TestRunVerifyListClassifiesAFailingTestCommand(t *testing.T) {
+	t.Parallel()
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := `"$(git rev-parse --git-dir)"`
+	flaky := `test -f ` + g + `/f && exit 0; touch ` + g + `/f; exit 1`
+	defect := `echo ran >> ` + g + `/d; echo '--- FAIL: TestBroken (0.00s)'; exit 1`
+	undecided := `echo 'make: no rule'; exit 2`
+	race := `echo ran >> ` + g + `/r; echo 'WARNING: DATA RACE'; exit 1`
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
+	getenv := func(k string) string {
+		for i := len(environ) - 1; i >= 0; i-- {
+			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
+				return v
+			}
+		}
+		return ""
+	}
+	test := func(cmds ...string) (int, string) {
+		writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+strings.Join(cmds, "\n")+"\n```\n")
+		var o, e bytes.Buffer
+		rc := runVerifyList([]string{wt, "test"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		return rc, o.String()
+	}
+	fixtureRepo(t, wt, repoShape{})
+	runs := func(f string) int {
+		b, _ := os.ReadFile(filepath.Join(wt, ".git", f))
+		return strings.Count(string(b), "\n")
+	}
+
+	rc, out := test(flaky)
+	if rc != 0 || !strings.Contains(out, "  flake-or-defect: flaky — passed on its re-run\n") || !strings.HasSuffix(out, "VERDICT: PASS\n") {
+		t.Errorf("flaky: exit %d\n%s", rc, out)
+	}
+	rc, out = test(defect, undecided, race)
+	for _, want := range []string{
+		"  flake-or-defect: defect — failed again\n",
+		"  flake-or-defect: undecided — failed again naming no failing test: triage it by a `general` agent\n",
+		"  flake-or-defect: defect — data race, not re-run\n",
+		"VERDICT: FAIL\n  failing: TestBroken — defect\n  failing: `" + undecided + "` — undecided\n  failing: `" + race + "` — defect\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	if rc != 1 || runs("d") != 2 || runs("r") != 1 {
+		t.Errorf("exit %d, defect runs %d, race runs %d; want 1, 2, 1\n%s", rc, runs("d"), runs("r"), out)
+	}
+}
+
 // rvlSummary is a Playwright 1.62.1 list-reporter run: passing lines, an error
 // header, and the failed / interrupted / flaky summary blocks, one block
 // header wrapped in ANSI colour codes.
@@ -1891,7 +1952,7 @@ func TestRunVerifyListFullRunsEverySuite(t *testing.T) {
 		t.Errorf("-full run: exit %d, want 0, nothing skipped, QUIET-RAN and FULL=1:\n%s", rc, out)
 	}
 	calls, _ := os.ReadFile(log)
-	for _, want := range []string{"-suite quiet-full ", "-suite plain-full ", "dispatch begin", "-role runner", "-outcome completed"} {
+	for _, want := range []string{"-suite quiet-full ", "-suite plain-full ", "dispatch begin", "-role verifier", "-outcome completed"} {
 		if !strings.Contains(string(calls), want) {
 			t.Errorf("flow log lacks %q:\n%s", want, calls)
 		}

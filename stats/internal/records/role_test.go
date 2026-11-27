@@ -4,9 +4,8 @@ import "testing"
 
 func TestStoredRole(t *testing.T) {
 	for _, c := range []struct{ role, key, policy, want string }{
-		{"verifier", "verify", "", "runner"},
-		{"verifier", "verify-2-gymie", "", "runner"},
-		{"verifier", "runner-1", "", "runner"},
+		{"verifier", "verify", "", "verifier"},
+		{"verifier", "verify-2-gymie", "", "verifier"},
 		{"verifier", "visual-verify-2", "", "visual-verifier"},
 		{"reviewer", "panel-1-primary", "", "panel-reviewer"},
 		{"reviewer", "panel-1-primary", "panel-rerun", "panel-rerun"},

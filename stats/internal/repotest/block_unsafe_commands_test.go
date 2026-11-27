@@ -340,9 +340,9 @@ func TestBlockUnsafeCommands(t *testing.T) {
 	f.bash("112 go test of the guard package naming its tests", "allow", "{ROOT}", `cd {SIB}/stats && go test ./internal/guard/ -run 'PairJudge|PjSample'`)
 	f.bash("113 go test of a light package", "allow", "{ROOT}", `cd {SIB}/stats && go test ./internal/modelpolicy/`)
 
-	// 143-145: the recording form of run-verify-list is a runner subagent's, never the main session's.
+	// 143-146: the main session runs the list itself, the recording form included (no runner agent).
 	rec := `{SIB}/scripts/flow-guard run-verify-list {SIB} lint kan-1 verify mf-abc123 haiku low`
-	f.bash("143 run-verify-list recording form from the main session", "deny", "{ROOT}", rec)
+	f.bash("143 run-verify-list recording form from the main session", "allow", "{ROOT}", rec)
 	f.bash("144 run-verify-list bare form from the main session", "allow", "{ROOT}", `{SIB}/scripts/flow-guard run-verify-list {SIB} lint`)
 	for _, c := range []struct{ n, key, val string }{{"145 recording form from a subagent (agent_id)", "agent_id", "a1b2c3"}, {"146 recording form from a subagent (transcript)", "transcript_path", "/x/s/subagents/agent-a1.jsonl"}} {
 		f.check(c.n, func(t *testing.T) {

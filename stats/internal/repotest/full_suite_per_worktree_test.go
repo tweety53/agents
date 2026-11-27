@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// TestFullSuiteRunsPerWorktree pins the runner's pre-panel test-list run to
+// TestFullSuiteRunsPerWorktree pins the parent's pre-panel test-list run to
 // every worktree of the resolved set (kan-1084 self-review, F1: the frontend's
 // `## test` list first ran at flow.verify, after three panel rounds had
 // reviewed that tree).
@@ -13,8 +13,8 @@ func TestFullSuiteRunsPerWorktree(t *testing.T) {
 	t.Parallel()
 	s := strings.Join(strings.Fields(section(t, "skills/flow/implement.md", "4. Execute (SDD + TDD)")), " ")
 	for _, want := range []string{
-		"**The runner runs the test list — never an implementer, never the parent.**",
-		"one runner per worktree in this run's resolved set",
+		"**The parent runs the test list — never an implementer.**",
+		"for each worktree in this run's resolved set",
 		"flow-guard run-verify-list <worktree> test",
 	} {
 		if !strings.Contains(s, want) {

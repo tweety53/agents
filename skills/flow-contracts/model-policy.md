@@ -125,7 +125,6 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 | Role | Does |
 |---|---|
 | `visual-verifier` | Screenshots the UI and compares it with the mockup. |
-| `runner` | Runs the test list or another long command and returns a verdict with the failing names and its flake-or-defect evidence. |
 
 ### Self-review
 
@@ -146,7 +145,7 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 
 | Role | Does |
 |---|---|
-| `general` | Any task no other role fits; the operator adds pairs in the Agent roles view. |
+| `general` | Triages a failing test `flow-guard run-verify-list` marks `undecided`, and any task no other role fits; the operator adds pairs in the Agent roles view. |
 
 ### Pair choice
 
@@ -163,7 +162,7 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 | A conflict or red check after a rebase or base sync, fixed outside any loop | `minor-fix` |
 | A fix loop that made no progress | `no-progress-fixer` |
 | Screenshot recapture, browser driving or a capture run | `visual-verifier` |
-| Running the test list or another long command for its verdict | `runner` |
+| Triaging a failing test `flow-guard run-verify-list` marks `undecided` | `general` |
 | Anything else | `general` |
 
 ## Harness mapping

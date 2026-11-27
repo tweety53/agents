@@ -510,7 +510,7 @@ func TestEnforceAgentBaselineHookBeginsEveryRowRole(t *testing.T) {
 		"implementer": "implementer", "operator-asked": "implementer",
 		"gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer",
 		"panel-reviewer": "reviewer", "panel-rerun": "reviewer",
-		"panel-fix": "panel-fix", "minor-fix": "panel-fix", "no-progress-fixer": "panel-fix", "visual-verifier": "verifier", "runner": "verifier",
+		"panel-fix": "panel-fix", "minor-fix": "panel-fix", "no-progress-fixer": "panel-fix", "visual-verifier": "verifier",
 		"planner": "planner",
 	} {
 		t.Run(id, func(t *testing.T) {

@@ -25,7 +25,7 @@ import (
 // timeout (default 540, max 570) prints `RUNNING <elapsed>s` and the last 10 lines, exit 0; a dead
 // pid with no exit file prints `LOST`, exit 1 (`lost`). It starts no process.
 //
-// skills/flow/runner-brief.md's **What you run** is the contract.
+// skills/flow/verify-and-handoff.md's **Inline verify** is the contract.
 //
 // Go, in flow-guard (stats/internal/guard/detached.go).
 func init() {

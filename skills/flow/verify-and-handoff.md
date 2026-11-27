@@ -89,9 +89,8 @@ the spec-reach check to the lint list itself (`Spec reach: not
 configured` is the ordinary case for a project with no `regression checkout`). Run
 every command in order and do not stop at the first failure.
 The lint commands and the test commands run as two groups at once, each
-in the order printed, in the one Bash call of **Recording** below, which a runner
-(its row of **Dispatch sites — the parent's closed list**, `skills/flow/implement.md`; `runner-<n>`, the call as its
-`COMMANDS:`) runs and answers with its verdict — the parent writes the pair it dispatches the runner on into those arguments as `<runner model>` and `<runner effort>`, so the `verify` rows show the runner's pair; the `## Report` lists every command in the order
+in the order printed, in the one Bash call of **Recording** below, which the parent runs itself,
+writing its own session's pair into those arguments as `<model>` and `<effort>`; the `## Report` lists every command in the order
 printed. **Nothing runs them later** —
 `/flow`'s integrate phase has no verification gate — so a non-zero exit blocks this handoff.
 While a stack is up for this run, the test commands start only after `flow-guard check-dev-stack-fresh
@@ -99,7 +98,18 @@ While a stack is up for this run, the test commands start only after `flow-guard
 `## run`, so no suite runs against a build older than the last commit; a stack
 that will not start ends the turn as a failed command's environment cause does.
 
-**A `verify` that can outrun the shell tool's time limit runs whole, in the runner's foreground.** Never split its
+**A command that can outrun the shell tool's foreground limit** (10 minutes) — a verify list's `test`
+entry, a full suite — is started with `<agents repo>/scripts/flow-guard run-detached <state-dir> -- <command>`,
+`<state-dir>` a fresh directory under `<abs-worktree>/.superpowers/sdd/run/` named for the command,
+then waited on by `<agents repo>/scripts/flow-guard await-detached <state-dir>`: each call one short
+foreground call, re-issued back to back on `RUNNING` with nothing else running between them, until
+it prints `EXITED <code>` (the command's exit) or `LOST` (it died unrecorded: exit 1, a `defect`
+unless the log shows an `environment` cause). Never a `kill -0`, `pgrep` or `sleep` loop,
+never a shell started with `run_in_background`, and never a re-launch of a command whose state-dir is still
+running — `run-detached` refuses it. A shorter command runs in the foreground, its output piped
+through `tail`; a failing block is reproduced from the log file.
+
+**A `verify` that can outrun the shell tool's time limit runs whole.** Never split its
 `<specs>` into hand-chosen chunks to fit the limit: a hand-made split can drop a spec, and each
 chunk pays the suite's start-up again.
 
@@ -136,9 +146,11 @@ and `/flow-interactive` run, in every project, runs the smoke set and the change
 targeted tests and nothing wider: a targeting that is empty or fails falls back to the smoke set,
 never to a whole suite, and no whole-suite command is typed by hand in its place.
 
-**Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
-re-run by the runner, which reports `flaky`, `defect` or `environment` evidence
-(`skills/flow/runner-brief.md`) — the environmental-flake case. A failing visual `verify` row's one re-run is the narrowed run of **Narrowed visual re-runs**
+**Inline verify — a failing command.** A non-zero exit from any `## test` command earns **one**
+re-run by `flow-guard run-verify-list` itself, which marks the command `flaky`, `defect` or
+`undecided` and ends the list with its `VERDICT:` block (THE ONE RE-RUN, its header canonical) —
+the environmental-flake case; an `undecided` command is triaged by one `general` agent (**The parent
+runs the test list**, `skills/flow/implement.md`), which answers `defect` or `environment`. A failing visual `verify` row's one re-run is the narrowed run of **Narrowed visual re-runs**
 (`skills/flow/fix-visual.md`). Output carrying `WARNING: DATA RACE`
 or `race detected during execution of test` is never that case: the command takes the fix procedure
 whatever its re-run exits, since a race that passes once is still a race
@@ -165,10 +177,8 @@ its header canonical) — its exit 5, the load never having dropped, is re-run t
 timeout on a run started at or under the core count is the branch's own defect and takes the fix procedure. No
 timeout is raised to absorb the load (`rules/fix-determinism-at-the-source.mdc`).
 
-**Every run of the list is the runner's — the first, the one re-run, a re-run after a fix.** The parent never types `flow-guard run-verify-list` for it itself: a run it types bills the main session's model while its `verify` row records the runner's pair, and the dashboard reads that row as a runner that never ran.
-
-**Recording.** One `dispatches` row per worktree the list runs for, `-role runner -key verify -model <runner
-model> -effort <runner effort> -agent-id inline`, suffixed `-<repository name>` when this
+**Recording.** One `dispatches` row per worktree the list runs for, `-role verifier -key verify -model <model>
+-effort <effort> -agent-id inline`, suffixed `-<repository name>` when this
 run's resolved set holds more than one worktree — the same convention
 **The verifier dispatch** (`skills/flow/visual-verify.md`) uses for the verifier's rows.
 `flow-guard run-verify-list` records the row itself, never the parent by hand: both groups are run with the
@@ -181,17 +191,16 @@ refusal: clear the cause — a tracked modification, most often — and run the 
 last group to finish ends the row: a group that ends green while a sibling group of the same key still runs records no `end`, and a group killed before its end leaves the row open for the parent to end by hand. The next verify run of the same group — a key that folds to the same `verify[-<repository name>]` — ends such a row `-outcome aborted` at its own begin. A verify re-run after a new code commit passes a key no earlier verify row of the change
 used — `verify-<k>`, `<k>` counting from 2, suffixed as above — because the store keeps a reused
 key's first `startedAt`, and a row started before the commit never covers it. `verify-<k>` keys a re-run with no fix; a re-run after a fix carries the fix round's `-fix-<k>` key
-(`skills/flow/fix.md`). Once the one inline re-run is decided, a passing re-run ends a fresh
-row `-outcome completed`, and a command that failed twice for a missing build prerequisite is ended
+(`skills/flow/fix.md`). A command the `general` triage traced to a missing build prerequisite is ended
 `-outcome blocked -cause environment` by the parent.
 
 ```bash
-flow-guard run-verify-list <worktree> lint <name> verify[-<repository name>] mf-<literal-token> <runner model> <runner effort> [<canonical worktree>] & l=$!
-flow-guard run-verify-list <worktree> test <name> verify[-<repository name>] mf-<literal-token> <runner model> <runner effort> [<canonical worktree>]; t=$?
+flow-guard run-verify-list <worktree> lint <name> verify[-<repository name>] mf-<literal-token> <model> <effort> [<canonical worktree>] & l=$!
+flow-guard run-verify-list <worktree> test <name> verify[-<repository name>] mf-<literal-token> <model> <effort> [<canonical worktree>]; t=$?
 wait "$l"; echo "lint: $? test: $t"
-# … only after a group exited non-zero and its re-run is decided:
+# … only after the `general` triage of an `undecided` command answered `environment`:
 flow record dispatch end -C <canonical worktree> -change <name> -key verify[-<repository name>] \
-  -session-token mf-<literal-token> -outcome completed|blocked [-cause <cause>]
+  -session-token mf-<literal-token> -outcome blocked -cause environment
 ```
 
 Both groups go out in one Bash call under one key, as the block above writes them — never two calls in
