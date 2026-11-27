@@ -250,7 +250,7 @@
     "exit": 0
   },
   "145 recording form from a subagent (agent_id)": {
-    "stdout": "",
+    "stdout": "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"updatedInput\":{\"command\":\"{ROOT}/main-worktrees/sib/scripts/flow-guard run-verify-list -caller-agent a1b2c3 {ROOT}/main-worktrees/sib lint kan-1 verify mf-abc123 haiku low\"}}}",
     "stderr": "",
     "exit": 0
   },

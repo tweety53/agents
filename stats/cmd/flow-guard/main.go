@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/caller"
 	"github.com/tweety53/agents/stats/internal/guard"
 )
 
@@ -36,6 +37,7 @@ func main() {
 	if exe, err := os.Executable(); err == nil {
 		pruneCache(exe, time.Now())
 	}
+	os.Args = append(os.Args[:1], callerArgs(os.Args[1:])...)
 	if len(os.Args) > 1 {
 		if cwd, err := os.Getwd(); err == nil {
 			env := guard.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd}
@@ -47,6 +49,15 @@ func main() {
 		}
 	}
 	os.Exit(runAndRecord(os.Args[1:], os.Stdout, os.Stderr, os.Getenv, workingDir, http.DefaultClient))
+}
+
+// callerArgs is args less a `-caller-agent <id>` right after the guard name, the agent exported
+// to this process and its children (internal/caller).
+func callerArgs(args []string) []string {
+	if len(args) == 0 {
+		return args
+	}
+	return append([]string{args[0]}, caller.Export(args[1:])...)
 }
 
 // runAndRecord runs the guard args name and records the run's telemetry,

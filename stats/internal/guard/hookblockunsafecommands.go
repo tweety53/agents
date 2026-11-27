@@ -69,14 +69,16 @@ import (
 // refresh-main-checkout` — it is not a `git` verb in the command text, and owns its own
 // main-checkout rules.
 //
-// Denies, never rewrites: the PreToolUse contract cannot change tool input, so the deny reason
-// names the worktree command to use instead.
+// Denies, never rewrites a write: the deny reason names the worktree command to use instead. The
+// one rewrite is a call it lets through: a subagent's `flow`/`flow-guard` call gets
+// `-caller-agent <agent_id>` (hookcalleragent.go).
 //
 // Fails open: any unexpected input, parse error, git failure or internal fault exits 0 and lets
 // the call through. A guardrail on hygiene must never be the reason work stops.
 //
 // Byte-identical to hooks/block-unsafe-commands.py, the Python original it replaced, on the golden
-// corpus testdata/block-unsafe-commands-golden.json: every regular expression keeps Python's
+// corpus testdata/block-unsafe-commands-golden.json, save case 145's `-caller-agent` rewrite, which
+// the Python hook never made: every regular expression keeps Python's
 // Unicode `\s`, `\w`, `\d` and `\b` (pyposix.go), and a lookahead the RE2 syntax lacks is a check
 // in code after the match. Where Python raised an exception the hook did not catch, this panics,
 // and hook()'s recover makes it the same silent exit.
@@ -88,7 +90,7 @@ import (
 // command text only, values kept literal, within-line use before an assignment left unexpanded —
 // never environment state, which a one-shot hook process cannot know. The bare-`cat` check is a
 // line scan: a heredoc body line opening with `cat > <file>` is denied too.
-func init() { hooks["block-unsafe-commands"] = blockUnsafeCommands }
+func init() { hooks["block-unsafe-commands"] = withCallerAgent(blockUnsafeCommands) }
 
 var bucEditTools = map[string]bool{"Edit": true, "Write": true, "MultiEdit": true, "NotebookEdit": true}
 
