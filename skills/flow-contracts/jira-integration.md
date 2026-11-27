@@ -3,8 +3,7 @@
 **This file is the canonical definition.** Skills reference it by name; none of them restate
 the contract. If a rule below and a skill ever disagree, this file wins.
 
-The reasoning behind this file lives in `skills/flow-contracts/jira-integration-rationale.md`;
-**a `/flow*` run never loads it.**
+The reasoning behind this file lives in `docs/rationale/flow-contracts/jira-integration.md`.
 
 **Jira is a projection of pipeline state, never a source of it and never a gate.** flow reads
 and writes it through the Atlassian MCP tools available to the session first (`getJiraIssue`,

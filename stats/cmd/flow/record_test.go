@@ -3550,9 +3550,7 @@ func TestRunRecordRolesRejectsPositionalArgument(t *testing.T) {
 // must reach the pin exactly as a same-line one does (F1, KAN-595's panel).
 // The reverse holds nowhere in the tree: planner, conductor and red-partner
 // are accepted but have no `-role <literal>` call site in living docs --
-// the recordRoles comment is their documentation. `*-rationale.md` files
-// are excluded because no run ever loads them (skills/flow-contracts/SKILL.md),
-// so a rationale's prose is not vocabulary a caller can act on.
+// the recordRoles comment is their documentation.
 func TestSkillDocRolesAreAllServed(t *testing.T) {
 	t.Parallel()
 	root := filepath.Join("..", "..", "..", "skills")
@@ -3573,7 +3571,7 @@ func TestSkillDocRolesAreAllServed(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if d.IsDir() || !strings.HasSuffix(path, ".md") || strings.HasSuffix(path, "-rationale.md") {
+		if d.IsDir() || !strings.HasSuffix(path, ".md") {
 			return nil
 		}
 		data, err := os.ReadFile(path)

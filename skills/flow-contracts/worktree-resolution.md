@@ -8,7 +8,7 @@ preflight verdict, a gate that runs once per worktree, a status report, or a rem
 This file is **canonical** for everything in it.
 
 The reasoning behind this file lives in
-`skills/flow-contracts/worktree-resolution-rationale.md`; **a `/flow*` run never loads it.**
+`docs/rationale/flow-contracts/worktree-resolution.md`.
 
 ## Resolving a change's worktrees
 

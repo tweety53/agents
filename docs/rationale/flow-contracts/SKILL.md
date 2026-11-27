@@ -25,16 +25,16 @@ nothing checks it:
 
 | Appendix | Holds the reasoning behind |
 |----------|----------------------------|
-| [pipeline-rationale.md](pipeline-rationale.md) | [pipeline.md](pipeline.md) |
-| [git-boundaries-rationale.md](git-boundaries-rationale.md) | [git-boundaries.md](git-boundaries.md) |
-| [model-policy-rationale.md](model-policy-rationale.md) | [model-policy.md](model-policy.md) |
-| [artifacts-registry-rationale.md](artifacts-registry-rationale.md) | [artifacts-registry.md](artifacts-registry.md) |
-| [session-records-rationale.md](session-records-rationale.md) | [session-records.md](session-records.md) |
-| [worktree-resolution-rationale.md](worktree-resolution-rationale.md) | [worktree-resolution.md](worktree-resolution.md) |
-| [handoff-blocks-rationale.md](handoff-blocks-rationale.md) | [handoff-blocks.md](handoff-blocks.md) |
-| [jira-integration-rationale.md](jira-integration-rationale.md) | [jira-integration.md](jira-integration.md) |
-| [project-configuration-rationale.md](project-configuration-rationale.md) | [project-configuration.md](project-configuration.md) |
-| [workspace-isolation-rationale.md](workspace-isolation-rationale.md) | [workspace-isolation.md](workspace-isolation.md) |
+| [pipeline.md](pipeline.md) | [pipeline.md](../../../skills/flow-contracts/pipeline.md) |
+| [git-boundaries.md](git-boundaries.md) | [git-boundaries.md](../../../skills/flow-contracts/git-boundaries.md) |
+| [model-policy.md](model-policy.md) | [model-policy.md](../../../skills/flow-contracts/model-policy.md) |
+| [artifacts-registry.md](artifacts-registry.md) | [artifacts-registry.md](../../../skills/flow-contracts/artifacts-registry.md) |
+| [session-records.md](session-records.md) | [session-records.md](../../../skills/flow-contracts/session-records.md) |
+| [worktree-resolution.md](worktree-resolution.md) | [worktree-resolution.md](../../../skills/flow-contracts/worktree-resolution.md) |
+| [handoff-blocks.md](handoff-blocks.md) | [handoff-blocks.md](../../../skills/flow-contracts/handoff-blocks.md) |
+| [jira-integration.md](jira-integration.md) | [jira-integration.md](../../../skills/flow-contracts/jira-integration.md) |
+| [project-configuration.md](project-configuration.md) | [project-configuration.md](../../../skills/flow-contracts/project-configuration.md) |
+| [workspace-isolation.md](workspace-isolation.md) | [workspace-isolation.md](../../../skills/flow-contracts/workspace-isolation.md) |
 
 They exist for whoever *edits* a contract — the
 justification of an ordering, the alternatives that were rejected, and the measurements behind a rule. They hold no incident history; incidents are recorded with `flow record incident`. A command that loads one has paid the cost the split exists to remove, which is why
@@ -49,10 +49,10 @@ reasoning is found under the heading it belongs to, and a section that is wholly
 its appendix heading present with no body — present rather than absent, so it is visible that the
 section was examined rather than skipped.
 
-**The same split applies one level up.** `skills/flow/` carries a `SKILL-rationale.md` that a
-`/flow*` run never loads — the reasoning behind that skill's files, kept beside them. **A skill's appendix lives beside its own
-`SKILL.md`, not under `skills/flow-contracts/`** — this directory indexes only the contracts' own
-appendices, so it never appears in the table above or anywhere in this directory's listing.
+**The same split applies one level up.** `skills/flow/`'s reasoning lives in
+`docs/rationale/flow/SKILL.md`. **Every appendix lives under `docs/rationale/<skill>/`, outside
+`skills/`**, so no skill directory carries a file a run must not load; a skill's own appendix is
+`docs/rationale/<skill>/SKILL.md` and never appears in the table above.
 
 ## SKILL.md — Keeping this index honest
 

@@ -9,8 +9,7 @@ handoff shape. See **Finish contract** (`skills/flow-contracts/finish-contract-r
 This file is **canonical** for everything in it. Where a skill or command disagrees with it, this
 file wins.
 
-The reasoning behind this file lives in `skills/flow-contracts/pipeline-rationale.md`;
-**a `/flow` run never loads it.**
+The reasoning behind this file lives in `docs/rationale/flow-contracts/pipeline.md`.
 
 **Five sections that reach fewer than every command live beside this file, not in it** — a
 discovery aid, never a second statement of what they say:

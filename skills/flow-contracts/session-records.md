@@ -6,8 +6,7 @@ The outcome table for `flow record render`, and what each outcome means for the 
 
 This file is **canonical** for everything in it.
 
-The reasoning behind this file lives in `skills/flow-contracts/session-records-rationale.md`;
-**a `/flow*` run never loads it.**
+The reasoning behind this file lives in `docs/rationale/flow-contracts/session-records.md`.
 
 ## Rendering the session records
 

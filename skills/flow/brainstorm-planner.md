@@ -226,7 +226,7 @@ steps are `  - [ ] **Step N: …**` lines indented two columns beneath it.
   test-only override.
 - A task that grows an existing type plans the split itself when the project's size lints would
   otherwise fail.
-- A changed rule whose reasoning lives in a `*-rationale.md` appendix lists that appendix in its
+- A changed rule whose reasoning lives in a `docs/rationale/` appendix lists that appendix in its
   task's `**Files:**`.
 - A view a mockup specifies gets a full-page capture for every frame `design.md` cites, its
   fixture seeding every element and state the frame shows. For each cited frame the capture task

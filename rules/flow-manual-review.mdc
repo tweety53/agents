@@ -61,11 +61,8 @@ first time a contract is added, nothing checks it against the table, and that is
 | **Finish contract — run 1 (the branch is not merged)** (`skills/flow-contracts/finish-contract-run1.md`) | `/flow`'s integrate phase — the preflight verdicts, run 1's procedure, base-branch resolution |
 | **Finish contract — run 2 (the branch is merged)** (`skills/flow-contracts/finish-contract-run2.md`) | `/flow`'s cleanup phase — run 2's procedure and worktree cleanup |
 
-**A `/flow` run never loads a rationale appendix.** `pipeline-rationale.md` and
-`jira-integration-rationale.md` hold the reasoning behind the two largest contracts — why an
-ordering is what it is, what was rejected, what was measured — and exist for whoever *edits* a
-contract. They are deliberately absent from the table above, because that table is what a command
-reads. Nothing enforces this.
+The reasoning behind the contracts — why an ordering is what it is, what was rejected, what was
+measured — lives in `docs/rationale/`, for whoever *edits* a contract.
 
 These files are installed alongside the skills in `~/.claude/skills/`, so the paths above resolve
 wherever this rule is read.

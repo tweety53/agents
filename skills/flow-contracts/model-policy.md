@@ -7,8 +7,7 @@ each dispatch.
 
 This file is **canonical** for everything in it.
 
-The reasoning behind this file lives in `skills/flow-contracts/model-policy-rationale.md`;
-**a `/flow*` run never loads it.**
+The reasoning behind this file lives in `docs/rationale/flow-contracts/model-policy.md`.
 
 ## Model policy
 

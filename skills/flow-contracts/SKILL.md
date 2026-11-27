@@ -1,6 +1,6 @@
 ---
 name: flow-contracts
-description: The flow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, project configuration, Jira integration, follow-up issues, and workspace isolation. Load the one file you need; each is canonical for its own contract, and a run never loads a rationale appendix. Referenced by the stubs in rules/flow-manual-review.mdc.
+description: The flow pipeline itself plus its contract definitions — the three states and their transitions, the state file shape, project configuration, Jira integration, follow-up issues, and workspace isolation. Load the one file you need; each is canonical for its own contract. The reasoning behind them lives in docs/rationale/. Referenced by the stubs in rules/flow-manual-review.mdc.
 allowed-tools: Bash(jq:*), Bash(git:*)
 license: MIT
 metadata:
@@ -45,5 +45,3 @@ flow's pipeline and its contract definitions.
 
 Each file is **canonical** for its own contract. Where a skill and one of these files disagree, the
 file wins.
-
-**A `/flow*` run never loads an appendix.**

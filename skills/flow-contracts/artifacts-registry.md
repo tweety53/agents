@@ -7,8 +7,7 @@ table names is created or removed.
 
 This file is **canonical** for everything in it.
 
-The reasoning behind this file lives in `skills/flow-contracts/artifacts-registry-rationale.md`;
-**a `/flow*` run never loads it.**
+The reasoning behind this file lives in `docs/rationale/flow-contracts/artifacts-registry.md`.
 
 ## Temporary artifacts registry
 

@@ -8,8 +8,7 @@ that commits the implementation and leaves the change directory out is
 
 This file is **canonical** for everything in it.
 
-The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-rationale.md`;
-**a `/flow*` run never loads it.**
+The reasoning behind this file lives in `docs/rationale/flow-contracts/git-boundaries.md`.
 
 ## Git boundaries
 

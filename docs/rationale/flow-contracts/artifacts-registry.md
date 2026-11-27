@@ -19,7 +19,7 @@ exactly how a remote branch goes unremoved.
 Run 2 is terminal, and before step 10 merged its own pull request with `--delete-branch` that pull
 request outlived the run, so no later run existed to delete the branch it was
 opened from . The archive branch itself is gone: run 1 archives on the change branch, which run 2 removes (**one task, one
-worktree**, `skills/flow-contracts/finish-contract-rationale.md`).
+worktree**, `docs/rationale/flow-contracts/finish-contract.md`).
 
 **Nothing removes the claimed cache index, and nothing in this pipeline can — which is why the row
 says so instead of naming a remover it does not have.** The rule one paragraph above is that an
