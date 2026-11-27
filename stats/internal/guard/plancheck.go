@@ -21,9 +21,10 @@ import (
 // with tools Read, Grep and Glob under a 600 s deadline (Env.PairJudgeTimeout
 // overrides it). Its system prompt is skills/flow/plan-check-prompt.md under
 // FLOW_GUARD_REPO_ROOT followed by skills/flow/plan-check-decision.md, the
-// decision rules both modes share; its stdin is proposal.md, design.md and tasks.md from
-// <changeRoot> (`none` for an absent file), skills/flow/plan-review-rubric.md,
-// and whether <worktree>/.flow/project.md declares `## visual verification`.
+// decision rules both modes share; its stdin is whether <worktree>/.flow/project.md
+// declares `## visual verification`, skills/flow/plan-review-rubric.md, then proposal.md,
+// design.md and tasks.md from <changeRoot> (`none` for an absent file), cut at the digest
+// cap so only the artifacts' tail is lost.
 //
 // The answer is the report, a line reading exactly `===DECISION===`, then the
 // decision JSON. The report is written to <worktree>/.superpowers/sdd/plan-check.md
@@ -285,9 +286,10 @@ func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []s
 	if decideOnly {
 		rubric = "not needed"
 	}
-	digest := []byte("## proposal.md\n\n" + read(filepath.Join(root, "proposal.md")) + "\n\n## design.md\n\n" + read(filepath.Join(root, "design.md")) +
-		"\n\n## tasks.md\n\n" + strings.Join(lines, "\n") + "\n\n## plan-review-rubric.md\n\n" + rubric +
-		"\n\n## The project declares `## visual verification`: " + declares + "\n")
+	// The rubric and the visual declaration lead, so the cap cuts only the artifacts' tail.
+	digest := []byte("## The project declares `## visual verification`: " + declares + "\n\n## plan-review-rubric.md\n\n" + rubric +
+		"\n\n## proposal.md\n\n" + read(filepath.Join(root, "proposal.md")) + "\n\n## design.md\n\n" + read(filepath.Join(root, "design.md")) +
+		"\n\n## tasks.md\n\n" + strings.Join(lines, "\n") + "\n")
 	if len(digest) > pjDigestCap {
 		digest = append(digest[:pjDigestCap:pjDigestCap], pjTruncated...)
 	}

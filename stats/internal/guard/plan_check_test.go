@@ -273,6 +273,24 @@ func TestPlanCheckDigest(t *testing.T) {
 	}
 }
 
+// TestPlanCheckDigestKeepsTheRubricOnAnOversizedPlan: a design.md past the digest cap truncates the
+// artifacts' tail, never the rubric or the visual declaration.
+func TestPlanCheckDigestKeepsTheRubricOnAnOversizedPlan(t *testing.T) {
+	t.Parallel()
+	args, _, _ := pcFixture(t)
+	writeFile(t, args[1]+"/design.md", strings.Repeat("x", pjDigestCap+10))
+	stub := newPJStub(t, pjJSON(pcAnswer(pcReport, dgpvGood), ""))
+	if r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub)); r.rc != 0 {
+		t.Fatalf("rc=%d err=%q", r.rc, r.err)
+	}
+	got := stub.stdin(t)
+	for _, want := range []string{"## plan-review-rubric.md\n\n", "`## visual verification`: yes\n", pjTruncated} {
+		if !strings.Contains(got, want) {
+			t.Errorf("digest lacks %q", want)
+		}
+	}
+}
+
 // TestDgpvInvalidGroupSizeLimit: a group of four tasks is refused.
 func TestDgpvInvalidGroupSizeLimit(t *testing.T) {
 	t.Parallel()
