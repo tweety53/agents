@@ -289,6 +289,10 @@ on the 2× capture and the 2× mockup frame themselves, never on a `flow-guard
 compose-mockup-frames` composite. A leftover of any size — a 1dp offset included — is closed or
 named with its cause, never reported clean because it is small.
 
+**A fixer batches its edits, then builds once.** It makes every edit the round's findings call
+for before it builds anything, builds once, and then repairs only what that build or its capture
+still shows — never one build per edit.
+
 **A fixer iterates on the dev loop.** Where `## visual verification` declares a `dev loop`
 command (**Project configuration — visual verification**,
 `skills/flow-contracts/project-configuration-visual.md`), the fixer starts it once and looks at each
