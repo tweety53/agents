@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
@@ -483,5 +485,33 @@ func TestFlowGuardBootstrapRepoRootAndCodes(t *testing.T) {
 				t.Fatalf("rc=%d (want %d) stdout=%q stderr=%q", r.rc, c.code, r.stdout, r.stderr)
 			}
 		})
+	}
+}
+
+// TestFlowGuardBootstrapStampsItsStart: the bootstrap exports FLOW_GUARD_START,
+// its bash's $EPOCHREALTIME taken before any hashing or build, for flow-guard's
+// bootstrap_ms; an inherited stamp -- a CwdCheckout re-exec through another
+// worktree's bootstrap -- is kept, so the whole chain counts.
+func TestFlowGuardBootstrapStampsItsStart(t *testing.T) {
+	smoke.Heavy(t)
+	path := os.Getenv("PATH")
+	goBinary(t)
+	if out, err := exec.Command("bash", "-c", `printf %s "${EPOCHREALTIME:-}"`).Output(); err != nil || len(out) == 0 {
+		t.Skip("the bash on PATH has no $EPOCHREALTIME: the bootstrap stamps nothing")
+	}
+	fix := newBootstrapFixture(t, "stamp")
+	writeFile(t, filepath.Join(fix, "stats/cmd/flow-guard/main.go"),
+		"package main\n\nimport (\n\t\"fmt\"\n\t\"os\"\n)\n\nfunc main() { fmt.Println(os.Getenv(\"FLOW_GUARD_START\")) }\n", 0o644)
+	env := withPath(bootstrapEnv(t.TempDir()), path)
+	script := filepath.Join(fix, "scripts", "flow-guard")
+
+	before := float64(time.Now().UnixMicro()) / 1e6
+	r := runBootstrap(t, fix, env, script, "check-x")
+	got, err := strconv.ParseFloat(strings.Replace(r.out(), ",", ".", 1), 64)
+	if r.rc != 0 || err != nil || got < before || got > float64(time.Now().UnixMicro())/1e6 {
+		t.Fatalf("rc=%d out=%q, want an $EPOCHREALTIME stamp taken during the call", r.rc, r.out())
+	}
+	if r := runBootstrap(t, fix, append(env, "FLOW_GUARD_START=123.5"), script, "check-x"); r.rc != 0 || r.out() != "123.5" {
+		t.Fatalf("inherited: rc=%d out=%q, want the inherited 123.5", r.rc, r.out())
 	}
 }

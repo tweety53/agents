@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -54,8 +55,11 @@ type guardRun struct {
 	DurationMS int    `json:"durationMs"`
 	// WaitMS is the part of DurationMS the guard spent waiting, not
 	// working (guard.Reasons.Wait).
-	WaitMS     int       `json:"waitMs,omitempty"`
-	RecordedAt time.Time `json:"recordedAt"`
+	WaitMS int `json:"waitMs,omitempty"`
+	// BootstrapMS is the time from scripts/flow-guard's start to this
+	// binary's dispatch (bootstrapMS), absent when unstamped.
+	BootstrapMS *int      `json:"bootstrapMs,omitempty"`
+	RecordedAt  time.Time `json:"recordedAt"`
 	// Reasons is the run's distinct reason ids, posted only when the run is
 	// not clear; absent, the store records NULL.
 	Reasons []string `json:"reasons,omitempty"`
@@ -153,9 +157,11 @@ func recordRun(getenv func(string) string, dir, name string, code int, first str
 	if err != nil {
 		return
 	}
+	now := time.Now()
 	run := guardRun{
 		Guard: name, Worktree: dir, ExitCode: code, Outcome: outcomeFor(name, code, first),
-		DurationMS: int(elapsed.Milliseconds()), WaitMS: int(wait.Milliseconds()), RecordedAt: time.Now().UTC(), Headless: headless,
+		DurationMS: int(elapsed.Milliseconds()), WaitMS: int(wait.Milliseconds()), RecordedAt: now.UTC(), Headless: headless,
+		BootstrapMS: bootstrapMS(getenv("FLOW_GUARD_START"), now.Add(-elapsed)),
 	}
 	if run.Outcome != "clear" {
 		run.Reasons = reasons
@@ -175,6 +181,25 @@ func recordRun(getenv func(string) string, dir, name string, code int, first str
 		return
 	}
 	resp.Body.Close()
+}
+
+// bootstrapMS is the milliseconds from stamp -- FLOW_GUARD_START, the
+// $EPOCHREALTIME scripts/flow-guard exports on its first line (seconds, a
+// locale's decimal point or comma, microseconds) -- to start, the guard's
+// dispatch: the bootstrap's hashing, any build, and the exec. nil when the
+// stamp is absent (a bash without $EPOCHREALTIME, a direct call of the
+// binary), will not parse, or lies after start.
+func bootstrapMS(stamp string, start time.Time) *int {
+	secs, err := strconv.ParseFloat(strings.Replace(stamp, ",", ".", 1), 64)
+	if err != nil {
+		return nil
+	}
+	d := start.Sub(time.UnixMicro(int64(secs * 1e6)))
+	if d < 0 {
+		return nil
+	}
+	ms := int(d.Milliseconds())
+	return &ms
 }
 
 // dispatched reports whether args name a registered guard -- the only runs

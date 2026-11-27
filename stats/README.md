@@ -195,7 +195,9 @@ ordered by their latest stage run) spent wall-clock time, from rows already reco
 `stage_runs` by stage key, ended `dispatches` by role and by `dispatch_class(role)`, `guard_runs` by
 guard (claimed by worktree as the per-run page claims them) — a run's work, `duration_ms` less
 `wait_ms` (the time it spent on a heavy slot or blocked in `await-rows`, migration
-`0112_guard_run_wait.sql`), the wait ranked apart under `guard-wait` — and `verify_runs` by label. Each
+`0112_guard_run_wait.sql`), the wait ranked apart under `guard-wait` and the `scripts/flow-guard`
+bootstrap before the run (`bootstrap_ms`, `0113_guard_run_bootstrap.sql`, from the
+`$EPOCHREALTIME` stamp it exports as `FLOW_GUARD_START`) under `guard-bootstrap` — and `verify_runs` by label. Each
 dimension prints its top 10 — name, runs, total, share of the changes' summed wall clock (first
 stage-run start to last end), p50, p95 — then one line of the top 5 time sinks across dimensions,
 role class left out. Dimensions overlap, so shares do not add up across them. Ranking only; no UI.
@@ -210,7 +212,7 @@ them) and `verify_runs` (a guard or verify run starts at its recorded end less i
 change is one process (`process_name` `<project>/<change>`); its threads are lanes, top to bottom —
 `request`, `stage`, one per dispatch named `<role> <dispatch key>` (`#<seq>` without a key), that
 dispatch's `<lane> tools`, `guard`, `guard wait` (a guard run that waited, from its start for the
-length of its `wait_ms`), `verify` — each named by `thread_name` and ordered by
+length of its `wait_ms`), `guard bootstrap` (ending at the run's start), `verify` — each named by `thread_name` and ordered by
 `thread_sort_index`. Every row is a complete event (`"ph":"X"`, `ts`/`dur` in microseconds from the
 change's first row, its start in `otherData.t0`); a row overlapping the previous one in its lane
 spills into `<lane> (2)`, … A row still open ends at the trace's last instant with `"open": true` in

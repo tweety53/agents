@@ -25,7 +25,9 @@ type TraceSpan struct {
 // guard and verify runs, whose start is their recorded end less their
 // duration. A guard run that waited (wait_ms) adds a span on the
 // "guard wait" lane, drawn from its start for the length of its wait --
-// the wait's total, not where inside the run it fell. A guard run belongs to the change when its worktree names the
+// the wait's total, not where inside the run it fell -- and one whose
+// bootstrap was stamped (bootstrap_ms) a span on the "guard bootstrap" lane
+// ending at its start. A guard run belongs to the change when its worktree names the
 // change's worktree, as Bottlenecks claims it. ErrChangeNotFound when the
 // store has no such change.
 func (s *Store) TraceSpans(ctx context.Context, projectKey, change string) ([]TraceSpan, error) {
@@ -53,6 +55,13 @@ func (s *Store) TraceSpans(ctx context.Context, projectKey, change string) ([]Tr
 		SELECT 'guard', 'guard wait', g.guard || ' wait', '', '', g.recorded_at - g.duration_ms * interval '1 millisecond',
 			g.recorded_at - (g.duration_ms - g.wait_ms) * interval '1 millisecond'
 		FROM guard_runs g WHERE g.project_key = $2 AND g.wait_ms > 0
+		  AND (strpos(g.worktree, '-worktrees/' || $3 || '/') > 0
+		       OR right(g.worktree, length('-worktrees/' || $3)) = '-worktrees/' || $3)
+		UNION ALL
+		SELECT 'guard', 'guard bootstrap', g.guard || ' bootstrap', '', '',
+			g.recorded_at - (g.duration_ms + g.bootstrap_ms) * interval '1 millisecond',
+			g.recorded_at - g.duration_ms * interval '1 millisecond'
+		FROM guard_runs g WHERE g.project_key = $2 AND g.bootstrap_ms IS NOT NULL
 		  AND (strpos(g.worktree, '-worktrees/' || $3 || '/') > 0
 		       OR right(g.worktree, length('-worktrees/' || $3)) = '-worktrees/' || $3)
 		UNION ALL

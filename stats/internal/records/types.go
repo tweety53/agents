@@ -733,9 +733,13 @@ type GuardRun struct {
 	// WaitMS is the part of DurationMS the guard spent waiting rather than
 	// working -- a heavy slot's acquisition, await-rows blocked between
 	// reads (0112_guard_run_wait.sql); 0 from a binary that predates it.
-	WaitMS     int       `json:"waitMs,omitempty"`
-	RecordedAt time.Time `json:"recordedAt"`
-	Reasons    []string  `json:"reasons,omitempty"`
+	WaitMS int `json:"waitMs,omitempty"`
+	// BootstrapMS is the time scripts/flow-guard took before the guard's
+	// dispatch -- hashing, any build, the exec (0113_guard_run_bootstrap.sql);
+	// nil when the bootstrap stamped nothing.
+	BootstrapMS *int      `json:"bootstrapMs,omitempty"`
+	RecordedAt  time.Time `json:"recordedAt"`
+	Reasons     []string  `json:"reasons,omitempty"`
 	// Headless is the run's headless model call, nil when it made none.
 	Headless *HeadlessCall `json:"headless,omitempty"`
 }

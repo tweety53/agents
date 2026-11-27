@@ -48,7 +48,17 @@ func main() {
 			}
 		}
 	}
-	os.Exit(runAndRecord(os.Args[1:], os.Stdout, os.Stderr, os.Getenv, workingDir, http.DefaultClient))
+	// The bootstrap's stamp is this run's alone: a child guard is stamped by
+	// its own bootstrap, or not at all.
+	stamp := os.Getenv("FLOW_GUARD_START")
+	_ = os.Unsetenv("FLOW_GUARD_START")
+	getenv := func(k string) string {
+		if k == "FLOW_GUARD_START" {
+			return stamp
+		}
+		return os.Getenv(k)
+	}
+	os.Exit(runAndRecord(os.Args[1:], os.Stdout, os.Stderr, getenv, workingDir, http.DefaultClient))
 }
 
 // callerArgs is args less a `-caller-agent <id>` right after the guard name, the agent exported

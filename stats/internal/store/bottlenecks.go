@@ -7,8 +7,8 @@ import (
 
 // BottleneckRow is one name's time within one dimension of the bottleneck
 // ranking: how many runs it had, their summed and P50/P95 duration in
-// milliseconds. Dimension is stage, role, role-class, guard, guard-wait or
-// verify.
+// milliseconds. Dimension is stage, role, role-class, guard, guard-wait,
+// guard-bootstrap or verify.
 type BottleneckRow struct {
 	Dimension string
 	Name      string
@@ -24,7 +24,8 @@ type BottleneckRow struct {
 // dispatch_class(role), guard runs by guard (a run belongs to a change when
 // its worktree names the change's worktree, as ChangeGuardRuns claims it) --
 // its work, duration_ms less wait_ms, under guard and the wait, where there
-// was one, under guard-wait --
+// was one, under guard-wait, and the bootstrap before it, where stamped,
+// under guard-bootstrap --
 // and verify runs by label. WallMs is the summed wall clock of those
 // changes -- each change's first stage-run start to its last stage-run end
 // -- the denominator a row's share is read against. Rows come ordered by
@@ -54,8 +55,9 @@ func (s *Store) Bottlenecks(ctx context.Context, project *string, last int) (row
 			FROM guard_runs g JOIN picked p ON g.project_key = p.project_key
 			  AND (strpos(g.worktree, '-worktrees/' || p.name || '/') > 0
 			       OR right(g.worktree, length('-worktrees/' || p.name)) = '-worktrees/' || p.name)
-			CROSS JOIN LATERAL (VALUES ('guard', g.duration_ms - g.wait_ms), ('guard-wait', g.wait_ms)) w(dim, ms)
-			WHERE w.dim = 'guard' OR g.wait_ms > 0
+			CROSS JOIN LATERAL (VALUES ('guard', g.duration_ms - g.wait_ms), ('guard-wait', NULLIF(g.wait_ms, 0)),
+				('guard-bootstrap', g.bootstrap_ms)) w(dim, ms)
+			WHERE w.ms IS NOT NULL
 			UNION ALL
 			SELECT 'verify', v.label, v.seconds * 1000
 			FROM verify_runs v JOIN picked p ON p.id = v.change_id

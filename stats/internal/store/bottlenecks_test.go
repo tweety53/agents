@@ -13,7 +13,8 @@ import (
 // dispatches, guard runs and verify runs, and pins the ranking: -last keeps
 // only the most recent change, each dimension is ordered by total, P50/P95
 // come from the run durations -- a guard's its work, duration less wait_ms,
-// the wait ranked apart as guard-wait --, and the wall clock is the kept change's first
+// the wait ranked apart as guard-wait and a stamped
+// bootstrap_ms as guard-bootstrap --, and the wall clock is the kept change's first
 // start to last end.
 func TestBottlenecksRanksEachDimension(t *testing.T) {
 	t.Parallel()
@@ -53,7 +54,7 @@ func TestBottlenecksRanksEachDimension(t *testing.T) {
 		($1,'check-a','/x/p-worktrees/new',0,'clear',500,$2),
 		($1,'check-a','/x/p-worktrees/new/sub',0,'clear',1500,$2),
 		($1,'check-a','/x/p-worktrees/old',0,'clear',99999,$2)`, pk, at(2050))
-	exec(`UPDATE guard_runs SET wait_ms = 400 WHERE project_key = $1 AND duration_ms = 500`, pk)
+	exec(`UPDATE guard_runs SET wait_ms = 400, bootstrap_ms = 30 WHERE project_key = $1 AND duration_ms = 500`, pk)
 	exec(`INSERT INTO verify_runs (change_id, kind, label, seconds, tests, failed, exit_code, recorded_at)
 		VALUES ($1,'run-verify-list','lint',30,1,0,0,$2)`, newID, at(2450))
 
@@ -69,15 +70,16 @@ func TestBottlenecksRanksEachDimension(t *testing.T) {
 		got[r.Dimension+"/"+r.Name] = r
 	}
 	want := map[string]store.BottleneckRow{
-		"stage/flow.implement":   {Runs: 2, TotalMs: 400_000, P50Ms: 200_000, P95Ms: 290_000},
-		"stage/flow.verify":      {Runs: 1, TotalMs: 100_000, P50Ms: 100_000, P95Ms: 100_000},
-		"role/panel-reviewer":    {Runs: 1, TotalMs: 60_000, P50Ms: 60_000, P95Ms: 60_000},
-		"role/operator-asked":    {Runs: 1, TotalMs: 40_000, P50Ms: 40_000, P95Ms: 40_000},
-		"role-class/reviewer":    {Runs: 1, TotalMs: 60_000, P50Ms: 60_000, P95Ms: 60_000},
-		"role-class/implementer": {Runs: 1, TotalMs: 40_000, P50Ms: 40_000, P95Ms: 40_000},
-		"guard/check-a":          {Runs: 2, TotalMs: 1600, P50Ms: 800, P95Ms: 1430},
-		"guard-wait/check-a":     {Runs: 1, TotalMs: 400, P50Ms: 400, P95Ms: 400},
-		"verify/lint":            {Runs: 1, TotalMs: 30_000, P50Ms: 30_000, P95Ms: 30_000},
+		"stage/flow.implement":    {Runs: 2, TotalMs: 400_000, P50Ms: 200_000, P95Ms: 290_000},
+		"stage/flow.verify":       {Runs: 1, TotalMs: 100_000, P50Ms: 100_000, P95Ms: 100_000},
+		"role/panel-reviewer":     {Runs: 1, TotalMs: 60_000, P50Ms: 60_000, P95Ms: 60_000},
+		"role/operator-asked":     {Runs: 1, TotalMs: 40_000, P50Ms: 40_000, P95Ms: 40_000},
+		"role-class/reviewer":     {Runs: 1, TotalMs: 60_000, P50Ms: 60_000, P95Ms: 60_000},
+		"role-class/implementer":  {Runs: 1, TotalMs: 40_000, P50Ms: 40_000, P95Ms: 40_000},
+		"guard/check-a":           {Runs: 2, TotalMs: 1600, P50Ms: 800, P95Ms: 1430},
+		"guard-wait/check-a":      {Runs: 1, TotalMs: 400, P50Ms: 400, P95Ms: 400},
+		"guard-bootstrap/check-a": {Runs: 1, TotalMs: 30, P50Ms: 30, P95Ms: 30},
+		"verify/lint":             {Runs: 1, TotalMs: 30_000, P50Ms: 30_000, P95Ms: 30_000},
 	}
 	if len(got) != len(want) {
 		t.Errorf("rows = %+v, want %d rows", rows, len(want))

@@ -65,7 +65,15 @@
 # and for a call naming none. Never a verdict. `go build`'s own output
 # goes to stderr too, so a guard's stdout carries only its verdict lines.
 #
+# THE STAMP. Its first act exports FLOW_GUARD_START, the $EPOCHREALTIME of
+# its start — a bash variable, no fork, a few microseconds — unless a stamp
+# was inherited (a CwdCheckout re-exec through another worktree's bootstrap,
+# which then counts the whole chain); flow-guard posts the time from it to
+# its dispatch as the run's bootstrap_ms and unsets it for its children. A
+# bash without $EPOCHREALTIME (3.2) exports it empty: no bootstrap_ms.
+#
 # Bash 3.2 is the floor (macOS /bin/bash).
+export FLOW_GUARD_START="${FLOW_GUARD_START:-${EPOCHREALTIME:-}}"
 set -uo pipefail
 
 name="${1:-}"

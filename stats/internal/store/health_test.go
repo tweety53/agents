@@ -39,6 +39,12 @@ func TestRecordGuardRunRefusesAnInvalidRun(t *testing.T) {
 			r.WaitMS = 2
 			return r
 		}(),
+		"negative bootstrap": func() records.GuardRun {
+			r := guardRun("g", "clear", 0, 1, time.Now())
+			ms := -1
+			r.BootstrapMS = &ms
+			return r
+		}(),
 	} {
 		if _, err := st.RecordGuardRun(context.Background(), projectKey, in); !errors.Is(err, store.ErrInvalidGuardRun) {
 			t.Errorf("%s: err = %v, want ErrInvalidGuardRun", name, err)
@@ -86,7 +92,8 @@ func TestRecordGuardRunStoresReasons(t *testing.T) {
 	}
 }
 
-// TestRecordGuardRunStoresTheWait: a run's wait_ms is stored and read back.
+// TestRecordGuardRunStoresTheWait: a run's wait_ms and bootstrap_ms are
+// stored; an unstamped run's bootstrap_ms is NULL.
 func TestRecordGuardRunStoresTheWait(t *testing.T) {
 	t.Parallel()
 	st := newTestStore(t)
@@ -94,13 +101,23 @@ func TestRecordGuardRunStoresTheWait(t *testing.T) {
 	seedChange(t, st, projectKey, "kan-1")
 	in := guardRun("await-rows", "clear", 0, 900, time.Now())
 	in.WaitMS = 850
+	boot := 25
+	in.BootstrapMS = &boot
 	got, err := st.RecordGuardRun(context.Background(), projectKey, in)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var stored int
-	if err := store.PoolOf(st).QueryRow(context.Background(), `SELECT wait_ms FROM guard_runs WHERE id = $1`, got.ID).Scan(&stored); err != nil || stored != 850 {
-		t.Errorf("wait_ms = %d (%v), want 850", stored, err)
+	var bootstrap *int
+	if err := store.PoolOf(st).QueryRow(context.Background(), `SELECT wait_ms, bootstrap_ms FROM guard_runs WHERE id = $1`, got.ID).Scan(&stored, &bootstrap); err != nil || stored != 850 || bootstrap == nil || *bootstrap != 25 {
+		t.Errorf("wait_ms = %d, bootstrap_ms = %v (%v), want 850 and 25", stored, bootstrap, err)
+	}
+	got, err = st.RecordGuardRun(context.Background(), projectKey, guardRun("await-rows", "clear", 0, 900, time.Now()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.PoolOf(st).QueryRow(context.Background(), `SELECT bootstrap_ms FROM guard_runs WHERE id = $1`, got.ID).Scan(&bootstrap); err != nil || bootstrap != nil {
+		t.Errorf("unstamped bootstrap_ms = %v (%v), want NULL", bootstrap, err)
 	}
 }
 

@@ -342,6 +342,42 @@ func TestRunAndRecordFallsBackToTheCwd(t *testing.T) {
 	}
 }
 
+// TestRecordRunPostsTheBootstrap: FLOW_GUARD_START, scripts/flow-guard's
+// $EPOCHREALTIME stamp, posts bootstrapMs as the time from it to the
+// guard's start (the run's end less its duration); without the stamp, or
+// with one that will not parse, no bootstrapMs is posted.
+func TestRecordRunPostsTheBootstrap(t *testing.T) {
+	t.Parallel()
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = nil
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	dir := gitRepo(t)
+	stamp := time.Now().Add(-3 * time.Second)
+	for name, tc := range map[string]struct {
+		start  string
+		wantMs float64 // -1: absent
+	}{
+		"stamped":       {fmt.Sprintf("%d.%06d", stamp.Unix(), stamp.Nanosecond()/1000), 2000},
+		"comma decimal": {fmt.Sprintf("%d,%06d", stamp.Unix(), stamp.Nanosecond()/1000), 2000},
+		"unstamped":     {"", -1},
+		"garbage":       {"soon", -1},
+	} {
+		env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL, "FLOW_GUARD_START": tc.start}
+		recordRun(func(k string) string { return env[k] }, dir, "check-references", 0, "", nil, nil, 0, time.Second, srv.Client())
+		ms, ok := got["bootstrapMs"].(float64)
+		switch {
+		case tc.wantMs < 0 && ok:
+			t.Errorf("%s: bootstrapMs = %v, want none", name, ms)
+		case tc.wantMs >= 0 && (!ok || ms < tc.wantMs || ms > tc.wantMs+1000):
+			t.Errorf("%s: bootstrapMs = %v (%v), want the 2 s between the stamp and the run's start", name, ms, ok)
+		}
+	}
+}
+
 // TestRecordRunPostsTheHeadlessCall: a run that made a headless model call
 // posts it with the run.
 func TestRecordRunPostsTheHeadlessCall(t *testing.T) {
