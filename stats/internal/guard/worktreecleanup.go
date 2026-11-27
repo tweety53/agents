@@ -200,7 +200,9 @@ func changeWorktrees(porcelain []byte, name string) (wts, copies []string) {
 // ccMutationCopy reports whether path is a throwaway copy of change name's
 // apply worktree: review-panel-optional-slots.md's
 // `<worktree>-mutation-<round>` (kan-1037), matched on the path's last
-// element as `<name>-mutation-` followed by digits and nothing else. The caller only
+// element as `<name>-mutation-` followed by digits and nothing else, or
+// implement.md's parallel-group copy `<worktree>-group-<g>` the same way
+// (flow-guard parallel-groups). The caller only
 // asks for an entry that is DETACHED or on `refs/heads/flow-copy/<its path's
 // last element>` -- a copy is created on that branch (kan-1090 self-review,
 // F14), one made before that detached -- so a change actually named
@@ -210,5 +212,8 @@ func changeWorktrees(porcelain []byte, name string) (wts, copies []string) {
 func ccMutationCopy(path, name string) bool {
 	base := path[strings.LastIndex(path, "/")+1:]
 	g, ok := strings.CutPrefix(base, name+"-mutation-")
+	if !ok {
+		g, ok = strings.CutPrefix(base, name+"-group-")
+	}
 	return ok && g != "" && strings.Trim(g, "0123456789") == ""
 }
