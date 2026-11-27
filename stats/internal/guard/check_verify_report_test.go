@@ -381,7 +381,7 @@ func TestCheckVerifyReportManifestCells(t *testing.T) {
 		want  string
 	}{
 		{"every cell filled", []any{row("control", nil)}, 0, "COMPLETE"},
-		{"text run content n/a", []any{row("text run", map[string]any{"content": "n/a — transcribed by sweep 5"})}, 0, "COMPLETE"},
+		{"text run content n/a", []any{row("text run", map[string]any{"content": "n/a — read from the composite"})}, 0, "COMPLETE"},
 		{"control border n/a", []any{row("control", map[string]any{"border": "n/a — measure failed"})}, 1, "W1 cells #10 border reads \"n/a — measure failed\" — the column applies to `control`"},
 		{"text run colour n/a", []any{row("text run", map[string]any{"colour": "n/a — none"})}, 1, "W1 cells #10 colour reads"},
 		{"empty string cell", []any{row("control", map[string]any{"fill": ""})}, 1, "W1 cells #10 fill is empty"},

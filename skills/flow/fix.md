@@ -38,7 +38,7 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    **Fix instructions that dispute a visual judgement this session already made — a spacing, size
    or alignment an earlier round eyeballed as fine — open with the measurement, never with another
    look.** Run `flow-guard measure-visual-properties` on the disputed region of the current capture
-   and the mockup (**10** in `skills/flow/visual-verify-verifier.md`) and put the numbers in the
+   and the mockup (**Measuring by hand** below) and put the numbers in the
    implementer's prompt as a `Measured:` line; a spacing dispute is measured on every side the
    complaint names. The complaint's own wording names the property — "too big", "oversized" is a size
    (`box` and `ink`); "cramped", "uneven", "too close" is a spacing (`gap`); "not filled to the
@@ -349,6 +349,103 @@ forced reproduction as its evidence (the candidate made to fail on purpose, a de
 injected, failing the test without the fix and passing with it) where the candidate can be forced. The fix's one commit carries
 those fixes and its body states each forced reproduction, or that the fix
 went straight to code; a fixer that names no candidate has not finished the trace, and is sent back to it.
+
+## Measuring by hand
+
+These rules bind every `flow-guard measure-visual-properties` call a fix makes; the verifier makes
+none (step 10, `skills/flow/visual-verify-verifier.md`).
+**Never judge a size, alignment, spacing, corner radius, border, fill, shadow, icon size or
+font size by eye from a resized or cropped image; measure it with
+`flow-guard measure-visual-properties`, then eyeball what it measured.** A crop is for reading text
+and layout, never edges or centres — interpolation and a small viewport shift an edge by
+pixels and hide a gap outright. For every per-control comparison this step makes, run
+
+```bash
+flow-guard measure-visual-properties <mockup frame PNG> <capture PNG> --region-a x,y,w,h --region-b x,y,w,h --scale <n>
+```
+
+with each region a crop around that one control and a background margin on every side —
+`--props runs` on that crop first where its edges are in doubt, since every run boundary it
+lists is an edge the region can sit on, and a miscrop is the glance again; and `--edge`
+lowered below the distance `runs` reports between a control's fill and its background where
+that distance is under the default 24, since a surface-on-page card has no hard edge at the default and exits 1 on every box property
+until it is — and
+read the JSON's `delta` block: `abs` and `pct` per numeric property, RGB distance per colour
+(the script's own header is canonical for its options, properties, output
+and exit codes). Two readings the eye reliably gets wrong: an icon's tint is `content.colour`,
+never `fill` — the fill is the box behind the glyph, and a grey glyph on the right fill matches
+on every other property; and a pill
+is a `radius` equal to half the box height, while a rounded rectangle is any smaller number —
+read the number, since both look "rounded" at 1x. **Both halves are mandatory and neither substitutes for the other.** The
+script's numbers are the only admissible measurement — no ad-hoc PIL, no reading a coordinate
+off a crop; and its output is then eyeballed against the two crops before any number is
+reported: state, per control, that the `box` the script found is that control (its edges land
+where the control's edges are seen), that `content` is the icon or label and not a corner
+artefact, and that a `null` or an exit 1 was resolved by a wider or better-centred region, not
+by dropping the property. A number no eye confirmed is a methodology error waiting to ship.
+Exit 2 with no calibration is the script refusing
+precondition 1 below; supply it, never work around it. Four preconditions on any number
+compared across two images:
+1. **Calibrate before comparing images of different provenance** — a mockup export against a
+   capture, or captures at two viewport sizes. Where the project declares a `mockup frame`
+   geometry, its `scale` is the calibration the composite already crops by, and the frame the
+   composite cropped is at the capture's own scale, so `--scale 1`; ad-hoc measurements use
+   the same factor. Otherwise derive the factor from an element whose correctness in both
+   images is already established by other evidence — a prior finding, a code-level guarantee,
+   a passing test — as that element's box in each image via `--ref-a`/`--ref-b`, never from
+   the nearest similar-looking thing: an unchecked ruler is itself a claim, and a wrong one
+   makes the comparison wrong twice.
+2. **Confirm both images are the same state of the view** — the same expand/collapse state,
+   scroll position and populated/empty condition, not merely the same screen. The box between
+   two landmarks encloses different content in different states, and its size then compares
+   nothing.
+3. **Treat an implausible result — a multiple rather than a percentage, an order of
+   magnitude — as a methodology error, never as a bigger finding.** Re-derive the calibration
+   and the state check before reporting it; a smaller wrong number from the same mistake reads
+   as a finding and ships.
+4. **Measure the rendered box, never the declared one — a declared minimum is a floor, not a
+   size, and the hit box and the visible ink are two measurements, not one.** `sizeIn(min =
+   44.dp)` bounds a box from below and nothing bounds it from above: a child's own intrinsic
+   size inflates the box past the mockup's drawn size and past the floor itself, and reading
+   the constant in code sees none of it. An accessibility minimum applies to the tap target
+   only, while the mockup draws the visible shape, so a control that looks oversized is
+   measured twice — hit box and ink — before either number is called wrong.
+
+**A first impression that a control "looks broken" is a hypothesis, not a finding — zoom and
+contrast-check the capture before it becomes a code change.** A small, low-contrast but
+pixel-correct element reads as wrong at a glance, and "hard to see" is a different question
+from "drawn wrong" — one for the operator, not for a fix.
+Symmetric with the measurement rule above: the eye that passes a control owes a number, and so
+does the eye that fails one.
+
+**"Looks compact", "looks tight", "matches the proportions" is the same hypothesis said of a
+gap — a spacing claim is backed by the script's `gap` property on every side it speaks for,
+never by a glance.** The eye cannot compare two absolute gaps in a scaled screenshot — a
+4x asymmetry between the space above a control and the space below it reads as "about the
+same" at 1x — so a claim about the space between two elements (a control and the dividers
+around it, a heading and its rule, a row and its neighbours) names the measured background
+pixels on each side, from one capture, and the mockup's on the same sides, before it is called
+symmetric, tight or matching. Gaps compound where sizes do not: an outer container's content
+padding stacks on a header's own inset on one side only, and no per-element size measurement
+sees it. An operator's re-raised or repeated spacing complaint is a measurement order, not a
+second look — the second look is what already failed.
+
+**"Filled to the border", "flush with the edge", "reaches the corner" is a third measurement,
+and neither of the two above sees it — a claim that one shape's paint ends where another
+shape's boundary is compares two edge coordinates, never one shape's size (hit box or ink)
+and never the empty space between two shapes (`gap`).** A fill inset from its own container's
+border has no gap the `gap` property can find — the inset is the container's own interior
+colour — and a correct box size says nothing about where the box sits. Crop the *container*
+as the region, centred on the filled row, and read `--props runs`: the run right after the
+border's run is the fill when flush, and the container-coloured run between them when not,
+its `length` the inset in px — the mockup's frame gives the same list to compare against.
+Not `content.padding`: it boxes every non-fill pixel in the container, the other rows' text
+included, and a fill covering half the box flips which colour counts as `fill`. The same
+reading covers a highlight against the row it highlights and an icon against the circle
+drawn behind it. In Compose the usual cause is modifier order alone — a `padding()` placed
+before the `background()` or `clip()` it was meant to inset the content of, or on the parent
+before its children's own backgrounds, shrinks the painted area, not the content — a
+checkable line of code before any screenshot.
 
 ## Narrowed visual re-runs
 

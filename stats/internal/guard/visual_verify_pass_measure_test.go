@@ -604,7 +604,7 @@ func TestVvmCells(t *testing.T) {
 		col  string
 		want string
 	}{
-		{1, "content", `"n/a — transcribed by sweep 5"`},
+		{1, "content", `"n/a — read from the composite"`},
 		{1, "border", `"n/a — does not apply to a text run row"`},
 		{1, "colour", `{"a":{"ink.colour":"#222222"},"b":{"ink.colour":"#333333"},"delta":{"ink.colour":{"a":"#222222","b":"#333333","distance":29.4}}}`},
 		{1, "stretch", `{"a":{"element.left":30,"element.right":110},"b":{"element.left":50,"element.right":90},"delta":{}}`},

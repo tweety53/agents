@@ -738,15 +738,7 @@ Dispatching a mutating slot into the same worktree a reading slot concurrently r
 
 **Every capture asserts the view is on screen before it is taken** — gymie-playwright's `expectRoom` — so a missed navigation fails the capture instead of becoming its baseline.
 
-### visual-verify-verifier.md — Visual verification, step 10 (the `mockups` declaration gates the frame comparison)
-
-The state sweeps run on the captures alone and are the default on every `flow.visual-verify` run, composed or not: a verification that transcribes no text run (sweep 5), checks no element against its container's bounds (sweep 6), scrolls no region to its end (sweep 7) and re-derives no derived value (sweep 8) is the operator-driven round this stage exists to replace.
-
-### visual-verify-verifier.md — Visual verification, step 10 (state 3, every option of every picker)
-
-`rules/design-mockups-are-specs.mdc` puts the same question to the implementer; this is the verifier's side of it.
-
-### visual-verify-verifier.md — Visual verification, step 10 (edge-to-edge measurement)
+### fix.md — Measuring by hand (edge-to-edge measurement)
 
 Not `content.padding`: it boxes every non-fill pixel in the container, the other rows' text included, and a fill covering half the box flips which colour counts as `fill` (both shown by `TestMeasureVisualProperties` in `<agents repo>/stats/internal/guard/measure_visual_properties_test.go`).
 

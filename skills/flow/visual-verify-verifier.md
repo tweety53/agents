@@ -17,11 +17,7 @@ prototype render and `measure --prototype` included — the motions and the `ide
 other shard reports `full app suite: not run`. Step 9 runs the `measure`
 call the bundle names, `--frames` included, and reads only the views its slice's frames map,
 `-s1of<n>` also every view no sidecar line maps. Step 10 composes and judges the slice's frames
-alone, and its `- frames:` line counts the slice's declared frames. A step-10 state check that writes to
-the stack — a submitted form, data seeded to reach a comparison branch — runs signed in as an
-account the shard registers fresh for it, as a capture spec that registers fresh does, never the
-seeded account the other shards' captures read; a check that only reads, or types without
-submitting, stays on the seeded account. Step 11 writes
+alone, and its `- frames:` line counts the slice's declared frames. Step 11 writes
 `<changeRoot>/visual-verification/record-s<i>of<n>.md`, opening with `Pass: <the key less its shard segment>`, never `visual-verification.md`, which
 `close` rebuilds from every shard's part. The `exits:` line never names the shard's key: `close`
 reads every number on it as an exit.
@@ -203,16 +199,6 @@ reported BLOCKED, naming it.
    mockup's. A state the prototype draws that no capture test drives is a missing capture, and
    blocks.
 
-   > **The `mockups` declaration gates the frame comparison, never the sweeps.** The compose
-   > step and the element × property matrix read a frame against the capture, and a
-   > project declaring no `mockups` root, with no approved prototype to render (above), composes
-   > nothing and runs none of them. The state sweeps run on the captures alone and are the default on every
-   > `flow.verify` run, composed or not. Where a sweep's wording names the frame for something
-   > the capture answers without one — sweep 7's last element reached by name, sweep 5's
-   > display precision — the run reads that name against the view's own rendered content;
-   > sweep 6's order comparison needs the frame's list and does not run, as the other
-   > frame-bound readings do not.
-
    The composite's panels are the capture left, the frame middle and the difference right, unlabelled. The panel is white wherever any channel
    differs, and on a real pair 20–50% of it is white from seed data, font rasterisation and the
    frame's own annotations alone. A 1px rule the capture omits, a row padding it lacks, a surface fill
@@ -229,19 +215,6 @@ reported BLOCKED, naming it.
    procedure (`skills/flow/fix.md`) per `skills/flow/visual-verify.md` — `departure` is never a
    closing state. A recorded decision is a named cause only for the deltas it names, by element and property: any other delta on the same band or element is unexplained until measured.
 
-   **A finding that reverses an earlier round's measured finding on the same element** — a tab bar
-   13 px high, then 20 px low; axis labels present, then absent — quotes that round's report line
-   (`.superpowers/sdd/verify-report-*.md` of the worktree) with its numbers, and names the commit or
-   edit between the two rounds that moved the element. With no such change since, the earlier
-   number stands; a
-   reversal that quotes no earlier numbers and names no change is not accepted.
-
-   **A fill that looks like a hover is not recorded as a departure until the pointer is shown to be
-   outside every control.** A grey disc, tint or ring on a control that the mockup draws plain is
-   first checked against where the capture left the pointer — the last `page.mouse.move`, and every
-   control under that point, a corner chevron under `(0, 0)` included. With the pointer on the
-   control, recapture that frame with the pointer off the viewport (`page.mouse.move(-1, -1)`) and
-   judge the recapture; the report names the pointer position it checked.
    **A departure's expected value cites the mockup's source wherever the handoff ships one, never a
    rule inferred from the pixels**: where the frame was drawn from HTML or CSS in the tree — beside
    the mockups or cited by `design.md` — the line names the declaration the expected layout, size or
@@ -253,21 +226,6 @@ reported BLOCKED, naming it.
    **Before a departure is raised, it is checked against the frame's sidecar comment and
    `design.md`'s `## Decisions`**: one either declares — a part named expected, a control a decision
    gives another form — is reported as declared, citing the declaration, never as a departure.
-   **A part the frame's sidecar comment declares expected until a named sibling ticket lands is
-   no departure.** The line reporting the frame names that part
-   `expected — <sibling ticket>, <decision ID>` and nothing blocks on it, while every part the
-   comment does not name is measured and attributed as above — the comment being the one
-   `skills/flow/brainstorm-planner.md` plans for a frame a sibling ticket finishes.
-
-   **A full-page match — a clean composite read, a structural match — is necessary, never
-   sufficient: exercise the states
-   a resting frame does not show.** Before
-   accepting any field, button, icon, or toggle as matching its mockup:
-   1. **Exercise every interactive state the mockup draws for that control, not only its resting
-      one** — a focused field, a field with a value typed (so a clear icon or a validation state
-      actually renders), a pressed button, an enabled toggle. A control checked only at rest has
-      not been checked at all if the mockup draws it focused or active; capture that state
-      separately rather than inferring it from the resting frame.
 
    **Enumerate every mockup frame the change touches into an explicit checklist before starting
    the sweep, and account for each one by name at handoff — done, or why not.** "Did a
@@ -291,102 +249,9 @@ reported BLOCKED, naming it.
    A `changed:` frame an earlier round reported clean is read against its round-base capture too,
    under **A verified frame is frozen** (`skills/flow/visual-verify.md`).
 
-   **Exercise the states below and capture each one; a state nobody drove into is a state nobody
-   verified.** Each is a state a resting capture and a full-page composite cannot show, so each is
-   reached deliberately rather than by whatever the walkthrough happens to pass through.
-   1. **Every appearance of a named state, and of a shared component, diffed against its other
-      appearances.** Crop and diff each appearance of a named state (selected, active, pressed)
-      and of a shared component (a button variant, a sibling card) across every place it shows in
-      the same flow: two captures can each match their own frame and still disagree with each
-      other, because the mockup draws a state once and only the captures can show the drift. Where
-      a screen renders the same logical control from different code branches depending on state —
-      empty versus populated, first versus subsequent — capture it in every reachable branch and
-      diff the branches against each other, never only the branch the walkthrough reached first.
-   2. **The whole range of every ranged control, and the empty state of every dynamic list or
-      picker.** A wheel, slider, drag handle or multi-step selector is exercised in every
-      direction and past where it wraps or clamps, with a screenshot along the way — the resting
-      capture and one direction prove nothing about the other. A list or picker is captured with
-      zero items as well as populated: an empty state sits outside any normal walkthrough.
-   3. **Every option of every picker or selector, tested against submit.** Enumerate its options
-      and ask whether any is predictable to fail on submit; one that is gets reported as a defect
-      however good the rejection reads. No mockup draws the invalid-selection case, so no
-      composite can see it — submit the options the rules already forbid and name every one the
-      list should have excluded instead of offered.
-   4. **Every intermediate screen of a scripted navigation.** When exercising a flow by scripted
-      navigation (not manual clicks), screenshot after every single action and confirm the
-      resulting screen against an expected marker — a heading, a test tag, a distinctive label —
-      before issuing the next action. Never chain two or more blind actions and inspect only the
-      final screenshot: a coordinate that assumed a fixed layout silently steers the whole
-      remaining sequence onto the wrong screen the moment real content shifts it — an extra
-      suggestion card, a longer note, a wrapped title — and the resulting screenshot can still
-      look plausible enough to accept at a glance.
-   5. **Every text run in the capture, transcribed and judged as display text.** The difference
-      panel is white wherever the capture's data differs from the frame's, and "the data differs"
-      is the explanation that absorbs a wrong number: a white label region is not accounted for
-      until its text has been read. Transcribe every number, unit and label the capture shows and
-      state, per run, that it is a display value at the precision the frame shows — a raw float,
-      a `NaN`, `null`, `undefined`, an empty string where the frame draws a value, a placeholder
-      is a defect whatever the frame's own numbers are. A box or a blank where display text
-      should draw a character — a glyph the app's font cannot draw, an emoji or a symbol — is a
-      defect too.
-   6. **The elements of capture and frame, listed top to bottom, and every element inside its
-      own container.** Write both lists — heading, chart, chips, list, link — and compare their
-      order: a control present in both but in a different position relative to its siblings is a
-      departure. Then
-      confirm no element's ink crosses its container's bounds into a sibling — a plotted line, a
-      marker, a label — driving the out-of-range value step 8 seeded and stating whether the app
-      clamps it or hides it.
-   7. **Every scrollable region scrolled to its end, and the frame's last element reached by
-      name.** A frame taller than the capture viewport is itself the assertion that the screen
-      scrolls: scroll to the frame's bottom element, capture it, and name it in the report. A
-      screen whose content extends past the viewport with nothing to scroll it is a defect, and
-      the fixed-viewport capture cannot show it — it proves the visible viewport and nothing
-      beyond.
-   8. **Every derived value re-derived after its input changes.** For each value the view
-      computes from an input the operator can edit — a delta, a total, a conversion, a preview —
-      type a new input, capture before and after, recompute the expected value by hand, and
-      state both. A value that does not follow its input, or that is absent on one entry path the
-      populated path shows (first-time versus returning), is a defect no single capture can
-      show.
-      The same holds for every element the view picks from a comparison of data values,
-      operator-editable or not — an arrow, a better/worse colour, a status badge, a stroke: list its
-      comparison's branches (greater, equal, less, each operand absent), reach each one in a capture,
-      seeding the data where none reaches it, and state per capture the values compared and whether
-      the element's claim is true of them. An element that asserts a direction its values do not show
-      is a defect whatever the frame draws.
-
-   **Every element the frame draws, on every property the script measures — a matrix per
-   frame, never a list of sweeps done.** Every sweep above is anchored on one kind of element
-   and asks one question: a control's kind and box, a text run's
-   content. An element outside every anchor — a headline
-   figure, a caption, a summary row, a slider's track and thumb, a row's own border — is
-   transcribed at most, and a property no sweep names is read by nobody: the text sweep judges
-   what a run says and never its colour or its size.
    Before a frame is called matching:
 
-   1. **Enumerate the elements from the frame, not the capture and not the last report** —
-      every visually distinct thing it draws, top to bottom: each text run (a heading, a figure,
-      a label, a caption, a unit), each control (a field, a button, a segment, a slider's track
-      and its thumb separately, an icon), each row, card or section container, each rule, divider
-      and fill band. An element in the capture the frame does not draw is itself a row, marked
-      `extra`. A fix run enumerates afresh from the frame — the previous round's departures are
-      cells in the new matrix, never its rows. Seed the enumeration with the matrix step 9's
-      `measure` wrote to `<changeRoot>/visual-verification/matrix/<frame id>.json` —
-      `flow-guard measure-visual-properties --props matrix`, which finds each image's app surface — a sheet's
-      top edge on a scrim frame — lists every ink run inside it paired in order, and fills every
-      column below for every paired element, each region clipped to its image. That file is the one copy, overwritten every pass — never a second copy under another name.
-   2. **Read the matrix `measure` filled — never transcribe it.** `measure` fills the 11
-      columns — kind, content, colour, size, position, stretch, alignment, border, fill, radius,
-      shadow — for every row of the frame's matrix into the pair's `cells` in the manifest.
-      `vvmColumnLeaves` (`<agents repo>/stats/internal/guard/visualverifypass_measure.go`) is canonical for
-      which leaves each column reads per row class.
-
-      Each cell holds the frame's figures, the capture's and their `delta`; n/a — `<why>` where
-      the column does not apply to the row's class (`vrNAColumns`, `<agents repo>/stats/internal/guard/verifyreport.go`); or `unresolved — <reason>`
-      on a row whose region no measurement resolved. Write no matrix
-      table: `visual-verification.md` (step 11) cites
-      `<changeRoot>/visual-verification/matrix/<frame id>.json` under the frame's entry. Read every composite, and every row's cells against it.
-      **A cell the pixels cannot answer is measured from the mockup's source, never left
+   1. **A cell the pixels cannot answer is measured from the mockup's source, never left
       unexplained**: where a row reads `unresolved` — the script exits 1 on a region no widening
       resolved — or a leaf reads `clipped` (the element runs off the image there), the frame's
       number is the value the mockup's source declares for that element — the CSS of the HTML
@@ -394,7 +259,7 @@ reported BLOCKED, naming it.
       the mockups or cited by `design.md` — and the capture's is the script's where its own
       image measures, else the value the app's source draws the element with; a `differs:` line
       for that row names its source.
-   3. **Read every flagged frame's composite before judging its rows.** **A row is never judged by
+   2. **Read every flagged frame's composite before judging its rows.** **A row is never judged by
       rule**: each `over` row is a difference or not by what the composite shows at that row —
       never a range (`#3-#40: annotation`), a list of rows under one cause, or a selector (`rows 3
       to 40`, `all`, `the rest`). When `measure` printed `shift: dy=<px> rows=<n>
@@ -404,7 +269,7 @@ reported BLOCKED, naming it.
       line) rather than explaining rows. What moved it is itself a departure, listed on the
       report's departures lines unless a recorded decision covers it. The frame's rows are then paired under that offset, so every
       other `over` row is a departure of its own, read as if the shift were already fixed.
-   4. **Judge every row the matrix's `over` list names, and write only the differences.** The
+   3. **Judge every row the matrix's `over` list names, and write only the differences.** The
       manifest carries each composed frame's `over` rows by their 1-based index — every matrix row
       `missing`, `extra` or `unresolved`, or paired over the length or colour tolerance. A row is
       no difference only for one cause from a closed list: a frame annotation outside the app's
@@ -415,113 +280,7 @@ reported BLOCKED, naming it.
       above, and goes on a `- <frame id> differs:` line with its own row's figures as the
       manifest's `figures` carry them. A row no difference is not written.
 
-   **A hand measurement is a fix's, never the verifier's** (`skills/flow/fix.md`): the rules from
-   here to **No sidecar is never a silent skip** bind every `flow-guard measure-visual-properties`
-   call a fix makes.
-   **Never judge a size, alignment, spacing, corner radius, border, fill, shadow, icon size or
-   font size by eye from a resized or cropped image; measure it with
-   `flow-guard measure-visual-properties`, then eyeball what it measured.** A crop is for reading text
-   and layout, never edges or centres — interpolation and a small viewport shift an edge by
-   pixels and hide a gap outright. For every per-control comparison this step makes, run
 
-   ```bash
-   flow-guard measure-visual-properties <mockup frame PNG> <capture PNG> --region-a x,y,w,h --region-b x,y,w,h --scale <n>
-   ```
-
-   with each region a crop around that one control and a background margin on every side —
-   `--props runs` on that crop first where its edges are in doubt, since every run boundary it
-   lists is an edge the region can sit on, and a miscrop is the glance again; and `--edge`
-   lowered below the distance `runs` reports between a control's fill and its background where
-   that distance is under the default 24, since a surface-on-page card has no hard edge at the default and exits 1 on every box property
-   until it is — and
-   read the JSON's `delta` block: `abs` and `pct` per numeric property, RGB distance per colour
-   (the script's own header is canonical for its options, properties, output
-   and exit codes). Two readings the eye reliably gets wrong: an icon's tint is `content.colour`,
-   never `fill` — the fill is the box behind the glyph, and a grey glyph on the right fill matches
-   on every other property; and a pill
-   is a `radius` equal to half the box height, while a rounded rectangle is any smaller number —
-   read the number, since both look "rounded" at 1x. **Both halves are mandatory and neither substitutes for the other.** The
-   script's numbers are the only admissible measurement — no ad-hoc PIL, no reading a coordinate
-   off a crop; and its output is then eyeballed against the two crops before any number is
-   reported: state, per control, that the `box` the script found is that control (its edges land
-   where the control's edges are seen), that `content` is the icon or label and not a corner
-   artefact, and that a `null` or an exit 1 was resolved by a wider or better-centred region, not
-   by dropping the property. A number no eye confirmed is a methodology error waiting to ship.
-   Exit 2 with no calibration is the script refusing
-   precondition 1 below; supply it, never work around it. Four preconditions on any number
-   compared across two images:
-   1. **Calibrate before comparing images of different provenance** — a mockup export against a
-      capture, or captures at two viewport sizes. Where the project declares a `mockup frame`
-      geometry, its `scale` is the calibration the composite already crops by, and the frame the
-      composite cropped is at the capture's own scale, so `--scale 1`; ad-hoc measurements use
-      the same factor. Otherwise derive the factor from an element whose correctness in both
-      images is already established by other evidence — a prior finding, a code-level guarantee,
-      a passing test — as that element's box in each image via `--ref-a`/`--ref-b`, never from
-      the nearest similar-looking thing: an unchecked ruler is itself a claim, and a wrong one
-      makes the comparison wrong twice.
-   2. **Confirm both images are the same state of the view** — the same expand/collapse state,
-      scroll position and populated/empty condition, not merely the same screen. The box between
-      two landmarks encloses different content in different states, and its size then compares
-      nothing.
-   3. **Treat an implausible result — a multiple rather than a percentage, an order of
-      magnitude — as a methodology error, never as a bigger finding.** Re-derive the calibration
-      and the state check before reporting it; a smaller wrong number from the same mistake reads
-      as a finding and ships.
-   4. **Measure the rendered box, never the declared one — a declared minimum is a floor, not a
-      size, and the hit box and the visible ink are two measurements, not one.** `sizeIn(min =
-      44.dp)` bounds a box from below and nothing bounds it from above: a child's own intrinsic
-      size inflates the box past the mockup's drawn size and past the floor itself, and reading
-      the constant in code sees none of it. An accessibility minimum applies to the tap target
-      only, while the mockup draws the visible shape, so a control that looks oversized is
-      measured twice — hit box and ink — before either number is called wrong.
-
-   **A first impression that a control "looks broken" is a hypothesis, not a finding — zoom and
-   contrast-check the capture before it becomes a code change.** A small, low-contrast but
-   pixel-correct element reads as wrong at a glance, and "hard to see" is a different question
-   from "drawn wrong" — one for the operator, not for a fix.
-   Symmetric with the measurement rule above: the eye that passes a control owes a number, and so
-   does the eye that fails one.
-
-   **"Looks compact", "looks tight", "matches the proportions" is the same hypothesis said of a
-   gap — a spacing claim is backed by the script's `gap` property on every side it speaks for,
-   never by a glance.** The eye cannot compare two absolute gaps in a scaled screenshot — a
-   4x asymmetry between the space above a control and the space below it reads as "about the
-   same" at 1x — so a claim about the space between two elements (a control and the dividers
-   around it, a heading and its rule, a row and its neighbours) names the measured background
-   pixels on each side, from one capture, and the mockup's on the same sides, before it is called
-   symmetric, tight or matching. Gaps compound where sizes do not: an outer container's content
-   padding stacks on a header's own inset on one side only, and no per-element size measurement
-   sees it. An operator's re-raised or repeated spacing complaint is a measurement order, not a
-   second look — the second look is what already failed.
-
-   **"Filled to the border", "flush with the edge", "reaches the corner" is a third measurement,
-   and neither of the two above sees it — a claim that one shape's paint ends where another
-   shape's boundary is compares two edge coordinates, never one shape's size (hit box or ink)
-   and never the empty space between two shapes (`gap`).** A fill inset from its own container's
-   border has no gap the `gap` property can find — the inset is the container's own interior
-   colour — and a correct box size says nothing about where the box sits. Crop the *container*
-   as the region, centred on the filled row, and read `--props runs`: the run right after the
-   border's run is the fill when flush, and the container-coloured run between them when not,
-   its `length` the inset in px — the mockup's frame gives the same list to compare against.
-   Not `content.padding`: it boxes every non-fill pixel in the container, the other rows' text
-   included, and a fill covering half the box flips which colour counts as `fill`. The same
-   reading covers a highlight against the row it highlights and an icon against the circle
-   drawn behind it. In Compose the usual cause is modifier order alone — a `padding()` placed
-   before the `background()` or `clip()` it was meant to inset the content of, or on the parent
-   before its children's own backgrounds, shrinks the painted area, not the content — a
-   checkable line of code before any screenshot.
-
-   **No sidecar is never a silent skip.** Before reporting `mockups: no map`, list
-   `<abs-worktree>/<mockups>` and check it for a frame plausibly matching any view this change
-   touched — by filename, by a frame id `design.md` or `tasks.md` cites for this change, or by the
-   screen family the touched `ui paths` name. A plausible match exists → **author the
-   `<spec>.mockups` sidecar yourself**, one `<screenshot name> <frame id>` line per captured view
-   with a real frame, then run step 9's `measure` again — composing against a sidecar this stage
-   just wrote is not a special case, and it is committed at step 12 along with everything else this
-   stage writes. No plausible match anywhere in the directory → report `mockups: no map for
-   <spec's basename> — searched <mockups dir>, no frame for <views>`, naming what was searched, and
-   continue. Not declared → report `mockups: not declared` and continue. The sidecar's shape is
-   canonical in **visual verification** (`skills/flow-contracts/project-configuration-visual.md`).
 **The motion step — record every motion the prompt names.** With `motions: none`, the report's `motion:`
 line reads n/a and the step is skipped. Otherwise, for each motion: in a Chromium page with
 reduced motion off (`page.emulateMedia({ reducedMotion: 'no-preference' })`) and the viewport and
@@ -538,20 +297,6 @@ between them; chrome (a title, a bar) and content change in the same frame; a re
 strip shows no intermediate frame; a gesture's content follows the pointer in every frame and
 settles where the motion's end state says** — plus any frame rule the project's own instructions
 state. A frame that breaks one is a departure, named by its index and what it shows.
-**A one-frame departure is confirmed before it is reported.** A departure lasting one frame or
-less is reported only once confirmed — by a DOM read at the next animation frame after the trigger
-(`page.evaluate` resolving inside a `requestAnimationFrame` callback, reading the departing
-element's presence or computed style) or by a second recording showing the same frame; an
-unconfirmed one is not a departure.
-**A re-record replaces the strip.** A later round's recording of a motion first deletes `<changeRoot>/visual-verification/motion/<motion
-id>/` and writes its frames there, never into a suffixed sibling such as `<changeRoot>/visual-verification/motion/<motion
-id>-r2/`, and `visual-verification.md` cites an earlier round's strip by its round number,
-never by a path.
-**A difference between two triggers is judged at one sampling.** Before reporting that one
-trigger draws a frame its sibling does not — Back against the forward navigation, a gesture
-against the tap it replaces — record the sibling in the same session by the same capture method
-and compare the two strips by their `<ms>` offsets; a frame one strip lacks only because its
-sampling skipped that instant is no departure.
 
 11. **Write `<changeRoot>/visual-verification.md`**, opening with the line `Pass: <this row's key>` (the key less any shard segment; `close` refuses a record naming another pass), whenever any view was captured — one entry per view: its screenshot
     path, resolved by the same recursive search step 9 used, and what was seen; and, per composed
@@ -601,9 +346,8 @@ own per-frame line or is named on the `frames:` line with its reason, and a `no 
 step 8 could not close stays, which `close` hands the parent.
 **A departure found never shortens the pass:** every step still runs to its end in the same
 dispatch, and a fix round's re-verify finishing what this one left is no reason to leave it.
-**Step 10 is `done` only when every frame's matrix and sweeps are**: every composite read, every
-`over` row judged, and every sweep
-run — one left for time, context or a measurement the pixels could not give is step 10 undone.
+**Step 10 is `done` only when every frame's matrix is**: every composite read and every
+`over` row judged — one left for time, context or a measurement the pixels could not give is step 10 undone.
 **The report lists only what differs.** Each composed frame has its own line, never one line
 for a range of frames: `match` when it shows no difference, else one `- <frame id> differs:`
 line per difference — element, what the mockup draws, what the capture draws, the numbers. No

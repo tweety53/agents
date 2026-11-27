@@ -526,7 +526,7 @@ func vvmCells(matrix []map[string]any) []any {
 			case slices.Contains(vrNAColumns[class], col):
 				why := "does not apply to a " + class + " row"
 				if class == "text run" && col == "content" {
-					why = "transcribed by sweep 5" // decision content-cell-for-text
+					why = "read from the composite" // decision content-cell-for-text
 				}
 				entry[col] = "n/a — " + why
 			case unresolved && col != "kind":
