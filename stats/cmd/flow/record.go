@@ -360,6 +360,10 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -n n -outcome landed|answered|dropped
                              [-commit sha -base sha]
 
+-change, where omitted, is the branch (less spectre/) of the checkout
+holding -C when that checkout carries the change's directory. An explicit
+-change always wins.
+
 A record write never blocks: on any store failure the intent is journalled,
 one warning line is printed, and the command exits 0. A caller must never
 branch on this command's exit code as a signal about the record.
@@ -814,7 +818,7 @@ func registerConnFlags(fset *flag.FlagSet, f *recordIdentityFlags, getenv func(s
 
 func registerRecordIdentityFlags(fset *flag.FlagSet, f *recordIdentityFlags, getenv func(string) string) {
 	registerRecordConnFlags(fset, f, getenv)
-	fset.StringVar(&f.change, "change", "", "the change this record belongs to (required)")
+	fset.StringVar(&f.change, "change", "", "the change this record belongs to (default: the change the checkout holding -C carries, on its branch)")
 }
 
 // finishRecordConnFlags resolves -C to the working directory and refuses a
@@ -835,10 +839,16 @@ func finishRecordConnFlags(fset *flag.FlagSet, f *recordIdentityFlags) error {
 }
 
 func finishRecordIdentityFlags(fset *flag.FlagSet, f *recordIdentityFlags) error {
-	if f.change == "" {
-		return fmt.Errorf("-change is required")
+	if err := finishRecordConnFlags(fset, f); err != nil {
+		return err
 	}
-	return finishRecordConnFlags(fset, f)
+	if f.change == "" {
+		f.change = inferChange(f.dir)
+	}
+	if f.change == "" {
+		return fmt.Errorf("-change is required outside a checkout carrying the change")
+	}
+	return nil
 }
 
 // parseRecordFlags parses args into fset and finishes the identity flags,

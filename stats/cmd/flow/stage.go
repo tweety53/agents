@@ -36,15 +36,15 @@ import (
 const defaultHarness = "unknown"
 
 const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id] [-request n]
-                          -command cmd -stage key -session-token token (<change> | -change name | -jira-key KEY)
+                          -command cmd -stage key [-session-token token] [<change> | -change name | -jira-key KEY]
        flow stage end [-addr url] [-timeout dur] [-C dir]
                         -command cmd -stage key -outcome outcome
-                        [-fix-rounds n] [-panel-rounds n] [-findings json] [-reason line] [-screenshot path] (<change> | -change name | -jira-key KEY)
+                        [-fix-rounds n] [-panel-rounds n] [-findings json] [-reason line] [-screenshot path] [<change> | -change name | -jira-key KEY]
        flow stage wrap [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
-                        -command cmd -stage key -session-token token (<change> | -change name | -jira-key KEY)
+                        -command cmd -stage key [-session-token token] [<change> | -change name | -jira-key KEY]
                         -- <work command and args...>
        flow stage mark [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
-                        -command cmd -stages key,key,... -session-token token (<change> | -change name | -jira-key KEY)
+                        -command cmd -stages key,key,... [-session-token token] [<change> | -change name | -jira-key KEY]
        flow stage keys
        flow stage completed [-addr url] [-timeout dur] [-C dir] -stage key <change>
 
@@ -67,12 +67,17 @@ positive integer, refused (exit 2) with any other -command.
 exists; it replaces the <change> argument and is accepted for the plan.session
 stage only.
 
--session-token must be a literal, unique token this command writes -- never a
-shell substitution ("$(...)", a backtick, or "$VAR"): the transcript
-records the command text before the shell expands it, so a substitution
-would be recorded identically by every caller and identify nothing.
-begin, wrap and mark also refuse a token that does not end in the run's
-start time, UTC to the second (-20261024T002513Z): exit 2.
+With no change named, the change is the branch (less spectre/) of the
+checkout holding -C, when that checkout carries .superpowers/sdd/<name>
+or spectre/changes/<name>. With no -harness, $FLOW_HARNESS, else
+claude-code under CLAUDECODE=1, else unknown. With no -session-token,
+<change>-<UTC time of the mark>.
+
+-session-token, where given, must be a literal, unique token this command
+writes -- never a shell substitution ("$(...)", a backtick, or "$VAR"): the
+transcript records the command text before the shell expands it, so a
+substitution would be recorded identically by every caller and identify
+nothing.
 
 This CLI can only reject a substitution shape it can still see -- write
 -session-token $T (unquoted or double-quoted) and the calling shell expands
@@ -147,6 +152,17 @@ func registerStageIdentityFlags(fset *flag.FlagSet, f *stageIdentityFlags, geten
 }
 
 func finishStageIdentityFlags(fset *flag.FlagSet, pos []string, f *stageIdentityFlags) error {
+	f.dirGiven = f.dir != ""
+	if f.dir == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("resolve working directory: %w", err)
+		}
+		f.dir = wd
+	}
+	if f.jiraKey == "" && f.change == "" && len(pos) == 0 {
+		f.change = inferChange(f.dir)
+	}
 	switch {
 	case f.jiraKey != "" && f.change == "" && len(pos) == 0:
 		f.name = ""
@@ -160,25 +176,21 @@ func finishStageIdentityFlags(fset *flag.FlagSet, pos []string, f *stageIdentity
 	if f.command == "" || f.stage == "" {
 		return fmt.Errorf("-command and -stage are both required")
 	}
-	f.dirGiven = f.dir != ""
-	if f.dir == "" {
-		wd, err := os.Getwd()
-		if err != nil {
-			return fmt.Errorf("resolve working directory: %w", err)
-		}
-		f.dir = wd
-	}
 	return nil
 }
 
 // resolveHarness returns harnessFlag if set, else FLOW_HARNESS, else
-// defaultHarness -- never empty, since stage_runs.harness is NOT NULL.
+// claude-code where Claude Code's CLAUDECODE=1 is set, else defaultHarness
+// -- never empty, since stage_runs.harness is NOT NULL.
 func resolveHarness(harnessFlag string, getenv func(string) string) string {
 	if harnessFlag != "" {
 		return harnessFlag
 	}
 	if v := getenv("FLOW_HARNESS"); v != "" {
 		return v
+	}
+	if getenv("CLAUDECODE") == "1" {
+		return "claude-code"
 	}
 	return defaultHarness
 }
@@ -349,7 +361,7 @@ func runStageBegin(ctx context.Context, args []string, getenv func(string) strin
 	fset.SetOutput(io.Discard)
 	var f stageIdentityFlags
 	registerStageIdentityFlags(fset, &f, getenv)
-	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
+	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, else \"claude-code\" under CLAUDECODE=1, else \"unknown\")")
 	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID when set")
 	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes -- never a shell substitution -- so the daemon can later bind every stage run carrying it to the session that made it (optional: defaults to <change>-<UTC start time>)")
 	requestFlag := fset.Int("request", 0, "the /flow-interactive request this run works on, a positive integer (only with -command /flow-interactive)")
@@ -749,7 +761,7 @@ func runStageWrap(ctx context.Context, args []string, getenv func(string) string
 	fset.SetOutput(io.Discard)
 	var f stageIdentityFlags
 	registerStageIdentityFlags(fset, &f, getenv)
-	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
+	harnessFlag := fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, else \"claude-code\" under CLAUDECODE=1, else \"unknown\")")
 	sessionFlag := fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID when set")
 	sessionTokenFlag := fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes (optional: defaults to <change>-<UTC start time>)")
 	pos, err := parseInterspersed(fset, args[:sep])
@@ -936,7 +948,7 @@ func runStageMark(ctx context.Context, args []string, getenv func(string) string
 	var f stageIdentityFlags
 	registerStageIdentityFlags(fset, &f, getenv)
 	stagesFlag := fset.String("stages", "", "comma-separated stage keys, each marked begin then end completed, in order")
-	fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, or \"unknown\")")
+	fset.String("harness", "", "the harness running this mark (default: $FLOW_HARNESS, else \"claude-code\" under CLAUDECODE=1, else \"unknown\")")
 	fset.String("session", "", "the harness session id, if known; defaults to CLAUDE_CODE_SESSION_ID when set")
 	fset.String("session-token", "", "a literal, unique token this run generates once and passes unchanged on every mark it makes (optional: defaults to <change>-<UTC start time>)")
 	if err := fset.Parse(args); err != nil {

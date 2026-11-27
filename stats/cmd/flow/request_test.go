@@ -208,7 +208,6 @@ func TestRecordRequestBeginEnd(t *testing.T) {
 	for name, args := range map[string][]string{
 		"begin without title or reason": {"begin", "-change", fx.name, "-n", "1"},
 		"begin -n 0":                    {"begin", "-change", fx.name, "-n", "0", "-title", "t"},
-		"begin without -change":         {"begin", "-n", "1", "-title", "t"},
 		"answered with a commit":        {"end", "-change", fx.name, "-n", "1", "-outcome", "answered", "-commit", sha},
 		"an unknown outcome":            {"end", "-change", fx.name, "-n", "1", "-outcome", "merged"},
 		"landed without -base":          {"end", "-change", fx.name, "-n", "1", "-outcome", "landed", "-commit", sha},

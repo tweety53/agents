@@ -212,8 +212,7 @@ func TestInteractiveLand(t *testing.T) {
 		t.Parallel()
 		fx := newFixture(t)
 		for name, args := range map[string][]string{
-			"no -n":             {"-change", "kan-1-x", "-harness", "h", "-session-token", "fi-k1-20261109T100000Z"},
-			"no -session-token": {"-change", "kan-1-x", "-n", "3", "-harness", "h"},
+			"no -n": {"-change", "kan-1-x", "-harness", "h", "-session-token", "fi-k1-20261109T100000Z"},
 		} {
 			if code, _, stderr := land(fx, args...); code != 2 {
 				t.Errorf("%s: exit=%d stderr=%q, want 2", name, code, stderr)

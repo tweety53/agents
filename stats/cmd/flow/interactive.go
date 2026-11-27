@@ -5,10 +5,11 @@ package main
 // in a bash helper, nothing checking the commit it pushed).
 //
 // Usage: flow interactive land [-addr url] [-timeout dur] [-C worktree]
-//          -change name -n request -harness name -session-token token
+//          [-change name] -n request [-harness name] [-session-token token]
 //
-// -C is the session's worktree (default: cwd); every other flag but -addr and
-// -timeout is required, -n a positive integer. In order, each refusal one
+// -C is the session's worktree (default: cwd); -n is required, a positive
+// integer; -change defaults to the change the worktree carries (inferChange),
+// -harness and -session-token to what `flow stage begin` infers. In order, each refusal one
 // stderr line and exit 1:
 //   1. `git status --porcelain --untracked-files=all` non-empty — refused;
 //   2. the base is flow-guard resolve-base-branch's answer; `git fetch
@@ -43,7 +44,7 @@ import (
 )
 
 const interactiveUsage = `usage: flow interactive land [-addr url] [-timeout dur] [-C worktree]
-                              -change name -n request -harness name -session-token token
+                              [-change name] -n request [-harness name] [-session-token token]
 `
 
 // runInteractive routes `flow interactive`.
@@ -62,19 +63,14 @@ func runInteractiveLand(ctx context.Context, args []string, getenv func(string) 
 	registerRecordsAddrFlag(fset, &addr, getenv)
 	timeout := fset.Duration("timeout", defaultTimeout, "store request timeout before falling back")
 	wt := fset.String("C", "", "the session's worktree (default: cwd)")
-	change := fset.String("change", "", "the change name (required)")
+	change := fset.String("change", "", "the change name (default: the change the worktree carries)")
 	n := fset.Int("n", 0, "the request's number in the session, a positive integer (required)")
-	harness := fset.String("harness", "", "the harness running the session (required)")
-	token := fset.String("session-token", "", "the session's literal token (required)")
+	harness := fset.String("harness", "", "the harness running the session (default: as flow stage begin infers it)")
+	token := fset.String("session-token", "", "the session's literal token (default: as flow stage begin infers it)")
 	if err := fset.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
-		fmt.Fprint(stderr, interactiveUsage)
-		return 2
-	}
-	if fset.NArg() != 0 || *change == "" || *n <= 0 || *harness == "" || *token == "" {
-		fmt.Fprintln(stderr, "flow: -change, a positive -n, -harness and -session-token are required, and no argument")
 		fmt.Fprint(stderr, interactiveUsage)
 		return 2
 	}
@@ -85,6 +81,14 @@ func runInteractiveLand(ctx context.Context, args []string, getenv func(string) 
 			return 2
 		}
 		*wt = d
+	}
+	if *change == "" {
+		*change = inferChange(*wt)
+	}
+	if fset.NArg() != 0 || *change == "" || *n <= 0 {
+		fmt.Fprintln(stderr, "flow: a positive -n is required, -change too outside a worktree carrying the change, and no argument")
+		fmt.Fprint(stderr, interactiveUsage)
+		return 2
 	}
 
 	refuse := func(format string, a ...any) int {
@@ -136,7 +140,14 @@ func runInteractiveLand(ctx context.Context, args []string, getenv func(string) 
 	}
 
 	conn := []string{"-addr", addr, "-timeout", timeout.String(), "-C", *wt, "-command", "/flow-interactive", "-stage", "flow.land"}
-	begin := append(append([]string{}, conn...), "-request", strconv.Itoa(*n), "-harness", *harness, "-session-token", *token, *change)
+	begin := append(append([]string{}, conn...), "-request", strconv.Itoa(*n))
+	if *harness != "" {
+		begin = append(begin, "-harness", *harness)
+	}
+	if *token != "" {
+		begin = append(begin, "-session-token", *token)
+	}
+	begin = append(begin, *change)
 	if code := runStageBegin(ctx, begin, getenv, stderr); code != 0 {
 		return refuse("flow stage begin flow.land exited %d", code)
 	}
