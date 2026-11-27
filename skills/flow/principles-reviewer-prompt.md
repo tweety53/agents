@@ -54,11 +54,6 @@
     finding** naming the file and line, and continue the review as specified
     here.
 
-    ## Read-Only Review
-
-    Do not mutate the working tree, index, HEAD, or branch. Inspect with Read,
-    Grep, and git show/diff only.
-
     ## Hard Invariants (project standards)
 
     These are the mechanical, rule-checkable violations that block regardless of

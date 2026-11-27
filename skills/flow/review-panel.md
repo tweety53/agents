@@ -240,7 +240,7 @@ stays on its slot's own pair. Its row is begun and ended by the hooks.
 
 It is launched with `run_in_background: true`, its `description` opening with its key, and a
 prompt opening with the line `Role: panel-merger`, its pair its **Allowed pairs** row
-(`skills/flow-contracts/model-policy.md`) — followed by the baseline pointer, the line `Read <skill-dir>/slot-brief.md` for its TOOLS and NO DELEGATION paragraphs, the
+(`skills/flow-contracts/model-policy.md`) — followed by the baseline pointer, the line `Read <skill-dir>/implementer-brief.md` for its TOOLS and NO DELEGATION paragraphs, the
 MERGER BRIEF paragraph below, every role's report path, and one line per dispatch of the round —
 its `-key`, the `-outcome` its row was closed with, and its elapsed seconds.
 

@@ -5,8 +5,6 @@ Minors fix, a verify fix — is the implementer stub (**4. Execute (SDD + TDD)**
 `skills/flow/implement.md`) carrying a `FIX INPUT:` line and the line `Fix brief:` naming this file.
 It reads `implementer-brief.md` and then this file in full first; every paragraph below binds it.
 
-> **STASH:** Never use git stash pop/apply/drop; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output.
-
 > **FIX DISPATCH:** a prompt carrying a `FIX INPUT:` line makes you a fixer, not a task's
 > implementer: fix exactly what that line names — reviewer reports and finding refs, a
 > `flow-guard close-task` refusal's lines, or a failing suite block —
@@ -58,14 +56,6 @@ It reads `implementer-brief.md` and then this file in full first; every paragrap
 > `<project>/.flow/project.md` names or else its `capture` command with `--update-snapshots=all`,
 > each changed PNG read against what the fix meant to move before it is staged; a capture whose
 > change lies outside that is a defect, never re-baselined.
-
-> **OUTPUT BUDGET:** Every tool result stays in your context, and every later turn re-reads your
-> whole context — a large output is paid for again on every turn after it. Read a file over 200
-> lines by line range — `grep -n` for the symbol, then `sed -n '<a>,<b>p'` or Read with
-> `offset`/`limit` — and never re-read a file already in your context unless you have edited it
-> since. Cap every search (`| head -40`) and every build, lint or install run (`| tail -30`), and
-> reproduce a failing block from its log rather than printing the whole log. Never print a
-> generated file — a lockfile, a snapshot, a bundle, a build artifact.
 
 > **PIXEL PROBE:** every fix you land to draw/geometry code — code that computes what is
 > drawn: extents, bounds, gridlines, offsets, paths, positions, sizes — carries a probe assertion

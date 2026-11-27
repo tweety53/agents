@@ -4,20 +4,8 @@ Every gated reviewer bundle of **4. Execute (SDD + TDD)** (`skills/flow/implemen
 bundle or a fix re-review — reads this file in full first: its prompt is a stub
 naming this file and one `PASS task-<n>` block per task it reviews.
 
-> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
-> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
-> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
-> schema loaded later changes your tool list and re-prices your whole context at full input rate.
-
-> **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
-> command still executing in the background. Run it in the foreground, or poll it to
-> completion, before you stop.
-
-> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
-> subagent, background agent or helper of any kind — you are the leaf of this run, and any child
-> you start is unrecorded and outside the parent's closed list (**Dispatch sites — the parent's
-> closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
-> fixing are your own Read, Bash and Edit calls.
+> **LEAF RULES:** the TOOLS, FOREGROUND BUILDS and NO DELEGATION paragraphs of
+> `skills/flow/implementer-brief.md` bind you.
 
 > **READ-ONLY REVIEW:** You review a tree other agents are working in — never mutate it. No
 > command that writes: no `git checkout`, `git restore`, `git reset`, `git stash`, `git clean`,

@@ -59,8 +59,6 @@ its last act before that is writing that `## Verdict`, with the full `## Report`
 > an incomplete report only for a blocker you cannot cure, named; time, context and a departure
 > found are none. Report every departure you see in this one pass.
 
-**A blocked agent reports BLOCKED, never routes around.** No prompt tells an agent to change guard-written output (a manifest, a ledger, a state file) except by re-running its guard, or to get past a blocking hook or guard another way. The agent reports `BLOCKED` naming the hook or guard, and its parent fixes the tooling in the run.
-
 **Recording.** `flow-guard visual-verify-pass prepare` begins each dispatch's row and `close` ends it (neither makes a stage mark),
 `-role visual-verifier`, `-task` omitted, `-model`
 and `-effort` the `DISPATCH:` line's pair, `-key visual-verify`, suffixed `-<repository name>` when this run's resolved set holds

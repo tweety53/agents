@@ -339,8 +339,6 @@ it fixes, and two lines before its REPORT FILE line: `Fix brief: <skill-dir>/fix
 Every fixer of every stage — this file's rows below, the review panel's chunks and Minors fix,
 `skills/flow/fix.md`'s verify fix — takes this one shape.
 
-**A blocked agent reports BLOCKED, never routes around.** No prompt tells an agent to change guard-written output (a manifest, a ledger, a state file) except by re-running its guard, or to get past a blocking hook or guard another way. The agent reports `BLOCKED` naming the hook or guard, and its parent fixes the tooling in the run.
-
 **The runner runs the test list — never an implementer, never the parent.** Once the plan-last
 group — the group holding the plan's last task — has passed the guard, by its commit, the parent
 dispatches one runner per worktree in this run's resolved set, one worktree after another, in the
@@ -562,19 +560,14 @@ stated once here and cited — never restated — from `skills/flow/review-panel
 - **Change artifacts read once**, `proposal.md`/`design.md`/`tasks.md` at `flow.implement`;
   `tasks.md` re-read only through `spectre list --json` and `flow tasks tick` output afterward.
 
-The parent's own `## lint` runs and boundary checks are bound by the same two paragraphs:
-
-> **FOREGROUND BUILDS:** Never end your turn with a build, test run, or other long-running
-> command still executing in the background. Run it in the foreground, or poll it to
-> completion, before you stop.
+The parent's own `## lint` runs and boundary checks are bound by the FOREGROUND BUILDS and SCRUB A REPRODUCED ARTIFACT paragraphs of
+`skills/flow/implementer-brief.md`, and by:
 
 > **REPRODUCE, DON'T READ:** Where a behaviour crosses a boundary — the store, the filesystem, a
 > guard, a real transcript, a real process — at least one check you make MUST exercise the real
 > thing. A claim you did not run is worth less than one you did: a doc comment, a type signature
 > and a passing test can each read plausibly and be false. Run it before you accept it, and run it
 > before you reject it.
-
-> **SCRUB A REPRODUCED ARTIFACT:** A real artifact reproduced into a committed fixture — a transcript, a log, a database dump — is reduced to the lines the test needs and scrubbed of every identifier, path, prompt text and personal datum before it is staged; the raw copy stays under `<abs-worktree>/.superpowers/sdd/`, never in the tree.
 
 On BLOCKED: pause and report. Never guess. A `question:` line `edit denied — <file> — <edit>`
 (**AN EDIT DENIED IS REPORTED, NEVER ROUTED AROUND**, `skills/flow/implementer-brief.md`) is not a
