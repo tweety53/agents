@@ -8,9 +8,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // vvmStep is one in-process guard run: its exit and stderr.
@@ -192,7 +194,28 @@ func (v *vvp) measure(args []string) {
 		}
 	}
 
-	for _, l := range lines {
+	// Pairs are independent: their measure calls run in parallel, and the walk
+	// below reads the results in map order, so the output is the serial run's.
+	type measured struct {
+		rc        int
+		out, serr string
+	}
+	results := make([]measured, len(lines))
+	parallelEach(len(lines), func(i int) {
+		stem := strings.TrimSuffix(lines[i].name, ".png")
+		c := cmfMatchCapture(lines[i].name, m.Captures)
+		if _, ok := composed[filepath.Join(vvDir, stem+".png")]; !ok || len(c) != 1 {
+			return
+		}
+		mockup := filepath.Join(mockups, lines[i].frame+".png")
+		if frame := filepath.Join(vvDir, stem+".frame.png"); vvmExists(frame) {
+			mockup = frame
+		}
+		r := &results[i]
+		r.rc, r.out, r.serr = run(measureVisualProperties, "", mockup, c[0], "--scale", "1", "--props", "bands,seams,matrix", "--tolerance", tolArg)
+	})
+
+	for i, l := range lines {
 		stem := strings.TrimSuffix(l.name, ".png")
 		p := vvmPair{Spec: spec, Frame: l.frame, Prototype: prototype, Mockup: filepath.Join(mockups, l.frame+".png"),
 			Stderr: map[string]string{}, Bands: []any{}, Seams: []any{}, Over: []any{}}
@@ -215,7 +238,7 @@ func (v *vvp) measure(args []string) {
 			p.Mockup = frame
 		}
 
-		rc, out, serr := run(measureVisualProperties, "", p.Mockup, p.Capture, "--scale", "1", "--props", "bands,seams,matrix", "--tolerance", tolArg)
+		rc, out, serr := results[i].rc, results[i].out, results[i].serr
 		p.Exits.Matrix, p.Stderr["matrix"] = note(rc), serr
 		p.MatrixFile = filepath.Join(matrixDir, l.frame+".json")
 		v.writeOut(p.MatrixFile, out)
@@ -521,6 +544,25 @@ func vvmFoldShift(matrix []map[string]any, over *[]any, tol float64) *vvmShift {
 		return folded[int(row)] && int(row) != first
 	})
 	return &vvmShift{Dy: run[len(run)/2].dy, Rows: len(run), Row: first, Uniform: uniform}
+}
+
+// parallelEach runs fn(0..n-1) on at most GOMAXPROCS (the CPU count unless
+// set lower) goroutines and returns once every call has.
+func parallelEach(n int, fn func(int)) {
+	next := make(chan int)
+	var wg sync.WaitGroup
+	for range min(n, runtime.GOMAXPROCS(0)) {
+		wg.Go(func() {
+			for i := range next {
+				fn(i)
+			}
+		})
+	}
+	for i := range n {
+		next <- i
+	}
+	close(next)
+	wg.Wait()
 }
 
 func vvmExists(p string) bool { _, err := os.Stat(p); return err == nil }

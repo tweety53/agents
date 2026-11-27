@@ -228,8 +228,8 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	// Each capture is decoded to validate it and let go, as the Python's
 	// load() did; the matched one is decoded again per map line, so peak
-	// memory follows one pair rather than the stdin list.
-	decodeCapture := func(p string) (*rgbImage, int) {
+	// memory follows one pair per worker rather than the stdin list.
+	decodeCapture := func(stderr io.Writer, p string) (*rgbImage, int) {
 		im, err := decodeRGB(at(p))
 		if err != nil {
 			fmt.Fprintf(stderr, cmfPrefix+"unreadable PNG on stdin: %s: %s\n", p, pilImageError(err, at(p), p))
@@ -238,17 +238,27 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		return im, 0
 	}
+	// Serial, so validating a long stdin list holds one capture at a time.
 	for _, p := range stdinPaths {
-		if _, code := decodeCapture(p); code != 0 {
+		if _, code := decodeCapture(stderr, p); code != 0 {
 			return code
 		}
 	}
 
-	var findings []string
-	var outputs []cmfOutput
+	// Each map line is checked in order, its composing queued as a job; the
+	// jobs run in parallel and are read back in line order, so findings,
+	// outputs and the first failing exit are the serial walk's.
+	type cmfLine struct {
+		finding string
+		job     func(stderr io.Writer) (cmfOutput, string, int) // output, finding, exit
+		out     cmfOutput
+		code    int
+		stderr  bytes.Buffer
+	}
+	var perLine []*cmfLine
 	seenNames := map[string]bool{}
 	finding := func(lineno int, format string, a ...any) {
-		findings = append(findings, fmt.Sprintf("%s:%d: ", mapPath, lineno)+fmt.Sprintf(format, a...))
+		perLine = append(perLine, &cmfLine{finding: fmt.Sprintf("%s:%d: ", mapPath, lineno) + fmt.Sprintf(format, a...)})
 	}
 
 	for i, raw := range mapLines {
@@ -297,62 +307,81 @@ func composeMockupFrames(args []string, env Env, stdout, stderr io.Writer) int {
 
 		stem := strings.TrimSuffix(name, ".png")
 		outPath := cmfJoin(outDir, stem+".png")
-
-		mock, err := decodeRGB(at(framePath))
-		if err != nil {
-			fmt.Fprintf(stderr, cmfPrefix+"unreadable PNG: %s: %s\n", framePath, pilImageError(err, at(framePath), framePath))
-			Reason(env, "unreadable-png")
-			return 2
-		}
-		capture, code := decodeCapture(matches[0])
-		if code != 0 {
-			return code
+		geometry, capturePath := geometry, matches[0]
+		fail := func(format string, a ...any) string {
+			return fmt.Sprintf("%s:%d: ", mapPath, lineno) + fmt.Sprintf(format, a...)
 		}
 
-		var canvas *rgbImage
-		ratio := "n/a"
-		if geometry == nil {
-			canvas = cmfCanvas(capture.W+cmfGutter+mock.W, max(capture.H, mock.H))
-			cmfPaste(canvas, capture, 0, 0)
-			cmfPaste(canvas, mock, capture.W+cmfGutter, 0)
-		} else {
-			box, err := cmfCropBox(mock, *geometry)
-			if errors.Is(err, errCmfNoBorder) {
-				finding(lineno, "frame has no border: %s", framePath)
-				continue
-			}
+		perLine = append(perLine, &cmfLine{job: func(stderr io.Writer) (cmfOutput, string, int) {
+			mock, err := decodeRGB(at(framePath))
 			if err != nil {
-				finding(lineno, "frame %s: declared geometry leaves no content area", frameID)
-				continue
+				fmt.Fprintf(stderr, cmfPrefix+"unreadable PNG: %s: %s\n", framePath, pilImageError(err, at(framePath), framePath))
+				Reason(env, "unreadable-png")
+				return cmfOutput{}, "", 2
 			}
-			mock = cmfCrop(mock, box)
-			// The cropped frame is the calibrated ruler every later
-			// measurement is taken against (scale 1 to the capture), so it is
-			// written beside the composite rather than re-derived by hand.
-			if code := cmfSave(env, stderr, at, cmfJoin(outDir, stem+".frame.png"), mock); code != 0 {
-				return code
+			capture, code := decodeCapture(stderr, capturePath)
+			if code != 0 {
+				return cmfOutput{}, "", code
 			}
 
-			if capture.W != mock.W || capture.H != mock.H {
-				finding(lineno, "capture %d×%d vs frame %d×%d for %s", capture.W, capture.H, mock.W, mock.H, frameID)
-				continue
-			}
+			var canvas *rgbImage
+			ratio := "n/a"
+			if geometry == nil {
+				canvas = cmfCanvas(capture.W+cmfGutter+mock.W, max(capture.H, mock.H))
+				cmfPaste(canvas, capture, 0, 0)
+				cmfPaste(canvas, mock, capture.W+cmfGutter, 0)
+			} else {
+				box, err := cmfCropBox(mock, *geometry)
+				if errors.Is(err, errCmfNoBorder) {
+					return cmfOutput{}, fail("frame has no border: %s", framePath), 0
+				}
+				if err != nil {
+					return cmfOutput{}, fail("frame %s: declared geometry leaves no content area", frameID), 0
+				}
+				mock = cmfCrop(mock, box)
+				// The cropped frame is the calibrated ruler every later
+				// measurement is taken against (scale 1 to the capture), so it is
+				// written beside the composite rather than re-derived by hand.
+				if code := cmfSave(env, stderr, at, cmfJoin(outDir, stem+".frame.png"), mock); code != 0 {
+					return cmfOutput{}, "", code
+				}
 
-			diff, differing := cmfDifferencePanel(capture, mock)
-			ratio = fmt.Sprintf("%.4f", float64(differing)/float64(capture.W*capture.H))
-			canvas = cmfCanvas(capture.W+cmfGutter+mock.W+cmfGutter+diff.W, capture.H)
-			cmfPaste(canvas, capture, 0, 0)
-			cmfPaste(canvas, mock, capture.W+cmfGutter, 0)
-			cmfPaste(canvas, diff, capture.W+cmfGutter+mock.W+cmfGutter, 0)
-		}
-		if code := cmfSave(env, stderr, at, outPath, canvas); code != 0 {
-			return code
-		}
-		outputs = append(outputs, cmfOutput{cmfAbspath(env, outPath), ratio})
+				if capture.W != mock.W || capture.H != mock.H {
+					return cmfOutput{}, fail("capture %d×%d vs frame %d×%d for %s", capture.W, capture.H, mock.W, mock.H, frameID), 0
+				}
+
+				diff, differing := cmfDifferencePanel(capture, mock)
+				ratio = fmt.Sprintf("%.4f", float64(differing)/float64(capture.W*capture.H))
+				canvas = cmfCanvas(capture.W+cmfGutter+mock.W+cmfGutter+diff.W, capture.H)
+				cmfPaste(canvas, capture, 0, 0)
+				cmfPaste(canvas, mock, capture.W+cmfGutter, 0)
+				cmfPaste(canvas, diff, capture.W+cmfGutter+mock.W+cmfGutter, 0)
+			}
+			if code := cmfSave(env, stderr, at, outPath, canvas); code != 0 {
+				return cmfOutput{}, "", code
+			}
+			return cmfOutput{cmfAbspath(env, outPath), ratio}, "", 0
+		}})
 	}
 
-	for _, o := range outputs {
-		fmt.Fprintf(stdout, "%s diff=%s\n", o.path, o.ratio)
+	parallelEach(len(perLine), func(i int) {
+		if l := perLine[i]; l.job != nil {
+			l.out, l.finding, l.code = l.job(&l.stderr)
+		}
+	})
+	for _, l := range perLine {
+		if l.code != 0 {
+			stderr.Write(l.stderr.Bytes())
+			return l.code
+		}
+	}
+	var findings []string
+	for _, l := range perLine {
+		if l.finding != "" {
+			findings = append(findings, l.finding)
+		} else if l.job != nil {
+			fmt.Fprintf(stdout, "%s diff=%s\n", l.out.path, l.out.ratio)
+		}
 	}
 	for _, f := range findings {
 		fmt.Fprintln(stderr, f)

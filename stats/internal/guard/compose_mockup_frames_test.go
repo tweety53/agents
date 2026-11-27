@@ -3,6 +3,7 @@ package guard
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"math/rand/v2"
 	"os"
 	"os/exec"
@@ -549,5 +550,61 @@ func TestComposeMockupFramesCropsABareRender(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestComposeMockupFramesParallelMatchesSerial: the pairs compose on a worker
+// pool, and its stdout, stderr and written files equal a one-worker run's —
+// outputs and findings in map order. Not t.Parallel: it sets GOMAXPROCS.
+func TestComposeMockupFramesParallelMatchesSerial(t *testing.T) {
+	run := func(procs int) (string, string, map[string]string) {
+		defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(procs))
+		dir := t.TempDir()
+		for _, d := range []string{"root", "caps"} {
+			if err := os.MkdirAll(dir+"/"+d, 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		sidecar, stdin := "frame none\n", ""
+		for i := range 16 {
+			im := &rgbImage{W: 20 + i, H: 30, Pix: make([]byte, 3*(20+i)*30)}
+			for p := range im.Pix {
+				im.Pix[p] = byte(p * (i + 1))
+			}
+			name := fmt.Sprintf("s%02d.png", i)
+			for _, p := range []string{"root/F" + name, "caps/" + name} {
+				if err := encodeRGB(dir+"/"+p, im); err != nil {
+					t.Fatal(err)
+				}
+			}
+			sidecar += name + " F" + strings.TrimSuffix(name, ".png") + "\n"
+			stdin += "caps/" + name + "\n"
+			if i%5 == 2 {
+				sidecar += fmt.Sprintf("gone%02d.png G\n", i) // a finding between outputs
+			}
+		}
+		if err := os.WriteFile(dir+"/map.mockups", []byte(sidecar), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		var stdout, stderr bytes.Buffer
+		rc := composeMockupFrames([]string{"map.mockups", "root", "out"}, Env{Getenv: os.Getenv, Dir: dir, Stdin: strings.NewReader(stdin)}, &stdout, &stderr)
+		if rc != 1 {
+			t.Fatalf("rc=%d, want 1 (the gone*.png findings)\n%s", rc, stderr.String())
+		}
+		files := map[string]string{}
+		entries, _ := os.ReadDir(dir + "/out")
+		for _, e := range entries {
+			b, _ := os.ReadFile(dir + "/out/" + e.Name())
+			files[e.Name()] = string(b)
+		}
+		return strings.ReplaceAll(stdout.String(), dir, "<dir>"), strings.ReplaceAll(stderr.String(), dir, "<dir>"), files
+	}
+	sOut, sErr, sFiles := run(1)
+	pOut, pErr, pFiles := run(8)
+	if sOut != pOut || sErr != pErr {
+		t.Errorf("parallel output differs:\nserial stdout:\n%s\nparallel stdout:\n%s\nserial stderr:\n%s\nparallel stderr:\n%s", sOut, pOut, sErr, pErr)
+	}
+	if len(sFiles) != 16 || !maps.Equal(sFiles, pFiles) {
+		t.Errorf("written files differ: serial %d, parallel %d", len(sFiles), len(pFiles))
 	}
 }
