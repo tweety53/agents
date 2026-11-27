@@ -55,6 +55,13 @@ func WithRunTimings(st RunTimingsStore) Option {
 	return func(o *serverOptions) { o.runTimings = st }
 }
 
+// WithTranscriptsRoot names the Claude Code transcripts root the per-run
+// route reads the parent session transcripts under for totals.idleSplit;
+// without it the split is absent.
+func WithTranscriptsRoot(root string) Option {
+	return func(o *serverOptions) { o.transcriptsRoot = root }
+}
+
 // WithStateRoot names the state root flowd counts a change's record
 // journal under (decision flowd-counts-journal); without it the journal
 // reads "unknown".
@@ -128,7 +135,7 @@ type runTotals struct {
 	AgentTimeSplit *harvest.TimeSplit `json:"agentTimeSplit,omitempty"`
 	// IdleSplit splits IdleMs by the parent transcripts' gaps kept inside
 	// the idle / parent segments (harvest.TimeSplit's parent idle rule);
-	// absent when no stage run links a parent transcript.
+	// absent when no stage run's session transcript is found.
 	IdleSplit *harvest.TimeSplit `json:"idleSplit,omitempty"`
 }
 
@@ -698,10 +705,11 @@ func lanes(stages []store.StageRun, rows []row, parent, idle []span, wallEnd int
 
 // runTimingsHandler serves the per-run route.
 type runTimingsHandler struct {
-	store     RunTimingsStore
-	stateRoot string
-	now       func() time.Time
-	log       *slog.Logger
+	store       RunTimingsStore
+	stateRoot   string
+	transcripts string
+	now         func() time.Time
+	log         *slog.Logger
 }
 
 func (h *runTimingsHandler) get(w http.ResponseWriter, r *http.Request) {
@@ -744,23 +752,31 @@ func idleSplit(gaps []harvest.Gap, idle []span) *harvest.TimeSplit {
 	return sum
 }
 
-// parentGaps reads the gaps of every distinct transcript the stages link
-// that is not a subagent's -- the parent session's own -- logging and
-// skipping one that fails to read.
+// parentGaps reads the gaps of the session transcript under root of every
+// distinct session the stages were marked in -- the parent session's own,
+// whichever agent marked the stage -- logging and skipping one that fails
+// to read; nil without a root.
 // ponytail: two parent sessions overlapping in time both count; dedupe by
 // interval if a change ever runs two parents at once.
-func parentGaps(stages []store.StageRun, log *slog.Logger) []harvest.Gap {
+func parentGaps(root string, stages []store.StageRun, log *slog.Logger) []harvest.Gap {
+	if root == "" {
+		return nil
+	}
 	var out []harvest.Gap
 	seen := map[string]bool{}
 	for _, s := range stages {
-		if s.TranscriptPath == nil || seen[*s.TranscriptPath] || strings.Contains(*s.TranscriptPath, "/subagents/") {
+		if s.SessionID == nil || seen[*s.SessionID] {
 			continue
 		}
-		seen[*s.TranscriptPath] = true
-		gaps, err := harvest.ReadTranscriptGaps(*s.TranscriptPath)
+		seen[*s.SessionID] = true
+		path, found, err := harvest.SessionTranscriptPath(root, *s.SessionID)
+		var gaps []harvest.Gap
+		if err == nil && found {
+			gaps, err = harvest.ReadTranscriptGaps(path)
+		}
 		if err != nil {
 			if log != nil {
-				log.Warn("flowd: parent transcript unreadable, left out of the idle split", "path", *s.TranscriptPath, "error", err)
+				log.Warn("flowd: parent transcript unreadable, left out of the idle split", "session", *s.SessionID, "error", err)
 			}
 			continue
 		}
@@ -828,7 +844,7 @@ func (h *runTimingsHandler) compute(ref store.ChangeRef, in store.RunInputs, gua
 		Findings: in.Findings, VerifyRuns: in.VerifyRuns, PlanRead: planRead,
 		Journal:    h.journal(project, change),
 		Departures: departures(project, change, in.Dispatches, roots, saved),
-		ParentGaps: parentGaps(in.Stages, h.log),
+		ParentGaps: parentGaps(h.transcripts, in.Stages, h.log),
 	}, now)
 	out.Project, out.Change = project, change
 	return out

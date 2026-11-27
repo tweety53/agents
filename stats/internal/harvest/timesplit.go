@@ -21,7 +21,7 @@ import (
 // The parent idle split of the per-run route applies the same rule to the
 // parent session's transcript and keeps only the part of each gap that lies
 // inside an idle / parent segment, so its three sum to the share of idle
-// the parent transcripts cover -- less than idleMs where no linked parent
+// the parent transcripts cover -- less than idleMs where no parent session
 // transcript spans a segment.
 type TimeSplit struct {
 	LLMMs   int64            `json:"llmMs"`
@@ -174,11 +174,18 @@ func TokenTranscriptPath(root, token string) (path string, ok, found bool, err e
 		path, found, err = AgentTranscriptPath(root, session, agent)
 		return path, true, found, err
 	}
+	path, found, err = SessionTranscriptPath(root, session)
+	return path, true, found, err
+}
+
+// SessionTranscriptPath is session's own transcript, <session>.jsonl under
+// root; found is false where none exists.
+func SessionTranscriptPath(root, session string) (path string, found bool, err error) {
 	paths, err := filepath.Glob(filepath.Join(root, "*", session+".jsonl"))
 	if err != nil || len(paths) == 0 {
-		return "", true, false, err
+		return "", false, err
 	}
-	return paths[0], true, true, nil
+	return paths[0], true, nil
 }
 
 // toolKey is tool, and for Bash its command's first word.

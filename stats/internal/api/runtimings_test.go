@@ -639,8 +639,9 @@ func TestRunTimingsSumsStoredAgentSplits(t *testing.T) {
 // TestRunTimingsSplitsParentIdle: totals.idleSplit is the parent
 // transcript's classified gaps kept only where they lie inside an idle /
 // parent segment -- a gap straddling a dispatch counts only its idle part --
-// and parentGaps reads every linked transcript but a subagent's; with no
-// linked parent transcript the field is absent.
+// and parentGaps reads the session transcript of every distinct session
+// the stage runs were marked in, whichever agent marked them; with no parent
+// transcript the field is absent.
 func TestRunTimingsSplitsParentIdle(t *testing.T) {
 	t.Parallel()
 	gap := func(class, tool string, from, to float64) harvest.Gap {
@@ -663,8 +664,8 @@ func TestRunTimingsSplitsParentIdle(t *testing.T) {
 		t.Errorf("no parent transcript: idleSplit = %+v, want absent", s)
 	}
 
-	dir := t.TempDir()
-	parent, sub := filepath.Join(dir, "s.jsonl"), filepath.Join(dir, "s", "subagents", "agent-a.jsonl")
+	root := t.TempDir()
+	parent, sub := filepath.Join(root, "proj", "s.jsonl"), filepath.Join(root, "proj", "s", "subagents", "agent-a.jsonl")
 	if err := os.MkdirAll(filepath.Dir(sub), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -677,11 +678,15 @@ func TestRunTimingsSplitsParentIdle(t *testing.T) {
 	if err := os.WriteFile(sub, []byte(line("user", 0)+line("assistant", 7)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	stages := []store.StageRun{{TranscriptPath: &parent}, {TranscriptPath: &parent}, {TranscriptPath: &sub}, {}}
-	if gaps := parentGaps(stages, nil); len(gaps) != 1 || !gaps[0].To.Equal(rtAt(5)) {
-		t.Errorf("parentGaps = %+v, want the parent transcript's one gap", gaps)
+	s, gone := "s", "gone"
+	stages := []store.StageRun{{SessionID: &s, TranscriptPath: &sub}, {SessionID: &s}, {SessionID: &gone}, {}}
+	if gaps := parentGaps(root, stages, nil); len(gaps) != 1 || !gaps[0].To.Equal(rtAt(5)) {
+		t.Errorf("parentGaps = %+v, want the session transcript's one gap", gaps)
 	}
-	if gaps := parentGaps(stages[2:], nil); gaps != nil {
-		t.Errorf("parentGaps of subagent-only links = %+v, want nil", gaps)
+	if gaps := parentGaps(root, stages[2:], nil); gaps != nil {
+		t.Errorf("parentGaps with no session transcript = %+v, want nil", gaps)
+	}
+	if gaps := parentGaps("", stages, nil); gaps != nil {
+		t.Errorf("parentGaps with no transcripts root = %+v, want nil", gaps)
 	}
 }
