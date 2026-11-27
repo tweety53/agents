@@ -131,7 +131,7 @@ still sitting in the journal because the store could not be reached. **The numbe
 command, and from nowhere else:**
 
 ```bash
-flow record handoff-lines -change <name> -C <worktree>
+flow record handoff-lines -C <worktree>
 ```
 
 **Never derive the journal's path and count its lines by hand.** The command prints the `Records:`

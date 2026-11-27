@@ -124,7 +124,7 @@ state file's worktrees, findings in the store) through this file's own re-entry 
 ## 1. Load context and validate the plan
 
 ```bash
-flow stage begin -command '/flow' -stage flow.implement -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.implement -session-token mf-<literal-token> <name>
 spectre validate "<name>"
 spectre list --json
 ```

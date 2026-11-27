@@ -23,7 +23,7 @@ interactive change; report anything else rather than ignoring it. The base is th
 `origin/HEAD` names; from the worktree's creation on, `<base>` is what
 `flow-guard resolve-base-branch <worktree>` prints.
 
-**Every mark is a literal call.** `<harness>` is this harness's name, `fi-<literal-token>` is one
+**Every mark is a literal call.** `fi-<literal-token>` is one
 token generated once per invocation, shaped as **Stage marks** (`skills/flow-contracts/pipeline.md`)
 states, and typed the same in every `flow record` command — never a shell substitution, per the
 CLI's own usage text. A mark carries none. `<n>` is the request's number in the session.
@@ -83,7 +83,7 @@ the reused `Interactive session` issue's included, so a topic-slugged request ne
 change on the same issue — never a new session numbering from 1. Find it with `flow state list`: every record whose name is, or starts with `<lowercased key>-`, and whose state is not `FINISHED` — the most recently updated when several. (`flow state find` takes one exact name and never matches by key.) **Whatever state the record shows is open: a `STARTED` row whose `updatedBy` is `flow stage begin (synthetic)` is a session's own row — a stage mark creates it, as no state write exists before the stop — so it is resumed, never judged another command's and never left beside a new name**. Looking before creating is not optional: a session whose worktree is not the one found is a second session on the issue.
 
 ```bash
-flow stage mark  -command '/flow-interactive' -stages flow.plan -harness <harness> <name>
+flow stage mark  -command '/flow-interactive' -stages flow.plan <name>
 ```
 
 **Landing route.** `flow-guard project-get <project> "default landing route" --enum "pull request" "merge
@@ -142,7 +142,7 @@ defect met mid-session is fixed per **Pipeline defects found mid-run**
 itself, the log — then the code. Never answer from code alone.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.plan -request <n> -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.plan -request <n> -session-token mf-<literal-token> <name>
 flow stage end   -command '/flow-interactive' -stage flow.plan -outcome completed <name>
 ```
 
@@ -167,7 +167,7 @@ ask the operator through **AskUserQuestion**, per **Unanswered mid-run asks**
 (`skills/flow-contracts/pipeline.md`):
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.plan -request <n> -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.plan -request <n> -session-token mf-<literal-token> <name>
 flow record request begin -change <name> -n <n> -brainstorm-reason '<why>'
 flow stage end   -command '/flow-interactive' -stage flow.plan -outcome completed <name>
 ```
@@ -191,7 +191,7 @@ under the **fix ledger** (**The fix ledger**, `skills/flow/fix.md`): `flow-guard
 <abs-worktree>` runs after each.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.implement -request <n> -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.implement -request <n> -session-token mf-<literal-token> <name>
 flow stage end   -command '/flow-interactive' -stage flow.implement -outcome completed <name>
 ```
 
@@ -209,14 +209,14 @@ exiting 0 on a tree clean before and after it, writes `HEAD` to the worktree's `
 request's last commit.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -session-token mf-<literal-token> <name>
 flow stage end   -command '/flow-interactive' -stage flow.verify -outcome completed <name>
 ```
 
 **5. Land.** One call lands the request and marks `flow.land` around its push:
 
 ```bash
-flow interactive land -C <worktree> -change <name> -n <n> -harness <harness> -session-token fi-<literal-token>
+flow interactive land -C <worktree> -n <n> -session-token fi-<literal-token>
 ```
 
 Exit 0 prints `commit: <sha>` and `base: <sha>`; on the request's first landing that `base:` is the
@@ -242,7 +242,7 @@ again inside the same request. The stage's end is its own call, made after the s
 never chained to its begin. The order is fixed: the stage's begin is made first, the page opened and the screenshot taken only after it, the screenshot read, and the end made last; a screenshot taken before the begin, or an end made before the screenshot, is refused by the Request-end guard (check 3) and the check is redone.
 
 ```bash
-flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> -session-token mf-<literal-token> <name>
 flow stage end   -command '/flow-interactive' -stage flow.verify -outcome completed|failed [-screenshot <path>] [-reason '<the defect, one line>'] <name>
 ```
 
@@ -348,7 +348,7 @@ as a request and the session stays open, saying so in one line. Stop:
    session's requests, never the stop invocation's diff.
 
    ```bash
-   flow stage begin -command '/flow-interactive' -stage flow.self-review -harness <harness> -session-token mf-<literal-token> <name>
+   flow stage begin -command '/flow-interactive' -stage flow.self-review -session-token mf-<literal-token> <name>
    flow stage end   -command '/flow-interactive' -stage flow.self-review -outcome completed <name>
    ```
 
@@ -360,7 +360,7 @@ as a request and the session stays open, saying so in one line. Stop:
    --delete <name>`.
 
    ```bash
-   flow stage begin -command '/flow-interactive' -stage flow.cleanup -harness <harness> -session-token mf-<literal-token> <name>
+   flow stage begin -command '/flow-interactive' -stage flow.cleanup -session-token mf-<literal-token> <name>
    flow stage end   -command '/flow-interactive' -stage flow.cleanup -outcome completed <name>
    ```
 

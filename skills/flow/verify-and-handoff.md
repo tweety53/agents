@@ -11,7 +11,7 @@ below.
 ```bash
 flow stage begin -command '/flow' \
   -stage flow.verify \
-  -harness <harness> -session-token mf-<literal-token> \
+  -session-token mf-<literal-token> \
   <name>
 ```
 
@@ -199,7 +199,7 @@ flow-guard run-verify-list <worktree> lint <name> verify[-<repository name>] mf-
 flow-guard run-verify-list <worktree> test <name> verify[-<repository name>] mf-<literal-token> <model> <effort> [<canonical worktree>]; t=$?
 wait "$l"; echo "lint: $? test: $t"
 # … only after the `general` triage of an `undecided` command answered `environment`:
-flow record dispatch end -C <canonical worktree> -change <name> -key verify[-<repository name>] \
+flow record dispatch end -C <canonical worktree> -key verify[-<repository name>] \
   -session-token mf-<literal-token> -outcome blocked -cause environment
 ```
 
@@ -271,7 +271,7 @@ this pipeline restates it. **`flow-guard visual-verify-pass prepare` runs steps 
 and 2 below (it makes no stage mark — `flow.verify` stays open — and begins each dispatch's row) in the parent's own Bash call** — never these steps by hand, and never a subagent's:
 
 ```bash
-flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <harness> --session-token mf-<literal-token> \
+flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --session-token mf-<literal-token> \
   --merge-base <worktree>=<sha> [--worktree <worktree>] [--since <worktree>=<sha>] \
   [--round-base <worktree>=<sha>] [--defects <worktree>=<frame>[,<frame>…]] [--app <worktree>:<app-root>=<resolved-url>]
 ```
@@ -380,14 +380,14 @@ reads the narrative, and the negative results live nowhere else in the change's 
 written, list the rows still open:
 
 ```bash
-flow record dispatches -change <name> -C <canonical-worktree> \
+flow record dispatches -C <canonical-worktree> \
   | jq -r '.[] | select((.outcome // "") == "") | "\(.key) \(.sessionToken) \(.agentId // "inline")"'
 ```
 
 **A row whose agent returned is never aborted**. A row with an agent id whose transcript (`<session folder>/subagents/agent-<agent id>.jsonl`) exists is closed from that transcript, which is complete by now: `flow-guard end-dispatch-row <that transcript> <session id> <canonical-worktree>`, which prints `END-DISPATCH-ROW-OK` and ends the row on its real final message. Only a row that guard prints `END-DISPATCH-ROW-NA` for, or that has no transcript, is ended `-outcome aborted` — its agent is gone:
 
 ```bash
-flow record dispatch end -change <name> -C <canonical-worktree> -key <key> -session-token <its token> -outcome aborted
+flow record dispatch end -C <canonical-worktree> -key <key> -session-token <its token> -outcome aborted
 ```
 
 **Record the `**Summary:**` bullets next**, per **Summary and live-stack line, before every handoff** (`skills/flow-contracts/pipeline.md`).

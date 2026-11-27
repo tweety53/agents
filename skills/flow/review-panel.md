@@ -7,7 +7,7 @@ stage closes, on every implementation run — creating, resumed, or fix. Dispatc
 dispatch: mapping each slot id to its prompt and spawning each bundle.
 
 ```bash
-flow stage begin -command '/flow' -stage flow.review -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.review -session-token mf-<literal-token> <name>
 ```
 
 **The pass log is store rows, rendered — never a hand-written file.** Every fact this file records

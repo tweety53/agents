@@ -29,14 +29,14 @@ the branch, both first on `PATH`:
 
 ```bash
 cd <canonical-worktree>/stats && go build -o <scratch>/bin/flow ./cmd/flow
-PATH=<scratch>/bin:<canonical-worktree>/scripts:$PATH flow-guard integrate-change prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
+PATH=<scratch>/bin:<canonical-worktree>/scripts:$PATH flow-guard integrate-change prepare <main-checkout> <name> --session-token mf-<literal-token>
 ```
 
 The installed script and CLI predate the change, and the script builds its guards from its own
 checkout (`<agents repo>/scripts/flow-guard`) while taking `flow` from `PATH`.
 
 ```bash
-flow-guard integrate-change prepare <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
+flow-guard integrate-change prepare <main-checkout> <name> --session-token mf-<literal-token>
 ```
 
 Every call takes the run's `--harness` and `--session-token`, relays each
@@ -106,7 +106,7 @@ when one is usable — say so, open or closed-unmerged, before the operator answ
 **Load `skills/flow-contracts/git-boundaries-commit-chain.md`** before writing the subjects below.
 
 ```bash
-flow-guard integrate-change commit <main-checkout> <name> <worktree>="<type>(<module>): <what the implementation does>"... --harness <harness> --session-token mf-<literal-token>
+flow-guard integrate-change commit <main-checkout> <name> <worktree>="<type>(<module>): <what the implementation does>"... --session-token mf-<literal-token>
 ```
 
 `<type>`, `<module>` and `<what the implementation does>` are derived from the reshaped diff — the
@@ -125,7 +125,7 @@ and pushes each reshaped branch `--force-with-lease` — per **Run 1 — the bra
 Call it with the parent's own shell outside every worktree in the set.
 
 ```bash
-flow-guard integrate-change land <main-checkout> <name> [--route "<route>"] --harness <harness> --session-token mf-<literal-token>
+flow-guard integrate-change land <main-checkout> <name> [--route "<route>"] --session-token mf-<literal-token>
 ```
 
 `--route` carries the operator's answer to the landing question; without it `land` takes the
@@ -175,7 +175,7 @@ When the stage was ended `stopped` first, `land`'s begin no longer holds it open
 pass whose `completed` end follows, with the run's own harness and token:
 
 ```bash
-flow stage begin -C <main-checkout> -command '/flow' -stage flow.self-review -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -C <main-checkout> -command '/flow' -stage flow.self-review -session-token mf-<literal-token> <name>
 ```
 
 On merge and push, `cleanup` (`skills/flow/cleanup.md`) then refuses with `STOP: self-review-report`

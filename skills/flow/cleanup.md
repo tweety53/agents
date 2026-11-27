@@ -29,7 +29,7 @@ brought straight back up.
 Call `cleanup` with the parent's own shell outside every worktree in the set.
 
 ```bash
-flow-guard integrate-change cleanup <main-checkout> <name> --harness <harness> --session-token mf-<literal-token>
+flow-guard integrate-change cleanup <main-checkout> <name> --session-token mf-<literal-token>
 ```
 
 Run it with a Bash `timeout: 600000`: a refresh that moved `<agents repo>/stats/` restarts flowd inside the call,

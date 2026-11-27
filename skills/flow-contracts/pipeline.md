@@ -477,11 +477,16 @@ exits 0. Never branch on its exit code; a failed mark is one line in the run's n
 
 `/flow` marks one stage per phase. Planning marks `flow.plan`, from kickoff to the plan gate
 (`skills/flow/brainstorm.md`); the other phases' keys are listed in **Stage keys**
-(`skills/flow/stage-keys.md`). `-harness` names the harness actually running the mark —
-`claude-code` on Claude Code — filled in at call time from the `<harness>` placeholder.
+(`skills/flow/stage-keys.md`). A mark and a `flow-guard` call carry no `-harness`: the CLI names
+the harness actually running the mark — `$FLOW_HARNESS`, else `claude-code` on Claude Code; a
+harness that sets neither passes `-harness <its name>`. A `flow record` call given `-C` inside the
+change's worktree carries no `-change`: the CLI reads the change off that checkout's branch.
+The session token is never inferred: subagents share their parent's harness session id, and the
+store supersedes a token's open run on its next begin, so one session-wide token would let a
+subagent's mark close its parent's run.
 
 ```bash
-flow stage begin -command '/flow' -stage flow.plan -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.plan -session-token mf-<literal-token> <name>
 # … the phase's own work …
 flow stage end   -command '/flow' -stage flow.plan -outcome completed <name>
 ```
@@ -577,7 +582,7 @@ stopping point prints it** — a fix round closing, a stage closing, a full hand
 terminal handoff, so the operator always holds a current account of what changed and what is
 still running without having to ask.
 
-**Every summary a run prints is recorded as it prints** — `flow record summary -change <name> -C <canonical-worktree> -file -`, the summary's Markdown on stdin, the `IN_PROGRESS` handoff's `**Summary:**` bullets included; one row per change, the last write wins — so the self-review bundle's first source is the run's own statement, as **Write `IN_PROGRESS`** prints it (`skills/flow/verify-and-handoff.md`).
+**Every summary a run prints is recorded as it prints** — `flow record summary -C <canonical-worktree> -file -`, the summary's Markdown on stdin, the `IN_PROGRESS` handoff's `**Summary:**` bullets included; one row per change, the last write wins — so the self-review bundle's first source is the run's own statement, as **Write `IN_PROGRESS`** prints it (`skills/flow/verify-and-handoff.md`).
 
 **The `IN_PROGRESS` handoff of a creating, resuming or fix run prints neither before its block.**
 Its own `**Summary:**` carries the first bullet above alone, and its block is the whole handoff (**Write `IN_PROGRESS`**,

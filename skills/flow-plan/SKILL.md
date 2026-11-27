@@ -44,7 +44,7 @@ string, exactly as `/flow` generates `mf-<literal-token>` (**Stage marks**, `ski
 known:**
 
 ```bash
-flow stage begin -command '/flow-plan' -stage plan.session -harness <harness> -session-token fp-<literal-token> -jira-key <KEY>
+flow stage begin -command '/flow-plan' -stage plan.session -session-token fp-<literal-token> -jira-key <KEY>
 ```
 
 `<KEY>` is the resolved Jira key, uppercase, exactly as **Resolution (how `jiraIssue` is decided)**
@@ -185,7 +185,7 @@ restates none of them, and every `mf-<literal-token>` they show is this session'
 
    ```bash
    flow stage end -command '/flow-plan' -stage plan.session -jira-key <KEY> -outcome started
-   flow stage begin -command '/flow-plan' -stage flow.plan -harness <harness> -session-token fp-<literal-token> <name>
+   flow stage begin -command '/flow-plan' -stage flow.plan -session-token fp-<literal-token> <name>
    ```
 
 4. Write the planner's ticket, `<abs-worktree>/.superpowers/sdd/planner/ticket.md`: the Jira

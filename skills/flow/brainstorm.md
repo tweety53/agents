@@ -42,7 +42,7 @@ mark is a passive record for the stats (**Stage marks**, `skills/flow-contracts/
 never refuses, and a failed mark is one line in the run's narrative, never a stop.
 
 ```bash
-flow stage begin -command '/flow' -stage flow.plan -harness <harness> -session-token mf-<literal-token> <name>
+flow stage begin -command '/flow' -stage flow.plan -session-token mf-<literal-token> <name>
 ```
 
 ```json
