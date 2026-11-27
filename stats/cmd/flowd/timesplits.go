@@ -31,10 +31,12 @@ type timeSplitStore interface {
 
 // harvestTimeSplits is one tick of the time-split harvest
 // (0115_time_splits.sql): every pending stage run is linked to its token's
-// transcript under root (harvest.TokenTranscriptPath), and every ended
-// pending row -- a stage run once its transcript has a line at or past its
-// end or timeSplitSettle has passed, a dispatch at once, its agent having
-// finished writing -- gets its transcript's harvest.SplitGaps over its
+// transcript under root (harvest.TokenTranscriptPath), a pending parent
+// split reads its session id's own transcript (harvest.SessionTranscriptPath,
+// 0117_parent_splits.sql), and every ended pending row -- a stage run or a
+// parent split once its transcript has a line at or past its end or
+// timeSplitSettle has passed, a dispatch at once, its agent having finished
+// writing -- gets its transcript's harvest.SplitGaps over its
 // window stored, or JSON null when no transcript exists. Each transcript is
 // read once per tick. A row whose transcript read fails stays pending.
 func harvestTimeSplits(ctx context.Context, root string, st timeSplitStore, now time.Time) error {
@@ -52,6 +54,8 @@ func harvestTimeSplits(ctx context.Context, root string, st timeSplitStore, now 
 			if err == nil && found {
 				err = st.LinkStageRunTranscript(ctx, r.ID, path)
 			}
+		case r.Kind == store.SplitParent:
+			path, found, err = harvest.SessionTranscriptPath(root, r.SessionID)
 		case r.Kind == store.SplitDispatch:
 			path, found, err = harvest.AgentTranscriptPath(root, r.SessionID, r.AgentID)
 			if err == nil && !found && r.SessionID != "" {
@@ -76,7 +80,7 @@ func harvestTimeSplits(ctx context.Context, root string, st timeSplitStore, now 
 				gapsOf[path] = gaps
 			}
 			covered := len(gaps) > 0 && !gaps[len(gaps)-1].To.Before(*r.EndedAt)
-			if r.Kind == store.SplitStage && !covered && now.Sub(*r.EndedAt) < timeSplitSettle {
+			if r.Kind != store.SplitDispatch && !covered && now.Sub(*r.EndedAt) < timeSplitSettle {
 				continue
 			}
 			if split, err = json.Marshal(harvest.SplitGaps(gaps, r.StartedAt, *r.EndedAt)); err != nil {

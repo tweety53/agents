@@ -30,8 +30,9 @@ type BottleneckRow struct {
 // first-start-to-last-end window),
 // verify runs by label, and the stored transcript time splits
 // (0115_time_splits.sql) -- every dispatch's, named agent, and every stage
-// run's linked to a parent transcript (not a subagent's, which re-counts its
-// dispatch), named parent -- as llm and human by those names and tool by
+// run's parent split (0117_parent_splits.sql: its session's own transcript,
+// whichever agent marked it; a stage run's own time_split is not read, a
+// subagent's re-counting its dispatch), named parent -- as llm and human by those names and tool by
 // tool, one run per split. WallMs is the summed wall clock of those
 // changes -- each change's first stage-run start to its last stage-run end
 // -- the denominator a row's share is read against. Rows come ordered by
@@ -79,9 +80,9 @@ func (s *Store) Bottlenecks(ctx context.Context, project *string, last int) (row
 				FROM dispatches x JOIN picked p ON p.id = x.change_id
 				WHERE jsonb_typeof(x.time_split) = 'object'
 				UNION ALL
-				SELECT sr.time_split, 'parent'
+				SELECT sr.parent_split, 'parent'
 				FROM stage_runs sr JOIN picked p ON p.id = sr.change_id
-				WHERE jsonb_typeof(sr.time_split) = 'object' AND sr.transcript_path NOT LIKE '%/subagents/%'
+				WHERE jsonb_typeof(sr.parent_split) = 'object'
 			) s
 			CROSS JOIN LATERAL (
 				VALUES ('llm', s.who, (s.ts->>'llmMs')::numeric), ('human', s.who, (s.ts->>'humanMs')::numeric)

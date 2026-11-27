@@ -18,8 +18,8 @@ import (
 // bootstrap_ms as guard-bootstrap --, hook runs that fell inside a kept
 // change's wall clock by hook, the stored time splits as llm, tool (per
 // tool) and human -- named agent for a dispatch's, parent for a stage run's
-// linked to a parent transcript; a subagent-linked stage run's and a JSON
-// null split add nothing -- and the wall clock is the kept change's first
+// parent_split; a stage run's own time_split, whichever transcript it links,
+// and a JSON null split add nothing -- and the wall clock is the kept change's first
 // start to last end.
 func TestBottlenecksRanksEachDimension(t *testing.T) {
 	t.Parallel()
@@ -58,10 +58,13 @@ func TestBottlenecksRanksEachDimension(t *testing.T) {
 	exec(`UPDATE dispatches SET time_split = $2 WHERE change_id = $1 AND seq = 1`, newID,
 		`{"llmMs":40000,"toolMs":20000,"humanMs":0,"byTool":{"Bash go":15000,"Read":5000}}`)
 	exec(`UPDATE dispatches SET time_split = 'null' WHERE change_id = $1 AND seq = 2`, newID)
-	exec(`UPDATE stage_runs SET transcript_path = '/t/s.jsonl', time_split = $2 WHERE change_id = $1 AND stage = 'flow.verify'`, newID,
+	exec(`UPDATE stage_runs SET parent_split = $2 WHERE change_id = $1 AND stage = 'flow.verify'`, newID,
 		`{"llmMs":60000,"toolMs":30000,"humanMs":10000,"byTool":{"Bash go":30000}}`)
+	exec(`UPDATE stage_runs SET parent_split = 'null' WHERE change_id = $1 AND stage = 'flow.implement' AND attempt = 2`, newID)
 	exec(`UPDATE stage_runs SET transcript_path = '/t/s/subagents/agent-a.jsonl', time_split = '{"llmMs":1}'
 		WHERE change_id = $1 AND stage = 'flow.implement' AND attempt = 1`, newID)
+	exec(`UPDATE stage_runs SET transcript_path = '/t/s.jsonl', time_split = '{"llmMs":7}'
+		WHERE change_id = $1 AND stage = 'flow.implement' AND attempt = 2`, newID)
 	exec(`INSERT INTO guard_runs (project_key, guard, worktree, exit_code, outcome, duration_ms, recorded_at) VALUES
 		($1,'check-a','/x/p-worktrees/new',0,'clear',500,$2),
 		($1,'check-a','/x/p-worktrees/new/sub',0,'clear',1500,$2),

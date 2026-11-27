@@ -11,13 +11,19 @@ import (
 const (
 	SplitStage    = "stage"
 	SplitDispatch = "dispatch"
+	// SplitParent is a stage run's parent split: the split of the session
+	// transcript its session id names, stored in stage_runs.parent_split
+	// (0117_parent_splits.sql).
+	SplitParent = "parent"
 )
 
 // PendingTimeSplit is one row the harvest tick still has work on
 // (0115_time_splits.sql): a stage run with a cc- session token and no split
-// -- open and not yet linked, or ended -- or an ended dispatch with an
-// agent id and no split. Token and TranscriptPath are a stage run's;
-// AgentID and SessionID a dispatch's.
+// -- open and not yet linked, or ended --, an ended dispatch with an
+// agent id and no split, or an ended stage run with a session id and no
+// parent split (0117_parent_splits.sql). Token and TranscriptPath are a
+// stage run's; AgentID a dispatch's; SessionID a dispatch's or a parent
+// split's.
 type PendingTimeSplit struct {
 	Kind           string
 	ID             int64
@@ -29,8 +35,8 @@ type PendingTimeSplit struct {
 	EndedAt        *time.Time
 }
 
-// PendingTimeSplits returns up to limit stage runs and up to limit
-// dispatches still pending, newest first, so a backlog drains a tick at a
+// PendingTimeSplits returns up to limit rows of each kind still pending,
+// newest first, so a backlog drains a tick at a
 // time while new rows go first.
 func (s *Store) PendingTimeSplits(ctx context.Context, limit int) ([]PendingTimeSplit, error) {
 	rows, err := s.pool.Query(ctx, `
@@ -43,6 +49,11 @@ func (s *Store) PendingTimeSplits(ctx context.Context, limit int) ([]PendingTime
 		(SELECT 'dispatch', id, '', '', agent_id, COALESCE(session_id, ''), started_at, ended_at
 		FROM dispatches
 		WHERE time_split IS NULL AND ended_at IS NOT NULL AND agent_id IS NOT NULL AND agent_id <> 'inline'
+		ORDER BY id DESC LIMIT $1)
+		UNION ALL
+		(SELECT 'parent', id, '', '', '', session_id, started_at, ended_at
+		FROM stage_runs
+		WHERE parent_split IS NULL AND session_id IS NOT NULL AND ended_at IS NOT NULL
 		ORDER BY id DESC LIMIT $1)
 	`, limit)
 	if err != nil {
@@ -77,12 +88,15 @@ func (s *Store) LinkStageRunTranscript(ctx context.Context, id int64, path strin
 // between the tick's read and this write leaves the row pending for the
 // next tick.
 func (s *Store) SetTimeSplit(ctx context.Context, kind string, id int64, from, to time.Time, split json.RawMessage) error {
-	table := "dispatches"
-	if kind == SplitStage {
+	table, col := "dispatches", "time_split"
+	switch kind {
+	case SplitStage:
 		table = "stage_runs"
+	case SplitParent:
+		table, col = "stage_runs", "parent_split"
 	}
-	if _, err := s.pool.Exec(ctx, `UPDATE `+table+` SET time_split = $2::jsonb
-		WHERE id = $1 AND time_split IS NULL AND started_at = $3 AND ended_at = $4`, id, split, from, to); err != nil {
+	if _, err := s.pool.Exec(ctx, `UPDATE `+table+` SET `+col+` = $2::jsonb
+		WHERE id = $1 AND `+col+` IS NULL AND started_at = $3 AND ended_at = $4`, id, split, from, to); err != nil {
 		return fmt.Errorf("store: set %s %d time split: %w", kind, id, err)
 	}
 	return nil

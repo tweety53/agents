@@ -109,3 +109,71 @@ func TestTimeSplitsPendingLinkAndSet(t *testing.T) {
 		t.Fatal("a retimed dispatch kept its split")
 	}
 }
+
+// TestParentSplitsPendingAndSet: an ended stage run with a session id is a
+// pending parent split, whatever its token, until one is set; an open one
+// or one with no session id never is; a set parent split is never
+// overwritten, and a retime clears it so the run is pending again.
+func TestParentSplitsPendingAndSet(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	ctx := context.Background()
+	pk := fmt.Sprintf("proj-psplit-%d", time.Now().UnixNano())
+	seedChange(t, st, pk, "c")
+	pool := store.PoolOf(st)
+	var cid int64
+	if err := pool.QueryRow(ctx, `SELECT id FROM changes WHERE project_key=$1 AND name='c'`, pk).Scan(&cid); err != nil {
+		t.Fatal(err)
+	}
+	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	t1 := t0.Add(time.Minute)
+	stage := func(n int, session *string, ended *time.Time) int64 {
+		t.Helper()
+		var id int64
+		if err := pool.QueryRow(ctx, `INSERT INTO stage_runs (change_id, harness, command, stage, attempt, session_token, session_id, started_at, ended_at)
+			VALUES ($1,'claude-code','/flow-interactive','flow.implement',$2,'mf-x',$3,$4,$5) RETURNING id`, cid, n, session, t0, ended).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	sess := "sess-" + pk
+	ended, open, unbound := stage(1, &sess, &t1), stage(2, &sess, nil), stage(3, nil, &t1)
+	pending := func() map[int64]store.PendingTimeSplit {
+		t.Helper()
+		ps, err := st.PendingTimeSplits(ctx, 100000)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[int64]store.PendingTimeSplit{}
+		for _, p := range ps {
+			if p.Kind == store.SplitParent && (p.ID == ended || p.ID == open || p.ID == unbound) {
+				out[p.ID] = p
+			}
+		}
+		return out
+	}
+	if got := pending(); len(got) != 1 || got[ended].SessionID != sess || got[ended].EndedAt == nil {
+		t.Fatalf("pending = %+v, want the ended run with its session id", got)
+	}
+	split := json.RawMessage(`{"llmMs":1,"toolMs":2,"humanMs":3}`)
+	if err := st.SetTimeSplit(ctx, store.SplitParent, ended, t0, t1, split); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetTimeSplit(ctx, store.SplitParent, ended, t0, t1, json.RawMessage(`null`)); err != nil {
+		t.Fatal(err)
+	}
+	if got := pending(); len(got) != 0 {
+		t.Fatalf("after set: pending = %+v, want none", got)
+	}
+	var kept, own *string
+	if err := pool.QueryRow(ctx, `SELECT parent_split::text, time_split::text FROM stage_runs WHERE id = $1`, ended).Scan(&kept, &own); err != nil ||
+		kept == nil || *kept != `{"llmMs": 1, "toolMs": 2, "humanMs": 3}` || own != nil {
+		t.Fatalf("parent_split = %v, time_split = %v (%v), want the first set in parent_split alone", kept, own, err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE stage_runs SET ended_at = $2 WHERE id = $1`, ended, t1.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := pending()[ended]; !ok {
+		t.Fatal("a retimed stage run kept its parent split")
+	}
+}

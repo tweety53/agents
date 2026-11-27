@@ -203,7 +203,10 @@ root's `hook-runs.jsonl` with no flowd call — about 17 µs a run — and the d
 on its harvest tick; a hook run carries no project or worktree, so it counts once when it ended inside
 any ranked change's wall clock), `verify_runs` by label, and the transcript time splits flowd
 stored (`0115_time_splits.sql`, see Trace) — every dispatch's under the name `agent`, every stage
-run's linked to a parent transcript under `parent` — as `llm` and `human` by those names and `tool`
+run's parent split under `parent` (`0117_parent_splits.sql`: the split of the session transcript
+its `session_id` names, `<session>.jsonl`, over the run's own window, whichever agent marked it;
+each run counts its one session's transcript once, so overlapping runs each count what they
+share, as their durations do on the `stage` rows) — as `llm` and `human` by those names and `tool`
 by tool. Each
 dimension prints its top 10 — name, runs, total, share of the changes' summed wall clock (first
 stage-run start to last end), p50, p95 — then one line of the top 5 time sinks across dimensions,

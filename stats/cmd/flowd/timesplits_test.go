@@ -96,3 +96,44 @@ func TestHarvestTimeSplits(t *testing.T) {
 		t.Errorf("settled stage2 = %s", got)
 	}
 }
+
+// TestHarvestParentSplits: a parent split is the split of the session
+// transcript the stage run's session id names, over the run's own window --
+// whatever agent marked the run --, waits like a stage run's own split
+// while that transcript has no line at or past the run's end, and is JSON
+// null when the session has no transcript.
+func TestHarvestParentSplits(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "proj"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "proj", "s-1.jsonl"), []byte(`{"type":"user","timestamp":"2026-01-01T00:00:00Z","message":{"content":"go"}}
+{"type":"assistant","timestamp":"2026-01-01T00:00:10Z","message":{"content":[{"type":"tool_use","id":"t1","name":"Agent","input":{}}]}}
+{"type":"user","timestamp":"2026-01-01T00:01:00Z","message":{"content":[{"type":"tool_result","tool_use_id":"t1"}]}}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	at := func(s int) *time.Time { v := t0.Add(time.Duration(s) * time.Second); return &v }
+	f := &splitStoreFake{linked: map[int64]string{}, set: map[string]string{}, rows: []store.PendingTimeSplit{
+		{Kind: store.SplitParent, ID: 1, SessionID: "s-1", StartedAt: *at(5), EndedAt: at(30)},
+		{Kind: store.SplitParent, ID: 2, SessionID: "s-1", StartedAt: t0, EndedAt: at(90)},
+		{Kind: store.SplitParent, ID: 3, SessionID: "gone", StartedAt: t0, EndedAt: at(30)},
+	}}
+	if err := harvestTimeSplits(context.Background(), root, f, *at(100)); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"parent1": `{"llmMs":5000,"toolMs":20000,"humanMs":0,"byTool":{"Agent":20000}}`,
+		"parent3": `null`,
+	}
+	if len(f.set) != len(want) || len(f.linked) != 0 {
+		t.Errorf("set = %v, linked = %v, want %v and no link", f.set, f.linked, want)
+	}
+	for k, v := range want {
+		if f.set[k] != v {
+			t.Errorf("%s = %s, want %s", k, f.set[k], v)
+		}
+	}
+}
