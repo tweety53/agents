@@ -266,7 +266,10 @@ reported BLOCKED, naming it.
       value, measured from the mockup's source per the cell rule above, matches. Every other row
       is a departure per **Every departure from the mockup or the approved prototype is blocking**
       above, and goes on a `- <frame id> differs:` line with its own row's figures as the
-      manifest's `figures` carry them. A row no difference is not written.
+      manifest's `figures` carry them. A row no difference is not written. A `scale` key — the
+      row's widest ink group grown or shrunk on both axes by one ratio — is the same glyphs set
+      at another size, never a text width; a `segment<n>.colour` key is one mark of a rail in
+      another colour, though the row's own colour matches.
 
 
 **The motion step — record every motion the prompt names.** With `motions: none`, the report's `motion:`

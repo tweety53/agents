@@ -929,6 +929,142 @@ func TestMeasureVisualPropertiesBandsReadADarkPageByItsPerimeter(t *testing.T) {
 	}
 }
 
+// mvpOverRows is a matrix run's summary.over, one "<row> <status> <keys>" line each.
+func mvpOverRows(t *testing.T, a, b string) []string {
+	t.Helper()
+	var got []string
+	for _, o := range mvpList(mvpDig(mvpJSON(t, "", a, b, "--scale", "1", "--props", "matrix"), "summary", "over")) {
+		got = append(got, mvpSp(mvpDig(o, "row"), mvpDig(o, "status"), mvpDig(o, "keys")))
+	}
+	return got
+}
+
+// A rail of same-size marks on one row: a mark whose grey moves by a few
+// levels — past mvpOverColour, under the element threshold that keeps the
+// lighter grey out of the row's ink — is over on its own segment key.
+func TestMeasureVisualPropertiesMatrixSegmentColour(t *testing.T) {
+	t.Parallel()
+	rail := func(unreached color.RGBA) string {
+		return mvpPNG(t, 400, 60, func(x, y int) color.RGBA {
+			if y >= 20 && y < 28 {
+				for k := range 4 {
+					if l := 20 + 92*k; x >= l && x < l+80 {
+						if k < 2 {
+							return color.RGBA{0, 0, 0, 0xff}
+						}
+						return unreached
+					}
+				}
+			}
+			return color.RGBA{0xff, 0xff, 0xff, 0xff}
+		})
+	}
+	frame := rail(color.RGBA{0xe6, 0xe6, 0xe9, 0xff})
+	got := strings.Join(mvpOverRows(t, frame, rail(color.RGBA{0xee, 0xee, 0xf1, 0xff})), "\n")
+	if !strings.Contains(got, "segment3.colour, segment4.colour") || strings.Contains(got, "segment1.") || strings.Contains(got, "segment2.") {
+		t.Fatalf("over:\n%s\nwant segment3.colour, segment4.colour and no other segment", got)
+	}
+	// A rail's marks are no glyphs: one drawn a tenth larger is over on its
+	// size, never on `scale`.
+	sized := func(w, h, gap int) string {
+		return mvpPNG(t, 460, 60, func(x, y int) color.RGBA {
+			if y >= 20 && y < 20+h {
+				for k := range 4 {
+					if l := 20 + (w+gap)*k; x >= l && x < l+w {
+						return color.RGBA{0, 0, 0, 0xff}
+					}
+				}
+			}
+			return color.RGBA{0xff, 0xff, 0xff, 0xff}
+		})
+	}
+	if got := strings.Join(mvpOverRows(t, sized(80, 20, 12), sized(85, 21, 13)), "\n"); strings.Contains(got, "scale") {
+		t.Fatalf("a larger rail is over on scale: %s", got)
+	}
+	if got := strings.Join(mvpOverRows(t, frame, frame), "\n"); strings.Contains(got, "segment") {
+		t.Fatalf("an identical rail is over on a segment: %s", got)
+	}
+	// The same rail on a white strip above a card-filled page: its gaps are
+	// the row's white, not the page's card grey, and still part the marks.
+	carded := func(unreached color.RGBA) string {
+		return mvpPNG(t, 400, 300, func(x, y int) color.RGBA {
+			switch {
+			case y >= 20 && y < 28:
+				for k := range 4 {
+					if l := 20 + 92*k; x >= l && x < l+80 {
+						if k < 2 {
+							return color.RGBA{0, 0, 0, 0xff}
+						}
+						return unreached
+					}
+				}
+			case y >= 60:
+				return color.RGBA{0xf4, 0xf4, 0xf6, 0xff}
+			}
+			return color.RGBA{0xff, 0xff, 0xff, 0xff}
+		})
+	}
+	got = strings.Join(mvpOverRows(t, carded(color.RGBA{0xe6, 0xe6, 0xe9, 0xff}), carded(color.RGBA{0xee, 0xee, 0xf1, 0xff})), "\n")
+	if !strings.Contains(got, "segment3.colour, segment4.colour") {
+		t.Fatalf("carded page over:\n%s\nwant segment3.colour, segment4.colour", got)
+	}
+}
+
+// A text row drawn larger on both axes — beside a badge the capture lacks, so
+// the row's own width hides it — carries `scale` with its widest ink group's
+// size; a row narrowed by its glyph shape, the height barely moving, does not.
+func TestMeasureVisualPropertiesMatrixScale(t *testing.T) {
+	t.Parallel()
+	block := func(boxes ...[4]int) string {
+		return mvpPNG(t, 400, 100, func(x, y int) color.RGBA {
+			for _, b := range boxes {
+				if x >= b[0] && x < b[0]+b[2] && y >= b[1] && y < b[1]+b[3] {
+					return color.RGBA{0, 0, 0, 0xff}
+				}
+			}
+			return color.RGBA{0xff, 0xff, 0xff, 0xff}
+		})
+	}
+	frame := block([4]int{20, 30, 18, 17}, [4]int{72, 20, 270, 43})
+	d := mvpJSON(t, "", frame, block([4]int{20, 20, 299, 46}), "--scale", "1", "--props", "matrix")
+	s, _ := mvpDig(d, "matrix", 0, "scale").(map[string]any)
+	if got := mvpSp(s["a"], s["b"]); got != "270x43 299x46" {
+		t.Fatalf("scale %q, want %q", got, "270x43 299x46")
+	}
+	if keys, _ := mvpDig(d, "summary", "over", 0, "keys").(string); !strings.Contains(keys, "scale") {
+		t.Fatalf("over keys %q lack scale", keys)
+	}
+	serif := mvpJSON(t, "", block([4]int{20, 20, 235, 48}), block([4]int{20, 20, 192, 44}), "--scale", "1", "--props", "matrix")
+	if s := mvpDig(serif, "matrix", 0, "scale"); s != nil {
+		t.Fatalf("a glyph-shape narrowing carries scale %v", s)
+	}
+}
+
+// A frame paired by its shift leaves the rows above the moved block unpaired
+// when their own offset is smaller: those rows pair by gap instead.
+func TestMeasureVisualPropertiesMatrixShiftRepairsTheRunAbove(t *testing.T) {
+	t.Parallel()
+	page := func(rows ...[2]int) string {
+		return mvpPNG(t, 200, 700, func(x, y int) color.RGBA {
+			for _, r := range rows {
+				if x >= 20 && x < 180 && y >= r[0] && y < r[0]+r[1] {
+					return color.RGBA{0, 0, 0, 0xff}
+				}
+			}
+			return color.RGBA{0xff, 0xff, 0xff, 0xff}
+		})
+	}
+	a := [][2]int{{10, 10}, {50, 16}, {150, 43}}
+	b := [][2]int{{10, 10}, {42, 8}, {121, 46}}
+	for k := range 5 {
+		a, b = append(a, [2]int{300 + 60*k, 20}), append(b, [2]int{251 + 60*k, 20})
+	}
+	d := mvpJSON(t, "", page(a...), page(b...), "--scale", "1", "--props", "matrix")
+	if got := mvpSp(mvpDig(d, "summary", "paired"), mvpDig(d, "summary", "missing"), mvpDig(d, "summary", "extra")); got != "8 0 0" {
+		t.Fatalf("paired/missing/extra %q, want %q", got, "8 0 0")
+	}
+}
+
 // A device's rounded screen corners — a frame draws them, a capture does not —
 // are chrome, not a band the capture lacks.
 func TestMeasureVisualPropertiesBandsIgnoreDeviceCorners(t *testing.T) {

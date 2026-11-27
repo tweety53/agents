@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"path/filepath"
 	"slices"
@@ -1534,6 +1535,87 @@ type mvpElement struct {
 	top, height, left, width, right, gap int
 	colour                               [3]byte
 	kind                                 string
+	segs                                 [][3]byte // a rail's marks' colours, left to right; nil on any other row
+	group                                [2]int    // the widest ink group's width and height
+}
+
+// mvpSegMin is the narrowest run a rail mark is, and mvpGroupGap the widest
+// blank a word space is: wider, it parts a badge or an icon from the text.
+const (
+	mvpSegMin   = 24
+	mvpGroupGap = 24
+)
+
+// segments is the colours of the same-size marks on row y, left to right —
+// at least three runs of pixels off the row's own background, its first
+// pixel (over the noise, not the element's 30, so a light grey mark counts;
+// the row's, not the surface's, so a rail above a card-filled page still
+// parts at its white gaps), each mvpSegMin or wider and within 2px of the
+// first's width — else nil.
+func (r *mvpRegion) segments(y, x0, x1 int) [][3]byte {
+	bg := r.at(0, y)
+	var runs [][2]int
+	for x := x0; x < x1; x++ {
+		if mvpDist(r.at(x, y), bg) <= r.noise {
+			continue
+		}
+		if n := len(runs); n > 0 && runs[n-1][1] == x {
+			runs[n-1][1]++
+		} else {
+			runs = append(runs, [2]int{x, x + 1})
+		}
+	}
+	runs = slices.DeleteFunc(runs, func(s [2]int) bool { return s[1]-s[0] < mvpSegMin })
+	if len(runs) < 3 {
+		return nil
+	}
+	w := runs[0][1] - runs[0][0]
+	if slices.ContainsFunc(runs, func(s [2]int) bool { return s[1]-s[0] > w+2 || s[1]-s[0] < w-2 }) {
+		return nil
+	}
+	out := make([][3]byte, len(runs))
+	for i, s := range runs {
+		var c mvpCounter
+		for x := s[0]; x < s[1]; x++ {
+			c.add(r.at(x, y))
+		}
+		out[i], _ = c.top()
+	}
+	return out
+}
+
+// group is the widest run of ink columns, blanks under mvpGroupGap merged,
+// across rows (each a sorted ink-x list from top), and that run's ink height.
+func mvpGroup(rows [][]int) [2]int {
+	cols := map[int]bool{}
+	for _, row := range rows {
+		for _, x := range row {
+			cols[x] = true
+		}
+	}
+	xs := slices.Sorted(maps.Keys(cols))
+	best, lo := [2]int{}, 0 // best is [left, right]
+	for i := range xs {
+		if i > 0 && xs[i]-xs[i-1] > mvpGroupGap {
+			lo = i
+		}
+		if xs[i]-xs[lo] > best[1]-best[0] || i == 0 {
+			best = [2]int{xs[lo], xs[i]}
+		}
+	}
+	top, bot := -1, -1
+	for k, row := range rows {
+		if i, _ := slices.BinarySearch(row, best[0]); i < len(row) && row[i] <= best[1] {
+			if top < 0 {
+				top = k
+			}
+			bot = k
+		}
+	}
+	if top < 0 {
+		return [2]int{}
+	}
+	return [2]int{best[1] - best[0] + 1, bot - top + 1}
 }
 
 func (e mvpElement) obj() pyObj {
@@ -1615,7 +1697,8 @@ func (r *mvpRegion) measureElements() (int, [3]byte, []mvpElement) {
 		} else if float64(span) > 0.8*inner {
 			kind = "fill band"
 		}
-		e := mvpElement{top: s + t, height: i - s, left: left, width: right - left + 1, right: r.w - 1 - right, colour: colour, kind: kind, gap: s + t - prev}
+		e := mvpElement{top: s + t, height: i - s, left: left, width: right - left + 1, right: r.w - 1 - right, colour: colour, kind: kind, gap: s + t - prev,
+			segs: r.segments(t+mid, x0, x1), group: mvpGroup(rows[s:i])}
 		prev = e.top + e.height
 		out = append(out, e)
 	}
@@ -1667,7 +1750,7 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 		alt := mvpPairInOrder(ra, rb, scale, &dy, "gap", "height", []string{"colour"})
 		was, _, _ := mvpCountStatus(pairs)
 		if n, _, _ := mvpCountStatus(alt); n > was && 2*n >= min(len(ra), len(rb)) {
-			pairs, shift = alt, pyObj{{"dy", dy}, {"rows", n}}
+			pairs, shift = mvpRepair(alt, ra, rb, scale), pyObj{{"dy", dy}, {"rows", n}}
 		}
 	}
 	rows := []pyObj{}
@@ -1676,6 +1759,7 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 			rows = append(rows, append(pyObj{{"class", p.status}}, p.obj...))
 			continue
 		}
+		p.obj = append(p.obj, mvpSegsAndScale(ea[p.i], eb[p.j], scale)...)
 		kind := ea[p.i].kind
 		props := mvpKindProps[kind]
 		ma, errA := measure(a.images[0], ea[p.i], props)
@@ -1713,6 +1797,77 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 		summary = append(summary, pyKV{"shift", shift})
 	}
 	return pyObj{{"scale", scale}, {"matrix", rows}, {"summary", summary}}, nil
+}
+
+// mvpRepair pairs by gap each run of unpaired records the shift pairing left
+// between two paired ones (or an image's edge): rows above a moved block sit
+// at offsets of their own, smaller than the block's, and pair by their gaps
+// from the last pair as an unshifted frame's do.
+func mvpRepair(pairs []mvpPair, a, b []mvpRec, scale float64) []mvpPair {
+	var out []mvpPair
+	aEnd, bEnd := -1, -1 // the last pair's last row, per image
+	for k := 0; k < len(pairs); {
+		if pairs[k].status == "paired" {
+			p := pairs[k]
+			out = append(out, p)
+			aEnd, bEnd = a[p.i].pos+a[p.i].size-1, b[p.j].pos+b[p.j].size-1
+			k++
+			continue
+		}
+		var is, js []int
+		for ; k < len(pairs) && pairs[k].status != "paired"; k++ {
+			if pairs[k].i >= 0 {
+				is = append(is, pairs[k].i)
+			} else {
+				js = append(js, pairs[k].j)
+			}
+		}
+		rebase := func(recs []mvpRec, idx []int, end int) []mvpRec {
+			sub := make([]mvpRec, len(idx))
+			for n, i := range idx {
+				sub[n] = recs[i]
+				sub[n].pos -= end + 1
+			}
+			return sub
+		}
+		for _, p := range mvpPairInOrder(rebase(a, is, aEnd), rebase(b, js, bEnd), scale, nil, "gap", "height", []string{"colour"}) {
+			if p.i >= 0 {
+				p.i = is[p.i]
+			}
+			if p.j >= 0 {
+				p.j = js[p.j]
+			}
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// mvpSegsAndScale is a paired row's rail and scale keys. Per mark, when both
+// rows are rails of as many marks, `segment<n>.colour` (1-based), so a mark
+// whose grey moved past mvpOverColour is over though the row's own colour, its
+// modal, is not. And `scale`, the widest ink groups' `<width>x<height>`, when
+// that width moved by 5% or more and the height by within 5 points of the same
+// ratio: the same glyphs drawn larger or smaller, which a badge or an icon
+// beside them can hide from the row's own width. A text set in another face
+// changes its width far more than its height, and carries none; nor does a
+// rail, whose marks are no glyphs.
+func mvpSegsAndScale(a, b mvpElement, scale float64) pyObj {
+	var out pyObj
+	if len(a.segs) == len(b.segs) {
+		for k := range a.segs {
+			out = append(out, pyKV{fmt.Sprintf("segment%d.colour", k+1), mvpColourDelta(mvpHex(a.segs[k]), mvpHex(b.segs[k]))})
+		}
+	}
+	if a.segs == nil && b.segs == nil && a.group[0] > 0 && b.group[0] > 0 {
+		rw := float64(b.group[0]) / (float64(a.group[0]) * scale)
+		rh := float64(b.group[1]) / (float64(a.group[1]) * scale)
+		if math.Abs(rw-1) >= 0.05 && math.Abs(rw-rh) < 0.05 {
+			size := func(g [2]int) string { return fmt.Sprintf("%dx%d", g[0], g[1]) }
+			out = append(out, pyKV{"scale", pyObj{{"a", size(a.group)}, {"b", size(b.group)}, {"ratio", pyRound(rw, 3)}}})
+		}
+	}
+	return out
 }
 
 // mvpShiftMin is the offset below which the gap pairing's own 8px tolerance
@@ -1817,8 +1972,8 @@ func mvpOver(rows []pyObj, tol float64) (over, within []pyObj) {
 			case "status":
 				status, _ = kv.v.(string)
 			case "kind", "class", "a", "b":
-			case "unresolved":
-				keys = append(keys, "unresolved")
+			case "unresolved", "scale":
+				keys = append(keys, kv.k)
 			case "measured":
 				for _, m := range kv.v.(pyObj) {
 					if m.k == "delta" {
