@@ -34,7 +34,7 @@ import (
 // A load is what the flow-skill-load hook records (stats/internal/guard/hookskillload.go): a Read
 // of the file or a Skill call of its SKILL.md, counted per file — the hook cannot name the section
 // a Read took, so nothing is reported per section. A file a conditional load set names
-// (conditionalLoadSets, load-sets) carries that set's condition, so the pass can judge whether the
+// (conditionalLoadSets) carries that set's condition, so the pass can judge whether the
 // condition could have held in the window. A window holding no load at all — the hook unregistered,
 // or newly so — prints `never-loaded: no load recorded in the window` instead of every file.
 // <repo> is FLOW_GUARD_REPO_ROOT, the checkout scripts/flow-guard exports; unset, no never-loaded

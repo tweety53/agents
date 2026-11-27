@@ -777,11 +777,9 @@ var RetiredGuards = []string{"check-gated-verdicts"}
 var GuardHelpers = []string{
 	"close-task",
 	"compose-mockup-frames",
-	"installer-sandbox-diff",
 	"integrate-change",
 	"kickoff-worktree",
 	"live-store-copy",
-	"load-sets",
 	"measure-visual-properties",
 	"pair-judge",
 	"pipeline-fix",
