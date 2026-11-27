@@ -139,6 +139,8 @@ this file in full first: its prompt is a stub naming this file, never these para
 
 > **FILE EDITS:** change a file with the Edit or Write tool, never with an inline script — `python3 -c`/heredoc, `sed -i`, `perl -i`, a `cat >` redirect. A file-path allow rule covers the Edit tool; a shell edit falls to the permission classifier, which may deny it and stop the run.
 
+> **GIT CALLS:** run `git commit` and `git push` each as its own Bash call — never chained with `&&`, `;` or a pipe to another command. Allow rules match a single command; a chained one falls to the permission classifier, which may deny it and stop the run.
+
 > **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
 > `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
 > before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
