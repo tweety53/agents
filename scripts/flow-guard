@@ -42,6 +42,17 @@
 # unused for a week (stats/cmd/flow-guard/prune.go), and removing the
 # directory is always safe.
 #
+# THE STAMP FILE. Hashing every source costs most of a call, so the key is
+# cached per checkout in <cache>/stamp<stats path, each / as %>: the key on
+# its first line, the hashed file names on its second, its mtime the moment
+# before that hashing began. A call whose file list matches the second line,
+# whose stamp is strictly newer than every source (bash's test -nt, no fork)
+# and whose key's binary is cached uses that key without hashing; any other
+# call hashes and, once the binary stands, rewrites the stamp. An edit, an
+# added file or a deleted one therefore always rehashes. An edit that sets a
+# source's mtime back before the stamp (touch -t, cp -p) is not seen; remove
+# the stamp, or the cache, to force the hash.
+#
 # THE BUILD. A missing key is built with `go build` to a pid-named temporary
 # file in the key's directory and moved into place with `mv -f`, a rename
 # within one directory — atomic, so concurrent first calls each build and the
@@ -84,15 +95,21 @@ case "$name" in
 esac
 opening="${name:-flow-guard}:"
 
+# flow_guard_files <stats-dir> — set files to the <stats-dir>-relative names of
+# the flow-guard sources the key hashes.
+flow_guard_files() {
+  files=(go.mod go.sum)
+  for f in "$1"/cmd/flow-guard/*.go "$1"/internal/guard/*.go "$1"/internal/records/*.go "$1"/internal/modelpolicy/*.go "$1"/internal/testcost/*.go "$1"/internal/shlex/*.go; do
+    case "$f" in *_test.go) ;; *) [ -f "$f" ] && files+=("${f#"$1"/}") ;; esac
+  done
+}
+
 # flow_guard_key <stats-dir> — print the cache key of the flow-guard sources
 # under <stats-dir>, or return non-zero if they cannot be hashed.
 flow_guard_key() {
   (
     cd "$1" || exit 1
-    files=(go.mod go.sum)
-    for f in cmd/flow-guard/*.go internal/guard/*.go internal/records/*.go internal/modelpolicy/*.go internal/testcost/*.go internal/shlex/*.go; do
-      case "$f" in *_test.go) ;; *) [ -f "$f" ] && files+=("$f") ;; esac
-    done
+    flow_guard_files .
     if command -v sha256sum >/dev/null 2>&1; then
       sum() { sha256sum "$@"; }
     elif command -v shasum >/dev/null 2>&1; then
@@ -126,10 +143,29 @@ if [ -z "$cache" ]; then
   exit "$code"
 fi
 [ -n "${FLOW_GUARD_CACHE_DIR:-}" ] || cache="$cache/flow-guard"
-key="$(flow_guard_key "$stats")" || {
-  echo "$opening cannot build flow-guard — could not hash its sources in $stats (needs sha256sum or shasum)" >&2
-  exit "$code"
-}
+# The fast path (THE STAMP FILE above): the stamp's key stands when its file
+# list is today's and the stamp is strictly newer than every source.
+stamp="$cache/stamp${stats//\//%}"
+flow_guard_files "$stats"
+key=""
+if [ -f "$stamp" ] && { read -r skey && read -r slist; } 2>/dev/null <"$stamp" &&
+  [ "$slist" = "${files[*]}" ] && [ -x "$cache/$skey/flow-guard" ]; then
+  key="$skey"
+  for f in "${files[@]}"; do
+    [ -f "$stats/$f" ] && [ "$stamp" -nt "$stats/$f" ] || { key=""; break; }
+  done
+fi
+if [ -z "$key" ]; then
+  # Touched before hashing: its mtime is the stamp's, so a source edited from
+  # here on is never older than the stamp.
+  mkdir -p "$cache" && : >"$stamp.$$" || :
+  trap 'rm -f "$stamp.$$" "$stamp.$$.w"' EXIT
+  key="$(flow_guard_key "$stats")" || {
+    echo "$opening cannot build flow-guard — could not hash its sources in $stats (needs sha256sum or shasum)" >&2
+    exit "$code"
+  }
+  fresh=1
+fi
 bin="$cache/$key/flow-guard"
 if [ ! -x "$bin" ]; then
   if ! command -v go >/dev/null 2>&1; then
@@ -168,6 +204,10 @@ if [ ! -x "$bin" ]; then
     echo "$opening flow-guard's sources in $stats changed during its build — run the guard again" >&2
     exit "$code"
   fi
+fi
+if [ -n "${fresh:-}" ] && [ -f "$stamp.$$" ]; then
+  printf '%s\n%s\n' "$key" "${files[*]}" >"$stamp.$$.w" && touch -r "$stamp.$$" "$stamp.$$.w" && mv -f "$stamp.$$.w" "$stamp"
+  rm -f "$stamp.$$" "$stamp.$$.w"
 fi
 export FLOW_GUARD_REPO_ROOT="$root"
 [ -n "$name" ] || exec "$bin"

@@ -425,6 +425,53 @@ func TestFlowGuardBootstrap(t *testing.T) {
 			t.Fatalf("first rc=%d out=%s; second rc=%d out=%s", first.rc, first.out(), second.rc, second.out())
 		}
 	})
+	t.Run("case 15: unchanged sources skip the hash; an edit, an added and a deleted source each rehash and rebuild", func(t *testing.T) {
+		t.Parallel()
+		fix := newBootstrapFixture(t, "v15")
+		cache := t.TempDir()
+		hashes := filepath.Join(t.TempDir(), "hashes")
+		stub := t.TempDir()
+		writeStub(t, filepath.Join(stub, "sha256sum"), fmt.Sprintf("echo hashed >> '%s'\nexec /usr/bin/shasum -a 256 \"$@\"\n", hashes))
+		env := withPath(bootstrapEnv(cache), stub+":"+fakeGoPath(t, path, fakeGoBuild))
+		// age backdates every source, so only the file list can tell the
+		// added and deleted cases from an unchanged tree.
+		age := func() {
+			t.Helper()
+			old := time.Now().Add(-time.Hour)
+			if err := filepath.Walk(filepath.Join(fix, "stats"), func(p string, fi os.FileInfo, err error) error {
+				if err != nil || fi.IsDir() {
+					return err
+				}
+				return os.Chtimes(p, old, old)
+			}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		call := func(step string, wantHashed bool, wantKeys int) {
+			t.Helper()
+			_ = os.Remove(hashes)
+			keys := keyAfter(t, fix, env, cache)
+			_, err := os.Stat(hashes)
+			if hashed := err == nil; hashed != wantHashed || len(keys) != wantKeys {
+				t.Fatalf("%s: hashed=%v (want %v), keys=%v (want %d)", step, hashed, wantHashed, keys, wantKeys)
+			}
+		}
+		age()
+		call("first call", true, 1)
+		call("unchanged", false, 1)
+		appendFile(t, filepath.Join(fix, "stats/internal/guard/guard.go"), "// edit\n")
+		call("edited", true, 2)
+		age()
+		call("unchanged after the edit", false, 2)
+		writeFile(t, filepath.Join(fix, "stats/internal/guard/added.go"), "package guard\n", 0o644)
+		age()
+		call("added", true, 3)
+		if err := os.Remove(filepath.Join(fix, "stats/internal/guard/guard.go")); err != nil {
+			t.Fatal(err)
+		}
+		call("deleted", true, 4)
+		call("unchanged after the delete", false, 4)
+	})
 	t.Run("case 13: a failed rename exits the cannot-answer code naming the install", func(t *testing.T) {
 		t.Parallel()
 		fix := newBootstrapFixture(t, "v13")
