@@ -126,20 +126,8 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    confirmation. A re-run that reports a fixable defect opens fix `<k+1>` at step 1.
 
    **A scoped re-run closes the check; a full run is the operator's to ask for.** A scoped re-run
-   whose final report carries no fixable defect closes it, `CLOSES-LOOP:` line or not: no
-   `-fix-<k>-full` run is dispatched unless the operator asks for one in this session, and `flow
-   record dispatch begin` counts a completed scoped row (one begun with `-round-base`) as the
-   closing run. A scoped re-run that judged every changed frame closes it itself: when its `close`
-   prints `CLOSES-LOOP: yes` — every frame on the change's list was re-captured after its row began
-   or stands on a `captured:` spec, every frame whose capture changed since its round base, and
-   every `--defects` frame, has a line of its own in the report, and no mockup or sidecar changed
-   since that round base (`flow-guard visual-verify-pass`'s header) — `close` has ended its row
-   `-closes-loop`. After a fix's step 2 commit, and until a `-fix-<k>-full` verifier row, or a
-   `-fix-<k>` one carrying `closesLoop` or `-round-base`, has completed, `flow record dispatch
-   begin` refuses a `visual-verify` key that carries neither `-fix-<k>` nor a later fix's `-fix-<n>`,
-   and one that is not the `-full` run, carries no `-round-base` and shares its repository suffix
-   with a completed verifier row. A completed `-fix-<j>-full` verifier row, or a completed
-   `-fix-<j>` one carrying `closesLoop` or `-round-base`, closes every fix up to `<j>`. The clean
+   whose final report carries no fixable defect closes it: no
+   `-fix-<k>-full` run is dispatched unless the operator asks for one in this session. The clean
    report of the run that closed the check is the one the handoff reports.
 
    **A failing visual `verify` row is re-run narrowed** — **Narrowed visual re-runs**, below.

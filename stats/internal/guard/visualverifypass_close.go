@@ -2,7 +2,6 @@ package guard
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,10 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // close is `visual-verify-pass.sh close`: the report guards, the row's end,
@@ -110,26 +107,10 @@ func (v *vvp) close() {
 		v.escalate(w, changeRoot, departures)
 		v.next("judge")
 	}
-	snap := protoSnapshot(filepath.Dir(design))
-	scoped, why := v.closesLoop(w, design, body, snap)
-	if scoped && why == "" {
-		v.endRow("completed", "-closes-loop")
-	} else {
-		v.endRow("completed")
-	}
-	if snap != "" {
-		// A lost snapshot only keeps the next scoped round's full run.
-		_ = os.WriteFile(filepath.Join(w, ".superpowers", "sdd", "visual-prototype.txt"), []byte(snap), 0o644)
-	}
+	v.endRow("completed")
 	v.recordJudged(w, body, design)
 	v.commit(w, body)
 	v.endStage()
-	switch {
-	case scoped && why == "":
-		v.say("CLOSES-LOOP: yes")
-	case scoped:
-		v.say("CLOSES-LOOP: no — %s", why)
-	}
 	v.next("done")
 }
 
@@ -220,141 +201,6 @@ func (v *vvp) checkOnly(args []string) {
 		Reason(v.env, "report-incomplete")
 		panic(vvpExit(1))
 	}
-}
-
-// closesLoop derives whether this row closes the visual fix loop (decisions
-// closes-loop-derived-in-close, capture-freshness-by-mtime refined by identical-recapture-fresh, closing-frame-list,
-// frame-map-change-keeps-full-run, prototype-change-keeps-full-run): scoped is
-// false with no round file of the key; why is "" when every condition holds,
-// else the first that fails.
-func (v *vvp) closesLoop(w, design string, report []byte, snap string) (scoped bool, why string) {
-	sdd := filepath.Join(w, ".superpowers", "sdd")
-	// A remainder (`-rest[-<n>]`) completes the pass it continues: the round
-	// file and the manifest are the continued key's (decision rest-closes-the-loop).
-	key := vrRestSegment.ReplaceAllString(v.key, "")
-	base, at, defects, ok := readRound(sdd, key)
-	if !ok {
-		return false, ""
-	}
-	v.loadBases(sdd, key)
-	mpath := filepath.Join(sdd, "visual-manifest-"+key+".json")
-	var m vvmManifestOut
-	b, err := os.ReadFile(mpath)
-	if err == nil {
-		err = json.Unmarshal(b, &m)
-	}
-	if err != nil {
-		return true, "no readable manifest " + mpath
-	}
-	// The closing list: the declared frames, the prototype map's, the manifest's.
-	var list []string
-	add := func(id string) {
-		if !slices.Contains(list, id) {
-			list = append(list, id)
-		}
-	}
-	mock := ""
-	if c := v.cells(w)["mockups"]; c != "" {
-		mock = cellPath(w, c)
-		d, derr := os.ReadFile(design)
-		entries, eerr := os.ReadDir(mock)
-		if derr == nil && eerr == nil {
-			for _, id := range flDeclared(d, mock, entries) {
-				add(id)
-			}
-		}
-	}
-	proto, _ := os.ReadFile(filepath.Join(filepath.Dir(design), "visual-verification", "prototype.mockups"))
-	for _, f := range mockupsLines(proto) {
-		add(f[1])
-	}
-	for _, p := range m.Pairs {
-		add(p.Frame)
-	}
-	if len(list) == 0 {
-		return true, "no frame on the change's list"
-	}
-	// A spec the round's own recapture passed on HEAD's sources is fresh
-	// without a second capture (flow-guard recapture's receipt).
-	bases := v.bases
-	if len(bases) == 0 {
-		bases = map[string]string{w: base}
-	}
-	root := v.captureRoot(w)
-	captured := rcCaptured(v.env, root, bases)
-	for _, id := range list {
-		fresh := false
-		for _, p := range m.Pairs {
-			if fi, err := os.Stat(p.Capture); p.Frame == id && p.Capture != "" && err == nil &&
-				(fi.ModTime().After(at) || (v.captureIsCommitted(p.Capture) && v.playwrightRanAfter(p.Capture, at)) ||
-					slices.Contains(captured, asSpecOut(root, p.Spec))) {
-				fresh = true
-			}
-		}
-		if !fresh {
-			return true, id + ": no capture in " + mpath + " re-captured after " + at.Format(time.RFC3339Nano)
-		}
-	}
-	lines := flReportLines(report)
-	var carried []string
-	if len(defects) == 0 {
-		carried = vvpCarried(readJudged(sdd), m.Pairs)
-	}
-	for _, p := range m.Pairs {
-		if v.captureChanged(p.Capture, base) && !flPerFrame(p.Frame, lines) && !slices.Contains(carried, p.Frame) {
-			return true, p.Frame + ": its capture changed since " + base + " and the report has no line of its own for it"
-		}
-	}
-	for _, id := range defects {
-		if !flPerFrame(id, lines) {
-			return true, id + ": named under defects: and the report has no line of its own for it"
-		}
-	}
-	var specs []string
-	for _, p := range m.Pairs {
-		if s := p.Spec + ".mockups"; !slices.Contains(specs, s) && vvmExists(s) {
-			specs = append(specs, s)
-			if v.captureChanged(s, base) {
-				return true, s + " changed since " + base
-			}
-		}
-	}
-	if mock != "" {
-		out, ok := v.git("-C", w, "diff", "--no-renames", "--name-only", base, "--", mock)
-		if !ok {
-			return true, "git diff " + base + " -- " + mock + " failed in " + w
-		}
-		if out != "" {
-			return true, strings.Split(out, "\n")[0] + " changed since " + base
-		}
-	}
-	if snap != "" {
-		path := filepath.Join(sdd, "visual-prototype.txt")
-		if old, _ := os.ReadFile(path); string(old) != snap {
-			return true, path + " differs from prototype.mockups and prototype/*.png now"
-		}
-	}
-	return true, ""
-}
-
-// protoSnapshot is the prototype frames a verifier judges against (decision
-// prototype-change-keeps-full-run): one `<sha-256 hex> <name>` line for
-// <changeRoot>/visual-verification/prototype.mockups, then one per
-// prototype/*.png in name order; "" when the change has no prototype map.
-func protoSnapshot(changeRoot string) string {
-	vvDir := filepath.Join(changeRoot, "visual-verification")
-	mp := filepath.Join(vvDir, "prototype.mockups")
-	if !vvmExists(mp) {
-		return ""
-	}
-	pngs, _ := filepath.Glob(filepath.Join(vvDir, "prototype", "*.png"))
-	var b strings.Builder
-	for _, p := range append([]string{mp}, pngs...) {
-		data, _ := os.ReadFile(p)
-		rel, _ := filepath.Rel(vvDir, p)
-		fmt.Fprintf(&b, "%x %s\n", sha256.Sum256(data), rel)
-	}
-	return b.String()
 }
 
 // vvcOnlyNoSidecar is a FRAME-LIST-GAP line whose every gap is `no sidecar
@@ -672,55 +518,6 @@ func (v *vvp) gitChild(dir string, args ...string) (string, bool) {
 	cmd.Env = icChildEnv(v.env)
 	out, err := cmd.CombinedOutput()
 	return strings.TrimSpace(string(out)), err == nil
-}
-
-// playwrightRanAfter is whether a Playwright run wrote its output after at
-// (decision identical-recapture-fresh, refining capture-freshness-by-mtime):
-// Playwright leaves a PNG whose recapture is byte-identical untouched, so its
-// mtime cannot prove the recapture; the run's own output directory,
-// `test-results/` in the nearest ancestor of the capture (up to the capture's
-// own checkout, which is not the canonical worktree) that holds one, does. The
-// guarantee is per run, not per frame: a passing test's own output is removed,
-// so no entry names a spec; the frame still needs a capture equal to its
-// committed blob and its own line in the report.
-// A non-default output directory finds nothing and falls back to the mtime rule.
-func (v *vvp) playwrightRanAfter(capture string, at time.Time) bool {
-	w, ok := v.git("-C", filepath.Dir(capture), "rev-parse", "--show-toplevel")
-	if !ok {
-		return false
-	}
-	// git reports the physical root; resolve the capture's links the same way.
-	if real, err := filepath.EvalSymlinks(filepath.Dir(capture)); err == nil {
-		capture = filepath.Join(real, filepath.Base(capture))
-	}
-	for dir := filepath.Dir(capture); dir == w || strings.HasPrefix(dir, w+string(filepath.Separator)); dir = filepath.Dir(dir) {
-		entries, err := os.ReadDir(filepath.Join(dir, "test-results"))
-		if err == nil {
-			for _, e := range entries {
-				if fi, err := e.Info(); err == nil && fi.ModTime().After(at) {
-					return true
-				}
-			}
-			return false
-		}
-		if dir == w {
-			break
-		}
-	}
-	return false
-}
-
-// captureIsCommitted is whether a capture is tracked and equals its committed
-// version in its own checkout (decision identical-recapture-fresh): the round
-// base is the canonical worktree's sha and resolves in no other repository, so
-// the identical-recapture proof compares a capture with its own HEAD blob.
-func (v *vvp) captureIsCommitted(path string) bool {
-	dir := filepath.Dir(path)
-	if _, ok := v.git("-C", dir, "ls-files", "--error-unmatch", "--", path); !ok {
-		return false
-	}
-	out, ok := v.git("-C", dir, "status", "--porcelain", "--untracked-files=no", "--", path)
-	return ok && out == ""
 }
 
 var vvcFrameID = regexp.MustCompile(`[A-Za-z0-9][\w.-]*/[A-Za-z0-9][\w.-]*`)

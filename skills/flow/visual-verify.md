@@ -116,9 +116,6 @@ admissible statuses and the frame list, and `close`'s header for its outcomes. A
   below. What blocks takes the fix procedure, whose step 1 closes both; when nothing does, end the row
   with `flow record dispatch end … -outcome completed`, for every worktree of the set, then render the ledger with `flow record render -change <name> -kind ledger`.
 - `NEXT: done` — every exit zero and no departure: `close` closed the row `-outcome completed`.
-  On a scoped row that is not a `-rest` remainder, `close` printed `CLOSES-LOOP: yes` before it —
-  the row ended `-closes-loop` and the loop closed with no `-full` run — or
-  `CLOSES-LOOP: no — <why>`.
 
 **An `ESCALATE:` line above `NEXT: loop` or `NEXT: judge` makes the next round a No-progress
 escalation** (**Three failed rounds**, `skills/flow-contracts/pipeline.md`).
