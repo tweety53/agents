@@ -209,6 +209,7 @@ type Option func(*serverOptions)
 type serverOptions struct {
 	spa            http.Handler
 	guardRuns      GuardRunStore
+	skillLoads     SkillLoadStore
 	repricer       Repricer
 	policy         PolicyStore
 	roleCosts      RoleCostsStore
@@ -480,6 +481,11 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	if so.guardRuns != nil {
 		grh := &guardRunHandler{store: so.guardRuns, logger: logger}
 		mux.HandleFunc("POST /api/v1/guard-runs/{project}", grh.record)
+	}
+	if so.skillLoads != nil {
+		slh := &skillLoadHandler{store: so.skillLoads, logger: logger}
+		mux.HandleFunc("POST /api/v1/skill-loads", slh.record)
+		mux.HandleFunc("GET /api/v1/skill-loads", slh.counts)
 	}
 	if so.runTimings != nil {
 		rth := &runTimingsHandler{store: so.runTimings, stateRoot: so.stateRoot, now: time.Now, log: logger}
