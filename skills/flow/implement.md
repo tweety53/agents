@@ -312,8 +312,19 @@ flow record incident -guard <the check that would have caught it> -symptom <what
   -recovery <the exact commands that would have caught it> -minutes-lost <n> -change <name>
 ```
 
-**Dispatch one implementer per group, one group at a time, in the decision's `groups` order**, into the canonical
-worktree, on the `implementer` role's pair. A group's implementer works its tasks in plan order,
+**Dispatch one implementer per group, in the decision's `groups` order**, on the `implementer`
+role's pair, one wave at a time: the groups `flow-guard parallel-groups next <canonical-worktree>`
+prints on its `GROUPS:` line, its header (`stats/internal/guard/parallelgroups.go`) canonical for
+which groups may share a wave — one group, the serial default, unless the next ones in order have
+every `**After:**` task ticked and `**Files:**` disjoint from the wave's. The wave's first group
+goes into the canonical worktree; each other group into its own copy,
+`flow-guard throwaway-worktree create <canonical-worktree> <canonical-worktree>-group-<g> --sdd`,
+its stub's `Worktree:` and `REPORT FILE:` naming the copy. Once every implementer of the wave has
+`ENDED`, `flow-guard parallel-groups merge <canonical-worktree> <copy>…`, the copies in plan
+order, cherry-picks each copy's commits onto the change branch and removes the copy; its `PICKED:
+<old> <new>` lines give the `<task-sha>` each closed task passes, and `BLOCKED:` stops the run with
+the copies it names kept. The wave's groups then close in plan order, the boundary below once per
+group, before the next wave launches. A group's implementer works its tasks in plan order,
 one commit per task, carrying that task's own `Task-Id:` trailer. A group never spans two
 repositories, so each group's worktree is its repository's.
 
@@ -425,7 +436,7 @@ entry. At each boundary, in this order:
    the re-commit loop.
 
 3. **A second Bash call readies the due reviewer bundle's diffs**, when a batch is due (**The
-   gated per-task reviewer**, `skills/flow/gated-review.md`), and **the next message launches the next group's implementer
+   gated per-task reviewer**, `skills/flow/gated-review.md`), and **the next message launches the next wave's implementers
    and the due reviewer bundle**, each with `run_in_background: true`, then waits on them with
    `await-rows` (**Turn discipline**, below). After the last group, the due reviewer bundle goes out alone.
 

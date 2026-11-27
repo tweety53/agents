@@ -9,7 +9,8 @@ dispatch that works its tasks in plan order, one commit per task.
 - A group never holds tasks of two repositories (a multi-repository plan sorts its tasks under
   `## <repository>` headings).
 - A `**Size:** big` task is a group alone. Any other group holds at most three tasks.
-- Groups run one at a time, and each is a cold start — its implementer re-reads its brief, the
+- Groups run one at a time unless their `**After:**` tasks are done and their `**Files:**` are
+  disjoint, and each is a cold start — its implementer re-reads its brief, the
   plan artifacts and the code — so fill every group to the cap, splitting only where a big task,
   the cap or a repository forces it; put tasks together first when one builds on another
   (`**After:**`) or they touch the same files.
