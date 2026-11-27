@@ -17,7 +17,7 @@ func TestBuildSlotPrompt(t *testing.T) {
 	wt := t.TempDir()
 	r := runGuard("build-slot-prompt", []string{skill, wt, "2", "primary+principles",
 		"-diff", "/d/fix-round-2.diff", "-artifacts", "/c/proposal.md,/c/design.md", "-standards", "",
-		"-global-constraints", "none", "-repo", "gymie", "-fix-report", "/r/panel-fix-report-2.md"}, Env{})
+		"-global-constraints", "none", "-repo", "gymie", "-fix-report", "/r/panel-fix-report-2.md", "-panel", "primary,principles,security"}, Env{})
 	if r.rc != 0 {
 		t.Fatalf("rc %d: %s", r.rc, r.out)
 	}
@@ -30,6 +30,7 @@ func TestBuildSlotPrompt(t *testing.T) {
 	for _, want := range []string{
 		"Read " + skill + "/slot-brief.md in full first",
 		"SECTION: gymie",
+		"PANEL SLOTS: primary, principles, security",
 		"> **FIX-ROUND SCOPE:**",
 		"`/r/panel-fix-report-2.md`",
 		"## PASS primary\n\nYou are a Senior Code Reviewer",

@@ -13,12 +13,12 @@ import (
 
 // flow-guard build-slot-prompt <skill-dir> <abs-worktree> <round> <id[+id]>
 // -diff <path> [-artifacts <p,…>] [-standards <p,…>] [-global-constraints <path|none>]
-// [-worktrees <p,…>] [-repo <name>] [-fix-report <p,…>] — assembles one panel
+// [-worktrees <p,…>] [-repo <name>] [-fix-report <p,…>] [-panel <slot,…>] — assembles one panel
 // dispatch's brief (skills/flow/review-panel.md, **Bundled dispatch**) so the
 // parent never reads a reviewer template. It writes
 // <abs-worktree>/.superpowers/sdd/slot-prompt-<round>-<ids>[-<repo>].md:
-// the slot-brief read line, a WORKTREES line (-worktrees), a SECTION line
-// (-repo), the FIX-ROUND SCOPE blockquote of review-panel-fix-round.md with
+// the slot-brief read line, a PANEL SLOTS line naming every slot the round
+// runs (-panel), a WORKTREES line (-worktrees), a SECTION line (-repo), the FIX-ROUND SCOPE blockquote of review-panel-fix-round.md with
 // <fix report> filled (-fix-report), then per id a `## PASS <id>` section — the
 // fenced body of <skill-dir>/<id>-reviewer-prompt.md, dedented, its
 // placeholders filled ([CALIBRATION_PATH] and [PRINCIPLES_PATH] resolved
@@ -33,7 +33,7 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	usage := func(msg string) int {
 		Reason(env, "usage")
 		fmt.Fprintln(stderr, "build-slot-prompt: "+msg)
-		fmt.Fprintln(stderr, "usage: flow-guard build-slot-prompt <skill-dir> <abs-worktree> <round> <id[+id]> -diff <path> [-artifacts <p,…>] [-standards <p,…>] [-global-constraints <path|none>] [-worktrees <p,…>] [-repo <name>] [-fix-report <p,…>]")
+		fmt.Fprintln(stderr, "usage: flow-guard build-slot-prompt <skill-dir> <abs-worktree> <round> <id[+id]> -diff <path> [-artifacts <p,…>] [-standards <p,…>] [-global-constraints <path|none>] [-worktrees <p,…>] [-repo <name>] [-fix-report <p,…>] [-panel <slot,…>]")
 		return 2
 	}
 	if len(args) < 4 {
@@ -55,6 +55,7 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	worktrees := fs.String("worktrees", "", "")
 	repo := fs.String("repo", "", "")
 	fixReport := fs.String("fix-report", "", "")
+	panel := fs.String("panel", "", "")
 	if err := fs.Parse(args[4:]); err != nil || fs.NArg() != 0 {
 		return usage("bad flags")
 	}
@@ -72,6 +73,9 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "Read %s in full first — every paragraph binds you\n\n", filepath.Join(skillDir, "slot-brief.md"))
+	if *panel != "" {
+		fmt.Fprintf(&b, "PANEL SLOTS: %s\n\n", list(*panel))
+	}
 	if *worktrees != "" {
 		fmt.Fprintf(&b, "WORKTREES: %s\n\n", list(*worktrees))
 	}

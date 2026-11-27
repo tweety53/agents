@@ -81,7 +81,8 @@
     - Do not duplicate the Principles, Failure-modes or Mutation slots' angles — a
       principle-by-name violation, an error-return/timeout/partial-write/re-entry walk or
       sabotage-proofing are theirs; raise such a finding only when it is also a plain
-      correctness defect you would bet on.
+      correctness defect you would bet on. A slot your brief's PANEL SLOTS line omits is
+      not running: its angle is yours.
     - Do not flag formatting a formatter would fix silently, or a style preference with no
       correctness content.
     - Do not say "looks good" without checking, and do not give feedback on code you did

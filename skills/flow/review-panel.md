@@ -134,12 +134,14 @@ written** — one call per dispatch, a one-role dispatch included:
 
 ```bash
 flow-guard build-slot-prompt <skill-dir> <abs-worktree> <round> <id[+id]> -diff <path> [-artifacts <p,…>] \
-  [-standards <p,…>] [-global-constraints <path|none>] [-worktrees <p,…>] [-repo <repo>] [-fix-report <p,…>]
+  [-standards <p,…>] [-global-constraints <path|none>] [-worktrees <p,…>] [-repo <repo>] [-fix-report <p,…>] \
+  -panel <slot,…>
 ```
 
 Its flags carry the values of the placeholder table above, `-worktrees` the resolved set, `-repo`
 only on one repository's dispatch of a multi-repository panel, and `-fix-report` the `<fix report>`
-path(s) on a fix round. Its header (`stats/internal/guard/buildslotprompt.go`) is canonical for the
+path(s) on a fix round, and `-panel` every slot the round runs, so a slot takes up the angle of one
+the round omits. Its header (`stats/internal/guard/buildslotprompt.go`) is canonical for the
 file it writes, `<canon>/.superpowers/sdd/slot-prompt-<round>-<ids>[-<repo>].md`, whose path it
 prints; exit 2 names a missing value and writes nothing. `mutation` has no template: its brief is
 **The mutation-testing brief** below, built last, naming its throwaway copies,
