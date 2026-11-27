@@ -302,9 +302,12 @@ taken to render the same pixels as that build: the closing capture decides, and 
 the two is a departure the round fixes, never a pass.
 
 **A fix for a visual departure runs its capture spec before it closes.** Its verify step runs the
-project's `capture` command with the recapture list above for `<spec>`, against the stack rebuilt
-from its fix, and the fix closes only on that run's exit 0 — a red capture is fixed in the same
-commit. The capture command takes the list `flow-guard affected-specs <worktree> <round base> <capture root>` prints for the fix's diff; `flow-guard recapture` needs a `tasks.md` task a fix has none of, so it is not used.
+project's `capture` command against the stack rebuilt from its fix, `<spec>` the tests of the
+findings it fixes — `<spec>:<line>` of each test whose screenshot a `<spec>.mockups` sidecar maps
+to a finding's frame, Playwright's own location filter — plus, on a shared-source fix, the
+recapture list above, and the fix closes only on that run's exit 0 — a red capture is fixed in the
+same commit. Every other frame of the change's list is captured once, by step 3's `visual-verify`
+re-run. `flow-guard recapture` needs a `tasks.md` task a fix has none of, so it is not used.
 
 **A departure observed on a running clock closes on repeated running-clock passes.** When the
 departure was observed on a running clock — a live walk, a recorded frame sequence, any read the
