@@ -127,7 +127,7 @@ rounds or tasks still ahead, a natural-looking checkpoint, the length of a phase
 read or the lines already loaded, and a list of open items that each carry
 a recommended option are never reasons to end a turn or to hand a status report to the operator
 mid-run (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). A
-shared-source fix (`skills/flow/fix.md`) is never offered as "a separate change". A phase file too long for one read is read in
+shared-source fix (`skills/flow/fix-visual.md`) is never offered as "a separate change". A phase file too long for one read is read in
 offset chunks and the run continues, and, with no explicit operator stop, is never handed to the
 operator as 're-run /flow to continue'.
 

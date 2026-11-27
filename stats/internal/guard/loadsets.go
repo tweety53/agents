@@ -89,7 +89,7 @@ func loadSets(args []string, env Env, stdout, stderr io.Writer) int {
 	id := cat(in(f, "resume.md", "implement.md"), in(c, "worktree-resolution.md"), in(f, "review-panel.md", "verify-and-handoff.md"), in(c, "session-records.md", "git-boundaries.md"))
 	ic := cat(in(c, "operator-prompts.md", "operator-prompts-auto-resolution.md", "project-configuration-standards.md", "model-policy.md", "known-bugs.md"),
 		in(f, "primary-reviewer-prompt.md", "principles-reviewer-prompt.md", "failure-modes-reviewer-prompt.md"), in(c, "plan-amendment.md"))
-	ix := cat(in(f, "fix.md", "cross-repo-worktrees.md", "gated-review-fix.md", "fixer-brief.md", "slot-brief.md", "review-panel-fix-round.md", "review-panel-optional-slots.md", "review-panel-experimental-slot.md"),
+	ix := cat(in(f, "fix.md", "fix-visual.md", "cross-repo-worktrees.md", "gated-review-fix.md", "fixer-brief.md", "slot-brief.md", "review-panel-fix-round.md", "review-panel-optional-slots.md", "review-panel-experimental-slot.md"),
 		in(c, "workspace-isolation.md"), in(f, "visual-verify.md"),
 		in(c, "git-boundaries-commit-chain.md", "project-configuration-visual.md", "guard-verdict-verification.md"))
 	row("  phase files + load directives", id...)

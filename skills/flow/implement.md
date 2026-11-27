@@ -323,7 +323,7 @@ Worktree: <abs-worktree>
 Plan: <changeRoot>/proposal.md <changeRoot>/design.md <changeRoot>/tasks.md
 Tasks: <the group's task ids, in plan order> of <the plan's task count>
 In-run fix: read <skill-dir>/fix.md, **The fix implementer's brief**, and follow every paragraph that applies
-Visual close: <skill-dir>/fix.md, **The implementer measures before it hands back** and **A fix for a visual departure runs its capture spec before it closes**, binds each task here whose commit reaches a capture spec carrying a `.mockups` sidecar — key `task-<id>`, base the commit the task started from; verifier file <skill-dir>/visual-verify-verifier.md; capture: <the `capture` command>; mockups: <the resolved `mockups` root>, frame <the `mockup frame` value>
+Visual close: <skill-dir>/fix-visual.md, **The implementer measures before it hands back** and **A fix for a visual departure runs its capture spec before it closes**, binds each task here whose commit reaches a capture spec carrying a `.mockups` sidecar — key `task-<id>`, base the commit the task started from; verifier file <skill-dir>/visual-verify-verifier.md; capture: <the `capture` command>; mockups: <the resolved `mockups` root>, frame <the `mockup frame` value>
 REPORT FILE: <abs-worktree>/.superpowers/sdd/implementer-report-<k>.md
 ```
 
@@ -352,7 +352,7 @@ verify** skip what no later commit touched. The parent reads the runner's final 
 passed; `defect` is fixed at its root cause by a fresh one-shot `full-suite-fix-<n>` (**Every fix is
 a fresh one-shot** below), its `FIX INPUT:` the runner's `failing:` lines and `full output:` path,
 then a fresh runner re-runs only what failed — a visual `verify` row narrowed as **Narrowed visual
-re-runs** states (`skills/flow/fix.md`), any other failing test by name — and re-runs the list once,
+re-runs** states (`skills/flow/fix-visual.md`), any other failing test by name — and re-runs the list once,
 after the last fix, when those pass: each `full-suite-fix-<n>`/runner pair is one round, and three
 failed rounds take **Three failed rounds** (`skills/flow-contracts/pipeline.md`). The commit
 carries `-m "Flow-Key: full-suite-fix-<n>"` (**Commits outside every task**,

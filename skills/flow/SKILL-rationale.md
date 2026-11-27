@@ -735,7 +735,7 @@ Dispatching a mutating slot into the same worktree a reading slot concurrently r
 
 **Every capture asserts the view is on screen before it is taken** — gymie-playwright's `expectRoom` — so a missed navigation fails the capture instead of becoming its baseline.
 
-### fix.md — Measuring by hand (edge-to-edge measurement)
+### fix-visual.md — Measuring by hand (edge-to-edge measurement)
 
 Not `content.padding`: it boxes every non-fill pixel in the container, the other rows' text included, and a fill covering half the box flips which colour counts as `fill` (both shown by `TestMeasureVisualProperties` in `<agents repo>/stats/internal/guard/measure_visual_properties_test.go`).
 

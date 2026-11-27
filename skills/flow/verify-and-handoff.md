@@ -143,7 +143,7 @@ never to a whole suite, and no whole-suite command is typed by hand in its place
 **Inline verify — a failing command.** A non-zero exit from any command in the list earns **one**
 re-run by the runner, which reports `flaky`, `defect` or `environment` evidence
 (`skills/flow/runner-brief.md`) — the environmental-flake case. A failing visual `verify` row's one re-run is the narrowed run of **Narrowed visual re-runs**
-(`skills/flow/fix.md`). Output carrying `WARNING: DATA RACE`
+(`skills/flow/fix-visual.md`). Output carrying `WARNING: DATA RACE`
 or `race detected during execution of test` is never that case: the command takes the fix procedure
 whatever its re-run exits, since a race that passes once is still a race
 (`rules/fix-determinism-at-the-source.mdc`), and `flow-guard run-verify-list` marks its block with

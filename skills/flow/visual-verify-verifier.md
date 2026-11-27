@@ -95,7 +95,7 @@ reported BLOCKED, naming it.
    change did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
    Then rebuild the zip from exactly what the suite just produced with
    `flow-guard rebuild-full-app-suite-zip <worktree> <screenshots root>`, the one script every recapture
-   that moves the suite runs too (`skills/flow/fix.md`, `skills/flow/sync-onto-base.md`).
+   that moves the suite runs too (`skills/flow/fix-visual.md`, `skills/flow/sync-onto-base.md`).
    Both arguments are absolute — the script refuses a relative root — and a project whose `capture`
    row chains this rebuild after Playwright has run it with `capture`, a second run rewriting nothing.
 
