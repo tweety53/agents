@@ -331,7 +331,8 @@ func (e *eab) rowKey(roleID string) string {
 }
 
 // beginRow is the begin argv to write once every deny check has passed, or a deny reason when a
-// judged role's dispatch has no saved pair-judge pick and its role more than one base pair, or
+// judged role's dispatch has no saved pair-judge pick, no pair the decision names for it (dgpvPick,
+// plancheck.go) and its role more than one base pair, or
 // neither: a row already open, a dispatch with no key or no mapped role, or an unanswered store.
 func (e *eab) beginRow() (args []string, reason string) {
 	if eabLoopKeyLine.MatchString(e.prompt) || e.loopWord() != "" {
@@ -401,7 +402,12 @@ func (e *eab) beginRow() (args []string, reason string) {
 		return append(args, "-pair-pick", pick), ""
 	}
 	if roleLine != nil && (ours || !planning) && role != "general" && e.env.Getenv("FLOW_HOOK_ROLE_CHECK") != "off" {
-		if e.singleBasePair(roleID) {
+		base := e.basePairs(roleID)
+		if _, pick := dgpvPick(worktree, roleID, key, base); pick != "" {
+			// The decider picked this dispatch's pair in the decision: no judge call is owed.
+			return append(args, "-pair-pick", pick), ""
+		}
+		if len(base) == 1 {
 			// The text flow-guard pair-judge prints for a one-candidate role.
 			return append(args, "-pair-pick", "single: the only candidate"), ""
 		}
@@ -426,15 +432,18 @@ func (e *eab) beginRow() (args []string, reason string) {
 	return args, ""
 }
 
-// singleBasePair is whether `flow policy get` gives the role exactly one base pair: the judge has
-// nothing to pick, so no .pick is owed. A policy that cannot be read is not single.
-func (e *eab) singleBasePair(roleID string) bool {
-	entry, ok := e.policy()[roleID].(map[string]any)
-	if !ok {
-		return false
-	}
+// basePairs is the role's base pairs in `flow policy get`; nil when the policy cannot be read. A role
+// with exactly one has nothing for the judge to pick, so no .pick is owed.
+func (e *eab) basePairs(roleID string) []string {
+	entry, _ := e.policy()[roleID].(map[string]any)
 	base, _ := entry["base"].([]any)
-	return len(base) == 1
+	var pairs []string
+	for _, p := range base {
+		if s, ok := p.(string); ok {
+			pairs = append(pairs, s)
+		}
+	}
+	return pairs
 }
 
 // eabReadPick is the `<source>: <reason>` of the `<model> <effort> <source> <reason…>` line

@@ -322,7 +322,7 @@ func TestDgpvInvalidGroupSizeLimit(t *testing.T) {
 		ids = append(ids, id)
 	}
 	d := dgpvDecision{Groups: []dgpvEntry{{Tasks: ids}}}
-	if got := dgpvInvalid(d, tasks, make([]string, 6), false); got != "group 1 holds 4 tasks" {
+	if got := dgpvInvalid(d, tasks, make([]string, 6), false, nil); got != "group 1 holds 4 tasks" {
 		t.Errorf("dgpvInvalid = %q", got)
 	}
 }
@@ -337,10 +337,10 @@ func TestDgpvInvalidMutationNeedsNoGroupCount(t *testing.T) {
 	one.Visual.Verify = "not configured"
 	two := one
 	two.Groups = []dgpvEntry{{Tasks: []string{"1"}}, {Tasks: []string{"2"}}}
-	if got := dgpvInvalid(one, tasks, make([]string, 4), false); got != "" {
+	if got := dgpvInvalid(one, tasks, make([]string, 4), false, nil); got != "" {
 		t.Errorf("one group: dgpvInvalid = %q", got)
 	}
-	if got := dgpvInvalid(two, tasks, make([]string, 4), false); got != "" {
+	if got := dgpvInvalid(two, tasks, make([]string, 4), false, nil); got != "" {
 		t.Errorf("two groups: dgpvInvalid = %q", got)
 	}
 }
@@ -606,5 +606,86 @@ func TestPlanCheckDecideOnlySkipsAnUnchangedShape(t *testing.T) {
 				t.Errorf("rc=%d stdout=%q err=%q, decision kept=%v", r.rc, r.stdout, r.err, string(after) == string(before))
 			}
 		})
+	}
+}
+
+// pcPairPolicy gives the implementer and panel-reviewer roles two base pairs each, so the decider
+// owes a pair for every group and bundle.
+var pcPairPolicy = pjPolicy(dgpvPolicy,
+	`"implementer":{"base":["opus/flow-low","sonnet/flow-medium"],"optin":["opus/flow-high"],"marked":[]}`,
+	`"panel-reviewer":{"base":["opus/flow-low","opus/flow-medium"],"optin":[],"marked":[]}`)
+
+// dgpvPaired is dgpvGood with a pair on every group and bundle.
+const dgpvPaired = `{"groups":[{"tasks":["1","3"],"pair":"sonnet/flow-medium","reason":"a"},{"tasks":["2"],"pair":"opus/flow-low","reason":"b"}],` +
+	`"panel":[{"slots":["primary","principles"],"pair":"opus/flow-medium","reason":"c"},{"slots":["mutation"],"pair":"opus/flow-low","reason":"d"}],` +
+	`"visual":{"verify":"skipped","reason":"e"}}`
+
+// TestPlanCheckDecidesEachDispatchPair: the decider is shown each decided role's base pairs and its
+// pair for every group and bundle is written with the decision; a pair outside the role's base
+// pairs, an opt-in one included, or a missing one blocks.
+func TestPlanCheckDecidesEachDispatchPair(t *testing.T) {
+	t.Parallel()
+	args, _, out := pcFixture(t)
+	stub := newPJStub(t, pjJSON(pcAnswer(pcReport, dgpvPaired), ""))
+	if r := runGuard("plan-check", args, pjEnv(t, pcPairPolicy, stub)); r.rc != 0 {
+		t.Fatalf("rc=%d err=%q", r.rc, r.err)
+	}
+	d := dgpvRead(t, out)
+	if d.Groups[0].Pair != "sonnet/flow-medium" || d.Panel[0].Pair != "opus/flow-medium" {
+		t.Errorf("decision %+v lost its pairs", d)
+	}
+	for _, want := range []string{"- `implementer`: opus/flow-low, sonnet/flow-medium\n", "- `panel-reviewer`: opus/flow-low, opus/flow-medium\n"} {
+		if !strings.Contains(stub.stdin(t), want) {
+			t.Errorf("digest lacks %q", want)
+		}
+	}
+	for name, c := range map[string]struct{ old, new, cause string }{
+		"outside":  {`"pair":"sonnet/flow-medium"`, `"pair":"sonnet/flow-high"`, "group 1's pair sonnet/flow-high is not one of implementer's allowed pairs"},
+		"opt-in":   {`"pair":"sonnet/flow-medium"`, `"pair":"opus/flow-high"`, "group 1's pair opus/flow-high is not one of implementer's allowed pairs"},
+		"missing":  {`"pair":"opus/flow-medium",`, ``, "bundle 1 names no pair"},
+		"panel no": {`"pair":"opus/flow-low","reason":"d"`, `"pair":"sonnet/flow-low","reason":"d"`, "bundle 2's pair sonnet/flow-low"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			wt, root, out := dgpvFixture(t)
+			answer := pjJSON(pcAnswer("PLAN-CHECK-CLEAN\n", strings.Replace(dgpvPaired, c.old, c.new, 1)), "")
+			r := runGuard("plan-check", []string{wt, root, out, "-decide-only"}, pjEnv(t, pcPairPolicy, newPJStub(t, answer)))
+			if r.rc != 1 || !strings.Contains(r.err, c.cause) {
+				t.Fatalf("rc=%d err=%q, want a block naming %q", r.rc, r.err, c.cause)
+			}
+		})
+	}
+}
+
+// TestDgpvPick: a decided dispatch's key and role find its group's or pass-1 bundle's pair, which
+// must still be one of the role's base pairs; any other dispatch, and a decision carrying no pair,
+// finds none.
+func TestDgpvPick(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	writeFile(t, wt+"/.superpowers/sdd/decision.json", strings.Replace(dgpvPaired, `"pair":"opus/flow-low","reason":"b"`, `"reason":"b"`, 1))
+	base := []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-medium"}
+	for _, c := range []struct{ role, key, want string }{
+		{"implementer", "task-1+3-implementer", "sonnet/flow-medium decider: group 1+3"},
+		{"implementer", "task-2-implementer", ""}, // no pair decided
+		{"implementer", "task-1-implementer", ""}, // no such group
+		{"implementer", "fix-1-implementer", ""},
+		{"panel-reviewer", "panel-4-primary+principles", "opus/flow-medium decider: bundle primary+principles"},
+		{"panel-reviewer", "panel-4-primary+principles-api", "opus/flow-medium decider: bundle primary+principles"},
+		{"panel-reviewer", "panel-4-mutation", "opus/flow-low decider: bundle mutation"},
+		{"panel-reviewer", "panel-4-primary", ""},
+		{"panel-reviewer", "fix-1-review", ""},
+		{"panel-rerun", "panel-5-primary+principles", ""},
+	} {
+		pair, pick := dgpvPick(wt, c.role, c.key, base)
+		if got := strings.TrimSpace(pair + " " + pick); got != c.want {
+			t.Errorf("dgpvPick(%s, %s) = %q, want %q", c.role, c.key, got, c.want)
+		}
+	}
+	if pair, _ := dgpvPick(wt, "implementer", "task-1+3-implementer", []string{"opus/flow-low"}); pair != "" {
+		t.Errorf("a pair the role no longer admits was used: %s", pair)
+	}
+	if pair, _ := dgpvPick(t.TempDir(), "implementer", "task-1+3-implementer", base); pair != "" {
+		t.Errorf("no decision.json gave pair %s", pair)
 	}
 }

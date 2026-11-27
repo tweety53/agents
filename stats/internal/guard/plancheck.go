@@ -22,7 +22,9 @@ import (
 // overrides it). Its system prompt is skills/flow/plan-check-prompt.md under
 // FLOW_GUARD_REPO_ROOT followed by skills/flow/plan-check-decision.md, the
 // decision rules both modes share; its stdin is whether <worktree>/.flow/project.md
-// declares `## visual verification`, skills/flow/plan-review-rubric.md, then proposal.md,
+// declares `## visual verification`, the base pairs `flow policy get` gives the implementer and
+// panel-reviewer roles (`## Allowed pairs`, one line `- <role>: <pair>, …` each, the role backticked),
+// skills/flow/plan-review-rubric.md, then proposal.md,
 // design.md and tasks.md from <changeRoot> (`none` for an absent file), cut at the digest
 // cap so only the artifacts' tail is lost.
 //
@@ -34,6 +36,13 @@ import (
 // skills/flow/plan-check-decide-prompt.md, followed by the same rules, instead — no tools, a 120 s deadline,
 // no rubric, an answer of the `===DECISION===` line and the JSON alone — writes
 // the decision alone and leaves plan-check.md untouched.
+//
+// Each group and each panel bundle carries the `pair` its dispatch runs on, one of the base pairs
+// of its role — implementer for a group, panel-reviewer for a bundle — and a pair outside them, an
+// opt-in pair included, or a missing one makes the decision unusable; a role with no base pair owes
+// none. hooks/enforce-agent-baseline.py records that pair's dispatch with `-pair-pick decider: group
+// <ids>` or `decider: bundle <slots>` (dgpvPick) and asks no pair-judge pick for it; the security
+// bundle this guard adds carries no pair, so its dispatch takes the pair judge's.
 //
 // The full mode also derives <worktree>/.superpowers/sdd/confidence.json from
 // the report (KAN-1130): `{"score": <n>, "gaps": [...]}`, the score of the
@@ -343,8 +352,13 @@ func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []s
 	if decideOnly {
 		rubric = "not needed"
 	}
-	// The rubric and the visual declaration lead, so the cap cuts only the artifacts' tail.
-	digest := []byte("## The project declares `## visual verification`: " + declares + "\n\n## plan-review-rubric.md\n\n" + rubric +
+	base := dgpvBasePairs(rows)
+	pairs := "\n\n## Allowed pairs\n\n"
+	for _, role := range []string{dgpvGroupRole, dgpvBundleRole} {
+		pairs += "- `" + role + "`: " + strings.Join(base[role], ", ") + "\n"
+	}
+	// The rubric, the visual declaration and the allowed pairs lead, so the cap cuts only the artifacts' tail.
+	digest := []byte("## The project declares `## visual verification`: " + declares + pairs + "\n## plan-review-rubric.md\n\n" + rubric +
 		"\n\n## proposal.md\n\n" + read(filepath.Join(root, "proposal.md")) + "\n\n## design.md\n\n" + read(filepath.Join(root, "design.md")) +
 		"\n\n## tasks.md\n\n" + strings.Join(lines, "\n") + "\n")
 	if len(digest) > pjDigestCap {
@@ -358,7 +372,7 @@ func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []s
 	if !decideOnly && !pcHasTerminal(result) {
 		retry = pcNoTerminal
 	}
-	report, d, source, cause = pcParse(result, tasks, repoAt, visual, decideOnly, spend)
+	report, d, source, cause = pcParse(result, tasks, repoAt, visual, decideOnly, base, spend)
 	if d == nil {
 		retry = cause
 	}
@@ -366,7 +380,7 @@ func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []s
 }
 
 // pcParse splits one answer into its report and its checked decision.
-func pcParse(result string, tasks []pdbTask, repoAt []string, visual, decideOnly bool, spend string) (report string, d *dgpvDecision, source, cause string) {
+func pcParse(result string, tasks []pdbTask, repoAt []string, visual, decideOnly bool, base map[string][]string, spend string) (report string, d *dgpvDecision, source, cause string) {
 	source = "fallback"
 	loc := pcSeparator.FindStringIndex(result)
 	if loc == nil {
@@ -392,7 +406,7 @@ func pcParse(result string, tasks []pdbTask, repoAt []string, visual, decideOnly
 	if i < 0 || j < i || json.Unmarshal([]byte(text[i:j+1]), &got) != nil {
 		return report, nil, source, "plan-check decision is not a JSON object: " + text + spend
 	}
-	if why := dgpvInvalid(got, tasks, repoAt, visual); why != "" {
+	if why := dgpvInvalid(got, tasks, repoAt, visual, base); why != "" {
 		return report, nil, source, "plan-check decision rejected: " + why + spend
 	}
 	return report, &got, source, cause
@@ -403,7 +417,70 @@ var dgpvVisualHeading = regexp.MustCompile(`(?m)^## visual verification[ \t]*$`)
 type dgpvEntry struct {
 	Tasks  []string `json:"tasks,omitempty"`
 	Slots  []string `json:"slots,omitempty"`
+	Pair   string   `json:"pair,omitempty"`
 	Reason string   `json:"reason"`
+}
+
+// dgpvPairRoles is the role each decided dispatch runs on: a group's implementer, a pass-1 bundle's
+// reviewer. The decider picks the pair of each from that role's base pairs.
+const dgpvGroupRole, dgpvBundleRole = "implementer", "panel-reviewer"
+
+// dgpvBasePairs is the base pairs of each decided role, as `flow policy get` gives them.
+func dgpvBasePairs(rows map[string][]policyRow) map[string][]string {
+	base := map[string][]string{}
+	for _, role := range []string{dgpvGroupRole, dgpvBundleRole} {
+		for _, c := range pjCandidates(rows, role) {
+			base[role] = append(base[role], c.pair)
+		}
+	}
+	return base
+}
+
+// dgpvPairInvalid is why an entry's pair breaks the role's base pairs, "" when none or the role has none.
+func dgpvPairInvalid(what, pair, role string, base map[string][]string) string {
+	switch {
+	case len(base[role]) == 0:
+		return ""
+	case pair == "":
+		return what + " names no pair"
+	case !slices.Contains(base[role], pair):
+		return fmt.Sprintf("%s's pair %s is not one of %s's allowed pairs (%s)", what, pair, role, strings.Join(base[role], ", "))
+	}
+	return ""
+}
+
+var dgpvPanelKey = regexp.MustCompile(`^panel-[0-9]+-(.+)$`)
+
+// dgpvPick is the decided pair of the dispatch keyed key on role, read from <wt>/.superpowers/sdd/decision.json,
+// and the `decider: <what>` text its row records as -pair-pick: a group's `task-<ids>-implementer` on
+// implementer, a bundle's `panel-<round>-<slots>[-<repo>]` on panel-reviewer. "" when the decision
+// names no pair for it or the role's base pairs no longer hold that pair.
+func dgpvPick(wt, role, key string, base []string) (pair, pick string) {
+	b, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "decision.json"))
+	var d dgpvDecision
+	if err != nil || json.Unmarshal(b, &d) != nil {
+		return "", ""
+	}
+	switch role {
+	case dgpvGroupRole:
+		for _, g := range d.Groups {
+			if ids := strings.Join(g.Tasks, "+"); key == "task-"+ids+"-implementer" {
+				pair, pick = g.Pair, "decider: group "+ids
+			}
+		}
+	case dgpvBundleRole:
+		if m := dgpvPanelKey.FindStringSubmatch(key); m != nil {
+			for _, p := range d.Panel {
+				if s := strings.Join(p.Slots, "+"); m[1] == s || strings.HasPrefix(m[1], s+"-") {
+					pair, pick = p.Pair, "decider: bundle "+s
+				}
+			}
+		}
+	}
+	if pair == "" || !slices.Contains(base, pair) {
+		return "", ""
+	}
+	return pair, pick
 }
 
 type dgpvDecision struct {
@@ -421,7 +498,7 @@ type dgpvDecision struct {
 var dgpvSlots = []string{"primary", "principles", "test-sanity", "call-efficiency", "failure-modes", "mutation"}
 
 // dgpvInvalid is why d breaks a rule the header names, "" when none.
-func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, visual bool) string {
+func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, visual bool, base map[string][]string) string {
 	byID := map[string]pdbTask{}
 	for _, t := range tasks {
 		byID[t.id] = t
@@ -450,6 +527,9 @@ func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, visual bool) 
 		if len(g.Tasks) > 3 {
 			return fmt.Sprintf("group %d holds %d tasks", gi+1, len(g.Tasks))
 		}
+		if why := dgpvPairInvalid(fmt.Sprintf("group %d", gi+1), g.Pair, dgpvGroupRole, base); why != "" {
+			return why
+		}
 	}
 	for _, t := range tasks {
 		gi, ok := groupOf[t.id]
@@ -477,6 +557,9 @@ func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, visual bool) 
 				return "mutation shares a bundle"
 			}
 			seen = append(seen, s)
+		}
+		if why := dgpvPairInvalid(fmt.Sprintf("bundle %d", bi+1), b.Pair, dgpvBundleRole, base); why != "" {
+			return why
 		}
 	}
 	if !slices.Contains(seen, "primary") {

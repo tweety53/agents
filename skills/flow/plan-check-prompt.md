@@ -9,8 +9,8 @@ must stand on their own. You ask no one anything.
 > the change's worktree; you edit nothing.
 
 The user message carries `proposal.md`, `design.md` and `tasks.md` in full (`none` for an absent
-one), the plan review rubric, and whether the project declares a `## visual verification`
-section. Read repository files the artifacts name when a finding needs the evidence; read nothing
+one), the plan review rubric, whether the project declares a `## visual verification`
+section, and the allowed pairs of the roles the decision picks pairs for. Read repository files the artifacts name when a finding needs the evidence; read nothing
 under `.superpowers/` and never ask for context: a thing the artifacts do not say is a finding
 against them.
 

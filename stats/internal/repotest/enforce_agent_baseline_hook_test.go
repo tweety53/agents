@@ -740,6 +740,43 @@ func TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick(t *testing.T) {
 	}
 }
 
+// TestEnforceAgentBaselineHookTakesTheDecidedPair: a group implementer or pass-1 bundle whose pair the
+// decision names is begun with `-pair-pick decider: …` and no .pick; a dispatch the decision does
+// not cover, or a decided pair the role no longer admits, still owes the pair judge's pick.
+func TestEnforceAgentBaselineHookTakesTheDecidedPair(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	const decision = `{"groups":[{"tasks":["1","3"],"pair":"opus/flow-medium","reason":"a"},{"tasks":["2"],"pair":"opus/flow-xhigh","reason":"b"}],` +
+		`"panel":[{"slots":["primary"],"pair":"opus/flow-low","reason":"c"}],"visual":{"verify":"skipped","reason":"e"}}`
+	for _, c := range []struct {
+		name, role, key, want string
+	}{
+		{"decided group", "implementer", "task-1+3-implementer", " -pair-pick decider: group 1+3"},
+		{"decided bundle", "panel-reviewer", "panel-2-primary", " -pair-pick decider: bundle primary"},
+		{"pair no longer admitted", "implementer", "task-2-implementer", ""},
+		{"not decided", "panel-fix", "panel-fix-2", ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			main, wt := beginRepo(t)
+			if err := os.MkdirAll(filepath.Join(wt, ".superpowers", "sdd"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(wt, ".superpowers", "sdd", "decision.json"), []byte(decision), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			env, log := beginEnv(t, `[]`)
+			env = append(env, "FLOW_HOOK_ROLE_CHECK=on")
+			denied, out := runBegin(t, beginPayload(t, main, c.key+" x", "Role: "+c.role+"\nKey: "+c.key+"\nx", "flow-low", "opus", ""), env...)
+			if denied != (c.want == "") {
+				t.Fatalf("denied = %v (%s), want %v", denied, out, c.want == "")
+			}
+			if begins := flowCalls(t, log, "record dispatch begin"); c.want != "" && (len(begins) != 1 || !strings.HasSuffix(begins[0], c.want)) {
+				t.Errorf("begins = %q, want one ending in %q", begins, c.want)
+			}
+		})
+	}
+}
+
 // TestEnforceAgentBaselineHookAsksAKeylessAgentToNameItsKey: an `agent-<tool_use_id>` key changes on
 // every retry, so its deny asks for a stable key instead of a .pick under that name.
 func TestEnforceAgentBaselineHookAsksAKeylessAgentToNameItsKey(t *testing.T) {

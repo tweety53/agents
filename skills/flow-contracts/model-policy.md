@@ -11,10 +11,10 @@ The reasoning behind this file lives in `docs/rationale/flow-contracts/model-pol
 
 ## Model policy
 
-**Every dispatch runs on its role's pair**: the pair `flow-guard pair-judge` picks from the role's
+**Every dispatch runs on its role's pair**: the pair the decision names for it (**Decided pairs**,
+below), else the pair `flow-guard pair-judge` picks from the role's
 allowed pairs at dispatch time, or, for a role the judge does not cover, the role's first pair
-(**Model and effort**, below). Nothing records a pair ahead of the
-dispatch. Half of the implementer's `opus/flow-low` picks are moved to `sonnet/flow-low` by
+(**Model and effort**, below). Half of the implementer's `opus/flow-low` judge picks are moved to `sonnet/flow-low` by
 the judge itself, so the two split that case evenly. The parent
 session runs on the harness's own model for the whole of `/flow`. This **explicitly overrides**
 superpowers:subagent-driven-development's model guidance, its final review on the most capable
@@ -61,6 +61,18 @@ A role with exactly one `base` pair needs no judge call: the hook asks for no `.
 `-pair-pick single: the only candidate` on the row, and the dispatch runs on that pair. Besides the prompt, the judge reads only the file parts it names: `` `<abs-path>#<heading text>` ``
 (in backticks; that markdown section) or `<abs-path>:<a>-<b>` / `:<a>` (those lines); a bare
 `tasks.md` gives the sections of the tasks the prompt names, and any other bare path nothing.
+
+**Decided pairs — a dispatch the decision names runs on the decision's pair, with no pair-judge
+call**: each
+implementer group's dispatch (`task-<ids>-implementer`) on its group's `pair`, and each pass-1
+panel bundle's dispatch (`panel-<round>-<slots>[-<repo>]`, role `panel-reviewer`) on its bundle's
+`pair`, both read from `<abs-worktree>/.superpowers/sdd/decision.json`. The decider picks each from
+the role's base pairs, and `flow-guard plan-check` refuses a decision naming any other (its header,
+`stats/internal/guard/plancheck.go`, is canonical for the field). The dispatch hook records the row
+with `-pair-pick decider: group <ids>` or `decider: bundle <slots>`; a decided pair the role no
+longer admits, a decision carrying no pair, and every dispatch the decision does not name — the
+`security` bundle, a re-run, a fix, an operator-asked executor, a loop or self-review dispatch —
+take the pair judge's pick as above.
 
 A pair is a model and an agent type joined by `/`: `opus/flow-low` dispatches
 `subagent_type: flow-low` on `model: opus`; `opus/flow-planner-medium` is `flow-planner-medium` on
