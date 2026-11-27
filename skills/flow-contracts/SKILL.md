@@ -27,7 +27,7 @@ flow's pipeline and its contract definitions.
 | [state-file-internals.md](state-file-internals.md) | How the CLI and daemon keep the record: the fallback paths, the project-key derivation, write ordering and journal replay. **Loaded by no `/flow*` command** |
 | [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — every key it defines and the single-line-literal keys. Resolution rules only — see below for authoring guidance |
 | [project-configuration-standards.md](project-configuration-standards.md) | Resolve a `## standards` entry: the three entry forms and containment. **Loaded at the principles dispatch** |
-| [project-configuration-isolation.md](project-configuration-isolation.md) | The `## workspace isolation` tables: the cell forms, row validation and what is left to the agent. **Loaded only when `flow-guard prepare-workspace` cannot be located** |
+| [project-configuration-isolation.md](project-configuration-isolation.md) | The `## workspace isolation` tables: the cell forms, row validation and what is left to the agent. **Loaded only when writing or reviewing a `## workspace isolation` section** |
 | [project-configuration-visual.md](project-configuration-visual.md) | The `## visual verification` tables, the `mockups` sidecar and the full app suite. **Loaded when `flow.verify` begins** |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
 | [jira-integration-finish.md](jira-integration-finish.md) | The join carve-out and echo, and labels on created issues. **Cited by every command that creates an issue** |
