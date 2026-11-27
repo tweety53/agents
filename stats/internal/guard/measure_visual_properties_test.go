@@ -705,7 +705,7 @@ func TestMeasureVisualPropertiesMatrixClass(t *testing.T) {
 	}
 }
 
-// kan-1017 (sr13): a band's colour is its darkest ink holding at least 2% of
+// kan-1017 (sr13): a band's colour is its darkest ink holding at least 1% of
 // the band, not its modal colour, and `share` is the top two colours' share.
 func TestMeasureVisualPropertiesBandColourDarkestInk(t *testing.T) {
 	t.Parallel()
@@ -728,17 +728,16 @@ func TestMeasureVisualPropertiesBandColourDarkestInk(t *testing.T) {
 	}
 }
 
-// Antialiased pixels beside an ink count toward its 2%: 1% exact black plus 1.5%
-// near-black must still read black, not the card.
-func TestMeasureVisualPropertiesBandColourCountsAntialiasedInk(t *testing.T) {
+// A text ink at 1.5% of the band (a frame's 2.2% and its capture's 1.5% are the
+// same drawn text) reads as the band's colour, not the card's.
+func TestMeasureVisualPropertiesBandColourThinInk(t *testing.T) {
 	t.Parallel()
 	im := mvpPNG(t, 100, 30, func(x, y int) color.RGBA {
-		switch {
-		case y < 10 || y >= 20 || x >= 90:
-		case y == 10 && x < 10:
-			return color.RGBA{0x00, 0x00, 0x00, 0xff} // 1.1%
-		case y == 11 && x < 14:
-			return color.RGBA{0x10, 0x10, 0x10, 0xff} // 1.5%, antialiased
+		if y == 10 && x < 14 && x >= 0 {
+			return color.RGBA{0x00, 0x00, 0x00, 0xff} // 1.5% of 900
+		}
+		if y < 10 || y >= 20 || x >= 90 {
+			return color.RGBA{0xff, 0xff, 0xff, 0xff}
 		}
 		return color.RGBA{0xf5, 0xf5, 0xf7, 0xff}
 	})
@@ -748,7 +747,7 @@ func TestMeasureVisualPropertiesBandColourCountsAntialiasedInk(t *testing.T) {
 	}
 }
 
-// A band where no colour holds 2% of its ink (a gradient) reports its modal
+// A band where no colour holds 1% of its ink (a gradient) reports its modal
 // colour, never a fabricated #000000.
 func TestMeasureVisualPropertiesBandColourFallsBackToModal(t *testing.T) {
 	t.Parallel()
