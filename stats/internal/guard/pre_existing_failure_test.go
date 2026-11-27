@@ -54,4 +54,14 @@ func TestPreExistingFailure(t *testing.T) {
 	if list := g.git(wt, "worktree", "list", "--porcelain"); strings.Count(list, "worktree ") != 1 {
 		t.Fatalf("merge-base worktree left behind:\n%s", list)
 	}
+
+	// A file renamed out of a named path still counts as in the diff.
+	g.git(wt, "config", "diff.renames", "true")
+	g.git(wt, "mv", "a.txt", "moved.txt")
+	if g.err != nil {
+		t.Fatal(g.err)
+	}
+	if r := run(wt, "main", "false", "a.txt"); r.rc != 1 || r.stdout != "CAUSED: a.txt is in the change's diff\n" {
+		t.Fatalf("renamed path: rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
+	}
 }

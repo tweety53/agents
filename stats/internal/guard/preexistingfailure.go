@@ -16,7 +16,7 @@ import (
 //
 // <path> is each file or directory, relative to the repository root, the
 // failing test covers. The merge-base is `git merge-base HEAD <base-ref>`;
-// the change's files are `git diff --name-only <merge-base>` (committed and
+// the change's files are `git diff --no-renames --name-only <merge-base>` (committed and
 // uncommitted).
 //
 //	CAUSED: <path> is in the change's diff               exit 1
@@ -56,7 +56,7 @@ func preExistingFailure(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	diff, ok := capture(git("-C", wt, "diff", "--no-renames", "--name-only", mb))
 	if !ok {
-		fmt.Fprintf(stderr, "%s: %s: git diff --name-only %s failed\n", prog, wt, mb)
+		fmt.Fprintf(stderr, "%s: %s: git diff --no-renames --name-only %s failed\n", prog, wt, mb)
 		Reason(env, "diff-failed")
 		return 2
 	}
