@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
@@ -14,7 +15,7 @@ import (
 // Usage: flow-guard check-fix-revert <worktree> <base>
 //
 // The fix commit is <worktree>'s HEAD. The earlier fixes are the commits of `<base>..HEAD^`
-// carrying a `Flow-Key: fix-…` trailer (`skills/flow/fix.md` step 2). A line HEAD removes
+// carrying a `Flow-Key:` trailer that names a fix (fixKey) (`skills/flow/fix.md` step 2). A line HEAD removes
 // that an earlier fix added, or adds that an earlier fix removed — compared per file, on
 // whitespace-trimmed content, blank lines ignored — is an inverted line.
 //
@@ -28,6 +29,10 @@ import (
 const maxInvertedFixLines = 3
 
 func init() { Registry["check-fix-revert"] = checkFixRevert }
+
+// fixKey is a fix commit's Flow-Key: any key with a `fix` segment — `fix-<k>-implementer`,
+// `panel-fix-<round>`, `full-suite-fix-<n>`, `task-<n>-implementer-fix-<k>`, `minor-fix`.
+var fixKey = regexp.MustCompile(`(^|-)fix(-|$)`)
 
 func checkFixRevert(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-fix-revert"
@@ -69,7 +74,7 @@ func checkFixRevert(args []string, env Env, stdout, stderr io.Writer) int {
 	rc := 0
 	for _, row := range strings.Split(log, "\n") {
 		sha, key, _ := strings.Cut(row, " ")
-		if !strings.HasPrefix(key, "fix-") {
+		if !fixKey.MatchString(key) {
 			continue
 		}
 		add, del, ok := commitLines(git, wt, sha)

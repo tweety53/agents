@@ -15,10 +15,14 @@ func TestCheckFixRevert(t *testing.T) {
 		second string
 		rc     int
 		noBase bool
+		key    string
 	}{
-		{"reverts", "a\nb\nc\nd\ne\n", 1, false},
-		{"keeps", "a\nB\nC\nD\nE\nf\n", 0, false},
-		{"reverts against the recorded flow base", "a\nb\nc\nd\ne\n", 1, true},
+		{"reverts", "a\nb\nc\nd\ne\n", 1, false, ""},
+		{"keeps", "a\nB\nC\nD\nE\nf\n", 0, false, ""},
+		{"reverts against the recorded flow base", "a\nb\nc\nd\ne\n", 1, true, ""},
+		{"reverts a panel fix", "a\nb\nc\nd\ne\n", 1, false, "panel-fix-1"},
+		{"reverts a task implementer fix", "a\nb\nc\nd\ne\n", 1, false, "task-3-implementer-fix-1"},
+		{"reverts a full-suite fix", "a\nb\nc\nd\ne\n", 1, false, "full-suite-fix-1"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
@@ -31,7 +35,11 @@ func TestCheckFixRevert(t *testing.T) {
 			}
 			commit("a\nb\nc\nd\ne\n", "base")
 			gitRun(t, dir, "tag", "base")
-			commit("a\nB\nC\nD\nE\n", "fix: one\n\nFlow-Key: fix-1-implementer")
+			key := tc.key
+			if key == "" {
+				key = "fix-1-implementer"
+			}
+			commit("a\nB\nC\nD\nE\n", "fix: one\n\nFlow-Key: "+key)
 			commit(tc.second, "fix: two\n\nFlow-Key: fix-2-implementer")
 			env := Env{Dir: dir, Getenv: os.Getenv, LookupEnv: os.LookupEnv}
 			args := []string{dir, "base"}
