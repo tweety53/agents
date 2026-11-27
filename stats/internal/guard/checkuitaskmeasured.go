@@ -50,8 +50,7 @@ import (
 // Exit 0 measured clean, or not a UI task (no `ui paths`, no plan, or no file
 // of the task matches); 1 the record is missing, stale or flagged; 2 a usage
 // error, a worktree off a `spectre/<name>` branch, or a task the plan lacks.
-func init() { Registry["check-ui-task-measured"] = checkUITaskMeasured }
-
+// Its verdict, utmJudge, runs in process from close-task; no guard.Registry key.
 func checkUITaskMeasured(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
 		Reason(env, "usage")

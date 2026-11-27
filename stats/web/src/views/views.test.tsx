@@ -1909,7 +1909,7 @@ describe("flow health", () => {
   it("flow guards: a known guard shows its what-it-does hint, and approved ones their badge", async () => {
     answerGuards([
       gh("check-guard-calls", 10, 1, 0, 100, 1000, "2026-01-10T00:00:00Z"),
-      gh("sweep-dispatch-rows", 5, 0, 0, 10, 50, null),
+      gh("end-dispatch-row", 5, 0, 0, 10, 50, null),
       gh("some-other-guard", 5, 0, 0, 10, 50, null),
     ]);
     render(<FlowHealth />);
@@ -1918,8 +1918,8 @@ describe("flow health", () => {
     const row = (name: string) => screen.getByText(name, { selector: "td *" }).closest("tr") as HTMLElement;
     expect(within(row("check-guard-calls")).getByText("approved")).toBeInTheDocument();
     expect(within(row("check-guard-calls")).getByLabelText(/names a real guard/)).toHaveTextContent("i");
-    expect(within(row("sweep-dispatch-rows")).getByText("approved")).toBeInTheDocument();
-    expect(within(row("sweep-dispatch-rows")).getByLabelText(/stop was missed/)).toHaveTextContent("i");
+    expect(within(row("end-dispatch-row")).getByText("approved")).toBeInTheDocument();
+    expect(within(row("end-dispatch-row")).getByLabelText(/stopping subagent/)).toHaveTextContent("i");
     expect(within(row("some-other-guard")).queryByText("approved")).not.toBeInTheDocument();
   });
 

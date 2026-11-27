@@ -120,6 +120,9 @@ func (l lockedWriter) Write(p []byte) (int, error) {
 func runGuard(name string, args []string, env Env) guardResult {
 	fn := foldedGuards[name]
 	if fn == nil {
+		fn = inProcessGuards[name]
+	}
+	if fn == nil {
 		fn = Registry[name]
 	}
 	if fn == nil {

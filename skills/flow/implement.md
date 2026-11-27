@@ -95,7 +95,7 @@ site, and the hook then finds it open and writes nothing.
 **The hook writes the row's end too.** When a subagent stops, `hooks/await-own-agents.py` runs
 `flow-guard end-dispatch-row`, which ends the row its prompt's `Key:` line names — its outcome and
 commit read off the agent's final message (the guard's header is canonical) — so the parent runs no
-`end` for such a row; each stop also runs `flow-guard end-stale-dispatch-rows`, which ends the change's open rows whose agent finished and went quiet 10 minutes ago `aborted`. A row whose end needs what the final message cannot carry — `-outcome
+`end` for such a row; each stop also runs the end-stale-dispatch-rows sweep in process, which ends the change's open rows whose agent finished and went quiet 10 minutes ago `aborted`. A row whose end needs what the final message cannot carry — `-outcome
 blocked -cause …` — is ended by its own site.
 
 **Every dispatch is one-shot — a finished child is never resumed.**

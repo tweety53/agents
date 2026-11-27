@@ -392,6 +392,19 @@ func (c *ic) run(guard string, args ...string) {
 	}
 }
 
+// runIn is run for a guard called in process: its stdout captured and relayed, its stderr
+// straight through, in `/` as a sibling runs.
+func (c *ic) runIn(fn Func, args ...string) {
+	env := c.env
+	env.Dir = "/"
+	var b bytes.Buffer
+	c.rc = fn(args, env, &b, c.stderr)
+	c.out = strings.TrimRight(b.String(), "\n")
+	if c.out != "" {
+		fmt.Fprintln(c.stdout, c.out)
+	}
+}
+
 // verdict is `grep -m1 -E "^(<alts>):" <<<"$OUT"`.
 func (c *ic) verdict(alts ...string) string {
 	for _, l := range strings.Split(c.out, "\n") {

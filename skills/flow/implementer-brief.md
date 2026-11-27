@@ -116,7 +116,7 @@ this file in full first: its prompt is a stub naming this file, never these para
 > `flow-guard visual-verify-pass measure <canonical-worktree> <name> task-<task-id> <the task's capture spec>`
 > and fix every row it flags at its source — commit and re-run until none is left. It writes
 > `<changeRoot>/visual-verification/task-<task-id>-measure.json`; `flow-guard close-task` refuses
-> the task (`flow-guard check-ui-task-measured <canonical-worktree> <task-id>`) while that record is
+> the task while that record is
 > missing, older than your last commit to the task's files, or carries a flagged row, and prints
 > this command. A length delta within the project's `tolerance` is not flagged. A task whose plan
 > adds the capture spec in a later task is not measured per task; **the task that adds that spec

@@ -71,10 +71,7 @@ import (
 // any verdict; exit 2 with NOTHING on stdout when it cannot answer. Every
 // git read is silenced, as the bash's 2>/dev/null silenced it: the named
 // cause on stderr is the whole of a refusal.
-func init() {
-	Registry["check-main-checkout-drift"] = checkMainCheckoutDrift
-}
-
+// Run in process by integrate-change prepare only; no guard.Registry key.
 func checkMainCheckoutDrift(args []string, env Env, stdout, stderr io.Writer) int {
 	const self = "check-main-checkout-drift"
 	die := func(id, format string, a ...any) int {

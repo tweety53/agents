@@ -57,13 +57,13 @@ import (
 // seconds.
 //
 // A stop it lets through -- no child and no background command left -- closes the agent's flow
-// dispatch row: `flow-guard end-dispatch-row` reads the transcript's `Key:` line and final message
-// and ends the row the begin hook opened, so the parent ends none itself; `flow-guard
-// sweep-dispatch-rows` then closes the rows whose own stop never did. Every stop it lets through
-// or blocks first runs `flow-guard end-stale-dispatch-rows <cwd>`, which ends the change's open
+// dispatch row: end-dispatch-row reads the transcript's `Key:` line and final message
+// and ends the row the begin hook opened, so the parent ends none itself;
+// sweep-dispatch-rows then closes the rows whose own stop never did. Every stop it lets through
+// or blocks first runs end-stale-dispatch-rows <cwd>, which ends the change's open
 // rows whose agent finished (meta `finished`) and went quiet 10 minutes ago -- the rows of agents
-// whose own stop never ended them. Each runs as its own `scripts/flow-guard` process of this
-// checkout (FLOW_GUARD_REPO_ROOT), output discarded.
+// whose own stop never ended them. Each runs in process, under a flow-guard checkout
+// (FLOW_GUARD_REPO_ROOT), output discarded.
 //
 // Fails open: any error -- bad input, unreadable folder -- prints nothing.
 func init() { hooks["await-own-agents"] = awaitOwnAgents }
@@ -114,7 +114,7 @@ func awaitOwnAgents(env Env, payload map[string]any, stdout, _ io.Writer) {
 	}
 	cwd := strOf(payload["cwd"])
 	if cwd != "" {
-		aoaFlowGuard(env, 60*time.Second, cwd, "end-stale-dispatch-rows", cwd)
+		aoaInProcess(env, cwd, endStaleDispatchRows, cwd)
 	}
 	if len(background) > 0 && strings.TrimSpace(strOf(payload["last_assistant_message"])) != "" {
 		aoaKillBackground(env, transcript, background)
@@ -132,9 +132,9 @@ func awaitOwnAgents(env Env, payload map[string]any, stdout, _ io.Writer) {
 	}
 	if len(children) == 0 {
 		if sessionID := strOf(payload["session_id"]); sessionID != "" && cwd != "" {
-			aoaFlowGuard(env, 30*time.Second, cwd, "end-dispatch-row", transcript, sessionID, cwd, strOf(payload["last_assistant_message"]))
+			aoaInProcess(env, cwd, endDispatchRow, transcript, sessionID, cwd, strOf(payload["last_assistant_message"]))
 			// A stop is the moment to close rows whose own stop never did.
-			aoaFlowGuard(env, 60*time.Second, cwd, "sweep-dispatch-rows", folder, sessionID, cwd)
+			aoaInProcess(env, cwd, sweepDispatchRows, folder, sessionID, cwd)
 		}
 		return
 	}
@@ -159,10 +159,12 @@ func awaitOwnAgents(env Env, payload map[string]any, stdout, _ io.Writer) {
 		"say so when one returned nothing.")
 }
 
-// aoaFlowGuard runs this checkout's `scripts/flow-guard <args>` in cwd, bounded, output discarded.
-func aoaFlowGuard(env Env, bound time.Duration, cwd string, args ...string) {
-	if root := env.Getenv("FLOW_GUARD_REPO_ROOT"); root != "" {
-		_, _, _ = hookRun(env, bound, cwd, filepath.Join(root, "scripts", "flow-guard"), args...)
+// aoaInProcess runs a dispatch-row guard in process in cwd, output discarded -- only under a
+// flow-guard checkout (FLOW_GUARD_REPO_ROOT), as when each ran as its own scripts/flow-guard.
+func aoaInProcess(env Env, cwd string, fn Func, args ...string) {
+	if env.Getenv("FLOW_GUARD_REPO_ROOT") != "" {
+		env.Dir = cwd
+		fn(args, env, io.Discard, io.Discard)
 	}
 }
 

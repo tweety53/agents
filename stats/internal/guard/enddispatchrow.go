@@ -272,8 +272,7 @@ func edrSessionChange(env Env, sessionID string) string {
 // change's visual-verify rows open past 30 minutes (sweepVisualVerifyRows). hooks/await-own-agents.py
 // runs it after each stop. An agent with no report is never swept: a quiet long build looks the same.
 // Exit 0 always. Go, in flow-guard (stats/internal/guard/enddispatchrow.go).
-func init() { Registry["sweep-dispatch-rows"] = sweepDispatchRows }
-
+// Run in process by the await-own-agents hook only; no guard.Registry key.
 func sweepDispatchRows(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 {
 		Reason(env, "usage")

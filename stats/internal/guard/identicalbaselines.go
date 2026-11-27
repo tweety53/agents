@@ -41,8 +41,7 @@ import (
 
 // checkIdenticalBaselines is `flow-guard check-identical-baselines`: the comment above is the contract. PNGs of one directory with the
 // same bytes are named, one group per line.
-func init() { Registry["check-identical-baselines"] = checkIdenticalBaselines }
-
+// Run in process by visual-verify-pass measure only; no guard.Registry key.
 func checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) int {
 	const prog = "check-identical-baselines"
 	if len(args) != 0 {

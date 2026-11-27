@@ -82,7 +82,7 @@ it to them before the run reaches the refusal it would otherwise improvise aroun
 
 Moved verbatim; the run-loaded copy keeps the sentence up to "counts tracked entries":
 
-`flow-guard check-main-checkout-drift` runs once per
+`flow-guard integrate-change prepare` runs its main-checkout drift check (`stats/internal/guard/maincheckoutdrift.go`) once per
 distinct main checkout, and its header is canonical for the verdict grammar it prints: a
 `DRIFT-BRANCH` line names a checkout on any other branch than the one `refs/remotes/origin/HEAD`
 points at, a `DRIFT-DIRTY` line counts tracked entries — shapes the staged-only listing above cannot see.

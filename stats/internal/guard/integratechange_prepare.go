@@ -64,10 +64,10 @@ func (c *ic) prepare() {
 	// the base the change records (KAN-911: run 2 refreshes it), stops.
 	dirty := false
 	for _, m := range c.mains {
-		c.run("check-main-checkout-drift", m)
+		c.runIn(checkMainCheckoutDrift, m)
 		if c.rc == 0 && c.verdict("DRIFT-BRANCH") != "" && c.verdict("DRIFT-DIRTY") == "" {
 			c.switchBack(m)
-			c.run("check-main-checkout-drift", m)
+			c.runIn(checkMainCheckoutDrift, m)
 		}
 		if !(c.rc == 0 && c.verdict("DRIFT-CLEAN") != "") {
 			b, _ := c.gitQuiet("-C", m, "branch", "--show-current")

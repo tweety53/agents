@@ -41,7 +41,7 @@ nothing tracked modified, staged or unmerged and no untracked file.
 
 The affected repositories are resolved from the worktree set: for each worktree, the main checkout
 `git rev-parse --git-common-dir` resolves, made absolute and physical, deduplicated.
-`flow-guard check-main-checkout-drift` runs once per distinct main checkout, and its header is
+`flow-guard integrate-change prepare` runs its main-checkout drift check (`stats/internal/guard/maincheckoutdrift.go`) once per distinct main checkout, and its header is
 canonical for the verdict grammar it prints: a `DRIFT-BRANCH` line names a checkout on any other
 branch than the one `refs/remotes/origin/HEAD` points at, a `DRIFT-DIRTY` line counts
 entries, staged and untracked ones included. On `DRIFT-CLEAN` from every repository the run continues with
@@ -49,7 +49,7 @@ nothing more said. **A clean checkout on another branch is switched back, never 
 a repository's only finding is `DRIFT-BRANCH` — no `DRIFT-DIRTY` printed —
 `flow-guard integrate-change prepare` runs `git -C <main-checkout> switch <default>`, prints one
 `DRIFT-SWITCHED: <main-checkout> — <branch> -> <default>, <branch> kept at <sha> (<n> commits
-ahead of <default>)` line, and re-runs `flow-guard check-main-checkout-drift`, continuing only on
+ahead of <default>)` line, and re-runs that check, continuing only on
 `DRIFT-CLEAN`. The switch moves no commit: `<branch>` keeps every commit it carried, and a live
 session that had the checkout on it finds its HEAD moved, which the printed line names. A clean checkout on a base the change records (`branch.spectre/<name>.flowBase`) is neither
 switched nor stopped: run 2's refresh brings it forward. Three shapes are never switched, and stop

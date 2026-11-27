@@ -23,8 +23,7 @@ import (
 // hooks/await-own-agents.py runs it after every SubagentStop.
 //
 // Go, in flow-guard (stats/internal/guard/endstaledispatchrows.go).
-func init() { Registry["end-stale-dispatch-rows"] = endStaleDispatchRows }
-
+// Run in process by the await-own-agents hook and await-rows only; no guard.Registry key.
 const staleFinishedAge = 10 * time.Minute
 
 func endStaleDispatchRows(args []string, env Env, stdout, stderr io.Writer) int {

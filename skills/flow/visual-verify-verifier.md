@@ -112,7 +112,7 @@ reported BLOCKED, naming it.
    ```
 
    `--prototype` when step 10's approved prototype is the frame. Its header is canonical for what it
-   runs — `flow-guard resolve-visual-screenshots`, `flow-guard check-identical-baselines`, `flow-guard compose-mockup-frames`
+   runs — `flow-guard resolve-visual-screenshots`, the identical-baselines check (`stats/internal/guard/identicalbaselines.go`), `flow-guard compose-mockup-frames`
    and `flow-guard measure-visual-properties`'s band, seam and matrix reads on every pair — the files it
    writes and its exits; it carries on past a step's non-zero exit and records each exit and its
    stderr in the manifest it names, `<abs-worktree>/.superpowers/sdd/visual-manifest-<key>.json`, which
@@ -137,7 +137,7 @@ reported BLOCKED, naming it.
    An unreadable PNG is reported and blocks
    too.
 
-   The manifest's `identical` groups are `flow-guard check-identical-baselines`'s, whose header is canonical
+   The manifest's `identical` groups are that identical-baselines check's, whose header is canonical
    for what it compares: each names PNGs of one directory that are
    byte-identical, and the report carries one `- identical:` line per group stating why those views
    draw the same pixels, or the defect that made them, which blocks. Its exit 2 → it cannot answer, and blocks.
