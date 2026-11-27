@@ -195,7 +195,7 @@ A pass covers what the bundle holds and nothing beyond it.
 **Resolve the base branch; never assume it, and never derive it from the current branch.**
 
 ```bash
-BASE="$(flow-guard resolve-base-branch "<abs-worktree>")"
+BASE="$(flow-guard resolve-base-branch --fetch "<abs-worktree>")"
 ```
 
 `<abs-worktree>` is **the apply worktree** — the same one **Reshape the branch** above just

@@ -3,7 +3,9 @@ package guard
 import (
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -14,7 +16,7 @@ import (
 //
 // flow-guard resolve-base-branch — the single owner of base-branch resolution.
 //
-// Usage: flow-guard resolve-base-branch <dir>
+// Usage: flow-guard resolve-base-branch [--fetch] <dir>
 //
 // stdout carries the bare branch name and NOTHING ELSE on success, so a
 // caller composes it directly: BASE="$(flow-guard resolve-base-branch "$WT")". Every
@@ -54,6 +56,14 @@ import (
 // origin/HEAD is still resolved, just possibly out of date, which the fetch on
 // the next invocation corrects.
 //
+// WHY THE FETCH IS SKIPPED. A fetch of this repository that left a non-empty
+// FETCH_HEAD younger than originFreshFor (60s), in any of its worktrees,
+// stands in for this call's own: origin's refs are then no older than that.
+// A failed fetch truncates FETCH_HEAD, so it never counts, and the next call
+// fetches as before. `--fetch` always fetches: a caller about to push or
+// rebase onto origin/<base> (integrate-change's land and cleanup, the
+// finish contract's sync) passes it, so a 60s-old base is never landed on.
+//
 // WHY HEAD@{upstream} IS NEVER CONSULTED. Inside an apply worktree, HEAD *is*
 // the change's own branch, spectre/<name>, by construction. Its upstream is
 // origin/spectre/<name>, so HEAD@{upstream} would compare the branch with
@@ -92,12 +102,16 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// `remote show` prints is never translated.
 	git := envGit(env, "LC_ALL=C")
 
+	force := len(args) > 0 && args[0] == "--fetch"
+	if force {
+		args = args[1:]
+	}
 	dir := ""
 	if len(args) > 0 {
 		dir = args[0]
 	}
 	if dir == "" {
-		fmt.Fprintln(stderr, "usage: flow-guard resolve-base-branch <dir>")
+		fmt.Fprintln(stderr, "usage: flow-guard resolve-base-branch [--fetch] <dir>")
 		Reason(env, "usage")
 		return 2
 	}
@@ -122,8 +136,13 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 
 	// A failed fetch is not this guard's failure (the header's WHY THE FETCH
 	// IS WRAPPED): a stale origin/HEAD still resolves, and the next
-	// invocation's fetch corrects it.
-	_, fetched, _ := rbbRemote(git("-C", dir, "-c", "core.askpass=true", "fetch", "--quiet", "origin"))
+	// invocation's fetch corrects it. A recent fetch stands in for it (the
+	// header's WHY THE FETCH IS SKIPPED) and, having succeeded, counts as
+	// one.
+	fetched := true
+	if force || !fetchedRecently(git, dir) {
+		_, fetched, _ = rbbRemote(git("-C", dir, "-c", "core.askpass=true", "fetch", "--quiet", "origin"))
+	}
 
 	// Each resolution attempt is allowed to fail -- a missing origin/HEAD or
 	// an unreachable remote is an ordinary outcome here -- so only its output
@@ -209,6 +228,32 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 
 	fmt.Fprintln(stdout, base)
 	return 0
+}
+
+// originFreshFor is how long a fetch of origin stands in for the next one.
+var originFreshFor = 60 * time.Second
+
+// fetchedRecently reports whether a fetch in any worktree of dir's
+// repository left a non-empty FETCH_HEAD younger than originFreshFor: the
+// repository's own FETCH_HEAD or a linked worktree's, since each worktree
+// writes its own while origin's refs are shared. Empty is a failed fetch.
+// ponytail: any fetch counts, a single-branch `git fetch origin <ref>` or
+// another remote's included; read FETCH_HEAD's lines if one ever lands
+// between a full fetch and a guard call.
+func fetchedRecently(git func(...string) *exec.Cmd, dir string) bool {
+	common, ok := capture(git("-C", dir, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+	if !ok {
+		return false
+	}
+	heads, _ := filepath.Glob(filepath.Join(common, "worktrees", "*", "FETCH_HEAD"))
+	for _, p := range append(heads, filepath.Join(common, "FETCH_HEAD")) {
+		if fi, err := os.Stat(p); err == nil && fi.Size() > 0 {
+			if age := time.Since(fi.ModTime()); age >= 0 && age < originFreshFor {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // recordedBase is the base kickoff-worktree.sh recorded on branch, or ""

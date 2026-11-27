@@ -19,8 +19,10 @@ import (
 //
 // Per worktree: the recorded base is `branch.<current branch>.flowBase`; the
 // tracked branch is the branch `refs/remotes/origin/HEAD` names. Once a base is
-// recorded, the guard runs `git fetch -q origin`, once per repository; a failing fetch is ignored and
-// the refs already on hand are compared.
+// recorded, the guard runs `git fetch -q origin`, once per repository, unless a fetch of it
+// succeeded within the last 60s (resolve-base-branch's WHY THE FETCH IS SKIPPED); a failing fetch is
+// ignored and the refs already on hand are compared. sync-base-behind, which pushes the base, always
+// fetches.
 //
 // Prints to stdout, one block per worktree in argument order:
 //   BASE-CURRENT: <wt> — no recorded base
@@ -42,6 +44,11 @@ import (
 func init() { Registry["check-base-behind"] = checkBaseBehind }
 
 func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
+	return baseBehind(args, env, stdout, stderr, false)
+}
+
+// baseBehind is check-base-behind; force fetches even after a recent fetch.
+func baseBehind(args []string, env Env, stdout, stderr io.Writer, force bool) int {
 	const prog = "check-base-behind"
 	if len(args) == 0 {
 		fmt.Fprintf(stderr, "%s: usage: flow-guard check-base-behind <worktree>...\n", prog)
@@ -69,7 +76,7 @@ func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		// Worktrees of one repository share their origin: fetch it once. A failed fetch compares the refs on hand.
 		common, _ := capture(git("-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir"))
-		if !fetched[common] {
+		if !fetched[common] && (force || !fetchedRecently(git, wt)) {
 			_ = git("-C", wt, "fetch", "-q", "origin").Run()
 			fetched[common] = true
 		}

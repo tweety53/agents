@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestCheckBaseBehind pins scripts/check-base-behind.sh's lines (kan-1007: a
@@ -50,6 +51,7 @@ func TestCheckBaseBehind(t *testing.T) {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
+	setFetchHead(t, wt+"/.git/FETCH_HEAD", true, 2*time.Minute) // (d)'s fetch is no longer fresh
 	r := run(wt)
 	lines := strings.Split(strings.TrimRight(r.stdout, "\n"), "\n")
 	if r.rc != 1 || len(lines) != 2 ||

@@ -20,7 +20,7 @@ the base's tip, and re-checks until the base holds still; its header
 stop-and-ask, an aside still set aside is named in the handoff with `git stash list` as the
 recovery path.
 
-`origin/$BASE` is current: `flow-guard resolve-base-branch` fetched when the caller resolved the base ref,
+`origin/$BASE` is current: `flow-guard resolve-base-branch --fetch` fetched when the caller resolved the base ref,
 and the base-moved check performs no fetch of its own.
 
 - **Clean** (exit 0, `REBASED: <worktree> — onto <sha>`): the merge base carried forward for the

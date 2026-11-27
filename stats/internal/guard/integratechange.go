@@ -714,10 +714,10 @@ func icLines(s string) []string {
 }
 
 // baseOf: c.base the worktree's base branch, resolve-base-branch.sh's
-// answer (it fetches).
+// answer, always fetched: land pushes onto origin/<base>.
 func (c *ic) baseOf(i int) {
 	var rc int
-	c.base, rc = c.capture(c.sibling("resolve-base-branch", c.wt[i]))
+	c.base, rc = c.capture(c.sibling("resolve-base-branch", "--fetch", c.wt[i]))
 	if rc == 3 {
 		c.stop("no-remote", c.wt[i]+": this repository has no remote, so there is nothing to push to or merge into")
 	}

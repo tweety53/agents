@@ -36,7 +36,7 @@ func syncBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 		return 2
 	}
 	var check bytes.Buffer
-	rc := checkBaseBehind(args, env, &check, stderr)
+	rc := baseBehind(args, env, &check, stderr, true)
 	if rc == 0 {
 		io.WriteString(stdout, check.String())
 		return 0
