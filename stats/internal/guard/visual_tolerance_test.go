@@ -164,13 +164,12 @@ func TestVvmFoldShift(t *testing.T) {
 }
 
 // A frame moved whole by a few px is one offset row however few rows it has;
-// one paired row that did not move makes it per-element again. Missing and
-// extra rows are classed `pairing`, every row stays on over, and the length
-// tolerance is still 2px.
-func TestVvmTriageUniformOffset(t *testing.T) {
+// one paired row that did not move makes it per-element again. Every other
+// row stays on over, and the length tolerance is still 2px.
+func TestVvmFoldShiftUniformOffset(t *testing.T) {
 	t.Parallel()
 	if mvpOverLength != 2 {
-		t.Fatalf("mvpOverLength %v, want 2 — triage never widens the tolerance", mvpOverLength)
+		t.Fatalf("mvpOverLength %v, want 2 — folding never widens the tolerance", mvpOverLength)
 	}
 	if tol, _ := vvTolerance(""); tol != 2 {
 		t.Fatalf("default tolerance %v, want 2", tol)
@@ -180,14 +179,12 @@ func TestVvmTriageUniformOffset(t *testing.T) {
 	if shift == nil || !shift.Uniform || shift.Rows != 3 || shift.Row != 1 {
 		t.Fatalf("shift %+v, want a uniform 3-row offset standing on row 1", shift)
 	}
-	vvmTriage(over, shift)
 	var got []string
 	for _, o := range over {
-		r := o.(map[string]any)
-		got = append(got, fmt.Sprintf("%v:%v", r["row"], r["triage"]))
+		got = append(got, fmt.Sprintf("%v", o.(map[string]any)["row"]))
 	}
-	if s := strings.Join(got, ","); s != "1:offset,4:<nil>,5:pairing" {
-		t.Fatalf("over %s, want the offset row, the colour row and the pairing row", s)
+	if s := strings.Join(got, ","); s != "1,4,5" {
+		t.Fatalf("over rows %s, want the offset row, the colour row and the pairing row", s)
 	}
 
 	matrix, over = vvmShiftFixture(3, 4)

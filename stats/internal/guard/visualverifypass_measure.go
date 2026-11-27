@@ -680,23 +680,6 @@ func vvmFoldShift(matrix []map[string]any, over *[]any, tol float64) *vvmShift {
 	return &vvmShift{Dy: run[len(run)/2].dy, Rows: len(run), Row: first, Uniform: uniform}
 }
 
-// vvmTriage classes the over rows before any model reads them: `triage` is
-// `pairing` on a missing or extra row — an element one side lacks, or a
-// pairing artefact — and `offset` on the row standing for a folded shift.
-// Every row stays on over, blocking; the tolerance is not touched.
-func vvmTriage(over []any, shift *vvmShift) {
-	for _, o := range over {
-		r, _ := o.(map[string]any)
-		row, _ := r["row"].(float64)
-		switch {
-		case r["status"] == "missing" || r["status"] == "extra":
-			r["triage"] = "pairing"
-		case shift != nil && int(row) == shift.Row:
-			r["triage"] = "offset"
-		}
-	}
-}
-
 func vvmExists(p string) bool { _, err := os.Stat(p); return err == nil }
 
 // vvmFlagged keeps the band or seam entries measure-visual-properties'
