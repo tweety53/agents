@@ -37,8 +37,7 @@ reported BLOCKED, naming it.
    exactly what a clip is built to hide; step 10 below cannot compose a clip against a full mockup
    frame and call the result a fidelity check.
    The one exception is a region an approved prototype draws alone (step 10): its element capture is
-   the frame-bound capture, taken beside the view's own full-page capture, never in place of it
-   (group-allowed-pairs-roles self-review).
+   the frame-bound capture, taken beside the view's own full-page capture, never in place of it.
    **`capture` creates this change's baseline**: writing
    a PNG that does not yet exist is its success path, not a failure — `verify` is the regression gate
    over an already-committed baseline, `capture` is not, and only a `capture` failure for some other
@@ -98,8 +97,7 @@ reported BLOCKED, naming it.
    `flow-guard rebuild-full-app-suite-zip <worktree> <screenshots root>`, the one script every recapture
    that moves the suite runs too (`skills/flow/fix.md`, `skills/flow/sync-onto-base.md`).
    Both arguments are absolute — the script refuses a relative root — and a project whose `capture`
-   row chains this rebuild after Playwright has run it with `capture`, a second run rewriting nothing
-   (group-allowed-pairs-roles self-review).
+   row chains this rebuild after Playwright has run it with `capture`, a second run rewriting nothing.
 
    `<screenshots root>` is `screenshots` resolved the way `flow-guard resolve-visual-screenshots`
    resolves it. Every PNG's mtime is pinned before zipping because the zip stores it: a rebuild over
@@ -135,9 +133,7 @@ reported BLOCKED, naming it.
    `- <view>: <absolute PNG path> — capture unchanged since <round base>`, with no frame line for
    its frame. With no `changed:` line, every view is read.
    Each captured PNG gets its own `- <view>: <absolute PNG path>` line — the report check (`close --check-only`)
-   refuses a report missing one (group-allowed-pairs-roles self-review: two round-1 verifiers
-   named only the prototype-framed captures, and a clipped chart label on an unnamed full-page
-   capture surfaced a round later).
+   refuses a report missing one.
    An unreadable PNG is reported and blocks
    too.
 
@@ -171,9 +167,8 @@ reported BLOCKED, naming it.
    `<changeRoot>/visual-verification/prototype/<screenshot stem>.png`.
    For a region capture (step 8's exception) the script sizes the prototype's region to the
    capture's width, injecting CSS that overrides any standalone width cap such as a `max-width`,
-   and `visual-verification.md` records the injected rule under the frame's entry
-   (group-allowed-pairs-roles self-review: a 1100px prototype panel beside a 1232px capture left no
-   band, seam or matrix reading possible).
+   and `visual-verification.md` records the injected rule under the frame's entry, since a prototype
+   panel narrower than the capture leaves no band, seam or matrix reading possible.
    Then write
    `<changeRoot>/visual-verification/prototype.mockups`, its first line `frame none` and one
    `<screenshot name> <screenshot stem>` line per capture, and run step 9's `measure` with
@@ -195,9 +190,7 @@ reported BLOCKED, naming it.
    (`<agents repo>/stats/internal/guard/measurevisualproperties.go`)** — `measure` flags by them, and nothing here
    restates their values; the project's `tolerance` row (**Project configuration — visual
    verification**, `skills/flow-contracts/project-configuration-visual.md`) replaces the length one.
-   What the length tolerance let through is not yours to explain: `measure` prints
-   `within-tolerance: <n>` and writes the rows to `<changeRoot>/visual-verification/within-tolerance.md`,
-   the appendix `visual-verification.md` points at.
+   What the length tolerance let through (`within-tolerance.md`) is not yours to explain.
 
    **Every departure from the mockup or the approved prototype is blocking.** It takes the fix
    procedure (`skills/flow/fix.md`) per `skills/flow/visual-verify.md` — `departure` is never a
@@ -231,9 +224,8 @@ reported BLOCKED, naming it.
    per-frame lines, with its reason.
    In a scoped fix round, a frame that neither step 9's `changed:` line, the prompt's `moved:`, nor
    the prompt's `defects:` — the frames this round's defects name, always judged even when their
-   capture did not change — names is not read again: an earlier verifier judged that same capture. The `frames:` line names
-   it with the reason `capture unchanged since <round base>`, and its view line carries the same
-   reason.
+   capture did not change — names is not read again (step 9). The `frames:` line names
+   it with the reason `capture unchanged since <round base>`.
    A `changed:` frame an earlier round reported clean is read against its round-base capture too,
    under **A verified frame is frozen** (`skills/flow/visual-verify.md`).
 

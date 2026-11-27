@@ -102,9 +102,7 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    changes or removes, plus every motion this fix's defects name. Its verifier still captures every
    frame on the change's list — save the specs its bundle names on a `captured:` line, which the
    fix's recapture passed on HEAD's sources (`flow-guard visual-verify-pass`'s header) — and judges
-   only the frames step 9's `measure` names on its `changed:` line, beside the `moved:` frames and
-   every frame this fix's defects name, which its prompt names under `defects:`
-   (`skills/flow/visual-verify-verifier.md`). Its `prepare` is passed each such worktree's
+   only the frames its prompt and step 9's `changed:` line name (`skills/flow/visual-verify-verifier.md`). Its `prepare` is passed each such worktree's
    `--round-base`, which the verifier row records, and `--defects <worktree>=<frame>[,<frame>…]`
    naming that worktree's `defects:` frames. A worktree whose round diff is empty is not dispatched; a
    worktree with no round base — no verifier of this run has verified it, or the parent no longer
@@ -346,25 +344,9 @@ none (step 10, `skills/flow/visual-verify-verifier.md`).
 font size by eye from a resized or cropped image; measure it with
 `flow-guard measure-visual-properties`, then eyeball what it measured.** A crop is for reading text
 and layout, never edges or centres — interpolation and a small viewport shift an edge by
-pixels and hide a gap outright. For every per-control comparison this step makes, run
-
-```bash
-flow-guard measure-visual-properties <mockup frame PNG> <capture PNG> --region-a x,y,w,h --region-b x,y,w,h --scale <n>
-```
-
-with each region a crop around that one control and a background margin on every side —
-`--props runs` on that crop first where its edges are in doubt, since every run boundary it
-lists is an edge the region can sit on, and a miscrop is the glance again; and `--edge`
-lowered below the distance `runs` reports between a control's fill and its background where
-that distance is under the default 24, since a surface-on-page card has no hard edge at the default and exits 1 on every box property
-until it is — and
-read the JSON's `delta` block: `abs` and `pct` per numeric property, RGB distance per colour
-(the script's own header is canonical for its options, properties, output
-and exit codes). Two readings the eye reliably gets wrong: an icon's tint is `content.colour`,
-never `fill` — the fill is the box behind the glyph, and a grey glyph on the right fill matches
-on every other property; and a pill
-is a `radius` equal to half the box height, while a rounded rectangle is any smaller number —
-read the number, since both look "rounded" at 1x. **Both halves are mandatory and neither substitutes for the other.** The
+pixels and hide a gap outright. Every per-control comparison runs the tool on a crop around that one
+control and reads the JSON's `delta` block; its options, properties, output and exit codes are the
+header of `<agents repo>/stats/internal/guard/measurevisualproperties.go`, canonical. **Both halves are mandatory and neither substitutes for the other.** The
 script's numbers are the only admissible measurement — no ad-hoc PIL, no reading a coordinate
 off a crop; and its output is then eyeballed against the two crops before any number is
 reported: state, per control, that the `box` the script found is that control (its edges land
@@ -424,13 +406,8 @@ shape's boundary is compares two edge coordinates, never one shape's size (hit b
 and never the empty space between two shapes (`gap`).** A fill inset from its own container's
 border has no gap the `gap` property can find — the inset is the container's own interior
 colour — and a correct box size says nothing about where the box sits. Crop the *container*
-as the region, centred on the filled row, and read `--props runs`: the run right after the
-border's run is the fill when flush, and the container-coloured run between them when not,
-its `length` the inset in px — the mockup's frame gives the same list to compare against.
-Not `content.padding`: it boxes every non-fill pixel in the container, the other rows' text
-included, and a fill covering half the box flips which colour counts as `fill`. The same
-reading covers a highlight against the row it highlights and an icon against the circle
-drawn behind it. In Compose the usual cause is modifier order alone — a `padding()` placed
+as the region, centred on the filled row, and read `--props runs` (the tool header's `runs`
+entry), never `content.padding`. In Compose the usual cause is modifier order alone — a `padding()` placed
 before the `background()` or `clip()` it was meant to inset the content of, or on the parent
 before its children's own backgrounds, shrinks the painted area, not the content — a
 checkable line of code before any screenshot.

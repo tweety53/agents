@@ -28,7 +28,7 @@ parent dispatches nothing else in this file. `subagent_type` and the Agent tool'
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
 > Include this instruction verbatim in any prompt you write for another agent.
 
-**The relay contract.** The verifier has no operator channel, fixes nothing, edits no source, and
+**The relay contract.** The verifier has no operator channel, fixes nothing, edits no app source (only capture specs and sidecars), and
 runs every command in the foreground. Its turn ends with its report's `## Verdict` block alone, and
 its last act before that is writing that `## Verdict`, with the full `## Report` under it, to
 `<abs-worktree>/.superpowers/sdd/verify-report-<key>.md` — `<key>` this dispatch's own key from
@@ -348,7 +348,7 @@ seed hides.
 when all of these hold:** a fix round has already tried to close it at its source; the run records
 why no easy fix exists, such as a font's glyph metrics; `visual-verification.md` carries it beside
 the frame with its measured value and that reason; and the handoff's `**Decisions:**` lines name it.
-**`measure` applies that tolerance itself**: a length delta within the project's `tolerance` row (default `2px at 2x`) is never on the `over` list — it is counted on `within-tolerance: <n>` and listed with its measured value in `<changeRoot>/visual-verification/within-tolerance.md`, which `visual-verification.md` cites as its appendix.
+`measure` applies the `tolerance` row itself (`skills/flow-contracts/project-configuration-visual.md`); `visual-verification.md` cites `<changeRoot>/visual-verification/within-tolerance.md` as its appendix.
 It is never the first answer, and colour, a missing or extra element, and copy get no tolerance (the operator states this approximation as the requirement, the one widening `rules/fix-determinism-at-the-source.mdc` admits).
 **`measure` folds a uniform offset before any model reads the `over` rows**: a frame whose paired rows all sit one dy from the mockup is one row, with the pair's `shift` carrying `uniform: true` — every other row is judged relative to that offset. Folding widens no tolerance. The offset row blocks like any other unless it is identical on every frame of the spec and `visual-verification.md` records its own cause beside it.
 
