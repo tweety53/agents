@@ -47,11 +47,14 @@ var telemetryOff = map[string]bool{"0": true, "off": true, "false": true, "no": 
 // guardRun is records.GuardRun's wire shape, spelled out here for the
 // reason this file's header gives.
 type guardRun struct {
-	Guard      string    `json:"guard"`
-	Worktree   string    `json:"worktree"`
-	ExitCode   int       `json:"exitCode"`
-	Outcome    string    `json:"outcome"`
-	DurationMS int       `json:"durationMs"`
+	Guard      string `json:"guard"`
+	Worktree   string `json:"worktree"`
+	ExitCode   int    `json:"exitCode"`
+	Outcome    string `json:"outcome"`
+	DurationMS int    `json:"durationMs"`
+	// WaitMS is the part of DurationMS the guard spent waiting, not
+	// working (guard.Reasons.Wait).
+	WaitMS     int       `json:"waitMs,omitempty"`
 	RecordedAt time.Time `json:"recordedAt"`
 	// Reasons is the run's distinct reason ids, posted only when the run is
 	// not clear; absent, the store records NULL.
@@ -139,7 +142,7 @@ func (f *firstLine) Write(p []byte) (int, error) {
 
 // recordRun records one dispatched guard's run, and reports nothing: every
 // failure is swallowed, per this file's header.
-func recordRun(getenv func(string) string, dir, name string, code int, first string, reasons []string, headless *guard.Headless, elapsed time.Duration, client *http.Client) {
+func recordRun(getenv func(string) string, dir, name string, code int, first string, reasons []string, headless *guard.Headless, wait, elapsed time.Duration, client *http.Client) {
 	if telemetryOff[strings.ToLower(getenv("FLOW_GUARD_TELEMETRY"))] {
 		return
 	}
@@ -152,7 +155,7 @@ func recordRun(getenv func(string) string, dir, name string, code int, first str
 	}
 	run := guardRun{
 		Guard: name, Worktree: dir, ExitCode: code, Outcome: outcomeFor(name, code, first),
-		DurationMS: int(elapsed.Milliseconds()), RecordedAt: time.Now().UTC(), Headless: headless,
+		DurationMS: int(elapsed.Milliseconds()), WaitMS: int(wait.Milliseconds()), RecordedAt: time.Now().UTC(), Headless: headless,
 	}
 	if run.Outcome != "clear" {
 		run.Reasons = reasons

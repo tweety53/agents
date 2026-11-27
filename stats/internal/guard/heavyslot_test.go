@@ -155,3 +155,23 @@ func TestHeavyRunsWaitForASlot(t *testing.T) {
 		t.Errorf("recapture with no slot: rc=%d out=%q, want 3 with nothing run and no receipt", r.rc, r.out)
 	}
 }
+
+// TestHeavySlotRecordsItsWait: the time heavySlot spent waiting for a grant
+// lands in the run's collector as wait, so flow-guard posts it as wait_ms;
+// a slot granted at once records next to none.
+func TestHeavySlotRecordsItsWait(t *testing.T) {
+	t.Parallel()
+	f := &fakeSlots{grantAfter: 3}
+	env := slotEnv(f.serve(t), "60")
+	env.SlotPoll = 20 * time.Millisecond
+	env.Reasons = &Reasons{}
+	var errb bytes.Buffer
+	release, ok := heavySlot(env, "x", "o", &errb)
+	if !ok {
+		t.Fatalf("not granted: %q", errb.String())
+	}
+	release()
+	if w := env.Reasons.Wait(); w < 60*time.Millisecond {
+		t.Errorf("wait = %s, want at least the three 20 ms polls", w)
+	}
+}

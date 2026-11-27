@@ -193,7 +193,9 @@ that migration were never stored. The stats SPA's
 `GET /api/v1/stats/bottlenecks?last=N[&project=]` and ranks where the last N changes (default 20,
 ordered by their latest stage run) spent wall-clock time, from rows already recorded: ended
 `stage_runs` by stage key, ended `dispatches` by role and by `dispatch_class(role)`, `guard_runs` by
-guard (claimed by worktree as the per-run page claims them) and `verify_runs` by label. Each
+guard (claimed by worktree as the per-run page claims them) — a run's work, `duration_ms` less
+`wait_ms` (the time it spent on a heavy slot or blocked in `await-rows`, migration
+`0112_guard_run_wait.sql`), the wait ranked apart under `guard-wait` — and `verify_runs` by label. Each
 dimension prints its top 10 — name, runs, total, share of the changes' summed wall clock (first
 stage-run start to last end), p50, p95 — then one line of the top 5 time sinks across dimensions,
 role class left out. Dimensions overlap, so shares do not add up across them. Ranking only; no UI.
@@ -207,7 +209,8 @@ JSON, one event per line, from `GET /api/v1/stats/trace?project=P&change=C`: the
 them) and `verify_runs` (a guard or verify run starts at its recorded end less its duration). The
 change is one process (`process_name` `<project>/<change>`); its threads are lanes, top to bottom —
 `request`, `stage`, one per dispatch named `<role> <dispatch key>` (`#<seq>` without a key), that
-dispatch's `<lane> tools`, `guard`, `verify` — each named by `thread_name` and ordered by
+dispatch's `<lane> tools`, `guard`, `guard wait` (a guard run that waited, from its start for the
+length of its `wait_ms`), `verify` — each named by `thread_name` and ordered by
 `thread_sort_index`. Every row is a complete event (`"ph":"X"`, `ts`/`dur` in microseconds from the
 change's first row, its start in `otherData.t0`); a row overlapping the previous one in its lane
 spills into `<lane> (2)`, … A row still open ends at the trace's last instant with `"open": true` in

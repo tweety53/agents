@@ -51,6 +51,9 @@ func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in record
 	if in.DurationMS < 0 {
 		return records.GuardRun{}, fmt.Errorf("%w: durationMs must not be negative", ErrInvalidGuardRun)
 	}
+	if in.WaitMS < 0 || in.WaitMS > in.DurationMS {
+		return records.GuardRun{}, fmt.Errorf("%w: waitMs must lie between 0 and durationMs", ErrInvalidGuardRun)
+	}
 	if slices.Contains(in.Reasons, "") {
 		return records.GuardRun{}, fmt.Errorf("%w: reasons must not hold an empty id", ErrInvalidGuardRun)
 	}
@@ -75,8 +78,8 @@ func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in record
 	out := in
 	err := s.pool.QueryRow(ctx, `
 		INSERT INTO guard_runs (project_key, guard, worktree, exit_code, outcome, duration_ms, recorded_at, reasons,
-			headless_role, headless_model, headless_effort, headless_cost_usd, headless_ms)
-		SELECT p.project_key, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+			headless_role, headless_model, headless_effort, headless_cost_usd, headless_ms, wait_ms)
+		SELECT p.project_key, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
 		FROM projects p
 		WHERE p.project_key = COALESCE(
 			(SELECT project_key FROM projects WHERE project_key = $1),
@@ -85,7 +88,7 @@ func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in record
 				ORDER BY c.id DESC LIMIT 1))
 		RETURNING id, recorded_at, reasons
 	`, projectKey, in.Guard, in.Worktree, in.ExitCode, in.Outcome, in.DurationMS, recordedAt, reasons,
-		hl.role, hl.model, hl.effort, hl.cost, hl.ms).Scan(&out.ID, &out.RecordedAt, &out.Reasons)
+		hl.role, hl.model, hl.effort, hl.cost, hl.ms, in.WaitMS).Scan(&out.ID, &out.RecordedAt, &out.Reasons)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return records.GuardRun{}, fmt.Errorf("%w: %s", ErrProjectNotFound, projectKey)

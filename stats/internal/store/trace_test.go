@@ -53,6 +53,7 @@ func TestTraceSpansOfOneChange(t *testing.T) {
 	exec(`INSERT INTO guard_runs (project_key, guard, worktree, exit_code, outcome, duration_ms, recorded_at) VALUES
 		($1,'check-a','/x/p-worktrees/mine',0,'clear',1500,$2),
 		($1,'check-a','/x/p-worktrees/other',1,'fired',500,$2)`, pk, at(20))
+	exec(`UPDATE guard_runs SET wait_ms = 1000 WHERE project_key = $1 AND duration_ms = 1500`, pk)
 	exec(`INSERT INTO verify_runs (change_id, kind, label, seconds, tests, failed, exit_code, recorded_at) VALUES
 		($1,'run-verify-list','lint',30,1,0,0,$3), ($2,'run-verify-list','lint',9,1,0,0,$3)`, mine, other, at(130))
 
@@ -65,6 +66,7 @@ func TestTraceSpansOfOneChange(t *testing.T) {
 		{Kind: "dispatch", Lane: "operator-asked operator-1", Name: "operator-asked operator-1", AgentID: "a1", Outcome: "done", Start: at(10), End: ptr(90)},
 		{Kind: "dispatch", Lane: "panel-reviewer #2", Name: "panel-reviewer #2", Start: at(90)},
 		{Kind: "guard", Lane: "guard", Name: "check-a", Outcome: "clear", Start: at(20).Add(-1500 * time.Millisecond), End: ptr(20)},
+		{Kind: "guard", Lane: "guard wait", Name: "check-a wait", Start: at(20).Add(-1500 * time.Millisecond), End: func() *time.Time { v := at(20).Add(-500 * time.Millisecond); return &v }()},
 		{Kind: "request", Lane: "request", Name: "request 1: add trace", Outcome: "landed", Start: at(0), End: ptr(150)},
 		{Kind: "request", Lane: "request", Name: "request 2", Start: at(150)},
 		{Kind: "stage", Lane: "stage", Name: "flow.implement #1", Outcome: "completed", Start: at(0), End: ptr(100)},

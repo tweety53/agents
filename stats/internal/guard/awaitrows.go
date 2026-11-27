@@ -26,7 +26,8 @@ import (
 // store exits 1. Between reads it long-polls flowd's GET
 // /api/v1/records/{project}/{change}/dispatches/wait, which answers the moment a row closes, for
 // up to 20 s at a time; a flowd that is unreachable or does not answer that route with a JSON
-// array leaves it polling every 5 s. skills/flow/implement.md's **Turn discipline** is the
+// array leaves it polling every 5 s. The time blocked between reads is the run's wait (recordWait),
+// posted with its telemetry as wait_ms. skills/flow/implement.md's **Turn discipline** is the
 // contract.
 //
 // Go, in flow-guard (stats/internal/guard/awaitrows.go).
@@ -90,10 +91,18 @@ func awaitRows(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			return 0
 		}
-		if !awaitRowsLongPollOnce(waitURL, min(awaitRowsLongPoll, time.Until(deadline))) {
-			time.Sleep(min(awaitRowsPoll, time.Until(deadline)))
-		}
+		awaitRowsBlock(env, waitURL, time.Until(deadline))
 	}
+}
+
+// awaitRowsBlock blocks between two reads for at most left: a long-poll on waitURL, else a sleep
+// of one poll interval, the time blocked recorded as the run's wait.
+func awaitRowsBlock(env Env, waitURL string, left time.Duration) {
+	blocked := time.Now()
+	if !awaitRowsLongPollOnce(waitURL, min(awaitRowsLongPoll, left)) {
+		time.Sleep(min(awaitRowsPoll, left))
+	}
+	recordWait(env, time.Since(blocked))
 }
 
 // awaitRowsWaitURL is flowd's long-poll route for keys of change, without its timeout; "" when

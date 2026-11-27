@@ -34,6 +34,11 @@ func TestRecordGuardRunRefusesAnInvalidRun(t *testing.T) {
 		"no guard":         guardRun("", "clear", 0, 1, time.Now()),
 		"unknown outcome":  guardRun("g", "exploded", 3, 1, time.Now()),
 		"negative runtime": guardRun("g", "clear", 0, -1, time.Now()),
+		"wait over runtime": func() records.GuardRun {
+			r := guardRun("g", "clear", 0, 1, time.Now())
+			r.WaitMS = 2
+			return r
+		}(),
 	} {
 		if _, err := st.RecordGuardRun(context.Background(), projectKey, in); !errors.Is(err, store.ErrInvalidGuardRun) {
 			t.Errorf("%s: err = %v, want ErrInvalidGuardRun", name, err)
@@ -78,6 +83,24 @@ func TestRecordGuardRunStoresReasons(t *testing.T) {
 	in.Reasons = []string{"F2", ""}
 	if _, err := st.RecordGuardRun(ctx, projectKey, in); !errors.Is(err, store.ErrInvalidGuardRun) {
 		t.Errorf("empty id: err = %v, want ErrInvalidGuardRun", err)
+	}
+}
+
+// TestRecordGuardRunStoresTheWait: a run's wait_ms is stored and read back.
+func TestRecordGuardRunStoresTheWait(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	projectKey := fmt.Sprintf("proj-grwait-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	in := guardRun("await-rows", "clear", 0, 900, time.Now())
+	in.WaitMS = 850
+	got, err := st.RecordGuardRun(context.Background(), projectKey, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored int
+	if err := store.PoolOf(st).QueryRow(context.Background(), `SELECT wait_ms FROM guard_runs WHERE id = $1`, got.ID).Scan(&stored); err != nil || stored != 850 {
+		t.Errorf("wait_ms = %d (%v), want 850", stored, err)
 	}
 }
 

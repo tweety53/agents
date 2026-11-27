@@ -195,3 +195,14 @@ func TestAwaitRowsFallsBackToPolling(t *testing.T) {
 		}
 	}
 }
+
+// TestAwaitRowsRecordsItsWait: the time await-rows blocks between reads -- its long-poll or, with
+// no wait route, its sleep -- lands in the run's collector as wait.
+func TestAwaitRowsRecordsItsWait(t *testing.T) {
+	t.Parallel()
+	env := Env{Reasons: &Reasons{}}
+	awaitRowsBlock(env, "", 50*time.Millisecond)
+	if w := env.Reasons.Wait(); w < 50*time.Millisecond {
+		t.Errorf("wait = %s, want the 50 ms sleep", w)
+	}
+}

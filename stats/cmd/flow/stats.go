@@ -18,7 +18,9 @@ const statsUsage = `flow stats bottlenecks [-addr url] [-timeout dur] [-last N] 
 bottlenecks ranks where the last N changes (default 20; by their latest
 stage run, every project unless -project names one) spent wall-clock time,
 from rows flowd already records: stage runs by stage key, dispatches by
-role and by role class, guard runs by guard, verify runs by label. Each
+role and by role class, guard runs by guard -- their work, the run less
+the time it spent waiting (a heavy slot, await-rows between reads), the
+wait ranked apart under guard-wait -- and verify runs by label. Each
 dimension prints its top 10 as name, runs, total, share of the changes'
 summed wall clock, p50 and p95; one closing line names the top 5 time sinks
 across dimensions (role class left out, as it re-counts the roles).

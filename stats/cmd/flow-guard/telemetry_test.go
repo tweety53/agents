@@ -124,12 +124,12 @@ func TestRecordRunPostsTheRun(t *testing.T) {
 	defer srv.Close()
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
-	recordRun(func(k string) string { return env[k] }, dir, "check-references", 1, "", nil, nil, 1500*time.Millisecond, srv.Client())
+	recordRun(func(k string) string { return env[k] }, dir, "check-references", 1, "", nil, nil, 300*time.Millisecond, 1500*time.Millisecond, srv.Client())
 
 	if gotPath != "/api/v1/guard-runs/"+key {
 		t.Errorf("path = %q, want the project's guard-runs route", gotPath)
 	}
-	if got.Guard != "check-references" || got.ExitCode != 1 || got.Outcome != "fired" || got.DurationMS != 1500 || got.Worktree != dir {
+	if got.Guard != "check-references" || got.ExitCode != 1 || got.Outcome != "fired" || got.DurationMS != 1500 || got.WaitMS != 300 || got.Worktree != dir {
 		t.Errorf("body = %+v", got)
 	}
 }
@@ -144,7 +144,7 @@ func TestRecordRunHonoursTheOptOut(t *testing.T) {
 	defer srv.Close()
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL, "FLOW_GUARD_TELEMETRY": "off"}
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-references", 0, "", nil, nil, time.Millisecond, srv.Client())
+	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-references", 0, "", nil, nil, 0, time.Millisecond, srv.Client())
 	if called.Load() {
 		t.Fatal("FLOW_GUARD_TELEMETRY=off still posted a run")
 	}
@@ -161,7 +161,7 @@ func TestRecordRunIsBoundedByItsTimeout(t *testing.T) {
 
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
 	start := time.Now()
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-references", 0, "", nil, nil, 0, srv.Client())
+	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-references", 0, "", nil, nil, 0, 0, srv.Client())
 	if elapsed := time.Since(start); elapsed > 3*telemetryTimeout {
 		t.Fatalf("recordRun took %v against a hung daemon, want it bounded near %v", elapsed, telemetryTimeout)
 	}
@@ -355,7 +355,7 @@ func TestRecordRunPostsTheHeadlessCall(t *testing.T) {
 	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
 	usd := 0.05
 	h := &guard.Headless{Role: "decider", Model: "opus", Effort: "low", CostUSD: &usd, DurationMS: 4200}
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "plan-check", 0, "", nil, h, time.Second, srv.Client())
+	recordRun(func(k string) string { return env[k] }, gitRepo(t), "plan-check", 0, "", nil, h, 0, time.Second, srv.Client())
 	if got.Headless == nil || *got.Headless.CostUSD != usd || got.Headless.Role != "decider" || got.Headless.DurationMS != 4200 {
 		t.Errorf("headless = %+v, want the decider call", got.Headless)
 	}

@@ -31,7 +31,8 @@ const heavySlotTTL = 60 * time.Second
 // defers, hands it back the instant the run exits. A flowd that cannot be
 // reached, or answers anything but a grant decision, holds nothing: one line
 // on stderr and the run proceeds, never blocked on a missing daemon. An Env
-// whose SlotGate is unset holds nothing.
+// whose SlotGate is unset holds nothing. The time from the first ask to
+// the answer is recorded as the run's wait (recordWait).
 func heavySlot(env Env, name, owner string, stderr io.Writer) (release func(), ok bool) {
 	none := func() {}
 	if !env.SlotGate {
@@ -71,7 +72,9 @@ func heavySlot(env Env, name, owner string, stderr io.Writer) (release func(), o
 		}
 		return *out.Granted, nil
 	}
-	for start, told := time.Now(), false; ; time.Sleep(poll) {
+	start := time.Now()
+	defer func() { recordWait(env, time.Since(start)) }()
+	for told := false; ; time.Sleep(poll) {
 		granted, err := acquire()
 		if err != nil {
 			fmt.Fprintf(stderr, "%s: flowd unreachable for a heavy slot at %s (%v) — running without one\n", name, addr, err)

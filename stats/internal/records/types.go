@@ -724,12 +724,16 @@ func CostReason(d Dispatch) string {
 // recorded, in first-seen order; nil (stored NULL) on a clear run and on a
 // post from a binary that predates the column.
 type GuardRun struct {
-	ID         int64     `json:"id"`
-	Guard      string    `json:"guard"`
-	Worktree   string    `json:"worktree"`
-	ExitCode   int       `json:"exitCode"`
-	Outcome    string    `json:"outcome"`
-	DurationMS int       `json:"durationMs"`
+	ID         int64  `json:"id"`
+	Guard      string `json:"guard"`
+	Worktree   string `json:"worktree"`
+	ExitCode   int    `json:"exitCode"`
+	Outcome    string `json:"outcome"`
+	DurationMS int    `json:"durationMs"`
+	// WaitMS is the part of DurationMS the guard spent waiting rather than
+	// working -- a heavy slot's acquisition, await-rows blocked between
+	// reads (0112_guard_run_wait.sql); 0 from a binary that predates it.
+	WaitMS     int       `json:"waitMs,omitempty"`
 	RecordedAt time.Time `json:"recordedAt"`
 	Reasons    []string  `json:"reasons,omitempty"`
 	// Headless is the run's headless model call, nil when it made none.

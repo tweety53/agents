@@ -70,6 +70,26 @@ type Reasons struct {
 	mu       sync.Mutex
 	ids      []string
 	headless *Headless
+	wait     time.Duration
+}
+
+// Wait returns the time the run spent waiting rather than working -- a
+// heavy slot's acquisition, await-rows blocked between reads -- which
+// flow-guard posts as the run's wait_ms.
+func (r *Reasons) Wait() time.Duration {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.wait
+}
+
+// recordWait adds d to the run's wait; a nil collector makes it a no-op,
+// as Reason.
+func recordWait(env Env, d time.Duration) {
+	if r := env.Reasons; r != nil {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.wait += d
+	}
 }
 
 // Headless is the one headless model call a guard run made (pair-judge's
