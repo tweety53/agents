@@ -56,7 +56,7 @@ naming none is not dispatched.
 dispatcher resolves their paths, confirms each exists, and names them in the prompt.
 
 **Fill every template placeholder from this table — never by reading the template.** Each is
-substituted in the dispatch prompt with the value named here:
+passed to `flow-guard build-slot-prompt` (below), which substitutes it:
 
 | Placeholder | Template | The parent substitutes |
 |---|---|---|
@@ -129,13 +129,21 @@ bundle's `-dispatch-seq`.
 An incident a round's slot caused is saved as **4. Execute (SDD + TDD)** saves one
 (`skills/flow/implement.md`).
 
-**Every dispatch's brief is assembled by hand, once the round's diff is written** — one file per
-dispatch, a one-role dispatch included, at
-`<canon>/.superpowers/sdd/slot-prompt-<round>-<slots>[-<repo>].md` (`<slots>` the bundle's ids
-`+`-joined, `-<repo>` only on one repository's dispatch of a multi-repository panel), made of, in order:
+**Every dispatch's brief is assembled by `flow-guard build-slot-prompt`, once the round's diff is
+written** — one call per dispatch, a one-role dispatch included:
 
-1. the line `Read <skill-dir>/slot-brief.md in full first — every paragraph binds you`, then the resolved set its WORKTREES paragraph lists, and on one repository's dispatch the repository its SECTION paragraph reads; on a fix round, the FIX-ROUND SCOPE blockquote of `skills/flow/review-panel-fix-round.md`, naming the `<fix report>` path(s);
-2. one `## PASS <id>` section per slot in the bundle's order: the fenced body of that slot's `<id>-reviewer-prompt.md`, dedented, with the six values of the placeholder table above filled with absolute paths, then that slot's REPORT FILE line (`panel-report-<round>-<id>[-<repo>].md`). `mutation` has no template: its section is **The mutation-testing brief** below, built last, naming its throwaway copies, `<worktree>-mutation-<round>` per repository.
+```bash
+flow-guard build-slot-prompt <skill-dir> <abs-worktree> <round> <id[+id]> -diff <path> [-artifacts <p,…>] \
+  [-standards <p,…>] [-global-constraints <path|none>] [-worktrees <p,…>] [-repo <repo>] [-fix-report <p,…>]
+```
+
+Its flags carry the values of the placeholder table above, `-worktrees` the resolved set, `-repo`
+only on one repository's dispatch of a multi-repository panel, and `-fix-report` the `<fix report>`
+path(s) on a fix round. Its header (`stats/internal/guard/buildslotprompt.go`) is canonical for the
+file it writes, `<canon>/.superpowers/sdd/slot-prompt-<round>-<ids>[-<repo>].md`, whose path it
+prints; exit 2 names a missing value and writes nothing. `mutation` has no template: its brief is
+**The mutation-testing brief** below, built last, naming its throwaway copies,
+`<worktree>-mutation-<round>` per repository.
 
 The Agent call's description is `panel-<round>-<slots>[-<repo>]` and its prompt opens `Role: panel-reviewer` (`Role: panel-rerun` on a fix round). Its prompt carries only that Role line
 (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), the baseline
