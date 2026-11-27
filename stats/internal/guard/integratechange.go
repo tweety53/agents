@@ -85,7 +85,7 @@ type ic struct {
 //	integrate-change.sh cleanup <main-checkout> <name>
 //
 // Every subcommand also takes --harness <harness> and --session-token
-// <literal token> (else $FLOW_HARNESS and $FLOW_SESSION_TOKEN) for its stage
+// <literal token> (else envHarness and $FLOW_SESSION_TOKEN) for its stage
 // marks; a mark the store cannot take is a warning on stderr, never a stop.
 //
 // prepare  resolves the worktree set (the state file's `worktrees` map, else
@@ -234,7 +234,7 @@ func (c *ic) parse(args []string) {
 		c.die("change-name-not-plain", "change name '%s' is not a plain change name", name)
 	}
 	c.name = name
-	c.harness, c.token = c.env.Getenv("FLOW_HARNESS"), c.env.Getenv("FLOW_SESSION_TOKEN")
+	c.harness, c.token = envHarness(c.env), c.env.Getenv("FLOW_SESSION_TOKEN")
 	rest := args[3:]
 	for i := 0; i < len(rest); i++ {
 		next := func() string {
@@ -268,7 +268,7 @@ func (c *ic) parse(args []string) {
 		}
 	}
 	if c.harness == "" || c.token == "" {
-		c.die("harness-or-token-missing", "--harness and --session-token are required (or FLOW_HARNESS / FLOW_SESSION_TOKEN)")
+		c.die("harness-or-token-missing", "--harness and --session-token are required (or FLOW_HARNESS or CLAUDECODE=1 / FLOW_SESSION_TOKEN)")
 	}
 }
 
@@ -868,4 +868,18 @@ func (c *ic) pushBranch(w string) {
 func isFixOf(dir, name string) bool {
 	n, ok := strings.CutPrefix(dir, name+"-fix-")
 	return ok && n != "" && strings.Trim(n, "0123456789") == ""
+}
+
+// envHarness is the harness a guard's own stage marks name when its caller
+// passes no --harness: $FLOW_HARNESS, else claude-code under Claude Code's
+// CLAUDECODE=1, else "" -- the `flow` CLI's resolveHarness, less its
+// "unknown" floor, so a guard still refuses a mark it cannot attribute.
+func envHarness(env Env) string {
+	if h := env.Getenv("FLOW_HARNESS"); h != "" {
+		return h
+	}
+	if env.Getenv("CLAUDECODE") == "1" {
+		return "claude-code"
+	}
+	return ""
 }

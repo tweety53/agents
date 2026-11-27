@@ -165,7 +165,15 @@ func TestVisualVerifyPassUsage(t *testing.T) {
 	} {
 		os.Remove(f.log)
 		var out, errb bytes.Buffer
-		env := Env{Getenv: f.getenv, Environ: func() []string { return f.environ }, Dir: f.wt}
+		// No harness in the environment either: "no harness" is a usage error
+		// only where envHarness has nothing to fall back to.
+		getenv := func(k string) string {
+			if k == "CLAUDECODE" || k == "FLOW_HARNESS" {
+				return ""
+			}
+			return f.getenv(k)
+		}
+		env := Env{Getenv: getenv, Environ: func() []string { return f.environ }, Dir: f.wt}
 		rc := Registry["visual-verify-pass"](c.args, env, &out, &errb)
 		calls, _ := os.ReadFile(f.log)
 		if rc != 2 || !strings.Contains(errb.String(), "usage: flow-guard visual-verify-pass") || len(calls) != 0 || !strings.Contains(errb.String(), c.hint) {

@@ -338,7 +338,7 @@ import (
 // line; exit 2 is a usage error or an unreadable input.
 func init() { Registry["visual-verify-pass"] = visualVerifyPass }
 
-const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> --harness <h> --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... [--app <worktree>:<app-root>=<url>]... [--continue [--started]]\n" +
+const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> [--harness <h>] --session-token mf-<t> --merge-base <worktree>=<sha>... [--worktree <worktree>]... [--since <worktree>=<sha>]... [--round-base <worktree>=<sha>]... [--defects <worktree>=<frame>[,<frame>…]]... [--app <worktree>:<app-root>=<url>]... [--continue [--started]]\n" +
 	"       flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions named> --session-token mf-<t>\n" +
 	"       flow-guard visual-verify-pass close --check-only <report> <motions named> [--mockups <dir>] [--design <design.md>]\n" +
 	"       flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype]"
@@ -448,6 +448,7 @@ func (v *vvp) parse(args []string, prepare bool) {
 		v.usage("change name '" + v.name + "' or key '" + v.key + "' is not plain")
 	}
 	v.worktrees = []string{v.canon}
+	v.harness = envHarness(v.env)
 	rest := args[pos:]
 	val := func(i int) string {
 		if i+1 >= len(rest) {
