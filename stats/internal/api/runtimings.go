@@ -126,6 +126,10 @@ type runTotals struct {
 	// with none stored -- open, no agent id, no transcript, not harvested
 	// yet -- adds nothing; absent when no dispatch has one.
 	AgentTimeSplit *harvest.TimeSplit `json:"agentTimeSplit,omitempty"`
+	// IdleSplit splits IdleMs by the parent transcripts' gaps kept inside
+	// the idle / parent segments (harvest.TimeSplit's parent idle rule);
+	// absent when no stage run links a parent transcript.
+	IdleSplit *harvest.TimeSplit `json:"idleSplit,omitempty"`
 }
 
 type breakdownRow struct {
@@ -186,6 +190,7 @@ type runInput struct {
 	Journal    journalCount // the change's record journal, counted by flowd
 	PlanRead   bool         // tasks.md was read, live or saved
 	Departures []roundDepartures
+	ParentGaps []harvest.Gap // the linked parent transcripts' gaps, parentGaps
 }
 
 var breakdownColumns = []definition{
@@ -276,6 +281,7 @@ func computeRun(in runInput, now time.Time) RunTimings {
 			ParentCommandRuns:  parentRuns,
 			UnclaimedGuardRuns: in.Unclaimed,
 			AgentTimeSplit:     agentTimeSplit(in.Dispatches),
+			IdleSplit:          idleSplit(in.ParentGaps, idleSegs),
 		},
 		Breakdowns:         map[string]breakdown{},
 		CostPerTask:        costPerTask(rows),
@@ -725,6 +731,44 @@ func agentTimeSplit(ds []records.Dispatch) *harvest.TimeSplit {
 	return sum
 }
 
+// idleSplit is gaps clipped to each idle segment and summed; nil without
+// gaps. Idle is computed at read from the run's rows, so its split is too.
+func idleSplit(gaps []harvest.Gap, idle []span) *harvest.TimeSplit {
+	if len(gaps) == 0 {
+		return nil
+	}
+	sum := &harvest.TimeSplit{}
+	for _, seg := range idle {
+		sum.Add(harvest.SplitGaps(gaps, time.UnixMilli(seg.from), time.UnixMilli(seg.to)))
+	}
+	return sum
+}
+
+// parentGaps reads the gaps of every distinct transcript the stages link
+// that is not a subagent's -- the parent session's own -- logging and
+// skipping one that fails to read.
+// ponytail: two parent sessions overlapping in time both count; dedupe by
+// interval if a change ever runs two parents at once.
+func parentGaps(stages []store.StageRun, log *slog.Logger) []harvest.Gap {
+	var out []harvest.Gap
+	seen := map[string]bool{}
+	for _, s := range stages {
+		if s.TranscriptPath == nil || seen[*s.TranscriptPath] || strings.Contains(*s.TranscriptPath, "/subagents/") {
+			continue
+		}
+		seen[*s.TranscriptPath] = true
+		gaps, err := harvest.ReadTranscriptGaps(*s.TranscriptPath)
+		if err != nil {
+			if log != nil {
+				log.Warn("flowd: parent transcript unreadable, left out of the idle split", "path", *s.TranscriptPath, "error", err)
+			}
+			continue
+		}
+		out = append(out, gaps...)
+	}
+	return out
+}
+
 // runError names the read that failed computing one run.
 type runError struct {
 	what string
@@ -784,6 +828,7 @@ func (h *runTimingsHandler) compute(ref store.ChangeRef, in store.RunInputs, gua
 		Findings: in.Findings, VerifyRuns: in.VerifyRuns, PlanRead: planRead,
 		Journal:    h.journal(project, change),
 		Departures: departures(project, change, in.Dispatches, roots, saved),
+		ParentGaps: parentGaps(in.Stages, h.log),
 	}, now)
 	out.Project, out.Change = project, change
 	return out

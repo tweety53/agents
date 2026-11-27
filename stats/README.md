@@ -231,7 +231,10 @@ timestamped transcript lines belongs to the line that ends it — an assistant l
 user line answering a `tool_use` ends tool time, any other user line (a user message after an
 assistant turn) ends human time; gaps never overlap, so the three sum to the row's covered span.
 `GET /api/v1/stats/run/{project}/{change}` sums the stored dispatch splits into
-`totals.agentTimeSplit`. The output is stable for the same rows.
+`totals.agentTimeSplit`, and splits `totals.idleMs` the same way into `totals.idleSplit`: the
+gaps of the parent transcripts the change's stage runs link, each kept only where it lies inside an
+idle / parent segment, so its three sum to the share of idle those transcripts cover. The output is
+stable for the same rows.
 
 flowd's harvest tick stores the split (`cmd/flowd/timesplits.go`, `0115_time_splits.sql`). A stage
 run is linked to the transcript of the agent that marked it, derived from its

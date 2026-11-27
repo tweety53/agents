@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/config"
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/harvest"
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
@@ -238,9 +240,6 @@ func (f runTimingsFake) RunInputs(_ context.Context, refs []store.ChangeRef) ([]
 		case "kan-1-a":
 		case "kan-2-b":
 			ds = ds[:3]
-		case "kan-3-c":
-			ds = []records.Dispatch{rtDispatch("task-1-implementer", "implementer", 0, 30, "2")}
-			ds[0].AgentID = "a1"
 		default:
 			return nil, fmt.Errorf("%w: %s/%s", store.ErrChangeNotFound, r.ProjectKey, r.Name)
 		}
@@ -634,5 +633,55 @@ func TestRunTimingsSumsStoredAgentSplits(t *testing.T) {
 	}
 	if s := computeRun(rtInput(), rtAt(200)).Totals.AgentTimeSplit; s != nil {
 		t.Errorf("none stored: agentTimeSplit = %+v, want absent", s)
+	}
+}
+
+// TestRunTimingsSplitsParentIdle: totals.idleSplit is the parent
+// transcript's classified gaps kept only where they lie inside an idle /
+// parent segment -- a gap straddling a dispatch counts only its idle part --
+// and parentGaps reads every linked transcript but a subagent's; with no
+// linked parent transcript the field is absent.
+func TestRunTimingsSplitsParentIdle(t *testing.T) {
+	t.Parallel()
+	gap := func(class, tool string, from, to float64) harvest.Gap {
+		return harvest.Gap{From: rtAt(from), To: rtAt(to), Class: class, Tool: tool}
+	}
+	in := runInput{
+		Stages:     []store.StageRun{rtStage("flow.implement", 0, 100, "1")},
+		Dispatches: []records.Dispatch{rtDispatch("task-1-implementer", "implementer", 20, 40, "1")},
+		ParentGaps: []harvest.Gap{
+			gap(harvest.GapLLM, "", 10, 30), gap(harvest.GapTool, "Agent", 30, 60), gap(harvest.GapHuman, "", 90, 110),
+		},
+	}
+	got := computeRun(in, rtAt(200))
+	want := harvest.TimeSplit{LLMMs: rtMin(10), ToolMs: rtMin(20), HumanMs: rtMin(10), ByTool: map[string]int64{"Agent": rtMin(20)}}
+	if got.Totals.IdleMs.Value != rtMin(80) || got.Totals.IdleSplit == nil || !reflect.DeepEqual(*got.Totals.IdleSplit, want) {
+		t.Errorf("idle %d split %+v, want 80 min and %+v", got.Totals.IdleMs.Value, got.Totals.IdleSplit, want)
+	}
+	in.ParentGaps = nil
+	if s := computeRun(in, rtAt(200)).Totals.IdleSplit; s != nil {
+		t.Errorf("no parent transcript: idleSplit = %+v, want absent", s)
+	}
+
+	dir := t.TempDir()
+	parent, sub := filepath.Join(dir, "s.jsonl"), filepath.Join(dir, "s", "subagents", "agent-a.jsonl")
+	if err := os.MkdirAll(filepath.Dir(sub), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	line := func(typ string, min float64) string {
+		return `{"type":"` + typ + `","timestamp":` + strconv.Quote(rtAt(min).Format(time.RFC3339Nano)) + `,"message":{"content":"x"}}` + "\n"
+	}
+	if err := os.WriteFile(parent, []byte(line("user", 0)+line("assistant", 5)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(sub, []byte(line("user", 0)+line("assistant", 7)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stages := []store.StageRun{{TranscriptPath: &parent}, {TranscriptPath: &parent}, {TranscriptPath: &sub}, {}}
+	if gaps := parentGaps(stages, nil); len(gaps) != 1 || !gaps[0].To.Equal(rtAt(5)) {
+		t.Errorf("parentGaps = %+v, want the parent transcript's one gap", gaps)
+	}
+	if gaps := parentGaps(stages[2:], nil); gaps != nil {
+		t.Errorf("parentGaps of subagent-only links = %+v, want nil", gaps)
 	}
 }
