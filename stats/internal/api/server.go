@@ -402,6 +402,11 @@ func New(cfg config.Config, cs ChangeStore, ss StageStore, sts StatsStore, rs Re
 	}
 	jh := &jiraHandler{transitions: jiraTransitions, logger: logger}
 	mux := http.NewServeMux()
+	slots := cfg.HeavySlots
+	if slots == 0 {
+		slots = config.DefaultHeavySlots
+	}
+	newSlotHandler(slots).routes(mux)
 	mux.HandleFunc("GET /api/v1/changes", h.list)
 	mux.HandleFunc("GET /api/v1/changes/find", h.find)
 	mux.HandleFunc("GET /api/v1/changes/{project}/{name}", h.get)

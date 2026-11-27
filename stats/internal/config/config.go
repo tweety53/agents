@@ -28,6 +28,9 @@ const (
 	DefaultHost = "127.0.0.1"
 	DefaultPort = 4173
 	DefaultDSN  = "postgres://flow:flow@localhost:5433/flow?sslmode=disable"
+	// DefaultHeavySlots is how many heavy runs -- a run-verify-list `test` or
+	// `visual` list, a recapture -- flowd lets run at once (FLOWD_HEAVY_SLOTS).
+	DefaultHeavySlots = 2
 )
 
 // Config is flowd's resolved configuration.
@@ -35,6 +38,10 @@ type Config struct {
 	Host string
 	Port int
 	DSN  string
+
+	// HeavySlots (FLOWD_HEAVY_SLOTS) is the heavy-run semaphore's size; zero
+	// means DefaultHeavySlots.
+	HeavySlots int
 
 	// EmbedURL (FLOW_EMBED_URL) and PgvectorDSN (FLOW_PGVECTOR_DSN) turn on hybrid
 	// self-review similarity when both are set; either empty means BM25 only.
@@ -63,6 +70,10 @@ var ErrNonLoopbackHost = errors.New("config: host must be a loopback address (12
 // ErrNonLoopbackHost exists to catch for the host.
 var ErrInvalidPort = errors.New("config: FLOWD_PORT must be a valid integer port")
 
+// ErrInvalidHeavySlots is returned by FromEnv when FLOWD_HEAVY_SLOTS is set to
+// anything but a positive integer, refused at startup as ErrInvalidPort is.
+var ErrInvalidHeavySlots = errors.New("config: FLOWD_HEAVY_SLOTS must be a positive integer")
+
 // FromEnv resolves Config from FLOWD_HOST, FLOWD_PORT and FLOWD_DSN (and the optional
 // FLOW_EMBED_URL and FLOW_PGVECTOR_DSN, which together enable hybrid similarity),
 // falling back to the defaults above for anything unset. A FLOWD_PORT
@@ -71,7 +82,7 @@ var ErrInvalidPort = errors.New("config: FLOWD_PORT must be a valid integer port
 // callers building a server from the result must call Validate (api.New
 // does this itself).
 func FromEnv() (Config, error) {
-	cfg := Config{Host: DefaultHost, Port: DefaultPort, DSN: DefaultDSN}
+	cfg := Config{Host: DefaultHost, Port: DefaultPort, DSN: DefaultDSN, HeavySlots: DefaultHeavySlots}
 	if v := os.Getenv("FLOWD_HOST"); v != "" {
 		cfg.Host = v
 	}
@@ -81,6 +92,13 @@ func FromEnv() (Config, error) {
 			return Config{}, fmt.Errorf("%w: %q", ErrInvalidPort, v)
 		}
 		cfg.Port = p
+	}
+	if v := os.Getenv("FLOWD_HEAVY_SLOTS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			return Config{}, fmt.Errorf("%w: %q", ErrInvalidHeavySlots, v)
+		}
+		cfg.HeavySlots = n
 	}
 	if v := os.Getenv("FLOWD_DSN"); v != "" {
 		cfg.DSN = v

@@ -131,3 +131,21 @@ func TestJiraConfigConfigured(t *testing.T) {
 		t.Fatal("complete JiraConfig reported unconfigured")
 	}
 }
+
+// TestFromEnvHeavySlots pins FLOWD_HEAVY_SLOTS: unset is DefaultHeavySlots,
+// a positive integer is taken, anything else is a startup error.
+func TestFromEnvHeavySlots(t *testing.T) {
+	for v, want := range map[string]int{"": config.DefaultHeavySlots, "1": 1, "4": 4, "0": -1, "x": -1} {
+		t.Setenv("FLOWD_HEAVY_SLOTS", v)
+		cfg, err := config.FromEnv()
+		if want < 0 {
+			if !errors.Is(err, config.ErrInvalidHeavySlots) {
+				t.Errorf("%q: err %v, want ErrInvalidHeavySlots", v, err)
+			}
+			continue
+		}
+		if err != nil || cfg.HeavySlots != want {
+			t.Errorf("%q: HeavySlots %d err %v, want %d", v, cfg.HeavySlots, err, want)
+		}
+	}
+}
