@@ -508,7 +508,6 @@ func TestEnforceAgentBaselineHookBeginsEveryRowRole(t *testing.T) {
 	t.Parallel()
 	for id, role := range map[string]string{
 		"implementer": "implementer", "operator-asked": "implementer",
-		"gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer",
 		"panel-reviewer": "reviewer", "panel-rerun": "reviewer",
 		"panel-fix": "panel-fix", "minor-fix": "panel-fix", "no-progress-fixer": "panel-fix", "visual-verifier": "verifier",
 		"planner": "planner",
@@ -529,9 +528,9 @@ func TestEnforceAgentBaselineHookBeginsEveryRowRole(t *testing.T) {
 }
 
 // TestEnforceAgentBaselineHookBeginKeyFromKeyLine pins the key's source: the prompt's `Key:` line
-// tells a gated reviewer bundle from its implementer group, both described `Task <ids>/<n>`; a
-// task description with no `Key:` line names no row the hook can begin, so it begins none and
-// lets the dispatch through.
+// names the row, never the `Task <ids>/<n>` description; a task description with no `Key:` line
+// names no row the hook can begin, so it begins none and lets the dispatch through, and so does
+// the retired gated-reviewer role (0119), which maps to no row role.
 func TestEnforceAgentBaselineHookBeginKeyFromKeyLine(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
@@ -540,8 +539,7 @@ func TestEnforceAgentBaselineHookBeginKeyFromKeyLine(t *testing.T) {
 		want                           map[string]string // flag -> value; nil: no begin
 		noTask                         bool
 	}{
-		{"gated reviewer", "Task 3/9 (review)", "Role: gated-reviewer\nKey: task-3-reviewer\nreview", "flow-medium",
-			map[string]string{"-key": "task-3-reviewer", "-role": "reviewer", "-task": "3", "-effort": "medium"}, false},
+		{"retired gated reviewer", "Task 3/9 (review)", "Role: gated-reviewer\nKey: task-3-reviewer\nreview", "flow-medium", nil, false},
 		{"implementer group", "Tasks 3+4/9 (x)", "Role: implementer\nKey: task-3+4-implementer\nimplement", "flow-low",
 			map[string]string{"-key": "task-3+4-implementer", "-role": "implementer"}, true},
 		{"no Key line", "Task 3/9 (x)", "Role: implementer\nimplement", "flow-low", nil, false},

@@ -136,7 +136,7 @@ func TestRolesRoute(t *testing.T) {
 	groups := map[string]bool{}
 	for _, e := range got {
 		groups[e.Group] = true
-		for role, group := range map[string]string{"decider": "Planning", "gated-reviewer": "Implementation", "panel-fix": "Review", "minor-fix": "Review", "visual-verifier": "Verification"} {
+		for role, group := range map[string]string{"decider": "Planning", "implementer": "Implementation", "panel-fix": "Review", "minor-fix": "Review", "visual-verifier": "Verification"} {
 			if e.Role == role && e.Group != group {
 				t.Errorf("%s in %q, want %q", role, e.Group, group)
 			}

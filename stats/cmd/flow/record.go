@@ -1232,9 +1232,8 @@ func runRecordDispatchBegin(ctx context.Context, args []string, getenv func(stri
 	return code
 }
 
-// launchTaskKey is a gated task row's key: task-<ids>-implementer… or
-// task-<ids>-reviewer…, ids +-joined.
-var launchTaskKey = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)-(implementer|reviewer)(.*)$`)
+// launchTaskKey is a task row's key: task-<ids>-implementer…, ids +-joined.
+var launchTaskKey = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)-implementer`)
 
 // printLaunchLines prints a live row's Agent-call description opening and,
 // where the row decides it, its prompt's Role line (decision

@@ -119,7 +119,6 @@ var eabLoopKeyPrefixes = []string{"pipeline-fix-", "self-review-"}
 // the inverse of launchRoleID (stats/cmd/flow/record.go).
 var eabRowRole = map[string]string{
 	"implementer": "implementer", "operator-asked": "implementer",
-	"gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer",
 	"panel-reviewer": "reviewer", "panel-rerun": "reviewer",
 	"panel-fix": "panel-fix", "minor-fix": "panel-fix", "no-progress-fixer": "panel-fix",
 	"visual-verifier": "verifier",

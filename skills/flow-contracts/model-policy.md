@@ -106,8 +106,6 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 | Role | Does |
 |---|---|
 | `implementer` | Writes the code for a group of tasks, tests first. |
-| `gated-reviewer` | Reviews each implementer group's tasks as they land. |
-| `gated-re-reviewer` | Re-checks a gated review's findings after their fix. |
 | `no-progress-fixer` | Takes over a fix loop that made no progress — any loop's fixer, with every earlier round's report. |
 | `operator-asked` | Runs a task the operator asked a subagent for, in their own words, inside a /flow-interactive request. |
 

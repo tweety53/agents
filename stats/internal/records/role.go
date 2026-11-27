@@ -23,8 +23,7 @@ var legacyRoles = map[string]bool{
 // it is its own class. dispatch_class (migrations/0094) is its SQL twin, and
 // a test holds the two equal.
 var roleClass = map[string]string{
-	"panel-reviewer": "reviewer", "panel-rerun": "reviewer", "gated-reviewer": "reviewer",
-	"gated-re-reviewer": "reviewer", "self-review-pass": "reviewer",
+	"panel-reviewer": "reviewer", "panel-rerun": "reviewer", "self-review-pass": "reviewer",
 	"loop-review-1": "reviewer", "loop-review-r": "reviewer",
 	"minor-fix":      "panel-fix",
 	"operator-asked": "implementer", "loop-fix": "implementer",
@@ -40,6 +39,9 @@ var roleClass = map[string]string{
 	"self-review-plan": "planner", "pipeline-fix-plan": "planner",
 	// runner, retired for run-verify-list's own re-run (0110).
 	"runner": "verifier", "visual-verifier": "verifier",
+	// gated-reviewer and gated-re-reviewer, retired with the gated per-task
+	// review (0119).
+	"gated-reviewer": "reviewer", "gated-re-reviewer": "reviewer",
 }
 
 // Class is role's coarse class: reviewer, implementer, panel-fix, merger,
@@ -66,9 +68,8 @@ func RoleClasses() map[string]string {
 func IsLegacyRole(role string) bool { return legacyRoles[role] }
 
 var (
-	// launchTaskKey is a gated task row's key: task-<ids>-implementer… or
-	// task-<ids>-reviewer…, ids +-joined.
-	launchTaskKey       = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)-(implementer|reviewer)(.*)$`)
+	// launchTaskKey is a task row's key: task-<ids>-implementer…, ids +-joined.
+	launchTaskKey       = regexp.MustCompile(`^task-([0-9]+(?:\+[0-9]+)*)-implementer(.*)$`)
 	fixReviewKeyRE      = regexp.MustCompile(`^fix-[1-9][0-9]*-review$`)
 	fixImplementerKeyRE = regexp.MustCompile(`^fix-[1-9][0-9]*-implementer$`)
 	panelReviewKeyRE    = regexp.MustCompile(`^panel-[0-9]+-`)
@@ -76,23 +77,18 @@ var (
 
 // LaunchRoleID is the roles-table role a dispatch's role and key derive, or ""
 // where they derive none -- a self-review or pipeline-fix key among them. A
-// task's gated-review fixer and its re-commit run on the panel-fix pair. A
-// role that is already a roles-table role is its own.
+// task's fixer and its re-commit run on the panel-fix pair. A role that is
+// already a roles-table role is its own. A task-<ids>-reviewer key, the
+// retired gated review's (0119), derives none.
 func LaunchRoleID(role, key string) string {
 	if role != "" && !IsLegacyRole(role) {
 		return role
 	}
 	if m := launchTaskKey.FindStringSubmatch(key); m != nil {
-		switch {
-		case m[2] == "implementer" && (strings.HasPrefix(m[3], "-fix-") || strings.HasPrefix(m[3], "-recommit-")):
+		if strings.HasPrefix(m[2], "-fix-") || strings.HasPrefix(m[2], "-recommit-") {
 			return "panel-fix"
-		case m[2] == "implementer":
-			return "implementer"
-		case strings.HasPrefix(m[3], "-fix-"):
-			return "gated-re-reviewer"
-		default:
-			return "gated-reviewer"
 		}
+		return "implementer"
 	}
 	switch {
 	case role == "panel-fix" && strings.HasPrefix(key, "panel-") && strings.HasSuffix(key, "-minor-fix"):

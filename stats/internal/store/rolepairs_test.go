@@ -14,7 +14,8 @@ import (
 // into the store, every list in table order -- as later migrations left it:
 // 0085 dropped the marked escalation pairs for the no-progress-fixer role,
 // 0102 added the designer role, 0109 merged the self-review and pipeline-fix
-// loop roles into the loop-* roles, on the self-review rows' pairs.
+// loop roles into the loop-* roles, on the self-review rows' pairs, 0119
+// dropped the gated-reviewer and gated-re-reviewer roles.
 func TestRolePairsSeedMatchesTable(t *testing.T) {
 	t.Parallel()
 	st := newTestStore(t)
@@ -31,8 +32,6 @@ func TestRolePairsSeedMatchesTable(t *testing.T) {
 		"minor-fix":         {Base: []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-low", "sonnet/flow-medium"}, Optin: []string{}},
 		"operator-asked":    {Base: []string{"opus/flow-medium", "opus/flow-high", "sonnet/flow-medium"}, Optin: []string{}},
 		"decider":           {Base: []string{"opus/flow-low"}, Optin: []string{}},
-		"gated-reviewer":    {Base: []string{"opus/flow-medium"}, Optin: []string{}},
-		"gated-re-reviewer": {Base: []string{"opus/flow-low"}, Optin: []string{}},
 		"panel-reviewer":    {Base: []string{"opus/flow-low", "opus/flow-medium", "fable/flow-low", "fable/flow-medium"}, Optin: []string{}},
 		"panel-rerun":       {Base: []string{"opus/flow-low", "sonnet/flow-low"}, Optin: []string{}},
 		"pair-judge":        {Base: []string{"sonnet/flow-low"}, Optin: []string{}},

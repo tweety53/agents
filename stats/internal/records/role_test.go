@@ -9,7 +9,7 @@ func TestStoredRole(t *testing.T) {
 		{"verifier", "visual-verify-2", "", "visual-verifier"},
 		{"reviewer", "panel-1-primary", "", "panel-reviewer"},
 		{"reviewer", "panel-1-primary", "panel-rerun", "panel-rerun"},
-		{"reviewer", "task-1-reviewer", "", "gated-reviewer"},
+		{"reviewer", "task-1-reviewer", "", "reviewer"},
 		{"reviewer", "self-review-x-pass", "", "reviewer"},
 		{"planner", "design-1", "", "plan-designer"},
 		{"planner", "designer-1", "", "designer"},

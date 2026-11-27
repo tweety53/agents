@@ -7088,8 +7088,8 @@ func TestRecordDispatchBeginPrintsTheLaunchLines(t *testing.T) {
 		want              string
 	}{
 		{"kan-258", "implementer", "task-2-implementer", nil, "recorded: dispatch 7\ndescription: Task 2/3\nRole: implementer\n"},
-		{"kan-258", "reviewer", "task-1+3-reviewer", nil, "recorded: dispatch 7\ndescription: Tasks 1+3/3\nRole: gated-reviewer\n"},
-		{"kan-258", "reviewer", "task-1-reviewer-fix-1", nil, "recorded: dispatch 7\ndescription: Task 1/3\nRole: gated-re-reviewer\n"},
+		{"kan-258", "reviewer", "task-1+3-reviewer", nil, "recorded: dispatch 7\ndescription: task-1+3-reviewer\n"},
+		{"kan-258", "reviewer", "task-1-reviewer-fix-1", nil, "recorded: dispatch 7\ndescription: task-1-reviewer-fix-1\n"},
 		{"kan-258", "panel-fix", "task-1-implementer-fix-1", nil, "recorded: dispatch 7\ndescription: Task 1/3\nRole: panel-fix\n"},
 		{"kan-258", "panel-fix", "task-1-implementer-recommit-1", nil, "recorded: dispatch 7\ndescription: Task 1/3\nRole: panel-fix\n"},
 		{"kan-259", "reviewer", "panel-2-primary", []string{"-slot", "primary"}, "recorded: dispatch 7\ndescription: panel-2-primary\n"},
