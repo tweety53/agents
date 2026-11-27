@@ -882,6 +882,14 @@ export interface RunBreakdownRow {
   noTokens: number;
 }
 
+/** Mirrors harvest.TimeSplit: transcript time by who held it. */
+export interface TimeSplit {
+  llmMs: number;
+  toolMs: number;
+  humanMs: number;
+  byTool?: Record<string, number>;
+}
+
 /** Mirrors api.RunTimings, the per-run route's result. */
 export interface RunTimings {
   project: string;
@@ -901,6 +909,8 @@ export interface RunTimings {
     noTokens: number;
     parentCommandRuns: number;
     unclaimedGuardRuns: number;
+    agentTimeSplit?: TimeSplit;
+    idleSplit?: TimeSplit;
   };
   lanes: { label: string; kind: "stage" | "category" | "parent" | "idle"; intervals: { from: string; to: string; class: string }[] }[];
   breakdowns: Record<"category" | "role" | "model" | "repo" | "round", { columns: RunDefinition[]; rows: RunBreakdownRow[]; total: RunBreakdownRow }>;

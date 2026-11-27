@@ -4,7 +4,7 @@
 // (GET /api/v1/stats/run/{project}/{change}); each carries its definition
 // and kind as a `src` badge.
 import { useEffect, useState, type ReactNode } from "react";
-import { fetchStatsView, getDecisions, getRunTimings, NOT_CATEGORIES, type RunMetric, type RunTimings as RunTimingsDTO, type StateBoardRow } from "../api";
+import { fetchStatsView, getDecisions, getRunTimings, NOT_CATEGORIES, type RunMetric, type RunTimings as RunTimingsDTO, type StateBoardRow, type TimeSplit } from "../api";
 import { Chip } from "../components/Chip";
 import { formatUsd, hm } from "../format";
 import { projectLabel } from "../lib/projectLabel";
@@ -54,6 +54,17 @@ function Kpi({ name, m, value, hint, bare }: { name: string; m: RunMetric<unknow
   );
 }
 
+// withSplit puts a stored time split under a KPI's hint, as its own line.
+function withSplit(hint: string, s?: TimeSplit): ReactNode {
+  if (!s) return hint;
+  return (
+    <>
+      {hint}
+      <span className="lb-hint">{`llm ${hm(s.llmMs)} · tool ${hm(s.toolMs)} · human ${hm(s.humanMs)}`}</span>
+    </>
+  );
+}
+
 function Body({ run, titles, planned }: { run: RunTimingsDTO; titles: Map<string, string>; planned: string[][] }) {
   const [group, setGroup] = useState<Group>("category");
   const t = run.totals;
@@ -87,9 +98,9 @@ function Body({ run, titles, planned }: { run: RunTimingsDTO; titles: Map<string
       <section className="lb-panel" aria-label="Run totals">
         <div className="lb-kpis">
           <Kpi name="Wall clock" m={t.wallClockMs} value={hm(wall)} hint={`${stamp(run.from)} → ${stamp(run.to)}`} />
-          <Kpi name="Agent time" m={t.agentTimeMs} value={hm(t.agentTimeMs.value)} hint={`sum ${hm(laneSum)} · ${pct(share(t.agentTimeMs.value))} of wall`} />
+          <Kpi name="Agent time" m={t.agentTimeMs} value={hm(t.agentTimeMs.value)} hint={withSplit(`sum ${hm(laneSum)} · ${pct(share(t.agentTimeMs.value))} of wall`, t.agentTimeSplit)} />
           <Kpi name="Parent commands" m={t.parentCommandsMs} value={hm(t.parentCommandsMs.value)} hint={`${t.parentCommandRuns} runs · ${pct(share(t.parentCommandsMs.value))}`} />
-          <Kpi name="Idle / parent" m={t.idleMs} value={hm(t.idleMs.value)} hint={`${pct(share(t.idleMs.value))} of wall`} />
+          <Kpi name="Idle / parent" m={t.idleMs} value={hm(t.idleMs.value)} hint={withSplit(`${pct(share(t.idleMs.value))} of wall`, t.idleSplit)} />
           <Kpi name="Cost" m={t.cost} value={formatUsd(t.cost.value)} hint={`${t.dispatches} dispatches · ${t.noTokens} unpriced`} />
           <Kpi name="Visual-verify loops" m={t.visualVerifyShare} value={pct(t.visualVerifyShare.value)} hint={`${hm(t.visualVerifyShare.value * wall)} · ${formatUsd(vvCost)}`} />
         </div>

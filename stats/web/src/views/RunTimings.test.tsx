@@ -142,6 +142,23 @@ describe("RunTimings", () => {
     expect(within(totals).getByText("183 dispatches · 2 unpriced")).toBeInTheDocument();
   });
 
+  it("run timings totals split agent and idle time into llm, tool and human", async () => {
+    const run = fixture();
+    run.totals.agentTimeSplit = { llmMs: 20 * H, toolMs: 9 * H, humanMs: 0, byTool: { "Bash go": 9 * H } };
+    run.totals.idleSplit = { llmMs: 6 * H, toolMs: 5 * H, humanMs: 1.5 * H };
+    runTimingsMock.mockResolvedValue(run);
+    render(<RunTimings project={P} change={C} />);
+    const totals = within(await page()).getByRole("region", { name: "Run totals" });
+    expect(within(totals).getByText("llm 20h 00m · tool 9h 00m · human 0h 00m")).toBeInTheDocument();
+    expect(within(totals).getByText("llm 6h 00m · tool 5h 00m · human 1h 30m")).toBeInTheDocument();
+  });
+
+  it("run timings totals leave the split out when none is stored", async () => {
+    render(<RunTimings project={P} change={C} />);
+    const totals = within(await page()).getByRole("region", { name: "Run totals" });
+    expect(within(totals).queryByText(/^llm /)).toBeNull();
+  });
+
   it("run timings group-by chips switch the breakdown", async () => {
     render(<RunTimings project={P} change={C} />);
     const panel = await screen.findByRole("region", { name: "Time and cost by" });
