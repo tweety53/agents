@@ -23,9 +23,8 @@ Apply the lenses in the order below. Structure and prose style are not lenses:
 
 ## Comprehension
 
-Paraphrase each `##` section of `proposal.md` and `design.md` in one sentence, and keep every
-paraphrase in the report so the planner can spot a wrong one. A section you cannot paraphrase is
-a `blocker`.
+A `##` section of `proposal.md` or `design.md` you cannot paraphrase in one sentence is a
+`blocker`.
 
 ## Zoom-out
 

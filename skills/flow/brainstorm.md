@@ -93,13 +93,7 @@ carries the Role line, `Role: planner`, the two agent-baseline sentences, the
 report-tersely line, the **PLANNING DELEGATION** paragraph below, the change name and the absolute
 worktree.
 The Agent-tool `description` opens with `plan-<n>` — `plan-2 design round` — `<n>` counting this
-run's planner dispatches from 1, so the hook records the dispatch; once the planner returns:
-
-```bash
-flow record dispatch end -change <name> -key plan-<n> -session-token mf-<literal-token> -outcome completed
-```
-
-A failed recording command is one line in the run's narrative, never a stop.
+run's planner dispatches from 1, so the hooks begin and end its dispatch row.
 
 > **PLANNING DELEGATION:** You may dispatch fresh `Explore` and `Plan` subagents through the
 > `Agent` tool while you plan, per **B. Basic Workflow #1 — Brainstorming** (`skills/flow/brainstorm-planner.md`) — never a

@@ -77,10 +77,6 @@ Investigate read-only, then present the design.
   far, the operator's words verbatim beside the question and its round — so the latest round file
   alone is the design's whole state.
 
-- Save the design to `<project>-worktrees/<name>/.superpowers/sdd/YYYY-MM-DD-<name>-design.md` — the
-  worktree kickoff created (**A. Resolve the change and write `STARTED`**, `skills/flow/brainstorm.md`). The
-  path is gitignored: never stage or commit it, and
-  never write it to the main checkout.
 - **A mockup is read from where the project declares mockups**, the `## visual verification`
   section (**Project configuration — visual verification**,
   `skills/flow-contracts/project-configuration-visual.md`), never copied into an app repository; a

@@ -41,8 +41,7 @@ neither the write into the store nor the render out of it invents a model slug.
   multi-turn run like `/flow`, and no **subagent's** model either. Every dispatched role's model is
   set at dispatch time instead, which every harness supports equally: the implementer and panel
   dispatches each name their model explicitly, and the ledger line for that dispatch is what
-  records that they did. Planning has no dispatch to name a model for — it runs on the session's
-  own model.
+  records that they did.
 
 ## Allowed pairs
 
