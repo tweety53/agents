@@ -352,3 +352,35 @@ func hookDenyJSON(reason string) string {
 		{"permissionDecisionReason", reason},
 	}}})
 }
+
+// hookInProcess runs guard fn with args in dir as its own `scripts/flow-guard` process did, its
+// stdout, stderr and exit code returned -- bounded: past bound (0 is none) it returns
+// context.DeadlineExceeded and leaves fn running, so a hung call never hangs the hook; the hook's
+// process exiting ends it.
+func hookInProcess(env Env, bound time.Duration, dir string, fn Func, args ...string) (stdout, stderr string, code int, err error) {
+	type result struct {
+		out, errb string
+		code      int
+	}
+	if dir != "" {
+		env.Dir = dir
+	}
+	done := make(chan result, 1)
+	go func() {
+		var out, errb bytes.Buffer
+		c := fn(args, env, &out, &errb)
+		done <- result{out.String(), errb.String(), c}
+	}()
+	var timeout <-chan time.Time
+	if bound > 0 {
+		timer := time.NewTimer(bound)
+		defer timer.Stop()
+		timeout = timer.C
+	}
+	select {
+	case r := <-done:
+		return r.out, r.errb, r.code, nil
+	case <-timeout:
+		return "", "", 0, context.DeadlineExceeded
+	}
+}

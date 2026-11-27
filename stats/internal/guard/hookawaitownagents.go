@@ -62,8 +62,8 @@ import (
 // sweep-dispatch-rows then closes the rows whose own stop never did. Every stop it lets through
 // or blocks first runs end-stale-dispatch-rows <cwd>, which ends the change's open
 // rows whose agent finished (meta `finished`) and went quiet 10 minutes ago -- the rows of agents
-// whose own stop never ended them. Each runs in process, under a flow-guard checkout
-// (FLOW_GUARD_REPO_ROOT), output discarded.
+// whose own stop never ended them. Each runs in process, bounded (30s, the sweeps 60s), under a
+// flow-guard checkout (FLOW_GUARD_REPO_ROOT), output discarded.
 //
 // Fails open: any error -- bad input, unreadable folder -- prints nothing.
 func init() { hooks["await-own-agents"] = awaitOwnAgents }
@@ -114,7 +114,7 @@ func awaitOwnAgents(env Env, payload map[string]any, stdout, _ io.Writer) {
 	}
 	cwd := strOf(payload["cwd"])
 	if cwd != "" {
-		aoaInProcess(env, cwd, endStaleDispatchRows, cwd)
+		aoaInProcess(env, 60*time.Second, cwd, endStaleDispatchRows, cwd)
 	}
 	if len(background) > 0 && strings.TrimSpace(strOf(payload["last_assistant_message"])) != "" {
 		aoaKillBackground(env, transcript, background)
@@ -132,9 +132,9 @@ func awaitOwnAgents(env Env, payload map[string]any, stdout, _ io.Writer) {
 	}
 	if len(children) == 0 {
 		if sessionID := strOf(payload["session_id"]); sessionID != "" && cwd != "" {
-			aoaInProcess(env, cwd, endDispatchRow, transcript, sessionID, cwd, strOf(payload["last_assistant_message"]))
+			aoaInProcess(env, 30*time.Second, cwd, endDispatchRow, transcript, sessionID, cwd, strOf(payload["last_assistant_message"]))
 			// A stop is the moment to close rows whose own stop never did.
-			aoaInProcess(env, cwd, sweepDispatchRows, folder, sessionID, cwd)
+			aoaInProcess(env, 60*time.Second, cwd, sweepDispatchRows, folder, sessionID, cwd)
 		}
 		return
 	}
@@ -159,12 +159,12 @@ func awaitOwnAgents(env Env, payload map[string]any, stdout, _ io.Writer) {
 		"say so when one returned nothing.")
 }
 
-// aoaInProcess runs a dispatch-row guard in process in cwd, output discarded -- only under a
-// flow-guard checkout (FLOW_GUARD_REPO_ROOT), as when each ran as its own scripts/flow-guard.
-func aoaInProcess(env Env, cwd string, fn Func, args ...string) {
+// aoaInProcess runs a dispatch-row guard in process in cwd, bounded, output discarded -- only
+// under a flow-guard checkout (FLOW_GUARD_REPO_ROOT), as when each ran as its own
+// scripts/flow-guard.
+func aoaInProcess(env Env, bound time.Duration, cwd string, fn Func, args ...string) {
 	if env.Getenv("FLOW_GUARD_REPO_ROOT") != "" {
-		env.Dir = cwd
-		fn(args, env, io.Discard, io.Discard)
+		_, _, _, _ = hookInProcess(env, bound, cwd, fn, args...)
 	}
 }
 
