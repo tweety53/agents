@@ -158,8 +158,8 @@ run's green lets the change land. A command that fails in the confirm run opens 
 its test runner's own timeout — Go's `panic: test timed out after` — with no failed assertion and no
 data race, while the one-minute load average (`uptime`) exceeds the machine's core count
 (`getconf _NPROCESSORS_ONLN`), takes neither the fix procedure nor a `## Question`: it is re-run, and `flow-guard run-verify-list` holds
-every `test` or `visual` list until that load average is at or under the core count (THE LOAD GATE,
-its header canonical) — its exit 5, the load never having dropped, is re-run the same way. A
+every `test` or `visual` list until flowd grants it one of its heavy-run slots (THE HEAVY SLOT,
+its header canonical) — its exit 5, no slot having freed, is re-run the same way. A
 timeout on a run started at or under the core count is the branch's own defect and takes the fix procedure. No
 timeout is raised to absorb the load (`rules/fix-determinism-at-the-source.mdc`).
 

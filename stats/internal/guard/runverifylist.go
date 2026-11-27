@@ -253,15 +253,15 @@
 // request end -outcome landed` and `flow interactive land` read it, refusing
 // a commit the stamp does not hold.
 //
-// THE LOAD GATE. A `test` or `visual` list first waits until the one-minute
-// load average is at or under the core count, and runs nothing when it never
-// gets there (loadGate, canonical). A `lint` list never waits.
+// THE HEAVY SLOT. A `test` or `visual` list first waits for one of flowd's
+// heavy-run slots, holds it until the list exits, and runs nothing when none
+// frees (heavySlot, canonical). A `lint` list never waits.
 //
 // THE RUN'S COST (kan-1091: five hours of visual runs showed in no record).
 // A run that reaches its last command files one `flow record run -kind
 // run-verify-list` row under its change -- the recording argument, else the
 // branch name less `spectre/` -- labelled `<list>`, `<list>-full` or
-// `visual-only`: its wall seconds from the load gate's release, its exit,
+// `visual-only`: its wall seconds from the heavy slot's grant, its exit,
 // and the visual verify's test counts from its Playwright summary -- passed,
 // failed, flaky and interrupted as run, failed and interrupted as failed, flaky
 // as `-flaky` (verify_runs' flaky column), 0 where the row did not run. With no `flow` on PATH or a store that refuses
@@ -313,8 +313,8 @@
 //   3  the list is not declared (project-get.sh exit 1): the caller
 //      auto-detects, as **Inline verify** says
 //   4  the store refused the recording begin (stderr names why): no command ran
-//   5  the load average stayed over the core count (THE LOAD GATE): no
-//      command ran and no row was begun
+//   5  no heavy slot freed (THE HEAVY SLOT): no command ran and no row
+//      was begun
 //
 // project-get runs in this same binary
 // (runSibling, selfExe). The test
@@ -372,7 +372,7 @@ import (
 //   3  the list is not declared (flow-guard project-get exit 1): the caller
 //      auto-detects, as **Inline verify** says
 //   4  the store refused the recording begin (stderr names why): no command ran
-//   5  the load average stayed over the core count: no command ran
+//   5  no heavy slot freed: no command ran
 //
 // With the recording arguments the list ends the row it began with one of
 // three outcomes: blocked with cause test-failure when a command failed,
@@ -1112,10 +1112,14 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "usage")
 		return 2
 	}
-	// THE LOAD GATE: before the row's begin, so a refused run records none.
-	if args[1] != "lint" && !loadGate(env, "run-verify-list", stderr) {
-		Reason(env, "load-over-cores")
-		return 5
+	// THE HEAVY SLOT: before the row's begin, so a refused run records none.
+	if args[1] != "lint" {
+		release, ok := heavySlot(env, "run-verify-list", "run-verify-list "+args[1]+" "+abs(args[0]), stderr)
+		if !ok {
+			Reason(env, "no-heavy-slot")
+			return 5
+		}
+		defer release()
 	}
 	runStart := time.Now()
 	var visualLog []byte // the visual verify's output, for THE RUN'S COST

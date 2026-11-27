@@ -85,6 +85,17 @@ the dev daemon, is bounded at 500 ms, never changes a guard's exit code, and
 is dropped when the daemon is down or does not know the project (a guard run
 inside a test fixture's repository). `FLOW_GUARD_TELEMETRY=off` turns it off.
 
+### Heavy-run slots
+
+A `run-verify-list` `test` or `visual` list and a `recapture` each hold one of
+flowd's heavy-run slots for as long as they run, so at most `FLOWD_HEAVY_SLOTS`
+(default 2; anything but a positive integer refuses startup) run at once across
+every worktree. The slots live in flowd's memory (`internal/api/slots.go`):
+`POST /api/v1/slots/acquire`, `POST /api/v1/slots/release`, and
+`GET /api/v1/slots`, which lists the holders. A holder whose pid is gone, or
+that went 60 seconds without renewing, is dropped. A guard that cannot reach
+flowd runs without a slot (`internal/guard/heavyslot.go`).
+
 ## The UI-test stack
 
 For testing the application's browser interface by hand, from the main

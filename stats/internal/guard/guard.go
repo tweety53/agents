@@ -28,14 +28,12 @@ type Env struct {
 	PairJudgeTimeout time.Duration
 	// PairJudgeCoin is the 50/50 draw of the implementer's opus/flow-low pick; nil is a fair coin.
 	PairJudgeCoin func() bool
-	// LoadAvg returns the one-minute load average loadGate reads; nil reads
-	// it from the machine.
-	LoadAvg func() (float64, error)
-	// LoadGate turns loadGate on: flow-guard's main sets it, so a test's
-	// zero Env never waits on the machine it runs on. LoadPoll is the gate's
-	// re-read interval; zero means 15 s.
-	LoadGate bool
-	LoadPoll time.Duration
+	// SlotGate turns heavySlot on: flow-guard's main sets it, so a test's
+	// zero Env never waits on flowd. SlotPoll is the gate's re-ask interval,
+	// zero 2 s; SlotRenew a held slot's renewal interval, zero 20 s.
+	SlotGate  bool
+	SlotPoll  time.Duration
+	SlotRenew time.Duration
 	// SurvivorsExpire, when non-nil, replaces the survivors bound's timer:
 	// the bound fires when it receives, so a test decides when (or never).
 	SurvivorsExpire <-chan time.Time

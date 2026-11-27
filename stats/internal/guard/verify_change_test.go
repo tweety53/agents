@@ -9,7 +9,7 @@ import (
 // vcHelpers drives verify-change on integrate-change's two-repository
 // fixture: run-verify-list is a stub (FLOW_GUARD_RUN_VERIFY_LIST) logging
 // each call and exiting by `$WORK/rvl-<list>-rc`, so no case waits on the
-// load gate or runs a real list.
+// heavy slot or runs a real list.
 const vcHelpers = `vc_fixture() {
   fixture
   export IC_GUARD=verify-change FLOW_GUARD_RUN_VERIFY_LIST="$WORK/bin/rvl"
