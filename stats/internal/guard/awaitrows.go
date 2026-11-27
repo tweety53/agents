@@ -1,7 +1,9 @@
 package guard
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -13,7 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // flow-guard await-rows <worktree> <key> [<key>…] [-any] [-timeout <s>] — the parent's one bounded
@@ -23,7 +27,8 @@ import (
 // 570), which prints the ended keys' lines and `WAITING <keys still open>`, exit 0. With -any it
 // returns once any named key's row is ended, the same lines: the ended keys' ENDED lines and
 // WAITING with the rest. A key the change does not record exits 2 (`unknown-key`); an unreadable
-// store exits 1. Between reads it long-polls flowd's GET
+// store exits 1. The rows are read straight from the records flowd (flowdDispatches). Between
+// reads it long-polls that flowd's GET
 // /api/v1/records/{project}/{change}/dispatches/wait, which answers the moment a row closes, for
 // up to 20 s at a time; a flowd that is unreachable or does not answer that route with a JSON
 // array leaves it polling every 5 s. The time blocked between reads is the run's wait (recordWait),
@@ -52,15 +57,10 @@ func awaitRows(args []string, env Env, stdout, stderr io.Writer) int {
 	deadline := time.Now().Add(timeout)
 	for {
 		endStaleDispatchRows([]string{worktree}, env, io.Discard, stderr)
-		out, _, rc := pcFlow(env, false, "record", "dispatches", "-change", change, "-C", worktree)
-		var rows []struct {
-			Key     string  `json:"key"`
-			Outcome string  `json:"outcome"`
-			EndedAt *string `json:"endedAt"`
-		}
-		if rc != 0 || json.Unmarshal(out, &rows) != nil {
+		rows, err := flowdDispatches(env, worktree, change)
+		if err != nil {
 			Reason(env, "store-unreadable")
-			fmt.Fprintf(stderr, "await-rows: flow record dispatches exit %d\n", rc)
+			fmt.Fprintf(stderr, "await-rows: dispatches unreadable: %v\n", err)
 			return 1
 		}
 		outcome := map[string]string{}
@@ -117,7 +117,7 @@ func awaitRowsWaitURL(env Env, worktree, change string, keys []string, anyMode b
 		mode = "any"
 	}
 	q := url.Values{"keys": {strings.Join(keys, ",")}, "mode": {mode}}
-	return hookFlowAddr(env) + "/api/v1/records/" + url.PathEscape(project) + "/" + url.PathEscape(change) +
+	return recordsAddr(env) + "/api/v1/records/" + url.PathEscape(project) + "/" + url.PathEscape(change) +
 		"/dispatches/wait?" + q.Encode()
 }
 
@@ -137,4 +137,32 @@ func awaitRowsLongPollOnce(waitURL string, d time.Duration) bool {
 	defer resp.Body.Close()
 	var rows []json.RawMessage
 	return resp.StatusCode == http.StatusOK && json.NewDecoder(resp.Body).Decode(&rows) == nil
+}
+
+// recordsAddr is the flowd the run record lives in, as `flow record` resolves it:
+// FLOW_RECORDS_ADDR, then FLOW_ADDR, then the dev flowd.
+func recordsAddr(env Env) string {
+	if a := env.Getenv("FLOW_RECORDS_ADDR"); a != "" {
+		return a
+	}
+	return hookFlowAddr(env)
+}
+
+// flowdDispatches is change's dispatch rows read straight from the records flowd with the flow
+// CLI's own client, as `flow record dispatches -change <change> -C <dir>` read them: the project
+// key from dir, the CLI's 2s timeout, a change flowd never heard of as no rows, and an
+// unreachable flowd an error -- a read has nothing to journal.
+func flowdDispatches(env Env, dir, change string) ([]records.Dispatch, error) {
+	project, _, err := fallback.ProjectKey(smcAbs(env, dir))
+	if err != nil {
+		return nil, err
+	}
+	const timeout = 2 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	run, err := client.New(recordsAddr(env), &http.Client{Timeout: timeout}).GetRunRecord(ctx, project, change)
+	if errors.Is(err, client.ErrNotFound) {
+		return nil, nil
+	}
+	return run.Dispatches, err
 }

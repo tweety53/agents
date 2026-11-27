@@ -12,16 +12,51 @@ import (
 	"time"
 )
 
-// awaitRowsEnv puts a fake flow on PATH: `dispatches` prints rows.json, or rows-ended.json once a
-// `dispatch end` has been called (the sweep's write).
-func awaitRowsEnv(t *testing.T, rows, rowsEnded string) (Env, string) {
+// fakeFlowdRows is a flowd answering change records' GET with rows() as their dispatches, under
+// the daemon header the flow client trusts; every other route goes to next (nil: 404).
+func fakeFlowdRows(t *testing.T, rows func() string, next http.HandlerFunc) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Count(strings.TrimPrefix(r.URL.Path, "/api/v1/records/"), "/") == 1 &&
+			strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
+			w.Header().Set("Flow-Daemon", "flowd/1")
+			_, _ = w.Write([]byte(`{"dispatches":` + rows() + `}`))
+			return
+		}
+		if next == nil {
+			http.NotFound(w, r)
+			return
+		}
+		next(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// gitWorktree is a fresh git repository dir/name, so a guard derives a project key from it.
+func gitWorktree(t *testing.T, dir, name string) string {
+	t.Helper()
+	wt := filepath.Join(dir, name)
+	if out, err := exec.Command("git", "init", "-q", wt).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	return wt
+}
+
+// awaitRowsEnv serves the rows from a fake flowd: rows, or rowsEnded once a `flow record dispatch
+// end` -- the sweep's write, still the flow CLI on PATH -- has been called. It returns the env,
+// HOME and the change's worktree.
+func awaitRowsEnv(t *testing.T, rows, rowsEnded string) (Env, string, string) {
 	t.Helper()
 	tmp := t.TempDir()
-	writeFile(t, filepath.Join(tmp, "rows.json"), rows)
-	writeFile(t, filepath.Join(tmp, "rows-ended.json"), rowsEnded)
-	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\n"+
-		"if [ \"$2\" = dispatches ]; then if [ -e "+tmp+"/swept ]; then cat "+tmp+"/rows-ended.json; else cat "+tmp+"/rows.json; fi; exit 0; fi\n"+
-		"touch "+tmp+"/swept\n")
+	swept := filepath.Join(tmp, "swept")
+	srv := fakeFlowdRows(t, func() string {
+		if _, err := os.Stat(swept); err == nil {
+			return rowsEnded
+		}
+		return rows
+	}, nil)
+	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\ntouch "+swept+"\n")
 	home := filepath.Join(tmp, "home")
 	return Env{Getenv: func(k string) string {
 		switch k {
@@ -29,18 +64,20 @@ func awaitRowsEnv(t *testing.T, rows, rowsEnded string) (Env, string) {
 			return home
 		case "PATH":
 			return filepath.Join(tmp, "bin") + ":" + os.Getenv("PATH")
+		case "FLOW_ADDR", "FLOW_RECORDS_ADDR":
+			return srv.URL
 		}
 		return os.Getenv(k)
-	}, Dir: tmp}, home
+	}, Dir: tmp}, home, gitWorktree(t, tmp, "chg")
 }
 
 // TestAwaitRowsAllEnded: every named key ended prints one ENDED line per key, in argument order.
 func TestAwaitRowsAllEnded(t *testing.T) {
 	t.Parallel()
 	rows := `[{"key":"a","outcome":"completed","endedAt":"2026-01-01T00:00:00Z"},{"key":"b","outcome":"aborted","endedAt":"2026-01-01T00:00:00Z"},{"key":"c","endedAt":null}]`
-	env, _ := awaitRowsEnv(t, rows, rows)
+	env, _, wt := awaitRowsEnv(t, rows, rows)
 	var o, e bytes.Buffer
-	if rc := awaitRows([]string{"/x/chg", "b", "a"}, env, &o, &e); rc != 0 || o.String() != "ENDED b aborted\nENDED a completed\n" {
+	if rc := awaitRows([]string{wt, "b", "a"}, env, &o, &e); rc != 0 || o.String() != "ENDED b aborted\nENDED a completed\n" {
 		t.Errorf("rc %d stdout %q err %q", rc, o.String(), e.String())
 	}
 }
@@ -49,10 +86,10 @@ func TestAwaitRowsAllEnded(t *testing.T) {
 func TestAwaitRowsWaiting(t *testing.T) {
 	t.Parallel()
 	rows := `[{"key":"a","outcome":"completed","endedAt":"2026-01-01T00:00:00Z"},{"key":"c","endedAt":null}]`
-	env, _ := awaitRowsEnv(t, rows, rows)
+	env, _, wt := awaitRowsEnv(t, rows, rows)
 	var o, e bytes.Buffer
 	start := time.Now()
-	if rc := awaitRows([]string{"/x/chg", "a", "c", "-timeout", "1"}, env, &o, &e); rc != 0 || o.String() != "ENDED a completed\nWAITING c\n" {
+	if rc := awaitRows([]string{wt, "a", "c", "-timeout", "1"}, env, &o, &e); rc != 0 || o.String() != "ENDED a completed\nWAITING c\n" {
 		t.Errorf("rc %d stdout %q", rc, o.String())
 	}
 	if time.Since(start) > 3*time.Second {
@@ -64,7 +101,7 @@ func TestAwaitRowsWaiting(t *testing.T) {
 // the wait and reported.
 func TestAwaitRowsSweepsStale(t *testing.T) {
 	t.Parallel()
-	env, home := awaitRowsEnv(t,
+	env, home, wt := awaitRowsEnv(t,
 		`[{"key":"s","agentId":"aaa","sessionToken":"t","endedAt":null}]`,
 		`[{"key":"s","agentId":"aaa","sessionToken":"t","outcome":"aborted","endedAt":"2026-01-01T00:00:00Z"}]`)
 	sub := filepath.Join(home, ".claude", "projects", "p", "sess", "subagents")
@@ -76,7 +113,7 @@ func TestAwaitRowsSweepsStale(t *testing.T) {
 		t.Fatal(err)
 	}
 	var o, e bytes.Buffer
-	if rc := awaitRows([]string{"/x/chg", "s", "-timeout", "1"}, env, &o, &e); rc != 0 || o.String() != "ENDED s aborted\n" {
+	if rc := awaitRows([]string{wt, "s", "-timeout", "1"}, env, &o, &e); rc != 0 || o.String() != "ENDED s aborted\n" {
 		t.Errorf("rc %d stdout %q err %q", rc, o.String(), e.String())
 	}
 }
@@ -84,9 +121,9 @@ func TestAwaitRowsSweepsStale(t *testing.T) {
 // TestAwaitRowsUnknownKey: a key the change does not record exits 2.
 func TestAwaitRowsUnknownKey(t *testing.T) {
 	t.Parallel()
-	env, _ := awaitRowsEnv(t, `[{"key":"a","endedAt":null}]`, `[]`)
+	env, _, wt := awaitRowsEnv(t, `[{"key":"a","endedAt":null}]`, `[]`)
 	var o, e bytes.Buffer
-	if rc := awaitRows([]string{"/x/chg", "a", "zzz"}, env, &o, &e); rc != 2 {
+	if rc := awaitRows([]string{wt, "a", "zzz"}, env, &o, &e); rc != 2 {
 		t.Errorf("rc %d stdout %q", rc, o.String())
 	}
 }
@@ -95,10 +132,10 @@ func TestAwaitRowsUnknownKey(t *testing.T) {
 func TestAwaitRowsAny(t *testing.T) {
 	t.Parallel()
 	rows := `[{"key":"a","outcome":"completed","endedAt":"2026-01-01T00:00:00Z"},{"key":"b","endedAt":null}]`
-	env, _ := awaitRowsEnv(t, rows, rows)
+	env, _, wt := awaitRowsEnv(t, rows, rows)
 	var o, e bytes.Buffer
 	start := time.Now()
-	if rc := awaitRows([]string{"/x/chg", "-any", "b", "a", "-timeout", "4"}, env, &o, &e); rc != 0 || o.String() != "ENDED a completed\nWAITING b\n" {
+	if rc := awaitRows([]string{wt, "-any", "b", "a", "-timeout", "4"}, env, &o, &e); rc != 0 || o.String() != "ENDED a completed\nWAITING b\n" {
 		t.Errorf("rc %d stdout %q err %q", rc, o.String(), e.String())
 	}
 	if time.Since(start) > 2*time.Second {
@@ -106,29 +143,27 @@ func TestAwaitRowsAny(t *testing.T) {
 	}
 }
 
-// awaitRowsGitEnv is awaitRowsEnv on a git worktree named chg, so await-rows derives a project key
-// and long-polls flowd at addr; dispatches prints rows.json as it stands.
-func awaitRowsGitEnv(t *testing.T, addr, rows string) (Env, string, string) {
+// awaitRowsGitEnv is a change worktree chg whose flowd serves rows.json as it stands and hands
+// every other route -- the wait route -- to wait.
+func awaitRowsGitEnv(t *testing.T, wait http.HandlerFunc, rows string) (Env, string, string) {
 	t.Helper()
 	tmp := t.TempDir()
-	wt := filepath.Join(tmp, "chg")
-	if out, err := exec.Command("git", "init", "-q", wt).CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v %s", err, out)
-	}
 	writeFile(t, filepath.Join(tmp, "rows.json"), rows)
-	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\n"+
-		"if [ \"$2\" = dispatches ]; then cat "+tmp+"/rows.json; fi\nexit 0\n")
+	srv := fakeFlowdRows(t, func() string {
+		b, _ := os.ReadFile(filepath.Join(tmp, "rows.json"))
+		return string(b)
+	}, wait)
 	return Env{Getenv: func(k string) string {
 		switch k {
 		case "HOME":
 			return filepath.Join(tmp, "home")
 		case "PATH":
 			return filepath.Join(tmp, "bin") + ":" + os.Getenv("PATH")
-		case "FLOW_ADDR":
-			return addr
+		case "FLOW_ADDR", "FLOW_RECORDS_ADDR":
+			return srv.URL
 		}
 		return os.Getenv(k)
-	}, Dir: tmp}, wt, tmp
+	}, Dir: tmp}, gitWorktree(t, tmp, "chg"), tmp
 }
 
 // TestAwaitRowsLongPollWakes: with flowd's wait route answering the moment the row closes,
@@ -138,7 +173,7 @@ func TestAwaitRowsLongPollWakes(t *testing.T) {
 	closeRow := make(chan struct{})
 	var tmp string
 	gotQuery := make(chan string, 8)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	wait := func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/chg/dispatches/wait") {
 			http.NotFound(w, r)
 			return
@@ -150,9 +185,8 @@ func TestAwaitRowsLongPollWakes(t *testing.T) {
 		case <-r.Context().Done():
 		}
 		_, _ = w.Write([]byte(`[]`))
-	}))
-	t.Cleanup(srv.Close)
-	env, wt, dir := awaitRowsGitEnv(t, srv.URL, `[{"key":"a","endedAt":null}]`)
+	}
+	env, wt, dir := awaitRowsGitEnv(t, wait, `[{"key":"a","endedAt":null}]`)
 	tmp = dir
 	go func() { time.Sleep(300 * time.Millisecond); close(closeRow) }()
 	var o, e bytes.Buffer
@@ -177,21 +211,17 @@ func TestAwaitRowsLongPollWakes(t *testing.T) {
 // daemon's SPA page) or not at all leaves await-rows polling, its contract unchanged.
 func TestAwaitRowsFallsBackToPolling(t *testing.T) {
 	t.Parallel()
-	spa := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("<!doctype html>"))
-	}))
-	t.Cleanup(spa.Close)
-	dead := httptest.NewServer(http.NotFoundHandler())
-	dead.Close()
-	for _, addr := range []string{spa.URL, dead.URL} {
-		env, wt, _ := awaitRowsGitEnv(t, addr, `[{"key":"a","outcome":"completed","endedAt":"2026-01-01T00:00:00Z"},{"key":"c","endedAt":null}]`)
+	spa := func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("<!doctype html>")) }
+	dead := func(http.ResponseWriter, *http.Request) { panic(http.ErrAbortHandler) }
+	for name, wait := range map[string]http.HandlerFunc{"spa": spa, "dead": dead} {
+		env, wt, _ := awaitRowsGitEnv(t, wait, `[{"key":"a","outcome":"completed","endedAt":"2026-01-01T00:00:00Z"},{"key":"c","endedAt":null}]`)
 		var o, e bytes.Buffer
 		start := time.Now()
 		if rc := awaitRows([]string{wt, "a", "c", "-timeout", "1"}, env, &o, &e); rc != 0 || o.String() != "ENDED a completed\nWAITING c\n" {
-			t.Errorf("%s: rc %d stdout %q err %q", addr, rc, o.String(), e.String())
+			t.Errorf("%s: rc %d stdout %q err %q", name, rc, o.String(), e.String())
 		}
 		if took := time.Since(start); took > 3*time.Second {
-			t.Errorf("%s: waited %s past its 1 s timeout", addr, took)
+			t.Errorf("%s: waited %s past its 1 s timeout", name, took)
 		}
 	}
 }

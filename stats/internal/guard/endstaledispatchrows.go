@@ -34,19 +34,9 @@ func endStaleDispatchRows(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 	worktree := args[0]
 	change := filepath.Base(worktree)
-	out, _, rc := pcFlow(env, false, "record", "dispatches", "-change", change, "-C", worktree)
-	if rc != 0 {
-		fmt.Fprintf(stderr, "end-stale-dispatch-rows: flow record dispatches exit %d\n", rc)
-		return 0
-	}
-	var rows []struct {
-		AgentID      string  `json:"agentId"`
-		Key          string  `json:"key"`
-		SessionToken string  `json:"sessionToken"`
-		EndedAt      *string `json:"endedAt"`
-	}
-	if json.Unmarshal(out, &rows) != nil {
-		fmt.Fprintln(stderr, "end-stale-dispatch-rows: unreadable dispatches")
+	rows, err := flowdDispatches(env, worktree, change)
+	if err != nil {
+		fmt.Fprintf(stderr, "end-stale-dispatch-rows: dispatches unreadable: %v\n", err)
 		return 0
 	}
 	for _, r := range rows {

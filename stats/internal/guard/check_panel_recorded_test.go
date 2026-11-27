@@ -13,7 +13,8 @@ import (
 func TestCheckPanelRecorded(t *testing.T) {
 	t.Parallel()
 	run := func(report, rows string) int {
-		env, _ := awaitRowsEnv(t, rows, rows)
+		env, _, _ := awaitRowsEnv(t, rows, rows)
+		writeFile(t, filepath.Join(env.Dir, "rows.json"), rows)
 		wt := filepath.Join(t.TempDir(), "chg")
 		writeFile(t, filepath.Join(wt, ".superpowers/sdd/panel-report-0-primary.md"), report)
 		writeExec(t, filepath.Join(env.Dir, "bin", "flow"), "#!/usr/bin/env bash\ncat "+env.Dir+"/rows.json\n")
@@ -39,7 +40,7 @@ func TestCheckPanelRecorded(t *testing.T) {
 // primary slot -- never counts toward an open change's round.
 func TestCheckPanelRecordedReadsOnlyItsOwnChange(t *testing.T) {
 	t.Parallel()
-	env, _ := awaitRowsEnv(t, `[]`, `[]`)
+	env, _, _ := awaitRowsEnv(t, `[]`, `[]`)
 	wt := filepath.Join(t.TempDir(), "open-change")
 	writeFile(t, filepath.Join(wt, ".superpowers/sdd/panel-report-0-primary.md"), "Important: 1\n")
 	args := filepath.Join(env.Dir, "args")

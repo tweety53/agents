@@ -318,13 +318,8 @@ func sweepVisualVerifyRows(args []string, env Env) {
 	if change == "" {
 		return
 	}
-	out, _, rc := pcFlow(env, false, "record", "dispatches", "-change", change)
-	var rows []struct {
-		Key, SessionToken string
-		StartedAt         time.Time
-		EndedAt           *time.Time
-	}
-	if rc != 0 || json.Unmarshal(out, &rows) != nil {
+	rows, err := flowdDispatches(env, args[2], change)
+	if err != nil {
 		return
 	}
 	for _, r := range rows {
