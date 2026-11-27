@@ -1734,6 +1734,57 @@ func TestReviewerProjectsCountsScopedDispatches(t *testing.T) {
 	}
 }
 
+// TestReviewersCountsASlotOnceAcrossRosters: every recorded decision whose
+// panel names a slot is a roster entry for it, so a slot two decisions name
+// must still be one row, and its dispatches counted once in the project
+// count -- the roster is a set, not one entry per decision.
+func TestReviewersCountsASlotOnceAcrossRosters(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	st, _ := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-rv-roster-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	seedChange(t, st, projectKey, "kan-2")
+	recordReviewerRoster(t, st, projectKey, "kan-1", "primary")
+	recordReviewerRoster(t, st, projectKey, "kan-2", "primary")
+
+	started := time.Date(2031, 4, 10, 9, 0, 0, 0, time.UTC)
+	d := baseDispatch("reviewer", "sonnet")
+	d.Slot = "primary"
+	d.StartedAt = started
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+
+	period := store.Period{From: started.Add(-time.Hour), To: started.Add(time.Hour)}
+	rows, err := st.Reviewers(ctx, period, &projectKey, nil)
+	if err != nil {
+		t.Fatalf("Reviewers: %v", err)
+	}
+	primaries := 0
+	for _, r := range rows {
+		if r.Slot == "primary" {
+			primaries++
+			if r.Dispatches != 1 {
+				t.Errorf("primary Dispatches = %d, want 1", r.Dispatches)
+			}
+		}
+	}
+	if primaries != 1 {
+		t.Errorf("Reviewers returned %d primary rows, want 1: %+v", primaries, rows)
+	}
+	projects, err := st.ReviewerProjects(ctx, period)
+	if err != nil {
+		t.Fatalf("ReviewerProjects: %v", err)
+	}
+	for _, p := range projects {
+		if p.ProjectKey == projectKey && p.Dispatches != 1 {
+			t.Errorf("ReviewerProjects %s Dispatches = %d, want 1", projectKey, p.Dispatches)
+		}
+	}
+}
+
 // TestReviewersSplitsBundledSlots pins design.md's
 // "compound-slot-one-row-per-bundle": a bundle is one dispatches row whose
 // slot is its roles "+"-joined, and Reviewers must split it into one row

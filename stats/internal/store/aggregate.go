@@ -1074,7 +1074,7 @@ const reviewerScopeSQL = `
 			GROUP BY slot
 		),
 		roster_slots AS (
-			SELECT jsonb_path_query(decision, '$.panel[*].slots[*]') #>> '{}' AS slot
+			SELECT DISTINCT jsonb_path_query(decision, '$.panel[*].slots[*]') #>> '{}' AS slot
 			FROM decisions
 		)
 `
