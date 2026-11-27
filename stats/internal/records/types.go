@@ -774,6 +774,7 @@ var GuardHelpers = []string{
 	"pair-judge",
 	"pipeline-fix",
 	"plan-check",
+	"prune-candidates",
 	"prepare-workspace",
 	"project-get",
 	"rebuild-full-app-suite-zip",
