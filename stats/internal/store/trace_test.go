@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -16,7 +17,8 @@ import (
 // the spans `flow stats trace` draws: only the asked change's rows (guard
 // runs claimed by worktree), a guard or verify run's start derived from its
 // recorded end minus its duration, an open run's end left nil, ordered by
-// kind, then start.
+// kind, then start; a stored time split rides on its row, a JSON null
+// (no transcript) reads as none.
 func TestTraceSpansOfOneChange(t *testing.T) {
 	t.Parallel()
 	st := newTestStore(t)
@@ -56,6 +58,8 @@ func TestTraceSpansOfOneChange(t *testing.T) {
 	exec(`UPDATE guard_runs SET wait_ms = 1000, bootstrap_ms = 200 WHERE project_key = $1 AND duration_ms = 1500`, pk)
 	exec(`INSERT INTO verify_runs (change_id, kind, label, seconds, tests, failed, exit_code, recorded_at) VALUES
 		($1,'run-verify-list','lint',30,1,0,0,$3), ($2,'run-verify-list','lint',9,1,0,0,$3)`, mine, other, at(130))
+	exec(`UPDATE dispatches SET time_split = '{"llmMs": 1}' WHERE change_id = $1 AND seq = 1`, mine)
+	exec(`UPDATE stage_runs SET time_split = 'null' WHERE change_id = $1`, mine)
 
 	spans, err := st.TraceSpans(ctx, pk, "mine")
 	if err != nil {
@@ -63,7 +67,7 @@ func TestTraceSpansOfOneChange(t *testing.T) {
 	}
 	ptr := func(s int) *time.Time { v := at(s); return &v }
 	want := []store.TraceSpan{
-		{Kind: "dispatch", Lane: "operator-asked operator-1", Name: "operator-asked operator-1", AgentID: "a1", Outcome: "done", Start: at(10), End: ptr(90)},
+		{Kind: "dispatch", Lane: "operator-asked operator-1", Name: "operator-asked operator-1", AgentID: "a1", Outcome: "done", Start: at(10), End: ptr(90), Split: json.RawMessage(`{"llmMs": 1}`)},
 		{Kind: "dispatch", Lane: "panel-reviewer #2", Name: "panel-reviewer #2", Start: at(90)},
 		{Kind: "guard", Lane: "guard bootstrap", Name: "check-a bootstrap", Start: at(20).Add(-1700 * time.Millisecond), End: func() *time.Time { v := at(20).Add(-1500 * time.Millisecond); return &v }()},
 		{Kind: "guard", Lane: "guard", Name: "check-a", Outcome: "clear", Start: at(20).Add(-1500 * time.Millisecond), End: ptr(20)},

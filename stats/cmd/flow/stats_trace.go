@@ -29,9 +29,10 @@ spill into "<lane> (2)", ... A row still open ends at the trace's last
 instant, marked "open" in its args. Tool calls come from each dispatch's
 own subagent transcript under ~/.claude/projects (FLOW_TRANSCRIPTS_DIR
 overrides it), one span per tool_use to its tool_result, kept inside the
-dispatch, and the dispatch's own row carries its transcript time split
-into llmMs, toolMs (toolMsBy per tool, Bash by command word) and humanMs
-(harvest.TimeSplit states the rule); -no-transcripts leaves them out. The project defaults to the one
+dispatch; -no-transcripts leaves them out. Each stage run and dispatch
+carries the transcript time split flowd stored for it into llmMs, toolMs
+(toolMsBy per tool, Bash by command word) and humanMs (harvest.TimeSplit
+states the rule). The project defaults to the one
 flowd knows the change under. -o writes the JSON to a file and prints its
 event count. Exits 1 when flowd cannot be reached or has no such change, 2
 on a usage mistake.
@@ -46,6 +47,8 @@ type traceSpan struct {
 	Outcome string     `json:"outcome"`
 	Start   time.Time  `json:"start"`
 	End     *time.Time `json:"end"`
+	// Split is the row's stored harvest.TimeSplit, null where none is.
+	Split *harvest.TimeSplit `json:"split"`
 }
 
 // chromeEvent is one Trace Event Format event: a complete event (ph X)
@@ -215,12 +218,10 @@ func buildTrace(project, change string, spans []traceSpan, root string, stderr i
 		if s.AgentID != "" {
 			args["agentId"] = s.AgentID
 		}
-		if s.Kind == "dispatch" && s.AgentID != "" && root != "" {
-			if split, found, _ := harvest.AgentTimeSplit(root, s.AgentID, s.Start, end); found {
-				args["llmMs"], args["toolMs"], args["humanMs"] = split.LLMMs, split.ToolMs, split.HumanMs
-				if split.ByTool != nil {
-					args["toolMsBy"] = split.ByTool
-				}
+		if split := s.Split; split != nil {
+			args["llmMs"], args["toolMs"], args["humanMs"] = split.LLMMs, split.ToolMs, split.HumanMs
+			if split.ByTool != nil {
+				args["toolMsBy"] = split.ByTool
 			}
 		}
 		emit(s.Kind, s.Lane, s.Name, s.Start, end, args)

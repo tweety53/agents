@@ -334,7 +334,7 @@ func run(logger *slog.Logger) error {
 		return at, found
 	}
 	restampRecentEnds(ctx, st, time.Now(), agentEnd, logger)
-	srv, err := api.New(cfg, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st), api.WithSkillLoads(st), api.WithChangeFiles(st), api.WithRunTimings(st), api.WithBottlenecks(st), api.WithTrace(st), api.WithStateRoot(fallback.StateRoot(os.Getenv)), api.WithTranscriptsRoot(transcriptsRoot), api.WithRepricer(st), api.WithPolicy(st, embedded.Table), api.WithRoleCosts(st, roleCostsSince),
+	srv, err := api.New(cfg, st, st, st, st, logger, api.WithSPA(spaHandler), api.WithGuardRuns(st), api.WithSkillLoads(st), api.WithChangeFiles(st), api.WithRunTimings(st), api.WithBottlenecks(st), api.WithTrace(st), api.WithStateRoot(fallback.StateRoot(os.Getenv)), api.WithRepricer(st), api.WithPolicy(st, embedded.Table), api.WithRoleCosts(st, roleCostsSince),
 		api.WithCommitBase(commitBaseFromRemote(originRemote())), api.WithBuild(buildIdentity()),
 		api.WithAgentEnds(agentEnd))
 	if err != nil {
@@ -407,6 +407,7 @@ func run(logger *slog.Logger) error {
 		}
 		watcher.Run(watchCtx, harvestInterval)
 	}()
+	go runTimeSplitHarvest(watchCtx, transcriptsRoot, st, harvestInterval, logger)
 
 	// Task 10: close stage runs whose session has gone silent past
 	// sweepSilenceTimeout, with outcome "abandoned" -- design.md's "Stage

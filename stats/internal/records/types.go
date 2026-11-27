@@ -130,6 +130,10 @@ type Dispatch struct {
 	// Retimed is the audit `flow record dispatch retime` leaves; nil on a
 	// row never retimed.
 	Retimed *Retime `json:"retimed,omitempty"`
+	// TimeSplit is the agent transcript's harvest.TimeSplit inside the
+	// row's window, as flowd's harvest tick stored it (0115_time_splits.sql);
+	// nil until stored and where no transcript was found.
+	TimeSplit json.RawMessage `json:"timeSplit,omitempty"`
 }
 
 // Retime is a retimed dispatch row's audit (decision retime-jsonb-drop-old):

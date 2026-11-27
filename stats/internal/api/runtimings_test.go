@@ -616,50 +616,23 @@ func TestSPANotCategoriesMatchesTheServerLabels(t *testing.T) {
 	}
 }
 
-// TestRunTimingsRouteSplitsAgentTime: with a transcripts root, the per-run
-// route sums each dispatch's harvest.AgentTimeSplit inside the dispatch's
-// own window into totals.agentTimeSplit; without one the field is absent.
-func TestRunTimingsRouteSplitsAgentTime(t *testing.T) {
+// TestRunTimingsSumsStoredAgentSplits: totals.agentTimeSplit sums the
+// dispatches' stored time splits, per tool included; a dispatch with none
+// adds nothing, and with none stored at all the field is absent -- never
+// recomputed from a transcript.
+func TestRunTimingsSumsStoredAgentSplits(t *testing.T) {
 	t.Parallel()
-	root := t.TempDir()
-	dir := filepath.Join(root, "proj", "sess", "subagents")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	in := rtInput()
+	in.Dispatches[0].TimeSplit = json.RawMessage(`{"llmMs":100,"toolMs":30,"humanMs":5,"byTool":{"Bash make":20,"Read":10}}`)
+	in.Dispatches[2].TimeSplit = json.RawMessage(`{"llmMs":50,"toolMs":7,"humanMs":0,"byTool":{"Bash make":7}}`)
+	got, err := json.Marshal(computeRun(in, rtAt(200)).Totals.AgentTimeSplit)
+	if err != nil {
 		t.Fatal(err)
 	}
-	ts := func(min float64) string { return strconv.Quote(rtAt(min).Format(time.RFC3339Nano)) }
-	lines := `{"type":"user","timestamp":` + ts(0) + `,"message":{"content":"go"}}
-{"type":"assistant","timestamp":` + ts(1) + `,"message":{"content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"make x"}}]}}
-{"type":"user","timestamp":` + ts(3) + `,"message":{"content":[{"type":"tool_result","tool_use_id":"t1"}]}}
-{"type":"assistant","timestamp":` + ts(40) + `,"message":{"content":[{"type":"text","text":"late"}]}}
-`
-	if err := os.WriteFile(filepath.Join(dir, "agent-a1.jsonl"), []byte(lines), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	get := func(opts ...Option) map[string]json.RawMessage {
-		srv, err := New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, nil, nil, nil, nil, nil, append([]Option{WithRunTimings(runTimingsFake{})}, opts...)...)
-		if err != nil {
-			t.Fatal(err)
-		}
-		h := httptest.NewServer(srv.Handler())
-		defer h.Close()
-		resp, err := http.Get(h.URL + "/api/v1/stats/run/p/kan-3-c")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer resp.Body.Close()
-		var got struct {
-			Totals map[string]json.RawMessage `json:"totals"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
-			t.Fatal(err)
-		}
-		return got.Totals
-	}
-	want := `{"llmMs":1680000,"toolMs":120000,"humanMs":0,"byTool":{"Bash make":120000}}`
-	if got := string(get(WithTranscriptsRoot(root))["agentTimeSplit"]); got != want {
+	if want := `{"llmMs":150,"toolMs":37,"humanMs":5,"byTool":{"Bash make":27,"Read":10}}`; string(got) != want {
 		t.Errorf("agentTimeSplit = %s, want %s", got, want)
 	}
-	if got, ok := get()["agentTimeSplit"]; ok {
-		t.Errorf("no transcripts root: agentTimeSplit = %s, want absent", got)
+	if s := computeRun(rtInput(), rtAt(200)).Totals.AgentTimeSplit; s != nil {
+		t.Errorf("none stored: agentTimeSplit = %+v, want absent", s)
 	}
 }

@@ -50,13 +50,13 @@ not json
 	}
 }
 
-// TestAgentTimeSplitClassesEachGap: every gap between two consecutive
+// TestTranscriptGapsSplitEachGap: every gap between two consecutive
 // timestamped lines is classed by the line that ends it -- an assistant line
 // is llm time, a user line answering a tool_use is tool time under that
 // tool (Bash by its command word), any other user line is human time; a gap
 // is clipped to the window and a line stamped before its predecessor adds
 // nothing.
-func TestAgentTimeSplitClassesEachGap(t *testing.T) {
+func TestTranscriptGapsSplitEachGap(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
 	dir := filepath.Join(root, "proj", "sess", "subagents")
@@ -74,18 +74,60 @@ func TestAgentTimeSplitClassesEachGap(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "agent-a1.jsonl"), []byte(lines), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	got, found, err := harvest.AgentTimeSplit(root, "a1", t0, t0.Add(time.Hour))
+	path, found, err := harvest.AgentTranscriptPath(root, "sess", "a1")
 	if err != nil || !found {
 		t.Fatalf("found=%v err=%v", found, err)
 	}
+	gaps, err := harvest.ReadTranscriptGaps(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	if last := gaps[len(gaps)-1].To; !last.Equal(t0.Add(77 * time.Second)) {
+		t.Errorf("last gap ends %v, want the latest stamp", last)
+	}
+	got := harvest.SplitGaps(gaps, t0, t0.Add(time.Hour))
 	want := harvest.TimeSplit{LLMMs: 6000, ToolMs: 11000, HumanMs: 60000, ByTool: map[string]int64{"Read": 1000, "Bash go": 10000}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("split:\n got %+v\nwant %+v", got, want)
 	}
-	clipped, _, _ := harvest.AgentTimeSplit(root, "a1", t0.Add(2*time.Second), t0.Add(10*time.Second))
+	clipped := harvest.SplitGaps(gaps, t0.Add(2*time.Second), t0.Add(10*time.Second))
 	want = harvest.TimeSplit{LLMMs: 2000, ToolMs: 6000, ByTool: map[string]int64{"Read": 1000, "Bash go": 5000}}
 	if !reflect.DeepEqual(clipped, want) {
 		t.Errorf("clipped:\n got %+v\nwant %+v", clipped, want)
+	}
+}
+
+// TestTokenTranscriptPath: a cc- token names its agent's transcript -- the
+// session's own file for main, the agent's subagents file otherwise -- and
+// an mf-/fi- token names none.
+func TestTokenTranscriptPath(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	sess := "75ff2114-8338-4a5e-8d6d-462e72ab97c5"
+	main := filepath.Join(root, "proj", sess+".jsonl")
+	agent := filepath.Join(root, "proj", sess, "subagents", "agent-a18f.jsonl")
+	for _, p := range []string{main, agent} {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, c := range []struct {
+		token, path string
+		ok, found   bool
+	}{
+		{"cc-" + sess + "-main", main, true, true},
+		{"cc-" + sess + "-a18f", agent, true, true},
+		{"cc-" + sess + "-absent", "", true, false},
+		{"mf-7c3a91e2", "", false, false},
+		{"fi-7c3a91e2", "", false, false},
+	} {
+		path, ok, found, err := harvest.TokenTranscriptPath(root, c.token)
+		if err != nil || path != c.path || ok != c.ok || found != c.found {
+			t.Errorf("%s: path=%q ok=%v found=%v err=%v, want %q %v %v", c.token, path, ok, found, err, c.path, c.ok, c.found)
+		}
 	}
 }

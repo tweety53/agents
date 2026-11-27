@@ -17,7 +17,7 @@
 {"name":"thread_name","ph":"M","ts":0,"pid":1,"tid":8,"args":{"name":"verify"}},
 {"name":"thread_sort_index","ph":"M","ts":0,"pid":1,"tid":8,"args":{"sort_index":8}},
 {"name":"request 1: add trace","cat":"request","ph":"X","ts":0,"dur":200000000,"pid":1,"tid":1,"args":{"outcome":"landed"}},
-{"name":"flow.implement #1","cat":"stage","ph":"X","ts":0,"dur":100000000,"pid":1,"tid":2,"args":{"outcome":"completed"}},
+{"name":"flow.implement #1","cat":"stage","ph":"X","ts":0,"dur":100000000,"pid":1,"tid":2,"args":{"humanMs":5000,"llmMs":70000,"outcome":"completed","toolMs":25000,"toolMsBy":{"Agent":25000}}},
 {"name":"flow.verify #1","cat":"stage","ph":"X","ts":90000000,"dur":110000000,"pid":1,"tid":3,"args":{"open":true}},
 {"name":"operator-asked operator-1","cat":"dispatch","ph":"X","ts":10000000,"dur":80000000,"pid":1,"tid":4,"args":{"agentId":"a1","humanMs":0,"llmMs":60000,"outcome":"done","toolMs":10000,"toolMsBy":{"Bash git":5000,"Bash go":4000,"Read":1000}}},
 {"name":"Bash: go test ./...","cat":"tool","ph":"X","ts":20000000,"dur":5000000,"pid":1,"tid":5},

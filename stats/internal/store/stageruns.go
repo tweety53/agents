@@ -141,6 +141,11 @@ type StageRun struct {
 	// RequestN is the /flow-interactive request this run worked on
 	// (0056_requests.sql), nil for a run of no request.
 	RequestN *int
+	// TranscriptPath and TimeSplit are the run's transcript link and its
+	// stored harvest.TimeSplit (0115_time_splits.sql), read by
+	// stageRunSelect only; nil until flowd's harvest tick sets them.
+	TranscriptPath *string
+	TimeSplit      json.RawMessage
 	// SupersededRuns is set only by BeginStage, naming the still-open runs
 	// its own begin closed as superseded; every read path leaves it nil.
 	// See SupersededRun.
@@ -934,7 +939,7 @@ func (s *Store) RetokenStageRun(ctx context.Context, id int64, sessionToken stri
 // LEFT JOIN changes c.
 const stageRunSelect = `sr.id, COALESCE(sr.change_id, 0), sr.repo_root, sr.harness, sr.session_id, sr.session_token, sr.command, sr.stage,
 		       sr.attempt, sr.started_at, sr.ended_at, sr.outcome, sr.metrics, sr.auto_opened, sr.request_n,
-		       c.name, ` + projectKeyExpr
+		       sr.transcript_path, sr.time_split, c.name, ` + projectKeyExpr
 
 // scanStageRuns scans rows selecting stageRunSelect.
 func scanStageRuns(rows pgx.Rows) ([]StageRun, error) {
@@ -947,11 +952,12 @@ func scanStageRuns(rows pgx.Rows) ([]StageRun, error) {
 			sessionToken *string
 			changeName   *string
 			projectKey   *string
+			timeSplit    []byte
 		)
 		if err := rows.Scan(
 			&run.ID, &run.ChangeID, &run.RepoRoot, &run.Harness, &sessionID, &sessionToken, &run.Command, &run.Stage,
 			&run.Attempt, &run.StartedAt, &run.EndedAt, &run.Outcome, &metrics, &run.AutoOpened, &run.RequestN,
-			&changeName, &projectKey,
+			&run.TranscriptPath, &timeSplit, &changeName, &projectKey,
 		); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
@@ -960,6 +966,7 @@ func scanStageRuns(rows pgx.Rows) ([]StageRun, error) {
 		run.ChangeName = changeName
 		run.ProjectKey = projectKey
 		run.Metrics = metrics
+		run.TimeSplit = storedSplit(timeSplit)
 		out = append(out, run)
 	}
 	if err := rows.Err(); err != nil {

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -23,13 +24,14 @@ func WithTrace(s TraceStore) Option {
 
 // TraceSpan is store.TraceSpan on the wire; End is null while open.
 type TraceSpan struct {
-	Kind    string     `json:"kind"`
-	Lane    string     `json:"lane"`
-	Name    string     `json:"name"`
-	AgentID string     `json:"agentId,omitempty"`
-	Outcome string     `json:"outcome,omitempty"`
-	Start   time.Time  `json:"start"`
-	End     *time.Time `json:"end,omitempty"`
+	Kind    string          `json:"kind"`
+	Lane    string          `json:"lane"`
+	Name    string          `json:"name"`
+	AgentID string          `json:"agentId,omitempty"`
+	Outcome string          `json:"outcome,omitempty"`
+	Start   time.Time       `json:"start"`
+	End     *time.Time      `json:"end,omitempty"`
+	Split   json.RawMessage `json:"split,omitempty"`
 }
 
 type traceHandler struct {

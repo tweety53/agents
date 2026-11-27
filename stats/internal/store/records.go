@@ -433,7 +433,7 @@ func (s *Store) RecordDispatch(ctx context.Context, projectKey, change string, i
 // the wrong column into the wrong field.
 const dispatchColumns = `id, seq, stage_run_id, task_id, role, slot, model, commit_sha, outcome,
 	          cause, session_token, started_at, ended_at, metrics, notes, agent_id, dispatch_key,
-	          diff_base, effort, round_base, pair_pick, request, retimed, policy_role, cause_detail`
+	          diff_base, effort, round_base, pair_pick, request, retimed, policy_role, cause_detail, time_split`
 
 // qualifiedDispatchColumns is dispatchColumns with every name qualified by
 // alias, for the one statement that needs it -- an UPDATE ... FROM, where
@@ -494,11 +494,12 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 		causeDetail  *string
 		bag          []byte
 		retimed      []byte
+		timeSplit    []byte
 	)
 	if err := row.Scan(
 		&d.ID, &d.Seq, &d.StageRunID, &taskID, &d.Role, &slot, &d.Model, &commitSHA, &outcome,
 		&cause, &sessionToken, &d.StartedAt, &d.EndedAt, &bag, &notes, &agentID, &dispatchKey,
-		&diffBase, &d.Effort, &roundBase, &pairPick, &d.Request, &retimed, &policyRole, &causeDetail,
+		&diffBase, &d.Effort, &roundBase, &pairPick, &d.Request, &retimed, &policyRole, &causeDetail, &timeSplit,
 	); err != nil {
 		return records.Dispatch{}, err
 	}
@@ -523,6 +524,7 @@ func scanDispatchRow(row dispatchRowScanner) (records.Dispatch, error) {
 	d.PairPick = derefOrEmpty(pairPick)
 	d.PolicyRole = derefOrEmpty(policyRole)
 	d.Metrics = bag
+	d.TimeSplit = storedSplit(timeSplit)
 	return d, nil
 }
 

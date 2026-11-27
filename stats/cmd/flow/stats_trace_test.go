@@ -14,12 +14,13 @@ import (
 
 // traceSpansFixture is flowd's answer for one small change: a request, two
 // overlapping stage runs, one dispatch whose agent left a transcript, a
-// guard run, a verify run, and a stage run still open.
+// guard run, a verify run, and a stage run still open; the dispatch and the
+// first stage run carry the time split flowd stored for them.
 const traceSpansFixture = `[
- {"kind":"dispatch","lane":"operator-asked operator-1","name":"operator-asked operator-1","agentId":"a1","outcome":"done","start":"2026-01-01T00:00:10Z","end":"2026-01-01T00:01:30Z"},
+ {"kind":"dispatch","lane":"operator-asked operator-1","name":"operator-asked operator-1","agentId":"a1","outcome":"done","start":"2026-01-01T00:00:10Z","end":"2026-01-01T00:01:30Z","split":{"llmMs":60000,"toolMs":10000,"humanMs":0,"byTool":{"Bash git":5000,"Bash go":4000,"Read":1000}}},
  {"kind":"guard","lane":"guard","name":"check-a","outcome":"clear","start":"2026-01-01T00:00:19.5Z","end":"2026-01-01T00:00:20Z"},
  {"kind":"request","lane":"request","name":"request 1: add trace","outcome":"landed","start":"2026-01-01T00:00:00Z","end":"2026-01-01T00:03:20Z"},
- {"kind":"stage","lane":"stage","name":"flow.implement #1","outcome":"completed","start":"2026-01-01T00:00:00Z","end":"2026-01-01T00:01:40Z"},
+ {"kind":"stage","lane":"stage","name":"flow.implement #1","outcome":"completed","start":"2026-01-01T00:00:00Z","end":"2026-01-01T00:01:40Z","split":{"llmMs":70000,"toolMs":25000,"humanMs":5000,"byTool":{"Agent":25000}}},
  {"kind":"stage","lane":"stage","name":"flow.verify #1","start":"2026-01-01T00:01:30Z"},
  {"kind":"verify","lane":"verify","name":"lint","outcome":"exit 0","start":"2026-01-01T00:01:40Z","end":"2026-01-01T00:02:10Z"}
 ]`
