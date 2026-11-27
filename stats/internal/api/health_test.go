@@ -1,20 +1,11 @@
 package api_test
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
-	"net/http/httptest"
-	"slices"
 	"testing"
 	"time"
 
-	"github.com/tweety53/agents/stats/internal/api"
-	"github.com/tweety53/agents/stats/internal/config"
-	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -133,111 +124,5 @@ func TestHealthViewsRefuseAModelRestriction(t *testing.T) {
 				t.Fatalf("status %d, want 400; body %s", status, body)
 			}
 		})
-	}
-}
-
-// guardRunFake is the GuardRunStore the route's tests wire through
-// api.WithGuardRuns.
-type guardRunFake struct {
-	project string
-	got     records.GuardRun
-	err     error
-}
-
-func (f *guardRunFake) RecordGuardRun(_ context.Context, projectKey string, in records.GuardRun) (records.GuardRun, error) {
-	f.project, f.got = projectKey, in
-	if f.err != nil {
-		return records.GuardRun{}, f.err
-	}
-	in.ID = 7
-	return in, nil
-}
-
-func newGuardRunServer(t *testing.T, f api.GuardRunStore) *httptest.Server {
-	t.Helper()
-	cfg := config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}
-	var opts []api.Option
-	if f != nil {
-		opts = append(opts, api.WithGuardRuns(f))
-	}
-	srv, err := api.New(cfg, newFakeStore(), newFakeStore(), newFakeStore(), newFakeStore(), nil, opts...)
-	if err != nil {
-		t.Fatalf("api.New: %v", err)
-	}
-	ts := httptest.NewServer(srv.Handler())
-	t.Cleanup(ts.Close)
-	return ts
-}
-
-func postGuardRun(t *testing.T, ts *httptest.Server, project string, in records.GuardRun) (int, []byte) {
-	t.Helper()
-	b, err := json.Marshal(in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp, err := http.Post(ts.URL+"/api/v1/guard-runs/"+project, "application/json", bytes.NewReader(b))
-	if err != nil {
-		t.Fatalf("POST: %v", err)
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-	return resp.StatusCode, body
-}
-
-func TestRecordGuardRunRoute(t *testing.T) {
-	t.Parallel()
-	run := records.GuardRun{Guard: "check-references", Worktree: "/w/kan-1", ExitCode: 1,
-		Outcome: "fired", DurationMS: 120, RecordedAt: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)}
-
-	t.Run("records the run against the project", func(t *testing.T) {
-		f := &guardRunFake{}
-		ts := newGuardRunServer(t, f)
-		status, body := postGuardRun(t, ts, "agents-1234abcd", run)
-		if status != http.StatusCreated {
-			t.Fatalf("status %d, want 201; body %s", status, body)
-		}
-		if f.project != "agents-1234abcd" || f.got.Guard != run.Guard || f.got.Outcome != "fired" || f.got.DurationMS != 120 {
-			t.Errorf("store got %s %+v", f.project, f.got)
-		}
-	})
-
-	for _, tc := range []struct {
-		err  error
-		want int
-	}{
-		{fmt.Errorf("%w: x", store.ErrProjectNotFound), http.StatusNotFound},
-		{fmt.Errorf("%w: x", store.ErrInvalidGuardRun), http.StatusBadRequest},
-	} {
-		t.Run(fmt.Sprintf("maps %v to %d", tc.err, tc.want), func(t *testing.T) {
-			ts := newGuardRunServer(t, &guardRunFake{err: tc.err})
-			if status, body := postGuardRun(t, ts, "p", run); status != tc.want {
-				t.Fatalf("status %d, want %d; body %s", status, tc.want, body)
-			}
-		})
-	}
-
-	t.Run("absent without WithGuardRuns", func(t *testing.T) {
-		ts := newGuardRunServer(t, nil)
-		if status, body := postGuardRun(t, ts, "p", run); status != http.StatusNotFound {
-			t.Fatalf("status %d, want 404; body %s", status, body)
-		}
-	})
-}
-
-// TestRecordGuardRunRouteCarriesReasons: the POST's reasons reach the store
-// unchanged, in order, through the route's strict decoder.
-func TestRecordGuardRunRouteCarriesReasons(t *testing.T) {
-	t.Parallel()
-	run := records.GuardRun{Guard: "check-references", Worktree: "/w/kan-1", ExitCode: 1,
-		Outcome: "fired", DurationMS: 120, RecordedAt: time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
-		Reasons: []string{"F2", "F6"}}
-	f := &guardRunFake{}
-	ts := newGuardRunServer(t, f)
-	status, body := postGuardRun(t, ts, "p", run)
-	if status != http.StatusCreated {
-		t.Fatalf("status %d, want 201; body %s", status, body)
-	}
-	if !slices.Equal(f.got.Reasons, []string{"F2", "F6"}) {
-		t.Errorf("store got reasons %q, want [F2 F6]", f.got.Reasons)
 	}
 }

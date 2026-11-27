@@ -571,7 +571,7 @@ func TestSeedRunCostsFixture(t *testing.T) {
 	}
 
 	srv, err := api.New(config.Config{Host: "127.0.0.1", Port: 0, DSN: "unused"}, st, st, st, st,
-		slog.New(slog.NewTextHandler(io.Discard, nil)), api.WithRunTimings(st), api.WithChangeFiles(st), api.WithGuardRuns(st))
+		slog.New(slog.NewTextHandler(io.Discard, nil)), api.WithRunTimings(st), api.WithChangeFiles(st))
 	if err != nil {
 		t.Fatalf("api.New: %v", err)
 	}

@@ -1,18 +1,15 @@
 // health.go serves the flow-health dashboard: the guard-health view over
-// store/health.go -- one row per guard, helpers excluded -- and POST
-// /api/v1/guard-runs/{project}, one guard run's write (the flow-guard binary
-// itself appends its runs to a file flowd ingests, cmd/flowd/hookruns.go).
+// store/health.go -- one row per guard, helpers excluded. The runs it reads
+// reach the store through flowd's ingestion of the file flow-guard appends
+// them to (cmd/flowd/hookruns.go).
 package api
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
 
@@ -74,50 +71,4 @@ func toGuardHealthDTOs(rows []store.GuardHealthRow) []guardHealthDTO {
 		}
 	}
 	return out
-}
-
-// GuardRunStore is the store dependency POST /api/v1/guard-runs/{project}
-// needs, defined at the consumer. It is wired through WithGuardRuns rather
-// than New's positional stores, so a server built without it -- every test
-// that never exercises the route -- carries no fake for it.
-type GuardRunStore interface {
-	RecordGuardRun(ctx context.Context, projectKey string, in records.GuardRun) (records.GuardRun, error)
-}
-
-var _ GuardRunStore = (*store.Store)(nil)
-
-// WithGuardRuns registers POST /api/v1/guard-runs/{project} against s.
-func WithGuardRuns(s GuardRunStore) Option {
-	return func(o *serverOptions) { o.guardRuns = s }
-}
-
-type guardRunHandler struct {
-	store  GuardRunStore
-	logger *slog.Logger
-}
-
-// record serves POST /api/v1/guard-runs/{project}: one guard invocation.
-// An unknown project answers 404 and is not logged as a failure -- it is the
-// expected answer for a guard run inside a test fixture's repository.
-func (h *guardRunHandler) record(w http.ResponseWriter, r *http.Request) {
-	project := r.PathValue("project")
-
-	var in records.GuardRun
-	if err := decodeJSONBody(w, r, &in); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	out, err := h.store.RecordGuardRun(r.Context(), project, in)
-	switch {
-	case err == nil:
-		writeJSON(w, http.StatusCreated, out)
-	case errors.Is(err, store.ErrProjectNotFound):
-		writeError(w, http.StatusNotFound, err.Error())
-	case errors.Is(err, store.ErrInvalidGuardRun):
-		writeError(w, http.StatusBadRequest, err.Error())
-	default:
-		status, msg := mapStoreError(h.logger, "record guard run for "+project, err)
-		writeError(w, status, msg)
-	}
 }
