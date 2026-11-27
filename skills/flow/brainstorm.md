@@ -206,7 +206,8 @@ returned `PLAN-WRITTEN`, in `/flow`'s creating run and a `/flow-plan` capture. A
 4. **`PLAN-CHECK-NOT-RUN`** — the check could not run: say so on the `**Plan check:**` line and go
    on, never as clean.
 
-**A changed `tasks.md` re-decides once.** `plan-check … -decide-only` rewrites `decision.json` and
+**A changed `tasks.md` re-decides once.** `plan-check … -decide-only` rewrites `decision.json` —
+or keeps it with no model call when the plan's shape is unchanged, as its header states — and
 leaves `plan-check.md` as it is. **That re-run is the only one: it happens once whenever `tasks.md`
 changed after the check — a triage fix or an operator's change — and the decision is recorded
 again.**

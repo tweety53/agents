@@ -584,3 +584,43 @@ func TestPlanCheckNoEstimateLine(t *testing.T) {
 		t.Fatalf("rc=%d calls=%s stdout=%q report=%q", r.rc, stub.calls(), r.stdout, b)
 	}
 }
+
+// TestPlanCheckDecideOnlySkipsAnUnchangedShape: after a full check, -decide-only keeps decision.json
+// without a model call while tasks.md keeps its tasks and their Files:, After:, Size: and
+// repository; a task added or removed, or one of those fields changed, calls the decider again.
+func TestPlanCheckDecideOnlySkipsAnUnchangedShape(t *testing.T) {
+	t.Parallel()
+	for name, c := range map[string]struct {
+		plan string
+		asks bool
+	}{
+		"prose only":   {strings.Replace(dgpvPlan, "first", "first, reworded", 1), false},
+		"task added":   {dgpvPlan + "\n- [ ] 4. fourth\n", true},
+		"task removed": {strings.Replace(dgpvPlan, "- [ ] 3. third\n\n**After:** Task 1\n", "", 1), true},
+		"files added":  {strings.Replace(dgpvPlan, "**Size:** small\n", "**Size:** small\n\n**Files:**\n- a.go\n", 1), true},
+		"after moved":  {strings.Replace(dgpvPlan, "**After:** Task 1", "**After:** Task 2", 1), true},
+		"size changed": {strings.Replace(dgpvPlan, "**Size:** small", "**Size:** big", 1), true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			wt, root, out := dgpvFixture(t)
+			stub := pcSeq(t, pjJSON(pcAnswer(pcReport, dgpvGood), ""), "exit 3\n")
+			env := pjEnv(t, pjPolicy(dgpvPolicy), stub)
+			if r := runGuard("plan-check", []string{wt, root, out}, env); r.rc != 0 {
+				t.Fatalf("full check rc=%d err=%q", r.rc, r.err)
+			}
+			before, _ := os.ReadFile(out)
+			writeFile(t, root+"/tasks.md", c.plan)
+			r := runGuard("plan-check", []string{wt, root, out, "-decide-only"}, env)
+			if asked := stub.calls() == "3"; asked != c.asks {
+				t.Fatalf("decider asked=%v (calls %s), want %v; rc=%d stdout=%q err=%q", asked, stub.calls(), c.asks, r.rc, r.stdout, r.err)
+			}
+			if c.asks {
+				return
+			}
+			if after, _ := os.ReadFile(out); r.rc != 0 || string(after) != string(before) || !strings.Contains(r.stdout, "plan-check (unchanged):") {
+				t.Errorf("rc=%d stdout=%q err=%q, decision kept=%v", r.rc, r.stdout, r.err, string(after) == string(before))
+			}
+		})
+	}
+}

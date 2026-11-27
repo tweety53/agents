@@ -43,6 +43,11 @@ import (
 // removes a confidence.json an earlier check left. -decide-only neither
 // writes nor removes it.
 //
+// Every written decision is paired with <worktree>/.superpowers/sdd/plan-check-shape.json, the
+// plan's shape (pcShape): each task's id, size, repository, After: set and Files: entries. A
+// -decide-only run whose <out-decision.json> exists and whose plan has that same shape makes no
+// model call: it keeps the decision, writes nothing, prints `plan-check (unchanged): …` and exits 0.
+//
 // One plan-check makes at most two model calls (pcAsks): an answer owed a retry — a failed call, an
 // unusable decision, a report with no terminal line — is asked once more with its reason appended to
 // the system prompt, and a usable first decision is kept over an unusable retry.
@@ -62,9 +67,9 @@ import (
 // groups · gated review <on|off> · panel <a+b> … · visual <verify>`, and in the full mode
 // ` · confidence <n>%` or ` · confidence unknown` after it.
 //
-// Exit 0 on a written result. Exit 1 on no usable decision. Exit 2, nothing on
+// Exit 0 on a written or kept result. Exit 1 on no usable decision. Exit 2, nothing on
 // stdout: usage (reason usage), a tasks.md that is unreadable or holds no
-// task (plan-unreadable), or a decision, report or confidence file that cannot be written
+// task (plan-unreadable), or a decision, report, confidence or shape file that cannot be written
 // (cannot-write-result).
 //
 // Go, in flow-guard (stats/internal/guard/plancheck.go).
@@ -141,6 +146,14 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 	var report, source, spend, cause, note string
 	var d *dgpvDecision
 	repoAt := pdgRepositories(env, planPath, lines)
+	shapePath, shape := filepath.Join(wt, ".superpowers", "sdd", "plan-check-shape.json"), pcShape(tasks, repoAt)
+	if decideOnly {
+		_, outErr := os.Stat(out)
+		if kept, err := os.ReadFile(shapePath); err == nil && outErr == nil && string(kept) == string(shape) {
+			fmt.Fprintf(stdout, "plan-check (unchanged): tasks.md kept its tasks and their Files:, After:, Size: and repository — %s kept\n", out)
+			return 0
+		}
+	}
 	for range pcAsks {
 		r, dd, src, sp, c, retry := pcAsk(env, wt, root, lines, tasks, repoAt, visual, decideOnly, note)
 		spend += sp
@@ -213,6 +226,11 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 		Reason(env, "cannot-write-result")
 		return 2
 	}
+	if err := write(shapePath, shape); err != nil {
+		fmt.Fprintf(stderr, "plan-check: %v\n", err)
+		Reason(env, "cannot-write-result")
+		return 2
+	}
 	var bundles []string
 	for _, p := range d.Panel {
 		bundles = append(bundles, strings.Join(p.Slots, "+"))
@@ -220,6 +238,22 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 	gated := map[bool]string{true: "on", false: "off"}[dgpvGatedReview(*d, tasks)]
 	fmt.Fprintf(stdout, "plan-check (%s): %s · %d groups · gated review %s · panel %s · visual %s%s%s\n", source, last, len(d.Groups), gated, strings.Join(bundles, " "), d.Visual.Verify, confidence, spend)
 	return 0
+}
+
+// pcShape is what a decision depends on in a plan: each task's id, size, repository, After: set and
+// Files: entries, in document order — so a -decide-only run on a plan whose shape is unchanged keeps
+// the decision it would re-derive from the same facts.
+func pcShape(tasks []pdbTask, repoAt []string) []byte {
+	type task struct {
+		ID, Size, Repo string
+		After, Files   []string
+	}
+	var shape []task
+	for _, t := range tasks {
+		shape = append(shape, task{t.id, t.size, repoAt[t.taskLine], t.afterSet, t.files})
+	}
+	b, _ := json.Marshal(shape)
+	return append(b, '\n')
 }
 
 // pcConfidenceOf reads the report's `### Execution confidence` section: the
