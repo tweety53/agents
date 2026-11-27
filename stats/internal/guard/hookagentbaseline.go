@@ -545,7 +545,7 @@ func (e *eab) changeFinished() bool {
 	if change == "" || key == "" {
 		return false
 	}
-	v, err := hookGetJSON(e.env, hookFlowAddr(e.env)+"/api/v1/changes/"+pyQuoteURL(key)+"/"+pyQuoteURL(change), hookBound(e.env, 2*time.Second))
+	v, err := hookGetJSON(e.env, hookFlowAddr(e.env)+"/api/v1/changes/"+pyQuoteURL(key, "/")+"/"+pyQuoteURL(change, "/"), hookBound(e.env, 2*time.Second))
 	m, _ := v.(map[string]any)
 	return err == nil && m["state"] == "FINISHED"
 }

@@ -13,6 +13,13 @@ import (
 // port and the incident write stubbed, so no case reads or writes the dev store.
 func runHookInProcess(t *testing.T, name, stdin string, vars ...string) (string, int) {
 	t.Helper()
+	out, _, rc := runHookStreams(t, name, stdin, vars...)
+	return out, rc
+}
+
+// runHookStreams is runHookInProcess returning the hook's stderr as well.
+func runHookStreams(t *testing.T, name, stdin string, vars ...string) (string, string, int) {
+	t.Helper()
 	m := map[string]string{"FLOW_ADDR": "http://127.0.0.1:1", "FLOW_HOOK_INCIDENT_CMD": "true", "PATH": os.Getenv("PATH")}
 	for _, kv := range vars {
 		k, v, _ := strings.Cut(kv, "=")
@@ -21,7 +28,7 @@ func runHookInProcess(t *testing.T, name, stdin string, vars ...string) (string,
 	var out, errb bytes.Buffer
 	env := Env{Getenv: func(k string) string { return m[k] }, Dir: t.TempDir(), Stdin: strings.NewReader(stdin)}
 	rc := Registry["hook"]([]string{name}, env, &out, &errb)
-	return out.String(), rc
+	return out.String(), errb.String(), rc
 }
 
 // TestHookEnforceAgentBaselineBytes pins the hook's deny output byte for byte against what
@@ -86,5 +93,22 @@ func TestHookAwaitOwnAgentsBytes(t *testing.T) {
 	want := `{"decision": "block", "reason": "Agents you launched are still running (c1). Stop again to keep waiting for them -- ending your turn on your own would lose your 5-minute prompt cache."}` + "\n"
 	if rc != 0 || out != want {
 		t.Errorf("rc=%d\n got: %q\nwant: %q", rc, out, want)
+	}
+}
+
+// TestHookEnforceLoopDispatchBytes pins what hooks/enforce-loop-dispatch.py logged before its
+// port, byte for byte: the checker's arguments, and on its non-zero exit the line naming the key
+// and exit code followed by the checker's stdout then stderr; nothing on stdout either way.
+func TestHookEnforceLoopDispatchBytes(t *testing.T) {
+	t.Parallel()
+	check := filepath.Join(t.TempDir(), "chk")
+	if err := os.WriteFile(check, []byte("#!/bin/sh\necho \"out:$*\"\necho err >&2\nexit 2\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stdin := `{"tool_name":"Agent","tool_input":{"prompt":"Key: self-review-a-b\nRole: implementer\n~/.claude/rules/agent-baseline.md","subagent_type":"flow-low","model":"opus"}}`
+	out, errOut, rc := runHookStreams(t, "enforce-loop-dispatch", stdin, "LOOP_DISPATCH_CHECK="+check, "FLOW_GUARD_REPO_ROOT=/repo")
+	want := "enforce-loop-dispatch: self-review-a-b not recorded (flow-guard check-loop-dispatch exit 2):\nout:/repo self-review-a-b flow-low opus implementer\nerr\n\n"
+	if rc != 0 || out != "" || errOut != want {
+		t.Errorf("rc=%d out=%q\n got: %q\nwant: %q", rc, out, errOut, want)
 	}
 }

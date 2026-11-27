@@ -189,13 +189,13 @@ func pyWords(v any) []string {
 	return strings.Fields(s)
 }
 
-// pyQuoteURL is Python's urllib.parse.quote(s): every byte outside letters, digits and `_.-~/`
-// percent-encoded.
-func pyQuoteURL(s string) string {
+// pyQuoteURL is Python's urllib.parse.quote(s, safe): every byte outside letters, digits, `_.-~`
+// and safe percent-encoded.
+func pyQuoteURL(s, safe string) string {
 	var b strings.Builder
 	for i := 0; i < len(s); i++ {
 		c := s[i]
-		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.IndexByte("_.-~/", c) >= 0 {
+		if c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || strings.IndexByte("_.-~"+safe, c) >= 0 {
 			b.WriteByte(c)
 		} else {
 			fmt.Fprintf(&b, "%%%02X", c)

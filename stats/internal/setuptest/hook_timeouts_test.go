@@ -18,8 +18,9 @@ func TestLoopHookTimeoutsFailClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	reg := regexp.MustCompile(`"timeout": ([0-9]+)`)
-	wait := regexp.MustCompile(`(?m)^[A-Z_]*TIMEOUT = ([0-9]+)`)
-	for _, hook := range []string{"enforce-loop-dispatch"} {
+	wait := regexp.MustCompile(`(?m)^const [A-Za-z]*Timeout = ([0-9]+) \* time\.Second`)
+	// Each hook's Go port, the file whose wait the shim hooks/<hook>.py runs.
+	for hook, src := range map[string]string{"enforce-loop-dispatch": "hookloopdispatch.go"} {
 		var regs []int
 		for _, line := range strings.Split(string(setup), "\n") {
 			if !strings.Contains(line, "hooks/"+hook+".py") {
@@ -36,16 +37,16 @@ func TestLoopHookTimeoutsFailClosed(t *testing.T) {
 		if len(regs) == 0 {
 			t.Fatalf("setup.sh prints no snippet for %s", hook)
 		}
-		src, err := os.ReadFile("../../../hooks/" + hook + ".py")
+		src, err := os.ReadFile("../guard/" + src)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if strings.Contains(string(src), "timeout=300") {
+		if strings.Contains(string(src), "300 * time.Second") {
 			t.Errorf("%s waits a literal 300s on a subprocess", hook)
 		}
 		m := wait.FindStringSubmatch(string(src))
 		if m == nil {
-			t.Fatalf("%s names no *TIMEOUT constant", hook)
+			t.Fatalf("%s names no *Timeout constant", hook)
 		}
 		w, _ := strconv.Atoi(m[1])
 		for _, r := range regs {
