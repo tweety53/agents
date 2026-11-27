@@ -504,6 +504,13 @@ stays well under the fixer's blow-up; the fixer keeps weight 3, since a fixer ed
 
 > never implementation WIP.
 
+**The gated reviewer and the mutation slot need more than one group.** On a decision of one
+implementer group the gated pass reviews the same diff the panel's `primary` reads one boundary
+later, so it doubles the review's cost and latency for no new reading; mutation's throwaway copies
+and test runs are sized for a change large enough to split. The threshold is the group count
+because the decision already records it, so the rule is derived, not stored
+(`dgpvGatedReview`, `stats/internal/guard/plancheck.go`).
+
 ## Moved — planning-session trims
 
 Verbatim passages moved out of the planning session's run-loaded files; each is the reason behind a rule that stays where it was.

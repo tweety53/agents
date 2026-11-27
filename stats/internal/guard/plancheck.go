@@ -59,7 +59,7 @@ import (
 // separator is retried within those two calls and then BLOCKS — exit 1, one stderr line naming the cause, reason
 // decision-unusable, nothing written — since a run on a made-up decision is an unplanned run.
 // Otherwise stdout is one line, `plan-check (judge): <report> · <n>
-// groups · panel <a+b> … · visual <verify>`, and in the full mode
+// groups · gated review <on|off> · panel <a+b> … · visual <verify>`, and in the full mode
 // ` · confidence <n>%` or ` · confidence unknown` after it.
 //
 // Exit 0 on a written result. Exit 1 on no usable decision. Exit 2, nothing on
@@ -217,7 +217,8 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, p := range d.Panel {
 		bundles = append(bundles, strings.Join(p.Slots, "+"))
 	}
-	fmt.Fprintf(stdout, "plan-check (%s): %s · %d groups · panel %s · visual %s%s%s\n", source, last, len(d.Groups), strings.Join(bundles, " "), d.Visual.Verify, confidence, spend)
+	gated := map[bool]string{true: "on", false: "off"}[dgpvGatedReview(*d)]
+	fmt.Fprintf(stdout, "plan-check (%s): %s · %d groups · gated review %s · panel %s · visual %s%s%s\n", source, last, len(d.Groups), gated, strings.Join(bundles, " "), d.Visual.Verify, confidence, spend)
 	return 0
 }
 
@@ -386,6 +387,12 @@ type dgpvDecision struct {
 // the model (TestDgpvCatalogMatchesTheDecisionTable holds the two equal).
 var dgpvSlots = []string{"primary", "principles", "test-sanity", "call-efficiency", "failure-modes", "mutation"}
 
+// dgpvGatedReview is the review threshold of skills/flow/plan-check-decision.md: a decision of more
+// than one implementer group turns the gated per-task reviewer on and admits the mutation slot; one
+// group is reviewed by the whole-branch panel alone, since a gated pass would re-read the diff the
+// panel's primary reads.
+func dgpvGatedReview(d dgpvDecision) bool { return len(d.Groups) > 1 }
+
 // dgpvInvalid is why d breaks a rule the header names, "" when none.
 func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, visual bool) string {
 	byID := map[string]pdbTask{}
@@ -447,6 +454,9 @@ func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, visual bool) 
 	}
 	if !slices.Contains(seen, "primary") {
 		return "no bundle carries primary"
+	}
+	if slices.Contains(seen, "mutation") && !dgpvGatedReview(d) {
+		return "mutation needs more than one group"
 	}
 	if v := d.Visual.Verify; v != "required" && v != "skipped" && v != "not configured" {
 		return fmt.Sprintf("visual.verify %q is not required, skipped or not configured", v)

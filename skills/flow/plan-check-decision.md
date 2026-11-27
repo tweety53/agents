@@ -32,6 +32,9 @@ bundle is one reviewer dispatch.
   change that adds no call, query or request; no `failure-modes` without I/O, persistence or
   concurrency; no `test-sanity` when no test is added or changed; no `mutation` when the change
   adds no logic a test should catch breaking.
+- `mutation` needs more than one implementer group: a decision of one group is reviewed by the
+  panel's other slots alone, and `flow-guard plan-check` refuses one naming `mutation`. The same
+  threshold turns the gated per-task reviewer on (`skills/flow/implement.md`).
 - When every task's `**Files:**` lists documentation alone (`.md`, `.mdc`, or `.html` under
   `docs/`), the panel is `primary` alone.
 - `mutation`, when picked, is a bundle alone. Every other bundle holds one or two reviewers.
