@@ -231,3 +231,44 @@ func TestEndDispatchRowEndsAKeylessAgentsRow(t *testing.T) {
 		})
 	}
 }
+
+// TestSweepAbortsAbandonedVisualVerifyRows: a visual-verify row still open 30 minutes after its
+// begin is ended aborted under its own token — end-dispatch-row leaves these rows to
+// visual-verify-pass close, which an interrupted or superseded round never reaches, and an agent
+// that never launched has no transcript to sweep. A younger row, a closed row and any other
+// role's open row are left alone.
+func TestSweepAbortsAbandonedVisualVerifyRows(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"stageRuns":[{"changeName":"c1","sessionToken":"mf-t1"}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	tmp := t.TempDir()
+	log := filepath.Join(tmp, "flow.log")
+	ago := func(d time.Duration) string { return time.Now().Add(-d).UTC().Format(time.RFC3339) }
+	rows := `[` +
+		`{"key":"visual-verify-3-gymie-s1of4","role":"visual-verifier","sessionToken":"mf-old","startedAt":"` + ago(time.Hour) + `"},` +
+		`{"key":"visual-verify-gymie","role":"visual-verifier","sessionToken":"mf-old","startedAt":"` + ago(time.Hour) + `","endedAt":"` + ago(50*time.Minute) + `"},` +
+		`{"key":"visual-verify-4-gymie","role":"visual-verifier","sessionToken":"mf-t1","startedAt":"` + ago(5*time.Minute) + `"},` +
+		`{"key":"panel-fix-1","role":"panel-fix","sessionToken":"mf-old","startedAt":"` + ago(time.Hour) + `"}]`
+	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >>"+log+"\n"+
+		"[ \"$1 $2\" = 'record dispatches' ] && cat <<'EOF2'\n"+rows+"\nEOF2\nexit 0\n")
+	env := Env{Getenv: func(k string) string {
+		switch k {
+		case "FLOW_ADDR":
+			return srv.URL
+		case "PATH":
+			return filepath.Join(tmp, "bin") + ":" + os.Getenv("PATH")
+		}
+		return os.Getenv(k)
+	}, Dir: tmp}
+	var o, e bytes.Buffer
+	if rc := sweepDispatchRows([]string{tmp, "s1", tmp}, env, &o, &e); rc != 0 {
+		t.Fatalf("rc %d: %s", rc, e.String())
+	}
+	got, _ := os.ReadFile(log)
+	if n := strings.Count(string(got), "record dispatch end"); n != 1 ||
+		!strings.Contains(string(got), "-key visual-verify-3-gymie-s1of4 -session-token mf-old -outcome aborted") {
+		t.Errorf("flow calls = %q; want exactly one end, aborting visual-verify-3-gymie-s1of4 under mf-old", got)
+	}
+}

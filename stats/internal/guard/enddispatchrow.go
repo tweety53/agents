@@ -262,7 +262,8 @@ func edrSessionChange(env Env, sessionID string) (change, token string) {
 // stop never closed them. For each agent transcript in the dir that is 30 minutes to 24 hours
 // old, holds a SubagentHandback report and carries no `.swept` sidecar, it runs end-dispatch-row
 // on it (the guard reads the report) and writes the sidecar so it is tried once, unless the end
-// failed for a transient reason (no flow change for the session, a refused end). hooks/await-own-agents.py
+// failed for a transient reason (no flow change for the session, a refused end). It then aborts the
+// change's visual-verify rows open past 30 minutes (sweepVisualVerifyRows). hooks/await-own-agents.py
 // runs it after each stop. An agent with no report is never swept: a quiet long build looks the same.
 // Exit 0 always. Go, in flow-guard (stats/internal/guard/enddispatchrow.go).
 func init() { Registry["sweep-dispatch-rows"] = sweepDispatchRows }
@@ -299,5 +300,31 @@ func sweepDispatchRows(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		_ = os.WriteFile(f+".swept", nil, 0o644)
 	}
+	sweepVisualVerifyRows(args, env)
 	return 0
+}
+
+// sweepVisualVerifyRows ends the session's change's visual-verify rows still open 30 minutes after
+// their begin, aborted, each under its own token. visual-verify-pass close ends these rows and
+// end-dispatch-row leaves them to it, so a round that was interrupted, superseded or never
+// launched an agent would otherwise leave its rows open for good.
+func sweepVisualVerifyRows(args []string, env Env) {
+	change, _ := edrSessionChange(env, args[1])
+	if change == "" {
+		return
+	}
+	out, _, rc := pcFlow(env, false, "record", "dispatches", "-change", change)
+	var rows []struct {
+		Key, SessionToken string
+		StartedAt         time.Time
+		EndedAt           *time.Time
+	}
+	if rc != 0 || json.Unmarshal(out, &rows) != nil {
+		return
+	}
+	for _, r := range rows {
+		if strings.HasPrefix(r.Key, "visual-verify") && r.EndedAt == nil && r.SessionToken != "" && time.Since(r.StartedAt) > 30*time.Minute {
+			pcFlow(env, true, "record", "dispatch", "end", "-C", args[2], "-change", change, "-key", r.Key, "-session-token", r.SessionToken, "-outcome", "aborted")
+		}
+	}
 }
