@@ -450,22 +450,18 @@ func eabReadPick(path string) string {
 	var fields []string
 	rest := line
 	for len(fields) < 3 {
-		rest = strings.TrimLeftFunc(rest, isPySpace)
-		i := strings.IndexFunc(rest, isPySpace)
+		rest = strings.TrimLeftFunc(rest, pyIsSpace)
+		i := strings.IndexFunc(rest, pyIsSpace)
 		if rest == "" || i < 0 {
 			return ""
 		}
 		fields, rest = append(fields, rest[:i]), rest[i:]
 	}
-	reason := strings.TrimSpace(rest)
+	reason := pyStrip(rest)
 	if reason == "" {
 		return ""
 	}
 	return fields[2] + ": " + reason
-}
-
-func isPySpace(r rune) bool {
-	return strings.ContainsRune(" \t\n\r\v\f\x1c\x1d\x1e\x1f\u0085   ", r)
 }
 
 // inFlowRun is a flow session whose change is not yet FINISHED -- the scope of the row checks.
