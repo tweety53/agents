@@ -1,7 +1,7 @@
 # Review panel — fix rounds
 
 Loaded during `flow.review` by the load directive of **Panel re-runs**
-(`skills/flow/review-panel.md`), only once a round has recorded a Critical or Important finding, or read by section where a citer outside the panel stage names it.
+(`skills/flow/review-panel.md`), only once a round has recorded a Critical or Important finding or the test list beside pass 1 named a `defect`, or read by section where a citer outside the panel stage names it.
 Every section name below without a path is a section of this file or of
 `skills/flow/review-panel.md`; the fix subagent's dispatch paragraphs and its dispatch record stay
 there.
@@ -22,6 +22,16 @@ This is the normal case: the branch is pushed with every commit (**Branch backup
 `git commit -m ... -- <the changed paths>` at the tip — the pathspec-scoped default (**Branch backup**, `skills/flow-contracts/git-boundaries.md`),
 so it carries only the paths the finding named, whatever else the index holds — pushed
 plain like any other commit, and every downstream commit keeps its sha. The commit carries the round's `Flow-Key:` trailer — `git commit -m <subject> -m "Flow-Key: <the round's dispatch key>" -- <the changed paths>` (**Commits outside every task**, `skills/flow-contracts/git-boundaries.md`). Before it is pushed, the untasked-commit check of **Commits outside every task** (`skills/flow-contracts/git-boundaries.md`) runs.
+
+**A test-list defect joins the round.** When the test list run beside pass 1 (**Pass 1 runs beside
+the test list**, `skills/flow/review-panel.md`) names a `defect` — an `undecided` line its triage
+answered `defect` included — pass 1's round takes the fix an Important takes, whether or not it
+raised one: the `failing:` lines and `full output:` paths ride a fix chunk's `FIX INPUT:` beside its
+findings, in a chunk of their own where the round has none, and no `full-suite-fix-<n>` goes out.
+**The round re-checks both**: the list re-runs after the fix as **The parent runs the test list**
+(`skills/flow/implement.md`) states, and passes before any re-run bundle is dispatched; and
+`primary` re-runs on the round's `fix-round-N.diff`, whether or not it raised a finding, since no
+slot read the code that fix wrote.
 
 **Which slots re-run, and on what, follows from the findings the round fixed and the severities
 it raised.**

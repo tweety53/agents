@@ -16,7 +16,7 @@ loop, step 3 of `skills/flow-self-review/SKILL.md`.
 |---|---|---|---|
 | gated per-task fix (`skills/flow/gated-review-fix.md`) | the `fix` passes' reports and the Minors they left open | the re-review bundle | one re-review of one task |
 | full-suite fix (**The parent runs the test list**, `skills/flow/implement.md`) | the `VERDICT:` block's `failing:` lines and `full output:` paths | what failed, then the list once | one `full-suite-fix-<n>` and its re-run |
-| panel fix round (`skills/flow/review-panel-fix-round.md`) | each surviving finding's structured block, naming its slot's report | the delta re-run | one fix round |
+| panel fix round (`skills/flow/review-panel-fix-round.md`) | each surviving finding's structured block, naming its slot's report, and a test-list `defect` run beside pass 1 | the delta re-run, and the list when it was red | one fix round |
 | verify fix (steps 1–4 below; a visual one with `skills/flow/fix-visual.md`) | the verifying stage's final `## Report`, or the operator's message | step 3, then step 4's reviewer | one fix |
 
 **The fixer** at every site is a fresh one-shot (**Every fix is a fresh one-shot**,

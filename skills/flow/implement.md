@@ -340,8 +340,10 @@ it fixes, and two lines before its REPORT FILE line: `Fix brief: <skill-dir>/fix
 Every fixer of every stage — this file's rows below, the review panel's chunks and Minors fix,
 `skills/flow/fix.md`'s verify fix — takes this one shape.
 
-**The parent runs the test list — never an implementer.** Once the plan-last
-group — the group holding the plan's last task — has passed the guard, by its commit, the parent
+**The parent runs the test list — never an implementer.** Once pass 1's bundles have launched
+(**Pass 1 runs beside the test list**, `skills/flow/review-panel.md`) — or, when the list carries its
+visual tail (below), once the plan-last
+group — the group holding the plan's last task — has passed the guard, by its commit — the parent
 runs `flow-guard run-verify-list <worktree> test` — by hand in the order `## test` lists it only where
 that exits 3 — for each worktree in this run's resolved set, one worktree after another, skipping a
 worktree the skip rule of **Inline verify** (`skills/flow/verify-and-handoff.md`) prints nothing for,
@@ -351,11 +353,12 @@ touched. The list re-runs each failing command once itself and ends with its `VE
 script's header canonical (THE ONE RE-RUN); the parent reads that block only: `VERDICT: PASS` goes on,
 a command its re-run passed counted passed as `flaky`; a `defect` line is fixed at its root cause by a
 fresh one-shot `full-suite-fix-<n>` (**Every fix is a fresh one-shot** below), its `FIX INPUT:` the
-`failing:` lines and the `full output:` paths; an `undecided` line is first triaged by one `general`
+`failing:` lines and the `full output:` paths — on a list run beside pass 1, by that round's fix
+instead (**A test-list defect joins the round**, `skills/flow/review-panel-fix-round.md`); an `undecided` line is first triaged by one `general`
 agent, `Role: general` and `Key: triage-<n>`, `<n>` counting this run's triages from 1, its prompt the
 `failing:` line and the command's `full output:` path, its answer `defect` or `environment` with the
 evidence — a `defect` is then fixed as above, an `environment` cause ends the turn as **Inline verify**
-says. After a fix the parent re-runs only what failed — a visual `verify` row narrowed as **Narrowed
+says, once every pass-1 bundle beside it has ended. After a fix the parent re-runs only what failed — a visual `verify` row narrowed as **Narrowed
 visual re-runs** states (`skills/flow/fix-visual.md`), any other failing test by name — and re-runs the
 list once, after the last fix, when those pass; its rounds escalate as **The fix loop** (`skills/flow/fix.md`) states. The commit
 carries `-m "Flow-Key: full-suite-fix-<n>"` (**Commits outside every task**,
@@ -504,8 +507,8 @@ its PASS values those `skills/flow/gated-review-fix.md` names.
 
 **The last group's guard pass is the stage's last boundary.** `final-review.diff` is written and
 the slots dispatched once it has passed, every gated reviewer bundle has returned, the stage-end
-gated fix and its re-review have closed clean (`skills/flow/gated-review-fix.md`), and the parent's
-test-list run has passed, after any fix; the review panel's pre-work may ride the last boundary's Bash call. No
+gated fix and its re-review have closed clean (`skills/flow/gated-review-fix.md`), and, when the test
+list carries its visual tail, the parent's test-list run has passed, after any fix; the review panel's pre-work may ride the last boundary's Bash call. No
 panel verdict is taken, and no round after pass 1 is dispatched, on a red branch.
 
 **Turn discipline.** Calls that do not depend on one another share one Bash call, and launches

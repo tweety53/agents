@@ -108,6 +108,21 @@ stderr. Then dispatch the round's
 never dispatched once per worktree: one pass reads every worktree's section, so a seam between two repositories is in one pass's view. **Bundled dispatch** below states how a round's roles ride
 those dispatches.
 
+**Pass 1 runs beside the test list.** The message that launches pass 1's bundles is followed, in the
+same turn, by the parent's test-list run (**The parent runs the test list**, `skills/flow/implement.md`),
+then by `await-rows` on the bundles. Both read the committed HEAD and neither writes the tree: a slot
+writes under `<abs-worktree>/.superpowers/sdd/` and its reproducers under `mktemp -d`, and the list
+writes its green files into the git directory. Three orders stay:
+
+- **A list that carries its visual tail** (`skills/flow/visual-verify.md`) runs before pass 1, as
+  `skills/flow/implement.md` states, because a slot's target-specific reproducer drives the same
+  stack its captures read.
+- **The `mutation` bundle launches once the list has returned**, so its builds in its throwaway copy
+  never run beside the list's.
+- **Nothing writes the tree** — no fixer, no Minors fix — until every pass-1 bundle has ended and the
+  list has returned; a `defect` the list names is fixed in the round's fix (**A test-list defect
+  joins the round**, `skills/flow/review-panel-fix-round.md`).
+
 ### Bundled dispatch
 
 Before dispatching any panel round,
@@ -360,7 +375,7 @@ skip-the-render shortcut.
 ## Panel re-runs
 
 **Load `skills/flow/review-panel-fix-round.md` only when** a round has recorded a Critical or
-Important finding, before that round's fix opens, or a section of it is cited at the point of use (the full-suite fix, the gated
+Important finding, or the test list beside pass 1 named a `defect`, before that round's fix opens, or a section of it is cited at the point of use (the full-suite fix, the gated
 reviewer's fix, the stage-diff check) — it carries every fix round's procedure: the
 fix commit routes, which slots re-run and on what, the round close, the fix chunks and the
 non-convergence loop, while the fix subagent's dispatch paragraphs and dispatch record stay in
