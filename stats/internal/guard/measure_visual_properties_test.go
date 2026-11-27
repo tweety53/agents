@@ -728,6 +728,26 @@ func TestMeasureVisualPropertiesBandColourDarkestInk(t *testing.T) {
 	}
 }
 
+// Antialiased pixels beside an ink count toward its 2%: 1% exact black plus 1.5%
+// near-black must still read black, not the card.
+func TestMeasureVisualPropertiesBandColourCountsAntialiasedInk(t *testing.T) {
+	t.Parallel()
+	im := mvpPNG(t, 100, 30, func(x, y int) color.RGBA {
+		switch {
+		case y < 10 || y >= 20 || x >= 90:
+		case y == 10 && x < 10:
+			return color.RGBA{0x00, 0x00, 0x00, 0xff} // 1.1%
+		case y == 11 && x < 14:
+			return color.RGBA{0x10, 0x10, 0x10, 0xff} // 1.5%, antialiased
+		}
+		return color.RGBA{0xf5, 0xf5, 0xf7, 0xff}
+	})
+	band := mvpDig(mvpJSON(t, "", im, "--props", "bands"), "a", "bands", 0)
+	if got := mvpDig(band, "colour"); got != "#000000" {
+		t.Fatalf("colour %v, want #000000", got)
+	}
+}
+
 // A band where no colour holds 2% of its ink (a gradient) reports its modal
 // colour, never a fabricated #000000.
 func TestMeasureVisualPropertiesBandColourFallsBackToModal(t *testing.T) {

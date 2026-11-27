@@ -912,7 +912,7 @@ func (c *mvpCounter) darkest() (colour [3]byte, share float64) {
 	}
 	lum := math.Inf(1)
 	for _, x := range c.order {
-		if l := 0.2126*float64(x[0]) + 0.7152*float64(x[1]) + 0.0722*float64(x[2]); c.n[x]*50 >= total && l < lum {
+		if l := 0.2126*float64(x[0]) + 0.7152*float64(x[1]) + 0.0722*float64(x[2]); c.n[x]*100 >= total && c.near(x)*50 >= total && l < lum {
 			colour, lum = x, l
 		}
 	}
@@ -920,6 +920,18 @@ func (c *mvpCounter) darkest() (colour [3]byte, share float64) {
 		colour, _ = c.top()
 	}
 	return colour, pyRound(float64(n1+n2)/float64(total), 3)
+}
+
+// near is the count of pixels within 24 per channel of x (asked only of a colour already holding 1%), so a few antialiased
+// pixels of an ink cannot move it across the 2% line between two renders.
+func (c *mvpCounter) near(x [3]byte) int {
+	sum := 0
+	for _, y := range c.order {
+		if math.Abs(float64(x[0])-float64(y[0])) <= 24 && math.Abs(float64(x[1])-float64(y[1])) <= 24 && math.Abs(float64(x[2])-float64(y[2])) <= 24 {
+			sum += c.n[y]
+		}
+	}
+	return sum
 }
 
 // row and col are the region-relative points of a scan line, both ends
