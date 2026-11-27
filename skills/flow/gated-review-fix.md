@@ -1,7 +1,6 @@
 # The gated per-task reviewer — the stage-end fix
 
-Loaded during `flow.implement` by the load directive under the gated per-task reviewer of
-**4. Execute (SDD + TDD)** (`skills/flow/implement.md`), only when, once the last group's guard has
+Loaded during `flow.implement` by the load directive of `skills/flow/gated-review.md`, only when, once the last group's guard has
 passed and every gated bundle has returned, a gated pass closed `fix` or left a Minor open.
 
 **One fixer per group of at most weight 3**, never the parent
@@ -36,6 +35,6 @@ fix diff changed; a finding a fix closed and the next fix reopened is raised aga
 
 A clean re-review pass closes each finding its task's earlier pass raised, `flow record status
 -change <name> -ref F<n> -status fixed`; a finding a re-review pass raises is
-recorded as "The gated per-task reviewer" (`skills/flow/implement.md`) records a first pass's, and
+recorded as "The gated per-task reviewer" (`skills/flow/gated-review.md`) records a first pass's, and
 a `fix` sends its task through this file again under the next `<k>`. Its rounds escalate as
 **The fix loop** (`skills/flow/fix.md`) states.

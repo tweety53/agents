@@ -499,7 +499,7 @@ full cache rewrite of a context larger than a fresh fixer's, which is why the wi
 one resume per task keeps a fix that does not converge on the no-progress path. The resume gets its
 own row, keyed `-resume-`, so it records on the implementer's pair and never re-ends the group's row.
 
-### implement.md — The gated per-task reviewer
+### gated-review.md — The gated per-task reviewer
 
 A gated bundle is a batch of weight 5, not the implementer group: small groups pay one reviewer dispatch each, each re-reading the brief, the prompt
 and the three artifacts for one to three small diffs. Weight 5 halves that count while a bundle
