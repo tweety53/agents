@@ -1,9 +1,32 @@
-# The fix procedure
+# The fix loop — implement, review and verify
 
 Loaded by `/flow` for every fix: the in-run fix a verify stage's defect opens (**Verify**,
 `skills/flow/verify-and-handoff.md`), and a fix run — state `IN_PROGRESS` with fix instructions, or a
 plain message at `IN_PROGRESS` (`skills/flow/SKILL.md`). One procedure serves both. Every "you"
-addresses the parent (**The parent orchestrates directly**, `skills/flow/implement.md`).
+addresses the parent (**The parent orchestrates directly**, `skills/flow/implement.md`). Every other
+fix site of the change's own code reads **The fix loop** below by section.
+
+## The fix loop
+
+**Every fix of the change's own code runs one loop — evidence, a fresh fixer, a re-check,
+escalation — and this section is its one statement.** A pipeline defect's fix runs the other
+loop, step 3 of `skills/flow-self-review/SKILL.md`.
+
+| Site | Evidence | Re-check | One round |
+|---|---|---|---|
+| gated per-task fix (`skills/flow/gated-review-fix.md`) | the `fix` passes' reports and the Minors they left open | the re-review bundle | one re-review of one task |
+| full-suite fix (**The parent runs the test list**, `skills/flow/implement.md`) | the `VERDICT:` block's `failing:` lines and `full output:` paths | what failed, then the list once | one `full-suite-fix-<n>` and its re-run |
+| panel fix round (`skills/flow/review-panel-fix-round.md`) | each surviving finding's structured block, naming its slot's report | the delta re-run | one fix round |
+| verify fix (steps 1–4 below; a visual one with `skills/flow/fix-visual.md`) | the verifying stage's final `## Report`, or the operator's message | step 3, then step 4's reviewer | one fix |
+
+**The fixer** at every site is a fresh one-shot (**Every fix is a fresh one-shot**,
+`skills/flow/implement.md`), its work `skills/flow/fixer-brief.md`, the evidence named on its
+`FIX INPUT:` line and read verbatim (VERBATIM REPORT — THE FACT, there).
+
+**No round count ends the loop.** **Fewest operator actions** (`skills/flow-contracts/pipeline.md`)
+is canonical for that, for a round that makes no progress, and for **Three failed rounds** — a
+round being the **One round** column of the site's row: the fourth round after three failed ones
+is the fresh dispatch of **Three failed rounds**.
 
 **A fixable defect the verify stages find is fixed by this run, never handed to the operator as a
 question.** The fixable defects are a lint or test failure **Inline verify**
@@ -191,12 +214,6 @@ forced reproduction as its evidence (the candidate made to fail on purpose, a de
 injected, failing the test without the fix and passing with it) where the candidate can be forced. The fix's one commit carries
 those fixes and its body states each forced reproduction, or that the fix
 went straight to code; a fixer that names no candidate has not finished the trace, and is sent back to it.
-
-## No cap
-
-**No round count ends the loop.** **Fewest operator actions** (`skills/flow-contracts/pipeline.md`)
-is canonical for that, for a round that makes no progress, and for **Three failed rounds** of this
-procedure — a round being one fix.
 
 ## The late review
 

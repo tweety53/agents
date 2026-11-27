@@ -42,9 +42,10 @@ func TestNoProgressRule(t *testing.T) {
 	}
 	// Every loop's own file cites the rule.
 	loops := []struct{ file, phrase string }{
-		{"skills/flow/implement.md", "three failed rounds take **Three failed rounds** (`skills/flow-contracts/pipeline.md`)"},
-		{"skills/flow/gated-review-fix.md", "after three failed re-reviews of one task is the fresh dispatch of **Three failed rounds**"},
-		{"skills/flow/review-panel-fix-round.md", "as does a fourth round after three failed ones (**Three failed rounds**, there)"},
+		{"skills/flow/fix.md", "a round being the **One round** column of the site's row: the fourth round after three failed ones is the fresh dispatch of **Three failed rounds**"},
+		{"skills/flow/implement.md", "its rounds escalate as **The fix loop** (`skills/flow/fix.md`) states"},
+		{"skills/flow/gated-review-fix.md", "Its rounds escalate as **The fix loop** (`skills/flow/fix.md`) states"},
+		{"skills/flow/review-panel-fix-round.md", "Its rounds escalate as **The fix loop** (`skills/flow/fix.md`) states"},
 		{"skills/flow/visual-verify.md", "as do three remainders of one dispatch that each close `NEXT: rest` (**Three failed rounds**, there)"},
 		{"skills/flow/visual-verify.md", "Three re-dispatches that each close `NEXT: redispatch` take **Three failed rounds**"},
 		{"skills/flow/unfinished-work-gate.md", "take **Three failed rounds** (`skills/flow-contracts/pipeline.md`), applied inline by the parent from every earlier verdict"},
@@ -121,11 +122,12 @@ func section(t *testing.T, rel, heading string) string {
 }
 
 // TestNoProgressRuleCountsFixRounds pins that pipeline.md's no-progress rule
-// counts three failed rounds of fix.md, a round being one fix.
+// counts three failed rounds of one site of fix.md's fix loop, a round as
+// that site's row defines it.
 func TestNoProgressRuleCountsFixRounds(t *testing.T) {
 	t.Parallel()
 	rule := strings.Join(strings.Fields(section(t, "skills/flow-contracts/pipeline.md", "Fewest operator actions")), " ")
-	if want := "three failed rounds of `skills/flow/fix.md`, a round being one fix"; !strings.Contains(rule, want) {
+	if want := "three failed rounds of one site of **The fix loop** (`skills/flow/fix.md`), a round as that site's row defines it"; !strings.Contains(rule, want) {
 		t.Errorf("pipeline.md's Fewest operator actions lacks %q", want)
 	}
 }

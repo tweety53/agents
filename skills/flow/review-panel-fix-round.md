@@ -162,9 +162,7 @@ at a time, and does not ask:
   Important, and even where the fix reaches past the change's original scope. A Minor that reached
   this loop joins that round only beside a Critical or Important taking one; with none, the
   `minor-fix` subagent fixes it, as **Panel re-runs** (`skills/flow/review-panel.md`) fixes a
-  Minor-only round's Minors. No round count ends this: a round that made no progress on a defect takes **Fewest
-  operator actions** (`skills/flow-contracts/pipeline.md`), as does a fourth round after three
-  failed ones (**Three failed rounds**, there).
+  Minor-only round's Minors. Its rounds escalate as **The fix loop** (`skills/flow/fix.md`) states.
 - **A finding no change to the tree can resolve is withdrawn** — a verification-only ask, a proof
   that needs an environment the run does not have, a defect something already covers — recorded
   `-status 'withdrawn <reason>'`, the reason one clause naming that mechanism. A "something already covers" reason that claims a

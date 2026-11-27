@@ -172,7 +172,7 @@ in that output, so only the same-defect rule above applies.
 ### Three failed rounds
 
 **Three failed rounds of one loop are a round without progress too, whatever their defects.** A
-failed round is one that ends without the loop's own clean close. The fix procedure counts three failed rounds of `skills/flow/fix.md`, a round being one fix. The fourth round, and each
+failed round is one that ends without the loop's own clean close. The fix loop counts three failed rounds of one site of **The fix loop** (`skills/flow/fix.md`), a round as that site's row defines it. The fourth round, and each
 later one, is the fresh dispatch above — its fixer —
 on the `no-progress-fixer` role carrying every earlier round's report
 verbatim and naming the approach that failed. It is never a stop and never an ask.

@@ -354,8 +354,7 @@ agent, `Role: general` and `Key: triage-<n>`, `<n>` counting this run's triages 
 evidence — a `defect` is then fixed as above, an `environment` cause ends the turn as **Inline verify**
 says. After a fix the parent re-runs only what failed — a visual `verify` row narrowed as **Narrowed
 visual re-runs** states (`skills/flow/fix-visual.md`), any other failing test by name — and re-runs the
-list once, after the last fix, when those pass: each `full-suite-fix-<n>` and its re-run is one round,
-and three failed rounds take **Three failed rounds** (`skills/flow-contracts/pipeline.md`). The commit
+list once, after the last fix, when those pass; its rounds escalate as **The fix loop** (`skills/flow/fix.md`) states. The commit
 carries `-m "Flow-Key: full-suite-fix-<n>"` (**Commits outside every task**,
 `skills/flow-contracts/git-boundaries.md`).
 `flow-guard run-verify-list`'s `test` list ends with that section's `verify` run on the specs its `specs`
