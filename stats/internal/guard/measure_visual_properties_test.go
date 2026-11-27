@@ -767,6 +767,39 @@ func TestMeasureVisualPropertiesBandColourFallsBackToModal(t *testing.T) {
 	}
 }
 
+// `--props bands,seams,matrix` is the two calls `--props bands,seams` and
+// `--props matrix` in one: every key either printed reads byte for byte as
+// that call printed it, and a region still conflicts with matrix.
+func TestMeasureVisualPropertiesMatrixCombined(t *testing.T) {
+	t.Parallel()
+	pair := []string{"page-frame.png", "page-capture.png", "--scale", "1", "--props"}
+	keys := func(props string) map[string]json.RawMessage {
+		rc, stdout, stderr := mvpRun(t, mvpTestdata, append(pair, props)...)
+		var d map[string]json.RawMessage
+		if rc != 0 || json.Unmarshal([]byte(stdout), &d) != nil {
+			t.Fatalf("--props %s: exit %d, stdout %s, stderr %s", props, rc, stdout, stderr)
+		}
+		return d
+	}
+	got := keys("bands,seams,matrix")
+	n := 0
+	for _, props := range []string{"bands,seams", "matrix"} {
+		for k, want := range keys(props) {
+			n++
+			if string(got[k]) != string(want) {
+				t.Errorf("key %q of --props %s differs combined:\n%s\nwant\n%s", k, props, got[k], want)
+			}
+		}
+	}
+	if len(got) != n-1 { // `scale` is printed by both
+		t.Errorf("combined keys %d, want %d", len(got), n-1)
+	}
+	rc, _, stderr := mvpRun(t, mvpTestdata, append(pair, "bands,matrix", "--region-a", "0,0,10,10")...)
+	if rc != 2 || !strings.Contains(stderr, "whole images") {
+		t.Fatalf("matrix with --region-a: exit %d, stderr %q, want the refusal", rc, stderr)
+	}
+}
+
 // A text/control element at the image's edge carries one `clipped` key, not
 // a second one from its fill-band box measurement.
 func TestMeasureVisualPropertiesMatrixClippedOnce(t *testing.T) {

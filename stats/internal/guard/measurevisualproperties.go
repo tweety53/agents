@@ -36,7 +36,7 @@ import (
 //                           (heights must agree with that factor within 5%)
 //     --props <list>        comma-separated subset of box,radius,border,fill,
 //                           shadow,content,gap,ink,runs,bands,seams (default: all),
-//                           or the opt-in elements, or matrix alone
+//                           or the opt-in elements and matrix
 //     --edge <n>            adjacent-pixel colour jump (RGB Euclidean, 0-441)
 //                           that counts as a hard edge (default 24)
 //     --noise <n>           colour distance to background below which a pixel
@@ -207,7 +207,9 @@ import (
 //            top-left corner is cropped to its sheet before `bands` and `seams`;
 //            a corner colour covering 5% or more of the sheet's bounding box is
 //            a dark page, never a scrim.
-//   matrix — opt-in, alone, two whole images (no `--region-*`): `elements`
+//   matrix — opt-in, two whole images (no `--region-*`, refused with it):
+//            beside other props, its `matrix` and `summary` follow their
+//            output, each key as the separate calls print it. `elements`
 //            on both, paired in order, then each paired element measured on
 //            its own region (its box plus a 4px margin, clipped to the image)
 //            with its kind's columns — `text/control` `ink`, plus the box
@@ -264,7 +266,8 @@ import (
 //      straight side, or the region's centre outside the box. The reason is on
 //      stderr; nothing is guessed.
 //   2  cannot answer: usage error, two images with no calibration, `--ref-*`
-//      boxes whose aspect disagrees, a region starting outside its image, or
+//      boxes whose aspect disagrees, a region starting outside its image,
+//      `matrix` without two images or with a `--region-*`, or
 //      an unreadable image (anything but a PNG
 //      included).
 //
@@ -341,8 +344,9 @@ type mvpArgs struct {
 	scale                        *float64
 	props                        string
 	edge, noise                  float64
-	tolerance                    float64 // --tolerance: the length tolerance of summary.over, mvpOverLength by default
-	edgeText                     string  // str(edge): argparse left the default an int
+	tolerance                    float64              // --tolerance: the length tolerance of summary.over, mvpOverLength by default
+	edgeText                     string               // str(edge): argparse left the default an int
+	decoded                      map[string]*rgbImage // each image file decoded once per call; regions only read it
 }
 
 func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) int {
@@ -401,18 +405,37 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 		return refuse("second-image-missing", "--scale/--ref-*/--region-b need a second image")
 	}
 
-	if slices.Contains(props, "matrix") {
-		if len(props) > 1 || imageB == "" || a.regionA != nil || a.regionB != nil {
-			return refuse("props-matrix-not-alone", "--props matrix stands alone and reads two whole images: drop the other props and any --region-*")
+	matrix := slices.Contains(props, "matrix")
+	if matrix {
+		if imageB == "" || a.regionA != nil || a.regionB != nil {
+			return refuse("props-matrix-not-whole", "--props matrix reads two whole images: give both and drop any --region-*")
 		}
+		props = slices.DeleteFunc(props, func(p string) bool { return p == "matrix" })
+	}
+	result := pyObj{}
+	if len(props) > 0 {
+		var code int
+		if result, code = mvpPage(env, a, props, imageB, scale, refuse, stderr); code >= 0 {
+			return code
+		}
+	}
+	if matrix {
 		out, err := mvpMatrix(env, a, scale)
 		if err != nil {
 			return refuse("matrix-failed", err.Error())
 		}
-		fmt.Fprintln(stdout, pyDump(out))
-		return 0
+		if len(result) > 0 {
+			out = out[1:] // `scale`, already printed with the page props
+		}
+		result = append(result, out...)
 	}
+	fmt.Fprintln(stdout, pyDump(result))
+	return 0
+}
 
+// mvpPage measures every prop but matrix on the two images, or the one; code
+// is -1 when it measured.
+func mvpPage(env Env, a mvpArgs, props []string, imageB string, scale float64, refuse func(id, msg string) int, stderr io.Writer) (pyObj, int) {
 	page := true
 	for _, p := range props {
 		page = page && slices.Contains(mvpPageProps, p)
@@ -444,13 +467,12 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 	if errors.As(err, &unresolved) {
 		fmt.Fprintf(stderr, "%simage %s: %s\n", mvpPrefix, which, unresolved)
 		Reason(env, "image-unresolved")
-		return 1
+		return nil, 1
 	}
 	if err != nil {
-		return refuse("cannot-load-image", err.Error())
+		return nil, refuse("cannot-load-image", err.Error())
 	}
-	fmt.Fprintln(stdout, pyDump(result))
-	return 0
+	return result, -1
 }
 
 // mvpParse is the script's argparse surface under exact option names
@@ -462,7 +484,7 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 // missing image and an unrecognized argument are reported after the scan.
 // code is -1 when the arguments parsed.
 func mvpParse(args []string, env Env, stdout, stderr io.Writer) (a mvpArgs, code int) {
-	a = mvpArgs{props: strings.Join(mvpAllProps, ","), edge: 24, noise: 8, edgeText: "24", tolerance: mvpOverLength}
+	a = mvpArgs{props: strings.Join(mvpAllProps, ","), edge: 24, noise: 8, edgeText: "24", tolerance: mvpOverLength, decoded: map[string]*rgbImage{}}
 	usage := func(msg string) (mvpArgs, int) {
 		fmt.Fprintln(stderr, mvpPrefix+msg)
 		Reason(env, "usage")
@@ -676,9 +698,13 @@ func mvpOpen(env Env, path string, box *[4]int, a mvpArgs, page bool) (*mvpRegio
 	if file != "" && !filepath.IsAbs(file) {
 		file = env.Dir + "/" + file // unjoined: the OS resolves "..", as Python's open() did
 	}
-	im, err := decodeRGB(file)
-	if err != nil {
-		return nil, fmt.Errorf("unreadable image %s: %s", path, pilImageError(err, file, path))
+	im := a.decoded[file]
+	var err error
+	if im == nil {
+		if im, err = decodeRGB(file); err != nil {
+			return nil, fmt.Errorf("unreadable image %s: %s", path, pilImageError(err, file, path))
+		}
+		a.decoded[file] = im
 	}
 	b := [4]int{0, 0, im.W, im.H}
 	if box != nil {

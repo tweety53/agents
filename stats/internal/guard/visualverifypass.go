@@ -263,8 +263,7 @@ import (
 //   3. per sidecar line (a pair), with the cropped `<stem>.frame.png` as the
 //      frame when compose wrote one, else the mockup itself:
 //      flow-guard measure-visual-properties <frame> <capture> --scale 1 --props
-//      bands,seams into <worktree>/.superpowers/sdd/visual-measure-<key>/<frame id>.json,
-//      and --props matrix into <changeRoot>/visual-verification/matrix/<frame id>.json.
+//      bands,seams,matrix into <changeRoot>/visual-verification/matrix/<frame id>.json.
 //      A pair compose did not write is recorded with its non-zero compose exit
 //      and not measured; every other pair still is, and prints
 //        frame: <frame id> — <composite> diff=<ratio> — over: <row>; … | none
@@ -274,8 +273,8 @@ import (
 //   4. the manifest <worktree>/.superpowers/sdd/visual-manifest-<key>.json:
 //      `captures`, `identical` (the group lines), `steps` (resolve, identical
 //      and compose, each {exit, stderr}) and `pairs[]` of {spec, frame, capture,
-//      mockup, composite, diff, exits{resolve, identical, compose, bands,
-//      matrix}, stderr, bands_file, matrix_file, bands, seams, over} —
+//      mockup, composite, diff, exits{resolve, identical, compose,
+//      matrix}, stderr, matrix_file, bands, seams, over} —
 //      `bands` and `seams` the entries flagged by mvpOverLength and
 //      mvpOverColour (measurevisualproperties.go) or missing/extra, `over`
 //      the matrix's summary.over, each row carrying `figures`, `{<key>: {a,

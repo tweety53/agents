@@ -135,17 +135,23 @@ func TestVisualVerifyPassMeasureManifest(t *testing.T) {
 		t.Fatalf("pairs %d, want 2", len(m.Pairs))
 	}
 	for _, p := range m.Pairs {
-		for _, step := range []string{"resolve", "identical", "compose", "bands", "matrix"} {
+		for _, step := range []string{"resolve", "identical", "compose", "matrix"} {
 			if e := p.Exits[step]; e == nil || *e != 0 {
 				t.Fatalf("%s: exit %s %v, want 0", p.Frame, step, e)
 			}
 		}
-		for _, file := range []string{p.Capture, p.Mockup, p.Composite,
-			filepath.Join(f.changeRoot, "visual-verification/matrix", p.Frame+".json"),
-			filepath.Join(f.wt, ".superpowers/sdd/visual-measure-visual-verify", p.Frame+".json")} {
+		if p.Exits["bands"] != nil {
+			t.Fatalf("%s: a bands exit, want one measure call per pair", p.Frame)
+		}
+		for _, file := range []string{p.Capture, p.Mockup, p.Composite} {
 			if _, err := os.Stat(file); err != nil {
 				t.Fatalf("%s: %v", p.Frame, err)
 			}
+		}
+		// One call per pair: the matrix file carries the band and seam delta too.
+		body, err := os.ReadFile(filepath.Join(f.changeRoot, "visual-verification/matrix", p.Frame+".json"))
+		if err != nil || !strings.Contains(string(body), `"delta"`) || !strings.Contains(string(body), `"summary"`) {
+			t.Fatalf("%s: matrix file %v, want delta and summary:\n%s", p.Frame, err, body)
 		}
 		if p.Frame == "frame-a" && len(p.Bands) == 0 {
 			t.Fatalf("%s: the bands the measure flagged under `delta` never reached the manifest", p.Frame)
@@ -190,7 +196,7 @@ func TestVisualVerifyPassMeasureCarriesOn(t *testing.T) {
 		case "frame-missing":
 			sawFail = p.Exits["compose"] != nil && *p.Exits["compose"] != 0
 		case "frame-b":
-			sawB = p.Exits["matrix"] != nil && *p.Exits["matrix"] == 0 && p.Exits["bands"] != nil && *p.Exits["bands"] == 0
+			sawB = p.Exits["matrix"] != nil && *p.Exits["matrix"] == 0
 		}
 	}
 	if !sawFail || !sawB {

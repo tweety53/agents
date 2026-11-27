@@ -23,7 +23,6 @@ type vvmExits struct {
 	Resolve   *int `json:"resolve"`
 	Identical *int `json:"identical"`
 	Compose   *int `json:"compose"`
-	Bands     *int `json:"bands"`
 	Matrix    *int `json:"matrix"`
 }
 
@@ -37,7 +36,6 @@ type vvmPair struct {
 	Diff       string            `json:"diff"`
 	Exits      vvmExits          `json:"exits"`
 	Stderr     map[string]string `json:"stderr,omitempty"`
-	BandsFile  string            `json:"bands_file,omitempty"`
 	MatrixFile string            `json:"matrix_file,omitempty"`
 	Bands      []any             `json:"bands"`
 	Seams      []any             `json:"seams"`
@@ -206,7 +204,6 @@ func (v *vvp) measure(args []string) {
 		ratio, ok := composed[composite]
 		if !ok || p.Capture == "" {
 			// An earlier round's measurements would read as this round's.
-			os.Remove(filepath.Join(bandsDir, l.frame+".json"))
 			os.Remove(filepath.Join(matrixDir, l.frame+".json"))
 			p.Exits.Compose = ip(max(composeRC, 1))
 			failed = true
@@ -218,22 +215,12 @@ func (v *vvp) measure(args []string) {
 			p.Mockup = frame
 		}
 
-		rc, out, serr := run(measureVisualProperties, "", p.Mockup, p.Capture, "--scale", "1", "--props", "bands,seams", "--tolerance", tolArg)
-		p.Exits.Bands, p.Stderr["bands"] = note(rc), serr
-		p.BandsFile = filepath.Join(bandsDir, l.frame+".json")
-		v.writeOut(p.BandsFile, out)
-		var bs map[string]any
-		if json.Unmarshal([]byte(out), &bs) == nil {
-			// measure-visual-properties nests the page props under `delta`.
-			d, _ := bs["delta"].(map[string]any)
-			p.Bands, p.Seams = vvmFlagged(d["bands"], tol), vvmFlagged(d["seams"], tol)
-		}
-
-		rc, out, serr = run(measureVisualProperties, "", p.Mockup, p.Capture, "--scale", "1", "--props", "matrix", "--tolerance", tolArg)
+		rc, out, serr := run(measureVisualProperties, "", p.Mockup, p.Capture, "--scale", "1", "--props", "bands,seams,matrix", "--tolerance", tolArg)
 		p.Exits.Matrix, p.Stderr["matrix"] = note(rc), serr
 		p.MatrixFile = filepath.Join(matrixDir, l.frame+".json")
 		v.writeOut(p.MatrixFile, out)
 		var mx struct {
+			Delta   map[string]any   `json:"delta"` // the page props nest under `delta`
 			Matrix  []map[string]any `json:"matrix"`
 			Summary struct {
 				Over   []map[string]any
@@ -241,7 +228,11 @@ func (v *vvp) measure(args []string) {
 				Shift  *vvmShift
 			} `json:"summary"`
 		}
-		if json.Unmarshal([]byte(out), &mx) == nil && mx.Summary.Over != nil {
+		parsed := json.Unmarshal([]byte(out), &mx) == nil
+		if parsed {
+			p.Bands, p.Seams = vvmFlagged(mx.Delta["bands"], tol), vvmFlagged(mx.Delta["seams"], tol)
+		}
+		if parsed && mx.Summary.Over != nil {
 			for _, r := range mx.Summary.Over {
 				r["figures"] = vvmFigures(mx.Matrix, r)
 				p.Over = append(p.Over, r)
