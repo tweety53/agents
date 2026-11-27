@@ -324,7 +324,7 @@ func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []s
 	if !decideOnly && !pcHasTerminal(result) {
 		retry = pcNoTerminal
 	}
-	report, d, source, spend, cause = pcParse(result, prompt, tasks, repoAt, visual, decideOnly, spend)
+	report, d, source, cause = pcParse(result, tasks, repoAt, visual, decideOnly, spend)
 	if d == nil {
 		retry = cause
 	}
@@ -332,11 +332,11 @@ func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []s
 }
 
 // pcParse splits one answer into its report and its checked decision.
-func pcParse(result string, prompt []byte, tasks []pdbTask, repoAt []string, visual, decideOnly bool, spend string) (report string, d *dgpvDecision, source, spendOut, cause string) {
+func pcParse(result string, tasks []pdbTask, repoAt []string, visual, decideOnly bool, spend string) (report string, d *dgpvDecision, source, cause string) {
 	source = "fallback"
 	loc := pcSeparator.FindStringIndex(result)
 	if loc == nil {
-		return "", nil, source, spend, "plan-check answer has no ===DECISION=== line: " + result + spend
+		return "", nil, source, "plan-check answer has no ===DECISION=== line: " + result + spend
 	}
 	if r := strings.TrimSpace(result[:loc[0]]); decideOnly {
 		// the decision-only call writes no report
@@ -356,16 +356,12 @@ func pcParse(result string, prompt []byte, tasks []pdbTask, repoAt []string, vis
 	var got dgpvDecision
 	i, j := strings.Index(text, "{"), strings.LastIndex(text, "}")
 	if i < 0 || j < i || json.Unmarshal([]byte(text[i:j+1]), &got) != nil {
-		return report, nil, source, spend, "plan-check decision is not a JSON object: " + text + spend
+		return report, nil, source, "plan-check decision is not a JSON object: " + text + spend
 	}
-	catalog := map[string]bool{}
-	for _, m := range dgpvCatalog.FindAllStringSubmatch(string(prompt), -1) {
-		catalog[m[1]] = true
+	if why := dgpvInvalid(got, tasks, repoAt, visual); why != "" {
+		return report, nil, source, "plan-check decision rejected: " + why + spend
 	}
-	if why := dgpvInvalid(got, tasks, repoAt, catalog, visual); why != "" {
-		return report, nil, source, spend, "plan-check decision rejected: " + why + spend
-	}
-	return report, &got, source, spend, cause
+	return report, &got, source, cause
 }
 
 var dgpvVisualHeading = regexp.MustCompile(`(?m)^## visual verification[ \t]*$`)
@@ -386,11 +382,12 @@ type dgpvDecision struct {
 	Overrides []json.RawMessage `json:"overrides"`
 }
 
-// dgpvCatalog reads a slot-catalog row, | `slot` | description |, out of a prompt.
-var dgpvCatalog = regexp.MustCompile("(?m)^\\| `([a-z][a-z0-9-]*)` \\| (.+?) \\|\\s*$")
+// dgpvSlots is the slot catalog, in the order of the table skills/flow/plan-check-decision.md shows
+// the model (TestDgpvCatalogMatchesTheDecisionTable holds the two equal).
+var dgpvSlots = []string{"primary", "principles", "test-sanity", "call-efficiency", "failure-modes", "mutation"}
 
 // dgpvInvalid is why d breaks a rule the header names, "" when none.
-func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, catalog map[string]bool, visual bool) string {
+func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, visual bool) string {
 	byID := map[string]pdbTask{}
 	for _, t := range tasks {
 		byID[t.id] = t
@@ -438,7 +435,7 @@ func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, catalog map[s
 		}
 		for _, s := range b.Slots {
 			switch {
-			case !catalog[s]:
+			case !slices.Contains(dgpvSlots, s):
 				return fmt.Sprintf("bundle %d names %s, which the catalog lacks", bi+1, s)
 			case slices.Contains(seen, s):
 				return fmt.Sprintf("slot %s is in two bundles", s)

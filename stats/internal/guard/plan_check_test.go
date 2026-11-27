@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -291,6 +292,23 @@ func TestPlanCheckDigestKeepsTheRubricOnAnOversizedPlan(t *testing.T) {
 	}
 }
 
+// TestDgpvCatalogMatchesTheDecisionTable: the slot catalog the decision is checked against is the
+// table plan-check-decision.md shows the model, row for row.
+func TestDgpvCatalogMatchesTheDecisionTable(t *testing.T) {
+	t.Parallel()
+	b, err := os.ReadFile(filepath.Join("..", "..", "..", "skills", "flow", "plan-check-decision.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var table []string
+	for _, m := range regexp.MustCompile("(?m)^\\| `([a-z][a-z0-9-]*)` \\|").FindAllStringSubmatch(string(b), -1) {
+		table = append(table, m[1])
+	}
+	if !slices.Equal(table, dgpvSlots) {
+		t.Errorf("plan-check-decision.md's slots %q, dgpvSlots %q", table, dgpvSlots)
+	}
+}
+
 // TestDgpvInvalidGroupSizeLimit: a group of four tasks is refused.
 func TestDgpvInvalidGroupSizeLimit(t *testing.T) {
 	t.Parallel()
@@ -301,7 +319,7 @@ func TestDgpvInvalidGroupSizeLimit(t *testing.T) {
 		ids = append(ids, id)
 	}
 	d := dgpvDecision{Groups: []dgpvEntry{{Tasks: ids}}}
-	if got := dgpvInvalid(d, tasks, make([]string, 6), map[string]bool{}, false); got != "group 1 holds 4 tasks" {
+	if got := dgpvInvalid(d, tasks, make([]string, 6), false); got != "group 1 holds 4 tasks" {
 		t.Errorf("dgpvInvalid = %q", got)
 	}
 }
