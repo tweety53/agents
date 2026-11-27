@@ -163,7 +163,7 @@ copies drift: nothing tells the next editor of the skill that this file exists. 
 turns three copies into one definition and three renderings of it.
 
 Moved verbatim from the same paragraph, after the interrupted-run report's description: That
-interrupted-run report carries neither the `Self-review` nor the `Guards` field: it is printed
+interrupted-run report carries no `Self-review` field: it is printed
 only when run 2 stops **before** step 8, so step 9 never runs there and there is nothing for
-`Self-review` to name, and its own text prints no `Guards` line either — adding either field
+`Self-review` to name — adding the field
 regardless would misstate a run that never reached self-review and a report that does not carry it.

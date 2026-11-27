@@ -631,19 +631,14 @@ by that command, never by a path relative to a repository root.
 ## Guard presence check
 
 `/flow` checks, once at the start of its run, that `flow-guard` resolves on `PATH`. A resolving
-command prints nothing. Otherwise it prints exactly one block, then the run continues:
+command prints nothing. Otherwise it prints exactly one block, then the run stops:
 
 ```text
-⚠ GUARDS MISSING — flow-guard not found on PATH
-These checks will be performed BY HAND.
-Re-run ./setup.sh global to install it.
+⛔ GUARDS MISSING — flow-guard not found on PATH
+Re-run ./setup.sh global to install it, then re-run /flow.
 ```
 
-**This is a report, never a gate.** Each contract's existing hand-run fallback still governs the
-call site a missing guard would have covered, and the handoff says those checks were run by hand.
-A guard is never skipped for want of the script — this changes only when its absence is noticed,
-not what happens next. The block is printed once, at the start of the run; a later call site for
-one of the guards it already named performs the check by hand without printing the block again.
+**This is a gate.** A guard that cannot run stops the run — never a hand substitute.
 
 ## Hand-verifying a guard verdict
 

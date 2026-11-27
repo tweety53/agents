@@ -72,6 +72,18 @@ func (c *ic) cleanup() {
 		c.stopAs("self-review-not-done", "self-review-report", "flow.self-review has not completed for "+c.name+" — run the self-review pass and end its stage completed, then re-run cleanup; nothing was removed")
 	}
 	c.markBegin("flow.cleanup")
+	// The save keeps tasks.md and self-review-context.md in flowd before
+	// anything removes a worktree; a re-run past a removed canonical worktree
+	// already saved, since remove-change-worktrees refuses an unsaved one.
+	if c.findCanonical() {
+		out, rc := c.capture(c.cmd("/", "flow", "change", "save", "-C", c.canon, c.name))
+		if out != "" {
+			fmt.Fprintln(c.stdout, out)
+		}
+		if rc != 0 {
+			c.stopAs("change-save-failed", "change-save", fmt.Sprintf("flow change save exit %d for %s — report its lines, restore each file it names, re-run cleanup; nothing was removed", rc, c.name))
+		}
+	}
 	for i := range c.wt {
 		if !isDir(c.wt[i]) {
 			continue

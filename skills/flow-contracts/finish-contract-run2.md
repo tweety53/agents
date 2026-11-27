@@ -9,10 +9,6 @@ establish, so run 2 tests it nowhere else.
 
 bare `/flow` is the only command that loads this file whole.
 
-**Load `skills/flow-contracts/finish-hand-fallbacks.md` only when** the guard presence check named
-one of the scripts this file calls missing, or a call finds the script absent — every by-hand
-procedure for them is there.
-
 ### Run 2 — the branch is merged
 
 1. **Clean up the worktrees, the local branch and the remote branch, then remove the workspace's

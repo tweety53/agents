@@ -102,11 +102,11 @@ func loadSets(args []string, env Env, stdout, stderr io.Writer) int {
 	fmt.Fprintln(stdout, "--- finish session (merge-and-push: run 1 chained into run 2) ---")
 	fd := cat(in(f, "integrate.md"), in(c, "git-boundaries-commit-chain.md", "jira-integration.md", "jira-integration-finish.md"), in(f, "cleanup.md"))
 	fc := in(c, "operator-prompts.md", "model-policy.md")
-	fx := cat(in(c, "finish-contract-run1.md", "finish-contract-run2.md", "artifacts-registry.md"), in(f, "unfinished-work-gate.md", "sync-onto-base.md"),
-		in(c, "finish-hand-fallbacks.md", "jira-followups.md", "jira-followups-join.md", "state-file.md", "project-configuration.md", "guard-verdict-verification.md"))
+	fx := cat(in(c, "finish-contract-run1.md", "finish-contract-run2.md", "artifacts-registry.md"), in(f, "unfinished-work-gate.md", "sync-onto-base.md", "sync-onto-base-visual.md"),
+		in(c, "jira-followups.md", "jira-followups-join.md", "state-file.md", "project-configuration.md", "guard-verdict-verification.md"))
 	row("  phase files + load directives", fd...)
 	row("  + cited", fc...)
-	row("  + conditional (finish contracts, registry, gate, base moved, hand fallbacks, follow-ups, state file, config, verdicts)", fx...)
+	row("  + conditional (finish contracts, registry, gate, base moved, follow-ups, state file, config, verdicts)", fx...)
 	row("  TOTAL definite", cat(always, router, fd)...)
 	row("  TOTAL incl. cited", cat(always, router, fd, fc)...)
 

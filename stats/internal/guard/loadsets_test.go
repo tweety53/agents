@@ -28,7 +28,7 @@ router (command + SKILL.md + pipeline.md)              137 bytes  ~    34 tok
 --- finish session (merge-and-push: run 1 chained into run 2) ---
   phase files + load directives                          0 bytes  ~     0 tok
   + cited                                                0 bytes  ~     0 tok
-  + conditional (finish contracts, registry, gate, base moved, hand fallbacks, follow-ups, state file, config, verdicts)       0 bytes  ~     0 tok
+  + conditional (finish contracts, registry, gate, base moved, follow-ups, state file, config, verdicts)       0 bytes  ~     0 tok
   TOTAL definite                                       168 bytes  ~    42 tok
   TOTAL incl. cited                                    168 bytes  ~    42 tok
 --- subagents (each also inherits whatever always-on context the harness gives it) ---

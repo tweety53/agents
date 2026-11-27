@@ -11,12 +11,6 @@ This file is the reasoning behind `skills/flow-contracts/finish-contract-run1.md
 Reshape, moved verbatim from the contract, where it followed "is the chain
 **Git boundaries** (`git-boundaries.md`) gives": , and is not written out a second time here.
 
-Resolve the base branch, moved verbatim from the end of the hand-fallback paragraph (now in `finish-hand-fallbacks.md`): That header is
-the authority for the exact commands and their order; this paragraph does not repeat what it already
-states. The character rule itself is stated here in full, not cited, because this paragraph's own
-precondition is the script's absence — a fallback the operator applies by hand when the script is
-absent cannot defer them to a file that, by the same precondition, is not there to read.
-
 ## finish-contract-run1.md — Resolving a change's worktrees
 
 Moved verbatim from the contract, where it opened the sentence whose call-site list stays there:

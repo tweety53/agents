@@ -216,12 +216,6 @@
   "snippet": "**One re-review bundle**, once the last fixer's return has run, carries every ta"
  },
  {
-  "question": "What should be done if the script that verifies preconditions before merging is not present in the repository?",
-  "kind": "any",
-  "file": "skills/flow-contracts/finish-hand-fallbacks.md",
-  "snippet": "**When the script is absent** — a harness whose repository does not carry it — p"
- },
- {
   "question": "What should an implementer do when their measurements show the plan is wrong?",
   "kind": "any",
   "file": "skills/flow-contracts/plan-amendment.md",

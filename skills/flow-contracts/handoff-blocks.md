@@ -125,11 +125,6 @@ Next:
 `/flow-status`'s only, and the run omits it — the one rendering whose skill copy carries fewer
 lines than its template.
 
-**`Guards` is `(run-only)`.** It reports what that
-run's own start-of-run guard presence check found,
-per **Guard presence check** (`skills/flow-contracts/pipeline.md`) — a value only
-that run ever has, since no regeneration re-runs the check.
-
 **`Records` is on-disk, not `(run-only)`, and it is printed whether or not anything was
 journalled.** It counts the change's record writes — every dispatch and every finding — that are
 still sitting in the journal because the store could not be reached. **The number comes from one
@@ -182,7 +177,6 @@ recorded merge base falls back to the staged-diff line and says the range could 
 **Change:** <name>
 **Route:** (run-only) <pull request, merged and pushed, or manual>
 **PR:** <prUrl, or why there is none on the route taken>
-**Guards:** (run-only) <all present, or how many were missing and checked by hand>
 
 <what the operator must do before the next run>
 

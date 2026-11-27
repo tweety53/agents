@@ -134,7 +134,8 @@ type ic struct {
 //
 // cleanup  run 2: verify the merge (merged when gh reports the recorded PR
 //
-//	MERGED or `merge-base --is-ancestor` holds), remove-change-worktrees
+//	MERGED or `merge-base --is-ancestor` holds), `flow change save` in the
+//	canonical worktree, remove-change-worktrees
 //	per repository, the workspace `remove` row, the
 //	proposal artifact, the FINISHED write (clearing every worktree no longer on disk) and
 //	refresh-main-checkout per repository (onto origin/HEAD's branch,

@@ -189,7 +189,6 @@ until that row holds.
 **Change:** <name>
 **Route:** pull request | merged and pushed | manual
 **PR:** <prUrl> | none — merged directly | none — you are handling it
-**Guards:** all present | N missing — those checks were performed by hand (see the guard presence check above)
 
 <what the operator must do before the next run>
 

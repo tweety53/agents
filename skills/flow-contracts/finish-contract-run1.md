@@ -5,10 +5,6 @@ procedure, and resolving a change's worktrees.
 
 bare `/flow` is the only command that loads this file whole; `/flow-status` cites single sections of it.
 
-**Load `skills/flow-contracts/finish-hand-fallbacks.md` only when** the guard presence check named
-one of the scripts this file calls missing, or a call finds the script absent — every by-hand
-procedure for them is there.
-
 ## Finish contract
 
 bare `/flow` is a **two-run** command. Which run happens is decided by one thing: whether the

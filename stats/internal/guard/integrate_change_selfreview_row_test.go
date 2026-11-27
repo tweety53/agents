@@ -119,3 +119,21 @@ sut prepare "$WORK/a" demo
 sut commit "$WORK/a" demo "$WORK/a-worktrees/demo=feat(a): add work"
 check "commit_clean_unignored: commit exits 0" '[ "$RC" -eq 0 ]'`}})
 }
+
+// TestCleanupSavesBeforeRemoving pins that cleanup runs `flow change save`
+// itself, and that a failed save stops it before any worktree is removed.
+func TestCleanupSavesBeforeRemoving(t *testing.T) {
+	smoke.Heavy(t)
+	icRunCases(t, []icCaseDef{{"cleanup_saves", `# --- cleanup_saves ---
+fixture
+to_land "cleanup_saves: " no-report
+sut land "$WORK/a" demo
+touch "$WORK/sr-completed" "$WORK/fail-save"
+sut cleanup "$WORK/a" demo
+check "cleanup_saves: a failed save stops cleanup" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | grep -q "^missing: tasks.md" && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: change-save — flow change save exit 1 for demo"'
+check "cleanup_saves: nothing was removed" '[ -d "$WORK/a-worktrees/demo" ] && [ -d "$WORK/b-worktrees/demo" ]'
+rm "$WORK/fail-save"
+sut cleanup "$WORK/a" demo
+check "cleanup_saves: the re-run saves and finishes" '[ "$RC" -eq 0 ] && grep -q "^change save -C .*/a-worktrees/demo demo$" "$WORK/saves.log"'`}})
+}

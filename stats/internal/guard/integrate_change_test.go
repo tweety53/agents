@@ -121,6 +121,7 @@ case "$1 $2" in
   "record dispatches") cat "$W/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-02T00:00:00Z"}]' ;;
   "record decisions") echo '[]' ;;
   "record passes") echo '[{"id":1,"round":0,"note":"roster: full"}]' ;;
+  "change save") echo "$*" >>"$W/saves.log"; [ -f "$W/fail-save" ] && { echo "missing: tasks.md"; exit 1; }; : ;;
   "workspace-id "*) echo demo-id ;;
   *) : ;;
 esac
@@ -346,6 +347,7 @@ check "b was pushed before a (merge order)" \
   'printf "%s\n" "$OUT" | grep "^PUSHED: " | head -1 | grep -q "/b-worktrees/demo"'
 sut cleanup "$WORK/a" demo
 check "cleanup exits 0" '[ "$RC" -eq 0 ]'
+check "cleanup saved the change from its canonical worktree" 'grep -qx "change save -C $WORK/a-worktrees/demo demo" "$WORK/saves.log"'
 check "a's origin main carries the implementation commit alone" \
   '[ "$(git --git-dir="$WORK/a-origin.git" log --format=%s main -2 | tr "\n" "|")" = "feat(a): do the work|base|" ]'
 check "a's origin main holds no change directory" \
