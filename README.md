@@ -147,7 +147,8 @@ one flag is `--base <branch>` on the run that creates a change (`/flow`, `/flow-
 - **The gate is the state.** No command exists just to record that you reviewed something.
 - **Landing** follows the project's `## default landing route`: open a PR, merge and push, or manual.
 - **A plan check** (`flow-guard plan-check`) reads the plan cold and decides the implementer groups,
-  review panel and visual verification; nothing in a project configures them.
+  review panel, the pair each group and bundle runs on, and visual verification; nothing in a
+  project configures them.
 
 Canonical: `skills/flow-contracts/pipeline.md` (state machine), `finish-contract-run1.md` and
 `finish-contract-run2.md` (landing and cleanup). The skill map is `skills/README.md`.

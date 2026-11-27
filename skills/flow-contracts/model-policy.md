@@ -111,7 +111,7 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 | `plan-designer` | Proposes a design or plan for the planner to choose from. |
 | `designer` | Draws, in a worktree of the project's design repo and in its own style, every element the planner's design lists as undrawn. |
 | `planner` | Writes the design and the task plan. |
-| `decider` | Reviews the approved plan and decides the implementer groups, the review panel's bundles and visual verification (headless, `plan-check`). |
+| `decider` | Reviews the approved plan and decides the implementer groups, the review panel's bundles, each one's pair, and visual verification (headless, `plan-check`). |
 
 ### Implementation
 
