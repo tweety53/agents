@@ -382,8 +382,8 @@ import (
 //      close step 5's per-frame-line condition does not hold a carried frame,
 //      and before every commit (step 12) close rewrites visual-judged.txt
 //      from the row's manifest pairs: `<sha-256 hex> <frame id>` for each frame
-//      the report gave its own per-frame line with no over-tolerance row
-//      excused by a `decision <ID>` whose design.md entry (its `**Considered:**`
+//      the report gave its own per-frame line with no line of its own citing
+//      a `decision <ID>` whose design.md entry (its `**Considered:**`
 //      line aside) names more than one of the manifest's frames; any other
 //      frame keeps its line only while its capture still hashes to it. Then it prints
 //        MANIFEST: <path>

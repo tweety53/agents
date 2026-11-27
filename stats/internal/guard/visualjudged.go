@@ -71,8 +71,8 @@ func vvpCarried(judged map[string]string, pairs []vvmPair) []string {
 var vjDecision = regexp.MustCompile(`decision\s+([^\s;)]+)`)
 
 // judgedAfter is the judged map once a report closed over pairs: a frame the
-// report gave its own per-frame line (flPerFrame) and no over-tolerance row
-// excused by a decision naming more than one of the pairs' frames gets its
+// report gave its own per-frame line (flPerFrame) and no line of its own
+// citing a decision naming more than one of the pairs' frames gets its
 // capture's hash; any other frame keeps its line only while its capture still
 // hashes to it, and loses it otherwise.
 func judgedAfter(old map[string]string, pairs []vvmPair, report, design []byte) map[string]string {
@@ -99,16 +99,15 @@ func judgedAfter(old map[string]string, pairs []vvmPair, report, design []byte) 
 	return out
 }
 
-// vjCollective reports whether an over-tolerance row of frame is excused by a
-// decision whose design.md entry, its `**Considered:**` line aside, names more
-// than one of frames.
+// vjCollective reports whether a line of frame's own — its per-frame line or
+// a `- <frame> differs:` line — cites a decision whose design.md entry, its
+// `**Considered:**` line aside, names more than one of frames.
 func vjCollective(frame string, lines, frames []string, design []byte) bool {
 	for _, l := range lines {
-		m := vrOverLine.FindStringSubmatch(l)
-		if m == nil || m[1] != frame {
+		if !flPerFrame(frame, []string{l}) {
 			continue
 		}
-		for _, d := range vjDecision.FindAllStringSubmatch(m[2], -1) {
+		for _, d := range vjDecision.FindAllStringSubmatch(l, -1) {
 			entry := vjEntry(string(design), d[1])
 			n := 0
 			for _, f := range frames {

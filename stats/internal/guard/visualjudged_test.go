@@ -24,8 +24,8 @@ func TestVisualJudgedCarriesOnlySpecificVerdicts(t *testing.T) {
 	}
 	design := []byte("## Decisions\n\n### one\n\n**ID:** shared-bar\n**Chosen:** A2 and A3 keep the old bar\n\n### two\n\n**ID:** own-bar\n**Chosen:** A1 keeps its bar\n**Considered:** A2 too\n")
 	report := []byte("## Verdict\n\n- A4: x diff=0.01\n\n## Report\n\n" +
-		"- A1: /c/A1.png diff=0.01\n- A1 over-tolerance: 1 — #1: decision own-bar\n" +
-		"- A2: /c/A2.png diff=0.01\n- A2 over-tolerance: 1 — #1: decision shared-bar\n" +
+		"- A1: /c/A1.png diff=0.01 — match (decision own-bar)\n" +
+		"- A2: /c/A2.png diff=0.01 — differs\n- A2 differs: bar — mockup 4 px, capture 6 px (decision shared-bar)\n" +
 		"- A3: /c/A3.png diff=0.01\n")
 	judged := judgedAfter(map[string]string{}, pairs, report, design)
 	if err := os.WriteFile(pairs[2].Capture, []byte("changed"), 0o644); err != nil {

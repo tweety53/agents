@@ -585,7 +585,7 @@ func TestVvmCells(t *testing.T) {
 
 // TestVisualVerifyPassMeasureCells pins decision cells-in-measure end to end:
 // `measure` writes one cells entry per matrix row of each composed frame, and
-// check-verify-report admits every one of them, wanting only the spot-check line.
+// check-verify-report admits every one of them.
 func TestVisualVerifyPassMeasureCells(t *testing.T) {
 	t.Parallel()
 	f := vvmFixture(t, "a.png frame-a\n")
@@ -596,7 +596,6 @@ func TestVisualVerifyPassMeasureCells(t *testing.T) {
 		Pairs []struct {
 			Frame      string           `json:"frame"`
 			MatrixFile string           `json:"matrix_file"`
-			Over       []vrOverRow      `json:"over"`
 			Cells      []map[string]any `json:"cells"`
 		} `json:"pairs"`
 	}
@@ -620,12 +619,8 @@ func TestVisualVerifyPassMeasureCells(t *testing.T) {
 			t.Errorf("entry %d: row %v class %v, want row %d class %v", i, c["row"], c["class"], i+1, mx.Matrix[i]["class"])
 		}
 	}
-	over := map[int]vrOverRow{}
-	for _, r := range p.Over {
-		over[r.Row] = r
-	}
-	if bad := vrCells(p.Frame, p.Cells, over, map[string]string{}); len(bad) != 1 || bad[0] != p.Frame+" has no spot-check: line" {
-		t.Errorf("vrCells = %q, want only the missing spot-check line", bad)
+	if bad := vrCells(p.Frame, p.Cells); len(bad) != 0 {
+		t.Errorf("vrCells = %q, want none", bad)
 	}
 }
 

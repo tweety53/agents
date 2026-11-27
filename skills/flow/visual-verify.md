@@ -324,11 +324,10 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
 The report's `frames:` line counts against the change's frame list (step 10) and names every declared frame absent from the
 per-frame lines, with its reason. `measure` fills the matrix into each pair's `cells` in the
 manifest, `visual-verification.md` (step 11) cites the frame's
-`<changeRoot>/visual-verification/matrix/<frame id>.json` under its entry, and the report's `over-tolerance:`
-line counts the rows `measure` flagged. **The parent reads no image.** The report check, which
-`close` runs, refuses a composed frame with no `over-tolerance:` or `spot-check:` line, a manifest
-cell left empty or n/a in a column that applies to its row's class, a spot-check its header
-refuses, and a sweep its line reads neither `done` nor n/a — `<why it does not apply>`:
+`<changeRoot>/visual-verification/matrix/<frame id>.json` under its entry, and the report lists
+only each frame's differences, a frame with none on its one `match` line. **The parent reads no
+image.** The report check, which `close` runs, refuses a frame line its header refuses and a
+manifest cell left empty or n/a in a column that applies to its row's class:
 **each makes the report incomplete — never a departure, and never a gap the handoff leaves for the
 operator** — and its remainder is dispatched as `NEXT: rest` above states.
 
@@ -347,9 +346,7 @@ an unreadable PNG, **a `flow-guard compose-mockup-frames` exit 1 or 2 and a depa
 verifier reports in a composite**, **a composed frame's `missing`, `extra` or over-tolerance band
 the verifier judges a departure whose line names no cause — a pre-existing attribution is not one
 (**the sweep**, `skills/flow-contracts/known-bugs.md`) — and a composed frame's `missing`,
-`extra` or over-tolerance seam or off-centre line it judges a departure whose line names no cause**, **a captured view
-no frame was composed for whose report carries no capture-scope `sweeps:` line, or one whose line
-leaves a sweep neither `done` nor n/a — `<why it does not apply>`**, and **a defect the
+`extra` or over-tolerance seam or off-centre line it judges a departure whose line names no cause**, and **a defect the
 verifier reports in a captured screenshot — even when every assertion passed.** **A named motion
 with no strip under `<changeRoot>/visual-verification/motion/` or no entry in
 `visual-verification.md`, and a frame its strip shows breaking the motion step's rule, block as a

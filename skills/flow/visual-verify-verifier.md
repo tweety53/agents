@@ -147,11 +147,10 @@ reported BLOCKED, naming it.
    `changed: none — round base <sha>`, before its `MANIFEST:` line: read only the views of the
    frames it names, of the prompt's `moved:` frames and of its `defects:` frames, and every view no frame is composed for,
    and at step 10 only those frames' composites. Every other view's line reads
-   `- <view>: <absolute PNG path> — capture unchanged since <round base>`, with no frame, sweeps,
-   spot-check or over-tolerance line for its frame. With no `changed:` line, every view is read.
-   Each captured PNG gets its own `- <view>: <absolute PNG path>` line, and each view no frame is
-   composed for its `per view, no frame composed: <view> sweeps:` line — the report check (`close --check-only`)
-   refuses a report missing either (group-allowed-pairs-roles self-review: two round-1 verifiers
+   `- <view>: <absolute PNG path> — capture unchanged since <round base>`, with no frame line for
+   its frame. With no `changed:` line, every view is read.
+   Each captured PNG gets its own `- <view>: <absolute PNG path>` line — the report check (`close --check-only`)
+   refuses a report missing one (group-allowed-pairs-roles self-review: two round-1 verifiers
    named only the prototype-framed captures, and a clipped chart label on an unnamed full-page
    capture surfaced a round later).
    An unreadable PNG is reported and blocks
@@ -203,13 +202,12 @@ reported BLOCKED, naming it.
    > step, the band pairing, the seam pairing, the ink inventory (sweep 10), the bounded-row
    > sweep (sweep 9) and the element × property matrix read a frame against the capture, and a
    > project declaring no `mockups` root, with no approved prototype to render (above), composes
-   > nothing and reports each of them
-   > n/a — no frame. The state sweeps run on the captures alone and are the default on every
+   > nothing and runs none of them. The state sweeps run on the captures alone and are the default on every
    > `flow.verify` run, composed or not. Where a sweep's wording names the frame for something
    > the capture answers without one — sweep 7's last element reached by name, sweep 5's
    > display precision — the run reads that name against the view's own rendered content;
-   > sweep 6's order comparison needs the frame's list and is reported n/a — no frame
-   > beside the other frame-bound readings.
+   > sweep 6's order comparison needs the frame's list and does not run, as the other
+   > frame-bound readings do not.
 
    **The difference panel cannot show a structural departure, so the first read of every pair
    is the script's band pairing, never the panel.** The composite's panels are the capture left, the frame middle and the difference right, unlabelled; a radius, a stroke width, a glyph size or a colour is read from `<stem>.frame.png` and the capture PNG themselves, never off the composite. The panel is white wherever any channel
@@ -263,8 +261,6 @@ reported BLOCKED, naming it.
    closing state. A band, seam, matrix or sweep finding no named cause explains is measured once more
    on the frame at 2x before the report is written: **corrected or gone at 2x** — a mis-measurement,
    the corrected number standing in its place. A recorded decision is a named cause only for the deltas it names, by element and property: any other delta on the same band or element is unexplained until measured.
-   Every line that reports the departure names its cause or its attribution
-   beside it — never a bare `departure`.
 
    **A finding that reverses an earlier round's measured finding on the same element** — a tab bar
    13 px high, then 20 px low; axis labels present, then absent — quotes that round's report line
@@ -442,9 +438,8 @@ reported BLOCKED, naming it.
    figure, a caption, a summary row, a slider's track and thumb, a row's own border — is
    transcribed at most, and a property no sweep names is read by nobody: the text sweep judges
    what a run says and never its colour or its size, the row sweep measures the gaps around a
-   row and never how far the row stretches, and the per-control crop is asked for one number. The report's `sweeps:` line then names the sweeps, not the
-   numbers, so a round that re-checked one defect reads exactly like a round that measured the
-   frame. Before a frame is called matching:
+   row and never how far the row stretches, and the per-control crop is asked for one number.
+   Before a frame is called matching:
 
    1. **Enumerate the elements from the frame, not the capture and not the last report** —
       every visually distinct thing it draws, top to bottom: each text run (a heading, a figure,
@@ -458,7 +453,7 @@ reported BLOCKED, naming it.
       top edge on a scrim frame — lists every ink run inside it paired in order, and fills every
       column below for every paired element, each region clipped to its image; every element it
       merges or misses is measured by hand with the per-element calls, and a departure that
-      shows goes on the frame's line with its cause. That file is the one copy, overwritten every pass — never a second copy under another name.
+      shows goes on the frame's `differs:` line. That file is the one copy, overwritten every pass — never a second copy under another name.
    2. **Read the matrix `measure` filled — never transcribe it.** `measure` fills the 11
       columns — kind, content, colour, size, position, stretch, alignment, border, fill, radius,
       shadow — for every row of the frame's matrix into the pair's `cells` in the manifest.
@@ -481,55 +476,34 @@ reported BLOCKED, naming it.
       on a row whose region no measurement resolved. Write no matrix
       table: `visual-verification.md` (step 11) cites
       `<changeRoot>/visual-verification/matrix/<frame id>.json` under the frame's entry. Read every composite, and every row's cells against it.
-      **Spot-check the script on every frame**: measure by hand, with the call of each row's class,
-      at least 3 rows of the frame's cells — every row when it has fewer — none of them on the
-      `over` list and at least one a `control` or `fill band` row where the frame has one, and
-      write the frame's `- <frame id> spot-check: #<row> <column> script <x> hand <y>; …` line,
-      `<x>` one of the cell's `b` figures as the manifest writes it — a number as written, a
-      colour as its hex — and `<y>` your own measurement of the same figure. A hand figure that
-      differs from the script's by more than step 10's length or colour tolerance goes on the
-      frame's line as a departure with cause `mismeasure`; the parent fixes it as a pipeline
-      defect in the measuring tool, which no re-run of this pass can fix. Where no cells row is
-      off the `over` list, the line reads exactly `- <frame id> spot-check: none — no row off
-      the over list`.
       **A cell the pixels cannot answer is measured from the mockup's source, never left
       unexplained**: where a row reads `unresolved` — the script exits 1 on a region no widening
       resolved — or a leaf reads `clipped` (the element runs off the image there), the frame's
       number is the value the mockup's source declares for that element — the CSS of the HTML
       the frame was drawn from (`box-shadow`, `border-radius`, `border`, a colour), found beside
       the mockups or cited by `design.md` — and the capture's is the script's where its own
-      image measures, else the value the app's source draws the element with; the row's
-      `over-tolerance:` item names its source.
-   3. **Read every flagged frame's composite before naming a cause.** A frame with any `over` row
-      carries a line `- <frame id> viewed: yes — <what the composite shows>`, written after its
-      composite was opened with the Read tool; the report check refuses a `done` step 10 without it.
-      **A row is never labelled by rule**: each `over-tolerance:` item names one row, `#<row>: <cause>
-      — <figures>`, and its cause comes from what the composite shows at that row — never a range
-      (`#3-#40: annotation`), a list of rows under one cause, or a selector (`rows 3 to 40`, `all`,
-      `the rest`). The check refuses such an item. When `measure` printed `shift: dy=<px> rows=<n>
+      image measures, else the value the app's source draws the element with; a `differs:` line
+      for that row names its source.
+   3. **Read every flagged frame's composite before judging its rows.** **A row is never judged by
+      rule**: each `over` row is a difference or not by what the composite shows at that row —
+      never a range (`#3-#40: annotation`), a list of rows under one cause, or a selector (`rows 3
+      to 40`, `all`, `the rest`). When `measure` printed `shift: dy=<px> rows=<n>
       frame=<frame id>`, `<n>` of the frame's rows sit one constant offset low or high: they
       are one defect, the manifest's `shift` names it, and its `row` stands for
       all of them on `over` — find what moved the whole frame (a bar height, a scroll position, a status
       line) rather than explaining rows. What moved it is itself a departure, listed on the
       report's departures lines unless a recorded decision covers it. The frame's rows are then paired under that offset, so every
       other `over` row is a departure of its own, read as if the shift were already fixed.
-   4. **Explain every row the matrix's `over` list names.** The manifest carries each composed
-      frame's `over` rows by their 1-based index — every matrix row `missing`, `extra` or
-      `unresolved`, or paired over the length or colour tolerance. The report's `- <frame id>
-      over-tolerance: <n> — #<row>: <cause>; …` line names every one, `<n>` the frame's count, each
-      with one cause from a closed list: `departure`, a blocking departure per **Every departure from the
-      mockup or the approved prototype is blocking** above; `annotation` — a frame annotation outside the app's own ink;
-      `transcription` or `text width` — a text difference the transcription names; `decision <ID>` —
-      a recorded decision whose `**ID:**` `design.md` carries, for the deltas it names;
-      `mockup source` — an
-      `unresolved` row's value measured from the mockup's source per the cell rule above. Each item
-      also quotes its row's own figures as the manifest's `figures` carry them,
-      `#<row>: <cause> — <key> a=<a> b=<b>`, `<key>` one of the row's over keys, so a cause given
-      from a neighbouring row names figures its own row does not have.
-      A row whose `figures` are empty — `missing`, `extra`, or `unresolved` alone — quotes nothing.
-      the report check refuses a missing line, a wrong count, an unnamed row or a cause off
-      the list, and reads `over` from this dispatch's manifest, so a pass that skipped `measure`
-      never stands on last round's numbers.
+   4. **Judge every row the matrix's `over` list names, and write only the differences.** The
+      manifest carries each composed frame's `over` rows by their 1-based index — every matrix row
+      `missing`, `extra` or `unresolved`, or paired over the length or colour tolerance. A row is
+      no difference only for one cause from a closed list: a frame annotation outside the app's
+      own ink; a text difference the transcription names, or its text width; a recorded decision
+      whose `**ID:**` `design.md` carries, for the deltas it names; or an `unresolved` row whose
+      value, measured from the mockup's source per the cell rule above, matches. Every other row
+      is a departure per **Every departure from the mockup or the approved prototype is blocking**
+      above, and goes on a `- <frame id> differs:` line with its own row's figures as the
+      manifest's `figures` carry them. A row no difference is not written.
 
    **Never judge a size, alignment, spacing, corner radius, border, fill, shadow, icon size or
    font size by eye from a resized or cropped image; measure it with
@@ -715,18 +689,17 @@ step 8 could not close stays, which `close` hands the parent.
 **A departure found never shortens the pass:** every step still runs to its end in the same
 dispatch, and a fix round's re-verify finishing what this one left is no reason to leave it.
 **Step 10 is `done` only when every frame's matrix and sweeps are**: every composite read, every
-`over` row given its cause, every element the matrix merges or misses measured by hand, the
-frame's spot-check written, and every sweep on each `sweeps:` line `done` or
-n/a — `<why it does not apply>` — a sweep or a spot-check left for time, context or a
-measurement the pixels could not give is step 10 undone.
-Each composed frame carries its own `- <frame id> spot-check:` line, never one line for a range of frames: the report check refuses a `done` step 10 while a frame with a `- <frame id>: <composite path> diff=` line has none.
-It refuses one the same way for a missing `over-tolerance:` line, a frame with `over` rows and no
-`viewed: yes` line, an `over-tolerance:` item labelling rows by rule, a manifest cell left empty or
-n/a in a column that applies to its row's class, a spot-check row short, off the cells or on the
-`over` list, a `script` figure its cell does not carry, and a sweep item reading neither `done`
-nor n/a — `<why it does not apply>`.
-The `sweeps:` lines and the per-view `- <view>: <PNG>` lines are status lines: `done`,
-n/a — `<why it does not apply>`, `clean` or the defect, never a narration of what was read.
+`over` row judged, every element the matrix merges or misses measured by hand, and every sweep
+run — one left for time, context or a measurement the pixels could not give is step 10 undone.
+**The report lists only what differs.** Each composed frame has its own line, never one line
+for a range of frames: `match` when it shows no difference, else one `- <frame id> differs:`
+line per difference — element, what the mockup draws, what the capture draws, the numbers. No
+sweep, spot-check, reading or per-element `n/a` line is written. The report check refuses a
+`done` step 10 while a frame line reads `match` beside a `differs:` line, reads anything else
+with none, names a frame no manifest pair holds, or the manifest leaves a cell empty or n/a in a
+column that applies to its row's class.
+The per-view `- <view>: <PNG>` lines are status lines: `clean` or the defect, never a narration
+of what was read.
 
 **Hand back the `## Verdict` alone.** Write the report file as a `## Verdict` block with the full
 `## Report` under it, and end your turn with the `## Verdict` block alone — the parent reads nothing
@@ -761,14 +734,8 @@ attribution beside it — one cause drawn on 34 frames is one line, never one li
 - <view>: <absolute PNG path> — clean | <the defect seen> | capture unchanged since <round base>
 - measure: exit <n> — <absolute manifest path>
 - mockups: <not declared | no map for <spec> | exit <n>>
-- <frame id>: <absolute composite path> diff=<ratio> — <match, or each departure seen — a band, a seam or a spot-check `mismeasure` included — with its named cause, or `departure` per **Every departure from the mockup or the approved prototype is blocking** above>
-- <frame id> sweeps: text | order | reach | derived | rows | ink — <each `done`, or `n/a — <why it does not apply>`>
-- per view, no frame composed: <view id> sweeps: text | order | reach | derived | rows |
-  ink — the same sweep line at capture scope; `order` carries its containment half's
-  outcome beside n/a — no frame; `rows` and `ink` read n/a — no frame
-- <frame id> spot-check: #<row> <column> script <x> hand <y>; … <at least 3 rows off the `over` list, or every one when fewer, one a `control` or `fill band` row where the frame has one>
-- <frame id> viewed: yes — <what the composite shows; required for every frame with a row on the manifest's `over` list>
-- <frame id> over-tolerance: <n> — #<row>: <cause>; … <every row the manifest's `over` list names for the frame, each with one cause from step 10's closed list>
+- <frame id>: <absolute composite path> diff=<ratio> — match | differs
+- <frame id> differs: <element> — mockup <what it draws>, capture <what it draws>, <numbers>
 - frames: <n>/<m> — <m> the change's own declared list, then every declared frame id with no line above and why
 - motion: <named motions recorded>/<named> — <each motion id: its strip directory, frame count, and `clean` or each departing frame's index and what it shows> | n/a — no motions named
   - <a strip recorded beyond the named motions>

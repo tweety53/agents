@@ -109,37 +109,6 @@ func TestCheckVerifyReportNoMockupSourceWithCitedSource(t *testing.T) {
 	}
 }
 
-// TestCheckVerifyReportSpotCheckLinePerFrame pins decision spot-check-shape
-// with kan-1016's lesson: one line covered nine frames. A `done` step 10 needs
-// a spot-check: line per composed frame.
-func TestCheckVerifyReportSpotCheckLinePerFrame(t *testing.T) {
-	t.Parallel()
-	frames := vrtFrame("templates-W1") + "- templates-W1 over-tolerance: 0\n" + vrtFrame("templates-A4b") + "- templates-A4b over-tolerance: 0\n"
-	noA4b := strings.Replace(frames, "- templates-A4b spot-check:", "- templates-A4b notes:", 1)
-	for _, tc := range []struct {
-		name, body string
-		rc         int
-		want       string
-	}{
-		{"missing", vrtDone + noA4b, 1, "templates-A4b has no spot-check: line"},
-		{"present", vrtDone + frames, 0, "COMPLETE"},
-		{"not done", "- steps: 4 done | 7 done | 8 done | 9 done | 10 n/a — no mockups declared | 11 done | motion n/a — none\n" + noA4b, 0, "COMPLETE"},
-	} {
-		dir := t.TempDir()
-		vrtManifest(t, dir, "visual-verify", "templates-W1")
-		vrtManifest(t, dir, "visual-verify-a4b", "templates-A4b") // a second pair, merged below
-		vrtMerge(t, dir)
-		path := filepath.Join(dir, "verify-report-visual-verify.md")
-		if err := os.WriteFile(path, []byte("## Report\n"+tc.body), 0o644); err != nil {
-			t.Fatal(err)
-		}
-		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) || (tc.rc == 1 && strings.Contains(r.out, "templates-W1 has")) {
-			t.Fatalf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
-		}
-	}
-}
-
 // TestCheckVerifyReportStep10WithACitedPrototype pins that step 10 reported
 // n/a beside an approved prototype design.md cites is undone: the prototype is
 // rendered as each capture's frame (kan-1038).
@@ -179,9 +148,9 @@ func TestCheckVerifyReportStep10WithACitedPrototype(t *testing.T) {
 }
 
 // TestCheckVerifyReportAccountsForEveryCapture pins that every PNG the
-// resolver prints for the report's `- spec:` names its own view line, and
-// every view no frame is composed for its per-view sweeps line
-// (group-allowed-pairs-roles self-review).
+// resolver prints for the report's `- spec:` names its own view line
+// (group-allowed-pairs-roles self-review); a view no frame is composed for
+// owes nothing more.
 func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 	t.Parallel()
 	const allDone = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
@@ -192,8 +161,7 @@ func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 	}{
 		{"every capture accounted", "", "tests/visual", 0, "VERIFY-REPORT-COMPLETE"},
 		{"a capture unnamed", "- a-open: ", "tests/visual", 1, "a-open-darwin.png is on no"},
-		{"no per-view sweeps line", "per view, no frame composed", "tests/visual", 1, "a-open has no frame and no"},
-		{"frame lines removed", "/vv/a-roles-darwin.png", "tests/visual", 1, "a-roles has no frame and no"},
+		{"frame lines removed", "/vv/a-roles-darwin.png", "tests/visual", 0, "VERIFY-REPORT-COMPLETE"},
 		{"no spec line", "- spec: ", "tests/visual", 0, "VERIFY-REPORT-COMPLETE"},
 		{"resolver finds nothing", "", "nowhere", 0, "VERIFY-REPORT-COMPLETE"},
 	} {
@@ -205,19 +173,13 @@ func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 		lines := []string{
 			allDone,
 			"- spec: <root>/tests/visual/a.spec.ts\n",
-			"- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + " — header and table read\n",
-			"- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + " — roles panel read\n",
-			"- mock-frame-03: <root>/vv/a-roles-darwin.png diff=n/a — prototype frame\n",
-			vrtSpot("mock-frame-03") + "- mock-frame-03 over-tolerance: 0\n",
-			"- per view, no frame composed: a-open sweeps: text done | overflow done\n",
+			"- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + " — clean\n",
+			"- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + " — clean\n",
+			"- mock-frame-03: <root>/vv/a-roles-darwin.png diff=n/a — match\n",
 		}
 		var body strings.Builder
 		for _, l := range lines {
-			drop := tc.drop != "" && strings.Contains(l, tc.drop)
-			if tc.name == "frame lines removed" && strings.Contains(l, "mock-frame-03 spot-check:") {
-				drop = true
-			}
-			if !drop {
+			if tc.drop == "" || !strings.Contains(l, tc.drop) {
 				body.WriteString(strings.ReplaceAll(l, "<root>", root))
 			}
 		}
@@ -233,10 +195,9 @@ func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 
 // TestCheckVerifyReportAccountsForAnUnchangedView pins decision
 // unchanged-view-line: in a scoped row — its key has a round file — a view
-// whose capture a manifest pair holds and whose own line reads `capture
-// unchanged since <round base>` needs no frame line; the marker accounts for
-// nothing in an unscoped row, on a view no frame is composed for, or for
-// another view (KAN-1122).
+// whose capture a manifest pair holds may read `capture unchanged since
+// <round base>`; the marker is refused in an unscoped row and on a view no
+// frame is composed for (KAN-1122).
 func TestCheckVerifyReportAccountsForAnUnchangedView(t *testing.T) {
 	t.Parallel()
 	const allDone = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
@@ -247,9 +208,9 @@ func TestCheckVerifyReportAccountsForAnUnchangedView(t *testing.T) {
 		rc                int
 		want              string
 	}{
-		{"an unchanged framed view in a scoped row is accounted", " — header read", marker, true, 0, "VERIFY-REPORT-COMPLETE"},
-		{"an unscoped row reads every view", " — header read", marker, false, 1, "a-roles has no frame and no"},
-		{"a view no frame is composed for is always read", marker, marker, true, 1, "a-open has no frame and no"},
+		{"an unchanged framed view in a scoped row is accounted", " — clean", marker, true, 0, "VERIFY-REPORT-COMPLETE"},
+		{"an unscoped row reads every view", " — clean", marker, false, 1, `a-roles reads "capture unchanged"`},
+		{"a view no frame is composed for is always read", marker, marker, true, 1, `a-open reads "capture unchanged"`},
 	} {
 		root := t.TempDir()
 		writeFile(t, filepath.Join(root, ".flow/project.md"), rvsSection("tests/visual"))
@@ -260,9 +221,6 @@ func TestCheckVerifyReportAccountsForAnUnchangedView(t *testing.T) {
 			"- spec: " + filepath.Join(root, "tests/visual/a.spec.ts") + "\n" +
 			"- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + tc.open + "\n" +
 			"- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + tc.roles + "\n"
-		if tc.open != marker {
-			body += "- per view, no frame composed: a-open sweeps: text done | overflow done\n"
-		}
 		sdd := filepath.Join(root, ".superpowers/sdd")
 		m := vvmManifestOut{Captures: []string{}, Identical: []string{}, Steps: map[string]vvmStep{},
 			Pairs: []vvmPair{{Frame: "mock-frame-03", Capture: filepath.Join(snaps, "a-roles-darwin.png")}}}
@@ -325,18 +283,13 @@ func TestCheckVerifyReportReadsReportAlone(t *testing.T) {
 
 const vrtDone = "- steps: 4 done | 7 done | 8 done | 9 done | 10 done | 11 done | motion n/a — none\n"
 
-// vrtFrame is one composed frame's full set of lines but its over-tolerance one.
+// vrtFrame is a composed frame's one `match` line.
 func vrtFrame(id string) string {
-	return "- " + id + ": /c/" + id + ".png diff=0.1 — match\n- " + id + " sweeps: text done | order n/a — one column\n" + vrtSpot(id) + "- " + id + " viewed: yes — composite read\n"
-}
-
-// vrtSpot is a spot-check: line over vrtCells' three rows, each script figure its row's b box.width.
-func vrtSpot(id string) string {
-	return "- " + id + " spot-check: #10 size script 50 hand 50; #11 size script 51 hand 51; #12 size script 52 hand 52\n"
+	return "- " + id + ": /c/" + id + ".png diff=0.1 — match\n"
 }
 
 // vrtCells is a frame's manifest cells: rows 10 to 12, three controls, every
-// column filled with box.width a=40 and b=40+<row> — rows no test's over list names.
+// column filled with box.width a=40 and b=40+<row>.
 func vrtCells() []any {
 	var cells []any
 	for _, n := range []int{10, 11, 12} {
@@ -368,92 +321,37 @@ func vrtManifestCells(t *testing.T, sdd, key, frame string, cells []any, over ..
 	writeFile(t, filepath.Join(sdd, "visual-manifest-"+key+".json"), string(body))
 }
 
-func vrtOver(row int, status, keys string) any {
-	return map[string]any{"row": row, "status": status, "keys": keys}
-}
-
-// TestCheckVerifyReportOverToleranceLine pins decision over-tolerance-line:
-// every row the manifest's `over` list names for a composed frame is named on
-// its `over-tolerance:` line with the manifest's count.
-func TestCheckVerifyReportOverToleranceLine(t *testing.T) {
+// TestCheckVerifyReportMatchesAndDifferences pins the difference-only report:
+// a composed frame is one `match` line, or a verdict and one `differs:` line
+// per difference — with over rows on the manifest, no over-tolerance,
+// spot-check, viewed or sweeps line is owed — and a frame with neither shape,
+// or with no line at all, is still refused.
+func TestCheckVerifyReportMatchesAndDifferences(t *testing.T) {
 	t.Parallel()
+	over := []any{map[string]any{"row": 1, "status": "missing", "keys": ""}, map[string]any{"row": 3, "status": "paired", "keys": "box.width"}}
+	const differs = "- W1: /c/W1.png diff=0.1 — differs\n- W1 differs: Try button — mockup x 40–740, capture x 48–728, inset 8 px a side\n- W1 differs: List label — mockup ink, capture grey #777\n"
 	for _, tc := range []struct {
-		name, key, line string
+		name, key, body string
 		manifest        bool
 		rc              int
 		want            string
 	}{
-		{"every row named", "visual-verify", "- W1 over-tolerance: 2 — #1: departure; #3: annotation\n", true, 0, "COMPLETE"},
-		{"missing line", "visual-verify", "", true, 1, "W1 has no over-tolerance: line"},
-		{"wrong count", "visual-verify", "- W1 over-tolerance: 1 — #1: departure; #3: annotation\n", true, 1, "W1 over-tolerance: 1, the manifest's over count is 2"},
-		{"unnamed row", "visual-verify", "- W1 over-tolerance: 2 — #1: departure\n", true, 1, "row #3 unnamed"},
-		{"rest report reads its key's manifest", "visual-verify-rest-2", "- W1 over-tolerance: 2 — #1: departure; #3: annotation\n", true, 0, "COMPLETE"},
-		{"no manifest", "visual-verify", "- W1 over-tolerance: 0\n", false, 1, "no readable manifest"},
+		{"match line alone", "visual-verify", vrtFrame("W1"), true, 0, "COMPLETE"},
+		{"difference lines alone", "visual-verify", differs, true, 0, "COMPLETE"},
+		{"rest report reads its key's manifest", "visual-verify-rest-2", vrtFrame("W1"), true, 0, "COMPLETE"},
+		{"a verdict with no difference line", "visual-verify", "- W1: /c/W1.png diff=0.1 — differs\n", true, 1, "W1 reads neither match nor lists a `- W1 differs:"},
+		{"a match beside a difference line", "visual-verify", vrtFrame("W1") + "- W1 differs: rail — mockup 8 px, capture 6 px\n", true, 1, "W1 reads match and has 1 `- W1 differs:` lines"},
+		{"no manifest", "visual-verify", vrtFrame("W1"), false, 1, "no readable manifest"},
+		{"a frame in no pair", "visual-verify", vrtFrame("W2"), true, 1, "W2 is in no pair of the manifest"},
 	} {
 		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
 		if tc.manifest {
-			vrtManifest(t, sdd, "visual-verify", "W1", vrtOver(1, "missing", ""), vrtOver(3, "paired", "box.width"))
+			vrtManifest(t, sdd, "visual-verify", "W1", over...)
 		}
 		path := filepath.Join(sdd, "verify-report-"+tc.key+".md")
-		writeFile(t, path, "## Report\n"+vrtDone+vrtFrame("W1")+tc.line)
+		writeFile(t, path, "## Report\n"+vrtDone+tc.body)
 		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
 		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
-		}
-	}
-}
-
-// TestCheckVerifyReportOverToleranceCauses pins step 10's closed cause list.
-func TestCheckVerifyReportOverToleranceCauses(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		cause, status, keys string
-		ok                  bool
-	}{
-		{"departure — a 4px shift", "paired", "box.width", true},
-		{"annotation", "extra", "", true},
-		{"transcription", "paired", "content.width", true},
-		{"text width", "paired", "content.width", true},
-		{"decision thin-parent-prepare-close", "paired", "box.width", true},
-		{"mockup source — 8px from the CSS", "paired", "unresolved", true},
-		{"looks fine", "paired", "box.width", false},
-		{"decision no-such-id", "paired", "box.width", false},
-		{"present at the merge base", "paired", "box.width", false},
-		{"mockup source", "paired", "box.width", false},
-	} {
-		wt := t.TempDir()
-		sdd := filepath.Join(wt, ".superpowers/sdd")
-		design := filepath.Join(wt, "spectre/changes/x/design.md")
-		writeFile(t, design, "## Decisions\n\n**ID:** thin-parent-prepare-close\n")
-		vrtManifest(t, sdd, "visual-verify", "W1", vrtOver(2, tc.status, tc.keys))
-		path := filepath.Join(sdd, "verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+vrtDone+vrtFrame("W1")+"- W1 over-tolerance: 1 — #2: "+tc.cause+"\n")
-		r := runGuard("check-verify-report", []string{path, "0", "--design", design}, Env{Getenv: os.Getenv})
-		if got := r.rc == 0; got != tc.ok || (!tc.ok && !strings.Contains(r.out, "off step 10's closed list")) {
-			t.Errorf("%q: rc=%d out=%q; want admitted=%v", tc.cause, r.rc, r.out, tc.ok)
-		}
-	}
-}
-
-// TestCheckVerifyReportNoMatrixBandsSeamsLines pins decisions
-// bands-seams-lines-dropped and keep-status-only-lines: a composed frame's
-// report carries no matrix:, bands: or seams: line and step 10 is still done
-// (TestCheckVerifyReportSweepItems pins the sweeps: line's items).
-func TestCheckVerifyReportNoMatrixBandsSeamsLines(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		name, sweeps string
-		rc           int
-		want         string
-	}{
-		{"status-only sweeps", "text done | order n/a — one column", 0, "COMPLETE"},
-	} {
-		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
-		vrtManifest(t, sdd, "visual-verify", "W1")
-		path := filepath.Join(sdd, "verify-report-visual-verify.md")
-		frame := strings.Replace(vrtFrame("W1"), "text done | order n/a — one column", tc.sweeps, 1)
-		writeFile(t, path, "## Report\n"+vrtDone+frame+"- W1 over-tolerance: 0\n")
-		if r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv}); r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
 			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
 		}
 	}
@@ -497,117 +395,10 @@ func TestCheckVerifyReportManifestCells(t *testing.T) {
 		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
 		vrtManifestCells(t, sdd, "visual-verify", "W1", tc.cells)
 		path := filepath.Join(sdd, "verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+vrtDone+"- W1: /c/W1.png diff=0.1 — match\n- W1 spot-check: #10 kind script 50 hand 50\n- W1 over-tolerance: 0\n")
+		writeFile(t, path, "## Report\n"+vrtDone+vrtFrame("W1"))
 		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
 		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
 			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
-		}
-	}
-}
-
-// TestCheckVerifyReportSpotCheck pins decision spot-check-shape: at least 3
-// rows, or every row off the over list when fewer; each a cells row off that
-// list, its script figure one of the cell's b figures.
-func TestCheckVerifyReportSpotCheck(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		name, line, overLine string
-		over                 []any
-		rc                   int
-		want                 string
-	}{
-		{"three rows", "#10 size script 50 hand 50; #11 size script 51 hand 52; #12 kind script 52 hand 52", "0", nil, 0, "COMPLETE"},
-		{"two rows", "#10 size script 50 hand 50; #11 size script 51 hand 51", "0", nil, 1, "W1 spot-check checks 2 rows, needs 3"},
-		{"one row twice", "#10 size script 50 hand 50; #10 colour script 50 hand 50; #11 size script 51 hand 51", "0", nil, 1, "checks 2 rows, needs 3"},
-		{"every row off the over list", "#10 size script 50 hand 50; #12 size script 52 hand 52", "1 — #11: departure", []any{vrtOver(11, "paired", "box.width")}, 0, "COMPLETE"},
-		{"a row on the over list", "#10 size script 50 hand 50; #11 size script 51 hand 51; #12 size script 52 hand 52", "1 — #11: departure", []any{vrtOver(11, "paired", "box.width")}, 1, "W1 spot-check #11 is on the over list"},
-		{"a row off the cells", "#10 size script 50 hand 50; #11 size script 51 hand 51; #13 size script 52 hand 52", "0", nil, 1, "W1 spot-check #13 is no row of the manifest's cells"},
-		{"script figure off the manifest", "#10 size script 50 hand 50; #11 size script 51 hand 51; #12 size script 53 hand 53", "0", nil, 1, "W1 spot-check #12 size: script 53 is none of the manifest's b figures (52)"},
-		{"script figure from the a side", "#10 size script 40 hand 40; #11 size script 51 hand 51; #12 size script 52 hand 52", "0", nil, 1, "W1 spot-check #10 size: script 40 is none"},
-		{"item of another shape", "#10 size 50; #11 size script 51 hand 51; #12 size script 52 hand 52", "0", nil, 1, "W1 spot-check item \"#10 size 50\" is not"},
-		{"none, every row on the over list", "none — no row off the over list", "3 — #10: departure; #11: departure; #12: departure", []any{vrtOver(10, "paired", "box.width"), vrtOver(11, "paired", "box.width"), vrtOver(12, "paired", "box.width")}, 0, "COMPLETE"},
-		{"none, a row off the over list", "none — no row off the over list", "1 — #11: departure", []any{vrtOver(11, "paired", "box.width")}, 1, "W1 spot-check reads \"none — no row off the over list\" but 2 rows are off the over list"},
-	} {
-		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
-		vrtManifest(t, sdd, "visual-verify", "W1", tc.over...)
-		path := filepath.Join(sdd, "verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+vrtDone+"- W1: /c/W1.png diff=0.1 — match\n- W1 viewed: yes\n- W1 spot-check: "+tc.line+"\n- W1 over-tolerance: "+tc.overLine+"\n")
-		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
-		}
-	}
-}
-
-// TestCheckVerifyReportSweepItems pins that a sweep item reads `done` or `n/a — <why>`.
-func TestCheckVerifyReportSweepItems(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		line string
-		rc   int
-	}{
-		{"- per view, no frame composed: home sweeps: text done | order n/a — one column | rows done — 2 rows\n", 0},
-		{"- per view, no frame composed: home sweeps: text done | order skipped\n", 1},
-		{"- per view, no frame composed: home sweeps: text done | order n/a\n", 1},
-	} {
-		path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+vrtDone+tc.line)
-		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || (tc.rc == 1 && !strings.Contains(r.out, "reads neither")) {
-			t.Errorf("%q: rc=%d out=%q; want rc=%d", tc.line, r.rc, r.out, tc.rc)
-		}
-	}
-}
-
-// vrtMerge folds visual-manifest-visual-verify-a4b.json's pairs into
-// visual-manifest-visual-verify.json: one manifest, two composed frames.
-func vrtMerge(t *testing.T, dir string) {
-	t.Helper()
-	var a, b vvmManifestOut
-	for p, m := range map[string]*vvmManifestOut{"visual-verify": &a, "visual-verify-a4b": &b} {
-		body, err := os.ReadFile(filepath.Join(dir, "visual-manifest-"+p+".json"))
-		if err != nil || json.Unmarshal(body, m) != nil {
-			t.Fatal(err)
-		}
-	}
-	a.Pairs = append(a.Pairs, b.Pairs...)
-	body, _ := json.Marshal(a)
-	writeFile(t, filepath.Join(dir, "visual-manifest-visual-verify.json"), string(body))
-}
-
-// TestCheckVerifyReportOverItemQuotesRowFigures pins kan-1057's self-review,
-// F20: an over-tolerance item's cause was read off a neighbouring row. Each
-// item whose manifest row carries figures quotes one of its own.
-func TestCheckVerifyReportOverItemQuotesRowFigures(t *testing.T) {
-	t.Parallel()
-	row := func(n int, a, b string, figures bool) any {
-		r := map[string]any{"row": n, "status": "paired", "keys": "height"}
-		if figures {
-			r["figures"] = map[string]any{"height": map[string]string{"a": a, "b": b}}
-		}
-		return r
-	}
-	for _, tc := range []struct {
-		name, quote string
-		figures     bool
-		rc          int
-	}{
-		{"own figures", " — height a=25 b=28", true, 0},
-		{"row #6's figures under #8", " — height a=31 b=34", true, 1},
-		{"no quote", "", true, 1},
-		{"manifest without figures", "", false, 0},
-	} {
-		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
-		vrtManifest(t, sdd, "visual-verify", "W1", row(6, "31", "34", tc.figures), row(8, "25", "28", tc.figures))
-		first := " — height a=31 b=34"
-		if !tc.figures {
-			first = ""
-		}
-		path := filepath.Join(sdd, "verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+vrtDone+vrtFrame("W1")+"- W1 over-tolerance: 2 — #6: text width"+first+"; #8: text width"+tc.quote+"\n")
-		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || (tc.rc == 1 && (!strings.Contains(r.out, "W1 over-tolerance #8: quotes none of its row's figures (height a=25 b=28)") || strings.Contains(r.out, "#6: quotes"))) {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d", tc.name, r.rc, r.out, tc.rc)
 		}
 	}
 }
@@ -628,10 +419,9 @@ func TestCheckVerifyReportFrames(t *testing.T) {
 	writeFile(t, spec+".mockups", "frame none\na-open.png fo\na-roles.png fr\n")
 	sdd := filepath.Join(root, ".superpowers/sdd")
 	vrtManifest(t, sdd, "visual-verify-s2of2", "fr")
-	roles := vrtDone + "- spec: " + spec + "\n- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + " — roles panel read\n" +
-		"- fr: " + root + "/vv/a-roles-darwin.png diff=n/a — framed\n" + vrtSpot("fr") + "- fr over-tolerance: 0\n"
-	open := vrtDone + "- spec: " + spec + "\n- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + " — header read\n" +
-		"- per view, no frame composed: a-open sweeps: text done\n"
+	roles := vrtDone + "- spec: " + spec + "\n- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + " — clean\n" +
+		"- fr: " + root + "/vv/a-roles-darwin.png diff=n/a — match\n"
+	open := vrtDone + "- spec: " + spec + "\n- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + " — clean\n"
 	for _, tc := range []struct {
 		name, key, body string
 		args            []string
@@ -651,41 +441,6 @@ func TestCheckVerifyReportFrames(t *testing.T) {
 	}
 	if r := runGuard("check-verify-report", []string{filepath.Join(sdd, "verify-report-visual-verify-s2of2.md"), "0", "--frames"}, Env{Getenv: os.Getenv}); r.rc != 2 {
 		t.Errorf("--frames with no value: rc=%d out=%q; want exit 2", r.rc, r.out)
-	}
-}
-
-// TestCheckVerifyReportFlaggedFrameIsViewed: a frame with any over row needs
-// its own `viewed: yes` line, and an over-tolerance item that labels rows by
-// rule is refused by name (kan-1155: causes given by key, composites unread).
-func TestCheckVerifyReportFlaggedFrameIsViewed(t *testing.T) {
-	t.Parallel()
-	frame := "- W1: /c/W1.png diff=0.1 — match\n- W1 sweeps: text done | order n/a — one column\n" + vrtSpot("W1")
-	const named = "- W1 over-tolerance: 2 — #1: departure; #3: annotation\n"
-	for _, tc := range []struct {
-		name, body string
-		over       bool
-		rc         int
-		want       string
-	}{
-		{"flagged and viewed", frame + "- W1 viewed: yes — the header sits one row low\n" + named, true, 0, "COMPLETE"},
-		{"flagged, no viewed line", frame + named, true, 1, "W1 has 2 over rows and no `- W1 viewed: yes` line"},
-		{"flagged, viewed: no", frame + "- W1 viewed: no\n" + named, true, 1, "no `- W1 viewed: yes` line"},
-		{"clean frame owes none", frame + "- W1 over-tolerance: 0\n", false, 0, "COMPLETE"},
-		{"a range of rows", frame + "- W1 viewed: yes\n- W1 over-tolerance: 2 — #1: departure; #3: annotation; #1-#3: text width\n", true, 1, `item "#1-#3: text width" labels rows by rule`},
-		{"a selector with no row", frame + "- W1 viewed: yes\n- W1 over-tolerance: 2 — #1: departure; #3: annotation; all ink.width rows: text width\n", true, 1, "labels rows by rule"},
-	} {
-		sdd := filepath.Join(t.TempDir(), ".superpowers/sdd")
-		if tc.over {
-			vrtManifest(t, sdd, "visual-verify", "W1", vrtOver(1, "missing", ""), vrtOver(3, "paired", "box.width"))
-		} else {
-			vrtManifest(t, sdd, "visual-verify", "W1")
-		}
-		path := filepath.Join(sdd, "verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+vrtDone+tc.body)
-		r := runGuard("check-verify-report", []string{path, "0"}, Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
-		}
 	}
 }
 
@@ -715,7 +470,7 @@ func TestCheckVerifyReportBlanketDecision(t *testing.T) {
 		writeFile(t, design, "**ID:** d1\n\n**ID:** d2\n")
 		path := filepath.Join(sdd, "verify-report-visual-verify.md")
 		frame := func(id, rest string) string {
-			return strings.Replace(vrtFrame(id), "diff=0.1 — match", "diff="+rest, 1) + "- " + id + " over-tolerance: 0\n"
+			return strings.Replace(vrtFrame(id), "diff=0.1 — match", "diff="+rest, 1)
 		}
 		writeFile(t, path, "## Report\n"+vrtDone+frame("A", tc.a)+frame("B", tc.b))
 		r := runGuard("check-verify-report", []string{path, "0", "--design", design}, Env{Getenv: os.Getenv})

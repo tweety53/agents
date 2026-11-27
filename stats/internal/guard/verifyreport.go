@@ -65,56 +65,31 @@ import (
 // prompt carries (kan-1010's self-review).
 //
 // With step 10 `done`, every frame id a `- <frame id>: <composite> diff=`
-// line names needs its `- <frame id> over-tolerance: <n> — #<row>: <cause>; …`
-// line (decisions over-tolerance-line, by-hand-check-automated): <n> must
-// equal the `over` count the frame's pairs carry in this dispatch's manifest,
+// line names must be in a pair of this dispatch's manifest,
 // `visual-manifest-<key>.json` beside <report file>, <key> the report's own
-// less any `-rest` or `-rest-<n>` segment — never the committed matrix JSON —
-// and every row on that list must be named with one cause from step 10's
-// closed list: `departure`, `annotation`, `transcription`, `text width`,
-// `decision <ID>` with `**ID:** <ID>` in <design.md>,
-// or `mockup source` on a row whose `keys` name `unresolved`. A missing or
-// unreadable manifest, a frame in none of its pairs, a missing line, a wrong
-// count, an unnamed row or a cause off the list is undone.
-// Each item whose manifest row carries figures quotes one as <key> a=<a> b=<b>;
-// an item quoting none of its row's figures is undone (kan-1057 self-review, F20).
-// A frame whose manifest `over` list is not empty also needs its own
-// `- <frame id> viewed: yes — <what its composite shows at the flagged rows>`
-// line: its rows are explained from the composite, read, never from their
-// keys. An over-tolerance item that labels rows by rule — a range or a list
-// (`#9-#17:`, `#9, #10:`) or a selector with no row (`all ink.width rows:`,
-// `rest:`) — is undone (kan-1155: 192 rows were given causes by key).
+// less any `-rest` or `-rest-<n>` segment — never the committed matrix JSON;
+// a missing or unreadable manifest, or a frame in none of its pairs, is
+// undone. The report lists only what differs: the frame line's verdict, after
+// ` — `, reads `match` for a frame with no difference, and any other verdict
+// needs one `- <frame id> differs: <element> — mockup <…>, capture <…>,
+// <numbers>` line per difference. A `match` frame with a `differs` line, or
+// another verdict with none, is undone.
 //
 // The same manifest pair's `cells` (decision cells-in-measure) are checked
 // for every such frame: absent cells, an empty cell — null, an empty string,
 // or a cell whose `a` and `b` are both empty — and a string cell other than
 // an `n/a — <why>` in a column vrNAColumns lists for the row's `class`, or an
-// `unresolved — <reason>` on an `unresolved` row, are undone. The frame's
-// `- <frame id> spot-check: #<row> <column> script <x> hand <y>; …` line
-// (decision spot-check-shape) must name at least 3 rows, or every row when
-// fewer of its cells rows are off the frame's `over` list; each named row is
-// a cells row off that list, and each <x> is one of the `b` figures of that
-// row's <column> cell, written as the over list's figures are — a number
-// shortest-exact, a colour as its hex. A missing line, an item of another
-// shape, a row short, a row off the cells or on the `over` list, or an <x>
-// the cell does not carry is undone (kan-1120: the script fills the matrix,
-// and the line is what shows the verifier compared it with the pixels).
-// Where no cells row is off the `over` list, the line reads exactly
-// `none — no row off the over list`, and that form is undone anywhere else.
-//
-// Every `sweeps:` line's ` | `-separated items each read `<sweep> done…` or
-// `<sweep> n/a — <why>`; any other leaves step 10 undone.
+// `unresolved — <reason>` on an `unresolved` row, are undone.
 //
 // Given a `## Report` line `- spec: <path>`, the PNGs
 // `flow-guard resolve-visual-screenshots <worktree> <spec basename>` prints, the
 // worktree three directories above <report file>, each need a
-// `- <view>: <absolute PNG path>` line, and each such view that no
-// `- <view>: <composite> diff=` line names needs a
-// `per view, no frame composed: <view> sweeps:` line; each gap is undone. A
-// view whose own line reads
-// `- <view>: <absolute PNG path> — capture unchanged since <round base>` needs
-// neither line — a scoped fix round's verifier does not read a view whose
-// capture is unchanged (skills/flow/visual-verify-verifier.md step 9). No
+// `- <view>: <absolute PNG path>` line; each gap is undone. A view whose own
+// line reads `- <view>: <absolute PNG path> — capture unchanged since <round
+// base>` accounts for its capture only in a scoped row — its key has a round
+// file — and only for a capture one of the manifest's pairs holds: a scoped
+// fix round's verifier does not read a framed view whose capture is unchanged
+// (skills/flow/visual-verify-verifier.md step 9), and reads every other. No
 // `- spec:` line, a wire contract naming an endpoint, or a resolver exit other
 // than 0 skips the check (group-allowed-pairs-roles self-review: two round-1
 // reports named only the prototype-framed captures). With --frames, a shard's
@@ -160,17 +135,9 @@ var (
 	// The capture spec a `## Report` names: every PNG the resolver prints for
 	// it needs its own view line (group-allowed-pairs-roles self-review).
 	vrSpecLine = regexp.MustCompile(`^\s*- spec:\s*(\S+)`)
-	// A composed frame's `over-tolerance:` and `spot-check:` lines, and any
-	// `sweeps:` line (decisions over-tolerance-line, spot-check-shape).
-	vrOverLine = regexp.MustCompile(`^\s*- (\S+) over-tolerance:\s*(.*)$`)
-	vrSpotLine = regexp.MustCompile(`^\s*- (\S+) spot-check:\s*(.*)$`)
-	vrSpotItem = regexp.MustCompile(`^#(\d+) (\S+) script (\S+) hand \S`)
-	vrSweeps   = regexp.MustCompile(`\bsweeps:\s*(.*)$`)
-	vrOverItem = regexp.MustCompile(`^#(\d+):\s*(.*)$`)
-	// An over-tolerance item naming more than one row, or none: a rule, not a reading.
-	vrRuleItem = regexp.MustCompile(`^(#\d+\s*([-–,&]|to\b|and\b)|(?i:rows?|all|every|each|the rest|rest|others?|remaining|same)\b)`)
-	// A flagged frame's `viewed: yes` line.
-	vrViewedLine = regexp.MustCompile(`^\s*- (\S+) viewed:\s*yes\b`)
+	// A frame line's verdict, and a composed frame's `differs:` line.
+	vrVerdict     = regexp.MustCompile(`diff=\S*\s+—\s+(.*)$`)
+	vrDiffersLine = regexp.MustCompile(`^\s*- (\S+) differs:\s*\S`)
 	// A `-rest` or `-rest-<n>` segment of a report's key: its manifest is the key's without it.
 	vrRestSegment = regexp.MustCompile(`-rest(-\d+)?\b`)
 	// Step 10's matrix columns (skills/flow/visual-verify-verifier.md), in order.
@@ -232,13 +199,11 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	motionLine := false
 	inReport := false
 	noView := false
-	var frames, framed []string
+	var frames []string
 	spec := ""
 	var reportLines []string
-	over, spot := map[string]string{}, map[string]string{}
-	viewed := map[string]bool{}
+	verdicts, differs := map[string]string{}, map[string]int{}
 	blanket := map[string][]string{}
-	var badSweeps []string
 	for _, line := range strings.Split(string(data), "\n") {
 		// Every line is read from `## Report` to the next `## ` heading alone:
 		// the `## Verdict` block above it is the handback, not the record.
@@ -268,26 +233,12 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 					blanket[d[2]] = append(blanket[d[2]], m[1])
 				}
 			}
-			framed = append(framed, vrPlatformSuffix.ReplaceAllString(strings.TrimSuffix(filepath.Base(m[2]), ".png"), ""))
-		}
-		if m := vrOverLine.FindStringSubmatch(line); m != nil {
-			over[m[1]] = m[2]
-		}
-		if m := vrSpotLine.FindStringSubmatch(line); m != nil {
-			spot[m[1]] = m[2]
-		}
-		if m := vrViewedLine.FindStringSubmatch(line); m != nil {
-			viewed[m[1]] = true
-		}
-		if m := vrSweeps.FindStringSubmatch(line); m != nil {
-			for _, item := range strings.Split(m[1], " | ") {
-				_, st, _ := strings.Cut(strings.TrimSpace(item), " ")
-				st = strings.TrimSpace(st)
-				why, isNA := strings.CutPrefix(st, "n/a — ")
-				if !(st == "done" || strings.HasPrefix(st, "done ") || isNA && strings.TrimSpace(why) != "") {
-					badSweeps = append(badSweeps, "sweep item `"+strings.TrimSpace(item)+"` reads neither `done` nor `n/a — <why>`")
-				}
+			if v := vrVerdict.FindStringSubmatch(line); v != nil {
+				verdicts[m[1]] = strings.TrimSpace(v[1])
 			}
+		}
+		if m := vrDiffersLine.FindStringSubmatch(line); m != nil {
+			differs[m[1]]++
 		}
 		if m := vrWireContract.FindStringSubmatch(line); m != nil && !strings.HasPrefix(strings.TrimSpace(m[1]), "n/a") {
 			noView = true
@@ -326,15 +277,6 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 		}
 	}
-	var designBody []byte
-	if design != "" {
-		designBody, _ = os.ReadFile(design)
-	}
-	// Every step-10 defect is named in one run, never only the last.
-	step10 := badSweeps
-	if len(step10) > 0 {
-		status["10"] = strings.Join(step10, "; ")
-	}
 	for _, id := range vrSteps {
 		s, ok := status[id]
 		naAllowed := id == "4" || id == "10" || (id == "motion" && motions == 0) || (noView && (id == "8" || id == "9"))
@@ -363,7 +305,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	mpath := filepath.Join(filepath.Dir(args[0]), "visual-manifest-"+vrRestSegment.ReplaceAllString(strings.TrimSuffix(strings.TrimPrefix(filepath.Base(args[0]), "verify-report-"), ".md"), "")+".json")
 	mbody, merr := os.ReadFile(mpath)
 	if status["10"] == "done" && len(frames) > 0 {
-		undone = append(undone, vrOverTolerance(mpath, mbody, merr, frames, over, spot, viewed, string(designBody))...)
+		undone = append(undone, vrComposed(mpath, mbody, merr, frames, verdicts, differs)...)
 	}
 	for _, id := range slices.Sorted(maps.Keys(blanket)) {
 		if fs := blanket[id]; len(fs) > 1 {
@@ -372,7 +314,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if spec != "" && !noView {
 		key := vrRestSegment.ReplaceAllString(strings.TrimSuffix(strings.TrimPrefix(filepath.Base(args[0]), "verify-report-"), ".md"), "")
-		undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, framed, reportLines, vrScopedCaptures(filepath.Dir(args[0]), key, mbody, merr), slice, strings.Contains(key, "-s1of"))...)
+		undone = append(undone, vrUnaccounted(filepath.Dir(filepath.Dir(filepath.Dir(args[0]))), spec, env, reportLines, vrScopedCaptures(filepath.Dir(args[0]), key, mbody, merr), slice, strings.Contains(key, "-s1of"))...)
 	}
 	if len(undone) > 0 {
 		fmt.Fprintf(stdout, "VERIFY-REPORT-INCOMPLETE: %s — %s\n", args[0], strings.Join(undone, "; "))
@@ -384,14 +326,11 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 }
 
 // vrUnaccounted resolves the spec's captures and names each one no
-// `- <view>: <path>` line states, and each stated view no frame is composed
-// for that carries no per-view sweeps line. A capture is framed when its
-// basename, less `.png` and any Playwright `-<platform>` suffix, is the stem
-// of a frame line's composite path — a frame id names the mockup, not the
-// view. A resolver exit other than 0 is not checked: step 9 blocks on it.
+// `- <view>: <path>` line states. A resolver exit other than 0 is not
+// checked: step 9 blocks on it.
 // A `capture unchanged since` line accounts only for a capture in scoped, the
 // captures a scoped row may leave unread (vrScopedCaptures).
-func vrUnaccounted(wt, spec string, env Env, framed, lines, scoped, slice []string, lead bool) []string {
+func vrUnaccounted(wt, spec string, env Env, lines, scoped, slice []string, lead bool) []string {
 	var buf strings.Builder
 	if resolveVisualScreenshots([]string{wt, filepath.Base(spec)}, env, &buf, io.Discard) != 0 {
 		return nil
@@ -407,11 +346,9 @@ func vrUnaccounted(wt, spec string, env Env, framed, lines, scoped, slice []stri
 		switch {
 		case m == nil:
 			gaps = append(gaps, filepath.Base(png)+` is on no "- <view>: <path>" line — step 9 states every capture`)
-		case slices.Contains(scoped, png) && strings.HasPrefix(strings.TrimSpace(m[2]), "— capture unchanged since "):
-			// A scoped fix round's verifier does not read a view whose capture is
-			// unchanged since its round base (KAN-1122): its line says so.
-		case !slices.Contains(framed, vrPlatformSuffix.ReplaceAllString(strings.TrimSuffix(filepath.Base(png), ".png"), "")) && !strings.Contains(report, "per view, no frame composed: "+m[1]+" sweeps:"):
-			gaps = append(gaps, m[1]+` has no frame and no "per view, no frame composed: `+m[1]+` sweeps:" line`)
+		case strings.HasPrefix(strings.TrimSpace(m[2]), "— capture unchanged since ") && !slices.Contains(scoped, png):
+			// Only a scoped row may leave a framed view unread (KAN-1122).
+			gaps = append(gaps, m[1]+` reads "capture unchanged" but is not a framed view of a scoped row — read it`)
 		}
 	}
 	return gaps
@@ -435,24 +372,15 @@ func vrScopedCaptures(sdd, key string, body []byte, rerr error) []string {
 	return caps
 }
 
-type vrOverRow struct {
-	Row     int                          `json:"row"`
-	Status  string                       `json:"status"`
-	Keys    string                       `json:"keys"`
-	Figures map[string]map[string]string `json:"figures"`
-}
-
-// vrOverTolerance reconciles each composed frame's `over-tolerance:` line with
-// the `over` rows this dispatch's manifest carries for it, and checks the
-// frame's `cells` and its `spot-check:` line against the same pair — never the
-// committed matrix JSON, so a pass that skipped `measure` cannot stand on last
-// round's numbers. The manifest sits beside the report as
-// visual-manifest-<key>.json, <key> the report's own less any `-rest[-<n>]`.
-func vrOverTolerance(path string, body []byte, err error, frames []string, lines, spot map[string]string, viewed map[string]bool, design string) []string {
+// vrComposed checks each composed frame against this dispatch's manifest —
+// never the committed matrix JSON, so a pass that skipped `measure` cannot
+// stand on last round's numbers — and its verdict against its `differs:`
+// lines. The manifest sits beside the report as visual-manifest-<key>.json,
+// <key> the report's own less any `-rest[-<n>]`.
+func vrComposed(path string, body []byte, err error, frames []string, verdicts map[string]string, differs map[string]int) []string {
 	var m struct {
 		Pairs []struct {
 			Frame string           `json:"frame"`
-			Over  []vrOverRow      `json:"over"`
 			Cells []map[string]any `json:"cells"`
 		} `json:"pairs"`
 	}
@@ -464,14 +392,11 @@ func vrOverTolerance(path string, body []byte, err error, frames []string, lines
 	}
 	var undone []string
 	for _, f := range frames {
-		rows, seen := map[int]vrOverRow{}, false
+		seen := false
 		var cells []map[string]any
 		for _, p := range m.Pairs {
 			if p.Frame == f {
 				seen = true
-				for _, r := range p.Over {
-					rows[r.Row] = r
-				}
 				cells = p.Cells
 			}
 		}
@@ -479,53 +404,13 @@ func vrOverTolerance(path string, body []byte, err error, frames []string, lines
 			undone = append(undone, f+" is in no pair of the manifest")
 			continue
 		}
-		undone = append(undone, vrCells(f, cells, rows, spot)...)
-		if len(rows) > 0 && !viewed[f] {
-			undone = append(undone, fmt.Sprintf("%s has %d over rows and no `- %s viewed: yes` line — read its composite before naming a cause", f, len(rows), f))
-		}
-		line, ok := lines[f]
+		undone = append(undone, vrCells(f, cells)...)
+		match := strings.HasPrefix(verdicts[f], "match")
 		switch {
-		case !ok:
-			undone = append(undone, f+" has no over-tolerance: line")
-			continue
-		}
-		count, items, _ := strings.Cut(line, " — ")
-		if strings.TrimSpace(count) != strconv.Itoa(len(rows)) {
-			undone = append(undone, fmt.Sprintf("%s over-tolerance: %s, the manifest's over count is %d", f, strings.TrimSpace(count), len(rows)))
-		}
-		named := map[int]bool{}
-		for _, item := range strings.Split(items, "; ") {
-			mm := vrOverItem.FindStringSubmatch(strings.TrimSpace(item))
-			if mm == nil {
-				if vrRuleItem.MatchString(strings.TrimSpace(item)) {
-					undone = append(undone, fmt.Sprintf("%s over-tolerance item %q labels rows by rule — each row is `#<row>: <cause>`, read from the composite", f, strings.TrimSpace(item)))
-				}
-				continue
-			}
-			n, _ := strconv.Atoi(mm[1])
-			named[n] = true
-			if r, ok := rows[n]; ok && !vrCauseAdmitted(mm[2], r, design) {
-				undone = append(undone, fmt.Sprintf("%s over-tolerance #%d: cause %q is off step 10's closed list", f, n, strings.TrimSpace(mm[2])))
-			}
-			// The item quotes its own row's figures (kan-1057 self-review, F20: a
-			// cause read off a neighbouring row stood).
-			if r, ok := rows[n]; ok && len(r.Figures) > 0 {
-				var quotes []string
-				quoted := false
-				for _, k := range slices.Sorted(maps.Keys(r.Figures)) {
-					q := k + " a=" + r.Figures[k]["a"] + " b=" + r.Figures[k]["b"]
-					quotes = append(quotes, q)
-					quoted = quoted || strings.Contains(mm[2], q)
-				}
-				if !quoted {
-					undone = append(undone, fmt.Sprintf("%s over-tolerance #%d: quotes none of its row's figures (%s)", f, n, strings.Join(quotes, "; ")))
-				}
-			}
-		}
-		for n := range rows {
-			if !named[n] {
-				undone = append(undone, fmt.Sprintf("%s over-tolerance: row #%d unnamed", f, n))
-			}
+		case match && differs[f] > 0:
+			undone = append(undone, fmt.Sprintf("%s reads match and has %d `- %s differs:` lines", f, differs[f], f))
+		case !match && differs[f] == 0:
+			undone = append(undone, fmt.Sprintf("%s reads neither match nor lists a `- %s differs: <element> — mockup <…>, capture <…>, <numbers>` line", f, f))
 		}
 	}
 	slices.Sort(undone)
@@ -536,44 +421,16 @@ func vrOverTolerance(path string, body []byte, err error, frames []string, lines
 // its own: one decision cited by two such frames is a blanket.
 const vrBlanketCeiling = 0.03
 
-// vrCauseAdmitted answers whether cause is on step 10's closed list for row.
-func vrCauseAdmitted(cause string, row vrOverRow, design string) bool {
-	for _, c := range []string{"departure", "annotation", "transcription", "text width"} {
-		if strings.HasPrefix(cause, c) {
-			return true
-		}
-	}
-	if id, ok := strings.CutPrefix(cause, "decision "); ok {
-		id = strings.Fields(id + " ")[0]
-		return id != "" && regexp.MustCompile(`(?m)^\*\*ID:\*\*\s*`+regexp.QuoteMeta(id)+`\s*$`).MatchString(design)
-	}
-	if strings.HasPrefix(cause, "mockup source") {
-		return slices.Contains(strings.Split(row.Keys, ", "), "unresolved")
-	}
-	return false
-}
-
-// vrSpotNone is the spot-check: line of a frame with no cells row off its
-// `over` list — nothing left to measure by hand.
-const vrSpotNone = "none — no row off the over list"
-
 // vrCells checks one composed frame's manifest cells (decision
-// cells-in-measure) and its spot-check: line (decision spot-check-shape)
-// against them and the frame's over rows.
-func vrCells(f string, cells []map[string]any, over map[int]vrOverRow, spot map[string]string) []string {
+// cells-in-measure).
+func vrCells(f string, cells []map[string]any) []string {
 	if cells == nil {
 		return []string{f + " has no cells in the manifest — run step 9's measure"}
 	}
 	var bad []string
-	byRow := map[int]map[string]any{}
-	eligible := 0
 	for _, c := range cells {
 		n, _ := c["row"].(float64)
 		row := int(n)
-		byRow[row] = c
-		if _, on := over[row]; !on {
-			eligible++
-		}
 		class, _ := c["class"].(string)
 		for _, col := range vrColumns {
 			v := c[col]
@@ -589,51 +446,6 @@ func vrCells(f string, cells []map[string]any, over map[int]vrOverRow, spot map[
 				bad = append(bad, fmt.Sprintf("%s cells #%d %s reads %q — the column applies to `%s`", f, row, col, s, class))
 			}
 		}
-	}
-	line, ok := spot[f]
-	if !ok {
-		return append(bad, f+" has no spot-check: line")
-	}
-	if line == vrSpotNone {
-		if eligible > 0 {
-			bad = append(bad, fmt.Sprintf("%s spot-check reads %q but %d rows are off the over list", f, line, eligible))
-		}
-		return bad
-	}
-	named := map[int]bool{}
-	for _, item := range strings.Split(line, "; ") {
-		mm := vrSpotItem.FindStringSubmatch(strings.TrimSpace(item))
-		if mm == nil {
-			bad = append(bad, fmt.Sprintf("%s spot-check item %q is not `#<row> <column> script <x> hand <y>`", f, strings.TrimSpace(item)))
-			continue
-		}
-		row, _ := strconv.Atoi(mm[1])
-		c, inCells := byRow[row]
-		_, onOver := over[row]
-		switch {
-		case !inCells:
-			bad = append(bad, fmt.Sprintf("%s spot-check #%d is no row of the manifest's cells", f, row))
-			continue
-		case onOver:
-			bad = append(bad, fmt.Sprintf("%s spot-check #%d is on the over list", f, row))
-			continue
-		}
-		cell, _ := c[mm[2]].(map[string]any)
-		b, _ := cell["b"].(map[string]any)
-		var figures []string
-		for _, k := range slices.Sorted(maps.Keys(b)) {
-			if v, ok := vvmFigure(b[k]); ok {
-				figures = append(figures, v)
-			}
-		}
-		if !slices.Contains(figures, mm[3]) {
-			bad = append(bad, fmt.Sprintf("%s spot-check #%d %s: script %s is none of the manifest's b figures (%s)", f, row, mm[2], mm[3], strings.Join(figures, ", ")))
-			continue
-		}
-		named[row] = true
-	}
-	if need := min(3, eligible); len(named) < need {
-		bad = append(bad, fmt.Sprintf("%s spot-check checks %d rows, needs %d", f, len(named), need))
 	}
 	return bad
 }
