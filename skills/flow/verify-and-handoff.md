@@ -160,7 +160,7 @@ command is the branch's own defect and takes the fix procedure (`skills/flow/fix
 the whole list has run, its first run's `result files:` and `full output:` paths named in the
 fixer's dispatch; where the environment itself failed — a missing build prerequisite — it
 ends the turn with `## Question` naming the command and its output, verbatim. A failing test this
-change did not introduce takes the fix procedure as well (**the sweep**, `skills/flow-contracts/known-bugs.md`). Never treat a
+change did not introduce takes the fix procedure as well, unless its guard proves it pre-existing and unrelated (**the sweep**, `skills/flow-contracts/known-bugs.md`). Never treat a
 passing re-run as license to skip the rest of the list — every remaining command in the order
 above still runs.
 

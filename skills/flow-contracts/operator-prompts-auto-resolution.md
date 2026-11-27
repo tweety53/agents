@@ -52,8 +52,8 @@ cases is a stop for nothing:
 - **A failure this branch introduced**, such as a capture's seed data crowding another spec's search:
   fix the branch so the other spec passes again, with the smallest change that does it (rename the
   seed, for example).
-- **Failures that are already on the base:** attribute them to their cause first, then fix them in this
-  run (**The sweep**, `skills/flow-contracts/known-bugs.md`). If the cause is a base branch that has
+- **Failures that are already on the base:** attribute them to their cause first, then take
+  **The sweep** (`skills/flow-contracts/known-bugs.md`). If the cause is a base branch that has
   fallen behind the branch it tracks (a feature branch that never took in develop or main), the
   recommended option is to sync that base and re-run. The parent checks this at the start of
   whichever visual or lint stage of `flow.verify` runs first, before any failure arrives: for

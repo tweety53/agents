@@ -9,19 +9,40 @@ surface another change owns.** Skills reference it as **the sweep**; none of the
 
 A product defect a run finds is fixed inside that run, before integrate lands the change — never deferred to self-review.
 
-**A defect the change did not introduce is no exception.** It blocks exactly as the change's own
+**A defect the change did not introduce is no exception**, except a failing test proven
+pre-existing and unrelated (below). It blocks exactly as the change's own
 does and takes the same course — the fix procedure (`skills/flow/fix.md`) in verify and
 visual verification, an appended task for a verification change's sweep (**D. Basic Workflow #3 —
 Writing plans**, `skills/flow/brainstorm-planner.md`). It is never logged to a `<project>/KNOWN-BUGS.md`
-file, never filed for later, and never skipped, worked around or
+file, and never skipped, worked around or
 tolerance-widened (**Fix determinism at the source, never by widening tolerance**,
 `rules/fix-determinism-at-the-source.mdc`).
 
-**A failure suspected to pre-date the change is isolated before it is classified.** Revert every
-file the change touched in the failing area to its merge-base content, re-run the failing tests,
-then restore the files: a failure that persists pre-dates the change, and one that goes away is the
-change's own. The classification decides only whose defect it is and where its fix is recorded —
-never whether it blocks.
+**A failing test suspected to pre-date the change is classified by its guard**, before anything
+else is done with it:
+
+```bash
+flow-guard pre-existing-failure <worktree> <base-ref> '<failing command>' <path>...
+```
+
+each `<path>` a file or directory, relative to the repository root, that the failing test covers.
+The guard compares the paths with the change's diff against the merge-base, then runs the command
+in a detached checkout of the merge-base:
+
+- `CAUSED` (exit 1) — a named path is in the change's diff, or the command passes on the
+  merge-base: the change's own defect. It blocks and is fixed in the change.
+- `PRE-EXISTING` (exit 0) — no named path is in the change's diff and the command fails on the
+  merge-base too: the one defect that does not block the landing. The run files it at once as its
+  own issue, titled as **Follow-up issues** (`skills/flow-contracts/jira-followups.md`) names a
+  follow-up and never joined to one, labelled and bodied per **Labels and body of issues the
+  pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`) — its `## Why` carrying
+  the guard's `PRE-EXISTING` line and the failing output — records it with
+  `flow record finding -change <name> -ref <the ref flow record next-ref prints> -slot parent -severity important -status 'withdrawn pre-existing: <issue key>' -reproducer '<failing command>' -note '<the failing test, one line>'`,
+  and the change lands with that test still failing, the issue key named in its handoff. The fix
+  is its own change.
+- Exit 2 classifies nothing: the failure blocks.
+
+A failing `lint` command is never classified: the landing reads that list's green.
 
 **A stale snapshot baseline on the base is re-baselined, never asked.** A screenshot mismatch is a
 failure whose run produced an `-actual.png` or `-diff.png` attachment; a "waiting for stable

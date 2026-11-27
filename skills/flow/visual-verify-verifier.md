@@ -92,7 +92,7 @@ reported BLOCKED, naming it.
    capture of every screen it changed or removed. Run `capture` with `<spec>` substituted for the
    suite's path and `-g '<titles>'` appended, naming only the tests this step added or updated —
    never the whole suite; a non-zero exit blocks as any `capture` failure does, a failing test this
-   change did not introduce included (**the sweep**, `skills/flow-contracts/known-bugs.md`).
+   change did not introduce included unless its guard proves it pre-existing and unrelated (**the sweep**, `skills/flow-contracts/known-bugs.md`).
    Then rebuild the zip from exactly what the suite just produced with
    `flow-guard rebuild-full-app-suite-zip <worktree> <screenshots root>`, the one script every recapture
    that moves the suite runs too (`skills/flow/fix-visual.md`, `skills/flow/sync-onto-base.md`).
