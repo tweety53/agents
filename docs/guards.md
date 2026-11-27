@@ -25,6 +25,7 @@ Hooks run inside Claude Code itself, before or after a tool call:
 - `flow-active-change.py` routes a plain problem report to the open change as a fix run.
 - `await-own-agents.py` holds a subagent's stop while an agent it launched still runs.
 - `flow-session-activity.py` reports each session's working or waiting state to `flowd`.
+- `flow-skill-load.py` records to `flowd` each skill, rule or doc file of this repository a session loads.
 
 They live in [`hooks/`](../hooks/). `setup.sh` installs them and prints the snippet that registers
 them; it never registers them for you.

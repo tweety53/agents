@@ -384,6 +384,18 @@ SNIPPET
 
           { "type": "command", "command": "python3 \"$HOME/.claude/hooks/flow-session-activity.py\"" }
 SNIPPET
+  warn_unregistered_hook "$settings" flow-skill-load flow-skill-load \
+    "  ⚠ The flow-skill-load hook is installed but NOT registered, so flowd records no skill" \
+    "    file a session loads and prune-candidates cannot list the ones never loaded." \
+    "    Add this entry to \"PostToolUse\" in $settings:" <<'SNIPPET'
+
+      {
+        "matcher": "Read|Skill",
+        "hooks": [
+          { "type": "command", "command": "python3 \"$HOME/.claude/hooks/flow-skill-load.py\"" }
+        ]
+      }
+SNIPPET
   warn_unregistered_hook "$settings" await-own-agents await-own-agents \
     "  ⚠ The await-own-agents hook is installed but NOT registered, so a subagent may still" \
     "    end its turn while its own agents run and lose its prompt cache waiting on them." \
