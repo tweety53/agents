@@ -434,3 +434,93 @@ func TestMigration0106BackfillsPanelSlots(t *testing.T) {
 		t.Errorf("slots after 0106 twice = %q, want %q", g, want)
 	}
 }
+
+// TestMigration0120FoldsGatedReviewHistory pins the fold of the retired gated
+// review's rows into the panel's roles: a gated-reviewer dispatch becomes
+// panel-reviewer and a gated-re-reviewer one panel-rerun (role and
+// policy_role), a slot-less one gains slot primary, and a finding filed under
+// either gated slot moves to primary -- every other column (key, seq, metrics,
+// outcome, round) and every other row untouched, twice over.
+func TestMigration0120FoldsGatedReviewHistory(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	dsn := newTestDatabase(t)
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(st.Close)
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open raw pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	exec := func(sql string, args ...any) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, sql, args...); err != nil {
+			t.Fatalf("exec %q: %v", sql, err)
+		}
+	}
+	lines := func(q string) string {
+		t.Helper()
+		rows, err := pool.Query(ctx, q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		var got []string
+		for rows.Next() {
+			var s string
+			if err := rows.Scan(&s); err != nil {
+				t.Fatal(err)
+			}
+			got = append(got, s)
+		}
+		return strings.Join(got, " ")
+	}
+
+	exec(`INSERT INTO projects (project_key, main_checkout_path) VALUES ('p', '/tmp/p')`)
+	exec(`INSERT INTO changes (project_key, name, state, updated_at, updated_by) VALUES
+		('p', 'kan-1', 'FINISHED', now(), '/flow')`)
+	exec(`INSERT INTO dispatches (change_id, seq, role, policy_role, model, started_at, dispatch_key, slot, outcome, metrics)
+		SELECT c.id, v.seq, v.role, v.policy, 'opus', now(), v.k, v.slot, v.outcome, v.metrics::jsonb FROM changes c, (VALUES
+			(1, 'gated-reviewer', NULL, 'task-3-reviewer', NULL, 'fix', '{"cost_usd": 1.5}'),
+			(2, 'gated-re-reviewer', 'gated-re-reviewer', 'task-3-reviewer-fix-1', NULL, 'clean', '{"cost_usd": 0.5}'),
+			(3, 'gated-reviewer', 'gated-reviewer', 'task-4+5-reviewer', 'primary+principles', 'clean', '{}'),
+			(4, 'panel-reviewer', NULL, 'panel-0-primary', 'primary', 'completed', '{}'),
+			(5, 'implementer', NULL, 'task-3-implementer', NULL, 'completed', '{}')
+		) AS v(seq, role, policy, k, slot, outcome, metrics)`)
+	exec(`INSERT INTO findings (change_id, dispatch_id, ref, round, slot, severity, note, status)
+		SELECT c.id, d.id, v.ref, v.round, v.slot, 'important', 'n', 'fixed'
+		FROM (VALUES
+			('F1', 1, 0, 'gated-reviewer'),
+			('F2', 2, 1, 'gated-re-reviewer'),
+			('F3', 4, 0, 'primary'),
+			('F4', 4, 0, 'principles')
+		) AS v(ref, seq, round, slot)
+		JOIN dispatches d ON d.seq = v.seq JOIN changes c ON c.id = d.change_id`)
+
+	sql, err := os.ReadFile("migrations/0120_fold_gated_review_history.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(string(sql))
+	exec(string(sql))
+
+	if g, want := lines(`SELECT seq || ':' || role || ':' || COALESCE(policy_role, '-') || ':' || dispatch_key || ':' || COALESCE(slot, '-') || ':' || outcome || ':' || metrics::text FROM dispatches ORDER BY seq`),
+		`1:panel-reviewer:-:task-3-reviewer:primary:fix:{"cost_usd": 1.5} `+
+			`2:panel-rerun:panel-rerun:task-3-reviewer-fix-1:primary:clean:{"cost_usd": 0.5} `+
+			`3:panel-reviewer:panel-reviewer:task-4+5-reviewer:primary+principles:clean:{} `+
+			`4:panel-reviewer:-:panel-0-primary:primary:completed:{} `+
+			`5:implementer:-:task-3-implementer:-:completed:{}`; g != want {
+		t.Errorf("dispatches after 0120 twice =\n%s\nwant\n%s", g, want)
+	}
+	if g, want := lines(`SELECT ref || ':' || round || ':' || slot FROM findings ORDER BY ref`), "F1:0:primary F2:1:primary F3:0:primary F4:0:principles"; g != want {
+		t.Errorf("findings after 0120 twice = %q, want %q", g, want)
+	}
+}
