@@ -131,12 +131,7 @@ token spend.
    a question itself. A round whose `## Questions` holds only the convergence confirm is asked
    with the round file's full design draft as the approve option's `preview` (**Convergence**,
    `skills/flow/brainstorm-planner.md`). **Before asking anything, read `## Undrawn`** in the round
-   file's design draft: non-empty, or a designer review open, the parent refuses to ask the
-   convergence confirm, runs `flow-guard design-repo <abs-worktree>` and, on exit 0, dispatches
-   the one `designer` in this same turn (**The designer**, `skills/flow/designer-brief.md`);
-   on exit 1 the next round has the planner draw the items into the prototype. A final dispatch
-   that leaves `design.md`'s `## Undrawn` non-empty is handled the same way, then a fresh final
-   dispatch takes the drawn frames. Every later planner dispatch's prompt, the final one included, carries the
+   file's design draft, and run **The designer** (`skills/flow/designer-brief.md`). Every later planner dispatch's prompt, the final one included, carries the
    prototype's latest Artifact URL. An explicit approve of the convergence confirm closes
    brainstorming; any other answer dispatches round `<r+1>`. An operator message mid-planning is
    appended to the latest round file's `## Answers` and relayed the same way.

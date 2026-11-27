@@ -118,10 +118,6 @@ the session that dispatches it.
 
 ### Convergence
 
-**The confirm is never asked while `## Undrawn` holds an item or a designer review is open**: the
-session that would ask it refuses, strikes it from the round's questions and goes to **The
-designer** (`skills/flow/designer-brief.md`) instead.
-
 **A round ends on one question, asked last:** state what you believe settled — the answers and
 the decisions the design now rests on — then ask **Anything unclear before I move on?** with two
 options: **Approve the design and move on** *(recommended)* and **Another round — I have

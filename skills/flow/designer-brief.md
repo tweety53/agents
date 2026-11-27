@@ -3,6 +3,22 @@
 Loaded by the session that dispatches a `designer` (**Every visible element a task builds is
 drawn**, `skills/flow/brainstorm-ui.md`), never by a planner.
 
+**Before asking anything, read `## Undrawn`** in the round
+file's design draft: non-empty, or a designer review open, the parent refuses to ask the
+convergence confirm, runs `flow-guard design-repo <abs-worktree>` and, on exit 0, dispatches
+the one `designer` in this same turn;
+on exit 1 the next round has the planner draw the items into the prototype. A final dispatch
+that leaves `design.md`'s `## Undrawn` non-empty is handled the same way, then a fresh final
+dispatch takes the drawn frames.
+
+**Whenever a planner
+return leaves `## Undrawn` non-empty (the round file's design draft, or `design.md`), the session
+that dispatched it dispatches one `designer`** for the whole list in
+the same turn, unasked; the next planner dispatch replaces each item with the frame id the
+designer returned. With a design
+repo the only operator step for the items is **The designer review** (below), which ends before
+the convergence confirm (**Convergence**, `skills/flow/brainstorm-planner.md`) is asked.
+
 **One `designer` dispatch draws every `## Undrawn` item** (**Every visible element a task builds is
 drawn**, `skills/flow/brainstorm-ui.md`), key `designer-<k>`, `<k>` counting from 1 per change, on the pair the pair judge picks for it
 (**Model and effort**, `skills/flow-contracts/model-policy.md`, the prompt saved as `pair-judge/designer-<k>.md` first — a small

@@ -39,16 +39,11 @@ change carries UI or can alter what a user sees.
   icon the project's icon set lacks — never inferred from a design template, a sibling screen or
   the nearest component. `flow-guard design-repo <abs-worktree>` — never
   `flow-guard project-get`, never the main checkout — says who draws them. Exit 0 prints
-  `<clone> <remote>`: the planner leaves the items listed and returns, and **whenever a planner
-  return leaves `## Undrawn` non-empty (the round file's design draft, or `design.md`), the session
-  that dispatched it dispatches one `designer`** (**The designer**, `skills/flow/designer-brief.md`) for the whole list in
-  the same turn, unasked; the next planner dispatch replaces each item with the frame id the
-  designer returned. Exit 1, no design repo: the planner draws every item into the prototype HTML
+  `<clone> <remote>`: the planner leaves the items listed and returns (**The designer**,
+  `skills/flow/designer-brief.md`, draws them). Exit 1, no design repo: the planner draws every item into the prototype HTML
   (`plan-visual-prototype`, below), cites it and empties the list. Exit 2 is a defect fixed in the
   run. **The answer to an undrawn item is always draw**: it is never put to the operator as a
-  question, and neither ruling it out nor reusing something as is is ever offered. With a design
-  repo the only operator step for the items is **The designer review** (`skills/flow/designer-brief.md`), which ends before
-  the convergence confirm (**Convergence**, `skills/flow/brainstorm-planner.md`) is asked. The design is not approvable while
+  question, and neither ruling it out nor reusing something as is is ever offered. The design is not approvable while
   `## Undrawn` holds an item. An implementer meeting an element the plan missed reports it in its
   REPORT FILE and builds the nearest drawn pattern.
 - **A visible change is prototyped before its design is approved** (`plan-visual-prototype`). When the change can alter what a user sees — a page, a view, a chart, a dialog — and
