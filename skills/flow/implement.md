@@ -534,7 +534,10 @@ command and its `flow stage end` its last. **A wait on children is one bounded c
 turn:** every child goes out with `run_in_background: true`, so children run in parallel, and the
 parent then waits with `<agents repo>/scripts/flow-guard await-rows <abs-worktree> <key> [<key>…]`
 — one foreground call that returns `ENDED <key> <outcome>` per key, re-issued on `WAITING` — never a
-`sleep` or `until` loop and never by ending its turn. A child's completion notification arriving
+`sleep` or `until` loop and never by ending its turn. `await-rows … -any` returns as soon as one
+named key is `ENDED`, the rest on `WAITING`: the parent waits that way when the keys' children can
+be acted on one at a time — a group boundary's implementer beside the due reviewer bundle — acts on
+the ended key's return, and re-issues the wait on the keys still open. A child's completion notification arriving
 meanwhile is harmless. Once a key is `ENDED`, one `test -s` settles its
 report; an absent file takes that dispatch's no-report path (**The return**), and a child still
 `running` after its report exists is stopped with `TaskStop`, its row ended by hand — its own leftover
