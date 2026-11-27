@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/guard"
 )
 
@@ -59,20 +59,6 @@ func TestFirstLineKeepsTheFirstLine(t *testing.T) {
 	}
 }
 
-func TestRecordsAddrOrder(t *testing.T) {
-	t.Parallel()
-	env := func(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
-	if got := recordsAddr(env(nil)); got != "http://127.0.0.1:4173" {
-		t.Errorf("default = %q", got)
-	}
-	if got := recordsAddr(env(map[string]string{"FLOW_ADDR": "http://a/"})); got != "http://a" {
-		t.Errorf("FLOW_ADDR = %q", got)
-	}
-	if got := recordsAddr(env(map[string]string{"FLOW_ADDR": "http://a", "FLOW_RECORDS_ADDR": "http://r"})); got != "http://r" {
-		t.Errorf("FLOW_RECORDS_ADDR = %q, want it to win", got)
-	}
-}
-
 func gitRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -82,88 +68,125 @@ func gitRepo(t *testing.T) string {
 	return dir
 }
 
-// TestProjectKeyMatchesFallback pins this package's stdlib copy of the
-// project-key derivation to internal/fallback's, which every flow CLI write
-// uses -- the two must name the same project or no guard run is ever
-// recorded. A test file may import fallback: _test.go files are outside the
-// flow-guard cache key.
-func TestProjectKeyMatchesFallback(t *testing.T) {
-	t.Parallel()
-	dir := gitRepo(t)
-	sub := filepath.Join(dir, "sub")
-	if err := exec.Command("mkdir", "-p", sub).Run(); err != nil {
-		t.Fatal(err)
-	}
-	want, _, err := fallback.ProjectKey(sub)
-	if err != nil {
-		t.Fatalf("fallback.ProjectKey: %v", err)
-	}
-	got, err := projectKey(t.Context(), sub)
-	if err != nil {
-		t.Fatalf("projectKey: %v", err)
-	}
-	if got != want {
-		t.Fatalf("projectKey = %q, fallback.ProjectKey = %q", got, want)
-	}
+// stateEnv is a getenv over m plus FLOW_STATE_DIR, a fresh state root, and
+// the guard-runs file under it.
+func stateEnv(t *testing.T, m map[string]string) (func(string) string, string) {
+	t.Helper()
+	root := t.TempDir()
+	return func(k string) string {
+		if k == "FLOW_STATE_DIR" {
+			return root
+		}
+		return m[k]
+	}, filepath.Join(root, "guard-runs.jsonl")
 }
 
-func TestRecordRunPostsTheRun(t *testing.T) {
-	t.Parallel()
-	dir := gitRepo(t)
-	key, err := projectKey(t.Context(), dir)
+// lines is path's JSON lines, raw.
+func lines(t *testing.T, path string) [][]byte {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
-	var gotPath string
-	var got guardRun
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotPath = r.URL.Path
-		_ = json.NewDecoder(r.Body).Decode(&got)
-		w.WriteHeader(http.StatusCreated)
-	}))
-	defer srv.Close()
+	return bytes.Split(bytes.TrimSuffix(b, []byte("\n")), []byte("\n"))
+}
 
-	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
-	recordRun(func(k string) string { return env[k] }, dir, "check-references", 1, "", nil, nil, 300*time.Millisecond, 1500*time.Millisecond, srv.Client())
-
-	if gotPath != "/api/v1/guard-runs/"+key {
-		t.Errorf("path = %q, want the project's guard-runs route", gotPath)
+// lastRun decodes path's last line.
+func lastRun(t *testing.T, path string) guardRun {
+	t.Helper()
+	ls := lines(t, path)
+	if len(ls) == 0 {
+		t.Fatalf("%s holds no run", path)
 	}
-	if got.Guard != "check-references" || got.ExitCode != 1 || got.Outcome != "fired" || got.DurationMS != 1500 || got.WaitMS != 300 || got.Worktree != dir {
-		t.Errorf("body = %+v", got)
+	var r guardRun
+	if err := json.Unmarshal(ls[len(ls)-1], &r); err != nil {
+		t.Fatalf("decode %s: %v", ls[len(ls)-1], err)
+	}
+	return r
+}
+
+func TestRecordRunAppendsTheRun(t *testing.T) {
+	t.Parallel()
+	dir := gitRepo(t)
+	getenv, path := stateEnv(t, nil)
+	recordRun(getenv, dir, "check-references", 1, "", nil, nil, 300*time.Millisecond, 1500*time.Millisecond)
+	recordRun(getenv, dir, "check-references", 0, "", nil, nil, 0, time.Millisecond)
+	if n := len(lines(t, path)); n != 2 {
+		t.Fatalf("%d lines, want one per run", n)
+	}
+	var got guardRun
+	if err := json.Unmarshal(lines(t, path)[0], &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Guard != "check-references" || got.ExitCode != 1 || got.Outcome != "fired" || got.DurationMS != 1500 || got.WaitMS != 300 || got.Worktree != dir || got.RecordedAt.IsZero() {
+		t.Errorf("line = %+v", got)
 	}
 }
 
 func TestRecordRunHonoursTheOptOut(t *testing.T) {
 	t.Parallel()
-	var called atomic.Bool
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		called.Store(true)
-		w.WriteHeader(http.StatusCreated)
-	}))
-	defer srv.Close()
-
-	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL, "FLOW_GUARD_TELEMETRY": "off"}
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-references", 0, "", nil, nil, 0, time.Millisecond, srv.Client())
-	if called.Load() {
-		t.Fatal("FLOW_GUARD_TELEMETRY=off still posted a run")
+	getenv, path := stateEnv(t, map[string]string{"FLOW_GUARD_TELEMETRY": "off"})
+	recordRun(getenv, gitRepo(t), "check-references", 0, "", nil, nil, 0, time.Millisecond)
+	if ls := lines(t, path); ls != nil {
+		t.Fatalf("FLOW_GUARD_TELEMETRY=off still appended %q", ls)
 	}
 }
 
-// TestRecordRunIsBoundedByItsTimeout: a daemon that never answers costs a
-// guard at most telemetryTimeout, never its answer.
-func TestRecordRunIsBoundedByItsTimeout(t *testing.T) {
+// TestRecordRunNeverFailsTheGuard: a state root that cannot be written to
+// loses the line, never the guard's answer.
+func TestRecordRunNeverFailsTheGuard(t *testing.T) {
 	t.Parallel()
-	release := make(chan struct{})
-	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { <-release }))
-	defer srv.Close()
-	defer close(release)
+	const name = "check-references"
+	getenv := func(k string) string {
+		if k == "FLOW_STATE_DIR" {
+			return filepath.Join(t.TempDir(), "missing", "root")
+		}
+		return ""
+	}
+	recordRun(getenv, gitRepo(t), name, 3, "x", []string{"r"}, nil, 0, time.Millisecond)
+}
 
-	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
-	start := time.Now()
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "check-references", 0, "", nil, nil, 0, 0, srv.Client())
-	if elapsed := time.Since(start); elapsed > 3*telemetryTimeout {
-		t.Fatalf("recordRun took %v against a hung daemon, want it bounded near %v", elapsed, telemetryTimeout)
+// TestRunAndRecordSpawnsNothingOnExit: recording a run starts no git and
+// makes no HTTP request, and the guard's exit code and stdout pass through
+// unchanged. Not parallel: it swaps a registry entry and PATH.
+func TestRunAndRecordSpawnsNothingOnExit(t *testing.T) {
+	dir := gitRepo(t)
+	bin := t.TempDir()
+	spawned := filepath.Join(t.TempDir(), "spawned")
+	if err := os.WriteFile(filepath.Join(bin, "git"), []byte("#!/bin/sh\necho git >> '"+spawned+"'\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	const name = "check-references"
+	orig := registry[name]
+	registry[name] = func(_ []string, _ guard.Env, stdout, _ io.Writer) int {
+		fmt.Fprintln(stdout, "VIOLATION: x")
+		return 1
+	}
+	defer func() { registry[name] = orig }()
+	getenv, path := stateEnv(t, map[string]string{"FLOW_RECORDS_ADDR": srv.URL, "FLOW_ADDR": srv.URL})
+	var stdout bytes.Buffer
+	code := runAndRecord([]string{name}, &stdout, io.Discard, getenv, func() string { return dir })
+	if _, err := os.Stat(spawned); err == nil {
+		t.Error("recording the run spawned git")
+	}
+	if hits.Load() != 0 {
+		t.Errorf("recording the run made %d HTTP requests", hits.Load())
+	}
+	if code != 1 || stdout.String() != "VIOLATION: x\n" {
+		t.Errorf("exit %d stdout %q, want the guard's own", code, stdout.String())
+	}
+	if got := lastRun(t, path); got.Guard != name || got.Worktree != dir || got.Outcome != "fired" {
+		t.Errorf("line = %+v", got)
 	}
 }
 
@@ -195,36 +218,23 @@ func TestRunAndRecordPassesTheFirstLine(t *testing.T) {
 		return 0
 	}
 	defer func() { registry[name] = orig }()
-	var got guardRun
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewDecoder(r.Body).Decode(&got)
-		w.WriteHeader(http.StatusCreated)
-	}))
-	defer srv.Close()
-	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
+	getenv, path := stateEnv(t, nil)
 	var stdout bytes.Buffer
-	code := runAndRecord([]string{name}, &stdout, io.Discard, func(k string) string { return env[k] }, func() string { return dir }, srv.Client())
-	if code != 0 || got.Guard != name || got.Outcome != "fired" {
+	code := runAndRecord([]string{name}, &stdout, io.Discard, getenv, func() string { return dir })
+	if got := lastRun(t, path); code != 0 || got.Guard != name || got.Outcome != "fired" {
 		t.Errorf("exit %d, body %+v; want exit 0 recorded fired", code, got)
 	}
 }
 
-// TestRunAndRecordPostsTheReasons pins clear-run-drops-reasons: a fired run
-// posts its distinct reason ids in first-seen order, a clear run posts none.
+// TestRunAndRecordRecordsTheReasons pins clear-run-drops-reasons: a fired run
+// records its distinct reason ids in first-seen order, a clear run none.
 // Not parallel: it swaps a registry entry.
-func TestRunAndRecordPostsTheReasons(t *testing.T) {
+func TestRunAndRecordRecordsTheReasons(t *testing.T) {
 	dir := gitRepo(t)
 	const name = "check-references"
 	orig := registry[name]
 	defer func() { registry[name] = orig }()
-	var body []byte
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ = io.ReadAll(r.Body)
-		w.WriteHeader(http.StatusCreated)
-	}))
-	defer srv.Close()
-	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
-	getenv := func(k string) string { return env[k] }
+	getenv, path := stateEnv(t, nil)
 
 	registry[name] = func(_ []string, e guard.Env, _, _ io.Writer) int {
 		guard.Reason(e, "F6")
@@ -232,27 +242,24 @@ func TestRunAndRecordPostsTheReasons(t *testing.T) {
 		guard.Reason(e, "F6")
 		return 1
 	}
-	runAndRecord([]string{name}, io.Discard, io.Discard, getenv, func() string { return dir }, srv.Client())
-	var fired guardRun
-	if err := json.Unmarshal(body, &fired); err != nil {
-		t.Fatalf("decode %s: %v", body, err)
-	}
-	if fired.Outcome != "fired" || !slices.Equal(fired.Reasons, []string{"F6", "F2"}) {
-		t.Errorf("fired run posted %s; want outcome fired, reasons [F6 F2]", body)
+	runAndRecord([]string{name}, io.Discard, io.Discard, getenv, func() string { return dir })
+	if fired := lastRun(t, path); fired.Outcome != "fired" || !slices.Equal(fired.Reasons, []string{"F6", "F2"}) {
+		t.Errorf("fired run recorded %+v; want outcome fired, reasons [F6 F2]", fired)
 	}
 
 	registry[name] = func(_ []string, e guard.Env, _, _ io.Writer) int {
 		guard.Reason(e, "x")
 		return 0
 	}
-	body = nil
-	runAndRecord([]string{name}, io.Discard, io.Discard, getenv, func() string { return dir }, srv.Client())
+	runAndRecord([]string{name}, io.Discard, io.Discard, getenv, func() string { return dir })
+	ls := lines(t, path)
+	body := ls[len(ls)-1]
 	var clear map[string]any
 	if err := json.Unmarshal(body, &clear); err != nil {
 		t.Fatalf("decode %s: %v", body, err)
 	}
 	if _, ok := clear["reasons"]; ok {
-		t.Errorf("clear run posted %s; want no reasons key", body)
+		t.Errorf("clear run recorded %s; want no reasons key", body)
 	}
 }
 
@@ -303,16 +310,10 @@ func TestRunAndRecordRecordsTheTargetWorktree(t *testing.T) {
 	orig := registry[name]
 	registry[name] = func(_ []string, _ guard.Env, _, _ io.Writer) int { return 0 }
 	defer func() { registry[name] = orig }()
-	var got guardRun
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewDecoder(r.Body).Decode(&got)
-		w.WriteHeader(http.StatusCreated)
-	}))
-	defer srv.Close()
-	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
-	runAndRecord([]string{name, wt}, io.Discard, io.Discard, func(k string) string { return env[k] }, func() string { return main }, srv.Client())
-	if got.Worktree != wt {
-		t.Errorf("posted worktree %q, want the argument %q", got.Worktree, wt)
+	getenv, path := stateEnv(t, nil)
+	runAndRecord([]string{name, wt}, io.Discard, io.Discard, getenv, func() string { return main })
+	if got := lastRun(t, path); got.Worktree != wt {
+		t.Errorf("recorded worktree %q, want the argument %q", got.Worktree, wt)
 	}
 }
 
@@ -329,32 +330,19 @@ func TestRunAndRecordFallsBackToTheCwd(t *testing.T) {
 	orig := registry[name]
 	registry[name] = func(_ []string, _ guard.Env, _, _ io.Writer) int { return 0 }
 	defer func() { registry[name] = orig }()
-	var got guardRun
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewDecoder(r.Body).Decode(&got)
-		w.WriteHeader(http.StatusCreated)
-	}))
-	defer srv.Close()
-	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
-	runAndRecord([]string{name, stale}, io.Discard, io.Discard, func(k string) string { return env[k] }, func() string { return main }, srv.Client())
-	if got.Worktree != main {
-		t.Errorf("posted worktree %q, want the cwd %q", got.Worktree, main)
+	getenv, path := stateEnv(t, nil)
+	runAndRecord([]string{name, stale}, io.Discard, io.Discard, getenv, func() string { return main })
+	if got := lastRun(t, path); got.Worktree != main {
+		t.Errorf("recorded worktree %q, want the cwd %q", got.Worktree, main)
 	}
 }
 
-// TestRecordRunPostsTheBootstrap: FLOW_GUARD_START, scripts/flow-guard's
-// $EPOCHREALTIME stamp, posts bootstrapMs as the time from it to the
+// TestRecordRunRecordsTheBootstrap: FLOW_GUARD_START, scripts/flow-guard's
+// $EPOCHREALTIME stamp, records bootstrapMs as the time from it to the
 // guard's start (the run's end less its duration); without the stamp, or
-// with one that will not parse, no bootstrapMs is posted.
-func TestRecordRunPostsTheBootstrap(t *testing.T) {
+// with one that will not parse, no bootstrapMs is recorded.
+func TestRecordRunRecordsTheBootstrap(t *testing.T) {
 	t.Parallel()
-	var got map[string]any
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		got = nil
-		_ = json.NewDecoder(r.Body).Decode(&got)
-		w.WriteHeader(http.StatusCreated)
-	}))
-	defer srv.Close()
 	dir := gitRepo(t)
 	stamp := time.Now().Add(-3 * time.Second)
 	for name, tc := range map[string]struct {
@@ -366,8 +354,12 @@ func TestRecordRunPostsTheBootstrap(t *testing.T) {
 		"unstamped":     {"", -1},
 		"garbage":       {"soon", -1},
 	} {
-		env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL, "FLOW_GUARD_START": tc.start}
-		recordRun(func(k string) string { return env[k] }, dir, "check-references", 0, "", nil, nil, 0, time.Second, srv.Client())
+		getenv, path := stateEnv(t, map[string]string{"FLOW_GUARD_START": tc.start})
+		recordRun(getenv, dir, "check-references", 0, "", nil, nil, 0, time.Second)
+		var got map[string]any
+		if err := json.Unmarshal(lines(t, path)[0], &got); err != nil {
+			t.Fatal(err)
+		}
 		ms, ok := got["bootstrapMs"].(float64)
 		switch {
 		case tc.wantMs < 0 && ok:
@@ -378,21 +370,15 @@ func TestRecordRunPostsTheBootstrap(t *testing.T) {
 	}
 }
 
-// TestRecordRunPostsTheHeadlessCall: a run that made a headless model call
-// posts it with the run.
-func TestRecordRunPostsTheHeadlessCall(t *testing.T) {
+// TestRecordRunRecordsTheHeadlessCall: a run that made a headless model call
+// records it with the run.
+func TestRecordRunRecordsTheHeadlessCall(t *testing.T) {
 	t.Parallel()
-	var got guardRun
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewDecoder(r.Body).Decode(&got)
-		w.WriteHeader(http.StatusCreated)
-	}))
-	defer srv.Close()
-	env := map[string]string{"FLOW_RECORDS_ADDR": srv.URL}
+	getenv, path := stateEnv(t, nil)
 	usd := 0.05
 	h := &guard.Headless{Role: "decider", Model: "opus", Effort: "low", CostUSD: &usd, DurationMS: 4200}
-	recordRun(func(k string) string { return env[k] }, gitRepo(t), "plan-check", 0, "", nil, h, 0, time.Second, srv.Client())
-	if got.Headless == nil || *got.Headless.CostUSD != usd || got.Headless.Role != "decider" || got.Headless.DurationMS != 4200 {
+	recordRun(getenv, gitRepo(t), "plan-check", 0, "", nil, h, 0, time.Second)
+	if got := lastRun(t, path); got.Headless == nil || *got.Headless.CostUSD != usd || got.Headless.Role != "decider" || got.Headless.DurationMS != 4200 {
 		t.Errorf("headless = %+v, want the decider call", got.Headless)
 	}
 }

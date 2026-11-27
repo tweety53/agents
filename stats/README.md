@@ -76,14 +76,16 @@ the shim exits that guard's own cannot-answer code — 4 for `run-reproducer`,
 2 for the others — and names the cause.
 
 Every guard `flow-guard` dispatches is also recorded in flowd's `guard_runs`
-table (`POST /api/v1/guard-runs/{project}`): the guard, its exit code
+table: the guard, its exit code
 classified as `clear`, `fired` or `cannot-answer`, and its runtime, and — on a run that fired or could not answer — the distinct reason ids the guard recorded, in first-seen order, in its `reasons` column (NULL on a clear run); `SELECT guard, unnest(reasons) AS reason, count(*) FROM guard_runs GROUP BY 1, 2 ORDER BY 3 DESC` ranks them. That is
 what the SPA's **Flow guards** view reads to rank guards by fires, never-fired
 and run time, leaving out flow-guard's helper commands (`records.GuardHelpers`). The
-write is best-effort: it goes to `FLOW_RECORDS_ADDR`, then `FLOW_ADDR`, then
-the dev daemon, is bounded at 500 ms, never changes a guard's exit code, and
-is dropped when the daemon is down or does not know the project (a guard run
-inside a test fixture's repository). `FLOW_GUARD_TELEMETRY=off` turns it off.
+write is best-effort and spawns nothing on the guard's exit: one JSON line
+appended to `guard-runs.jsonl` under the state root (`FLOW_STATE_DIR`, else
+the default), which the dev daemon ingests every few seconds beside
+`hook-runs.jsonl`, keying each line to its worktree's project. It never
+changes a guard's exit code, and a line whose project the store does not
+know (a guard run inside a test fixture's repository) is dropped. `FLOW_GUARD_TELEMETRY=off` turns it off.
 
 ### Heavy-run slots
 
@@ -182,7 +184,7 @@ the allowed-pairs role it ran as — `api.RoleOf` derives it from the stored rol
 key, a key no rule places counting as `other` — into its dispatches, cost, summed agent time
 (parallel agents add up), median run, failed count and model · effort split, grouped by pipeline stage and costliest first within one, with
 the weekly spend per role. Roles are derived at read time; no stored row changes. Each headless model call a guard makes -- `pair-judge`'s
-judge and `plan-check`'s decider -- is posted with that guard's run (`guard_runs.headless_*`,
+judge and `plan-check`'s decider -- is recorded with that guard's run (`guard_runs.headless_*`,
 migration `0082_guard_run_headless.sql`) and counted as one run of its role; calls made before
 that migration were never stored. The stats SPA's
 **Role costs** view draws it.

@@ -2,51 +2,36 @@ package main
 
 import (
 	"bytes"
-	"context"
-	"crypto/sha1"
-	"encoding/hex"
-	"encoding/json"
 	"io"
-	"net/http"
-	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard"
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // telemetry.go records every guard this binary dispatches into flowd's
-// guard_runs table (POST /api/v1/guard-runs/{project}), so the flow-health
-// dashboard can answer which guards ever fire -- see
-// stats/internal/store/migrations/0032_guard_runs.sql.
+// guard_runs table, so the flow-health dashboard can answer which guards ever
+// fire -- see stats/internal/store/migrations/0032_guard_runs.sql. It appends
+// the run as one JSON line to records.GuardRunsPath with
+// records.AppendJSONLine, the file `flow-guard hook` buffers its runs in
+// beside, and spawns nothing on exit: no git call, no flowd round trip. flowd
+// ingests the file (cmd/flowd/hookruns.go's ingestGuardRuns), resolving each
+// line's project from its worktree.
 //
-// It is strictly best-effort and never changes a guard's answer: a daemon
-// that is down, slow, or refuses the write (an unknown project -- a guard
-// run inside a test fixture's throwaway repository) is ignored, bounded by
-// telemetryTimeout. Nothing is journalled for a later replay: a lost guard
-// run costs one row of statistics, and a replay queue for it would be a
-// second failure mode for every guard.
-//
-// It uses only the standard library, not internal/client or
-// internal/fallback: scripts/flow-guard keys the cached binary on the
-// sources of this package and the internal packages internal/guard imports
-// alone, so importing another package of this module would let the cache
-// serve a binary built from stale copies of it.
-
-// telemetryTimeout bounds the whole recording -- the git call resolving the
-// project and the POST -- so a guard never waits on its own telemetry for
-// longer than this.
-const telemetryTimeout = 500 * time.Millisecond
+// It is strictly best-effort and never changes a guard's answer: a file that
+// cannot be written is ignored, and a line whose worktree names no project
+// the store holds (a guard run inside a test fixture's throwaway repository)
+// is dropped at ingestion.
 
 // telemetryOff names FLOW_GUARD_TELEMETRY's opt-out values.
 var telemetryOff = map[string]bool{"0": true, "off": true, "false": true, "no": true}
 
-// guardRun is records.GuardRun's wire shape, spelled out here for the
-// reason this file's header gives.
+// guardRun is records.GuardRun's wire shape, with guard.Headless for its
+// headless call.
 type guardRun struct {
 	Guard      string `json:"guard"`
 	Worktree   string `json:"worktree"`
@@ -86,39 +71,17 @@ func outcomeFor(name string, code int, first string) string {
 	}
 }
 
-// recordsAddr is the daemon the run is recorded against: FLOW_RECORDS_ADDR,
-// then FLOW_ADDR, then the dev daemon -- the order the flow CLI's record
-// family resolves (cmd/flow/state.go's resolveRecordsAddr), so a guard in
-// an isolated worktree records where that worktree's run records go, never
-// into a workspace database its cleanup drops.
-func recordsAddr(getenv func(string) string) string {
-	for _, k := range []string{"FLOW_RECORDS_ADDR", "FLOW_ADDR"} {
-		if v := getenv(k); v != "" {
-			return strings.TrimRight(v, "/")
+// gitCheckout reports whether dir lies in a git checkout: it or an ancestor
+// holds a .git entry -- a stat walk, so the check forks no git.
+func gitCheckout(dir string) bool {
+	for d := filepath.Clean(dir); ; d = filepath.Dir(d) {
+		if _, err := os.Lstat(filepath.Join(d, ".git")); err == nil {
+			return true
+		}
+		if filepath.Dir(d) == d {
+			return false
 		}
 	}
-	return "http://127.0.0.1:4173"
-}
-
-// projectKey derives dir's project key exactly as
-// stats/internal/fallback.ProjectKey does -- the main checkout's basename,
-// a dash, and the first eight hex digits of the SHA-1 of its resolved path.
-// telemetry_test.go pins the two together.
-func projectKey(ctx context.Context, dir string) (string, error) {
-	out, err := exec.CommandContext(ctx, "git", "-C", dir, "rev-parse", "--git-common-dir").Output()
-	if err != nil {
-		return "", err
-	}
-	commonDir := strings.TrimSpace(string(out))
-	if !filepath.IsAbs(commonDir) {
-		commonDir = filepath.Join(dir, commonDir)
-	}
-	mainCheckout := filepath.Clean(filepath.Dir(commonDir))
-	if resolved, err := filepath.EvalSymlinks(mainCheckout); err == nil {
-		mainCheckout = resolved
-	}
-	sum := sha1.Sum([]byte(mainCheckout))
-	return filepath.Base(mainCheckout) + "-" + hex.EncodeToString(sum[:])[:8], nil
 }
 
 // firstLine is an io.Writer tee that keeps the first line written through it,
@@ -146,15 +109,8 @@ func (f *firstLine) Write(p []byte) (int, error) {
 
 // recordRun records one dispatched guard's run, and reports nothing: every
 // failure is swallowed, per this file's header.
-func recordRun(getenv func(string) string, dir, name string, code int, first string, reasons []string, headless *guard.Headless, wait, elapsed time.Duration, client *http.Client) {
+func recordRun(getenv func(string) string, dir, name string, code int, first string, reasons []string, headless *guard.Headless, wait, elapsed time.Duration) {
 	if telemetryOff[strings.ToLower(getenv("FLOW_GUARD_TELEMETRY"))] {
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), telemetryTimeout)
-	defer cancel()
-
-	key, err := projectKey(ctx, dir)
-	if err != nil {
 		return
 	}
 	now := time.Now()
@@ -166,21 +122,7 @@ func recordRun(getenv func(string) string, dir, name string, code int, first str
 	if run.Outcome != "clear" {
 		run.Reasons = reasons
 	}
-	body, err := json.Marshal(run)
-	if err != nil {
-		return
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
-		recordsAddr(getenv)+"/api/v1/guard-runs/"+url.PathEscape(key), bytes.NewReader(body))
-	if err != nil {
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := client.Do(req)
-	if err != nil {
-		return
-	}
-	resp.Body.Close()
+	records.AppendJSONLine(records.GuardRunsPath(getenv), run)
 }
 
 // bootstrapMS is the milliseconds from stamp -- FLOW_GUARD_START, the
@@ -204,8 +146,7 @@ func bootstrapMS(stamp string, start time.Time) *int {
 
 // dispatched reports whether args name a registered guard -- the only runs
 // recorded; a usage error is not a guard's answer. A `hook` run is never
-// recorded: a hook runs on every tool call, and recording it would add a
-// flowd round trip to a hook whose own contract makes none.
+// recorded here: a hook records its own wall time (guard/hook.go).
 func dispatched(args []string) (string, bool) {
 	if len(args) == 0 || args[0] == "hook" {
 		return "", false

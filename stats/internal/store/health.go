@@ -21,7 +21,7 @@ import (
 // ErrProjectNotFound is returned by a project-scoped write naming a project
 // the store holds no row for. RecordGuardRun is its caller: a guard run
 // inside a test fixture's throwaway repository names such a project, and
-// the flow-guard binary drops the refusal rather than recording it.
+// flowd's guard-runs ingestion drops the refusal rather than recording it.
 var ErrProjectNotFound = errors.New("store: project not found")
 
 // ErrInvalidGuardRun is returned by RecordGuardRun for a run outside what
@@ -42,6 +42,36 @@ var ErrInvalidGuardRun = errors.New("store: invalid guard run")
 // ErrProjectNotFound: the INSERT ... SELECT inserts nothing, rather than
 // tripping the foreign key, so the refusal is a sentinel and not a 500.
 func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in records.GuardRun) (records.GuardRun, error) {
+	return recordGuardRun(ctx, s.pool, projectKey, in)
+}
+
+// RecordGuardRuns records runs[i] against projectKeys[i], as RecordGuardRun
+// does each, in one transaction: a run RecordGuardRun refuses with
+// ErrProjectNotFound or ErrInvalidGuardRun is skipped, and any other failure
+// records none of them, so the caller can retry the whole batch without a
+// duplicate row. flowd's guard-runs ingestion (cmd/flowd/hookruns.go) is its
+// caller.
+func (s *Store) RecordGuardRuns(ctx context.Context, projectKeys []string, runs []records.GuardRun) error {
+	if len(runs) == 0 {
+		return nil
+	}
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		for i, in := range runs {
+			_, err := recordGuardRun(ctx, tx, projectKeys[i], in)
+			if err != nil && !errors.Is(err, ErrProjectNotFound) && !errors.Is(err, ErrInvalidGuardRun) {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// rowQuerier is satisfied by both *pgxpool.Pool and pgx.Tx.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+func recordGuardRun(ctx context.Context, q rowQuerier, projectKey string, in records.GuardRun) (records.GuardRun, error) {
 	if in.Guard == "" || in.Worktree == "" {
 		return records.GuardRun{}, fmt.Errorf("%w: guard and worktree are both required", ErrInvalidGuardRun)
 	}
@@ -79,7 +109,7 @@ func (s *Store) RecordGuardRun(ctx context.Context, projectKey string, in record
 		hl.role, hl.model, hl.effort, hl.cost, hl.ms = &h.Role, &h.Model, &h.Effort, h.CostUSD, &h.DurationMS
 	}
 	out := in
-	err := s.pool.QueryRow(ctx, `
+	err := q.QueryRow(ctx, `
 		INSERT INTO guard_runs (project_key, guard, worktree, exit_code, outcome, duration_ms, recorded_at, reasons,
 			headless_role, headless_model, headless_effort, headless_cost_usd, headless_ms, wait_ms, bootstrap_ms)
 		SELECT p.project_key, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15

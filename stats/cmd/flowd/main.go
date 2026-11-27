@@ -364,9 +364,14 @@ func run(logger *slog.Logger) error {
 		go reconciler.Watch(watchCtx, st.Ping, reconnectPingInterval, func(result reconcile.Result, err error) {
 			logReconcileResult(logger, "watch", result, err)
 		})
-		// The hook-runs file lies under the same shared state root: only
-		// the dev workspace's daemon collects it.
-		go runHookRunsIngest(watchCtx, records.HookRunsPath(os.Getenv), st.RecordHookRuns, harvestInterval, logger)
+		// The hook-runs and guard-runs files lie under the same shared
+		// state root: only the dev workspace's daemon collects them.
+		go runIngest(watchCtx, "hook-runs", records.HookRunsPath(os.Getenv), func(ctx context.Context, path string) error {
+			return ingestHookRuns(ctx, path, st.RecordHookRuns)
+		}, harvestInterval, logger)
+		go runIngest(watchCtx, "guard-runs", records.GuardRunsPath(os.Getenv), func(ctx context.Context, path string) error {
+			return ingestGuardRuns(ctx, path, st.RecordGuardRuns)
+		}, harvestInterval, logger)
 	} else {
 		logger.Info("flowd journal replay skipped: not the dev workspace's flow database")
 	}

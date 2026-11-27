@@ -121,6 +121,29 @@ func TestRecordGuardRunStoresTheWait(t *testing.T) {
 	}
 }
 
+// TestRecordGuardRunsSkipsRefusedRuns: the batch write records each run
+// RecordGuardRun would accept -- under its own key, or the change whose
+// worktrees map names its worktree when the key is "" -- and skips one it
+// refuses, an unknown project or an invalid run, rather than failing the
+// batch.
+func TestRecordGuardRunsSkipsRefusedRuns(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-grbatch-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	guard := fmt.Sprintf("batch-%d", time.Now().UnixNano())
+	err := st.RecordGuardRuns(ctx, []string{projectKey, "no-such-project", projectKey},
+		[]records.GuardRun{guardRun(guard, "clear", 0, 1, time.Now()), guardRun(guard, "clear", 0, 1, time.Now()), guardRun(guard, "exploded", 0, 1, time.Now())})
+	if err != nil {
+		t.Fatalf("RecordGuardRuns: %v", err)
+	}
+	var n int
+	if err := store.PoolOf(st).QueryRow(ctx, `SELECT count(*) FROM guard_runs WHERE guard = $1 AND project_key = $2`, guard, projectKey).Scan(&n); err != nil || n != 1 {
+		t.Errorf("recorded %d runs (%v), want the one accepted", n, err)
+	}
+}
+
 func recordGuardRuns(t *testing.T, st *store.Store, projectKey string, runs ...records.GuardRun) {
 	t.Helper()
 	for _, r := range runs {

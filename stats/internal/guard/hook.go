@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -61,22 +60,11 @@ func hook(args []string, env Env, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// appendHookRun appends hook's run, start to now, to path as one records.HookRun line: one
-// O_APPEND write, so concurrent hooks never interleave, and no flowd call -- flowd ingests the
-// file on its own schedule (cmd/flowd/hookruns.go). Every failure is swallowed: the measurement
-// never changes the hook's answer.
+// appendHookRun appends hook's run, start to now, to path as one records.HookRun line
+// (records.AppendJSONLine).
 func appendHookRun(path, hook string, start time.Time) {
 	now := time.Now()
-	line, err := json.Marshal(records.HookRun{Hook: hook, DurationUS: now.Sub(start).Microseconds(), At: now.UTC()})
-	if err != nil {
-		return
-	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return
-	}
-	_, _ = f.Write(append(line, '\n'))
-	_ = f.Close()
+	records.AppendJSONLine(path, records.HookRun{Hook: hook, DurationUS: now.Sub(start).Microseconds(), At: now.UTC()})
 }
 
 // pyDumpASCII is Python's json.dumps(v): ", " and ": " separators, every character outside

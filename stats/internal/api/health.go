@@ -1,7 +1,7 @@
 // health.go serves the flow-health dashboard: the guard-health view over
 // store/health.go -- one row per guard, helpers excluded -- and POST
-// /api/v1/guard-runs/{project}, the write the flow-guard binary makes for
-// every guard it runs.
+// /api/v1/guard-runs/{project}, one guard run's write (the flow-guard binary
+// itself appends its runs to a file flowd ingests, cmd/flowd/hookruns.go).
 package api
 
 import (

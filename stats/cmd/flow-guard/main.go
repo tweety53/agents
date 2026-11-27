@@ -15,10 +15,8 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"syscall"
 	"time"
@@ -68,7 +66,7 @@ func main() {
 		}
 		return os.Getenv(k)
 	}
-	os.Exit(runAndRecord(os.Args[1:], os.Stdout, os.Stderr, getenv, workingDir, http.DefaultClient))
+	os.Exit(runAndRecord(os.Args[1:], os.Stdout, os.Stderr, getenv, workingDir))
 }
 
 // callerArgs is args less a `-caller-agent <id>` right after the guard name, the agent exported
@@ -82,7 +80,7 @@ func callerArgs(args []string) []string {
 
 // runAndRecord runs the guard args name and records the run's telemetry,
 // passing recordRun the first line the guard printed on stdout.
-func runAndRecord(args []string, stdout, stderr io.Writer, getenv func(string) string, workingDir func() string, client *http.Client) int {
+func runAndRecord(args []string, stdout, stderr io.Writer, getenv func(string) string, workingDir func() string) int {
 	start := time.Now()
 	out := &firstLine{w: stdout}
 	reasons := &guard.Reasons{}
@@ -90,10 +88,10 @@ func runAndRecord(args []string, stdout, stderr io.Writer, getenv func(string) s
 	if name, ok := dispatched(args); ok {
 		if dir := workingDir(); dir != "" {
 			wt := guardWorktree(args, dir)
-			if _, err := projectKey(context.Background(), wt); err != nil {
+			if !gitCheckout(wt) {
 				wt = dir // an argument that is no git checkout: record under the cwd
 			}
-			recordRun(getenv, wt, name, code, string(out.line), reasons.IDs(), reasons.Headless(), reasons.Wait(), time.Since(start), client)
+			recordRun(getenv, wt, name, code, string(out.line), reasons.IDs(), reasons.Headless(), reasons.Wait(), time.Since(start))
 		}
 	}
 	return code
