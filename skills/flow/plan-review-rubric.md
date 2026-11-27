@@ -28,6 +28,11 @@ A `##` section of `proposal.md` or `design.md` you cannot paraphrase in one sent
 
 ## Zoom-out
 
+Of `proposal.md`, cost and timeline are not asked.
+
+- Is the objective of `proposal.md` stated without jargon?
+- Does `proposal.md` say how this is done today, and what limits that?
+- Does `proposal.md` say what is new in this change?
 - Does the change treat the root cause, or a symptom of it?
 - Is each part needed now (`rules/build-the-simplest-thing.mdc`)? A part built for a need the
   artifacts do not state is a `finding`. A part that is needed but placed or built wrongly is
@@ -55,16 +60,8 @@ A `##` section of `proposal.md` or `design.md` you cannot paraphrase in one sent
   capture, recording or measurement names the command that produces it and where its output goes.
   A plan that starts or reuses a running stack names, before the run, the freshness check of the
   project's `.flow/project.md`.
-
-## Proposal exam
-
-Four questions, asked of `proposal.md`. Cost and timeline are not asked.
-
-- Is the objective stated without jargon?
-- Does it say how this is done today, and what limits that?
-- Does it say what is new in this change?
 - Which check proves success — does `design.md`'s `## Verification` name it, and does a task
-  run it? (A risk the check would miss is **Design critic**'s.)
+  run it?
 
 ## Implementation readiness
 

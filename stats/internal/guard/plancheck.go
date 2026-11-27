@@ -75,7 +75,8 @@ var (
 	pcConfidence = regexp.MustCompile(`(?m)^CONFIDENCE: ([0-9]{1,3})%[ \t]*$`)
 	pcLastLine   = regexp.MustCompile(`^(PLAN-CHECK-CLEAN|PLAN-CHECK-FINDINGS [0-9]+)$`)
 	pcNotRunText = "plan check not run: the model answer could not be used — no confidence estimate exists\nPLAN-CHECK-NOT-RUN\n"
-	pcFinding    = regexp.MustCompile(`(?m)^\*\*F[0-9]+\*\* \[(?:finding|advisory|blocker)\]`)
+	pcFinding    = regexp.MustCompile(`(?m)^\*\*F[0-9]+\*\* \[(?:finding|blocker)\]`)
+	pcAnyFinding = regexp.MustCompile(`(?m)^\*\*F[0-9]+\*\* \[(?:finding|advisory|blocker)\]`)
 )
 
 // pcRetryNote is appended to the prompt of the one retry a report with no terminal line gets.
@@ -92,14 +93,15 @@ func pcHasTerminal(result string) bool {
 	return pcLastLine.MatchString(r[strings.LastIndex(r, "\n")+1:])
 }
 
-// pcDerive closes a report that ends in no terminal line from its body: the finding lines it holds
-// make `PLAN-CHECK-FINDINGS <n>`, a CONFIDENCE line with none makes `PLAN-CHECK-CLEAN`; "" for a
-// body holding neither (nothing to derive from).
+// pcDerive closes a report from its body: the blocker and finding lines it holds make
+// `PLAN-CHECK-FINDINGS <n>`; with none, an advisory line or a CONFIDENCE line makes
+// `PLAN-CHECK-CLEAN` — an advisory is never owed a fix, so it never sends the plan to triage;
+// "" for a body holding neither (nothing to derive from).
 func pcDerive(body string) string {
 	if n := len(pcFinding.FindAllString(body, -1)); n > 0 {
 		return fmt.Sprintf("PLAN-CHECK-FINDINGS %d", n)
 	}
-	if score, _ := pcConfidenceOf(body); score > 0 {
+	if score, _ := pcConfidenceOf(body); score > 0 || pcAnyFinding.MatchString(body) {
 		return "PLAN-CHECK-CLEAN"
 	}
 	return ""
@@ -310,6 +312,10 @@ func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []s
 		// the decision-only call writes no report
 	} else if pcLastLine.MatchString(r[strings.LastIndex(r, "\n")+1:]) {
 		report = r + "\n"
+		if body := r[:max(strings.LastIndex(r, "\n"), 0)]; pcAnyFinding.MatchString(body) {
+			// The answer's own count is re-derived from its lines, so an advisory never counts.
+			report = body + "\n" + pcDerive(body) + "\n"
+		}
 	} else if last := pcDerive(r); last != "" {
 		report = r + "\n" + last + "\n"
 	} else {

@@ -23,8 +23,9 @@ a lens you could not apply — never `No finding.` in that case. A finding is on
 counting from 1 across the whole report. The last section, `### Execution confidence`, opens
 with its `CONFIDENCE: <n>%` line in the shape the rubric fixes for that lens.
 
-The report's last line is `PLAN-CHECK-CLEAN` when it holds no finding of any severity, else
-`PLAN-CHECK-FINDINGS <count>`.
+The report's last line is `PLAN-CHECK-CLEAN` when it holds no `blocker` or `finding` line, else
+`PLAN-CHECK-FINDINGS <count>`, the count of those lines; an `advisory` line is never counted, and
+the guard re-derives the line from the report's finding lines.
 
 ## Part 2 — the decision
 

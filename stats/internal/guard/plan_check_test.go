@@ -39,7 +39,7 @@ const dgpvGood = `{"groups":[{"tasks":["1","3"],"reason":"a"},{"tasks":["2"],"re
 	`"panel":[{"slots":["primary","principles"],"reason":"c"},{"slots":["mutation"],"reason":"d"}],` +
 	`"visual":{"verify":"skipped","reason":"e"}}`
 
-const pcReport = "**F1** [finding] tasks.md:3 — a gap\n**F2** [advisory] design.md:1 — a nit\nPLAN-CHECK-FINDINGS 2\n"
+const pcReport = "**F1** [finding] tasks.md:3 — a gap\n**F2** [advisory] design.md:1 — a nit\nPLAN-CHECK-FINDINGS 1\n"
 
 func pcAnswer(report, decision string) string {
 	return report + "===DECISION===\n" + decision + "\n"
@@ -64,7 +64,7 @@ func TestPlanCheckWritesReportAndDecision(t *testing.T) {
 		t.Fatalf("rc=%d stdout=%q err=%q", r.rc, r.stdout, r.err)
 	}
 	b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md"))
-	if !strings.HasSuffix(strings.TrimSpace(string(b)), "PLAN-CHECK-FINDINGS 2") || strings.Contains(string(b), "===DECISION===") {
+	if !strings.HasSuffix(strings.TrimSpace(string(b)), "PLAN-CHECK-FINDINGS 1") || strings.Contains(string(b), "===DECISION===") {
 		t.Errorf("report %q", b)
 	}
 	if d := dgpvRead(t, out); len(d.Groups) != 2 || d.Visual.Verify != "skipped" || d.Overrides == nil {
@@ -444,7 +444,7 @@ func TestPlanCheckRetriesAReportWithNoTerminalLine(t *testing.T) {
 func TestPlanCheckDerivesTheTerminalLine(t *testing.T) {
 	t.Parallel()
 	for name, c := range map[string]struct{ body, last, conf string }{
-		"findings":   {"**F1** [finding] tasks.md:3 — a gap\n**F2** [advisory] design.md:1 — a nit\n", "PLAN-CHECK-FINDINGS 2", " · confidence unknown"},
+		"findings":   {"**F1** [finding] tasks.md:3 — a gap\n**F2** [advisory] design.md:1 — a nit\n", "PLAN-CHECK-FINDINGS 1", " · confidence unknown"},
 		"confidence": {"### Execution confidence\n\nCONFIDENCE: 90%\n", "PLAN-CHECK-CLEAN", " · confidence 90%"},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -456,6 +456,29 @@ func TestPlanCheckDerivesTheTerminalLine(t *testing.T) {
 			b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md"))
 			if r.rc != 0 || stub.calls() != "2" || !strings.HasSuffix(strings.TrimSpace(string(b)), c.last) || !strings.Contains(r.stdout, c.last+" ") || !strings.Contains(r.stdout, c.conf) {
 				t.Fatalf("rc=%d calls=%s report=%q stdout=%q", r.rc, stub.calls(), b, r.stdout)
+			}
+		})
+	}
+}
+
+// TestPlanCheckAdvisoryIsNotAFinding: an `advisory` line is an idea, never owed a fix, so it never
+// counts toward `PLAN-CHECK-FINDINGS` — the terminal line the triage dispatch keys on — whether
+// the answer's own terminal line counted it or the guard derives one.
+func TestPlanCheckAdvisoryIsNotAFinding(t *testing.T) {
+	t.Parallel()
+	for name, c := range map[string]struct{ body, last string }{
+		"model counted it":  {"**F1** [advisory] design.md:1 — an idea\nCONFIDENCE: 100%\nPLAN-CHECK-FINDINGS 1\n", "PLAN-CHECK-CLEAN"},
+		"derived":           {"**F1** [advisory] design.md:1 — an idea\nCONFIDENCE: 100%\n", "PLAN-CHECK-CLEAN"},
+		"mixed, model said": {"**F1** [finding] tasks.md:3 — a gap\n**F2** [advisory] design.md:1 — an idea\nPLAN-CHECK-FINDINGS 2\n", "PLAN-CHECK-FINDINGS 1"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			args, wt, _ := pcFixture(t)
+			ans := pjJSON(pcAnswer(c.body, dgpvGood), "")
+			r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), pcSeq(t, ans, ans)))
+			b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md"))
+			if r.rc != 0 || !strings.HasSuffix(strings.TrimSpace(string(b)), c.last) {
+				t.Fatalf("rc=%d report=%q stdout=%q", r.rc, b, r.stdout)
 			}
 		})
 	}
