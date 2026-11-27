@@ -80,11 +80,10 @@ Which worktrees those are, and the `git worktree list --porcelain` scan that fin
 the state file's map is absent or empty, are **Resolving a change's worktrees**
 (`skills/flow-contracts/finish-contract-run1.md`).
 
-Once per repository, from outside every worktree in the set, with `<merge-base>` the one the state
-file's `worktrees` map records for it (`-` when none):
+Once per repository, from outside every worktree in the set:
 
 ```bash
-flow-guard remove-change-worktrees <repo> <name> <merge-base|->
+flow-guard remove-change-worktrees <repo> <name>
 ```
 
 Exit 0: every check passed; each `REMOVED:` entry is one step 3 clears, and each `REMOTE-*` line is

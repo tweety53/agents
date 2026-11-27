@@ -13,7 +13,7 @@ that file. This file carries only what is specific to *executing* it under `/flo
 
 **`flow-guard integrate-change` runs every mechanical step of run 1 and run 2, in that file's order**
 (`skills/flow-contracts/finish-contract-run1.md`), with its `flow.land` mark (run 1) and `flow.cleanup` mark (run 2); the parent writes the
-commit subjects and the narrative, runs the self-review pass and the Jira calls, and handles each
+commit subjects, runs the self-review pass and the Jira calls, and handles each
 stop below. **Load `skills/flow-contracts/finish-contract-run1.md` only when** a stop below cites
 one of its sections.
 
@@ -200,7 +200,7 @@ Next:
 ```
 ````
 
-| Route taken in step 5 | Heading |
+| Route taken in step 4 | Heading |
 |--------------------|---------|
 | pull request | *waiting on the merge* |
 | **merge and push** | *merged and waiting on run 2* — continue below |

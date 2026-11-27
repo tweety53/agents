@@ -96,11 +96,6 @@ names — in a worktree of that repository, pushed to its `main` — and makes e
 stop in the middle (a daemon holding a worktree, a hook refusing the main checkout) is a blocker to
 clear, never a reason to print `Not done` and end the turn.
 
-## Worktree cleanup
-
-Run `flow-guard remove-change-worktrees` once per repository per **Worktree cleanup**
-(`skills/flow-contracts/finish-contract-run2.md`), canonical for its checks, exit codes and relay.
-
 ## Guardrails
 
 - **Never** `git add` the state file, and never move it into the change directory.
