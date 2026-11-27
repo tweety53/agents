@@ -175,9 +175,11 @@ func recordRun(getenv func(string) string, dir, name string, code int, first str
 }
 
 // dispatched reports whether args name a registered guard -- the only runs
-// recorded; a usage error is not a guard's answer.
+// recorded; a usage error is not a guard's answer. A `hook` run is never
+// recorded: a hook runs on every tool call, and recording it would add a
+// flowd round trip to a hook whose own contract makes none.
 func dispatched(args []string) (string, bool) {
-	if len(args) == 0 {
+	if len(args) == 0 || args[0] == "hook" {
 		return "", false
 	}
 	if _, ok := registry[args[0]]; !ok {

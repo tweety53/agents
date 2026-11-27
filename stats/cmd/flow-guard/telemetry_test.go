@@ -172,6 +172,9 @@ func TestDispatchedOnlyNamesRegisteredGuards(t *testing.T) {
 	if _, ok := dispatched(nil); ok {
 		t.Error("no args dispatched")
 	}
+	if _, ok := dispatched([]string{"hook", "enforce-agent-baseline"}); ok {
+		t.Error("a hook run dispatched")
+	}
 	if _, ok := dispatched([]string{"no-such-guard"}); ok {
 		t.Error("an unknown guard dispatched")
 	}

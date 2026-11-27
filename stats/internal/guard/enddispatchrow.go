@@ -101,14 +101,19 @@ func endDispatchRow(args []string, env Env, stdout, stderr io.Writer) int {
 
 var (
 	edrPlanningKey = regexp.MustCompile(`(?:^|\s)((?:explore|design)-\d+)(?:\s|$)`)
-	// edrBeginKey is hooks/enforce-agent-baseline.py's BEGIN_KEY, matched whole.
+	// edrBeginKey is a key the enforce-agent-baseline hook begins a row under, matched whole: a
+	// Key shape the closed list names (**Dispatch sites -- the parent's closed list**,
+	// skills/flow/implement.md) -- `panel-4-primary`, `visual-verify-fix-11-gymie`,
+	// `full-suite-fix-2`, a fix's implementer `fix-2-implementer` or reviewer `fix-2-review`, a
+	// planner's `plan-2`, its designer's `designer-1`, a /flow-interactive request's operator-asked
+	// `operator-58` -- or a planner's Explore/Plan agent's `explore-<n>`/`design-<n>`.
 	edrBeginKey = regexp.MustCompile(`^(?:task-\d+(?:\+\d+)*-(?:implementer|reviewer)(?:-[a-z0-9-]+)?` +
 		`|panel-\d+-[a-z][a-z0-9+-]*|panel-fix-\d+(?:-\d+)?(?:-retry)?|fix-\d+-(?:implementer|review)` +
-		`|full-suite-fix-\d+|runner-\d+|visual-verify(?:-[a-z0-9][a-z0-9-]*)?|pipeline-fix-[a-z0-9][a-z0-9-]*` +
+		`|full-suite-fix-\d+|visual-verify(?:-[a-z0-9][a-z0-9-]*)?|pipeline-fix-[a-z0-9][a-z0-9-]*` +
 		`|plan-\d+|designer-\d+|operator-\d+(?:-[a-z0-9][a-z0-9-]*)?|explore-\d+|design-\d+)$`)
 )
 
-// edrMetaKey is the key hooks/enforce-agent-baseline.py row_key gave an agent
+// edrMetaKey is the key the enforce-agent-baseline hook's rowKey gave an agent
 // whose prompt has no Key: line, off its meta sidecar: the description's
 // explore-/design- word, else — for an agent not of a planning type (Explore,
 // Plan) — its first word when begin_key begins rows under it (`panel-0-mutation`),
