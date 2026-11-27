@@ -121,7 +121,7 @@ def full_go_test(command):
 # runner's: every run of the list is a `runner` subagent's (skills/flow/verify-and-handoff.md, **Every run of
 # the list is the runner's**). Typed by the main session it bills the main session's model while its `verify`
 # row records the runner's pair (KAN-1156: 13 rows). The bare `run-verify-list <worktree> <group>` that
-# /flow-fast and /flow-interactive type is not the recording form.
+# /flow-interactive types is not the recording form.
 VERIFY_LIST_RECORDED_RE = re.compile(r"\brun-verify-list\b[^;&|\n]*\bmf-[A-Za-z0-9]")
 VERIFY_LIST_REASON = (
     "`flow-guard run-verify-list` with a session token records a `verify` row for the runner's pair, so only a "

@@ -10,7 +10,7 @@ The PreToolUse contract has no way to rewrite tool input, so this hook cannot in
 line itself. It denies the call instead and returns the exact text to add; the model then
 re-dispatches with it.
 
-It denies every fork in a flow session -- one whose transcript records a /flow, /flow-fast,
+It denies every fork in a flow session -- one whose transcript records a /flow,
 /flow-interactive, /flow-plan or /flow-self-review command, or whose prompt names a flow skill: a
 flow dispatch is a fresh agent whose prompt carries the paths it needs (KAN-1000: a parent forked
 itself into a self-review loop and dragged ~300k tokens of its own context into it).
@@ -76,7 +76,7 @@ PLANNING_AGENT_TYPES = {"Explore", "Plan"}
 
 # A flow run's slash command as the harness writes it into the session transcript.
 FLOW_COMMAND = re.compile(r"<command-name>/flow(?:-fast|-interactive|-plan|-self-review)?</command-name>")
-FLOW_SKILLS = ("flow", "flow-fast", "flow-interactive", "flow-plan", "flow-self-review")
+FLOW_SKILLS = ("flow", "flow-interactive", "flow-plan", "flow-self-review")
 
 FORK_REASON = (
     "Dispatch blocked: no flow phase, and no loop a phase or the self-review runs, dispatches "
@@ -476,7 +476,7 @@ def fork_reason(payload: dict, tool_input: dict) -> "str | None":
 def is_flow_command(line: str) -> bool:
     # A typed slash command is a user turn with string content; a tool result quoting the tag
     # carries list content and does not count. A run the model started is an assistant turn
-    # calling the Skill tool on a flow skill (kan-1131: a /flow-fast started that way began no
+    # calling the Skill tool on a flow skill (kan-1131: a flow run started that way began no
     # dispatch row). The substring test spares a json parse of every line of a long transcript
     # that holds neither.
     if "<command-name>/flow" not in line and '"Skill"' not in line:

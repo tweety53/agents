@@ -28,8 +28,7 @@ The run that creates a change resolves it; every other command carries it forwar
 
 ### Resolution (how `jiraIssue` is decided)
 
-Only a run that creates a change — `/flow`'s creating run, a `/flow-plan` capture, a `/flow-fast`
-run or a `/flow-interactive` session start — resolves a key, and it follows this contract exactly.
+Only a run that creates a change — `/flow`'s creating run, a `/flow-plan` capture or a `/flow-interactive` session start — resolves a key, and it follows this contract exactly.
 
 - **No Atlassian tooling available** in the session **and** no `## jira` section in
   `<project>/.flow/project.md` → resolve `jiraIssue: null` **silently**, ask nothing, and report exactly one

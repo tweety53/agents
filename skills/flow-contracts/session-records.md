@@ -2,7 +2,7 @@
 
 The outcome table for `flow record render`, and what each outcome means for the caller.
 
-**Loaded by `/flow`'s implement phase, bare `/flow` and `/flow-fast`** — at the verify stage's ledger render, on the `prUrl` commit path and in run 1.
+**Loaded by `/flow`'s implement phase, and bare `/flow`** — at the verify stage's ledger render, on the `prUrl` commit path and in run 1.
 
 This file is **canonical** for everything in it.
 

@@ -59,8 +59,6 @@ run's UI change never verified — stops the landing exactly as above. It is nev
   disk and, once it writes its state, continues into integrate as a re-run with new work, which
   runs the pass again (**Run 1 — the branch is not merged**,
   `skills/flow-contracts/finish-contract-run1.md`).
-- **`/flow-fast`'s verify** stops before `flow.verify` and continues as
-  `/flow-fast <name> <the defect, one line>` would; the fix re-run lands normally.
 
 Met by a standalone `/flow-self-review` after landing, the pass's closing report names it for the
 operator to start that fix run.

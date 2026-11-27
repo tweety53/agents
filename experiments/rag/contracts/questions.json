@@ -36,12 +36,6 @@
   "snippet": "``` You are an engineering-principles reviewer. You are NOT doing a plan-alignme"
  },
  {
-  "question": "If the worktree for a change already exists when the run starts, how is that treated and which steps repeat?",
-  "kind": "any",
-  "file": "skills/flow-fast/SKILL.md",
-  "snippet": "**A re-run is detected, never recorded**: `<project>-worktrees/<name>` already e"
- },
- {
   "question": "When verification turns up a lint or test failure during a run, who fixes it and does the operator get asked?",
   "kind": "any",
   "file": "skills/flow/fix.md",

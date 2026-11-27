@@ -31,8 +31,6 @@ dispatch's remit: a read-only role reports, and its dispatcher fixes.
 
 ## How `/flow` applies it
 
-The user's stop after implementation is `## handoff` `required` on `/flow-fast`; without it,
-nothing stops for testing.
 **Fewest operator actions** (`skills/flow-contracts/pipeline.md`) is this rule's `/flow`
 statement, and **What still stops** (`skills/flow-contracts/operator-prompts-auto-resolution.md`)
 its list of exceptions.

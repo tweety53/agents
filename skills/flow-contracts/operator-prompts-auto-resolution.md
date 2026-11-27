@@ -7,8 +7,7 @@ option itself, at once.** Past planning is everything from `flow.implement` to t
 handoff — `skills/flow/implement.md`, `skills/flow/review-panel.md`,
 `skills/flow/visual-verify.md`, `skills/flow/verify-and-handoff.md`, `skills/flow/integrate.md`,
 `skills/flow/cleanup.md` and the self-review pass (`skills/flow-self-review/SKILL.md`) — every fix
-run (`/flow <fix instructions>`, or a plain message run as a fix), `/flow-fast` from its
-implementation on, and the prompts that open a run. The operator asked for this for every flow run
+run (`/flow <fix instructions>`, or a plain message run as a fix), and the prompts that open a run. The operator asked for this for every flow run
 (**Work end to end — stop only to plan or to test by hand**, `rules/work-end-to-end.mdc`): a
 question they would answer with the recommended option costs them a stop for nothing.
 
@@ -122,8 +121,8 @@ Every auto-resolution:
   the shape **Decisions** (`skills/flow/brainstorm-planner.md`) gives — what was chosen, what was
   considered and why each lost; one displacing an earlier decision appends a fresh entry naming
   the old ID, never rewriting it. The `tasks.md` text of every task the decision changes is
-  amended in the same pass, and `spectre validate` re-run, before the next dispatch. `/flow-fast`
-  and `/flow-interactive` carry no design doc and record it by the bullets above alone
+  amended in the same pass, and `spectre validate` re-run, before the next dispatch.
+  `/flow-interactive` carries no design doc and record it by the bullets above alone
 - never repeats: the same prompt arising again for the same subject after its recommended option
   was already taken this run is asked, so an auto-taken **another round** cannot loop — except a
   fix, re-review or re-verify round, which **Fewest operator actions**
@@ -139,9 +138,7 @@ past planning is (**Work end to end — stop only to plan or to test by hand**,
   review gate, every `/flow-plan` prompt. The operator scoped
   auto-resolution to implementation and fix options, not planning. The `## decisions: recommended` mode lifts the planning asks in this bullet and lifts no
   other bullet here.
-- **Manual testing the operator asked for.** `/flow-fast` with `## handoff` `required` stops after
-  its change summary; the fixes that testing finds are the operator's fix runs. It stops only when
-  the operator set it. A `/flow` run that leaves a `?` in its `Decisions:` stops at its `IN_PROGRESS`
+- **Manual testing the operator asked for.** A `/flow` run that leaves a `?` in its `Decisions:` stops at its `IN_PROGRESS`
   handoff (**What still stops**).
 - **No recommended option.** A multiple-match pick, a finding
   recorded unverifiable, and a question the run cannot honestly give one recommended option. Two

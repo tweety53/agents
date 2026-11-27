@@ -1,6 +1,6 @@
 ---
 name: flow-self-review
-description: Run a change's self-review pass, a one-shot dispatch — inside `/flow`'s integrate and `/flow-fast`'s verify, or standalone from the context bundle flowd saved at cleanup; fix and land every flow-fix finding that is not big with one fixer, suggest the impactful big ones and other angles' findings, record each in the flow store. Standalone, not a pipeline stage. Use for /flow-self-review.
+description: Run a change's self-review pass, a one-shot dispatch — inside `/flow`'s integrate and `/flow-interactive`'s stop, or standalone from the context bundle flowd saved at cleanup; fix and land every flow-fix finding that is not big with one fixer, suggest the impactful big ones and other angles' findings, record each in the flow store. Standalone, not a pipeline stage. Use for /flow-self-review.
 user-invocable: false
 allowed-tools: Bash(git:*), Bash(flow:*), Bash(go:*)
 license: MIT
@@ -9,8 +9,8 @@ compatibility: Standalone, requires the change's default branch, or its `--base`
 
 Run a change's self-review reasoning pass — the only one the pipeline has — over the bundle
 `/flow`'s run 1 (**Run the self-review pass**,
-`skills/flow-contracts/finish-contract-run1.md`, canonical for that bundle's shape) or **5. Verify**
-(`skills/flow-fast/SKILL.md`) assembles: inside that run, or, as this standalone command, from the
+`skills/flow-contracts/finish-contract-run1.md`, canonical for that bundle's shape) or **Explicit stop**
+(`skills/flow-interactive/SKILL.md`) assembles: inside that run, or, as this standalone command, from the
 bundle run 2's cleanup saved in flowd (`flow change save`). This file is canonical for the five angles, what is fixed, what is suggested and the store record. **Neither the pass nor its fixes run
 in this session**: step 2 dispatches the pass, and step 3 fixes, each a one-shot
 dispatch on the pair this file names — never the model this session runs on.
@@ -32,11 +32,11 @@ writing its stdout to `<sr-dir>/bundle.md`, never printing it. Its exit 1 — fl
 or flowd unreachable, its stderr saying which: print `no saved bundle for <name>` or
 `flowd unreachable` with that line, and stop.
 
-`git branch --show-current` must be `<landing-branch>`: `<default-branch>` (the project's own default branch), or a `--base` change's `<base>` — a branch other than the change's own (`spectre/<name>`, `<name>` on `/flow-fast`). A
+`git branch --show-current` must be `<landing-branch>`: `<default-branch>` (the project's own default branch), or a `--base` change's `<base>` — a branch other than the change's own (`spectre/<name>`, `<name>` on `/flow-interactive`). A
 checkout on any other branch: print the branch and stop.
 
 **Both refusals bind the standalone command only.** A pass run inside `/flow`'s integrate or
-`/flow-fast`'s verify has its bundle at `<sr-dir>/bundle.md`, runs on the change branch, and starts at step 2.
+`/flow-interactive`'s stop has its bundle at `<sr-dir>/bundle.md`, runs on the change branch, and starts at step 2.
 
 ### 2. Read the bundle and run the five angles
 

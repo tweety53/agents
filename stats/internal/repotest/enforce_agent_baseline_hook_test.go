@@ -49,7 +49,7 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 	statusT := transcript("status.jsonl", `{"type":"user","message":{"content":"<command-name>/flow-status</command-name>"}}`)
 	interactiveT := transcript("interactive.jsonl", `{"type":"user","message":{"content":"<command-name>/flow-interactive</command-name>"}}`)
 	toolT := transcript("tool.jsonl", `{"type":"user","message":{"content":[{"type":"tool_result","content":"<command-name>/flow</command-name>"}]}}`)
-	skillT := transcript("skill.jsonl", `{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"flow-fast"}}]}}`)
+	skillT := transcript("skill.jsonl", `{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"flow-interactive"}}]}}`)
 	otherSkillT := transcript("other-skill.jsonl", `{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"flow-status"}}]}}`)
 
 	// payload builds an Agent payload; model "" omits that field, transcript "" omits

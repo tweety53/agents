@@ -88,10 +88,6 @@ line — a failed check, nothing removed; or a failed removal, whose entry stays
 `worktrees`. Exit 2: stop and report. Ignored files go with the worktree's `--force` removal,
 never asked about.
 
-**`/flow-fast` runs none of these checks.** Its cleanup (**8. Clean up**, `skills/flow-fast/SKILL.md`)
-removes its worktree without `--force`, so git itself refuses one holding modified or untracked
-files.
-
 - **Any failed check leaves every worktree alone** and reports why. There is no partial cleanup.
 - **Verify each removal actually succeeded** before writing state. If any `git worktree remove`
   fails for a reason the checks did not predict — a file lock, a permission error — report it and

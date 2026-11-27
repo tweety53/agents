@@ -4,7 +4,7 @@ Which git actions each command may take and the branch backup. The guarded commi
 that commits the implementation and leaves the change directory out is
 `skills/flow-contracts/git-boundaries-commit-chain.md`.
 
-**Loaded by `/flow`'s creating run and implement phase, bare `/flow`, `/flow-plan` and `/flow-fast`** — at the step that commits or stages.
+**Loaded by `/flow`'s creating run and implement phase, bare `/flow` and `/flow-plan`** — at the step that commits or stages.
 
 This file is **canonical** for everything in it.
 
@@ -25,7 +25,7 @@ The reasoning behind this file lives in `skills/flow-contracts/git-boundaries-ra
 | `/flow-plan` | change captured | **Creates the change worktree and pushes its empty branch** through the kickoff (**Capturing a new change**, `skills/flow-plan/SKILL.md`); commits nothing, ever |
 
 **No command writes the main checkout.** `/flow` creates `<project>-worktrees/<name>` inside
-its kickoff, `/flow-fast` inside its kickoff, `/flow-plan` through that same kickoff at
+its kickoff, `/flow-plan` through that same kickoff at
 capture — it reads the main checkout before then and writes nothing — and every write, stage,
 commit and push in the table above happens in a worktree. The main checkout is never checked out,
 staged, committed or written, whatever branch it sits on — save run 2's fast-forward of it, which
@@ -71,8 +71,6 @@ the commit names them. The guarded commit chain (**The guarded commit chain**,
 `skills/flow-contracts/git-boundaries-commit-chain.md`) is the deliberate exception: its
 `add -A` is what picks up operator edits and new files at the human gate, which a
 pathspec-scoped commit would drop.
-
-A `/flow-fast` branch's commit series is its whole record,; no guard reads it back, so each commit follows the route's commit rule as it is made.
 
 ## Commits outside every task
 

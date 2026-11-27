@@ -52,14 +52,13 @@ finishing — integration is not a stage, it is the first half of finishing.
 ## Command surface
 
 One command, `/flow`, drives the whole pipeline, plus one read-only command (`/flow-status`),
-one that creates a change at `STARTED` and stops there (`/flow-plan`), one minimal-ceremony
-variant that writes no state file (`/flow-fast`), one conversational session that lands each
+one that creates a change at `STARTED` and stops there (`/flow-plan`), one conversational session that lands each
 request as it goes and writes no state file (`/flow-interactive`) and one standalone,
 non-pipeline command (`/flow-self-review`). **No command accepts
-a flag**, save one: `--base <branch>` on a run that creates a change — `/flow`, `/flow-plan`,
-`/flow-fast` — names the branch it is cut from and lands on, in place of the one `origin/HEAD`
+a flag**, save one: `--base <branch>` on a run that creates a change — `/flow`, `/flow-plan` —
+names the branch it is cut from and lands on, in place of the one `origin/HEAD`
 points at (`skills/flow/SKILL.md`). The only argument is the optional change name — see **Change name resolution** — or,
-on `/flow` and `/flow-fast`, a description or Jira key seeding a new change; on
+on `/flow`, a description or Jira key seeding a new change; on
 `/flow-interactive`, a first request, a Jira key or an open session's name; on `/flow-plan`, a
 topic; on `/flow`, fix instructions at `IN_PROGRESS`.
 
@@ -237,7 +236,7 @@ words that ask the run to stop are.
 
 ## The parent is the only orchestrator
 
-**Every dispatch a `/flow`, `/flow-fast` or `/flow-self-review` run makes does the work itself;
+**Every dispatch a `/flow` or `/flow-self-review` run makes does the work itself;
 none of them is an orchestrator.** The parent session dispatches each implementer,
 fixer, reviewer and verifier directly, every one with the NO DELEGATION paragraph
 (`skills/flow/implement.md`) and a `subagent_type` that carries no `Agent` tool — never a
@@ -255,7 +254,7 @@ five-minute one, so a subagent that waits, or is resumed after a gap, pays a ful
 
 ## Pipeline defects found mid-run
 
-**A `/flow` or `/flow-fast` run that hits a defect in the pipeline itself fixes it within the
+**A `/flow` run that hits a defect in the pipeline itself fixes it within the
 run, unless the fix is `big`.** The pipeline is everything `<agents repo>` ships — a skill, a
 contract, a guard, the `flow` CLI or flowd, a rule — and any saved memory that encodes its
 behaviour. For this section alone `<agents repo>` is a repository the run was given
@@ -320,8 +319,8 @@ The loop runs in the background while the run's own work continues; the run stil
 turn with one of its children in flight.
 
 **Record each one.** Every in-run fix, landed or deferred, is one line in the run's narrative —
-`narrative.md` on `/flow` (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`),
-`## Session narrative` on `/flow-fast` — and one decision bullet in the run's summary
+`narrative.md` on `/flow` (**Write `IN_PROGRESS`**, `skills/flow/verify-and-handoff.md`) —
+and one decision bullet in the run's summary
 (**Summary and live-stack line, before every handoff**, below):
 
 ```text

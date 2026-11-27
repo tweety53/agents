@@ -135,8 +135,8 @@ script's header is canonical for the rest.
 is in its environment. The operator sets that variable; a session or a subagent never sets it, whoever
 asks. A session asked for the full suite whose environment
 lacks it hands the operator the command — `FLOW_OPERATOR_FULL_SUITE=1 <agents repo>/scripts/flow-guard
-run-verify-list -full <worktree> test` — and goes on with the default list. Every `/flow`,
-`/flow-fast` and `/flow-interactive` run, in every project, runs the smoke set and the change's
+run-verify-list -full <worktree> test` — and goes on with the default list. Every `/flow`
+and `/flow-interactive` run, in every project, runs the smoke set and the change's
 targeted tests and nothing wider: a targeting that is empty or fails falls back to the smoke set,
 never to a whole suite, and no whole-suite command is typed by hand in its place.
 

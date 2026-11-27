@@ -2,7 +2,7 @@
 
 How any step resolves the set of worktrees belonging to a change.
 
-**Loaded by `/flow`'s creating run and implement phase, bare `/flow`, `/flow-status` and `/flow-fast`** — before a
+**Loaded by `/flow`'s creating run and implement phase, bare `/flow`, and `/flow-status`** — before a
 preflight verdict, a gate that runs once per worktree, a status report, or a removal.
 
 This file is **canonical** for everything in it.

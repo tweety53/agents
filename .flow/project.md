@@ -140,7 +140,7 @@ line's command piped into `scripts/flow-guard test-cost -min 1`. A marked test i
 not printed; what prints is the core set plus whatever grew heavy — each new row meets the rubric
 and is tagged, or gains the `smoke.Heavy(t)` call.
 
-**`/flow-fast` and `/flow-interactive` scope these commands by hand**, and `smoke.Heavy` follows
+**`/flow-interactive` scopes these commands by hand**, and `smoke.Heavy` follows
 the scope: a command naming tests with `-run` runs every test it names whatever else it carries,
 and one scoped to a whole package drops `-short`.
 

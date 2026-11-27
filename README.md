@@ -127,12 +127,11 @@ flowchart TD
 ## Commands
 
 `<name>` is optional everywhere: with one open change it is picked, otherwise you are asked. The
-one flag is `--base <branch>` on the run that creates a change (`/flow`, `/flow-plan`, `/flow-fast`).
+one flag is `--base <branch>` on the run that creates a change (`/flow`, `/flow-plan`).
 
 | Command | What it does |
 |---------|--------------|
 | `/flow <name>` | The whole pipeline, one command, re-entrant |
-| `/flow-fast <name>` | Lighter: worktree, decided panel, lint and targeted tests, default landing route. No spectre artifacts |
 | `/flow-interactive [key or name]` | A conversational session: each request is implemented, verified and landed on its own; an explicit stop self-reviews and cleans up |
 | `/flow-plan` | Thinking-partner mode, no implementation; a captured session creates the change at `STARTED` |
 | `/flow-learn-quiz` | Teacher mode: quizzes you on a change |

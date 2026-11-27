@@ -2,7 +2,7 @@
 
 Which model each role runs on, how an override applies, and per-harness enforcement.
 
-**Loaded by `/flow`'s creating run, `/flow`'s implement phase and `/flow-fast`** — at
+**Loaded by `/flow`'s creating run, and `/flow`'s implement phase** — at
 each dispatch.
 
 This file is **canonical** for everything in it.

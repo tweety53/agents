@@ -2,7 +2,7 @@
 
 Every artifact the pipeline creates, with what creates it, where it lives, and what removes it.
 
-**Loaded by `/flow`'s cleanup run and `/flow-fast`** — wherever an artifact this
+**Loaded by `/flow`'s cleanup run** — wherever an artifact this
 table names is created or removed.
 
 This file is **canonical** for everything in it.
@@ -42,7 +42,7 @@ never left unaccounted for on the grounds that something probably removes it.
 **The proposal artifact source is not a record.** `/flow` writes no
 `<state-dir>/<name>-proposal-artifact.html`; an older change may
 still hold one, and nothing in the repository preserves a copy. Run 2 deletes it
-whether or not it exists — a `/flow-fast` change, which publishes none, has nothing to delete and
+whether or not it exists — a change that published none has nothing to delete and
 says so. The deletion is disclosed the same way the worktree removal is.
 
 **The workspace row belongs only to a project that declares isolation, and for every other project

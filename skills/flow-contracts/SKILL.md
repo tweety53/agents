@@ -35,12 +35,12 @@ flow's pipeline and its contract definitions.
 | [jira-followups-join.md](jira-followups-join.md) | Join the follow-up the search found: the confirmation, the append and its per-write guards, and the three ordered writes a join makes. **Loaded by jira-followups.md only when the join search returned a candidate** |
 | [plan-amendment.md](plan-amendment.md) | What an implementer does when a measurement contradicts the plan. **Cited by `/flow`'s implementer dispatch** |
 | [workspace-isolation.md](workspace-isolation.md) | Resolve a worktree's own database, cache index, bucket or ports: the workspace id, what it derives, why the cache index is probed rather than derived, the empty id, and creation and cleanup |
-| [git-boundaries.md](git-boundaries.md) | Which git actions each command may take, that the change directory is never committed, and the branch backup. **Loaded by `/flow`'s creating run, `/flow`'s implement phase, bare `/flow`, `/flow-plan` and `/flow-fast`** |
+| [git-boundaries.md](git-boundaries.md) | Which git actions each command may take, that the change directory is never committed, and the branch backup. **Loaded by `/flow`'s creating run, `/flow`'s implement phase, bare `/flow`, and `/flow-plan`** |
 | [git-boundaries-commit-chain.md](git-boundaries-commit-chain.md) | The guarded commit chain that commits the implementation and leaves the gitignored change directory out. **Loaded by bare `/flow`'s run 1, and by `/flow`'s implement phase only when a `prUrl` is recorded** |
-| [model-policy.md](model-policy.md) | Which model each role runs on, their defaults, how an override applies, and per-harness enforcement. **Loaded by `/flow`'s creating run, `/flow`'s implement phase and `/flow-fast`** |
-| [artifacts-registry.md](artifacts-registry.md) | Every artifact the pipeline creates, with what creates it, where it lives, and what removes it. **Loaded by `/flow`'s cleanup run and `/flow-fast`** |
-| [session-records.md](session-records.md) | The outcome table for `flow record render`, and what each outcome means for the caller. **Loaded by `/flow`'s implement phase, bare `/flow` and `/flow-fast`** |
-| [worktree-resolution.md](worktree-resolution.md) | How any step resolves the set of worktrees belonging to a change. **Loaded by `/flow`'s creating run, `/flow`'s implement phase, bare `/flow`, `/flow-status` and `/flow-fast`** |
+| [model-policy.md](model-policy.md) | Which model each role runs on, their defaults, how an override applies, and per-harness enforcement. **Loaded by `/flow`'s creating run and `/flow`'s implement phase** |
+| [artifacts-registry.md](artifacts-registry.md) | Every artifact the pipeline creates, with what creates it, where it lives, and what removes it. **Loaded by `/flow`'s cleanup run** |
+| [session-records.md](session-records.md) | The outcome table for `flow record render`, and what each outcome means for the caller. **Loaded by `/flow`'s implement phase, and bare `/flow`** |
+| [worktree-resolution.md](worktree-resolution.md) | How any step resolves the set of worktrees belonging to a change. **Loaded by `/flow`'s creating run, `/flow`'s implement phase, bare `/flow`, and `/flow-status`** |
 | [project-configuration-authoring.md](project-configuration-authoring.md) | Write or edit a project's own `<project>/.flow/project.md` — rationale for a key's shape and worked examples not consulted by any run. **Loaded by no `/flow*` command** |
 
 Each file is **canonical** for its own contract. Where a skill and one of these files disagree, the

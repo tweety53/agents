@@ -8,7 +8,7 @@ license: MIT
 One `/flow-interactive` invocation is one **session**: one store change, one Jira issue, one git
 worktree, and a stream of **requests**, each shipped to the base branch on its own. The session
 marks existing `flow.*` stage keys, so labels, phases, cost by stage and the timeline read as they
-do for `/flow` and `/flow-fast`. Each request is a row the store keeps (`flow record request`),
+do for `/flow`. Each request is a row the store keeps (`flow record request`),
 and every stage run made for it carries its request number (`-request <n>`). The main session is
 the **coordinator**: it looks, records, dispatches and reports, and does nothing else. A request that
 changes code is executed whole — implement, verify, land, reinstall, UI check — by one
@@ -92,9 +92,23 @@ value ends the run with one line naming `## default landing route` as the sectio
 so does `flow-guard project-get <project> handoff --enum required none` resolving `required` — that
 project asks to test before anything lands.
 
-**Worktree.** One per session, `<project>-worktrees/<name>` on branch `<name>`, created as section 1
-of `/flow-fast` creates it (`skills/flow-fast/SKILL.md`), its `## worktree setup` run once — with no
-`--base`. Then `mkdir -p <changeRoot>`, where `<changeRoot>` is
+**Worktree.** One per session, `<project>-worktrees/<name>` on branch `<name>`, created from the main
+checkout, with `<base>` the branch `origin/HEAD` points at — with no `--base`:
+
+```bash
+git fetch origin
+git worktree add <project>-worktrees/<name> -b <name> origin/<base>
+git -C <project>-worktrees/<name> push -u origin <name>
+```
+
+Then the project's declared `## worktree setup` (**Project configuration**,
+`skills/flow-contracts/project-configuration.md`) runs once, from the worktree root, before
+anything else touches the tree — the fenced command lines only, in order, in the foreground; the
+key's exit 1 (absent) continues with nothing run, its exit 2 stops the run, and a command's
+non-zero exit ends the run naming the command and its output — each only for a cause out of the
+run's reach; any other is cured and the setup re-run (**Fewest operator actions**,
+`skills/flow-contracts/pipeline.md`). A re-run reusing an existing
+worktree runs nothing here — the creating run already ran it. Then `mkdir -p <changeRoot>`, where `<changeRoot>` is
 `<project>-worktrees/<name>/.superpowers/sdd/<name>/`: the record verbs find the change's checkout
 by that directory, and it holds the session's edit scripts. The main checkout is never checked out, staged, committed or written.
 
@@ -122,7 +136,7 @@ A message that changes the in-flight request's own ask is applied to that reques
 Outside a brainstorm, a question carrying a recommended option is taken, never asked
 (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). A pipeline
 defect met mid-session is fixed per **Pipeline defects found mid-run**
-(`skills/flow-contracts/pipeline.md`), as `/flow-fast` follows it.
+(`skills/flow-contracts/pipeline.md`).
 
 **1. Look.** The live state behind what the operator saw first — the rows the page reads, the page
 itself, the log — then the code. Never answer from code alone.
@@ -182,8 +196,14 @@ flow stage end   -command '/flow-interactive' -stage flow.implement -outcome com
 ```
 
 **4. Verify** (the subagent runs it itself).
-`<agents repo>/scripts/flow-guard run-verify-list <worktree> lint`, the `## test` commands
-scoped to the packages and files the request touched, and `<agents repo>/scripts/flow-guard run-verify-list <worktree> visual` — as section 5 of `/flow-fast` states them. The request never lands red. The `lint` list,
+Run `<agents repo>/scripts/flow-guard run-verify-list <worktree> lint` — it runs every command of
+`## lint`'s fence, never the fence lines `flow-guard project-get` prints with them — and the `## test` commands scoped to what the
+request touched — the packages, modules or test files the diff names, never the whole list; the full suite,
+`<agents repo>/scripts/flow-guard run-verify-list -full <worktree> test`, runs only when the operator asked for it, under the operator's own `FLOW_OPERATOR_FULL_SUITE=1` (**Inline verify**, `skills/flow/verify-and-handoff.md`). When the diff names nothing those commands can scope to, none of them
+runs — the report states that empty-scope reason explicitly, the stated reason
+being what makes the skip auditable rather than lazy, never a reflexive run of the whole list in its
+place. Then `<agents repo>/scripts/flow-guard run-verify-list <worktree> visual` runs the `## visual verification` `verify` row when the diff touches `ui paths` — the committed baselines a `lint` list never checks; a failure that is the request's intended look is recaptured with the section's `capture` row and committed before the request lands. Where the section declares a `regression checkout`, the run first adds that repository's worktree on the change's branch, runs the section's `setup` command in it, and starts there the stack its `verify` row needs (the project's `## run`) — the one exception to the no-isolation rule; the `visual` list never falls back to the main checkout, and exits 1 naming it while it holds no worktree on the branch. A failure is fixed, committed and re-run; the request never lands red, a failing test it did not introduce included (**the sweep**,
+`skills/flow-contracts/known-bugs.md`). The `lint` list,
 exiting 0 on a tree clean before and after it, writes `HEAD` to the worktree's `git rev-parse
 --git-path flow-lint-green`: the evidence the **Request-end guard** reads, so step 4 runs on the
 request's last commit.
@@ -307,9 +327,22 @@ as a request and the session stays open, saying so in one line. Stop:
 
 1. The in-flight request lands (unless the stop drops it); queued requests not started end
    `dropped` and are listed in the stop report.
-2. **Self-review**: the self-review paragraphs of section 5 of `/flow-fast`
-   (`skills/flow-fast/SKILL.md`) as written, with `-command '/flow-interactive'` and the `fi-`
-   token. `flow self-review bundle -change <name>` renders the session's requests in number order
+2. **Self-review**, with `-command '/flow-interactive'` and the `fi-` token.
+   A `flow.self-review` stage already completed for `<name>` skips the pass: a re-run never
+   records its findings twice.
+   Assemble the bundle in `<sr-dir>/bundle.md` (**2. Read the bundle and run the five angles**,
+   `skills/flow-self-review/SKILL.md`), never printed, never committed, as the stdout of `flow
+   self-review bundle -change <name>` run from the worktree — of the sources `/flow`'s bundle
+   judges a change by, a `/flow-interactive` session can never have tasks.md, design.md,
+   narrative.md, visual-verification.md and live-verification.md (no spectre artifacts), so those
+   five report `skipped` by design, never silently; the ledger and panel render from the store
+   when the session wrote rows.
+   Over that bundle run steps 2–5 of `/flow-self-review` (`skills/flow-self-review/SKILL.md`),
+   canonical for the five angles, the fix, where the fixes land, the filing and the store rows.
+   The landing push carries the fix commits' shas per item 2 of step 3 of `/flow-self-review`.
+   A product defect the pass met stops it at the end of step 2 of `/flow-self-review`, closes the
+   mark below `-outcome stopped` instead, and continues straight into the fix **the sweep**
+   (`skills/flow-contracts/known-bugs.md`) names, in the same invocation. `flow self-review bundle -change <name>` renders the session's requests in number order
    as its git-log source. Its fix commits land on `<name>`; no report is written.
    The pass runs on every stop, a stop that landed no new commit included: it reviews the whole
    session's requests, never the stop invocation's diff.
