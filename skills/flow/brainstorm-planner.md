@@ -150,7 +150,10 @@ stub heading and fill:
   its decision ID); `## Critical files` (every file the change edits or depends on, one line on
   its role each); `## Existing code to reuse` (by path and symbol, or `none — <reason>`);
   `## Verification` (how the change is proved end to end, beyond each task's own verify step);
-  `## Non-goals` and `## Risks` (each may be `none — <reason>`); and `## Live check` when the
+  `## Non-goals` and `## Risks` (each may be `none — <reason>`); `## Reads` when the change adds
+  or changes a query, a list endpoint or a scheduled scan — one line per read naming the most rows
+  it can return, what bounds it (a `LIMIT`, a page, a window, a constant) and the index it uses,
+  else one line opening with `None`; and `## Live check` when the
   change touches a running service or stored state — what to run against the real thing before
   landing and what "not working" looks like, else one line opening with `None`.
 - **`tasks.md`** — written in **D**.
