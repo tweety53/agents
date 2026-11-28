@@ -258,7 +258,7 @@ flow record request end -change <name> -n <n> -outcome dropped
 
 A request that implements a self-review finding is not ended `landed` until its executor ran `flow self-review finding-implement <id> -commit <last landed sha>` (`skills/flow-self-review/SKILL.md`).
 
-Before `landed`, when `git diff --name-only <base>..<commit>` matches `_test.go`, `.test.ts` or `.test.tsx`, the coordinator checks the executor's report carries the `Red:` lines of step 3a. A report without them is sent back to the executor exactly as the Request-end guard's refusal text says (SendMessage to its agent id, else a fresh `operator-asked` dispatch), never accepted and never worked around by the coordinator.
+Before `landed`, when `git diff --name-only <base>..<commit>` matches `_test.go`, `.test.ts` or `.test.tsx`, the coordinator checks the executor's report carries the `Red:` lines of step 3a. A report without them is sent back to the executor exactly as the Request-end guard's refusal text says (**Reuse**, in **Operator-asked subagents**), never accepted and never worked around by the coordinator.
 
 A resumed request whose base was never noted passes the parent of its earliest commit found on
 `origin/<base>`, or any older ancestor: a wider range can only demand a UI check, never skip one.
@@ -291,6 +291,8 @@ agent's commits land through steps 4–8 as any other. Its report is relayed, no
 flow record dispatch end -change <name> -key operator-<k> -outcome <outcome> -agent-id <the agent's id> [-commit <last sha it landed>]
 ```
 
+**Reuse.** An agent, finished or idle, is sent a message (SendMessage to its agent id) only for an addition to its own earlier task: the fix of its own refusal, a scope change to the same request, a follow-up to the same request. A new request is a fresh dispatch with its own brief, `operator-<k>` row and pair-judge pair, never a resumed agent, even while an earlier agent is idle in the same worktree.
+
 Every end names the agent's id, an aborted row's included, so its tokens are measured; a `completed` end of a request that landed carries `-commit`, the last sha that agent landed. A row whose agent is given up on or replaced is ended `aborted` before the replacement's begin, so no row stays open with no outcome.
 
 ## Request-end guard
@@ -317,7 +319,7 @@ Every end names the agent's id, an aborted row's included, so its tokens are mea
 Exit codes, those of every record verb: 0 written or journalled; 1 refused, one line naming the
 failed check; 2 usage. `-commit` and `-base` are required with `landed` and refused with
 `answered` and `dropped`; an `-outcome` outside the three is a usage error. A refusal is fixed —
-land the commit, run the verify and the UI check and end each `completed` — and the end re-run, never worked around. The coordinator never repairs a refusal itself: a `flow record request end` refusal (verify or UI-check evidence, lint-green, ancestry) is sent back to the executor that ran the request — SendMessage to its agent id while it is still addressable, else a fresh `operator-asked` dispatch whose brief is the refusal text — and the end is re-run on its new report.
+land the commit, run the verify and the UI check and end each `completed` — and the end re-run, never worked around. The coordinator never repairs a refusal itself: a `flow record request end` refusal (verify or UI-check evidence, lint-green, ancestry) is sent back to the executor that ran the request — per **Reuse** in **Operator-asked subagents**, a fresh dispatch's brief being the refusal text — and the end is re-run on its new report.
 
 ## Explicit stop
 
