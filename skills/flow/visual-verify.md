@@ -87,20 +87,8 @@ its last act before that is writing that `## Verdict`, with the full `## Report`
 **Recording** below — which is what the parent waits on (the turn discipline of **4. Execute
 (SDD + TDD)**, `skills/flow/implement.md`); the parent reads the `## Verdict` alone.
 
-**The prompt also carries the TOOLS paragraph**:
-
-> **TOOLS:** Every tool you need that is not already listed in your tool set — `SendMessage`,
-> `Monitor`, an MCP tool — is loaded in one `select:<name>,<name>` ToolSearch in your first turn,
-> before anything else. Never ToolSearch for a tool already listed, and never a wildcard query: a
-> schema loaded later changes your tool list and re-prices your whole context at full input rate.
-
-**The prompt also carries the NO DELEGATION paragraph**:
-
-> **NO DELEGATION:** Do this work yourself. Never call the `Agent` tool, and never spawn a
-> subagent, background agent or helper of any kind — you are the leaf of this run, and any child
-> you start is unrecorded and outside the parent's closed list (**Dispatch sites — the
-> parent's closed list**, `skills/flow/implement.md`). Reading, searching, reproducing and
-> fixing are your own Read, Bash and Edit calls.
+**The prompt also carries the TOOLS and NO DELEGATION paragraphs of
+`skills/flow/implementer-brief.md` verbatim.**
 
 The verifier row dispatches on the `visual-verifier` role's pair, a `flow-<effort>` definition, so
 it is structurally fork-free too (the `tools:` allowlist of **Every dispatch is one-shot**,

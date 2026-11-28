@@ -43,12 +43,9 @@ It reads `implementer-brief.md` and then this file in full first; every paragrap
 > then stops.
 
 > **TARGETED TESTS:** Run only the tests the `**Tests:**` fields of the tasks your fix touches
-> name, and the tests your fix adds, through the build
-> tool's own selector — `--tests '<class>'` for Gradle, `-run '<name>'` for `go test`, `-t
-> '<name>'` for vitest — once for RED, once for GREEN, and again only after a source edit. Never
-> run the module or repository suite mid-task: the `## test` list runs again in
-> `flow.verify`. Pipe a test run's output through `tail` so a green
-> run costs lines of context, not a build log. Keep every run bounded (PROOF RUNS,
+> name, and the tests your fix adds, selected, timed and piped as TARGETED TESTS of
+> `skills/flow/implementer-brief.md` says. Never run the module or repository suite mid-task: the
+> `## test` list runs again in `flow.verify`. Keep every run bounded (PROOF RUNS,
 > `skills/flow/implementer-brief.md`).
 
 > **MOVED BASELINES:** a fix that moves what a committed capture baseline shows — on purpose, as
