@@ -233,6 +233,8 @@ steps are `  - [ ] **Step N: …**` lines indented two columns beneath it.
   reach is decided at design time: add a seed route, redraw the frame, or accept the departure. A task that builds a drawn element on a
   native screen has a `**Tests:**` entry that compiles it and captures it against its frame; a
   capture no task creates leaves every implementer holding the same "unverified until run" gap.
+  The capture spec is created in, or before, the first task whose acceptance compares against it;
+  no such task is planned before the task that creates its capture spec.
 
 Before returning, run `spectre validate "<name>"` and repair any exit-1 finding; its exit 2 is
 reported and stops the plan.

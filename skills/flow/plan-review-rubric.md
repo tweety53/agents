@@ -95,7 +95,8 @@ only carry it as an open gap.
 
 A UI task has a `**Tests:**` entry that captures what it builds against its frame, and builds
 nothing `design.md`'s `## Undrawn` still lists; a UI element, state, icon or copy string the tasks
-need that no cited frame draws and `## Undrawn` omits is a `finding`.
+need that no cited frame draws and `## Undrawn` omits is a `finding`. A task whose acceptance
+compares against a capture, ordered before the task that creates that capture spec, is a `finding`.
 
 A seam a task introduces — an interface, provider, callback, composition local or hook with a
 default or no-op — has a task that supplies the real implementation, or `design.md` states the
