@@ -12,9 +12,11 @@ const VIEWS: { view: string; label: string; query: string }[] = [
   { view: "state-board", label: "Live state board", query: PINNED_QUERY },
   { view: "stage-leaderboard", label: "Stage leaderboard", query: PINNED_QUERY },
   { view: "trend", label: "Trend over time", query: PINNED_QUERY },
+  { view: "daily-costs", label: "Daily costs", query: PINNED_QUERY },
   { view: "reviewers", label: "Reviewers", query: PINNED_QUERY },
   { view: "flow-health", label: "Flow guards", query: PINNED_QUERY },
   { view: "self-review", label: "Self-review", query: PINNED_QUERY },
+  { view: "confidence", label: "Confidence", query: PINNED_QUERY },
   { view: "review-dynamics", label: "Reviewer findings", query: PINNED_QUERY },
   // The view reads no period.
   { view: "agent-roles", label: "Agent roles", query: PINNED_QUERY },
