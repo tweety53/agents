@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // TestCheckFixRevert: a fix that inverts an earlier fix's lines is refused naming both
@@ -28,15 +29,15 @@ func TestCheckFixRevert(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			gitRun(t, dir, "init", "-q", "-b", "main")
+			guardtest.GitRun(t, dir, "init", "-q", "-b", "main")
 			f := filepath.Join(dir, "x.txt")
 			commit := func(body, msg string) {
-				writeFile(t, f, body)
-				gitRun(t, dir, "add", "x.txt")
-				gitRun(t, dir, "commit", "-q", "-m", msg)
+				guardtest.WriteFile(t, f, body)
+				guardtest.GitRun(t, dir, "add", "x.txt")
+				guardtest.GitRun(t, dir, "commit", "-q", "-m", msg)
 			}
 			commit("a\nb\nc\nd\ne\n", "base")
-			gitRun(t, dir, "tag", "base")
+			guardtest.GitRun(t, dir, "tag", "base")
 			key := tc.key
 			if key == "" {
 				key = "fix-1-implementer"
@@ -46,15 +47,15 @@ func TestCheckFixRevert(t *testing.T) {
 			env := core.Env{Dir: dir, Getenv: os.Getenv, LookupEnv: os.LookupEnv}
 			args := []string{dir, "base"}
 			if tc.noBase {
-				gitRun(t, dir, "config", "branch.main.flowBase", "base")
+				guardtest.GitRun(t, dir, "config", "branch.main.flowBase", "base")
 				args = []string{dir}
 			}
 			r := runGuard("check-fix-revert", args, env)
-			if r.rc != tc.rc {
-				t.Fatalf("rc %d, want %d: %s", r.rc, tc.rc, r.out)
+			if r.Rc != tc.rc {
+				t.Fatalf("rc %d, want %d: %s", r.Rc, tc.rc, r.Out)
 			}
-			if tc.rc == 1 && !strings.Contains(r.out, "inverts 8 lines") {
-				t.Fatalf("out: %s", r.out)
+			if tc.rc == 1 && !strings.Contains(r.Out, "inverts 8 lines") {
+				t.Fatalf("out: %s", r.Out)
 			}
 		})
 	}

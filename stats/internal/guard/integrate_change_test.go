@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -104,7 +105,7 @@ to_land() {
 }`
 
 // icFlowStub is the fixture's fake flow CLI; it finds its fixture from its
-// own path, so one body serves every case and writeExec links each copy to
+// own path, so one body serves every case and WriteExec links each copy to
 // one assessed inode.
 const icFlowStub = `#!/usr/bin/env bash
 W="${0%/bin/*}"
@@ -147,7 +148,7 @@ func icRun(t *testing.T, script string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeExec(t, tmp+"/stubs/flow", icFlowStub)
+	guardtest.WriteExec(t, tmp+"/stubs/flow", icFlowStub)
 	if err := syscall.Mkfifo(tmp+"/sut.ack", 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +157,7 @@ func icRun(t *testing.T, script string) {
 	// HOME is the test's own, so no guard's commit reads the operator's
 	// git config; the Go caches stay where the toolchain keeps them.
 	cmd.Env = append(os.Environ(), "IC_TMP="+tmp, "IC_STUBS="+tmp+"/stubs", "IC_SCRIPTS="+scripts,
-		"FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_TELEMETRY=off",
+		"FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "FLOW_GUARD_TELEMETRY=off",
 		"HOME="+tmp+"/home", "GIT_CONFIG_NOSYSTEM=1")
 	cmd.Env = append(cmd.Env, icGoEnv(t)...)
 	var stderr bytes.Buffer
@@ -214,11 +215,11 @@ var icGoEnvOnce = sync.OnceValues(func() ([]string, error) {
 })
 
 // icTemplate is the harness's fixture, built once per package run by its own
-// fixture_build under execFixtures.dir and the environment a case runs under;
+// fixture_build under ExecFixtures.dir and the environment a case runs under;
 // every case's fixture is a copy of it (icFixture). It returns the template's
 // WORK.
 var icTemplate = sync.OnceValues(func() (string, error) {
-	dir, err := os.MkdirTemp(execFixtures.dir, "ic-template")
+	dir, err := os.MkdirTemp(guardtest.ExecFixtures.Dir, "ic-template")
 	if err != nil {
 		return "", err
 	}
@@ -242,7 +243,7 @@ func icFixture(t *testing.T, tmp, work string) {
 	t.Helper()
 	tpl, err := icTemplate()
 	if err == nil {
-		err = copyTree(tpl, work)
+		err = guardtest.CopyTree(tpl, work)
 	}
 	if err == nil {
 		from, to := []byte(tpl), []byte(work)
@@ -314,7 +315,7 @@ func icServe(t *testing.T, tmp string) {
 	icAck(t, tmp)
 }
 
-// The fixture's flow stub is a link to the one inode writeExec assessed, never
+// The fixture's flow stub is a link to the one inode WriteExec assessed, never
 // a file written afresh: macOS assesses each new executable on its first exec,
 // serialised machine-wide, and every case would pay it.
 func TestIntegrateChangeFixtureLinksTheFlowStub(t *testing.T) {

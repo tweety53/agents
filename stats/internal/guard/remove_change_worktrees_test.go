@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -16,35 +17,35 @@ import (
 // out beside it -- the state run 2 reaches its cleanup step in.
 type rcwFx struct {
 	dir, repo, wt, mergeBase string
-	g                        fxGit
+	g                        guardtest.FxGit
 }
 
 func rcwNewFx(t *testing.T) *rcwFx {
 	t.Helper()
 	dir := t.TempDir()
 	fx := &rcwFx{dir: dir, repo: dir + "/repo", wt: dir + "/wt/demo"}
-	fx.g.copyShape(dir+"/origin.git", repoShape{Branch: "main", Bare: true})
-	fx.g.copyShape(fx.repo, repoShape{Branch: "main"})
+	fx.g.CopyShape(dir+"/origin.git", guardtest.RepoShape{Branch: "main", Bare: true})
+	fx.g.CopyShape(fx.repo, guardtest.RepoShape{Branch: "main"})
 	for _, kv := range [][2]string{{"user.name", "Test"}, {"user.email", "test@example.invalid"}, {"commit.gpgsign", "false"}} {
-		fx.g.git(fx.repo, "config", kv[0], kv[1])
+		fx.g.Git(fx.repo, "config", kv[0], kv[1])
 	}
-	fx.g.write(fx.repo+"/.gitignore", "*.log\nbuild/\n.env\n__pycache__/\n*.pyc\n*.tsbuildinfo")
-	fx.g.write(fx.repo+"/base.txt", "base")
-	fx.g.git(fx.repo, "add", "-A")
-	fx.g.git(fx.repo, "commit", "-qm", "base")
-	fx.mergeBase = fx.g.git(fx.repo, "rev-parse", "HEAD")
-	fx.g.git(fx.repo, "remote", "add", "origin", dir+"/origin.git")
-	fx.g.git(fx.repo, "push", "-q", "-u", "origin", "main")
-	fx.g.git(fx.repo, "remote", "set-head", "origin", "main")
-	fx.g.git(fx.repo, "checkout", "-q", "-b", "spectre/demo")
-	fx.g.write(fx.repo+"/work.txt", "work")
-	fx.g.git(fx.repo, "add", "work.txt")
-	fx.g.git(fx.repo, "commit", "-qm", "work")
-	fx.g.git(fx.repo, "push", "-q", "origin", "spectre/demo")
-	fx.g.git(fx.repo, "checkout", "-q", "main")
-	fx.g.git(fx.repo, "merge", "-q", "--ff-only", "spectre/demo")
-	fx.g.git(fx.repo, "push", "-q", "origin", "main")
-	fx.g.git(fx.repo, "worktree", "add", "-q", fx.wt, "spectre/demo")
+	fx.g.Write(fx.repo+"/.gitignore", "*.log\nbuild/\n.env\n__pycache__/\n*.pyc\n*.tsbuildinfo")
+	fx.g.Write(fx.repo+"/base.txt", "base")
+	fx.g.Git(fx.repo, "add", "-A")
+	fx.g.Git(fx.repo, "commit", "-qm", "base")
+	fx.mergeBase = fx.g.Git(fx.repo, "rev-parse", "HEAD")
+	fx.g.Git(fx.repo, "remote", "add", "origin", dir+"/origin.git")
+	fx.g.Git(fx.repo, "push", "-q", "-u", "origin", "main")
+	fx.g.Git(fx.repo, "remote", "set-head", "origin", "main")
+	fx.g.Git(fx.repo, "checkout", "-q", "-b", "spectre/demo")
+	fx.g.Write(fx.repo+"/work.txt", "work")
+	fx.g.Git(fx.repo, "add", "work.txt")
+	fx.g.Git(fx.repo, "commit", "-qm", "work")
+	fx.g.Git(fx.repo, "push", "-q", "origin", "spectre/demo")
+	fx.g.Git(fx.repo, "checkout", "-q", "main")
+	fx.g.Git(fx.repo, "merge", "-q", "--ff-only", "spectre/demo")
+	fx.g.Git(fx.repo, "push", "-q", "origin", "main")
+	fx.g.Git(fx.repo, "worktree", "add", "-q", fx.wt, "spectre/demo")
 	return fx
 }
 
@@ -52,15 +53,15 @@ func rcwNewFx(t *testing.T) *rcwFx {
 // implement.md makes one.
 func (fx *rcwFx) copy() string {
 	c := fx.wt + "-mutation-2"
-	fx.g.git(fx.repo, "worktree", "add", "-q", "--detach", c, "HEAD")
+	fx.g.Git(fx.repo, "worktree", "add", "-q", "--detach", c, "HEAD")
 	return c
 }
 
 // run runs remove-change-worktrees in-process.
 func (fx *rcwFx) run(t *testing.T, tweak func(*core.Env), args ...string) (int, string, string) {
 	t.Helper()
-	if fx.g.err != nil {
-		t.Fatal(fx.g.err)
+	if fx.g.Err != nil {
+		t.Fatal(fx.g.Err)
 	}
 	env := core.Env{Dir: fx.dir, Getenv: os.Getenv}
 	if tweak != nil {
@@ -77,7 +78,7 @@ func rcwExists(p string) bool {
 }
 
 func (fx *rcwFx) hasRef(ref string) bool {
-	return exec.Command(fixtureGit, "-C", fx.repo, "show-ref", "--verify", "--quiet", ref).Run() == nil
+	return exec.Command(guardtest.FixtureGit, "-C", fx.repo, "show-ref", "--verify", "--quiet", ref).Run() == nil
 }
 
 // assertUntouched is "any failed check leaves every worktree alone".
@@ -113,16 +114,16 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 	t.Run("clean removal", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)
-		fx.g.write(fx.wt+"/run.log", "log")
-		mkdir(t, fx.wt+"/build")
-		fx.g.write(fx.wt+"/build/out.o", "obj")
-		mkdir(t, fx.wt+"/__pycache__")
-		fx.g.write(fx.wt+"/__pycache__/mod.pyc", "pyc")
-		fx.g.write(fx.wt+"/loose.pyc", "pyc")
-		fx.g.write(fx.wt+"/tsconfig.tsbuildinfo", "tsbuildinfo")
-		fx.g.write(fx.wt+"/build/icon.png", "png")
+		fx.g.Write(fx.wt+"/run.log", "log")
+		guardtest.Mkdir(t, fx.wt+"/build")
+		fx.g.Write(fx.wt+"/build/out.o", "obj")
+		guardtest.Mkdir(t, fx.wt+"/__pycache__")
+		fx.g.Write(fx.wt+"/__pycache__/mod.pyc", "pyc")
+		fx.g.Write(fx.wt+"/loose.pyc", "pyc")
+		fx.g.Write(fx.wt+"/tsconfig.tsbuildinfo", "tsbuildinfo")
+		fx.g.Write(fx.wt+"/build/icon.png", "png")
 		// Ignored files go with --force, never asked about.
-		fx.g.write(fx.wt+"/.env", "SECRET=1")
+		fx.g.Write(fx.wt+"/.env", "SECRET=1")
 		code, out, errb := fx.run(t, nil)
 		if code != 0 {
 			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
@@ -136,7 +137,7 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		if rcwExists(fx.wt) || fx.hasRef("refs/heads/spectre/demo") || fx.hasRef("refs/remotes/origin/spectre/demo") {
 			t.Error("the worktree, the branch or the remote branch survived")
 		}
-		if exec.Command(fixtureGit, "--git-dir", fx.dir+"/origin.git", "show-ref", "--verify", "--quiet", "refs/heads/spectre/demo").Run() == nil {
+		if exec.Command(guardtest.FixtureGit, "--git-dir", fx.dir+"/origin.git", "show-ref", "--verify", "--quiet", "refs/heads/spectre/demo").Run() == nil {
 			t.Error("origin still carries spectre/demo")
 		}
 	})
@@ -144,7 +145,7 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 	t.Run("remote ref already gone", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)
-		fx.g.git("", "--git-dir", fx.dir+"/origin.git", "branch", "-D", "spectre/demo")
+		fx.g.Git("", "--git-dir", fx.dir+"/origin.git", "branch", "-D", "spectre/demo")
 		code, out, errb := fx.run(t, nil)
 		if code != 0 {
 			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
@@ -163,14 +164,14 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 	t.Run("PR merged, remote branch pruned, main checkout behind", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)
-		fx.g.git(fx.repo, "reset", "-q", "--hard", fx.mergeBase)
-		fx.g.git(fx.repo, "checkout", "-q", "--detach")
-		fx.g.git(fx.repo, "merge", "-q", "--no-ff", "-m", "Merge pull request #1", "spectre/demo")
-		fx.g.git(fx.repo, "push", "-q", "-f", "origin", "HEAD:main")
-		fx.g.git(fx.repo, "checkout", "-q", "main")
-		fx.g.git(fx.repo, "branch", "-q", "--set-upstream-to=origin/spectre/demo", "spectre/demo")
-		fx.g.git("", "--git-dir", fx.dir+"/origin.git", "branch", "-D", "spectre/demo")
-		fx.g.git(fx.repo, "fetch", "-q", "--prune", "origin")
+		fx.g.Git(fx.repo, "reset", "-q", "--hard", fx.mergeBase)
+		fx.g.Git(fx.repo, "checkout", "-q", "--detach")
+		fx.g.Git(fx.repo, "merge", "-q", "--no-ff", "-m", "Merge pull request #1", "spectre/demo")
+		fx.g.Git(fx.repo, "push", "-q", "-f", "origin", "HEAD:main")
+		fx.g.Git(fx.repo, "checkout", "-q", "main")
+		fx.g.Git(fx.repo, "branch", "-q", "--set-upstream-to=origin/spectre/demo", "spectre/demo")
+		fx.g.Git("", "--git-dir", fx.dir+"/origin.git", "branch", "-D", "spectre/demo")
+		fx.g.Git(fx.repo, "fetch", "-q", "--prune", "origin")
 		code, out, errb := fx.run(t, nil)
 		if code != 0 {
 			t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)
@@ -196,14 +197,14 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			fx := rcwNewFx(t)
-			fx.g.git(fx.repo, "reset", "-q", "--hard", fx.mergeBase)
-			fx.g.git(fx.repo, "push", "-q", "-f", "origin", "HEAD:main")
+			fx.g.Git(fx.repo, "reset", "-q", "--hard", fx.mergeBase)
+			fx.g.Git(fx.repo, "push", "-q", "-f", "origin", "HEAD:main")
 			if tc.upstream {
-				fx.g.git(fx.repo, "branch", "-q", "--set-upstream-to=origin/spectre/demo", "spectre/demo")
+				fx.g.Git(fx.repo, "branch", "-q", "--set-upstream-to=origin/spectre/demo", "spectre/demo")
 			} else {
 				// Check 3 refuses an unmerged worktree with no upstream: only
 				// a re-run whose worktree is already gone reaches -d this way.
-				fx.g.git(fx.repo, "worktree", "remove", fx.wt)
+				fx.g.Git(fx.repo, "worktree", "remove", fx.wt)
 			}
 			code, out, errb := fx.run(t, nil)
 			if code != 1 {
@@ -212,7 +213,7 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 			if l := rcwLines(out, "REFUSED: spectre/demo — git branch -d"); len(l) != 1 {
 				t.Errorf("REFUSED lines %q, want the branch delete refused", l)
 			}
-			merge, _ := core.Capture(exec.Command(fixtureGit, "-C", fx.repo, "config", "--get", "branch.spectre/demo.merge"))
+			merge, _ := core.Capture(exec.Command(guardtest.FixtureGit, "-C", fx.repo, "config", "--get", "branch.spectre/demo.merge"))
 			if merge != tc.wantMerge {
 				t.Errorf("branch.spectre/demo.merge = %q, want %q", merge, tc.wantMerge)
 			}
@@ -222,7 +223,7 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 	t.Run("a failed gate removes nothing", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)
-		fx.g.appendLine(fx.wt+"/work.txt", "dirty")
+		fx.g.AppendLine(fx.wt+"/work.txt", "dirty")
 		code, out, _ := fx.run(t, nil)
 		if code != 1 || len(rcwLines(out, "REFUSED: ")) != 1 || !strings.Contains(out, "check 1") {
 			t.Fatalf("exit %d, stdout %q; want 1 and one check 1 REFUSED line", code, out)
@@ -236,10 +237,10 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 	t.Run("check 3 — a commit its upstream lacks", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)
-		fx.g.git(fx.wt, "branch", "-q", "--set-upstream-to=origin/spectre/demo")
-		fx.g.write(fx.wt+"/late.txt", "late")
-		fx.g.git(fx.wt, "add", "late.txt")
-		fx.g.git(fx.wt, "commit", "-qm", "unpushed")
+		fx.g.Git(fx.wt, "branch", "-q", "--set-upstream-to=origin/spectre/demo")
+		fx.g.Write(fx.wt+"/late.txt", "late")
+		fx.g.Git(fx.wt, "add", "late.txt")
+		fx.g.Git(fx.wt, "commit", "-qm", "unpushed")
 		code, out, _ := fx.run(t, nil)
 		if code != 1 || len(rcwLines(out, "REFUSED: ")) != 1 || !strings.Contains(out, "check 3: commits not on origin/spectre/demo") {
 			t.Fatalf("exit %d, stdout %q; want 1 and one check 3 REFUSED line", code, out)
@@ -282,12 +283,12 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 	t.Run("through the shim", func(t *testing.T) {
 		t.Parallel()
 		fx := rcwNewFx(t)
-		if fx.g.err != nil {
-			t.Fatal(fx.g.err)
+		if fx.g.Err != nil {
+			t.Fatal(fx.g.Err)
 		}
-		cmd := exec.Command(guardShim(t, "remove-change-worktrees"), fx.repo, "demo")
+		cmd := exec.Command(guardtest.GuardShim(t, "remove-change-worktrees"), fx.repo, "demo")
 		cmd.Dir = fx.dir
-		cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
+		cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t))
 		out, err := cmd.Output()
 		if err != nil || !strings.Contains(string(out), "REMOVED: spectre/demo\n") {
 			t.Fatalf("shim: %v, stdout %q", err, out)
@@ -321,7 +322,7 @@ func TestRemoveChangeWorktreesRemovesACopyUnasked(t *testing.T) {
 	t.Parallel()
 	fx := rcwNewFx(t)
 	copyWT := fx.copy()
-	fx.g.write(copyWT+"/scratch.txt", "scratch")
+	fx.g.Write(copyWT+"/scratch.txt", "scratch")
 	code, out, errb := fx.run(t, nil)
 	if code != 0 || rcwExists(fx.wt) || rcwExists(copyWT) {
 		t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)

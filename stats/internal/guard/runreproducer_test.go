@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // rrRepo is a committed repository with an uncommitted edit to a.txt: the
@@ -15,12 +16,12 @@ import (
 func rrRepo(t *testing.T) string {
 	t.Helper()
 	wt := filepath.Join(t.TempDir(), "wt")
-	mkdir(t, wt)
-	fixtureRepo(t, wt, repoShape{})
-	writeFile(t, wt+"/a.txt", "a\n")
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-q", "-m", "base")
-	writeFile(t, wt+"/a.txt", "a edited\n")
+	guardtest.Mkdir(t, wt)
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
+	guardtest.WriteFile(t, wt+"/a.txt", "a\n")
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-q", "-m", "base")
+	guardtest.WriteFile(t, wt+"/a.txt", "a edited\n")
 	return wt
 }
 
@@ -30,8 +31,8 @@ func TestRunReproducer(t *testing.T) {
 		t.Parallel()
 		wt := rrRepo(t)
 		for _, args := range [][]string{{wt}, {wt, "sh"}, {wt, "-t", "0", "--", "true"}, {wt, "x", "--", "true"}} {
-			if r := runGuard("run-reproducer", args, core.Env{Getenv: os.Getenv}); r.rc != 2 {
-				t.Errorf("%q: exit %d, want 2\n%s", args, r.rc, r.out)
+			if r := runGuard("run-reproducer", args, core.Env{Getenv: os.Getenv}); r.Rc != 2 {
+				t.Errorf("%q: exit %d, want 2\n%s", args, r.Rc, r.Out)
 			}
 		}
 	})
@@ -40,8 +41,8 @@ func TestRunReproducer(t *testing.T) {
 		wt := rrRepo(t)
 		script := `grep -q edited a.txt || exit 9; git checkout -q -- a.txt; rm -f a.txt; echo x > new.txt; exit 3`
 		r := runGuard("run-reproducer", []string{wt, "--", "sh", "-c", script}, core.Env{Getenv: os.Getenv})
-		if r.rc != 3 {
-			t.Fatalf("exit %d, want the command's 3\n%s", r.rc, r.out)
+		if r.Rc != 3 {
+			t.Fatalf("exit %d, want the command's 3\n%s", r.Rc, r.Out)
 		}
 		if b, err := os.ReadFile(wt + "/a.txt"); err != nil || string(b) != "a edited\n" {
 			t.Errorf("a.txt = %q, %v; want the uncommitted edit kept", b, err)
@@ -58,8 +59,8 @@ func TestRunReproducer(t *testing.T) {
 		wt := rrRepo(t)
 		start := time.Now()
 		r := runGuard("run-reproducer", []string{wt, "-t", "1", "--", "sh", "-c", "sleep 30; true"}, core.Env{Getenv: os.Getenv})
-		if r.rc != 124 || !strings.Contains(r.err, "TIMED OUT after 1s") {
-			t.Fatalf("exit %d, want 124 and the TIMED OUT line\n%s", r.rc, r.out)
+		if r.Rc != 124 || !strings.Contains(r.Err, "TIMED OUT after 1s") {
+			t.Fatalf("exit %d, want 124 and the TIMED OUT line\n%s", r.Rc, r.Out)
 		}
 		if d := time.Since(start); d > 20*time.Second {
 			t.Errorf("returned after %s: the child sleep outlived the kill", d)

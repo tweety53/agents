@@ -7,31 +7,32 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // sbbFixture is TestCheckBaseBehind's shape with the base behind: a bare origin on main, feature/x
 // at main's first commit, a clone on spectre/c at origin/feature/x with that base recorded, and main
 // one commit ahead.
-func sbbFixture(t *testing.T) (g *fxGit, seed, origin, wt string) {
+func sbbFixture(t *testing.T) (g *guardtest.FxGit, seed, origin, wt string) {
 	t.Helper()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	g = &fxGit{}
+	g = &guardtest.FxGit{}
 	seed, origin, wt = root+"/seed", root+"/origin.git", root+"/wt"
-	g.copyShape(seed, repoShape{Branch: "main", Commit: "one"})
-	g.git(seed, "branch", "feature/x")
-	g.git("", "clone", "-q", "--bare", seed, origin)
-	g.git("", "clone", "-q", origin, wt)
-	g.git(wt, "checkout", "-q", "-b", "spectre/c", "origin/feature/x")
-	g.git(wt, "config", "branch.spectre/c.flowBase", "feature/x")
-	g.git(wt, "config", "user.name", "test")
-	g.git(wt, "config", "user.email", "test@example.com")
-	g.git(seed, "commit", "-q", "--allow-empty", "-m", "two")
-	g.git(seed, "push", "-q", origin, "main")
-	if g.err != nil {
-		t.Fatal(g.err)
+	g.CopyShape(seed, guardtest.RepoShape{Branch: "main", Commit: "one"})
+	g.Git(seed, "branch", "feature/x")
+	g.Git("", "clone", "-q", "--bare", seed, origin)
+	g.Git("", "clone", "-q", origin, wt)
+	g.Git(wt, "checkout", "-q", "-b", "spectre/c", "origin/feature/x")
+	g.Git(wt, "config", "branch.spectre/c.flowBase", "feature/x")
+	g.Git(wt, "config", "user.name", "test")
+	g.Git(wt, "config", "user.email", "test@example.com")
+	g.Git(seed, "commit", "-q", "--allow-empty", "-m", "two")
+	g.Git(seed, "push", "-q", origin, "main")
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	return g, seed, origin, wt
 }
@@ -43,28 +44,28 @@ func TestSyncBaseBehindSyncsTheBase(t *testing.T) {
 	t.Parallel()
 	g, _, origin, wt := sbbFixture(t)
 	env := core.Env{Getenv: os.Getenv}
-	if r := runGuard("check-base-behind", []string{wt}, env); r.rc != 1 {
-		t.Fatalf("fixture is not behind: rc %d %q", r.rc, r.stdout)
+	if r := runGuard("check-base-behind", []string{wt}, env); r.Rc != 1 {
+		t.Fatalf("fixture is not behind: rc %d %q", r.Rc, r.Stdout)
 	}
 	r := runGuard("sync-base-behind", []string{wt}, env)
-	if r.rc != 0 || !strings.Contains(r.stdout, "BASE-SYNCED: "+wt+" — feature/x now holds origin/main") {
-		t.Fatalf("rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
+	if r.Rc != 0 || !strings.Contains(r.Stdout, "BASE-SYNCED: "+wt+" — feature/x now holds origin/main") {
+		t.Fatalf("rc %d stdout %q stderr %q", r.Rc, r.Stdout, r.Err)
 	}
-	if r := runGuard("check-base-behind", []string{wt}, env); r.rc != 0 {
-		t.Errorf("still behind after the sync: rc %d %q", r.rc, r.stdout)
+	if r := runGuard("check-base-behind", []string{wt}, env); r.Rc != 0 {
+		t.Errorf("still behind after the sync: rc %d %q", r.Rc, r.Stdout)
 	}
-	if log := g.git(origin, "log", "--format=%s", "-1", "feature/x"); log != "Merge main into feature/x" {
+	if log := g.Git(origin, "log", "--format=%s", "-1", "feature/x"); log != "Merge main into feature/x" {
 		t.Errorf("origin/feature/x tip %q", log)
 	}
-	if g.git(wt, "merge-base", "--is-ancestor", "origin/feature/x", "HEAD"); g.err != nil {
-		t.Errorf("the change branch was not rebased onto the synced base: %v", g.err)
+	if g.Git(wt, "merge-base", "--is-ancestor", "origin/feature/x", "HEAD"); g.Err != nil {
+		t.Errorf("the change branch was not rebased onto the synced base: %v", g.Err)
 	}
 	// Nothing behind: a no-op, exit 0.
-	if r := runGuard("sync-base-behind", []string{wt}, env); r.rc != 0 || strings.Contains(r.stdout, "BASE-SYNCED") {
-		t.Errorf("second run: rc %d %q", r.rc, r.stdout)
+	if r := runGuard("sync-base-behind", []string{wt}, env); r.Rc != 0 || strings.Contains(r.Stdout, "BASE-SYNCED") {
+		t.Errorf("second run: rc %d %q", r.Rc, r.Stdout)
 	}
-	if r := runGuard("sync-base-behind", nil, env); r.rc != 2 {
-		t.Errorf("no argument: rc %d", r.rc)
+	if r := runGuard("sync-base-behind", nil, env); r.Rc != 2 {
+		t.Errorf("no argument: rc %d", r.Rc)
 	}
 }
 
@@ -73,22 +74,22 @@ func TestSyncBaseBehindSyncsTheBase(t *testing.T) {
 func TestSyncBaseBehindStopsOnAMergeConflict(t *testing.T) {
 	t.Parallel()
 	g, seed, origin, wt := sbbFixture(t)
-	g.git(seed, "checkout", "-q", "feature/x")
+	g.Git(seed, "checkout", "-q", "feature/x")
 	os.WriteFile(seed+"/f.txt", []byte("base\n"), 0o644)
-	g.git(seed, "add", "f.txt")
-	g.git(seed, "commit", "-q", "-m", "base edit")
-	g.git(seed, "push", "-q", origin, "feature/x")
-	g.git(seed, "checkout", "-q", "main")
+	g.Git(seed, "add", "f.txt")
+	g.Git(seed, "commit", "-q", "-m", "base edit")
+	g.Git(seed, "push", "-q", origin, "feature/x")
+	g.Git(seed, "checkout", "-q", "main")
 	os.WriteFile(seed+"/f.txt", []byte("main\n"), 0o644)
-	g.git(seed, "add", "f.txt")
-	g.git(seed, "commit", "-q", "-m", "main edit")
-	g.git(seed, "push", "-q", origin, "main")
-	if g.err != nil {
-		t.Fatal(g.err)
+	g.Git(seed, "add", "f.txt")
+	g.Git(seed, "commit", "-q", "-m", "main edit")
+	g.Git(seed, "push", "-q", origin, "main")
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
-	before := g.git(origin, "rev-parse", "feature/x")
+	before := g.Git(origin, "rev-parse", "feature/x")
 	r := runGuard("sync-base-behind", []string{wt}, core.Env{Getenv: os.Getenv})
-	if r.rc != 1 || !strings.Contains(r.stdout, "BASE-CONFLICT") || g.git(origin, "rev-parse", "feature/x") != before {
-		t.Fatalf("rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
+	if r.Rc != 1 || !strings.Contains(r.Stdout, "BASE-CONFLICT") || g.Git(origin, "rev-parse", "feature/x") != before {
+		t.Fatalf("rc %d stdout %q stderr %q", r.Rc, r.Stdout, r.Err)
 	}
 }

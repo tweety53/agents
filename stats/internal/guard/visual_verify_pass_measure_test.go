@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -55,7 +56,7 @@ func vvmProtoPNG(t *testing.T, path string, dy int) {
 	if err := png.Encode(&b, im); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, path, b.String())
+	guardtest.WriteFile(t, path, b.String())
 }
 
 func vvmPNG(t *testing.T, path string, dy int) {
@@ -71,7 +72,7 @@ func vvmPNG(t *testing.T, path string, dy int) {
 	if err := png.Encode(&b, im); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, path, b.String())
+	guardtest.WriteFile(t, path, b.String())
 }
 
 // vvmFixture: capture a.png sits 4px below frame-a (flagged), b.png matches
@@ -84,10 +85,10 @@ func vvmFixture(t *testing.T, sidecar string) vvmFix {
 	}
 	f := vvmFix{wt: filepath.Join(root, "demo")}
 	f.changeRoot = filepath.Join(f.wt, "spectre/changes/demo")
-	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n"+vvpSect(t, "| `mockups` | `design/frames` |\n"))
-	writeFile(t, filepath.Join(f.changeRoot, "design.md"), "# design\n")
-	writeFile(t, filepath.Join(f.wt, "tests/visual/app.spec.ts"), "// spec\n")
-	writeFile(t, filepath.Join(f.wt, "tests/visual/app.spec.ts.mockups"), "frame none\n"+sidecar)
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n"+vvpSect(t, "| `mockups` | `design/frames` |\n"))
+	guardtest.WriteFile(t, filepath.Join(f.changeRoot, "design.md"), "# design\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/app.spec.ts"), "// spec\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/app.spec.ts.mockups"), "frame none\n"+sidecar)
 	vvmPNG(t, filepath.Join(f.wt, "tests/visual/app.spec.ts-snapshots/a-darwin.png"), 4)
 	vvmPNG(t, filepath.Join(f.wt, "tests/visual/app.spec.ts-snapshots/b-darwin.png"), 30)
 	vvmPNG(t, filepath.Join(f.wt, "design/frames/frame-a.png"), 0)
@@ -169,7 +170,7 @@ func TestVisualVerifyPassMeasureManifest(t *testing.T) {
 
 	// --prototype composes against <changeRoot>/visual-verification/prototype/.
 	vvmProtoPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
-	writeFile(t, filepath.Join(f.changeRoot, "visual-verification/prototype.mockups"), "frame none\na.png a-darwin\n")
+	guardtest.WriteFile(t, filepath.Join(f.changeRoot, "visual-verification/prototype.mockups"), "frame none\na.png a-darwin\n")
 	if rc, _, stderr := f.run(t, f.wt, "demo", "proto", "tests/visual/app.spec.ts", "--prototype"); rc != 0 {
 		t.Fatalf("--prototype: exit %d, stderr %q", rc, stderr)
 	}
@@ -212,8 +213,8 @@ func TestVisualVerifyPassMeasureCarriesOn(t *testing.T) {
 func TestVisualVerifyPassMeasureRecordsItsSpec(t *testing.T) {
 	t.Parallel()
 	f := vvmFixture(t, "a.png frame-a\n")
-	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n"+vvpSection)
-	writeFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts"), "// spec\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n"+vvpSection)
+	guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts"), "// spec\n")
 	vvmPNG(t, filepath.Join(f.wt, "tests/visual/other.spec.ts-snapshots/c-darwin.png"), 60)
 	for _, spec := range []string{"tests/visual/app.spec.ts", "tests/visual/other.spec.ts"} {
 		if rc, _, stderr := f.run(t, f.wt, "demo", "task-1", spec); rc != 0 {
@@ -241,7 +242,7 @@ func TestVisualVerifyPassMeasureUsage(t *testing.T) {
 	if rc, _, stderr := f.run(t, f.wt, "demo", "visual-verify", "elsewhere/app.spec.ts"); rc != 2 || !strings.Contains(stderr, "does not exist") {
 		t.Fatalf("absent spec: exit %d, stderr %q, want 2 naming it", rc, stderr)
 	}
-	writeFile(t, filepath.Join(f.wt, ".superpowers/sdd/visual-measure-k"), "a file, not a directory\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".superpowers/sdd/visual-measure-k"), "a file, not a directory\n")
 	if rc, _, stderr := f.run(t, f.wt, "demo", "k", "tests/visual/app.spec.ts"); rc != 2 {
 		t.Fatalf("unwritable output directory: exit %d, stderr %q, want 2", rc, stderr)
 	}
@@ -253,19 +254,19 @@ func TestVisualVerifyPassMeasureUsage(t *testing.T) {
 func TestVisualVerifyPassMeasurePrototypeKeepsOtherSpec(t *testing.T) {
 	t.Parallel()
 	f := vvmFixture(t, "a.png frame-a\n")
-	writeFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts"), "// spec\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts"), "// spec\n")
 	vvmPNG(t, filepath.Join(f.wt, "tests/visual/other.spec.ts-snapshots/c-darwin.png"), 0)
 	vvmProtoPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
 	vvmProtoPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/c-darwin.png"), 0)
 	sidecar := filepath.Join(f.changeRoot, "visual-verification/prototype.mockups")
 	const body = "frame none\na.png a-darwin\nc.png c-darwin\n"
-	writeFile(t, sidecar, body)
+	guardtest.WriteFile(t, sidecar, body)
 	kept := []string{
 		filepath.Join(f.changeRoot, "visual-verification/matrix/c-darwin.json"),
 		filepath.Join(f.wt, ".superpowers/sdd/visual-measure-proto/c-darwin.json"),
 	}
 	for _, k := range kept {
-		writeFile(t, k, `{"keep":true}`)
+		guardtest.WriteFile(t, k, `{"keep":true}`)
 	}
 	rc, stdout, stderr := f.run(t, f.wt, "demo", "proto", "tests/visual/app.spec.ts", "--prototype")
 	if rc != 0 {
@@ -440,8 +441,8 @@ func TestVisualVerifyPassMeasureMergesSpecs(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	f := vvmFixture(t, "a.png frame-a\n")
-	writeFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts"), "// spec\n")
-	writeFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts.mockups"), "frame none\nb.png frame-b\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts"), "// spec\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/other.spec.ts.mockups"), "frame none\nb.png frame-b\n")
 	vvmPNG(t, filepath.Join(f.wt, "tests/visual/other.spec.ts-snapshots/b-darwin.png"), 30)
 	specA, specB := filepath.Join(f.wt, "tests/visual/app.spec.ts"), filepath.Join(f.wt, "tests/visual/other.spec.ts")
 	var captures []string
@@ -513,9 +514,9 @@ func TestVisualVerifyPassMeasureNamesChangedFrames(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	f := vvmFixture(t, "a.png frame-a\nb.png frame-b\n")
-	gitRun(t, f.wt, "init", "-q")
-	gitRun(t, f.wt, "add", "-A")
-	gitRun(t, f.wt, "commit", "-qm", "base")
+	guardtest.GitRun(t, f.wt, "init", "-q")
+	guardtest.GitRun(t, f.wt, "add", "-A")
+	guardtest.GitRun(t, f.wt, "commit", "-qm", "base")
 	base := vgHead(t, f.wt)
 	measure := func(when string) []string {
 		t.Helper()
@@ -544,7 +545,7 @@ func TestVisualVerifyPassMeasureNamesChangedFrames(t *testing.T) {
 			t.Fatalf("no round file: printed %q", l)
 		}
 	}
-	writeFile(t, filepath.Join(f.wt, ".superpowers/sdd/visual-round-visual-verify-fix-1.txt"), base+" "+time.Now().UTC().Format(time.RFC3339Nano)+"\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".superpowers/sdd/visual-round-visual-verify-fix-1.txt"), base+" "+time.Now().UTC().Format(time.RFC3339Nano)+"\n")
 	if got, want := changed("unchanged"), "changed: none — round base "+base; got != want {
 		t.Fatalf("unchanged: got %q, want %q", got, want)
 	}
@@ -552,7 +553,7 @@ func TestVisualVerifyPassMeasureNamesChangedFrames(t *testing.T) {
 	if got, want := changed("rewritten"), "changed: frame-a — round base "+base; got != want {
 		t.Fatalf("rewritten: got %q, want %q", got, want)
 	}
-	writeFile(t, filepath.Join(f.wt, "tests/visual/app.spec.ts.mockups"), "frame none\na.png frame-a\nb.png frame-b\nc.png frame-c\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/app.spec.ts.mockups"), "frame none\na.png frame-a\nb.png frame-b\nc.png frame-c\n")
 	// dy 20: a capture identical to b-darwin.png fails check-identical-baselines.
 	vvmPNG(t, filepath.Join(f.wt, "design/frames/frame-c.png"), 20)
 	vvmPNG(t, filepath.Join(f.wt, "tests/visual/app.spec.ts-snapshots/c-darwin.png"), 20)
@@ -693,7 +694,7 @@ func TestVisualVerifyPassMeasureManifestKeysPairsByPrototype(t *testing.T) {
 	t.Parallel()
 	f := vvmFixture(t, "a.png frame-a\n")
 	vvmProtoPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
-	writeFile(t, filepath.Join(f.changeRoot, "visual-verification/prototype.mockups"), "frame none\na.png a-darwin\n")
+	guardtest.WriteFile(t, filepath.Join(f.changeRoot, "visual-verification/prototype.mockups"), "frame none\na.png a-darwin\n")
 	read := func() (plain, proto int) {
 		t.Helper()
 		b, err := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/visual-manifest-k.json"))
@@ -750,7 +751,7 @@ func TestVisualVerifyPassMeasurePrototypeCropsStatusLine(t *testing.T) {
 	t.Parallel()
 	f := vvmFixture(t, "a.png frame-a\n")
 	vvmProtoPNG(t, filepath.Join(f.changeRoot, "visual-verification/prototype/a-darwin.png"), 4)
-	writeFile(t, filepath.Join(f.changeRoot, "visual-verification/prototype.mockups"), "frame none\na.png a-darwin\n")
+	guardtest.WriteFile(t, filepath.Join(f.changeRoot, "visual-verification/prototype.mockups"), "frame none\na.png a-darwin\n")
 	if rc, _, stderr := f.run(t, f.wt, "demo", "proto", "tests/visual/app.spec.ts", "--prototype"); rc != 0 {
 		t.Fatalf("--prototype: exit %d, stderr %q", rc, stderr)
 	}

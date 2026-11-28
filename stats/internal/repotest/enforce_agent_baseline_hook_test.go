@@ -813,7 +813,7 @@ func roleCheckPayload(t *testing.T, role, model, agent string) []byte {
 }
 
 // TestEnforceAgentBaselineHookAdmitsOnlyAPolicyRoleAndPair pins the role/pair check against the
-// seeded policy (guard/testdata/policy.json): in a flow session a flow-* dispatch needs a `Role:`
+// seeded policy (guard/guardtest/testdata/policy.json): in a flow session a flow-* dispatch needs a `Role:`
 // line naming a role of `flow policy get` and a `<model>/<subagent_type>` pair that role admits.
 func TestEnforceAgentBaselineHookAdmitsOnlyAPolicyRoleAndPair(t *testing.T) {
 	t.Parallel()

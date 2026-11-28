@@ -40,8 +40,8 @@ func TestTestCostAddsPausedDescendants(t *testing.T) {
 		{"empty stdin", nil, "", ""},
 	} {
 		r := runGuard("test-cost", c.args, core.Env{Stdin: strings.NewReader(c.input)})
-		if r.rc != 0 || r.err != "" || r.stdout != c.want {
-			t.Errorf("%s: rc=%d stderr=%q stdout=%q, want 0, empty stderr and %q", c.name, r.rc, r.err, r.stdout, c.want)
+		if r.Rc != 0 || r.Err != "" || r.Stdout != c.want {
+			t.Errorf("%s: rc=%d stderr=%q stdout=%q, want 0, empty stderr and %q", c.name, r.Rc, r.Err, r.Stdout, c.want)
 		}
 	}
 }
@@ -50,8 +50,8 @@ func TestTestCostUsage(t *testing.T) {
 	t.Parallel()
 	for _, args := range [][]string{{"-min"}, {"-min", "abc"}, {"x"}, {"-min", "1", "x"}} {
 		r := runGuard("test-cost", args, core.Env{Stdin: strings.NewReader(testCostFixture(t))})
-		if r.rc != 2 || r.err != "usage: flow-guard test-cost [-min <seconds>]\n" || r.stdout != "" {
-			t.Errorf("%q: rc=%d stderr=%q stdout=%q, want 2 and the usage line", args, r.rc, r.err, r.stdout)
+		if r.Rc != 2 || r.Err != "usage: flow-guard test-cost [-min <seconds>]\n" || r.Stdout != "" {
+			t.Errorf("%q: rc=%d stderr=%q stdout=%q, want 2 and the usage line", args, r.Rc, r.Err, r.Stdout)
 		}
 	}
 }

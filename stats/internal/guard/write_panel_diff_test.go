@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -14,24 +15,24 @@ import (
 // last read, and a tip, a staged and an unstaged edit on top of that.
 type wpdWT struct{ path, mb, held string }
 
-func wpdNewWT(t *testing.T, g *fxGit, path string) wpdWT {
+func wpdNewWT(t *testing.T, g *guardtest.FxGit, path string) wpdWT {
 	t.Helper()
-	g.copyShape(path, repoShape{Branch: "work"})
-	g.write(path+"/a.txt", "base")
-	g.write(path+"/gone.txt", "gone")
-	g.git(path, "add", ".")
-	g.git(path, "commit", "-qm", "base")
-	w := wpdWT{path: path, mb: g.git(path, "rev-parse", "HEAD")}
-	g.write(path+"/a.txt", "held")
-	g.write(path+"/b.txt", "new")
-	g.git(path, "add", ".")
-	g.git(path, "commit", "-qm", "held")
-	w.held = g.git(path, "rev-parse", "HEAD")
-	g.git(path, "rm", "-q", "gone.txt")
-	g.git(path, "commit", "-qm", "tip")
-	g.write(path+"/c.txt", "staged")
-	g.git(path, "add", "c.txt")
-	g.write(path+"/a.txt", "unstaged")
+	g.CopyShape(path, guardtest.RepoShape{Branch: "work"})
+	g.Write(path+"/a.txt", "base")
+	g.Write(path+"/gone.txt", "gone")
+	g.Git(path, "add", ".")
+	g.Git(path, "commit", "-qm", "base")
+	w := wpdWT{path: path, mb: g.Git(path, "rev-parse", "HEAD")}
+	g.Write(path+"/a.txt", "held")
+	g.Write(path+"/b.txt", "new")
+	g.Git(path, "add", ".")
+	g.Git(path, "commit", "-qm", "held")
+	w.held = g.Git(path, "rev-parse", "HEAD")
+	g.Git(path, "rm", "-q", "gone.txt")
+	g.Git(path, "commit", "-qm", "tip")
+	g.Write(path+"/c.txt", "staged")
+	g.Git(path, "add", "c.txt")
+	g.Write(path+"/a.txt", "unstaged")
 	return w
 }
 
@@ -68,13 +69,13 @@ func TestWritePanelDiffParity(t *testing.T) {
 	const finalSem = "# final-review.diff — working tree vs merge-base, unstaged changes included"
 	for _, n := range []int{1, 2} {
 		dir := t.TempDir()
-		var g fxGit
+		var g guardtest.FxGit
 		var wts []wpdWT
 		for i := 0; i < n; i++ {
 			wts = append(wts, wpdNewWT(t, &g, dir+"/wt"+string(rune('1'+i))))
 		}
-		if g.err != nil {
-			t.Fatal(g.err)
+		if g.Err != nil {
+			t.Fatal(g.Err)
 		}
 		canon := wts[0].path
 		// pairs builds the guard's per-worktree arguments; triples the
@@ -115,12 +116,12 @@ func TestWritePanelDiffParity(t *testing.T) {
 					wantTouched += wpdHand(t, scratch+"/t", "", "--name-status", tc.shape, tc.triples[i:i+3])
 				}
 				r := runGuard("write-panel-diff", tc.args, core.Env{Dir: dir, Getenv: os.Getenv})
-				if r.rc != 0 {
-					t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+				if r.Rc != 0 {
+					t.Fatalf("exit %d, want 0\n%s", r.Rc, r.Out)
 				}
 				path := canon + "/.superpowers/sdd/" + tc.file
-				if r.stdout != path+"\n"+path+".touched\n" {
-					t.Errorf("stdout %q, want both paths", r.stdout)
+				if r.Stdout != path+"\n"+path+".touched\n" {
+					t.Errorf("stdout %q, want both paths", r.Stdout)
 				}
 				if got := rbRead(path); got != want {
 					t.Errorf("%s differs from the hand recipe\n got %q\nwant %q", tc.file, got, want)
@@ -136,14 +137,14 @@ func TestWritePanelDiffParity(t *testing.T) {
 func TestWritePanelDiffFinalRemovesStaleLateFix(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	var g fxGit
+	var g guardtest.FxGit
 	w := wpdNewWT(t, &g, dir+"/wt1")
-	if g.err != nil {
-		t.Fatal(g.err)
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	for _, args := range [][]string{{"late-fix", w.path, w.path, w.held}, {"final", w.path, w.path, w.mb}} {
-		if r := runGuard("write-panel-diff", args, core.Env{Dir: dir, Getenv: os.Getenv}); r.rc != 0 {
-			t.Fatalf("%s: exit %d\n%s", args[0], r.rc, r.out)
+		if r := runGuard("write-panel-diff", args, core.Env{Dir: dir, Getenv: os.Getenv}); r.Rc != 0 {
+			t.Fatalf("%s: exit %d\n%s", args[0], r.Rc, r.Out)
 		}
 	}
 	for _, f := range []string{"late-fix.diff", "late-fix.diff.touched"} {
@@ -156,13 +157,13 @@ func TestWritePanelDiffFinalRemovesStaleLateFix(t *testing.T) {
 func TestWritePanelDiffRefusals(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	var g fxGit
+	var g guardtest.FxGit
 	w := wpdNewWT(t, &g, dir+"/wt")
-	if g.err != nil {
-		t.Fatal(g.err)
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	stub := t.TempDir()
-	stubGit(t, stub, `has --name-status "$@"`, "name-status refused")
+	guardtest.StubGit(t, stub, `has --name-status "$@"`, "name-status refused")
 	for _, tc := range []struct {
 		label string
 		args  []string
@@ -175,7 +176,7 @@ func TestWritePanelDiffRefusals(t *testing.T) {
 		{"a round that is not a number", []string{"fix-round", "x", w.path, w.path, w.mb}, core.Env{}, "usage: flow-guard write-panel-diff"},
 		{"a worktree that is no directory", []string{"final", w.path, dir + "/absent", w.mb}, core.Env{}, "is not a directory"},
 		{"a sha that does not resolve", []string{"final", w.path, w.path, "deadbeef"}, core.Env{}, "does not resolve"},
-		{"a git failure", []string{"final", w.path, w.path, w.mb}, core.Env{Getenv: pathEnv(stub)}, "write-panel-diff: git diff"},
+		{"a git failure", []string{"final", w.path, w.path, w.mb}, core.Env{Getenv: guardtest.PathEnv(stub)}, "write-panel-diff: git diff"},
 	} {
 		t.Run(tc.label, func(t *testing.T) {
 			env := tc.env
@@ -184,8 +185,8 @@ func TestWritePanelDiffRefusals(t *testing.T) {
 				env.Getenv = os.Getenv
 			}
 			r := runGuard("write-panel-diff", tc.args, env)
-			if r.rc != 2 || !strings.Contains(r.err, tc.err) || r.stdout != "" {
-				t.Errorf("exit %d stdout %q stderr %q; want 2, nothing on stdout, stderr naming %q", r.rc, r.stdout, r.err, tc.err)
+			if r.Rc != 2 || !strings.Contains(r.Err, tc.err) || r.Stdout != "" {
+				t.Errorf("exit %d stdout %q stderr %q; want 2, nothing on stdout, stderr naming %q", r.Rc, r.Stdout, r.Err, tc.err)
 			}
 			if entries, _ := os.ReadDir(w.path + "/.superpowers/sdd"); len(entries) != 0 {
 				t.Errorf("wrote %d file(s) on a refusal", len(entries))
@@ -199,14 +200,14 @@ func TestWritePanelDiffRefusals(t *testing.T) {
 func TestWritePanelDiffOmitsDeletedBodies(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	var g fxGit
+	var g guardtest.FxGit
 	w := wpdNewWT(t, &g, dir+"/wt")
-	if g.err != nil {
-		t.Fatal(g.err)
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	r := runGuard("write-panel-diff", []string{"final", w.path, w.path, w.mb}, core.Env{Dir: dir, Getenv: os.Getenv})
-	if r.rc != 0 {
-		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+	if r.Rc != 0 {
+		t.Fatalf("exit %d, want 0\n%s", r.Rc, r.Out)
 	}
 	diff := rbRead(w.path + "/.superpowers/sdd/final-review.diff")
 	if !strings.Contains(diff, "diff --git a/gone.txt b/gone.txt") || !strings.Contains(diff, "deleted file mode") {
@@ -228,22 +229,22 @@ func TestWritePanelDiffOmitsDeletedBodies(t *testing.T) {
 func TestWritePanelDiffHonoursProjectExcludes(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	var g fxGit
+	var g guardtest.FxGit
 	w := wpdNewWT(t, &g, dir+"/wt")
 	for _, d := range []string{"/.flow", "/handoff_x"} {
 		if err := os.MkdirAll(w.path+d, 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	g.write(w.path+"/.flow/project.md", "# p\n\n## panel diff exclude\n\n```text\nhandoff_*/**\n```\n")
-	g.write(w.path+"/handoff_x/screen.html", "vendored")
-	g.git(w.path, "add", ".flow/project.md", "handoff_x/screen.html")
-	if g.err != nil {
-		t.Fatal(g.err)
+	g.Write(w.path+"/.flow/project.md", "# p\n\n## panel diff exclude\n\n```text\nhandoff_*/**\n```\n")
+	g.Write(w.path+"/handoff_x/screen.html", "vendored")
+	g.Git(w.path, "add", ".flow/project.md", "handoff_x/screen.html")
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	r := runGuard("write-panel-diff", []string{"final", w.path, w.path, w.mb}, core.Env{Dir: dir, Getenv: os.Getenv})
-	if r.rc != 0 {
-		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+	if r.Rc != 0 {
+		t.Fatalf("exit %d, want 0\n%s", r.Rc, r.Out)
 	}
 	for _, f := range []string{"final-review.diff", "final-review.diff.touched"} {
 		body := rbRead(w.path + "/.superpowers/sdd/" + f)
@@ -263,27 +264,27 @@ func TestWritePanelDiffHonoursProjectExcludes(t *testing.T) {
 func TestPanelDiffHonoursProjectExcludes(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	var g fxGit
+	var g guardtest.FxGit
 	wt := dir + "/wt"
-	g.copyShape(wt, repoShape{Branch: "work"})
-	g.write(wt+"/README.md", "base")
-	g.git(wt, "add", ".")
-	g.git(wt, "commit", "-qm", "base")
-	mb := g.git(wt, "rev-parse", "HEAD")
+	g.CopyShape(wt, guardtest.RepoShape{Branch: "work"})
+	g.Write(wt+"/README.md", "base")
+	g.Git(wt, "add", ".")
+	g.Git(wt, "commit", "-qm", "base")
+	mb := g.Git(wt, "rev-parse", "HEAD")
 	for _, d := range []string{"/.flow", "/handoff_x"} {
-		mkdir(t, wt+d)
+		guardtest.Mkdir(t, wt+d)
 	}
-	g.write(wt+"/.flow/project.md", "# p\n\n## panel diff exclude\n\n```text\nhandoff_*/**\n```\n")
-	g.write(wt+"/handoff_x/screen.html", strings.Repeat("vendored\n", 40))
-	g.git(wt, "add", ".")
-	g.git(wt, "commit", "-qm", "change")
-	if g.err != nil {
-		t.Fatal(g.err)
+	g.Write(wt+"/.flow/project.md", "# p\n\n## panel diff exclude\n\n```text\nhandoff_*/**\n```\n")
+	g.Write(wt+"/handoff_x/screen.html", strings.Repeat("vendored\n", 40))
+	g.Git(wt, "add", ".")
+	g.Git(wt, "commit", "-qm", "change")
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
-	env := core.Env{Dir: dir, Getenv: os.Getenv, LookupEnv: hermeticGitLookup}
+	env := core.Env{Dir: dir, Getenv: os.Getenv, LookupEnv: guardtest.HermeticGitLookup}
 	r := runGuard("write-panel-diff", []string{"final", wt, wt, mb}, env)
-	if r.rc != 0 {
-		t.Fatalf("write-panel-diff: exit %d, want 0\n%s", r.rc, r.out)
+	if r.Rc != 0 {
+		t.Fatalf("write-panel-diff: exit %d, want 0\n%s", r.Rc, r.Out)
 	}
 	if touched := rbRead(wt + "/.superpowers/sdd/final-review.diff.touched"); strings.Contains(touched, "handoff_x") {
 		t.Errorf(".touched names the excluded path:\n%s", touched)

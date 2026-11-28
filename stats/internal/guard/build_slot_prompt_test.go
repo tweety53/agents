@@ -21,12 +21,12 @@ func TestBuildSlotPrompt(t *testing.T) {
 	r := runGuard("build-slot-prompt", []string{skill, wt, "2", "primary+principles",
 		"-diff", d + "/fix-round-2.diff", "-artifacts", "/c/proposal.md,/c/design.md", "-standards", "",
 		"-global-constraints", "none", "-repo", "gymie", "-fix-report", "/r/panel-fix-report-2.md", "-panel", "primary,principles,security"}, core.Env{})
-	if r.rc != 0 {
-		t.Fatalf("rc %d: %s", r.rc, r.out)
+	if r.Rc != 0 {
+		t.Fatalf("rc %d: %s", r.Rc, r.Out)
 	}
 	path := filepath.Join(wt, ".superpowers/sdd/slot-prompt-2-primary+principles-gymie.md")
-	if strings.TrimSpace(r.stdout) != path {
-		t.Errorf("stdout %q, want %q", r.stdout, path)
+	if strings.TrimSpace(r.Stdout) != path {
+		t.Errorf("stdout %q, want %q", r.Stdout, path)
 	}
 	got, _ := os.ReadFile(path)
 	s := string(got)
@@ -54,11 +54,11 @@ func TestBuildSlotPrompt(t *testing.T) {
 	if strings.Contains(s, "<fix report>") || strings.Contains(s, "```") {
 		t.Errorf("unfilled fix report or a fence left in the prompt")
 	}
-	if r := runGuard("build-slot-prompt", []string{skill, wt, "0", "mutation", "-diff", d + "/x.diff"}, core.Env{}); r.rc != 2 {
-		t.Errorf("mutation without -copies: rc %d, want 2", r.rc)
+	if r := runGuard("build-slot-prompt", []string{skill, wt, "0", "mutation", "-diff", d + "/x.diff"}, core.Env{}); r.Rc != 2 {
+		t.Errorf("mutation without -copies: rc %d, want 2", r.Rc)
 	}
-	if r := runGuard("build-slot-prompt", []string{skill, wt, "0", "primary", "-diff", d + "/x.diff"}, core.Env{}); r.rc != 2 {
-		t.Errorf("primary without -artifacts: rc %d, want 2", r.rc)
+	if r := runGuard("build-slot-prompt", []string{skill, wt, "0", "primary", "-diff", d + "/x.diff"}, core.Env{}); r.Rc != 2 {
+		t.Errorf("primary without -artifacts: rc %d, want 2", r.Rc)
 	}
 }
 
@@ -71,12 +71,12 @@ func TestBuildSlotPromptUnread(t *testing.T) {
 	d := bspDiffDir(t)
 	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "principles", "-diff", d + "/final-review.diff",
 		"-standards", "", "-global-constraints", "none", "-unread", "gymie,gymie-frontend", "-panel", "primary,principles"}, core.Env{})
-	if r.rc != 0 {
-		t.Fatalf("rc %d: %s", r.rc, r.out)
+	if r.Rc != 0 {
+		t.Fatalf("rc %d: %s", r.Rc, r.Out)
 	}
 	path := filepath.Join(wt, ".superpowers/sdd/slot-prompt-1-principles-unread.md")
-	if strings.TrimSpace(r.stdout) != path {
-		t.Errorf("stdout %q, want %q", r.stdout, path)
+	if strings.TrimSpace(r.Stdout) != path {
+		t.Errorf("stdout %q, want %q", r.Stdout, path)
 	}
 	got, _ := os.ReadFile(path)
 	s := string(got)
@@ -87,8 +87,8 @@ func TestBuildSlotPromptUnread(t *testing.T) {
 		}
 	}
 	if r := runGuard("build-slot-prompt", []string{skill, wt, "1", "principles", "-diff", d + "/x.diff", "-standards", "",
-		"-global-constraints", "none", "-unread", "a", "-repo", "b"}, core.Env{}); r.rc != 2 {
-		t.Errorf("-unread with -repo: rc %d, want 2", r.rc)
+		"-global-constraints", "none", "-unread", "a", "-repo", "b"}, core.Env{}); r.Rc != 2 {
+		t.Errorf("-unread with -repo: rc %d, want 2", r.Rc)
 	}
 }
 
@@ -106,8 +106,8 @@ func TestBuildSlotPromptMutation(t *testing.T) {
 	}
 	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation", "-diff", d + "/final-review.diff",
 		"-copies", "/w-mutation-1,/f-mutation-1", "-tests", test, "-panel", "primary,mutation"}, core.Env{})
-	if r.rc != 0 {
-		t.Fatalf("rc %d: %s", r.rc, r.out)
+	if r.Rc != 0 {
+		t.Fatalf("rc %d: %s", r.Rc, r.Out)
 	}
 	got, _ := os.ReadFile(filepath.Join(wt, ".superpowers/sdd/slot-prompt-1-mutation.md"))
 	s := string(got)
@@ -128,8 +128,8 @@ func TestBuildSlotPromptMutation(t *testing.T) {
 	if strings.Contains(s, "## The throwaway worktree") || strings.Contains(s, "### Principles") {
 		t.Errorf("the mutation brief ran past its section")
 	}
-	if r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation+primary", "-diff", d + "/x.diff", "-copies", "/w"}, core.Env{}); r.rc != 2 {
-		t.Errorf("mutation bundled: rc %d, want 2", r.rc)
+	if r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation+primary", "-diff", d + "/x.diff", "-copies", "/w"}, core.Env{}); r.Rc != 2 {
+		t.Errorf("mutation bundled: rc %d, want 2", r.Rc)
 	}
 }
 
@@ -146,8 +146,8 @@ func TestBuildSlotPromptMutationTestsNotInlined(t *testing.T) {
 	}
 	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation", "-diff", d + "/final-review.diff",
 		"-copies", "/w", "-tests", big, "-panel", "primary,mutation"}, core.Env{})
-	if r.rc != 0 {
-		t.Fatalf("rc %d: %s", r.rc, r.out)
+	if r.Rc != 0 {
+		t.Fatalf("rc %d: %s", r.Rc, r.Out)
 	}
 	got, _ := os.ReadFile(filepath.Join(wt, ".superpowers/sdd/slot-prompt-1-mutation.md"))
 	if len(got) >= 100000 || !strings.Contains(string(got), "### "+big+"\n\nRead by path.") {
@@ -181,8 +181,8 @@ func TestBuildSlotPromptRefusesWithoutDiffGroups(t *testing.T) {
 		}
 		r := runGuard("build-slot-prompt", []string{skill, wt, "1", id, "-diff", d + "/final-review.diff",
 			"-copies", "/w", "-artifacts", "/c/p.md", "-standards", "", "-global-constraints", "none", "-panel", id}, core.Env{})
-		if r.rc != 2 || !strings.Contains(r.out, "flow-guard diff-groups <abs-worktree> <diff-file>") {
-			t.Errorf("%s: rc %d: %s", id, r.rc, r.out)
+		if r.Rc != 2 || !strings.Contains(r.Out, "flow-guard diff-groups <abs-worktree> <diff-file>") {
+			t.Errorf("%s: rc %d: %s", id, r.Rc, r.Out)
 		}
 		if m, _ := filepath.Glob(filepath.Join(wt, ".superpowers/sdd/slot-prompt-*")); len(m) != 0 {
 			t.Errorf("%s: wrote %v", id, m)

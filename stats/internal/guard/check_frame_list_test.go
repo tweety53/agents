@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // Every case of the check-frame-list contract (scripts/check-frame-list.sh):
@@ -87,8 +88,8 @@ func TestCheckFrameList(t *testing.T) {
 			}
 			flManifest(t, report, spec)
 			r := runGuard("check-frame-list", []string{designPath, mockups, report}, core.Env{Getenv: os.Getenv})
-			if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-				t.Fatalf("rc=%d out=%q; want rc=%d containing %q", r.rc, r.out, tc.rc, tc.want)
+			if r.Rc != tc.rc || !strings.Contains(r.Out, tc.want) {
+				t.Fatalf("rc=%d out=%q; want rc=%d containing %q", r.Rc, r.Out, tc.rc, tc.want)
 			}
 		})
 	}
@@ -98,8 +99,8 @@ func TestCheckFrameList(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{nil, {empty, dir}, {filepath.Join(dir, "absent.md"), dir, empty}, {empty, empty, empty}, {empty, dir, filepath.Join(dir, "absent.md")}} {
-		if r := runGuard("check-frame-list", args, core.Env{Getenv: os.Getenv}); r.rc != 2 {
-			t.Fatalf("args %q: rc=%d out=%q; want exit 2", args, r.rc, r.out)
+		if r := runGuard("check-frame-list", args, core.Env{Getenv: os.Getenv}); r.Rc != 2 {
+			t.Fatalf("args %q: rc=%d out=%q; want exit 2", args, r.Rc, r.Out)
 		}
 	}
 }
@@ -108,7 +109,7 @@ func TestCheckFrameList(t *testing.T) {
 // check reads the spec from.
 func flManifest(t *testing.T, report, spec string) {
 	t.Helper()
-	writeFile(t, vrManifestPath(report), `{"specs":["`+spec+`"],"pairs":[]}`)
+	guardtest.WriteFile(t, vrManifestPath(report), `{"specs":["`+spec+`"],"pairs":[]}`)
 }
 
 // TestCheckFrameListExpandsRangesAndSkipsConsidered pins kan-1009's
@@ -130,7 +131,7 @@ func TestCheckFrameListExpandsRangesAndSkipsConsidered(t *testing.T) {
 	if err := os.WriteFile(spec+".mockups", []byte("a LM-R1\nb LM-R2\nc LM-R3\nd LM-R4\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	check := func(design, report string) guardResult {
+	check := func(design, report string) guardtest.GuardResult {
 		t.Helper()
 		d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
 		if err := os.WriteFile(d, []byte(design), 0o644); err != nil {
@@ -145,23 +146,23 @@ func TestCheckFrameListExpandsRangesAndSkipsConsidered(t *testing.T) {
 	const design = "Frames `docs/design/mockups/LM-R1.png` … `docs/design/mockups/LM-R4.png`.\n" +
 		"  **Considered:** bare `R<n>.png` — `R1.png`/`R2.png` already exist.\n"
 	const all = "- LM-R1: x\n- LM-R2: x\n- LM-R3: x\n- LM-R4: x\n"
-	if r := check(design, all); r.rc != 0 || !strings.Contains(r.out, "4 declared") {
-		t.Errorf("full report: rc=%d out=%q; want 0 with 4 declared", r.rc, r.out)
+	if r := check(design, all); r.Rc != 0 || !strings.Contains(r.Out, "4 declared") {
+		t.Errorf("full report: rc=%d out=%q; want 0 with 4 declared", r.Rc, r.Out)
 	}
 	r := check(design, strings.Replace(all, "- LM-R2: x\n", "", 1))
-	if r.rc != 1 || !strings.Contains(r.out, "no report line: LM-R2") || strings.Contains(r.out, ": R1") || strings.Contains(r.out, ": R2") {
-		t.Errorf("gap report: rc=%d out=%q; want 1 naming LM-R2 and no R1/R2", r.rc, r.out)
+	if r.Rc != 1 || !strings.Contains(r.Out, "no report line: LM-R2") || strings.Contains(r.Out, ": R1") || strings.Contains(r.Out, ": R2") {
+		t.Errorf("gap report: rc=%d out=%q; want 1 naming LM-R2 and no R1/R2", r.Rc, r.Out)
 	}
-	if r := check("Frames LM-R1 … X3.\n", "- LM-R1: x\n"); r.rc != 0 || !strings.Contains(r.out, "1 declared") {
-		t.Errorf("mixed-prefix range: rc=%d out=%q; want 0 with 1 declared", r.rc, r.out)
+	if r := check("Frames LM-R1 … X3.\n", "- LM-R1: x\n"); r.Rc != 0 || !strings.Contains(r.Out, "1 declared") {
+		t.Errorf("mixed-prefix range: rc=%d out=%q; want 0 with 1 declared", r.Rc, r.Out)
 	}
 	// A huge numeric span costs one check per mockup, never one per integer.
-	done := make(chan guardResult, 1)
+	done := make(chan guardtest.GuardResult, 1)
 	go func() { done <- check("Frames LM-R1 … LM-R4; rows 1 … 2000000000.\n", all) }()
 	select {
 	case r := <-done:
-		if r.rc != 0 || !strings.Contains(r.out, "4 declared") {
-			t.Errorf("huge span: rc=%d out=%q; want 0 with 4 declared", r.rc, r.out)
+		if r.Rc != 0 || !strings.Contains(r.Out, "4 declared") {
+			t.Errorf("huge span: rc=%d out=%q; want 0 with 4 declared", r.Rc, r.Out)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("huge span: guard still running after 5s")
@@ -193,12 +194,12 @@ func TestCheckFrameListSkipsAnsweredQuestionLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 	res := runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
-	if res.rc != 1 || !strings.Contains(res.out, "no sidecar line: AX1") || !strings.Contains(res.out, "no sidecar line: AXF1") {
-		t.Errorf("rc=%d out=%q; want 1 with 2 declared, AX1 and AXF1 named", res.rc, res.out)
+	if res.Rc != 1 || !strings.Contains(res.Out, "no sidecar line: AX1") || !strings.Contains(res.Out, "no sidecar line: AXF1") {
+		t.Errorf("rc=%d out=%q; want 1 with 2 declared, AX1 and AXF1 named", res.Rc, res.Out)
 	}
 	for _, id := range []string{"Q1", "Q2", "R2"} {
-		if strings.Contains(res.out, id) {
-			t.Errorf("out=%q names question label %s", res.out, id)
+		if strings.Contains(res.Out, id) {
+			t.Errorf("out=%q names question label %s", res.Out, id)
 		}
 	}
 }
@@ -232,8 +233,8 @@ func TestCheckFrameListReadsReportAlone(t *testing.T) {
 	}
 	flManifest(t, report, spec)
 	r := runGuard("check-frame-list", []string{design, mockups, report}, core.Env{Getenv: os.Getenv})
-	if r.rc != 1 || !strings.Contains(r.out, "no report line: Q2") {
-		t.Fatalf("rc=%d out=%q; want exit 1 naming no report line: Q2", r.rc, r.out)
+	if r.Rc != 1 || !strings.Contains(r.Out, "no report line: Q2") {
+		t.Fatalf("rc=%d out=%q; want exit 1 naming no report line: Q2", r.Rc, r.Out)
 	}
 }
 
@@ -262,21 +263,21 @@ func TestCheckFrameListSkipsCitedQuestionLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 	flManifest(t, r, spec)
-	check := func(design string) guardResult {
+	check := func(design string) guardtest.GuardResult {
 		t.Helper()
 		if err := os.WriteFile(d, []byte(design), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		return runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
 	}
-	if res := check("- Chosen: x — round 1, Q1.\nsee question Q4\nthe hero frame\n"); res.rc != 0 || !strings.Contains(res.out, "FRAME-LIST-COMPLETE") || !strings.Contains(res.out, "1 declared") {
-		t.Errorf("cited: rc=%d out=%q; want 0, FRAME-LIST-COMPLETE with 1 declared", res.rc, res.out)
+	if res := check("- Chosen: x — round 1, Q1.\nsee question Q4\nthe hero frame\n"); res.Rc != 0 || !strings.Contains(res.Out, "FRAME-LIST-COMPLETE") || !strings.Contains(res.Out, "1 declared") {
+		t.Errorf("cited: rc=%d out=%q; want 0, FRAME-LIST-COMPLETE with 1 declared", res.Rc, res.Out)
 	}
-	if res := check("- Chosen: x (answer-1 Q4, answer-2 Q1)\nthe hero frame\n"); res.rc != 0 || !strings.Contains(res.out, "1 declared") {
-		t.Errorf("answer-N citation: rc=%d out=%q; want 0 with 1 declared", res.rc, res.out)
+	if res := check("- Chosen: x (answer-1 Q4, answer-2 Q1)\nthe hero frame\n"); res.Rc != 0 || !strings.Contains(res.Out, "1 declared") {
+		t.Errorf("answer-N citation: rc=%d out=%q; want 0 with 1 declared", res.Rc, res.Out)
 	}
-	if res := check("the Q1 frame\nthe hero frame\n"); res.rc != 1 || !strings.Contains(res.out, "no sidecar line: Q1") {
-		t.Errorf("plain token: rc=%d out=%q; want 1 naming no sidecar line: Q1", res.rc, res.out)
+	if res := check("the Q1 frame\nthe hero frame\n"); res.Rc != 1 || !strings.Contains(res.Out, "no sidecar line: Q1") {
+		t.Errorf("plain token: rc=%d out=%q; want 1 naming no sidecar line: Q1", res.Rc, res.Out)
 	}
 }
 
@@ -302,7 +303,7 @@ func TestCheckFrameListDeclaresCitedSubDirectoryFrames(t *testing.T) {
 	}
 	spec := filepath.Join(dir, "kan-1.spec.ts")
 	d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
-	check := func(design string, ids ...string) guardResult {
+	check := func(design string, ids ...string) guardtest.GuardResult {
 		t.Helper()
 		var side, rep strings.Builder
 		rep.WriteString("## Report\n")
@@ -319,18 +320,18 @@ func TestCheckFrameListDeclaresCitedSubDirectoryFrames(t *testing.T) {
 		return runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
 	}
 	a := "Frames: `docs/design/mockups/kan-1084/` (FV1, P3), SL1 from `docs/design/mockups/kan-1083/`.\nPushed header (P3).\n"
-	if res := check(a, "kan-1084/P3", "kan-1084/FV1", "kan-1083/SL1"); res.rc != 0 || !strings.Contains(res.out, "3 declared") {
-		t.Errorf("(a) cited sub-directories: rc=%d out=%q; want 0 with 3 declared", res.rc, res.out)
+	if res := check(a, "kan-1084/P3", "kan-1084/FV1", "kan-1083/SL1"); res.Rc != 0 || !strings.Contains(res.Out, "3 declared") {
+		t.Errorf("(a) cited sub-directories: rc=%d out=%q; want 0 with 3 declared", res.Rc, res.Out)
 	}
-	if res := check(a, "P3", "kan-1084/FV1", "kan-1083/SL1"); res.rc != 1 || !strings.Contains(res.out, "no sidecar line: kan-1084/P3") {
-		t.Errorf("(b) root P3 for a sub frame: rc=%d out=%q; want 1 naming no sidecar line: kan-1084/P3", res.rc, res.out)
+	if res := check(a, "P3", "kan-1084/FV1", "kan-1083/SL1"); res.Rc != 1 || !strings.Contains(res.Out, "no sidecar line: kan-1084/P3") {
+		t.Errorf("(b) root P3 for a sub frame: rc=%d out=%q; want 1 naming no sidecar line: kan-1084/P3", res.Rc, res.Out)
 	}
 	c := "From `docs/design/mockups/kan-1083/` and `docs/design/mockups/kan-1086/`: NS25, and docs/design/mockups/kan-1086/NS25.png\n"
-	if res := check(c, "kan-1086/NS25"); res.rc != 0 || !strings.Contains(res.out, "1 declared") {
-		t.Errorf("(c) ambiguous bare id: rc=%d out=%q; want 0 with only kan-1086/NS25 declared", res.rc, res.out)
+	if res := check(c, "kan-1086/NS25"); res.Rc != 0 || !strings.Contains(res.Out, "1 declared") {
+		t.Errorf("(c) ambiguous bare id: rc=%d out=%q; want 0 with only kan-1086/NS25 declared", res.Rc, res.Out)
 	}
-	if res := check("see `docs/design/mockups/NS25.png` and kan-1099/P3\n", "NS25"); res.rc != 0 || !strings.Contains(res.out, "1 declared") {
-		t.Errorf("(d) root ids after a slash: rc=%d out=%q; want 0 with only NS25 declared", res.rc, res.out)
+	if res := check("see `docs/design/mockups/NS25.png` and kan-1099/P3\n", "NS25"); res.Rc != 0 || !strings.Contains(res.Out, "1 declared") {
+		t.Errorf("(d) root ids after a slash: rc=%d out=%q; want 0 with only NS25 declared", res.Rc, res.Out)
 	}
 }
 
@@ -351,7 +352,7 @@ func TestCheckFrameListRootNeedsAnExplicitCitationBesideASubDirectory(t *testing
 	}
 	spec := filepath.Join(dir, "kan-1.spec.ts")
 	d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
-	check := func(design string, ids ...string) guardResult {
+	check := func(design string, ids ...string) guardtest.GuardResult {
 		t.Helper()
 		var side, rep strings.Builder
 		rep.WriteString("## Report\n")
@@ -368,18 +369,18 @@ func TestCheckFrameListRootNeedsAnExplicitCitationBesideASubDirectory(t *testing
 		return runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
 	}
 	a := "Frames: `docs/design/mockups/v2-plan/` (A1). The kernel keeps rules R1–R49 (R1, R6, R2).\n"
-	if res := check(a, "v2-plan/A1"); res.rc != 0 || !strings.Contains(res.out, "1 declared") {
-		t.Errorf("(a) rule range beside a sub-directory: rc=%d out=%q; want 0 with 1 declared", res.rc, res.out)
+	if res := check(a, "v2-plan/A1"); res.Rc != 0 || !strings.Contains(res.Out, "1 declared") {
+		t.Errorf("(a) rule range beside a sub-directory: rc=%d out=%q; want 0 with 1 declared", res.Rc, res.Out)
 	}
 	b := a + "Also `docs/design/mockups/R6.png`.\n"
-	if res := check(b, "v2-plan/A1", "R6"); res.rc != 0 || !strings.Contains(res.out, "2 declared") {
-		t.Errorf("(b) explicit root path: rc=%d out=%q; want 0 with 2 declared", res.rc, res.out)
+	if res := check(b, "v2-plan/A1", "R6"); res.Rc != 0 || !strings.Contains(res.Out, "2 declared") {
+		t.Errorf("(b) explicit root path: rc=%d out=%q; want 0 with 2 declared", res.Rc, res.Out)
 	}
-	if res := check(b, "v2-plan/A1"); res.rc != 1 || !strings.Contains(res.out, "no sidecar line: R6") {
-		t.Errorf("(c) explicit root path unmapped: rc=%d out=%q; want 1 naming no sidecar line: R6", res.rc, res.out)
+	if res := check(b, "v2-plan/A1"); res.Rc != 1 || !strings.Contains(res.Out, "no sidecar line: R6") {
+		t.Errorf("(c) explicit root path unmapped: rc=%d out=%q; want 1 naming no sidecar line: R6", res.Rc, res.Out)
 	}
-	if res := check("Frames R1–R2.\n", "R1", "R2"); res.rc != 0 || !strings.Contains(res.out, "2 declared") {
-		t.Errorf("(d) range with no sub-directory: rc=%d out=%q; want 0 with 2 declared", res.rc, res.out)
+	if res := check("Frames R1–R2.\n", "R1", "R2"); res.Rc != 0 || !strings.Contains(res.Out, "2 declared") {
+		t.Errorf("(d) range with no sub-directory: rc=%d out=%q; want 0 with 2 declared", res.Rc, res.Out)
 	}
 }
 
@@ -390,12 +391,12 @@ func TestCheckFrameListFrames(t *testing.T) {
 	dir := t.TempDir()
 	mockups := filepath.Join(dir, "mockups")
 	for _, f := range []string{"Q1.png", "Q2.png", "M1.png"} {
-		writeFile(t, filepath.Join(mockups, f), "")
+		guardtest.WriteFile(t, filepath.Join(mockups, f), "")
 	}
 	spec := filepath.Join(dir, "kan-1.spec.ts")
-	writeFile(t, spec+".mockups", "q1 Q1\nq2 Q2\nm1 M1\n")
+	guardtest.WriteFile(t, spec+".mockups", "q1 Q1\nq2 Q2\nm1 M1\n")
 	design := filepath.Join(dir, "design.md")
-	writeFile(t, design, "Frames Q1, Q2 and M1.\n")
+	guardtest.WriteFile(t, design, "Frames Q1, Q2 and M1.\n")
 	report := filepath.Join(dir, "verify-report-visual-verify-rest.md")
 	for _, tc := range []struct {
 		name, body string
@@ -407,14 +408,14 @@ func TestCheckFrameListFrames(t *testing.T) {
 		{"a slice frame unreported", "- Q1: x\n", []string{"--frames", "Q1,Q2"}, 1, "no report line: Q2"},
 		{"the whole list without --frames", "- Q1: x\n- Q2: x\n", nil, 1, "FRAME-LIST-GAP: " + report + " — no report line: M1"},
 	} {
-		writeFile(t, report, "## Report\n"+tc.body)
+		guardtest.WriteFile(t, report, "## Report\n"+tc.body)
 		flManifest(t, report, spec)
 		r := runGuard("check-frame-list", append([]string{design, mockups, report}, tc.args...), core.Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		if r.Rc != tc.rc || !strings.Contains(r.Out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.Rc, r.Out, tc.rc, tc.want)
 		}
 	}
-	if r := runGuard("check-frame-list", []string{design, mockups, report, "--frames"}, core.Env{Getenv: os.Getenv}); r.rc != 2 {
-		t.Errorf("--frames with no value: rc=%d out=%q; want exit 2", r.rc, r.out)
+	if r := runGuard("check-frame-list", []string{design, mockups, report, "--frames"}, core.Env{Getenv: os.Getenv}); r.Rc != 2 {
+		t.Errorf("--frames with no value: rc=%d out=%q; want exit 2", r.Rc, r.Out)
 	}
 }

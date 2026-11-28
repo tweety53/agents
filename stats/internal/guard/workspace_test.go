@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -20,7 +21,7 @@ func TestWorkspace(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	env := core.Env{Getenv: os.Getenv}
-	ws := func(args ...string) guardResult { return runGuard("workspace", args, env) }
+	ws := func(args ...string) guardtest.GuardResult { return runGuard("workspace", args, env) }
 
 	for _, c := range []struct {
 		label string
@@ -40,15 +41,15 @@ func TestWorkspace(t *testing.T) {
 	} {
 		t.Run(c.label, func(t *testing.T) {
 			r := ws(c.args...)
-			if r.rc != 2 || !strings.HasPrefix(r.err, c.want) || r.stdout != "" {
-				t.Fatalf("rc=%d stdout=%q stderr=%q", r.rc, r.stdout, r.err)
+			if r.Rc != 2 || !strings.HasPrefix(r.Err, c.want) || r.Stdout != "" {
+				t.Fatalf("rc=%d stdout=%q stderr=%q", r.Rc, r.Stdout, r.Err)
 			}
 		})
 	}
 
 	t.Run("a failing docker exec is its own non-zero exit", func(t *testing.T) {
 		bin := t.TempDir()
-		writeExec(t, bin+"/docker", "#!/bin/sh\necho 'docker: daemon down' >&2\nexit 3\n")
+		guardtest.WriteExec(t, bin+"/docker", "#!/bin/sh\necho 'docker: daemon down' >&2\nexit 3\n")
 		fenv := core.Env{Getenv: func(k string) string {
 			if k == "PATH" {
 				return bin
@@ -56,12 +57,12 @@ func TestWorkspace(t *testing.T) {
 			return os.Getenv(k)
 		}}
 		r := runGuard("workspace", []string{"create", "x"}, fenv)
-		if r.rc != 3 || r.err != "docker: daemon down\nERROR: could not reach flow-postgres to check for flow_x\n" {
-			t.Fatalf("create: rc=%d stderr=%q", r.rc, r.err)
+		if r.Rc != 3 || r.Err != "docker: daemon down\nERROR: could not reach flow-postgres to check for flow_x\n" {
+			t.Fatalf("create: rc=%d stderr=%q", r.Rc, r.Err)
 		}
-		writeExec(t, bin+"/docker", "#!/bin/sh\nkill -TERM $$\n")
-		if r = runGuard("workspace", []string{"remove", "x"}, fenv); r.rc != 128+15 {
-			t.Fatalf("signal-killed docker: rc=%d, want bash's 128+15", r.rc)
+		guardtest.WriteExec(t, bin+"/docker", "#!/bin/sh\nkill -TERM $$\n")
+		if r = runGuard("workspace", []string{"remove", "x"}, fenv); r.Rc != 128+15 {
+			t.Fatalf("signal-killed docker: rc=%d, want bash's 128+15", r.Rc)
 		}
 	})
 
@@ -83,21 +84,21 @@ func TestWorkspace(t *testing.T) {
 			_ = exec.Command("docker", "exec", "flow-postgres", "dropdb", "-U", "flow", "--if-exists", db).Run()
 			_ = exec.Command("docker", "exec", "flow-postgres", "dropdb", "-U", "flow", "--if-exists", "--force", db2).Run()
 		})
-		check := func(label string, ok bool, r guardResult) {
+		check := func(label string, ok bool, r guardtest.GuardResult) {
 			t.Run(label, func(t *testing.T) {
 				if !ok {
-					t.Fatalf("rc=%d out=%q", r.rc, r.out)
+					t.Fatalf("rc=%d out=%q", r.Rc, r.Out)
 				}
 			})
 		}
 
 		r := ws("create", id)
-		check("create exits 0", r.rc == 0, r)
+		check("create exits 0", r.Rc == 0, r)
 		check("create makes "+db, exists(db), r)
 		r = ws("create", id)
-		check("create is a no-op on an existing database", r.rc == 0, r)
+		check("create is a no-op on an existing database", r.Rc == 0, r)
 		r = ws("remove", id)
-		check("remove exits 0", r.rc == 0, r)
+		check("remove exits 0", r.Rc == 0, r)
 		check("remove drops "+db, !exists(db), r)
 		check("the shared flow database is untouched", exists("flow"), r)
 
@@ -118,15 +119,15 @@ func TestWorkspace(t *testing.T) {
 		}
 		check("a live connection is held open on "+db2, held, r)
 		r = ws("remove", id2)
-		check("remove (no flag) fails against a database with a live connection", r.rc != 0, r)
+		check("remove (no flag) fails against a database with a live connection", r.Rc != 0, r)
 		check(db2+" still exists after the unforced remove failed", exists(db2), r)
 		r = ws("remove", id2, "--force")
-		check("remove --force exits 0 against a database with a live connection", r.rc == 0, r)
+		check("remove --force exits 0 against a database with a live connection", r.Rc == 0, r)
 		check("remove --force drops "+db2, !exists(db2), r)
 
 		ws("create", id)
 		r = ws("remove", id, "--force")
-		check("remove --force refuses a database not ending in _uitest", r.rc != 0, r)
+		check("remove --force refuses a database not ending in _uitest", r.Rc != 0, r)
 		check(db+" survives the refused --force", exists(db), r)
 	})
 }

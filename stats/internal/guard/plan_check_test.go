@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // dgpvPlan is a three-task plan: task 2 big, task 3 after task 1.
@@ -20,9 +22,9 @@ const dgpvPolicy = `"decider":{"base":["sonnet/flow-low"],"optin":[],"marked":[]
 func dgpvFixture(t *testing.T) (wt, root, out string) {
 	t.Helper()
 	wt, root = t.TempDir(), t.TempDir()
-	writeFile(t, wt+"/.flow/project.md", "## visual verification\n\n| Setting | Value |\n")
-	writeFile(t, root+"/tasks.md", dgpvPlan)
-	writeFile(t, root+"/design.md", "the design")
+	guardtest.WriteFile(t, wt+"/.flow/project.md", "## visual verification\n\n| Setting | Value |\n")
+	guardtest.WriteFile(t, root+"/tasks.md", dgpvPlan)
+	guardtest.WriteFile(t, root+"/design.md", "the design")
 	return wt, root, filepath.Join(t.TempDir(), "decision.json")
 }
 
@@ -61,8 +63,8 @@ func TestPlanCheckWritesReportAndDecision(t *testing.T) {
 	args, wt, out := pcFixture(t)
 	stub := newPJStub(t, pjJSON(pcAnswer(pcReport, dgpvGood), ""))
 	r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
-	if r.rc != 0 {
-		t.Fatalf("rc=%d stdout=%q err=%q", r.rc, r.stdout, r.err)
+	if r.Rc != 0 {
+		t.Fatalf("rc=%d stdout=%q err=%q", r.Rc, r.Stdout, r.Err)
 	}
 	b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md"))
 	if !strings.HasSuffix(strings.TrimSpace(string(b)), "PLAN-CHECK-FINDINGS 1") || strings.Contains(string(b), "===DECISION===") {
@@ -71,11 +73,11 @@ func TestPlanCheckWritesReportAndDecision(t *testing.T) {
 	if d := dgpvRead(t, out); len(d.Groups) != 2 || d.Visual.Verify != "skipped" || d.Overrides == nil {
 		t.Errorf("decision %+v", d)
 	}
-	if !strings.Contains(r.stdout, "plan-check (judge):") {
-		t.Errorf("stdout %q does not name the judge as the source", r.stdout)
+	if !strings.Contains(r.Stdout, "plan-check (judge):") {
+		t.Errorf("stdout %q does not name the judge as the source", r.Stdout)
 	}
-	if !strings.Contains(r.stdout, " · 2 groups · panel ") || strings.Contains(r.stdout, "gated") {
-		t.Errorf("stdout %q names a gated review, or lacks the groups and panel", r.stdout)
+	if !strings.Contains(r.Stdout, " · 2 groups · panel ") || strings.Contains(r.Stdout, "gated") {
+		t.Errorf("stdout %q names a gated review, or lacks the groups and panel", r.Stdout)
 	}
 }
 
@@ -87,8 +89,8 @@ func TestPlanCheckBlocksOnTimeout(t *testing.T) {
 	env := pjEnv(t, pjPolicy(dgpvPolicy), stub)
 	env.PairJudgeTimeout = 200_000_000
 	r := runGuard("plan-check", args, env)
-	if r.rc != 1 || r.stdout != "" || !strings.Contains(r.err, "the run is blocked") {
-		t.Fatalf("rc=%d stdout=%q err=%q, want 1, nothing on stdout and the block named", r.rc, r.stdout, r.err)
+	if r.Rc != 1 || r.Stdout != "" || !strings.Contains(r.Err, "the run is blocked") {
+		t.Fatalf("rc=%d stdout=%q err=%q, want 1, nothing on stdout and the block named", r.Rc, r.Stdout, r.Err)
 	}
 	for _, p := range []string{out, filepath.Join(wt, ".superpowers", "sdd", "plan-check.md")} {
 		if _, err := os.Stat(p); !os.IsNotExist(err) {
@@ -116,13 +118,13 @@ func TestPlanCheckPartialFallbacks(t *testing.T) {
 			stub := newPJStub(t, pjJSON(c.answer, ""))
 			r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
 			if c.decisionFallbk { // a bad decision blocks, never falls back
-				if _, err := os.Stat(out); r.rc != 1 || !os.IsNotExist(err) {
-					t.Errorf("rc=%d err=%q, want 1 and no decision written", r.rc, r.err)
+				if _, err := os.Stat(out); r.Rc != 1 || !os.IsNotExist(err) {
+					t.Errorf("rc=%d err=%q, want 1 and no decision written", r.Rc, r.Err)
 				}
 				return
 			}
-			if r.rc != 0 {
-				t.Fatalf("rc=%d err=%q", r.rc, r.err)
+			if r.Rc != 0 {
+				t.Fatalf("rc=%d err=%q", r.Rc, r.Err)
 			}
 			b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md"))
 			if got := strings.HasSuffix(strings.TrimSpace(string(b)), "PLAN-CHECK-NOT-RUN"); got != c.reportNotRun {
@@ -138,10 +140,10 @@ func TestPlanCheckDecideOnlyLeavesReport(t *testing.T) {
 	t.Parallel()
 	args, wt, out := pcFixture(t)
 	report := filepath.Join(wt, ".superpowers", "sdd", "plan-check.md")
-	writeFile(t, report, "kept\nPLAN-CHECK-CLEAN\n")
+	guardtest.WriteFile(t, report, "kept\nPLAN-CHECK-CLEAN\n")
 	stub := newPJStub(t, pjJSON(pcAnswer("other\nPLAN-CHECK-CLEAN\n", dgpvGood), ""))
-	if r := runGuard("plan-check", append(args, "-decide-only"), pjEnv(t, pjPolicy(dgpvPolicy), stub)); r.rc != 0 {
-		t.Fatalf("rc=%d err=%q", r.rc, r.err)
+	if r := runGuard("plan-check", append(args, "-decide-only"), pjEnv(t, pjPolicy(dgpvPolicy), stub)); r.Rc != 0 {
+		t.Fatalf("rc=%d err=%q", r.Rc, r.Err)
 	}
 	if b, _ := os.ReadFile(report); string(b) != "kept\nPLAN-CHECK-CLEAN\n" {
 		t.Errorf("report changed: %q", b)
@@ -170,8 +172,8 @@ func TestPlanCheckRunsWithReadOnlyTools(t *testing.T) {
 	stub := newPJStub(t, "pwd -P > '"+cwd+"'\n"+pjJSON(pcAnswer(pcReport, dgpvGood), ""))
 	env := pjEnv(t, pjPolicy(dgpvPolicy), stub)
 	env.Dir = t.TempDir()
-	if r := runGuard("plan-check", args, env); r.rc != 0 {
-		t.Fatalf("rc=%d err=%q", r.rc, r.err)
+	if r := runGuard("plan-check", args, env); r.Rc != 0 {
+		t.Fatalf("rc=%d err=%q", r.Rc, r.Err)
 	}
 	a := stub.argv(t)
 	if i := slices.Index(a, "--tools"); i < 0 || a[i+1] != "Read,Grep,Glob" {
@@ -215,8 +217,8 @@ func TestPlanCheckDecisionChecks(t *testing.T) {
 			t.Parallel()
 			wt, root, out := dgpvFixture(t)
 			r := runGuard("plan-check", []string{wt, root, out, "-decide-only"}, pjEnv(t, c.policy, newPJStub(t, c.answer)))
-			if r.rc != 1 || r.stdout != "" || !strings.Contains(r.err, c.cause) || strings.Count(r.err, "\n") != 1 {
-				t.Fatalf("rc=%d stdout=%q err=%q, want a block and one stderr line naming %q", r.rc, r.stdout, r.err, c.cause)
+			if r.Rc != 1 || r.Stdout != "" || !strings.Contains(r.Err, c.cause) || strings.Count(r.Err, "\n") != 1 {
+				t.Fatalf("rc=%d stdout=%q err=%q, want a block and one stderr line naming %q", r.Rc, r.Stdout, r.Err, c.cause)
 			}
 			if _, err := os.Stat(out); !os.IsNotExist(err) {
 				t.Errorf("a blocked check wrote %s", out)
@@ -232,14 +234,14 @@ func TestPlanCheckRefuses(t *testing.T) {
 	wt, root, out := dgpvFixture(t)
 	env := pjEnv(t, pjPolicy(dgpvPolicy), newPJStub(t, pjJSON(pcAnswer("PLAN-CHECK-CLEAN\n", dgpvGood), "")))
 	empty := t.TempDir()
-	writeFile(t, empty+"/tasks.md", "# Tasks\n")
+	guardtest.WriteFile(t, empty+"/tasks.md", "# Tasks\n")
 	for name, args := range map[string][]string{
 		"usage":           {wt, root},
 		"plan unreadable": {wt, t.TempDir(), out},
 		"plan holds none": {wt, empty, out},
 	} {
-		if r := runGuard("plan-check", args, env); r.rc != 2 || r.stdout != "" {
-			t.Errorf("%s: rc=%d stdout=%q, want 2 and nothing", name, r.rc, r.stdout)
+		if r := runGuard("plan-check", args, env); r.Rc != 2 || r.Stdout != "" {
+			t.Errorf("%s: rc=%d stdout=%q, want 2 and nothing", name, r.Rc, r.Stdout)
 		}
 	}
 	if _, err := os.Stat(out); !os.IsNotExist(err) {
@@ -253,8 +255,8 @@ func TestPlanCheckNamesTheFallbackPart(t *testing.T) {
 	t.Parallel()
 	args, _, _ := pcFixture(t)
 	r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), newPJStub(t, pjJSON(pcAnswer("no verdict\n", dgpvGood), ""))))
-	if r.rc != 0 || !strings.Contains(r.err, "fallback report —") {
-		t.Fatalf("rc=%d err=%q", r.rc, r.err)
+	if r.Rc != 0 || !strings.Contains(r.Err, "fallback report —") {
+		t.Fatalf("rc=%d err=%q", r.Rc, r.Err)
 	}
 }
 
@@ -263,8 +265,8 @@ func TestPlanCheckDigest(t *testing.T) {
 	t.Parallel()
 	args, _, _ := pcFixture(t)
 	stub := newPJStub(t, pjJSON(pcAnswer(pcReport, dgpvGood), ""))
-	if r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub)); r.rc != 0 {
-		t.Fatalf("rc=%d err=%q", r.rc, r.err)
+	if r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub)); r.Rc != 0 {
+		t.Fatalf("rc=%d err=%q", r.Rc, r.Err)
 	}
 	got := stub.stdin(t)
 	for _, want := range []string{"## design.md\n\n", "## plan-review-rubric.md\n\n", "`## visual verification`: yes\n"} {
@@ -282,10 +284,10 @@ func TestPlanCheckDigest(t *testing.T) {
 func TestPlanCheckDigestKeepsTheRubricOnAnOversizedPlan(t *testing.T) {
 	t.Parallel()
 	args, _, _ := pcFixture(t)
-	writeFile(t, args[1]+"/design.md", strings.Repeat("x", pjDigestCap+10))
+	guardtest.WriteFile(t, args[1]+"/design.md", strings.Repeat("x", pjDigestCap+10))
 	stub := newPJStub(t, pjJSON(pcAnswer(pcReport, dgpvGood), ""))
-	if r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub)); r.rc != 0 {
-		t.Fatalf("rc=%d err=%q", r.rc, r.err)
+	if r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub)); r.Rc != 0 {
+		t.Fatalf("rc=%d err=%q", r.Rc, r.Err)
 	}
 	got := stub.stdin(t)
 	for _, want := range []string{"## plan-review-rubric.md\n\n", "`## visual verification`: yes\n", pjTruncated} {
@@ -362,12 +364,12 @@ func TestPlanCheckAddsTheSecuritySlotOnAMatchingFile(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			wt, root, out := dgpvFixture(t)
-			writeFile(t, wt+"/.flow/project.md", c.project)
-			writeFile(t, root+"/tasks.md", plan)
+			guardtest.WriteFile(t, wt+"/.flow/project.md", c.project)
+			guardtest.WriteFile(t, root+"/tasks.md", plan)
 			good := `{"groups":[{"tasks":["1"],"reason":"a"}],"panel":[{"slots":["primary"],"reason":"c"}],"visual":{"verify":"skipped","reason":"e"}}`
 			stub := newPJStub(t, pjJSON(pcAnswer(pcReport, good), ""))
-			if r := runGuard("plan-check", []string{wt, root, out}, pjEnv(t, pjPolicy(dgpvPolicy), stub)); r.rc != 0 {
-				t.Fatalf("rc=%d err=%q", r.rc, r.err)
+			if r := runGuard("plan-check", []string{wt, root, out}, pjEnv(t, pjPolicy(dgpvPolicy), stub)); r.Rc != 0 {
+				t.Fatalf("rc=%d err=%q", r.Rc, r.Err)
 			}
 			has := false
 			for _, b := range dgpvRead(t, out).Panel {
@@ -392,8 +394,8 @@ func TestPlanCheckWritesConfidence(t *testing.T) {
 	args, wt, _ := pcFixture(t)
 	stub := newPJStub(t, pjJSON(pcAnswer(pcConfReport, dgpvGood), ""))
 	r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
-	if r.rc != 0 || !strings.Contains(r.stdout, " · confidence 78%") {
-		t.Fatalf("rc=%d stdout=%q err=%q", r.rc, r.stdout, r.err)
+	if r.Rc != 0 || !strings.Contains(r.Stdout, " · confidence 78%") {
+		t.Fatalf("rc=%d stdout=%q err=%q", r.Rc, r.Stdout, r.Err)
 	}
 	b, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "confidence.json"))
 	if err != nil {
@@ -428,11 +430,11 @@ func TestPlanCheckDropsStaleConfidence(t *testing.T) {
 	} {
 		args, wt, _ := pcFixture(t)
 		conf := filepath.Join(wt, ".superpowers", "sdd", "confidence.json")
-		writeFile(t, conf, `{"score":50,"gaps":[]}`)
+		guardtest.WriteFile(t, conf, `{"score":50,"gaps":[]}`)
 		stub := newPJStub(t, pjJSON(pcAnswer(report, dgpvGood), ""))
 		r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
-		if r.rc != 0 || !strings.Contains(r.stdout, " · confidence unknown") {
-			t.Errorf("%s: rc=%d stdout=%q err=%q", name, r.rc, r.stdout, r.err)
+		if r.Rc != 0 || !strings.Contains(r.Stdout, " · confidence unknown") {
+			t.Errorf("%s: rc=%d stdout=%q err=%q", name, r.Rc, r.Stdout, r.Err)
 		}
 		if _, err := os.Stat(conf); !os.IsNotExist(err) {
 			t.Errorf("%s: stale confidence.json survived (%v)", name, err)
@@ -449,11 +451,11 @@ func TestPlanCheckDecideOnlyLeavesConfidence(t *testing.T) {
 	t.Parallel()
 	args, wt, _ := pcFixture(t)
 	conf := filepath.Join(wt, ".superpowers", "sdd", "confidence.json")
-	writeFile(t, conf, `{"score":50,"gaps":["kept"]}`)
+	guardtest.WriteFile(t, conf, `{"score":50,"gaps":["kept"]}`)
 	stub := newPJStub(t, pjJSON(pcAnswer(pcConfReport, dgpvGood), ""))
 	r := runGuard("plan-check", append(args, "-decide-only"), pjEnv(t, pjPolicy(dgpvPolicy), stub))
-	if r.rc != 0 || strings.Contains(r.stdout, "confidence") {
-		t.Fatalf("rc=%d stdout=%q err=%q", r.rc, r.stdout, r.err)
+	if r.Rc != 0 || strings.Contains(r.Stdout, "confidence") {
+		t.Fatalf("rc=%d stdout=%q err=%q", r.Rc, r.Stdout, r.Err)
 	}
 	if b, _ := os.ReadFile(conf); string(b) != `{"score":50,"gaps":["kept"]}` {
 		t.Errorf("confidence.json changed: %q", b)
@@ -481,9 +483,9 @@ func TestPlanCheckRetriesAReportWithNoTerminalLine(t *testing.T) {
 	args, wt, _ := pcFixture(t)
 	stub := pcSeq(t, pjJSON(pcAnswer("some prose, no terminal line\n", dgpvGood), ""), pjJSON(pcAnswer(pcConfReport, dgpvGood), ""))
 	r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
-	if r.rc != 0 || stub.calls() != "2" || !strings.Contains(strings.Join(stub.argv(t), " "), "must be exactly PLAN-CHECK-CLEAN or PLAN-CHECK-FINDINGS") ||
-		!strings.Contains(r.stdout, "plan-check (judge):") || !strings.Contains(r.stdout, " · confidence 78%") {
-		t.Fatalf("rc=%d calls=%s stdout=%q err=%q", r.rc, stub.calls(), r.stdout, r.err)
+	if r.Rc != 0 || stub.calls() != "2" || !strings.Contains(strings.Join(stub.argv(t), " "), "must be exactly PLAN-CHECK-CLEAN or PLAN-CHECK-FINDINGS") ||
+		!strings.Contains(r.Stdout, "plan-check (judge):") || !strings.Contains(r.Stdout, " · confidence 78%") {
+		t.Fatalf("rc=%d calls=%s stdout=%q err=%q", r.Rc, stub.calls(), r.Stdout, r.Err)
 	}
 	if b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md")); !strings.Contains(string(b), "CONFIDENCE: 78%") {
 		t.Errorf("report %q is not the second answer", b)
@@ -491,8 +493,8 @@ func TestPlanCheckRetriesAReportWithNoTerminalLine(t *testing.T) {
 	// A first answer that already ends right is asked once.
 	args2, _, _ := pcFixture(t)
 	one := pcSeq(t, pjJSON(pcAnswer(pcReport, dgpvGood), ""), pjJSON(pcAnswer("bad\n", dgpvGood), ""))
-	if r := runGuard("plan-check", args2, pjEnv(t, pjPolicy(dgpvPolicy), one)); r.rc != 0 || one.calls() != "1" {
-		t.Errorf("a good first answer: rc=%d calls=%s", r.rc, one.calls())
+	if r := runGuard("plan-check", args2, pjEnv(t, pjPolicy(dgpvPolicy), one)); r.Rc != 0 || one.calls() != "1" {
+		t.Errorf("a good first answer: rc=%d calls=%s", r.Rc, one.calls())
 	}
 }
 
@@ -504,8 +506,8 @@ func TestPlanCheckAsksTheModelAtMostTwice(t *testing.T) {
 	bad := pjJSON(pcAnswer("no terminal line\n", `{"groups":[]}`), "")
 	stub := pcSeq(t, bad, bad)
 	r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
-	if r.rc != 1 || stub.calls() != "2" || !strings.Contains(strings.Join(stub.argv(t), " "), "Your previous answer could not be used: plan-check decision rejected") {
-		t.Fatalf("rc=%d calls=%s err=%q argv=%q", r.rc, stub.calls(), r.err, stub.argv(t))
+	if r.Rc != 1 || stub.calls() != "2" || !strings.Contains(strings.Join(stub.argv(t), " "), "Your previous answer could not be used: plan-check decision rejected") {
+		t.Fatalf("rc=%d calls=%s err=%q argv=%q", r.Rc, stub.calls(), r.Err, stub.argv(t))
 	}
 }
 
@@ -524,8 +526,8 @@ func TestPlanCheckDerivesTheTerminalLine(t *testing.T) {
 			stub := pcSeq(t, bad, bad)
 			r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
 			b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md"))
-			if r.rc != 0 || stub.calls() != "2" || !strings.HasSuffix(strings.TrimSpace(string(b)), c.last) || !strings.Contains(r.stdout, c.last+" ") || !strings.Contains(r.stdout, c.conf) {
-				t.Fatalf("rc=%d calls=%s report=%q stdout=%q", r.rc, stub.calls(), b, r.stdout)
+			if r.Rc != 0 || stub.calls() != "2" || !strings.HasSuffix(strings.TrimSpace(string(b)), c.last) || !strings.Contains(r.Stdout, c.last+" ") || !strings.Contains(r.Stdout, c.conf) {
+				t.Fatalf("rc=%d calls=%s report=%q stdout=%q", r.Rc, stub.calls(), b, r.Stdout)
 			}
 		})
 	}
@@ -547,8 +549,8 @@ func TestPlanCheckAdvisoryIsNotAFinding(t *testing.T) {
 			ans := pjJSON(pcAnswer(c.body, dgpvGood), "")
 			r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), pcSeq(t, ans, ans)))
 			b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md"))
-			if r.rc != 0 || !strings.HasSuffix(strings.TrimSpace(string(b)), c.last) {
-				t.Fatalf("rc=%d report=%q stdout=%q", r.rc, b, r.stdout)
+			if r.Rc != 0 || !strings.HasSuffix(strings.TrimSpace(string(b)), c.last) {
+				t.Fatalf("rc=%d report=%q stdout=%q", r.Rc, b, r.Stdout)
 			}
 		})
 	}
@@ -563,9 +565,9 @@ func TestPlanCheckNoEstimateLine(t *testing.T) {
 	stub := pcSeq(t, bad, bad)
 	r := runGuard("plan-check", args, pjEnv(t, pjPolicy(dgpvPolicy), stub))
 	b, _ := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md"))
-	if r.rc != 0 || stub.calls() != "2" || !strings.Contains(r.stdout, "PLAN-CHECK-NOT-RUN — no confidence estimate") || strings.Contains(r.stdout, "confidence unknown") ||
+	if r.Rc != 0 || stub.calls() != "2" || !strings.Contains(r.Stdout, "PLAN-CHECK-NOT-RUN — no confidence estimate") || strings.Contains(r.Stdout, "confidence unknown") ||
 		!strings.Contains(string(b), "no confidence estimate exists") {
-		t.Fatalf("rc=%d calls=%s stdout=%q report=%q", r.rc, stub.calls(), r.stdout, b)
+		t.Fatalf("rc=%d calls=%s stdout=%q report=%q", r.Rc, stub.calls(), r.Stdout, b)
 	}
 }
 
@@ -590,20 +592,20 @@ func TestPlanCheckDecideOnlySkipsAnUnchangedShape(t *testing.T) {
 			wt, root, out := dgpvFixture(t)
 			stub := pcSeq(t, pjJSON(pcAnswer(pcReport, dgpvGood), ""), "exit 3\n")
 			env := pjEnv(t, pjPolicy(dgpvPolicy), stub)
-			if r := runGuard("plan-check", []string{wt, root, out}, env); r.rc != 0 {
-				t.Fatalf("full check rc=%d err=%q", r.rc, r.err)
+			if r := runGuard("plan-check", []string{wt, root, out}, env); r.Rc != 0 {
+				t.Fatalf("full check rc=%d err=%q", r.Rc, r.Err)
 			}
 			before, _ := os.ReadFile(out)
-			writeFile(t, root+"/tasks.md", c.plan)
+			guardtest.WriteFile(t, root+"/tasks.md", c.plan)
 			r := runGuard("plan-check", []string{wt, root, out, "-decide-only"}, env)
 			if asked := stub.calls() == "3"; asked != c.asks {
-				t.Fatalf("decider asked=%v (calls %s), want %v; rc=%d stdout=%q err=%q", asked, stub.calls(), c.asks, r.rc, r.stdout, r.err)
+				t.Fatalf("decider asked=%v (calls %s), want %v; rc=%d stdout=%q err=%q", asked, stub.calls(), c.asks, r.Rc, r.Stdout, r.Err)
 			}
 			if c.asks {
 				return
 			}
-			if after, _ := os.ReadFile(out); r.rc != 0 || string(after) != string(before) || !strings.Contains(r.stdout, "plan-check (unchanged):") {
-				t.Errorf("rc=%d stdout=%q err=%q, decision kept=%v", r.rc, r.stdout, r.err, string(after) == string(before))
+			if after, _ := os.ReadFile(out); r.Rc != 0 || string(after) != string(before) || !strings.Contains(r.Stdout, "plan-check (unchanged):") {
+				t.Errorf("rc=%d stdout=%q err=%q, decision kept=%v", r.Rc, r.Stdout, r.Err, string(after) == string(before))
 			}
 		})
 	}
@@ -627,8 +629,8 @@ func TestPlanCheckDecidesEachDispatchPair(t *testing.T) {
 	t.Parallel()
 	args, _, out := pcFixture(t)
 	stub := newPJStub(t, pjJSON(pcAnswer(pcReport, dgpvPaired), ""))
-	if r := runGuard("plan-check", args, pjEnv(t, pcPairPolicy, stub)); r.rc != 0 {
-		t.Fatalf("rc=%d err=%q", r.rc, r.err)
+	if r := runGuard("plan-check", args, pjEnv(t, pcPairPolicy, stub)); r.Rc != 0 {
+		t.Fatalf("rc=%d err=%q", r.Rc, r.Err)
 	}
 	d := dgpvRead(t, out)
 	if d.Groups[0].Pair != "" || d.Groups[1].Pair != "" || d.Panel[0].Pair != "opus/flow-medium" {
@@ -652,8 +654,8 @@ func TestPlanCheckDecidesEachDispatchPair(t *testing.T) {
 			wt, root, out := dgpvFixture(t)
 			answer := pjJSON(pcAnswer("PLAN-CHECK-CLEAN\n", strings.Replace(dgpvPaired, c.old, c.new, 1)), "")
 			r := runGuard("plan-check", []string{wt, root, out, "-decide-only"}, pjEnv(t, pcPairPolicy, newPJStub(t, answer)))
-			if r.rc != 1 || !strings.Contains(r.err, c.cause) {
-				t.Fatalf("rc=%d err=%q, want a block naming %q", r.rc, r.err, c.cause)
+			if r.Rc != 1 || !strings.Contains(r.Err, c.cause) {
+				t.Fatalf("rc=%d err=%q, want a block naming %q", r.Rc, r.Err, c.cause)
 			}
 		})
 	}
@@ -664,7 +666,7 @@ func TestPlanCheckDecidesEachDispatchPair(t *testing.T) {
 func TestDgpvPick(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
-	writeFile(t, wt+"/.superpowers/sdd/decision.json", dgpvPaired)
+	guardtest.WriteFile(t, wt+"/.superpowers/sdd/decision.json", dgpvPaired)
 	base := []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-medium"}
 	for _, c := range []struct{ role, key, want string }{
 		{"implementer", "task-1+3-implementer", ""},
@@ -698,13 +700,13 @@ func TestPlanCheckDropsAKeptDecisionsGroupPairs(t *testing.T) {
 	args, _, out := pcFixture(t)
 	stub := newPJStub(t, pjJSON(pcAnswer(pcReport, dgpvPaired), ""))
 	env := pjEnv(t, pcPairPolicy, stub)
-	if r := runGuard("plan-check", args, env); r.rc != 0 {
-		t.Fatalf("rc=%d err=%q", r.rc, r.err)
+	if r := runGuard("plan-check", args, env); r.Rc != 0 {
+		t.Fatalf("rc=%d err=%q", r.Rc, r.Err)
 	}
-	writeFile(t, out, dgpvPaired)
+	guardtest.WriteFile(t, out, dgpvPaired)
 	r := runGuard("plan-check", append(args, "-decide-only"), env)
-	if r.rc != 0 || !strings.Contains(r.out, "unchanged") {
-		t.Fatalf("rc=%d out=%q err=%q", r.rc, r.out, r.err)
+	if r.Rc != 0 || !strings.Contains(r.Out, "unchanged") {
+		t.Fatalf("rc=%d out=%q err=%q", r.Rc, r.Out, r.Err)
 	}
 	if d := dgpvRead(t, out); d.Groups[0].Pair != "" || d.Groups[1].Pair != "" || d.Panel[0].Pair != "opus/flow-medium" {
 		t.Errorf("decision %+v: want bundle pairs and no group pair", d)

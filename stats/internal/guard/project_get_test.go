@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -18,8 +19,8 @@ func pgBashDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	for _, rel := range []string{"project-get.sh", "lib/project-section.sh", "lib/strip-bom.sh"} {
-		src := historicalFile(t, "../../..", "ae805186", "scripts/"+rel)
-		writeFile(t, filepath.Join(dir, rel), string(src))
+		src := guardtest.HistoricalFile(t, "../../..", "ae805186", "scripts/"+rel)
+		guardtest.WriteFile(t, filepath.Join(dir, rel), string(src))
 	}
 	return dir
 }
@@ -45,7 +46,7 @@ func pgBash(t *testing.T, dir string, args ...string) pgRes {
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	_ = cmd.Run()
-	return pgRes{cmd.ProcessState.ExitCode(), out.String(), bashUsage(errb.String())}
+	return pgRes{cmd.ProcessState.ExitCode(), out.String(), guardtest.BashUsage(errb.String())}
 }
 
 const pgCfg = "# project\n\n## lint\n\n```bash\nmake lint\n```\n\n## default landing route\n\n`open PR`\n\n## empty\n\n## last\nline one\n### sub\nline two\n"
@@ -57,7 +58,7 @@ func TestProjectGetParity(t *testing.T) {
 
 	plain := func(t *testing.T, body string) string {
 		root := t.TempDir()
-		writeFile(t, root+"/.flow/project.md", body)
+		guardtest.WriteFile(t, root+"/.flow/project.md", body)
 		return root
 	}
 	// repo commits head as .flow/project.md under sub (the project root),
@@ -65,12 +66,12 @@ func TestProjectGetParity(t *testing.T) {
 	repo := func(t *testing.T, sub, head string, wt *string) string {
 		top := t.TempDir()
 		root := filepath.Join(top, sub)
-		fixtureRepo(t, top, repoShape{})
-		writeFile(t, root+"/.flow/project.md", head)
-		gitRun(t, top, "add", "-A")
-		gitRun(t, top, "commit", "-q", "-m", "base")
+		guardtest.FixtureRepo(t, top, guardtest.RepoShape{})
+		guardtest.WriteFile(t, root+"/.flow/project.md", head)
+		guardtest.GitRun(t, top, "add", "-A")
+		guardtest.GitRun(t, top, "commit", "-q", "-m", "base")
 		if wt != nil {
-			writeFile(t, root+"/.flow/project.md", *wt)
+			guardtest.WriteFile(t, root+"/.flow/project.md", *wt)
 		}
 		return root
 	}
@@ -113,11 +114,11 @@ func TestProjectGetParity(t *testing.T) {
 		}, 0},
 		{"HEAD lacks it, working tree has it", func(t *testing.T) []string {
 			top := t.TempDir()
-			fixtureRepo(t, top, repoShape{})
-			writeFile(t, top+"/README", "x\n")
-			gitRun(t, top, "add", "-A")
-			gitRun(t, top, "commit", "-q", "-m", "base")
-			writeFile(t, top+"/.flow/project.md", pgCfg)
+			guardtest.FixtureRepo(t, top, guardtest.RepoShape{})
+			guardtest.WriteFile(t, top+"/README", "x\n")
+			guardtest.GitRun(t, top, "add", "-A")
+			guardtest.GitRun(t, top, "commit", "-q", "-m", "base")
+			guardtest.WriteFile(t, top+"/.flow/project.md", pgCfg)
 			return []string{top, "lint"}
 		}, 0},
 	} {
@@ -141,10 +142,10 @@ func TestProjectGetParity(t *testing.T) {
 func TestProjectGetIgnoresAmbientGitEnv(t *testing.T) {
 	root, other := t.TempDir(), t.TempDir()
 	for dir, body := range map[string]string{root: "## lint\n\nvalue-a\n", other: "## lint\n\nhostile\n"} {
-		fixtureRepo(t, dir, repoShape{})
-		writeFile(t, dir+"/.flow/project.md", body)
-		gitRun(t, dir, "add", "-A")
-		gitRun(t, dir, "commit", "-q", "-m", "base")
+		guardtest.FixtureRepo(t, dir, guardtest.RepoShape{})
+		guardtest.WriteFile(t, dir+"/.flow/project.md", body)
+		guardtest.GitRun(t, dir, "add", "-A")
+		guardtest.GitRun(t, dir, "commit", "-q", "-m", "base")
 	}
 	t.Setenv("GIT_DIR", other+"/.git")
 	t.Setenv("GIT_WORK_TREE", other)
@@ -188,7 +189,7 @@ func TestProjectGetEnum(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			root := t.TempDir()
-			writeFile(t, root+"/.flow/project.md", tc.cfg)
+			guardtest.WriteFile(t, root+"/.flow/project.md", tc.cfg)
 			got := pgGo(append([]string{root, "default landing route"}, tc.args...)...)
 			got.err = strings.ReplaceAll(got.err, root, "<root>")
 			if want := (pgRes{tc.rc, tc.out, tc.err}); got != want {
@@ -199,7 +200,7 @@ func TestProjectGetEnum(t *testing.T) {
 	t.Run("a word extending a handoff literal matches nothing", func(t *testing.T) {
 		t.Parallel()
 		root := t.TempDir()
-		writeFile(t, root+"/.flow/project.md", "## handoff\nnonempty\n")
+		guardtest.WriteFile(t, root+"/.flow/project.md", "## handoff\nnonempty\n")
 		got := pgGo(root, "handoff", "--enum", "required", "none")
 		if want := (pgRes{3, "", "project-get: '## handoff' head 'nonempty' matches none of: 'required' 'none'\n"}); got != want {
 			t.Errorf("got:  %+v\nwant: %+v", got, want)

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -68,20 +69,20 @@ func vvpFixture(t *testing.T, extra string) *vvpFix {
 	}
 	f := &vvpFix{t: t, wt: filepath.Join(root, "demo"), bin: filepath.Join(root, "bin"), log: filepath.Join(root, "flow.log")}
 	section, tail := vvpSectionWith(extra)
-	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## run\n\n```bash\nnpm run dev\n```\n\n"+section+tail)
-	writeFile(t, filepath.Join(f.wt, "src/ui/app.tsx"), "base\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## run\n\n```bash\nnpm run dev\n```\n\n"+section+tail)
+	guardtest.WriteFile(t, filepath.Join(f.wt, "src/ui/app.tsx"), "base\n")
 	// The `specs` row's command: it prints no spec until a test rewrites it.
-	writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\n")
-	fixtureRepo(t, f.wt, repoShape{Branch: "spectre/demo"})
-	gitRun(t, f.wt, "add", "-A")
-	gitRun(t, f.wt, "commit", "-qm", "base")
+	guardtest.WriteExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\n")
+	guardtest.FixtureRepo(t, f.wt, guardtest.RepoShape{Branch: "spectre/demo"})
+	guardtest.GitRun(t, f.wt, "add", "-A")
+	guardtest.GitRun(t, f.wt, "commit", "-qm", "base")
 	f.mb = vgHead(t, f.wt)
 	f.commit("src/ui/app.tsx")
 	f.green()
 	// `policy get` answers policy.json when a test wrote one, else the
-	// seeded pairs (testPolicy) -- never the dev store's.
-	writeExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2\" in \"record dispatches\") cat "+filepath.Join(root, "rows.json")+";;\n"+
-		"\"policy get\") if [ -f "+filepath.Join(root, "policy.json")+" ]; then cat "+filepath.Join(root, "policy.json")+"; else printf '%s\\n' '"+testPolicy+"'; fi;; esac\n")
+	// seeded pairs (TestPolicy) -- never the dev store's.
+	guardtest.WriteExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2\" in \"record dispatches\") cat "+filepath.Join(root, "rows.json")+";;\n"+
+		"\"policy get\") if [ -f "+filepath.Join(root, "policy.json")+" ]; then cat "+filepath.Join(root, "policy.json")+"; else printf '%s\\n' '"+guardtest.TestPolicy+"'; fi;; esac\n")
 	f.app = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("ok")) }))
 	t.Cleanup(f.app.Close)
 	repo, err := filepath.Abs("../../..")
@@ -116,7 +117,7 @@ func (f *vvpFix) getenv(k string) string {
 // flow's logged calls.
 func (f *vvpFix) run(sub string, args ...string) (int, string, string) {
 	f.t.Helper()
-	writeFile(f.t, filepath.Join(filepath.Dir(f.log), "rows.json"), f.rows)
+	guardtest.WriteFile(f.t, filepath.Join(filepath.Dir(f.log), "rows.json"), f.rows)
 	os.Remove(f.log)
 	var out, errb bytes.Buffer
 	env := core.Env{Getenv: f.getenv, Environ: func() []string { return f.environ }, Dir: f.wt}
@@ -189,14 +190,14 @@ func TestVisualVerifyPassPrepareKickoff(t *testing.T) {
 	t.Parallel()
 	f := vvpFixture(t, "")
 	other := filepath.Join(filepath.Dir(f.wt), "regress")
-	writeFile(t, filepath.Join(other, "README"), "x\n")
-	fixtureRepo(t, other, repoShape{Branch: "main"})
-	gitRun(t, other, "add", "-A")
-	gitRun(t, other, "commit", "-qm", "r")
-	gitRun(t, other, "remote", "add", "origin", "x/regress")
+	guardtest.WriteFile(t, filepath.Join(other, "README"), "x\n")
+	guardtest.FixtureRepo(t, other, guardtest.RepoShape{Branch: "main"})
+	guardtest.GitRun(t, other, "add", "-A")
+	guardtest.GitRun(t, other, "commit", "-qm", "r")
+	guardtest.GitRun(t, other, "remote", "add", "origin", "x/regress")
 	sec, tl := vvpSectionWith("| `regression checkout` | `" + other + "` |\n| `regression repo` | `x/regress` |\n")
-	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## apps\n\n| App | Repo root |\n|-----|-----------|\n| web | `"+other+"` |\n\n"+sec+tl)
-	gitRun(t, f.wt, "commit", "-qam", "cfg")
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## apps\n\n| App | Repo root |\n|-----|-----------|\n| web | `"+other+"` |\n\n"+sec+tl)
+	guardtest.GitRun(t, f.wt, "commit", "-qam", "cfg")
 	f.green()
 	rc, out, calls := f.prepare()
 	if rc != 1 || !strings.Contains(out, "STOP: kickoff regress") || calls != "" {
@@ -208,15 +209,15 @@ func TestVisualVerifyPassPrepareSkipNeedsNoKickoff(t *testing.T) {
 	t.Parallel()
 	f := vvpFixture(t, "")
 	other := filepath.Join(filepath.Dir(f.wt), "regress")
-	writeFile(t, filepath.Join(other, "README"), "x\n")
-	fixtureRepo(t, other, repoShape{Branch: "main"})
-	gitRun(t, other, "add", "-A")
-	gitRun(t, other, "commit", "-qm", "r")
-	gitRun(t, other, "remote", "add", "origin", "x/regress")
+	guardtest.WriteFile(t, filepath.Join(other, "README"), "x\n")
+	guardtest.FixtureRepo(t, other, guardtest.RepoShape{Branch: "main"})
+	guardtest.GitRun(t, other, "add", "-A")
+	guardtest.GitRun(t, other, "commit", "-qm", "r")
+	guardtest.GitRun(t, other, "remote", "add", "origin", "x/regress")
 	sec, tl := vvpSectionWith("| `regression checkout` | `" + other + "` |\n| `regression repo` | `x/regress` |\n")
-	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## apps\n\n| App | Repo root |\n|-----|-----------|\n| web | `"+other+"` |\n\n"+sec+tl)
-	gitRun(t, f.wt, "commit", "-qam", "cfg")
-	writeFile(t, filepath.Join(f.wt, ".superpowers/sdd/decision.json"), `{"visual":{"verify":"skipped","reason":"backend only"}}`)
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## apps\n\n| App | Repo root |\n|-----|-----------|\n| web | `"+other+"` |\n\n"+sec+tl)
+	guardtest.GitRun(t, f.wt, "commit", "-qam", "cfg")
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".superpowers/sdd/decision.json"), `{"visual":{"verify":"skipped","reason":"backend only"}}`)
 	f.green()
 	rc, out, calls := f.prepare()
 	if rc != 0 || strings.Contains(out, "STOP: kickoff") || !strings.Contains(out, "NEXT: skip — skipped at Decide — backend only") || strings.Contains(calls, "stage ") {
@@ -227,7 +228,7 @@ func TestVisualVerifyPassPrepareSkipNeedsNoKickoff(t *testing.T) {
 func TestVisualVerifyPassPrepareSkips(t *testing.T) {
 	t.Parallel()
 	f := vvpFixture(t, "")
-	writeFile(t, filepath.Join(f.wt, ".superpowers/sdd/decision.json"), `{"visual":{"verify":"skipped","reason":"copy only"}}`)
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".superpowers/sdd/decision.json"), `{"visual":{"verify":"skipped","reason":"copy only"}}`)
 	rc, out, calls := f.prepare()
 	if rc != 0 || !strings.Contains(out, "NEXT: skip — skipped at Decide — copy only") || strings.Contains(calls, "stage ") || strings.Contains(calls, "dispatch begin") {
 		t.Fatalf("decided skip: exit %d\n%s\n%s", rc, out, calls)
@@ -243,9 +244,9 @@ func TestVisualVerifyPassPrepareSkips(t *testing.T) {
 func TestVisualVerifyPassPrepareComposeOnly(t *testing.T) {
 	t.Parallel()
 	f := vvpFixture(t, "| `mockups` | `design/mockups` |\n")
-	writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
-	gitRun(t, f.wt, "add", "-A")
-	gitRun(t, f.wt, "commit", "-qm", "cfg")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
+	guardtest.GitRun(t, f.wt, "add", "-A")
+	guardtest.GitRun(t, f.wt, "commit", "-qm", "cfg")
 	rb := vgHead(t, f.wt)
 	f.commit("design/mockups/f1.png")
 	f.green()
@@ -268,12 +269,12 @@ func TestVisualVerifyPassPrepareStopsOnVerifyNotGreen(t *testing.T) {
 func TestVisualVerifyPassPrepareStopsOnPreflight(t *testing.T) {
 	t.Parallel()
 	f := vvpFixture(t, "| `mockups` | `design/mockups` |\n")
-	writeFile(t, filepath.Join(f.wt, "tests/visual/a.spec.ts.mockups"), "gone.png f1\n")
-	writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
-	writeFile(t, filepath.Join(f.wt, "tests/visual/a.spec.ts"), "test('a', () => {})\n")
-	writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts\n")
-	gitRun(t, f.wt, "add", "-A")
-	gitRun(t, f.wt, "commit", "-qm", "cfg")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/a.spec.ts.mockups"), "gone.png f1\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/a.spec.ts"), "test('a', () => {})\n")
+	guardtest.WriteExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts\n")
+	guardtest.GitRun(t, f.wt, "add", "-A")
+	guardtest.GitRun(t, f.wt, "commit", "-qm", "cfg")
 	f.green()
 	args := []string{f.wt, "demo", "visual-verify", "--harness", "claude", "--session-token", "mf-tok",
 		"--merge-base", f.wt + "=" + f.mb, "--app", f.wt + ":missing-app=" + f.app.URL}
@@ -323,11 +324,11 @@ func vvpLines(out, prefix string) []string {
 func (f *vvpFix) sibling(name string) (string, string) {
 	t := f.t
 	w := filepath.Join(filepath.Dir(f.wt), name)
-	writeFile(t, filepath.Join(w, ".flow/project.md"), "# project\n\n"+vvpSection)
-	writeFile(t, filepath.Join(w, "src/ui/b.tsx"), "base\n")
-	fixtureRepo(t, w, repoShape{Branch: "spectre/demo"})
-	gitRun(t, w, "add", "-A")
-	gitRun(t, w, "commit", "-qm", "base")
+	guardtest.WriteFile(t, filepath.Join(w, ".flow/project.md"), "# project\n\n"+vvpSection)
+	guardtest.WriteFile(t, filepath.Join(w, "src/ui/b.tsx"), "base\n")
+	guardtest.FixtureRepo(t, w, guardtest.RepoShape{Branch: "spectre/demo"})
+	guardtest.GitRun(t, w, "add", "-A")
+	guardtest.GitRun(t, w, "commit", "-qm", "base")
 	mb := vgHead(t, w)
 	vgCommit(t, w, "src/ui/b.tsx")
 	return w, mb
@@ -363,11 +364,11 @@ func TestPrepareDoesNotFingerprintStack(t *testing.T) {
 func TestVisualVerifyPassPrepareBundle(t *testing.T) {
 	t.Parallel()
 	f := vvpFixture(t, "| `mockups` | `design/mockups` |\n| `mockup frame` | `scale=1 status=0 border=0` |\n")
-	writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
-	writeFile(t, filepath.Join(f.wt, "design/proto.html"), "<html></html>\n")
-	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/design.md"), "See `design/proto.html` and `design/gone.css`.\n")
-	gitRun(t, f.wt, "add", "-A")
-	gitRun(t, f.wt, "commit", "-qm", "cfg")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "design/proto.html"), "<html></html>\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "spectre/changes/demo/design.md"), "See `design/proto.html` and `design/gone.css`.\n")
+	guardtest.GitRun(t, f.wt, "add", "-A")
+	guardtest.GitRun(t, f.wt, "commit", "-qm", "cfg")
 	f.green()
 	head := vgHead(t, f.wt)
 	rc, out, _ := f.prepare()
@@ -408,9 +409,9 @@ func TestVisualVerifyPassPrepareBundle(t *testing.T) {
 	}
 
 	g := vvpFixture(t, "")
-	writeFile(t, filepath.Join(g.wt, "spectre/changes/demo/design.md"), "No mockup.\n")
-	gitRun(t, g.wt, "add", "-A")
-	gitRun(t, g.wt, "commit", "-qm", "cfg")
+	guardtest.WriteFile(t, filepath.Join(g.wt, "spectre/changes/demo/design.md"), "No mockup.\n")
+	guardtest.GitRun(t, g.wt, "add", "-A")
+	guardtest.GitRun(t, g.wt, "commit", "-qm", "cfg")
 	g.green()
 	g.prepare()
 	b, _ = os.ReadFile(filepath.Join(g.wt, ".superpowers/sdd/verify-prompt-visual-verify.md"))
@@ -431,11 +432,11 @@ func TestVisualVerifyPassPrepareDecodesBundledPage(t *testing.T) {
 	_ = zw.Close()
 	manifest := `{"app.css":{"data":"` + base64.StdEncoding.EncodeToString(gz.Bytes()) + `","compressed":true},"a.txt":{"data":"` + base64.StdEncoding.EncodeToString([]byte("plain")) + `","compressed":false}}`
 	page := "<html><script type=\"__bundler/template\">\n\"<p>hi</p>\"\n</script><script type=\"__bundler/manifest\">" + manifest + "</script></html>"
-	writeFile(t, filepath.Join(f.wt, "design/proto.html"), page)
-	writeFile(t, filepath.Join(f.wt, "design/other.html"), "<html><script type=\"__bundler/template\">\n\"<p>two</p>\"\n</script></html>")
-	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/design.md"), "Prototype `design/proto.html`, and `design/other.html`.\n")
-	gitRun(t, f.wt, "add", "-A")
-	gitRun(t, f.wt, "commit", "-qm", "cfg")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "design/proto.html"), page)
+	guardtest.WriteFile(t, filepath.Join(f.wt, "design/other.html"), "<html><script type=\"__bundler/template\">\n\"<p>two</p>\"\n</script></html>")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "spectre/changes/demo/design.md"), "Prototype `design/proto.html`, and `design/other.html`.\n")
+	guardtest.GitRun(t, f.wt, "add", "-A")
+	guardtest.GitRun(t, f.wt, "commit", "-qm", "cfg")
 	f.green()
 	if rc, out, _ := f.prepare(); rc != 0 {
 		t.Fatalf("exit %d\n%s", rc, out)
@@ -464,19 +465,19 @@ func TestVisualVerifyPassPrepareReadsThePair(t *testing.T) {
 	t.Parallel()
 	f := vvpFixture(t, "")
 	policy := filepath.Join(filepath.Dir(f.log), "policy.json")
-	writeFile(t, policy, `{"visual-verifier":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}}`)
+	guardtest.WriteFile(t, policy, `{"visual-verifier":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}}`)
 	rc, out, calls := f.prepare()
 	if rc != 0 || !strings.Contains(calls, "-role visual-verifier -model sonnet -effort low -key visual-verify ") || !strings.Contains(out, "subagent_type flow-low, model sonnet,") {
 		t.Fatalf("sonnet row: exit %d\n%s\n%s", rc, out, calls)
 	}
 	g := vvpFixture(t, "")
-	writeFile(t, filepath.Join(filepath.Dir(g.log), "policy.json"), `{"visual-verifier":{"base":[],"optin":[],"marked":[]}}`)
+	guardtest.WriteFile(t, filepath.Join(filepath.Dir(g.log), "policy.json"), `{"visual-verifier":{"base":[],"optin":[],"marked":[]}}`)
 	rc, out, calls = g.prepare()
 	if rc != 1 || !strings.Contains(out, "STOP: pair — ") || strings.Contains(calls, "record dispatch begin") || strings.Contains(calls, "stage ") {
 		t.Fatalf("empty row: exit %d\n%s\n%s", rc, out, calls)
 	}
 	h := vvpFixture(t, "")
-	writeFile(t, filepath.Join(filepath.Dir(h.log), "policy.json"), `not json`)
+	guardtest.WriteFile(t, filepath.Join(filepath.Dir(h.log), "policy.json"), `not json`)
 	rc, out, calls = h.prepare()
 	if rc != 1 || !strings.Contains(out, "STOP: pair — no allowed pairs: `flow policy get`") || strings.Contains(calls, "record dispatch begin") {
 		t.Fatalf("failed policy read: exit %d\n%s\n%s", rc, out, calls)
@@ -489,7 +490,7 @@ func vvpReceipt(t *testing.T, wt, spec, path, blob string) {
 	t.Helper()
 	file := filepath.Join(tcfGit(t, wt, "rev-parse", "--absolute-git-dir"), "flow-recapture.jsonl")
 	old, _ := os.ReadFile(file)
-	writeFile(t, file, string(old)+`{"specs":["`+spec+`"],"exit":0,"blobs":{"`+path+`":"`+blob+`"}}`+"\n")
+	guardtest.WriteFile(t, file, string(old)+`{"specs":["`+spec+`"],"exit":0,"blobs":{"`+path+`":"`+blob+`"}}`+"\n")
 }
 
 // TestVisualVerifyPassPrepareNamesCapturedSpecs pins the kan-1091 fix: a
@@ -524,11 +525,11 @@ func TestVisualVerifyPassPrepareNamesCapturedSpecs(t *testing.T) {
 	}
 	k := vvpFixture(t, "")
 	vvpReceipt(t, k.wt, "tests/visual/home.spec.ts", "src/ui/app.tsx", tcfGit(t, k.wt, "rev-parse", "HEAD:src/ui/app.tsx"))
-	writeFile(t, filepath.Join(k.wt, "tests/visual/home.spec.ts"), "test('home', () => {})\n")
-	writeFile(t, filepath.Join(k.wt, "tests/visual/home.spec.ts.sources"), "src/ui/app.tsx\n")
-	writeFile(t, filepath.Join(k.wt, "src/ui/app.tsx"), "export const later = 1\n")
-	gitRun(t, k.wt, "add", "-A")
-	gitRun(t, k.wt, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "a later edit")
+	guardtest.WriteFile(t, filepath.Join(k.wt, "tests/visual/home.spec.ts"), "test('home', () => {})\n")
+	guardtest.WriteFile(t, filepath.Join(k.wt, "tests/visual/home.spec.ts.sources"), "src/ui/app.tsx\n")
+	guardtest.WriteFile(t, filepath.Join(k.wt, "src/ui/app.tsx"), "export const later = 1\n")
+	guardtest.GitRun(t, k.wt, "add", "-A")
+	guardtest.GitRun(t, k.wt, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "a later edit")
 	k.green()
 	if rc, out, _ := k.prepare(); rc != 0 || strings.Contains(bundle(k), "captured:") {
 		t.Errorf("a source edited after its task's capture: exit %d, the bundle still names it\n%s\n%s", rc, out, bundle(k))
@@ -557,7 +558,7 @@ func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 	}
 
 	h := vvpFixture(t, "")
-	writeExec(t, filepath.Join(h.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+h.log+"\ncase \"$1 $2 $3\" in \"record dispatches \"*) cat "+filepath.Join(filepath.Dir(h.log), "rows.json")+";; \"record dispatch begin\") echo dirty tree; exit 1;; \"policy get \") PATH=${PATH#*:} exec flow \"$@\";; esac\n")
+	guardtest.WriteExec(t, filepath.Join(h.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+h.log+"\ncase \"$1 $2 $3\" in \"record dispatches \"*) cat "+filepath.Join(filepath.Dir(h.log), "rows.json")+";; \"record dispatch begin\") echo dirty tree; exit 1;; \"policy get \") PATH=${PATH#*:} exec flow \"$@\";; esac\n")
 	rc, out, calls = h.prepare()
 	if rc != 1 || !strings.Contains(out, "STOP: row — flow record dispatch begin refused for visual-verify: dirty tree") || strings.Contains(calls, "stage ") || strings.Contains(out, "DISPATCH:") {
 		t.Fatalf("a refused begin: exit %d\n%s\n%s", rc, out, calls)
@@ -566,7 +567,7 @@ func TestVisualVerifyPassPrepareBeginsRows(t *testing.T) {
 	// A begin refused for the second row ends the first row it already began.
 	i := vvpFixture(t, "")
 	w, mb = i.sibling("gymie-frontend")
-	writeExec(t, filepath.Join(i.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+i.log+"\ncase \"$*\" in \"record dispatches \"*) cat "+filepath.Join(filepath.Dir(i.log), "rows.json")+";; *\"-key visual-verify-gymie-frontend \"*) echo dirty tree; exit 1;; \"policy get\") PATH=${PATH#*:} exec flow \"$@\";; esac\n")
+	guardtest.WriteExec(t, filepath.Join(i.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+i.log+"\ncase \"$*\" in \"record dispatches \"*) cat "+filepath.Join(filepath.Dir(i.log), "rows.json")+";; *\"-key visual-verify-gymie-frontend \"*) echo dirty tree; exit 1;; \"policy get\") PATH=${PATH#*:} exec flow \"$@\";; esac\n")
 	rc, out, calls = i.prepare("--worktree", w, "--merge-base", w+"="+mb, "--app", w+":.="+i.app.URL)
 	if rc != 1 || !strings.Contains(calls, "record dispatch end -C "+i.wt+" -change demo -key visual-verify-demo -session-token mf-tok -outcome aborted\n") || strings.Contains(calls, "stage ") {
 		t.Fatalf("a refused second begin: exit %d\n%s\n%s", rc, out, calls)
@@ -628,7 +629,7 @@ func TestVisualVerifyPassPrepareStartsAnEmptyManifest(t *testing.T) {
 	t.Parallel()
 	f := vvpFixture(t, "")
 	manifest := filepath.Join(f.wt, ".superpowers/sdd/visual-manifest-visual-verify.json")
-	writeFile(t, manifest, `{"pairs":[{"spec":"old.spec.ts","frame":"stale"}]}`)
+	guardtest.WriteFile(t, manifest, `{"pairs":[{"spec":"old.spec.ts","frame":"stale"}]}`)
 	if rc, out, _ := f.prepare(); rc != 0 {
 		t.Fatalf("prepare: exit %d\n%s", rc, out)
 	}
@@ -661,7 +662,7 @@ func TestVisualVerifyPassPrepareContinue(t *testing.T) {
 	if rc, out, _ := f.prepare(); rc != 0 {
 		t.Fatalf("exit %d\n%s", rc, out)
 	}
-	writeFile(t, f.stagePath(), f.stageFile()+"verdict visual-verify VERIFY-REPORT-INCOMPLETE: step 10 undone\n")
+	guardtest.WriteFile(t, f.stagePath(), f.stageFile()+"verdict visual-verify VERIFY-REPORT-INCOMPLETE: step 10 undone\n")
 	cont := func(key string, extra ...string) (int, string, string, string) {
 		args := append([]string{f.wt, "demo", key, "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", f.wt + ":.=" + f.app.URL}, extra...)
 		rc, out, calls := f.run("prepare", args...)
@@ -701,8 +702,8 @@ func TestVisualVerifyPassPrepareSpecsNameTheSibling(t *testing.T) {
 		"`<frontend-root>/specs-since <merge-base>`", "`node specs.mjs <frontend-root> <merge-base>`").Replace(vvpSection)
 	newFix := func() *vvpFix {
 		f := vvpFixture(t, "")
-		writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## run\n\n```bash\nnpm run dev\n```\n\n"+section)
-		gitRun(t, f.wt, "commit", "-qam", "cfg")
+		guardtest.WriteFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## run\n\n```bash\nnpm run dev\n```\n\n"+section)
+		guardtest.GitRun(t, f.wt, "commit", "-qam", "cfg")
 		f.green()
 		return f
 	}
@@ -719,8 +720,8 @@ func TestVisualVerifyPassPrepareSpecsNameTheSibling(t *testing.T) {
 
 	f := newFix()
 	w, mb := f.sibling("gymie-frontend")
-	writeFile(t, filepath.Join(w, ".flow/project.md"), "# project\n")
-	gitRun(t, w, "commit", "-qam", "no visual verification")
+	guardtest.WriteFile(t, filepath.Join(w, ".flow/project.md"), "# project\n")
+	guardtest.GitRun(t, w, "commit", "-qam", "no visual verification")
 	rc, out, _ := f.prepare("--worktree", w, "--merge-base", w+"="+mb)
 	got := vvpLines(bundle(out), "specs: ")
 	if rc != 0 || len(got) != 1 || got[0] != "specs: node specs.mjs "+w+" "+mb ||
@@ -753,7 +754,7 @@ func TestVisualVerifyPassPrepareContinueNamesSurvivorWithoutApp(t *testing.T) {
 	}
 	var out, errb bytes.Buffer
 	env := core.Env{Getenv: g.getenv, Environ: func() []string { return g.environ }, Dir: g.wt}
-	writeFile(t, filepath.Join(filepath.Dir(g.log), "rows.json"), g.rows)
+	guardtest.WriteFile(t, filepath.Join(filepath.Dir(g.log), "rows.json"), g.rows)
 	rc := Registry["visual-verify-pass"]([]string{"prepare", g.wt, "demo", "visual-verify-2", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", w + ":.=" + g.app.URL}, env, &out, &errb)
 	if rc != 2 || !strings.Contains(errb.String(), "no --app passed for "+g.wt) || strings.Contains(out.String(), "NEXT: start-stack") {
 		t.Fatalf("exit %d\nstdout %s\nstderr %s", rc, out.String(), errb.String())
@@ -785,7 +786,7 @@ func TestVisualVerifyPassPrepareDefaultsAppsFromTheProject(t *testing.T) {
 	t.Parallel()
 	iso := "\n## workspace isolation\n\n| Resource | Variable | Default | In a workspace |\n|---|---|---|---|\n| `port` | `FRONTEND_PORT` | `3000` | `+<offset>` |\n"
 	f := vvpFixture(t, "| `preflight apps` | `web=http://localhost:${FRONTEND_PORT}`, `missing=http://localhost:1` |\n"+iso)
-	mkdir(t, filepath.Join(f.wt, "web"))
+	guardtest.Mkdir(t, filepath.Join(f.wt, "web"))
 	var kv bytes.Buffer
 	if rc := Registry["prepare-workspace"]([]string{f.wt}, core.Env{Getenv: f.getenv, Environ: func() []string { return f.environ }, Dir: f.wt}, &kv, &bytes.Buffer{}); rc != 0 {
 		t.Fatalf("prepare-workspace exit %d", rc)
@@ -826,17 +827,17 @@ func TestVisualVerifyPassPrepareChecksOnlyCapturedSidecars(t *testing.T) {
 		f := vvpFixture(t, section)
 		if specs == "" {
 			b, _ := os.ReadFile(filepath.Join(f.wt, ".flow/project.md"))
-			writeFile(t, filepath.Join(f.wt, ".flow/project.md"), strings.Replace(string(b), "| `specs` | `<frontend-root>/specs-since <merge-base>` |\n", "", 1))
+			guardtest.WriteFile(t, filepath.Join(f.wt, ".flow/project.md"), strings.Replace(string(b), "| `specs` | `<frontend-root>/specs-since <merge-base>` |\n", "", 1))
 		} else {
-			writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\n"+specs)
+			guardtest.WriteExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\n"+specs)
 		}
-		writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
-		writeFile(t, filepath.Join(f.wt, "a.spec.ts"), "shot('a.png')\n")
-		writeFile(t, filepath.Join(f.wt, "a.spec.ts.mockups"), "a.png f1\n")
-		writeFile(t, filepath.Join(f.wt, "foreign.spec.ts"), "shot('b.png')\n")
-		writeFile(t, filepath.Join(f.wt, "foreign.spec.ts.mockups"), "b.png gone\n")
-		gitRun(t, f.wt, "add", "-A")
-		gitRun(t, f.wt, "commit", "-qm", "cfg")
+		guardtest.WriteFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
+		guardtest.WriteFile(t, filepath.Join(f.wt, "a.spec.ts"), "shot('a.png')\n")
+		guardtest.WriteFile(t, filepath.Join(f.wt, "a.spec.ts.mockups"), "a.png f1\n")
+		guardtest.WriteFile(t, filepath.Join(f.wt, "foreign.spec.ts"), "shot('b.png')\n")
+		guardtest.WriteFile(t, filepath.Join(f.wt, "foreign.spec.ts.mockups"), "b.png gone\n")
+		guardtest.GitRun(t, f.wt, "add", "-A")
+		guardtest.GitRun(t, f.wt, "commit", "-qm", "cfg")
 		f.green()
 		return f
 	}
@@ -886,15 +887,15 @@ func TestVisualVerifyPassPrepareRendersFrames(t *testing.T) {
 	t.Parallel()
 	setup := func(t *testing.T, frame string) *vvpFix {
 		design, _ := rfFixture(t, "/nowhere")
-		gitRun(t, design, "remote", "add", "origin", "x/design")
+		guardtest.GitRun(t, design, "remote", "add", "origin", "x/design")
 		f := vvpFixture(t, "| `mockups` | `design/mockups` |\n| `regression checkout` | `.` |\n| `regression repo` | `x/regress` |\n| `design repo` | `"+design+" x/design` |\n")
-		gitRun(t, f.wt, "remote", "add", "origin", "x/regress")
+		guardtest.GitRun(t, f.wt, "remote", "add", "origin", "x/regress")
 		b, _ := os.ReadFile(filepath.Join(f.wt, ".flow/project.md"))
-		writeFile(t, filepath.Join(f.wt, ".flow/project.md"), strings.Replace(string(b), "| `specs` | `<frontend-root>/specs-since <merge-base>` |\n", "", 1))
-		writeFile(t, filepath.Join(f.wt, "a.spec.ts"), "shot('a.png')\n")
-		writeFile(t, filepath.Join(f.wt, "a.spec.ts.mockups"), "a.png "+frame+"\n")
-		gitRun(t, f.wt, "add", "-A")
-		gitRun(t, f.wt, "commit", "-qm", "cfg")
+		guardtest.WriteFile(t, filepath.Join(f.wt, ".flow/project.md"), strings.Replace(string(b), "| `specs` | `<frontend-root>/specs-since <merge-base>` |\n", "", 1))
+		guardtest.WriteFile(t, filepath.Join(f.wt, "a.spec.ts"), "shot('a.png')\n")
+		guardtest.WriteFile(t, filepath.Join(f.wt, "a.spec.ts.mockups"), "a.png "+frame+"\n")
+		guardtest.GitRun(t, f.wt, "add", "-A")
+		guardtest.GitRun(t, f.wt, "commit", "-qm", "cfg")
 		f.green()
 		rfWritePNG(t, filepath.Join(f.wt, "design/mockups/t1/F1.png"), true)
 		return f
@@ -920,12 +921,12 @@ func TestVisualVerifyPassPrepareRoundDiffReadsTheSiblings(t *testing.T) {
 	t.Parallel()
 	section := strings.NewReplacer("`src/ui/**`", "`src/ui/**, gymie-frontend/**`").Replace(vvpSection)
 	f := vvpFixture(t, "")
-	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## run\n\n```bash\nnpm run dev\n```\n\n"+section)
-	gitRun(t, f.wt, "commit", "-qam", "cfg")
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## run\n\n```bash\nnpm run dev\n```\n\n"+section)
+	guardtest.GitRun(t, f.wt, "commit", "-qam", "cfg")
 	f.green()
 	w, mb := f.sibling("gymie-frontend")
-	writeFile(t, filepath.Join(w, ".flow/project.md"), "# project\n")
-	gitRun(t, w, "commit", "-qam", "no visual verification")
+	guardtest.WriteFile(t, filepath.Join(w, ".flow/project.md"), "# project\n")
+	guardtest.GitRun(t, w, "commit", "-qam", "no visual verification")
 	rc, out, calls := f.prepare("--worktree", w, "--merge-base", w+"="+mb, "--app", w+":.="+f.app.URL,
 		"--round-base", f.wt+"="+vgHead(t, f.wt), "--round-base", w+"="+mb)
 	if rc != 0 || strings.Contains(out, "round diff empty") || !strings.Contains(calls, "dispatch begin") {
@@ -952,23 +953,23 @@ func vvpFramesFixture(t *testing.T, n int, capture string) *vvpFix {
 	b, _ := os.ReadFile(filepath.Join(f.wt, ".flow/project.md"))
 	// The section's `capture` row is its one cell ending `<spec>`.
 	project := regexp.MustCompile("`[^`|]*<spec>`").ReplaceAllString(string(b), "`./cap <spec>`")
-	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), strings.Replace(project, "`npm ci`", "`./setup`", 1))
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".flow/project.md"), strings.Replace(project, "`npm ci`", "`./setup`", 1))
 	log := filepath.Join(f.wt, "run.log")
-	writeExec(t, filepath.Join(f.wt, "setup"), "#!/bin/sh\necho setup >> "+log+"\n")
-	writeExec(t, filepath.Join(f.wt, "cap"), "#!/bin/sh\necho \"capture $*\" >> "+log+"\n"+capture)
-	writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts\n")
+	guardtest.WriteExec(t, filepath.Join(f.wt, "setup"), "#!/bin/sh\necho setup >> "+log+"\n")
+	guardtest.WriteExec(t, filepath.Join(f.wt, "cap"), "#!/bin/sh\necho \"capture $*\" >> "+log+"\n"+capture)
+	guardtest.WriteExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts\n")
 	var spec, sidecar strings.Builder
 	for _, id := range vvpFrames("F", 1, n) {
-		writeFile(t, filepath.Join(f.wt, "design/mockups", id+".png"), "png\n")
+		guardtest.WriteFile(t, filepath.Join(f.wt, "design/mockups", id+".png"), "png\n")
 		fmt.Fprintf(&spec, "shot('shot-%s.png')\n", id)
 		fmt.Fprintf(&sidecar, "shot-%s.png %s\n", id, id)
 	}
-	writeFile(t, filepath.Join(f.wt, "tests/visual/a.spec.ts"), spec.String())
-	writeFile(t, filepath.Join(f.wt, "tests/visual/a.spec.ts.mockups"), sidecar.String())
-	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/design.md"), fmt.Sprintf("Frames F1 … F%d.\n", n))
-	writeFile(t, filepath.Join(f.wt, ".gitignore"), "run.log\nspectre/changes/\n")
-	gitRun(t, f.wt, "add", "-A")
-	gitRun(t, f.wt, "commit", "-qm", "frames")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/a.spec.ts"), spec.String())
+	guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/a.spec.ts.mockups"), sidecar.String())
+	guardtest.WriteFile(t, filepath.Join(f.wt, "spectre/changes/demo/design.md"), fmt.Sprintf("Frames F1 … F%d.\n", n))
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".gitignore"), "run.log\nspectre/changes/\n")
+	guardtest.GitRun(t, f.wt, "add", "-A")
+	guardtest.GitRun(t, f.wt, "commit", "-qm", "frames")
 	f.green()
 	return f
 }
@@ -1006,19 +1007,19 @@ func TestVisualVerifyPassPrepareOneVerifier(t *testing.T) {
 	earlier := func(t *testing.T, frames int) *vvpFix {
 		f := vvpFramesFixture(t, frames, "")
 		for _, n := range []string{"b", "c"} {
-			writeFile(t, filepath.Join(f.wt, "design/mockups/"+n+"1.png"), "png\n")
-			writeFile(t, filepath.Join(f.wt, "tests/visual/"+n+".spec.ts"), "shot('shot-"+n+"1.png')\n")
-			writeFile(t, filepath.Join(f.wt, "tests/visual/"+n+".spec.ts.mockups"), "shot-"+n+"1.png "+n+"1\n")
+			guardtest.WriteFile(t, filepath.Join(f.wt, "design/mockups/"+n+"1.png"), "png\n")
+			guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/"+n+".spec.ts"), "shot('shot-"+n+"1.png')\n")
+			guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/"+n+".spec.ts.mockups"), "shot-"+n+"1.png "+n+"1\n")
 		}
-		writeExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts tests/visual/b.spec.ts tests/visual/c.spec.ts\n")
-		gitRun(t, f.wt, "add", "-A")
-		gitRun(t, f.wt, "commit", "-qm", "earlier changes' specs")
+		guardtest.WriteExec(t, filepath.Join(f.wt, "specs-since"), "#!/bin/sh\necho tests/visual/a.spec.ts tests/visual/b.spec.ts tests/visual/c.spec.ts\n")
+		guardtest.GitRun(t, f.wt, "add", "-A")
+		guardtest.GitRun(t, f.wt, "commit", "-qm", "earlier changes' specs")
 		f.mb = vgHead(t, f.wt)
 		own, _ := os.ReadFile(spec(f))
-		writeFile(t, spec(f), string(own)+"// the change's own\n")
-		writeFile(t, filepath.Join(f.wt, "src/ui/app.tsx"), "own\n")
-		gitRun(t, f.wt, "add", "-A")
-		gitRun(t, f.wt, "commit", "-qm", "the change's own")
+		guardtest.WriteFile(t, spec(f), string(own)+"// the change's own\n")
+		guardtest.WriteFile(t, filepath.Join(f.wt, "src/ui/app.tsx"), "own\n")
+		guardtest.GitRun(t, f.wt, "add", "-A")
+		guardtest.GitRun(t, f.wt, "commit", "-qm", "the change's own")
 		return f
 	}
 
@@ -1036,8 +1037,8 @@ func TestVisualVerifyPassPrepareOneVerifier(t *testing.T) {
 		t.Parallel()
 		f := earlier(t, 10)
 		rb := vgHead(t, f.wt)
-		writeFile(t, filepath.Join(f.wt, "src/ui/app.tsx"), "round\n")
-		gitRun(t, f.wt, "commit", "-qam", "the round's fix")
+		guardtest.WriteFile(t, filepath.Join(f.wt, "src/ui/app.tsx"), "round\n")
+		guardtest.GitRun(t, f.wt, "commit", "-qam", "the round's fix")
 		f.green()
 		rc, out, _ := f.prepare("--round-base", f.wt+"="+rb)
 		if b := bundle(f, "visual-verify"); rc != 0 || !strings.Contains(b, "own specs: none\n") {
@@ -1062,7 +1063,7 @@ func TestFoldedVisualGuardsAreUnregistered(t *testing.T) {
 func TestPrepareStopsOnInvalidVisualSection(t *testing.T) {
 	t.Parallel()
 	f := vvpFixture(t, "")
-	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## visual verification\n\n| Setting | Value |\n|---|---|\n| `ui paths` | |\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## visual verification\n\n| Setting | Value |\n|---|---|\n| `ui paths` | |\n")
 	rc, out, calls := f.prepare()
 	if rc == 0 || strings.Contains(calls, "dispatch begin") || strings.Contains(out, "NEXT:") {
 		t.Fatalf("exit %d, want the validator's refusal before any capture\n%s\n%s", rc, out, calls)
@@ -1092,17 +1093,17 @@ func TestVisualVerifyPassPrepareKickoffSkipsReposLinkDoesNotName(t *testing.T) {
 	t.Parallel()
 	f := vvpFixture(t, "")
 	other := filepath.Join(filepath.Dir(f.wt), "admin")
-	writeFile(t, filepath.Join(other, "README"), "x\n")
-	fixtureRepo(t, other, repoShape{Branch: "main"})
-	gitRun(t, other, "add", "-A")
-	gitRun(t, other, "commit", "-qm", "r")
+	guardtest.WriteFile(t, filepath.Join(other, "README"), "x\n")
+	guardtest.FixtureRepo(t, other, guardtest.RepoShape{Branch: "main"})
+	guardtest.GitRun(t, other, "add", "-A")
+	guardtest.GitRun(t, other, "commit", "-qm", "r")
 	sec, tl := vvpSectionWith("")
-	writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## apps\n\n| App | Repo root |\n|-----|-----------|\n| admin | `"+other+"` |\n\n"+sec+tl)
-	writeFile(t, filepath.Join(f.wt, "spectre/peers"), "admin "+other+"\n")
-	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/link.md"), "## Merge order\n\n1. `.`\n")
-	gitRun(t, f.wt, "add", "-A")
-	gitRun(t, f.wt, "commit", "-qm", "cfg")
-	gitRun(t, f.wt, "config", "branch.spectre/demo.flowBase", "develop")
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n## apps\n\n| App | Repo root |\n|-----|-----------|\n| admin | `"+other+"` |\n\n"+sec+tl)
+	guardtest.WriteFile(t, filepath.Join(f.wt, "spectre/peers"), "admin "+other+"\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "spectre/changes/demo/link.md"), "## Merge order\n\n1. `.`\n")
+	guardtest.GitRun(t, f.wt, "add", "-A")
+	guardtest.GitRun(t, f.wt, "commit", "-qm", "cfg")
+	guardtest.GitRun(t, f.wt, "config", "branch.spectre/demo.flowBase", "develop")
 	f.green()
 	_, out, _ := f.prepare()
 	if strings.Contains(out, "STOP: kickoff") {

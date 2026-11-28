@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // TestEndStaleDispatchRows: an open row whose agent finished and went quiet 10+ minutes ago is
@@ -23,9 +24,9 @@ func TestEndStaleDispatchRows(t *testing.T) {
 		if finished {
 			fin = "true"
 		}
-		writeFile(t, filepath.Join(sub, "agent-"+id+".meta.json"), `{"finished":`+fin+`}`)
+		guardtest.WriteFile(t, filepath.Join(sub, "agent-"+id+".meta.json"), `{"finished":`+fin+`}`)
 		tr := filepath.Join(sub, "agent-"+id+".jsonl")
-		writeFile(t, tr, "{}\n")
+		guardtest.WriteFile(t, tr, "{}\n")
 		old := time.Now().Add(-age)
 		if err := os.Chtimes(tr, old, old); err != nil {
 			t.Fatal(err)
@@ -45,7 +46,7 @@ func TestEndStaleDispatchRows(t *testing.T) {
 {"key":"stale2","agentId":"eee","sessionToken":"t","endedAt":null}]`
 	srv := fakeFlowdRows(t, func() string { return rows }, nil)
 	log := filepath.Join(tmp, "flow.log")
-	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\n"+
+	guardtest.WriteExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\n"+
 		"printf '%s\\n' \"$*\" >>"+log+"\n"+
 		"case \"$*\" in *-key\\ boom*) echo nope >&2; exit 1;; esac\n")
 	env := core.Env{Getenv: func(k string) string {
@@ -112,9 +113,9 @@ func TestEndStaleDispatchRowsReadsTheHandbackReport(t *testing.T) {
 		"aaa": "done\ncommit: t1 " + sha,
 		"bbb": "- task 3: fix",
 	} {
-		writeFile(t, filepath.Join(sub, "agent-"+id+".meta.json"), `{"finished":true}`)
+		guardtest.WriteFile(t, filepath.Join(sub, "agent-"+id+".meta.json"), `{"finished":true}`)
 		tr := filepath.Join(sub, "agent-"+id+".jsonl")
-		writeFile(t, tr, `{"type":"user","message":{"content":"go"}}`+"\n"+
+		guardtest.WriteFile(t, tr, `{"type":"user","message":{"content":"go"}}`+"\n"+
 			`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"SubagentHandback","input":{"message":`+jsonString(report)+`}}]}}`+"\n")
 		old := time.Now().Add(-20 * time.Minute)
 		if err := os.Chtimes(tr, old, old); err != nil {
@@ -126,7 +127,7 @@ func TestEndStaleDispatchRowsReadsTheHandbackReport(t *testing.T) {
 {"key":"task-3-reviewer","agentId":"bbb","sessionToken":"t","endedAt":null}]`
 	}, nil)
 	log := filepath.Join(tmp, "flow.log")
-	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\n"+
+	guardtest.WriteExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\n"+
 		"printf '%s\\n' \"$*\" >>"+log+"\n")
 	env := core.Env{Getenv: func(k string) string {
 		switch k {

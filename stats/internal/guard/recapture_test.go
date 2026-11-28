@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // TestRecapture pins flow-guard recapture: one run of the task's specs
@@ -29,13 +30,13 @@ func TestRecapture(t *testing.T) {
 		"plan/tasks.md":               "- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** `src/Day.tsx`\n**Tests:** none\n",
 		".flow/project.md":            "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `src/**` |\n",
 	} {
-		writeFile(t, filepath.Join(root, p), body)
+		guardtest.WriteFile(t, filepath.Join(root, p), body)
 	}
-	gitRun(t, root, "init", "-q")
-	gitRun(t, root, "add", "-A")
-	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	guardtest.GitRun(t, root, "init", "-q")
+	guardtest.GitRun(t, root, "add", "-A")
+	guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
 	ran := filepath.Join(t.TempDir(), "ran")
-	run := func(command string) guardResult {
+	run := func(command string) guardtest.GuardResult {
 		return runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", command}, env)
 	}
 	receipts := func() string {
@@ -43,13 +44,13 @@ func TestRecapture(t *testing.T) {
 		return string(raw)
 	}
 
-	writeFile(t, filepath.Join(root, "docs/notes.md"), "edited\n")
-	if r := run("echo <spec> >> " + ran); r.rc != 0 || !strings.Contains(r.stdout, "nothing to capture") || core.IsFile(ran) {
-		t.Errorf("no affected spec: rc=%d out=%q", r.rc, r.out)
+	guardtest.WriteFile(t, filepath.Join(root, "docs/notes.md"), "edited\n")
+	if r := run("echo <spec> >> " + ran); r.Rc != 0 || !strings.Contains(r.Stdout, "nothing to capture") || core.IsFile(ran) {
+		t.Errorf("no affected spec: rc=%d out=%q", r.Rc, r.Out)
 	}
-	writeFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 1 }\n")
-	if r := run("echo <spec> >> " + ran); r.rc != 0 || !strings.Contains(r.stdout, "recapture: 1 test selection(s), exit 0") {
-		t.Errorf("one affected spec: rc=%d out=%q", r.rc, r.out)
+	guardtest.WriteFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 1 }\n")
+	if r := run("echo <spec> >> " + ran); r.Rc != 0 || !strings.Contains(r.Stdout, "recapture: 1 test selection(s), exit 0") {
+		t.Errorf("one affected spec: rc=%d out=%q", r.Rc, r.Out)
 	}
 	if got, _ := os.ReadFile(ran); string(got) != "shots/day.spec.ts --retries=1\n" {
 		t.Errorf("the command ran with %q, want the day spec alone", got)
@@ -57,13 +58,13 @@ func TestRecapture(t *testing.T) {
 	if got := receipts(); !strings.Contains(got, `"specs":["shots/day.spec.ts"],"exit":0`) || !strings.Contains(got, `"src/Day.tsx":"`) {
 		t.Errorf("receipts = %q", got)
 	}
-	writeFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 2 }\n")
-	if r := run("echo <spec>; exit 3"); r.rc != 1 || !strings.Contains(receipts(), `"exit":3`) {
-		t.Errorf("a failing command: rc=%d out=%q receipts=%q", r.rc, r.out, receipts())
+	guardtest.WriteFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 2 }\n")
+	if r := run("echo <spec>; exit 3"); r.Rc != 1 || !strings.Contains(receipts(), `"exit":3`) {
+		t.Errorf("a failing command: rc=%d out=%q receipts=%q", r.Rc, r.Out, receipts())
 	}
 	for _, args := range [][]string{{root, root + "=HEAD", "echo <spec>"}, {root + "/plan/tasks.md:4", root, root + "=HEAD", "no placeholder"}, {root + "/plan/tasks.md:4", root, root, "echo <spec>"}, {root + "/plan/tasks.md:9", root, root + "=HEAD", "echo <spec>"}} {
-		if r := runGuard("recapture", args, env); r.rc != 2 {
-			t.Errorf("%v: rc=%d, want 2", args[1:], r.rc)
+		if r := runGuard("recapture", args, env); r.Rc != 2 {
+			t.Errorf("%v: rc=%d, want 2", args[1:], r.Rc)
 		}
 	}
 }
@@ -85,48 +86,48 @@ func TestRecaptureTakesTheTaskSetAndRerunsOnlyWhatFailed(t *testing.T) {
 		"shots/week.spec.ts":  "test('week', () => {})\n",
 		"plan/tasks.md":       "- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** `shots/fixtures.ts`\n**Tests:** `shots/day.spec.ts` › day\n**Regression:** `e2e/shots/rooms.spec.ts`\n",
 	} {
-		writeFile(t, filepath.Join(root, p), body)
+		guardtest.WriteFile(t, filepath.Join(root, p), body)
 		if strings.HasSuffix(p, ".spec.ts") {
-			writeFile(t, filepath.Join(root, p+".sources"), "src/"+filepath.Base(p)+".tsx\n")
+			guardtest.WriteFile(t, filepath.Join(root, p+".sources"), "src/"+filepath.Base(p)+".tsx\n")
 		}
 	}
-	gitRun(t, root, "init", "-q")
-	gitRun(t, root, "add", "-A")
-	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
-	writeFile(t, filepath.Join(root, "shots/fixtures.ts"), "export const seed = 2\n")
+	guardtest.GitRun(t, root, "init", "-q")
+	guardtest.GitRun(t, root, "add", "-A")
+	guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	guardtest.WriteFile(t, filepath.Join(root, "shots/fixtures.ts"), "export const seed = 2\n")
 	ran := filepath.Join(t.TempDir(), "ran")
-	run := func(command string) guardResult {
+	run := func(command string) guardtest.GuardResult {
 		return runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", command}, env)
 	}
 	red := "printf '  1 failed\\n    [chromium] › shots/rooms.spec.ts:3:1 › rooms\\n'; echo <spec> >> " + ran + "; exit 1"
-	if r := run(red); r.rc != 1 {
-		t.Fatalf("the red run: rc=%d out=%q", r.rc, r.out)
+	if r := run(red); r.Rc != 1 {
+		t.Fatalf("the red run: rc=%d out=%q", r.Rc, r.Out)
 	}
-	if r := run("echo <spec> >> " + ran); r.rc != 0 {
-		t.Fatalf("the re-run: rc=%d out=%q", r.rc, r.out)
+	if r := run("echo <spec> >> " + ran); r.Rc != 0 {
+		t.Fatalf("the re-run: rc=%d out=%q", r.Rc, r.Out)
 	}
-	if r := run("echo <spec> >> " + ran); r.rc != 0 || !strings.Contains(r.stdout, "already passed") {
-		t.Errorf("nothing left: rc=%d out=%q", r.rc, r.out)
+	if r := run("echo <spec> >> " + ran); r.Rc != 0 || !strings.Contains(r.Stdout, "already passed") {
+		t.Errorf("nothing left: rc=%d out=%q", r.Rc, r.Out)
 	}
 	const want = "shots/day.spec.ts shots/rooms.spec.ts --retries=1\nshots/rooms.spec.ts:3 --retries=1\n"
 	if got, _ := os.ReadFile(ran); string(got) != want {
 		t.Errorf("the command ran with %q, want %q", got, want)
 	}
 	// A red run that cannot name its failures failed every spec.
-	writeFile(t, filepath.Join(root, "shots/fixtures.ts"), "export const seed = 3\n")
+	guardtest.WriteFile(t, filepath.Join(root, "shots/fixtures.ts"), "export const seed = 3\n")
 	run("echo <spec> >> " + ran + "; exit 1")
 	run("echo <spec> >> " + ran)
 	if got, _ := os.ReadFile(ran); !strings.HasSuffix(string(got), "shots/day.spec.ts shots/rooms.spec.ts --retries=1\nshots/day.spec.ts shots/rooms.spec.ts --retries=1\n") {
 		t.Errorf("after an unnamed failure the command ran with %q, want both specs again", got)
 	}
 	// A retry-pass is flaky, never failed: nothing is left to run after it.
-	writeFile(t, filepath.Join(root, "shots/fixtures.ts"), "export const seed = 4\n")
+	guardtest.WriteFile(t, filepath.Join(root, "shots/fixtures.ts"), "export const seed = 4\n")
 	r := run("printf '  1 flaky\\n    [chromium] › shots/rooms.spec.ts:3:1 › rooms\\n  1 passed\\n'; : <spec>")
-	if r.rc != 0 || !strings.Contains(r.stdout, "recapture: flaky (1): shots/rooms.spec.ts:3 — passed on retry") {
-		t.Errorf("a flaky run: rc=%d out=%q", r.rc, r.out)
+	if r.Rc != 0 || !strings.Contains(r.Stdout, "recapture: flaky (1): shots/rooms.spec.ts:3 — passed on retry") {
+		t.Errorf("a flaky run: rc=%d out=%q", r.Rc, r.Out)
 	}
-	if r := run("echo <spec> >> " + ran); !strings.Contains(r.stdout, "already passed") {
-		t.Errorf("after a flaky run: rc=%d out=%q, want nothing left", r.rc, r.out)
+	if r := run("echo <spec> >> " + ran); !strings.Contains(r.Stdout, "already passed") {
+		t.Errorf("after a flaky run: rc=%d out=%q, want nothing left", r.Rc, r.Out)
 	}
 }
 
@@ -175,16 +176,16 @@ func TestRecaptureRecordsItsCost(t *testing.T) {
 		"shots/day.spec.ts.sources": "src/Day.tsx\n",
 		"plan/tasks.md":             "- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** `src/Day.tsx`\n**Tests:** none\n",
 	} {
-		writeFile(t, filepath.Join(root, p), body)
+		guardtest.WriteFile(t, filepath.Join(root, p), body)
 	}
-	gitRun(t, root, "init", "-q", "-b", "spectre/demo")
-	gitRun(t, root, "add", "-A")
-	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
-	writeFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 1 }\n")
+	guardtest.GitRun(t, root, "init", "-q", "-b", "spectre/demo")
+	guardtest.GitRun(t, root, "add", "-A")
+	guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	guardtest.WriteFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 1 }\n")
 	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "printf '  3 passed (2s)\\n'; : <spec>"}, env)
 	calls, _ := os.ReadFile(log)
-	if want := `record run -C ` + regexp.QuoteMeta(root) + ` -change demo -kind recapture -label 4 -seconds \d+ -tests 3 -failed 0 -exit 0 -flaky 0\n`; r.rc != 0 || !regexp.MustCompile(want).Match(calls) {
-		t.Errorf("rc=%d out=%q flow calls %q, want %q", r.rc, r.out, calls, want)
+	if want := `record run -C ` + regexp.QuoteMeta(root) + ` -change demo -kind recapture -label 4 -seconds \d+ -tests 3 -failed 0 -exit 0 -flaky 0\n`; r.Rc != 0 || !regexp.MustCompile(want).Match(calls) {
+		t.Errorf("rc=%d out=%q flow calls %q, want %q", r.Rc, r.Out, calls, want)
 	}
 }
 
@@ -211,23 +212,23 @@ func TestRecaptureTaskCapturedStandsUntilASourceMoves(t *testing.T) {
 		"shots/week.spec.ts.sources":  "src/Week.tsx\n",
 		"plan/tasks.md":               "- [ ] 1. Day\n\n**Tests:** none\n\n- [ ] 2. Rooms\n\n**Tests:** none\n",
 	} {
-		writeFile(t, filepath.Join(root, p), body)
+		guardtest.WriteFile(t, filepath.Join(root, p), body)
 	}
 	commit := func(msg string) {
 		t.Helper()
-		gitRun(t, root, "add", "-A")
-		gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", msg)
+		guardtest.GitRun(t, root, "add", "-A")
+		guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", msg)
 	}
-	gitRun(t, root, "init", "-q")
+	guardtest.GitRun(t, root, "init", "-q")
 	commit("base")
 	base := vgHead(t, root)
 	// task edits path, captures its task set, then commits.
 	task := func(id, path string) {
 		t.Helper()
 		old, _ := os.ReadFile(filepath.Join(root, path))
-		writeFile(t, filepath.Join(root, path), string(old)+"export const edited = '"+id+"'\n")
-		if r := runGuard("recapture", []string{root + "/plan/tasks.md:" + id, root, root + "=HEAD", "true <spec>"}, env); r.rc != 0 {
-			t.Fatalf("recapture of task %s: rc=%d out=%q", id, r.rc, r.out)
+		guardtest.WriteFile(t, filepath.Join(root, path), string(old)+"export const edited = '"+id+"'\n")
+		if r := runGuard("recapture", []string{root + "/plan/tasks.md:" + id, root, root + "=HEAD", "true <spec>"}, env); r.Rc != 0 {
+			t.Fatalf("recapture of task %s: rc=%d out=%q", id, r.Rc, r.Out)
 		}
 		commit("task " + id)
 	}
@@ -240,13 +241,13 @@ func TestRecaptureTaskCapturedStandsUntilASourceMoves(t *testing.T) {
 		t.Fatalf("two tasks, each captured: %q, want %q", got, want)
 	}
 	// A shared file the day screen imports moves it; rooms still stands.
-	writeFile(t, filepath.Join(root, "src/Chip.tsx"), "export function Chip() { return 1 }\n")
+	guardtest.WriteFile(t, filepath.Join(root, "src/Chip.tsx"), "export function Chip() { return 1 }\n")
 	commit("a later edit of a shared file")
 	if got, want := stands(), "shots/rooms.spec.ts"; got != want {
 		t.Errorf("after a shared file moved: %q, want %q", got, want)
 	}
 	// A screen no task captured never stands.
-	writeFile(t, filepath.Join(root, "src/Week.tsx"), "export function Week() { return 1 }\n")
+	guardtest.WriteFile(t, filepath.Join(root, "src/Week.tsx"), "export function Week() { return 1 }\n")
 	commit("an uncaptured edit")
 	if got, want := stands(), "shots/rooms.spec.ts"; got != want {
 		t.Errorf("after an uncaptured edit: %q, want %q", got, want)
@@ -266,12 +267,12 @@ func recaptureTitleFixture(t *testing.T, tests string) string {
 		"tests/visual/b.spec.ts": "test(\"goal sheet\", () => {})\n",
 		"plan/tasks.md":          "- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** `src/Goal.tsx`\n**Tests:** " + tests + "\n",
 	} {
-		writeFile(t, filepath.Join(root, p), body)
+		guardtest.WriteFile(t, filepath.Join(root, p), body)
 	}
-	gitRun(t, root, "init", "-q")
-	gitRun(t, root, "add", "-A")
-	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
-	writeFile(t, filepath.Join(root, "src/Goal.tsx"), "export function Goal() { return 1 }\n")
+	guardtest.GitRun(t, root, "init", "-q")
+	guardtest.GitRun(t, root, "add", "-A")
+	guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	guardtest.WriteFile(t, filepath.Join(root, "src/Goal.tsx"), "export function Goal() { return 1 }\n")
 	return root
 }
 
@@ -282,8 +283,8 @@ func TestRecaptureSelectsSpecsByTitle(t *testing.T) {
 	root := recaptureTitleFixture(t, "`goal sheet at rest`")
 	ran := filepath.Join(t.TempDir(), "ran")
 	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, core.Env{Getenv: os.Getenv})
-	if r.rc != 0 {
-		t.Fatalf("rc=%d out=%q", r.rc, r.out)
+	if r.Rc != 0 {
+		t.Fatalf("rc=%d out=%q", r.Rc, r.Out)
 	}
 	if got, _ := os.ReadFile(ran); string(got) != "tests/visual/a.spec.ts --retries=1\n" {
 		t.Errorf("the command ran with %q, want tests/visual/a.spec.ts alone", got)
@@ -299,15 +300,15 @@ func TestRecaptureFailsWhenNoSpecHoldsATitle(t *testing.T) {
 	ran := filepath.Join(t.TempDir(), "ran")
 	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, core.Env{Getenv: os.Getenv})
 	want := "recapture: task 4 names tests no spec under " + root + " holds: no such title\n"
-	if r.rc != 1 || r.stdout != want || core.IsFile(ran) || core.IsFile(filepath.Join(root, ".git/flow-recapture.jsonl")) {
-		t.Errorf("rc=%d stdout=%q ran=%v, want rc 1, %q, nothing run, no receipt", r.rc, r.stdout, core.IsFile(ran), want)
+	if r.Rc != 1 || r.Stdout != want || core.IsFile(ran) || core.IsFile(filepath.Join(root, ".git/flow-recapture.jsonl")) {
+		t.Errorf("rc=%d stdout=%q ran=%v, want rc 1, %q, nothing run, no receipt", r.Rc, r.Stdout, core.IsFile(ran), want)
 	}
 
 	for _, named := range []string{"none", "`TestGoalSheet`, `a.spec.ts:12`, `x := f()`"} {
 		root = recaptureTitleFixture(t, named)
 		r = runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, core.Env{Getenv: os.Getenv})
-		if r.rc != 0 || r.stdout != "recapture: no affected spec — nothing to capture\n" || core.IsFile(ran) {
-			t.Errorf("no title named in %q: rc=%d stdout=%q", named, r.rc, r.stdout)
+		if r.Rc != 0 || r.Stdout != "recapture: no affected spec — nothing to capture\n" || core.IsFile(ran) {
+			t.Errorf("no title named in %q: rc=%d stdout=%q", named, r.Rc, r.Stdout)
 		}
 	}
 }
@@ -319,13 +320,13 @@ func TestRecaptureFailsWhenNoSpecHoldsATitle(t *testing.T) {
 func TestRcBlobsMatchesRevParse(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
-	fixtureRepo(t, wt, repoShape{Branch: "main"})
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{Branch: "main"})
 	paths := []string{"top.txt", "a/b/nested.txt", "sp ace\tтаб.txt", "gone.txt", "a/b"}
 	for _, p := range paths[:3] {
-		writeFile(t, filepath.Join(wt, p), p+"\n")
+		guardtest.WriteFile(t, filepath.Join(wt, p), p+"\n")
 	}
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-qm", "x")
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-qm", "x")
 	git := core.EnvGit(core.Env{Getenv: os.Getenv, Dir: wt})
 	got := rcBlobs(git, wt, "HEAD", paths)
 	for _, p := range paths {

@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -73,16 +74,16 @@ func rfFixture(t *testing.T, checkout string) (design, root string) {
 	t.Helper()
 	base := t.TempDir()
 	design, root = filepath.Join(base, "design"), filepath.Join(base, "project")
-	mkdir(t, design)
-	fixtureRepo(t, design, repoShape{})
-	writeFile(t, filepath.Join(design, "Page.dc.html"), rfPage)
-	writeFile(t, filepath.Join(design, "_gen", "Page.dc.html"), rfPage)
-	gitRun(t, design, "add", "-A")
-	gitRun(t, design, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "page")
-	gitRun(t, design, "tag", "t1")
-	mkdir(t, filepath.Join(root, ".flow"))
-	fixtureRepo(t, root, repoShape{})
-	writeFile(t, filepath.Join(root, ".flow", "project.md"), "## visual verification\n\n| Setting | Value |\n|---------|-------|\n"+
+	guardtest.Mkdir(t, design)
+	guardtest.FixtureRepo(t, design, guardtest.RepoShape{})
+	guardtest.WriteFile(t, filepath.Join(design, "Page.dc.html"), rfPage)
+	guardtest.WriteFile(t, filepath.Join(design, "_gen", "Page.dc.html"), rfPage)
+	guardtest.GitRun(t, design, "add", "-A")
+	guardtest.GitRun(t, design, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "page")
+	guardtest.GitRun(t, design, "tag", "t1")
+	guardtest.Mkdir(t, filepath.Join(root, ".flow"))
+	guardtest.FixtureRepo(t, root, guardtest.RepoShape{})
+	guardtest.WriteFile(t, filepath.Join(root, ".flow", "project.md"), "## visual verification\n\n| Setting | Value |\n|---------|-------|\n"+
 		"| `regression checkout` | `"+checkout+"` |\n| `mockups` | `docs/design/mockups` |\n"+
 		"| `design repo` | `"+design+" "+design+"` |\n")
 	return design, root
@@ -98,7 +99,7 @@ func rfRun(t *testing.T, env core.Env, args ...string) (string, int) {
 func rfCite(t *testing.T, root, body string) string {
 	t.Helper()
 	p := filepath.Join(root, "design.md")
-	writeFile(t, p, body)
+	guardtest.WriteFile(t, p, body)
 	return p
 }
 
@@ -125,8 +126,8 @@ func TestRenderFramesCannotAnswer(t *testing.T) {
 	t.Run("tag names a committed sub-directory", func(t *testing.T) {
 		t.Parallel()
 		_, root := rfFixture(t, "/nowhere")
-		writeFile(t, filepath.Join(root, "docs/design/mockups/t1/F1.png"), "png")
-		gitRun(t, root, "add", "-A")
+		guardtest.WriteFile(t, filepath.Join(root, "docs/design/mockups/t1/F1.png"), "png")
+		guardtest.GitRun(t, root, "add", "-A")
 		f := rfCite(t, root, "docs/design/mockups/t1/F1.png")
 		if out, rc := rfRun(t, env, root, f); rc != 2 || !strings.Contains(out, "committed sub-directory") {
 			t.Errorf("rc=%d out=%q, want 2 naming the committed sub-directory", rc, out)
@@ -135,8 +136,8 @@ func TestRenderFramesCannotAnswer(t *testing.T) {
 	t.Run("committed sub-directory of a tag the design repo lacks stands", func(t *testing.T) {
 		t.Parallel()
 		_, root := rfFixture(t, "/nowhere")
-		writeFile(t, filepath.Join(root, "docs/design/mockups/t9/F1.png"), "png")
-		gitRun(t, root, "add", "-A")
+		guardtest.WriteFile(t, filepath.Join(root, "docs/design/mockups/t9/F1.png"), "png")
+		guardtest.GitRun(t, root, "add", "-A")
 		f := rfCite(t, root, "docs/design/mockups/t9/F1.png")
 		if out, rc := rfRun(t, env, root, f); rc != 0 {
 			t.Errorf("rc=%d out=%q, want 0: the committed frames are the only source", rc, out)
@@ -189,12 +190,12 @@ func TestRenderFramesFindings(t *testing.T) {
 		design, root := rfFixture(t, "/nowhere")
 		// The clone lacks t1; the declared remote (the fixture repo) has it.
 		clone := filepath.Join(filepath.Dir(design), "clone")
-		gitRun(t, filepath.Dir(design), "clone", "-q", "--no-tags", design, clone)
+		guardtest.GitRun(t, filepath.Dir(design), "clone", "-q", "--no-tags", design, clone)
 		cfg := filepath.Join(root, ".flow", "project.md")
 		body, _ := os.ReadFile(cfg)
-		writeFile(t, cfg, strings.Replace(string(body), "`"+design+" ", "`"+clone+" ", 1))
+		guardtest.WriteFile(t, cfg, strings.Replace(string(body), "`"+design+" ", "`"+clone+" ", 1))
 		sidecar := filepath.Join(root, "x.spec.ts.mockups")
-		writeFile(t, sidecar, "# comment\nframe scale=2 status=26 border=1 bare\na.png t1/NOPE\n")
+		guardtest.WriteFile(t, sidecar, "# comment\nframe scale=2 status=26 border=1 bare\na.png t1/NOPE\n")
 		out, rc := rfRun(t, env, root, sidecar)
 		if rc != 1 || !strings.Contains(out, "RENDER-FINDING: t1/NOPE — no frame `NOPE` at the tag") || !strings.Contains(out, "FRAMES-MISSING: 1") {
 			t.Errorf("rc=%d out=%q, want 1 naming t1/NOPE", rc, out)
@@ -206,10 +207,10 @@ func TestRenderFramesFindings(t *testing.T) {
 	t.Run("an id not unique at its tag", func(t *testing.T) {
 		t.Parallel()
 		design, root := rfFixture(t, "/nowhere")
-		writeFile(t, filepath.Join(design, "Copy.dc.html"), rfPage)
-		gitRun(t, design, "add", "-A")
-		gitRun(t, design, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "copy")
-		gitRun(t, design, "tag", "t2")
+		guardtest.WriteFile(t, filepath.Join(design, "Copy.dc.html"), rfPage)
+		guardtest.GitRun(t, design, "add", "-A")
+		guardtest.GitRun(t, design, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "copy")
+		guardtest.GitRun(t, design, "tag", "t2")
 		f := rfCite(t, root, "see docs/design/mockups/t2/F1.png.")
 		if out, rc := rfRun(t, env, root, f); rc != 1 || !strings.Contains(out, "is not unique at the tag (2 in Copy.dc.html, Page.dc.html)") {
 			t.Errorf("rc=%d out=%q, want 1", rc, out)
@@ -218,10 +219,10 @@ func TestRenderFramesFindings(t *testing.T) {
 	t.Run("a review page redrawing a canonical frame is not ambiguous", func(t *testing.T) {
 		t.Parallel()
 		design, root := rfFixture(t, "/nowhere")
-		writeFile(t, filepath.Join(design, "X Changes.dc.html"), rfPage)
-		gitRun(t, design, "add", "-A")
-		gitRun(t, design, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "review")
-		gitRun(t, design, "tag", "t3")
+		guardtest.WriteFile(t, filepath.Join(design, "X Changes.dc.html"), rfPage)
+		guardtest.GitRun(t, design, "add", "-A")
+		guardtest.GitRun(t, design, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "review")
+		guardtest.GitRun(t, design, "tag", "t3")
 		f := rfCite(t, root, "see docs/design/mockups/t3/F1.png.")
 		if out, _ := rfRun(t, env, root, f); strings.Contains(out, "not unique") {
 			t.Errorf("out=%q, want the canonical page chosen", out)
@@ -335,12 +336,12 @@ func rfWritePNG(t *testing.T, p string, drawn bool) {
 	if drawn {
 		draw.Draw(img, image.Rect(0, 300, 780, 700), &image.Uniform{color.RGBA{64, 128, 192, 255}}, image.Point{}, draw.Src)
 	}
-	mkdir(t, filepath.Dir(p))
+	guardtest.Mkdir(t, filepath.Dir(p))
 	var b bytes.Buffer
 	if err := png.Encode(&b, img); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, p, b.String())
+	guardtest.WriteFile(t, p, b.String())
 }
 
 // TestRenderFramesBlank: a blank PNG already present is re-rendered, not

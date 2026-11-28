@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 func TestCheckVerifyReport(t *testing.T) {
@@ -56,14 +57,14 @@ func TestCheckVerifyReport(t *testing.T) {
 				}
 			}
 			r := runGuard("check-verify-report", []string{path, tc.motions}, core.Env{Getenv: os.Getenv})
-			if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-				t.Fatalf("rc=%d out=%q; want rc=%d containing %q", r.rc, r.out, tc.rc, tc.want)
+			if r.Rc != tc.rc || !strings.Contains(r.Out, tc.want) {
+				t.Fatalf("rc=%d out=%q; want rc=%d containing %q", r.Rc, r.Out, tc.rc, tc.want)
 			}
 		})
 	}
 	for _, args := range [][]string{nil, {"x"}, {"x", "-1"}, {"x", "two"}, {"x", "0", "2"}} {
-		if r := runGuard("check-verify-report", args, core.Env{Getenv: os.Getenv}); r.rc != 2 || !strings.Contains(r.out, "usage") {
-			t.Fatalf("args %q: rc=%d out=%q; want usage exit 2", args, r.rc, r.out)
+		if r := runGuard("check-verify-report", args, core.Env{Getenv: os.Getenv}); r.Rc != 2 || !strings.Contains(r.Out, "usage") {
+			t.Fatalf("args %q: rc=%d out=%q; want usage exit 2", args, r.Rc, r.Out)
 		}
 	}
 }
@@ -87,26 +88,26 @@ func TestCheckVerifyReportNoMockupSourceWithCitedSource(t *testing.T) {
 	} {
 		wt := t.TempDir()
 		root := filepath.Join(wt, "spectre/changes/x")
-		writeFile(t, filepath.Join(root, "design.md"), "Mockups: `handoff/Flow.html`.\n")
+		guardtest.WriteFile(t, filepath.Join(root, "design.md"), "Mockups: `handoff/Flow.html`.\n")
 		if tc.cited {
-			writeFile(t, filepath.Join(wt, "handoff/Flow.html"), "<html>")
+			guardtest.WriteFile(t, filepath.Join(wt, "handoff/Flow.html"), "<html>")
 		}
 		if tc.inVV {
-			writeFile(t, filepath.Join(root, "visual-verification.md"), "- AD1: no mockup source\n")
+			guardtest.WriteFile(t, filepath.Join(root, "visual-verification.md"), "- AD1: no mockup source\n")
 		}
 		body := "## Report\n" + steps
 		if tc.inReport {
 			body += "- matrix: no mockup source\n"
 		}
 		path := filepath.Join(wt, ".superpowers/sdd/verify-report-visual-verify.md")
-		writeFile(t, path, body)
+		guardtest.WriteFile(t, path, body)
 		args := []string{path, "0"}
 		if tc.design {
 			args = append(args, "--design", filepath.Join(root, "design.md"))
 		}
 		r := runGuard("check-verify-report", args, core.Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		if r.Rc != tc.rc || !strings.Contains(r.Out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.Rc, r.Out, tc.rc, tc.want)
 		}
 	}
 }
@@ -132,19 +133,19 @@ func TestCheckVerifyReportStep10WithACitedPrototype(t *testing.T) {
 	} {
 		wt := t.TempDir()
 		root := filepath.Join(wt, "spectre/changes/x")
-		writeFile(t, filepath.Join(root, "design.md"), "## Context\n\nPrototype: `.superpowers/sdd/"+tc.cite+"`.\n")
+		guardtest.WriteFile(t, filepath.Join(root, "design.md"), "## Context\n\nPrototype: `.superpowers/sdd/"+tc.cite+"`.\n")
 		if tc.exists {
-			writeFile(t, filepath.Join(wt, ".superpowers/sdd", tc.cite), "<html>")
+			guardtest.WriteFile(t, filepath.Join(wt, ".superpowers/sdd", tc.cite), "<html>")
 		}
 		path := filepath.Join(wt, ".superpowers/sdd/verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+tc.report)
+		guardtest.WriteFile(t, path, "## Report\n"+tc.report)
 		args := []string{path, "0"}
 		if tc.design {
 			args = append(args, "--design", filepath.Join(root, "design.md"))
 		}
 		r := runGuard("check-verify-report", args, core.Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		if r.Rc != tc.rc || !strings.Contains(r.Out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.Rc, r.Out, tc.rc, tc.want)
 		}
 	}
 }
@@ -170,10 +171,10 @@ func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 		{"resolver finds nothing", "", "nowhere", true, 0, "VERIFY-REPORT-COMPLETE"},
 	} {
 		root := t.TempDir()
-		writeFile(t, filepath.Join(root, ".flow/project.md"), rvsSection(tc.shots))
+		guardtest.WriteFile(t, filepath.Join(root, ".flow/project.md"), rvsSection(tc.shots))
 		snaps := filepath.Join(root, "tests/visual/a.spec.ts-snapshots")
-		writeFile(t, filepath.Join(snaps, "a-open-darwin.png"), "")
-		writeFile(t, filepath.Join(snaps, "a-roles-darwin.png"), "")
+		guardtest.WriteFile(t, filepath.Join(snaps, "a-open-darwin.png"), "")
+		guardtest.WriteFile(t, filepath.Join(snaps, "a-roles-darwin.png"), "")
 		lines := []string{
 			allDone,
 			"- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + " — clean\n",
@@ -195,10 +196,10 @@ func TestCheckVerifyReportAccountsForEveryCapture(t *testing.T) {
 		}
 		vrtManifest(t, filepath.Join(root, ".superpowers/sdd"), "visual-verify", "mock-frame-03", specs)
 		path := filepath.Join(root, ".superpowers/sdd/verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+body.String())
+		guardtest.WriteFile(t, path, "## Report\n"+body.String())
 		r := runGuard("check-verify-report", []string{path, "0"}, core.Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		if r.Rc != tc.rc || !strings.Contains(r.Out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.Rc, r.Out, tc.rc, tc.want)
 		}
 	}
 }
@@ -223,10 +224,10 @@ func TestCheckVerifyReportAccountsForAnUnchangedView(t *testing.T) {
 		{"a view no frame is composed for is always read", marker, marker, true, 1, `a-open reads "capture unchanged"`},
 	} {
 		root := t.TempDir()
-		writeFile(t, filepath.Join(root, ".flow/project.md"), rvsSection("tests/visual"))
+		guardtest.WriteFile(t, filepath.Join(root, ".flow/project.md"), rvsSection("tests/visual"))
 		snaps := filepath.Join(root, "tests/visual/a.spec.ts-snapshots")
-		writeFile(t, filepath.Join(snaps, "a-open-darwin.png"), "")
-		writeFile(t, filepath.Join(snaps, "a-roles-darwin.png"), "")
+		guardtest.WriteFile(t, filepath.Join(snaps, "a-open-darwin.png"), "")
+		guardtest.WriteFile(t, filepath.Join(snaps, "a-roles-darwin.png"), "")
 		body := allDone +
 			"- a-open: " + filepath.Join(snaps, "a-open-darwin.png") + tc.open + "\n" +
 			"- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + tc.roles + "\n" +
@@ -238,15 +239,15 @@ func TestCheckVerifyReportAccountsForAnUnchangedView(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"), string(mb))
+		guardtest.WriteFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"), string(mb))
 		if tc.scoped {
-			writeFile(t, roundFile(sdd, "visual-verify"), "abc1234 "+time.Now().Format(time.RFC3339Nano)+"\n")
+			guardtest.WriteFile(t, roundFile(sdd, "visual-verify"), "abc1234 "+time.Now().Format(time.RFC3339Nano)+"\n")
 		}
 		path := filepath.Join(sdd, "verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+body)
+		guardtest.WriteFile(t, path, "## Report\n"+body)
 		r := runGuard("check-verify-report", []string{path, "0"}, core.Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		if r.Rc != tc.rc || !strings.Contains(r.Out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.Rc, r.Out, tc.rc, tc.want)
 		}
 	}
 }
@@ -259,8 +260,8 @@ func TestCheckVerifyReportTakesNoScopedSpecs(t *testing.T) {
 	const usage = "verify-report check, run in-process by visual-verify-pass close: <report file> <motions named> [--design <design.md>]"
 	path := filepath.Join(t.TempDir(), "verify-report-visual-verify.md")
 	r := runGuard("check-verify-report", []string{path, "0", "2"}, core.Env{Getenv: os.Getenv})
-	if r.rc != 2 || !strings.Contains(r.out, usage) {
-		t.Fatalf("scoped count: rc=%d out=%q; want exit 2 with %q", r.rc, r.out, usage)
+	if r.Rc != 2 || !strings.Contains(r.Out, usage) {
+		t.Fatalf("scoped count: rc=%d out=%q; want exit 2 with %q", r.Rc, r.Out, usage)
 	}
 	for _, steps := range []string{
 		"- steps: 4 done | 8 done | 9 done | 10 done | 11 done | motion n/a — no motions named\n",
@@ -269,8 +270,8 @@ func TestCheckVerifyReportTakesNoScopedSpecs(t *testing.T) {
 		if err := os.WriteFile(path, []byte("## Report\n"+steps), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		if r := runGuard("check-verify-report", []string{path, "0"}, core.Env{Getenv: os.Getenv}); r.rc != 0 || !strings.Contains(r.out, "VERIFY-REPORT-COMPLETE") {
-			t.Fatalf("%q: rc=%d out=%q; want exit 0 COMPLETE", steps, r.rc, r.out)
+		if r := runGuard("check-verify-report", []string{path, "0"}, core.Env{Getenv: os.Getenv}); r.Rc != 0 || !strings.Contains(r.Out, "VERIFY-REPORT-COMPLETE") {
+			t.Fatalf("%q: rc=%d out=%q; want exit 0 COMPLETE", steps, r.Rc, r.Out)
 		}
 	}
 }
@@ -286,8 +287,8 @@ func TestCheckVerifyReportReadsReportAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := runGuard("check-verify-report", []string{path, "0"}, core.Env{Getenv: os.Getenv})
-	if r.rc != 1 || !strings.Contains(r.out, "10 absent") {
-		t.Fatalf("rc=%d out=%q; want exit 1 naming 10 absent", r.rc, r.out)
+	if r.Rc != 1 || !strings.Contains(r.Out, "10 absent") {
+		t.Fatalf("rc=%d out=%q; want exit 1 naming 10 absent", r.Rc, r.Out)
 	}
 }
 
@@ -308,7 +309,7 @@ func vrtManifest(t *testing.T, sdd, key, frame string, specs []string, over ...a
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(sdd, "visual-manifest-"+key+".json"), string(body))
+	guardtest.WriteFile(t, filepath.Join(sdd, "visual-manifest-"+key+".json"), string(body))
 }
 
 // TestCheckVerifyReportMatchesAndDifferences pins the difference-only report:
@@ -339,10 +340,10 @@ func TestCheckVerifyReportMatchesAndDifferences(t *testing.T) {
 			vrtManifest(t, sdd, "visual-verify", "W1", nil, over...)
 		}
 		path := filepath.Join(sdd, "verify-report-"+tc.key+".md")
-		writeFile(t, path, "## Report\n"+vrtDone+tc.body)
+		guardtest.WriteFile(t, path, "## Report\n"+vrtDone+tc.body)
 		r := runGuard("check-verify-report", []string{path, "0"}, core.Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		if r.Rc != tc.rc || !strings.Contains(r.Out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.Rc, r.Out, tc.rc, tc.want)
 		}
 	}
 }
@@ -353,13 +354,13 @@ func TestCheckVerifyReportMatchesAndDifferences(t *testing.T) {
 func TestCheckVerifyReportFrames(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
-	writeFile(t, filepath.Join(root, ".flow/project.md"), rvsSection("tests/visual"))
+	guardtest.WriteFile(t, filepath.Join(root, ".flow/project.md"), rvsSection("tests/visual"))
 	snaps := filepath.Join(root, "tests/visual/a.spec.ts-snapshots")
 	for _, png := range []string{"a-open-darwin.png", "a-roles-darwin.png", "a-extra-darwin.png"} {
-		writeFile(t, filepath.Join(snaps, png), "")
+		guardtest.WriteFile(t, filepath.Join(snaps, png), "")
 	}
 	spec := filepath.Join(root, "tests/visual/a.spec.ts")
-	writeFile(t, spec+".mockups", "frame none\na-open.png fo\na-roles.png fr\n")
+	guardtest.WriteFile(t, spec+".mockups", "frame none\na-open.png fo\na-roles.png fr\n")
 	sdd := filepath.Join(root, ".superpowers/sdd")
 	vrtManifest(t, sdd, "visual-verify", "fr", []string{spec})
 	roles := vrtDone + "- a-roles: " + filepath.Join(snaps, "a-roles-darwin.png") + " — clean\n" +
@@ -376,14 +377,14 @@ func TestCheckVerifyReportFrames(t *testing.T) {
 		{"a remainder owes no unmapped capture", "visual-verify-rest", open, []string{"--frames", "fo"}, 0, "VERIFY-REPORT-COMPLETE"},
 	} {
 		path := filepath.Join(sdd, "verify-report-"+tc.key+".md")
-		writeFile(t, path, "## Report\n"+tc.body)
+		guardtest.WriteFile(t, path, "## Report\n"+tc.body)
 		r := runGuard("check-verify-report", append([]string{path, "0"}, tc.args...), core.Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) || tc.rc == 0 && strings.Contains(r.out, "a-extra") || len(tc.args) > 0 && strings.Contains(r.out, "a-roles") {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		if r.Rc != tc.rc || !strings.Contains(r.Out, tc.want) || tc.rc == 0 && strings.Contains(r.Out, "a-extra") || len(tc.args) > 0 && strings.Contains(r.Out, "a-roles") {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.Rc, r.Out, tc.rc, tc.want)
 		}
 	}
-	if r := runGuard("check-verify-report", []string{filepath.Join(sdd, "verify-report-visual-verify-rest.md"), "0", "--frames"}, core.Env{Getenv: os.Getenv}); r.rc != 2 {
-		t.Errorf("--frames with no value: rc=%d out=%q; want exit 2", r.rc, r.out)
+	if r := runGuard("check-verify-report", []string{filepath.Join(sdd, "verify-report-visual-verify-rest.md"), "0", "--frames"}, core.Env{Getenv: os.Getenv}); r.Rc != 2 {
+		t.Errorf("--frames with no value: rc=%d out=%q; want exit 2", r.Rc, r.Out)
 	}
 }
 
@@ -408,14 +409,14 @@ func TestCheckVerifyReportBlanketDecision(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"), string(body))
+		guardtest.WriteFile(t, filepath.Join(sdd, "visual-manifest-visual-verify.json"), string(body))
 		design := filepath.Join(sdd, "design.md")
-		writeFile(t, design, "**ID:** d1\n\n**ID:** d2\n")
+		guardtest.WriteFile(t, design, "**ID:** d1\n\n**ID:** d2\n")
 		path := filepath.Join(sdd, "verify-report-visual-verify.md")
-		writeFile(t, path, "## Report\n"+vrtDone+"- A: match (decision "+tc.a+")\n- B: match (decision "+tc.b+")\n")
+		guardtest.WriteFile(t, path, "## Report\n"+vrtDone+"- A: match (decision "+tc.a+")\n- B: match (decision "+tc.b+")\n")
 		r := runGuard("check-verify-report", []string{path, "0", "--design", design}, core.Env{Getenv: os.Getenv})
-		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
-			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
+		if r.Rc != tc.rc || !strings.Contains(r.Out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.Rc, r.Out, tc.rc, tc.want)
 		}
 	}
 }

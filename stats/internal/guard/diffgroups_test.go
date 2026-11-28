@@ -22,8 +22,8 @@ func TestDiffGroups(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := runGuard("diff-groups", []string{wt, diff}, core.Env{})
-	if r.rc != 0 {
-		t.Fatalf("rc %d: %s", r.rc, r.out)
+	if r.Rc != 0 {
+		t.Fatalf("rc %d: %s", r.Rc, r.Out)
 	}
 	got, _ := os.ReadFile(strings.TrimSuffix(diff, ".diff") + ".groups.md")
 	want := "## docs and config\n\n- /w/ops/x.yml (+1 -0)\n\n" +
@@ -31,8 +31,8 @@ func TestDiffGroups(t *testing.T) {
 	if string(got) != want {
 		t.Errorf("groups:\n%s\nwant:\n%s", got, want)
 	}
-	if r := runGuard("diff-groups", []string{wt, "/nope"}, core.Env{}); r.rc != 2 || !strings.Contains(r.out, "diff-groups:") {
-		t.Errorf("missing diff: rc %d", r.rc)
+	if r := runGuard("diff-groups", []string{wt, "/nope"}, core.Env{}); r.Rc != 2 || !strings.Contains(r.Out, "diff-groups:") {
+		t.Errorf("missing diff: rc %d", r.Rc)
 	}
 }
 
@@ -45,8 +45,8 @@ func TestBuildSlotPromptNamesDiffGroups(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(sdd, "final-review.groups.md"), []byte("## x\n"), 0o644)
 	diff := filepath.Join(sdd, "final-review.diff")
 	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation", "-diff", diff, "-copies", "/w", "-panel", "mutation"}, core.Env{})
-	if r.rc != 0 {
-		t.Fatalf("rc %d: %s", r.rc, r.out)
+	if r.Rc != 0 {
+		t.Fatalf("rc %d: %s", r.Rc, r.Out)
 	}
 	got, _ := os.ReadFile(filepath.Join(sdd, "slot-prompt-1-mutation.md"))
 	if !strings.Contains(string(got), "**Diff groups:** "+filepath.Join(sdd, "final-review.groups.md")) {

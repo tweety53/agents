@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -20,12 +21,12 @@ func TestPostMutationCheck(t *testing.T) {
 	t.Parallel()
 	// The harness's repository: one empty commit. The parity rows': a.txt.
 	empty, withA := t.TempDir()+"/empty", t.TempDir()+"/with-a"
-	gitRun(t, "", "init", "-q", "-b", "main", "--template=", empty)
-	gitRun(t, empty, "commit", "-q", "--allow-empty", "-m", "base")
-	gitRun(t, "", "init", "-q", "-b", "main", "--template=", withA)
-	writeFile(t, withA+"/a.txt", "a\n")
-	gitRun(t, withA, "add", "a.txt")
-	gitRun(t, withA, "commit", "-q", "-m", "init")
+	guardtest.GitRun(t, "", "init", "-q", "-b", "main", "--template=", empty)
+	guardtest.GitRun(t, empty, "commit", "-q", "--allow-empty", "-m", "base")
+	guardtest.GitRun(t, "", "init", "-q", "-b", "main", "--template=", withA)
+	guardtest.WriteFile(t, withA+"/a.txt", "a\n")
+	guardtest.GitRun(t, withA, "add", "a.txt")
+	guardtest.GitRun(t, withA, "commit", "-q", "-m", "init")
 
 	const (
 		sentinel = postMutationCheckSentinel + "\n"
@@ -42,59 +43,59 @@ func TestPostMutationCheck(t *testing.T) {
 			snap: libRes{sentinel, "", 0}, check: libRes{"", "", 0}},
 		{name: "new stash entry is named and fails the check", base: empty,
 			after: func(t *testing.T, wt string) {
-				writeFile(t, wt+"/file.txt", "dirty\n")
-				gitRun(t, wt, "stash", "push", "-q", "--include-untracked", "-m", "kan-448-test-residue")
+				guardtest.WriteFile(t, wt+"/file.txt", "dirty\n")
+				guardtest.GitRun(t, wt, "stash", "push", "-q", "--include-untracked", "-m", "kan-448-test-residue")
 			},
 			snap:  libRes{sentinel, "", 0},
 			check: libRes{"new stash entry: stash@{0}: On main: kan-448-test-residue\n", "", 1}},
 		{name: "unexpected status line is named and fails the check", base: empty,
-			after: func(t *testing.T, wt string) { writeFile(t, wt+"/stray.txt", "stray\n") },
+			after: func(t *testing.T, wt string) { guardtest.WriteFile(t, wt+"/stray.txt", "stray\n") },
 			snap:  libRes{sentinel, "", 0},
 			check: libRes{"unexpected status line: ? stray.txt\n", "", 1}},
 		{name: "snapshot-recorded stash still present is not drift", base: empty,
 			before: func(t *testing.T, wt string) {
-				writeFile(t, wt+"/file.txt", "kept\n")
-				gitRun(t, wt, "stash", "push", "-q", "--include-untracked", "-m", "kan-448-kept")
+				guardtest.WriteFile(t, wt+"/file.txt", "kept\n")
+				guardtest.GitRun(t, wt, "stash", "push", "-q", "--include-untracked", "-m", "kan-448-kept")
 			},
 			snap:  libRes{sentinel + "stash@{0}: On main: kan-448-kept\n", "", 0},
 			check: libRes{"", "", 0}},
 		{name: "clean tree", base: withA, snap: libRes{sentinel, "", 0}, check: libRes{"", "", 0}},
 		{name: "dirty tracked file present at the snapshot", base: withA,
-			before: func(t *testing.T, wt string) { writeFile(t, wt+"/a.txt", "dirty\n") },
+			before: func(t *testing.T, wt string) { guardtest.WriteFile(t, wt+"/a.txt", "dirty\n") },
 			snap:   libRes{aDirty + "\n" + sentinel, "", 0}, check: libRes{"", "", 0}},
 		{name: "tracked file dirtied after the snapshot", base: withA,
-			after: func(t *testing.T, wt string) { writeFile(t, wt+"/a.txt", "dirty\n") },
+			after: func(t *testing.T, wt string) { guardtest.WriteFile(t, wt+"/a.txt", "dirty\n") },
 			snap:  libRes{sentinel, "", 0}, check: libRes{"unexpected status line: " + aDirty + "\n", "", 1}},
 		{name: "new untracked file", base: withA,
-			after: func(t *testing.T, wt string) { writeFile(t, wt+"/new.txt", "x\n") },
+			after: func(t *testing.T, wt string) { guardtest.WriteFile(t, wt+"/new.txt", "x\n") },
 			snap:  libRes{sentinel, "", 0}, check: libRes{"unexpected status line: ? new.txt\n", "", 1}},
 		{name: "new stash entry, an older one renumbered", base: withA,
 			before: func(t *testing.T, wt string) {
-				writeFile(t, wt+"/a.txt", "one\n")
-				gitRun(t, wt, "stash", "push", "-q", "-m", "old")
+				guardtest.WriteFile(t, wt+"/a.txt", "one\n")
+				guardtest.GitRun(t, wt, "stash", "push", "-q", "-m", "old")
 			},
 			after: func(t *testing.T, wt string) {
-				writeFile(t, wt+"/a.txt", "two\n")
-				gitRun(t, wt, "stash", "push", "-q", "-m", "new")
+				guardtest.WriteFile(t, wt+"/a.txt", "two\n")
+				guardtest.GitRun(t, wt, "stash", "push", "-q", "-m", "new")
 			},
 			snap: libRes{sentinel + "stash@{0}: On main: old\n", "", 0},
 			check: libRes{"new stash entry: stash@{0}: On main: new\n" +
 				"new stash entry: stash@{1}: On main: old\n", "", 1}},
 		{name: "stash present at the snapshot and still present", base: withA,
 			before: func(t *testing.T, wt string) {
-				writeFile(t, wt+"/a.txt", "one\n")
-				gitRun(t, wt, "stash", "push", "-q", "-m", "old")
+				guardtest.WriteFile(t, wt+"/a.txt", "one\n")
+				guardtest.GitRun(t, wt, "stash", "push", "-q", "-m", "old")
 			},
 			snap: libRes{sentinel + "stash@{0}: On main: old\n", "", 0}, check: libRes{"", "", 0}},
 		{name: "drift restored before the check", base: withA,
-			before: func(t *testing.T, wt string) { writeFile(t, wt+"/a.txt", "dirty\n") },
-			after:  func(t *testing.T, wt string) { writeFile(t, wt+"/a.txt", "a\n") },
+			before: func(t *testing.T, wt string) { guardtest.WriteFile(t, wt+"/a.txt", "dirty\n") },
+			after:  func(t *testing.T, wt string) { guardtest.WriteFile(t, wt+"/a.txt", "a\n") },
 			snap:   libRes{aDirty + "\n" + sentinel, "", 0}, check: libRes{"", "", 0}},
 		{name: "stash and status drift together", base: withA,
 			after: func(t *testing.T, wt string) {
-				writeFile(t, wt+"/a.txt", "one\n")
-				gitRun(t, wt, "stash", "push", "-q", "-m", "s")
-				writeFile(t, wt+"/b.txt", "x\n")
+				guardtest.WriteFile(t, wt+"/a.txt", "one\n")
+				guardtest.GitRun(t, wt, "stash", "push", "-q", "-m", "s")
+				guardtest.WriteFile(t, wt+"/b.txt", "x\n")
 			},
 			snap: libRes{sentinel, "", 0},
 			check: libRes{"new stash entry: stash@{0}: On main: s\n" +
@@ -114,7 +115,7 @@ func TestPostMutationCheck(t *testing.T) {
 			switch {
 			case tc.missing:
 			case tc.base == "":
-				mkdir(t, wt)
+				guardtest.Mkdir(t, wt)
 			default:
 				mvCopyTree(t, tc.base, wt)
 			}

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -62,7 +63,7 @@ const visualLibBase = "b1b0d601"
 func visualLibAt(t *testing.T, lib string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), lib)
-	writeFile(t, path, string(historicalFile(t, "../../..", visualLibBase, "scripts/lib/"+lib)))
+	guardtest.WriteFile(t, path, string(guardtest.HistoricalFile(t, "../../..", visualLibBase, "scripts/lib/"+lib)))
 	return path
 }
 
@@ -72,7 +73,7 @@ func bashLibAt(t *testing.T, env []string, libs []string, fn string, args ...str
 	t.Helper()
 	dir := t.TempDir()
 	for _, lib := range libs {
-		writeFile(t, filepath.Join(dir, lib), string(historicalFile(t, "../../..", libTwinBase, "scripts/lib/"+lib)))
+		guardtest.WriteFile(t, filepath.Join(dir, lib), string(guardtest.HistoricalFile(t, "../../..", libTwinBase, "scripts/lib/"+lib)))
 	}
 	return bashRun(t, env, nil, filepath.Join(dir, libs[0]), fn, args...)
 }
@@ -119,11 +120,11 @@ func TestResolveFileParity(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	lib := filepath.Join(t.TempDir(), "resolve-file.sh")
-	writeFile(t, lib, string(historicalFile(t, "../../..", "8c54d6d3", "scripts/lib/resolve-file.sh")))
+	guardtest.WriteFile(t, lib, string(guardtest.HistoricalFile(t, "../../..", "8c54d6d3", "scripts/lib/resolve-file.sh")))
 	d := t.TempDir()
-	writeFile(t, d+"/file.txt", "x\n")
-	writeFile(t, d+"/dir/inner.txt", "x\n")
-	writeFile(t, d+"/sp ace/f", "x\n")
+	guardtest.WriteFile(t, d+"/file.txt", "x\n")
+	guardtest.WriteFile(t, d+"/dir/inner.txt", "x\n")
+	guardtest.WriteFile(t, d+"/sp ace/f", "x\n")
 	symlink(t, d+"/file.txt", d+"/absLink")
 	symlink(t, "file.txt", d+"/relLink")
 	symlink(t, "../file.txt", d+"/dir/up")
@@ -217,7 +218,7 @@ func TestProjectSectionParity(t *testing.T) {
 		{"empty file", "", "lint"},
 	} {
 		file := d + "/p" + strconv.Itoa(i) + ".md"
-		writeFile(t, file, tc.body)
+		guardtest.WriteFile(t, file, tc.body)
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var got libRes
@@ -241,29 +242,6 @@ func TestGitExecSignalStatus(t *testing.T) {
 	}
 }
 
-// envWith is an Env over the test process's own environment and working
-// directory with over's NAME=value pairs laid on top, the same pairs
-// bashLibEnv hands the bash side.
-func envWith(t *testing.T, over []string) core.Env {
-	t.Helper()
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	m := map[string]string{}
-	for _, kv := range over {
-		k, v, _ := strings.Cut(kv, "=")
-		m[k] = v
-	}
-	look := func(k string) (string, bool) {
-		if v, ok := m[k]; ok {
-			return v, true
-		}
-		return os.LookupEnv(k)
-	}
-	return core.Env{Dir: cwd, LookupEnv: look, Getenv: func(k string) string { v, _ := look(k); return v }}
-}
-
 // TestPanelTouchedPathsParity pins ResolveGit, panelValidateWorktree and
 // panelTouchedPaths against the deleted bash library's three functions, at
 // libTwinBase.
@@ -285,45 +263,45 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 
 	// The change: a base commit, then a committed rename and additions,
 	// staged and unstaged edits, and an untracked file git diff never lists.
-	var g fxGit
+	var g guardtest.FxGit
 	repo := d + "/work tree"
-	g.copyShape(repo, repoShape{Branch: "main"})
+	g.CopyShape(repo, guardtest.RepoShape{Branch: "main"})
 	for _, f := range []string{"a.txt", "old.txt", "tracked.md", "sp ace.txt", "B.md"} {
-		g.write(repo+"/"+f, "base "+f)
+		g.Write(repo+"/"+f, "base "+f)
 	}
-	g.git(repo, "add", ".")
-	g.git(repo, "commit", "-qm", "base")
-	mb := g.git(repo, "rev-parse", "HEAD")
-	g.git(repo, "mv", "old.txt", "new.txt")
+	g.Git(repo, "add", ".")
+	g.Git(repo, "commit", "-qm", "base")
+	mb := g.Git(repo, "rev-parse", "HEAD")
+	g.Git(repo, "mv", "old.txt", "new.txt")
 	for _, f := range []string{"with space.md", "a.md", "_u.txt", "Z.mdc"} {
-		g.write(repo+"/"+f, f)
+		g.Write(repo+"/"+f, f)
 	}
-	g.appendLine(repo+"/B.md", "committed")
-	g.git(repo, "add", ".")
-	g.git(repo, "commit", "-qm", "change")
-	g.write(repo+"/staged.go", "package x")
-	g.appendLine(repo+"/a.txt", "staged")
-	g.git(repo, "add", "staged.go", "a.txt")
-	g.appendLine(repo+"/tracked.md", "unstaged")
-	g.appendLine(repo+"/sp ace.txt", "unstaged")
-	g.appendLine(repo+"/B.md", "unstaged")
-	g.write(repo+"/untracked.txt", "untracked")
+	g.AppendLine(repo+"/B.md", "committed")
+	g.Git(repo, "add", ".")
+	g.Git(repo, "commit", "-qm", "change")
+	g.Write(repo+"/staged.go", "package x")
+	g.AppendLine(repo+"/a.txt", "staged")
+	g.Git(repo, "add", "staged.go", "a.txt")
+	g.AppendLine(repo+"/tracked.md", "unstaged")
+	g.AppendLine(repo+"/sp ace.txt", "unstaged")
+	g.AppendLine(repo+"/B.md", "unstaged")
+	g.Write(repo+"/untracked.txt", "untracked")
 	clean := d + "/clean"
-	g.copyShape(clean, repoShape{Branch: "main"})
-	g.write(clean+"/a.txt", "a")
-	g.git(clean, "add", "a.txt")
-	g.git(clean, "commit", "-qm", "base")
-	cleanMB := g.git(clean, "rev-parse", "HEAD")
-	if g.err != nil {
-		t.Fatal(g.err)
+	g.CopyShape(clean, guardtest.RepoShape{Branch: "main"})
+	g.Write(clean+"/a.txt", "a")
+	g.Git(clean, "add", "a.txt")
+	g.Git(clean, "commit", "-qm", "base")
+	cleanMB := g.Git(clean, "rev-parse", "HEAD")
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
-	writeFile(t, d+"/file", "x\n")
-	mkdir(t, d+"/plain")
-	mkdir(t, d+"/nogit")
-	stubGit(t, d+"/override", "false", "never")
-	stubGit(t, d+"/committed", `has `+mb+`..HEAD "$@"`, "simulated committed failure")
-	stubGit(t, d+"/staged", `has --cached "$@"`, "simulated staged failure")
-	stubGit(t, d+"/unstaged", `[ "${!#}" = --name-only ]`, "simulated unstaged failure")
+	guardtest.WriteFile(t, d+"/file", "x\n")
+	guardtest.Mkdir(t, d+"/plain")
+	guardtest.Mkdir(t, d+"/nogit")
+	guardtest.StubGit(t, d+"/override", "false", "never")
+	guardtest.StubGit(t, d+"/committed", `has `+mb+`..HEAD "$@"`, "simulated committed failure")
+	guardtest.StubGit(t, d+"/staged", `has --cached "$@"`, "simulated staged failure")
+	guardtest.StubGit(t, d+"/unstaged", `[ "${!#}" = --name-only ]`, "simulated unstaged failure")
 	path := os.Getenv("PATH")
 
 	for _, tc := range []struct{ name, path string }{
@@ -336,7 +314,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 			over := []string{"PATH=" + tc.path}
 			var got libRes
 			var errb strings.Builder
-			if p, ok := core.ResolveGit(envWith(t, over), "prog", &errb); ok {
+			if p, ok := core.ResolveGit(guardtest.EnvWith(t, over), "prog", &errb); ok {
 				got.stdout = p + "\n"
 			} else {
 				got.status = 2
@@ -361,11 +339,11 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 			t.Parallel()
 			var got libRes
 			var errb strings.Builder
-			if !panelValidateWorktree(envWith(t, nil), "prog", tc.wt, tc.mb, fixtureGit, &errb) {
+			if !panelValidateWorktree(guardtest.EnvWith(t, nil), "prog", tc.wt, tc.mb, guardtest.FixtureGit, &errb) {
 				got.status = 2
 			}
 			got.stderr = errb.String()
-			want := bashLibAt(t, nil, []string{"panel-touched-paths.sh"}, "panel_validate_worktree", "prog", tc.wt, tc.mb, fixtureGit)
+			want := bashLibAt(t, nil, []string{"panel-touched-paths.sh"}, "panel_validate_worktree", "prog", tc.wt, tc.mb, guardtest.FixtureGit)
 			// The usage line names the guard as it runs now, not the deleted shim.
 			want.stderr = strings.Replace(want.stderr, "usage: prog.sh ", "usage: flow-guard prog ", 1)
 			assertParity(t, got, want)
@@ -376,11 +354,11 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 		name, wt, mb, git string
 		over              []string
 	}{
-		{"touched: committed, staged and unstaged, a rename and spaces, untracked left out", repo, mb, fixtureGit, nil},
-		{"touched: C collation", repo, mb, fixtureGit, []string{"LC_ALL=C"}},
-		{"touched: en_US.UTF-8 collation", repo, mb, fixtureGit, []string{"LC_ALL=en_US.UTF-8"}},
-		{"touched: relative worktree path", relTo(repo), mb, fixtureGit, nil},
-		{"touched: empty union", clean, cleanMB, fixtureGit, nil},
+		{"touched: committed, staged and unstaged, a rename and spaces, untracked left out", repo, mb, guardtest.FixtureGit, nil},
+		{"touched: C collation", repo, mb, guardtest.FixtureGit, []string{"LC_ALL=C"}},
+		{"touched: en_US.UTF-8 collation", repo, mb, guardtest.FixtureGit, []string{"LC_ALL=en_US.UTF-8"}},
+		{"touched: relative worktree path", relTo(repo), mb, guardtest.FixtureGit, nil},
+		{"touched: empty union", clean, cleanMB, guardtest.FixtureGit, nil},
 		{"touched: committed-paths failure", repo, mb, d + "/committed/git", nil},
 		{"touched: staged-paths failure", repo, mb, d + "/staged/git", nil},
 		{"touched: unstaged-paths failure", repo, mb, d + "/unstaged/git", nil},
@@ -389,7 +367,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 			t.Parallel()
 			var got libRes
 			var errb strings.Builder
-			paths, ok := panelTouchedPaths(envWith(t, tc.over), "prog", tc.wt, tc.mb, tc.git, &errb)
+			paths, ok := panelTouchedPaths(guardtest.EnvWith(t, tc.over), "prog", tc.wt, tc.mb, tc.git, &errb)
 			for _, p := range paths {
 				got.stdout += p + "\n"
 			}
@@ -418,7 +396,7 @@ func TestStripBOMParity(t *testing.T) {
 	} {
 		file := d + "/f" + strconv.Itoa(i)
 		if tc.name != "missing file" {
-			writeFile(t, file, tc.body)
+			guardtest.WriteFile(t, file, tc.body)
 		}
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -499,7 +477,7 @@ func TestVisualTableCellsParity(t *testing.T) {
 	t.Parallel()
 	d := t.TempDir()
 	driver := d + "/driver.awk"
-	writeFile(t, driver, vtDriver)
+	guardtest.WriteFile(t, driver, vtDriver)
 	lib := visualLibAt(t, "visual-table-cells.awk")
 	for i, line := range []string{
 		"| Setting | Value |",

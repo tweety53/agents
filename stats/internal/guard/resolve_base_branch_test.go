@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -30,15 +31,15 @@ import (
 type rbbFixture struct{ remote, wt, noHead, noOrigin string }
 
 var rbbMasters = sync.OnceValues(func() (rbbFixture, error) {
-	dir, err := os.MkdirTemp(execFixtures.dir, "resolve-base-branch-master")
+	dir, err := os.MkdirTemp(guardtest.ExecFixtures.Dir, "resolve-base-branch-master")
 	if err != nil {
 		return rbbFixture{}, err
 	}
 	f := rbbFixture{dir + "/remote", dir + "/wt", dir + "/nohead", dir + "/noorigin"}
 	seed := dir + "/seed"
 	git := func(args ...string) error {
-		cmd := exec.Command(fixtureGit, args...)
-		cmd.Env = append(append(os.Environ(), fixtureGitEnv...),
+		cmd := exec.Command(guardtest.FixtureGit, args...)
+		cmd.Env = append(append(os.Environ(), guardtest.FixtureGitEnv...),
 			"GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@example.invalid",
 			"GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@example.invalid")
 		if out, err := cmd.CombinedOutput(); err != nil {
@@ -46,12 +47,12 @@ var rbbMasters = sync.OnceValues(func() (rbbFixture, error) {
 		}
 		return nil
 	}
-	for dir, s := range map[string]repoShape{
+	for dir, s := range map[string]guardtest.RepoShape{
 		f.remote:   {Branch: "main", Bare: true},
 		seed:       {Branch: "main"},
 		f.noOrigin: {Branch: "spectre/fixture"},
 	} {
-		if err := copyShape(dir, s); err != nil {
+		if err := guardtest.CopyShape(dir, s); err != nil {
 			return f, err
 		}
 	}
@@ -100,24 +101,24 @@ func rbbCopy(t *testing.T, master string) string {
 func rbbShim(t *testing.T, show string) string {
 	t.Helper()
 	bin := t.TempDir()
-	writeExec(t, bin+"/git", `#!/usr/bin/env bash
+	guardtest.WriteExec(t, bin+"/git", `#!/usr/bin/env bash
 d="$(dirname -- "$0")"
 case "$*" in
   *"fetch --quiet origin"*) exit 0 ;;
   *"remote show origin"*) if [ -f "$d/show" ]; then cat "$d/show"; exit 0; fi ;;
 esac
-exec `+strconv.Quote(fixtureGit)+` "$@"
+exec `+strconv.Quote(guardtest.FixtureGit)+` "$@"
 `)
 	if show != "" {
-		writeFile(t, bin+"/show", show)
+		guardtest.WriteFile(t, bin+"/show", show)
 	}
 	return bin
 }
 
 func rbbGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
-	cmd := exec.Command(fixtureGit, append([]string{"-C", dir}, args...)...)
-	cmd.Env = append(os.Environ(), fixtureGitEnv...)
+	cmd := exec.Command(guardtest.FixtureGit, append([]string{"-C", dir}, args...)...)
+	cmd.Env = append(os.Environ(), guardtest.FixtureGitEnv...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
 	}
@@ -278,7 +279,7 @@ func TestResolveBaseBranch(t *testing.T) {
 			}
 			env := core.Env{Dir: t.TempDir(), Getenv: os.Getenv}
 			if r.pathDir != "" {
-				env.Getenv = pathEnv(r.pathDir)
+				env.Getenv = guardtest.PathEnv(r.pathDir)
 			}
 			var out, errb bytes.Buffer
 			code := fn(r.args, env, &out, &errb)
@@ -342,7 +343,7 @@ func TestResolveBaseBranchBoundsAStalledRemote(t *testing.T) {
 		rbbGit(t, wt, args...)
 	}
 	stub := t.TempDir() + "/ssh"
-	writeExec(t, stub, "#!/bin/sh\nexec sleep 60\n")
+	guardtest.WriteExec(t, stub, "#!/bin/sh\nexec sleep 60\n")
 	t.Setenv("GIT_SSH_COMMAND", stub)
 	old := rbbRemoteTimeout
 	rbbRemoteTimeout = 100 * time.Millisecond

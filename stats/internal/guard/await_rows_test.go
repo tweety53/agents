@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // fakeFlowdRows is a flowd answering change records' GET with rows() as their dispatches, under
@@ -58,7 +59,7 @@ func awaitRowsEnv(t *testing.T, rows, rowsEnded string) (core.Env, string, strin
 		}
 		return rows
 	}, nil)
-	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\ntouch "+swept+"\n")
+	guardtest.WriteExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\ntouch "+swept+"\n")
 	home := filepath.Join(tmp, "home")
 	return core.Env{Getenv: func(k string) string {
 		switch k {
@@ -107,9 +108,9 @@ func TestAwaitRowsSweepsStale(t *testing.T) {
 		`[{"key":"s","agentId":"aaa","sessionToken":"t","endedAt":null}]`,
 		`[{"key":"s","agentId":"aaa","sessionToken":"t","outcome":"aborted","endedAt":"2026-01-01T00:00:00Z"}]`)
 	sub := filepath.Join(home, ".claude", "projects", "p", "sess", "subagents")
-	writeFile(t, filepath.Join(sub, "agent-aaa.meta.json"), `{"finished":true}`)
+	guardtest.WriteFile(t, filepath.Join(sub, "agent-aaa.meta.json"), `{"finished":true}`)
 	tr := filepath.Join(sub, "agent-aaa.jsonl")
-	writeFile(t, tr, "{}\n")
+	guardtest.WriteFile(t, tr, "{}\n")
 	old := time.Now().Add(-time.Hour)
 	if err := os.Chtimes(tr, old, old); err != nil {
 		t.Fatal(err)
@@ -150,7 +151,7 @@ func TestAwaitRowsAny(t *testing.T) {
 func awaitRowsGitEnv(t *testing.T, wait http.HandlerFunc, rows string) (core.Env, string, string) {
 	t.Helper()
 	tmp := t.TempDir()
-	writeFile(t, filepath.Join(tmp, "rows.json"), rows)
+	guardtest.WriteFile(t, filepath.Join(tmp, "rows.json"), rows)
 	srv := fakeFlowdRows(t, func() string {
 		b, _ := os.ReadFile(filepath.Join(tmp, "rows.json"))
 		return string(b)
@@ -183,7 +184,7 @@ func TestAwaitRowsLongPollWakes(t *testing.T) {
 		gotQuery <- r.URL.RawQuery
 		select {
 		case <-closeRow:
-			writeFile(t, filepath.Join(tmp, "rows.json"), `[{"key":"a","outcome":"completed","endedAt":"2026-01-01T00:00:00Z"}]`)
+			guardtest.WriteFile(t, filepath.Join(tmp, "rows.json"), `[{"key":"a","outcome":"completed","endedAt":"2026-01-01T00:00:00Z"}]`)
 		case <-r.Context().Done():
 		}
 		_, _ = w.Write([]byte(`[]`))

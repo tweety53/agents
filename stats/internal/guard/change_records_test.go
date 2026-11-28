@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -22,15 +23,15 @@ import (
 func TestPipelineFixHighestKReadsFlowdChanges(t *testing.T) {
 	t.Parallel()
 	fx := pfNew(t, "")
-	writeFile(t, fx.states, `{"source":"store","complete":true,"records":[{"name":"pipeline-fix-x-9","state":"FINISHED"}]}`)
-	mkdir(t, fx.repo+"-worktrees/pipeline-fix-y-11")
+	guardtest.WriteFile(t, fx.states, `{"source":"store","complete":true,"records":[{"name":"pipeline-fix-x-9","state":"FINISHED"}]}`)
+	guardtest.Mkdir(t, fx.repo+"-worktrees/pipeline-fix-y-11")
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "3"); rc != 1 || !strings.Contains(out, "<k> is 12") {
 		t.Fatalf("rc %d, want the next key 12 — one past the worktree's 11, flowd's 9 below it: %s", rc, out)
 	}
 	if !strings.Contains(fx.calls(t), "state list -C "+fx.repo) {
 		t.Fatalf("flowd's change records were never asked for: %s", fx.calls(t))
 	}
-	writeFile(t, fx.states, `{"source":"fallback","complete":false,"records":[]}`)
+	guardtest.WriteFile(t, fx.states, `{"source":"fallback","complete":false,"records":[]}`)
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "12"); rc != 2 || !strings.Contains(out, "could not be read in full") {
 		t.Fatalf("rc %d, want 2 on a fallback answer: %s", rc, out)
 	}
@@ -41,7 +42,7 @@ func TestPipelineFixHighestKReadsFlowdChanges(t *testing.T) {
 func rcwFlowStub(t *testing.T, fx *rcwFx, rc string) func(*core.Env) {
 	t.Helper()
 	bin := fx.dir + "/bin"
-	writeExec(t, bin+"/flow", "#!/usr/bin/env bash\n[ \"$1 $2\" = \"change file\" ] && exit "+rc+"\nexit 0\n")
+	guardtest.WriteExec(t, bin+"/flow", "#!/usr/bin/env bash\n[ \"$1 $2\" = \"change file\" ] && exit "+rc+"\nexit 0\n")
 	return func(env *core.Env) {
 		inner := env.Getenv
 		env.Getenv = func(k string) string {
@@ -60,8 +61,8 @@ func rcwFlowStub(t *testing.T, fx *rcwFx, rc string) func(*core.Env) {
 func TestRemoveChangeWorktreesRefusesBeforeTheSave(t *testing.T) {
 	t.Parallel()
 	fx := rcwNewFx(t)
-	writeFile(t, fx.repo+"/.git/info/exclude", "spectre/changes/\n.superpowers/\n")
-	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
+	guardtest.WriteFile(t, fx.repo+"/.git/info/exclude", "spectre/changes/\n.superpowers/\n")
+	guardtest.WriteFile(t, fx.wt+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
 	code, out, errb := fx.run(t, rcwFlowStub(t, fx, "1"))
 	if code != 1 || !strings.Contains(errb, "flow change save demo has not run") {
 		t.Fatalf("exit %d, want 1 naming the missing save\nstdout:\n%s\nstderr:\n%s", code, out, errb)
@@ -78,8 +79,8 @@ func TestRemoveChangeWorktreesRefusesBeforeTheSave(t *testing.T) {
 func TestRemoveChangeWorktreesRefusesWhenFlowdCannotAnswer(t *testing.T) {
 	t.Parallel()
 	fx := rcwNewFx(t)
-	writeFile(t, fx.repo+"/.git/info/exclude", "spectre/changes/\n.superpowers/\n")
-	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
+	guardtest.WriteFile(t, fx.repo+"/.git/info/exclude", "spectre/changes/\n.superpowers/\n")
+	guardtest.WriteFile(t, fx.wt+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
 	code, out, errb := fx.run(t, rcwFlowStub(t, fx, "2"))
 	if code != 2 || !strings.Contains(errb, "cannot tell whether flow change save demo has run") {
 		t.Fatalf("exit %d, want 2 naming the unknown save\nstdout:\n%s\nstderr:\n%s", code, out, errb)
@@ -93,11 +94,11 @@ func TestRemoveChangeWorktreesRefusesWhenFlowdCannotAnswer(t *testing.T) {
 func TestRemoveChangeWorktreesRefusesAnUnsavedBundle(t *testing.T) {
 	t.Parallel()
 	fx := rcwNewFx(t)
-	writeFile(t, fx.repo+"/.git/info/exclude", "spectre/changes/\n.superpowers/\n")
-	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
-	writeFile(t, fx.wt+"/.superpowers/sdd/demo/self-review-context.md", "bundle\n")
+	guardtest.WriteFile(t, fx.repo+"/.git/info/exclude", "spectre/changes/\n.superpowers/\n")
+	guardtest.WriteFile(t, fx.wt+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
+	guardtest.WriteFile(t, fx.wt+"/.superpowers/sdd/demo/self-review-context.md", "bundle\n")
 	bin := fx.dir + "/bin"
-	writeExec(t, bin+"/flow", "#!/usr/bin/env bash\n[ \"$1 $2 $6\" = \"change file tasks.md\" ] && exit 0\n[ \"$1 $2\" = \"change file\" ] && exit 1\nexit 0\n")
+	guardtest.WriteExec(t, bin+"/flow", "#!/usr/bin/env bash\n[ \"$1 $2 $6\" = \"change file tasks.md\" ] && exit 0\n[ \"$1 $2\" = \"change file\" ] && exit 1\nexit 0\n")
 	code, _, errb := fx.run(t, func(env *core.Env) {
 		inner := env.Getenv
 		env.Getenv = func(k string) string {
@@ -120,10 +121,10 @@ func TestRemoveChangeWorktreesTreatsTheIgnoredPlanAsExpected(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	fx := rcwNewFx(t)
-	writeFile(t, fx.repo+"/.git/info/exclude", "spectre/changes/\n.superpowers/\n")
-	writeFile(t, fx.wt+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
-	writeFile(t, fx.wt+"/.superpowers/sdd/demo/self-review-context.md", "bundle\n")
-	writeFile(t, fx.wt+"/.superpowers/brainstorm/notes.md", "notes\n")
+	guardtest.WriteFile(t, fx.repo+"/.git/info/exclude", "spectre/changes/\n.superpowers/\n")
+	guardtest.WriteFile(t, fx.wt+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
+	guardtest.WriteFile(t, fx.wt+"/.superpowers/sdd/demo/self-review-context.md", "bundle\n")
+	guardtest.WriteFile(t, fx.wt+"/.superpowers/brainstorm/notes.md", "notes\n")
 	code, out, errb := fx.run(t, rcwFlowStub(t, fx, "0"))
 	if code != 0 {
 		t.Fatalf("exit %d\nstdout:\n%s\nstderr:\n%s", code, out, errb)

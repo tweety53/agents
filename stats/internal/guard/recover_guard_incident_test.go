@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -30,7 +31,7 @@ type rgiState struct {
 
 type rgiFx struct {
 	dir, repo, cwd string // repo is physical, as the harness's pwd -P REPO
-	g              fxGit
+	g              guardtest.FxGit
 	reflog         string // `git reflog -g HEAD -n 15` before the run
 	before, after  rgiState
 }
@@ -38,7 +39,7 @@ type rgiFx struct {
 // out is a git read under the environment the guard's own git runs in, so
 // the reflog it captures is the one the guard prints.
 func (fx *rgiFx) out(args ...string) (string, bool) {
-	cmd := exec.Command(fixtureGit, append([]string{"-C", fx.repo}, args...)...)
+	cmd := exec.Command(guardtest.FixtureGit, append([]string{"-C", fx.repo}, args...)...)
 	cmd.Env = append(os.Environ(), "GIT_OPTIONAL_LOCKS=0")
 	b, err := cmd.Output()
 	return string(b), err == nil
@@ -56,52 +57,52 @@ func (fx *rgiFx) state() rgiState {
 
 // startRevert is start_conflicting_revert: REVERT_HEAD set, failure ignored.
 func (fx *rgiFx) startRevert() {
-	if fx.g.err != nil {
+	if fx.g.Err != nil {
 		return
 	}
-	cmd := exec.Command(fixtureGit, "-C", fx.repo, "revert", "--no-commit", "HEAD~1")
-	cmd.Env = append(os.Environ(), fixtureGitEnv...)
+	cmd := exec.Command(guardtest.FixtureGit, "-C", fx.repo, "revert", "--no-commit", "HEAD~1")
+	cmd.Env = append(os.Environ(), guardtest.FixtureGitEnv...)
 	_ = cmd.Run()
 }
 
 func (fx *rgiFx) write(rel, body string) {
-	if fx.g.err != nil {
+	if fx.g.Err != nil {
 		return
 	}
 	p := filepath.Join(fx.repo, rel)
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		fx.g.err = err
+		fx.g.Err = err
 		return
 	}
-	fx.g.err = os.WriteFile(p, []byte(body), 0o644)
+	fx.g.Err = os.WriteFile(p, []byte(body), 0o644)
 }
 
 type rgiCheck struct {
 	label string
-	ok    func(r guardResult, fx *rgiFx) bool
+	ok    func(r guardtest.GuardResult, fx *rgiFx) bool
 }
 
 func rgiRC(label string, rc int) rgiCheck {
-	return rgiCheck{label, func(r guardResult, _ *rgiFx) bool { return r.rc == rc }}
+	return rgiCheck{label, func(r guardtest.GuardResult, _ *rgiFx) bool { return r.Rc == rc }}
 }
 
 func rgiNoStdout(label string) rgiCheck {
-	return rgiCheck{label, func(r guardResult, _ *rgiFx) bool { return r.stdout == "" }}
+	return rgiCheck{label, func(r guardtest.GuardResult, _ *rgiFx) bool { return r.Stdout == "" }}
 }
 
 func rgiRevert(label string, want bool) rgiCheck {
-	return rgiCheck{label, func(_ guardResult, fx *rgiFx) bool { return fx.after.revert == want }}
+	return rgiCheck{label, func(_ guardtest.GuardResult, fx *rgiFx) bool { return fx.after.revert == want }}
 }
 
 // rgiUnchanged is the Review Focus row: a refusal leaves the repository's
 // porcelain, HEAD, REVERT_HEAD, index and stash list as it found them.
 func rgiUnchanged(label string) rgiCheck {
-	return rgiCheck{label, func(_ guardResult, fx *rgiFx) bool { return fx.after == fx.before }}
+	return rgiCheck{label, func(_ guardtest.GuardResult, fx *rgiFx) bool { return fx.after == fx.before }}
 }
 
 // rgiErrIs pins the whole stderr, built from the case's fixture.
 func rgiErrIs(label string, want func(fx *rgiFx) string) rgiCheck {
-	return rgiCheck{label, func(r guardResult, fx *rgiFx) bool { return r.err == want(fx) }}
+	return rgiCheck{label, func(r guardtest.GuardResult, fx *rgiFx) bool { return r.Err == want(fx) }}
 }
 
 func TestRecoverGuardIncident(t *testing.T) {
@@ -110,15 +111,15 @@ func TestRecoverGuardIncident(t *testing.T) {
 	// new_repo, built once and copied per case: one tracked file three
 	// commits touch, so a revert of HEAD~1 leaves REVERT_HEAD set.
 	tmpl := t.TempDir() + "/repo"
-	var g fxGit
-	g.copyShape(tmpl, repoShape{})
+	var g guardtest.FxGit
+	g.CopyShape(tmpl, guardtest.RepoShape{})
 	for i, body := range []string{"one", "two", "one"} {
-		g.write(tmpl+"/shared.txt", body)
-		g.git(tmpl, "add", "shared.txt")
-		g.git(tmpl, "commit", "-qm", []string{"base", "two", "three"}[i])
+		g.Write(tmpl+"/shared.txt", body)
+		g.Git(tmpl, "add", "shared.txt")
+		g.Git(tmpl, "commit", "-qm", []string{"base", "two", "three"}[i])
 	}
-	if g.err != nil {
-		t.Fatal(g.err)
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	const self = "recover-guard-incident: "
 
@@ -141,8 +142,8 @@ func TestRecoverGuardIncident(t *testing.T) {
 		{fresh: true, args: func(fx *rgiFx) []string { return []string{fx.dir} }, checks: []rgiCheck{
 			rgiRC("case 1: exits 2 on a non-repo directory", 2),
 			rgiNoStdout("case 1: writes nothing to stdout"),
-			{"case 1: stderr carries the cause only, not the exit code", func(r guardResult, _ *rgiFx) bool {
-				return !strings.HasSuffix(strings.TrimRight(r.err, "\n"), " 2")
+			{"case 1: stderr carries the cause only, not the exit code", func(r guardtest.GuardResult, _ *rgiFx) bool {
+				return !strings.HasSuffix(strings.TrimRight(r.Err, "\n"), " 2")
 			}},
 			rgiErrIs("case 1: port: stderr is the not-a-repository line", func(fx *rgiFx) string {
 				return self + "not a git repository: " + fx.repo + "\n"
@@ -174,25 +175,25 @@ func TestRecoverGuardIncident(t *testing.T) {
 		// Dry-run: the reflog diagnosis and the abort plan, nothing changed.
 		{setup: defaultPlan, checks: []rgiCheck{
 			rgiRC("dry-run exits 0", 0),
-			{"dry-run: stdout is the plan byte for byte, stderr empty", func(r guardResult, fx *rgiFx) bool {
-				return r.stdout == plan(fx) && r.err == ""
+			{"dry-run: stdout is the plan byte for byte, stderr empty", func(r guardtest.GuardResult, fx *rgiFx) bool {
+				return r.Stdout == plan(fx) && r.Err == ""
 			}},
 			rgiUnchanged("dry-run leaves porcelain, HEAD and REVERT_HEAD unchanged")}},
 		// Apply: the plan, then the abort, run.
 		{setup: defaultPlan, args: func(fx *rgiFx) []string { return []string{"--apply", fx.repo} }, checks: []rgiCheck{
 			rgiRC("apply exits 0", 0),
 			rgiRevert("apply: the revert is aborted", false),
-			{"apply: stdout is the plan then the run line", func(r guardResult, fx *rgiFx) bool {
-				return r.stdout == plan(fx)+"running: git -C "+fx.repo+" revert --abort\n"
+			{"apply: stdout is the plan then the run line", func(r guardtest.GuardResult, fx *rgiFx) bool {
+				return r.Stdout == plan(fx)+"running: git -C "+fx.repo+" revert --abort\n"
 			}},
-			{"apply: HEAD is what it was", func(_ guardResult, fx *rgiFx) bool { return fx.after.head == fx.before.head }}}},
+			{"apply: HEAD is what it was", func(_ guardtest.GuardResult, fx *rgiFx) bool { return fx.after.head == fx.before.head }}}},
 		// Port: the usage paths the harness never reached.
 		{fresh: true, args: func(*rgiFx) []string { return []string{"--help"} }, checks: []rgiCheck{
 			rgiRC("port: --help exits 0", 0),
-			{"port: --help prints the usage on stdout, stderr empty", func(r guardResult, _ *rgiFx) bool {
-				return r.stdout == "usage: recover-guard-incident [--apply] [repo-dir]\n"+
+			{"port: --help prints the usage on stdout, stderr empty", func(r guardtest.GuardResult, _ *rgiFx) bool {
+				return r.Stdout == "usage: recover-guard-incident [--apply] [repo-dir]\n"+
 					"  --apply    execute; default is a dry-run plan\n"+
-					"  repo-dir   git repository, default cwd\n" && r.err == ""
+					"  repo-dir   git repository, default cwd\n" && r.Err == ""
 			}}}},
 		{setup: defaultPlan, args: repoArg("--apply"), checks: []rgiCheck{
 			rgiRC("port: --apply after repo-dir is an unknown option: exits 2", 2),
@@ -314,12 +315,12 @@ func TestRecoverGuardIncident(t *testing.T) {
 			fx.repo = dir + "/repo"
 			gdcCopyTree(t, tmpl, fx.repo)
 		}
-		run := func() (guardResult, error) {
+		run := func() (guardtest.GuardResult, error) {
 			if c.setup != nil {
 				c.setup(fx)
 			}
-			if fx.g.err != nil {
-				return guardResult{}, fx.g.err
+			if fx.g.Err != nil {
+				return guardtest.GuardResult{}, fx.g.Err
 			}
 			if !c.fresh {
 				fx.reflog, _ = fx.out("reflog", "-g", "HEAD", "-n", "15")
@@ -330,8 +331,8 @@ func TestRecoverGuardIncident(t *testing.T) {
 				args = c.args(fx)
 			}
 			r := runGuard("recover-guard-incident", args, core.Env{Dir: fx.cwd, Getenv: os.Getenv, LookupEnv: os.LookupEnv})
-			if r.rc == -1 {
-				return r, errors.New(r.out)
+			if r.Rc == -1 {
+				return r, errors.New(r.Out)
 			}
 			if !c.fresh {
 				fx.after = fx.state()
@@ -350,7 +351,7 @@ func TestRecoverGuardIncident(t *testing.T) {
 						t.Fatal(err)
 					}
 					if !chk.ok(r, fx) {
-						t.Fatalf("rc=%d\nstdout=%s\nstderr=%s", r.rc, r.stdout, r.err)
+						t.Fatalf("rc=%d\nstdout=%s\nstderr=%s", r.Rc, r.Stdout, r.Err)
 					}
 				})
 			}

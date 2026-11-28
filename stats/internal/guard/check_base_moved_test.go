@@ -1,16 +1,15 @@
 package guard
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -20,122 +19,8 @@ import (
 // the same repositories, each case building its own in a directory the parent
 // test owns, so every subtest reading the case's one run sees it.
 //
-// The harness's git shims become stubGit: the same bash stub on PATH, which the guard
+// The harness's git shims become StubGit: the same bash stub on PATH, which the guard
 // resolves over Env's PATH as the bash guard resolved `git` over its own.
-
-// fxGit builds fixtures under fixtureGitEnv with gitRun's fixed identity. The
-// first failure is kept and every later call skipped, so a fixture built
-// inside a case's run reports to each of its checks.
-type fxGit struct{ err error }
-
-func (g *fxGit) git(dir string, args ...string) string {
-	if g.err != nil {
-		return ""
-	}
-	if dir != "" {
-		args = append([]string{"-C", dir}, args...)
-	}
-	cmd := exec.Command(fixtureGit, args...)
-	cmd.Env = append(append(os.Environ(), fixtureGitEnv...),
-		"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
-		"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com")
-	var errb bytes.Buffer
-	cmd.Stderr = &errb
-	out, err := cmd.Output()
-	if err != nil {
-		g.err = fmt.Errorf("git %v: %v\n%s", args, err, errb.String())
-	}
-	return strings.TrimRight(string(out), "\n")
-}
-
-// copyShape is copyShape (helpers_test.go) into dir, its error held like a git step's.
-func (g *fxGit) copyShape(dir string, s repoShape) {
-	if g.err == nil {
-		g.err = copyShape(dir, s)
-	}
-}
-
-// appendLine is `echo <line> >> <path>`.
-func (g *fxGit) appendLine(path, line string) {
-	if g.err != nil {
-		return
-	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err == nil {
-		_, err = io.WriteString(f, line+"\n")
-		if cerr := f.Close(); err == nil {
-			err = cerr
-		}
-	}
-	if err != nil {
-		g.err = err
-	}
-}
-
-// write is `echo <line> > <path>`.
-func (g *fxGit) write(path, line string) {
-	if g.err == nil {
-		g.err = os.WriteFile(path, []byte(line+"\n"), 0o644)
-	}
-}
-
-// stubGit writes <dir>/git: when cond (a bash test over the stub's own "$@";
-// has <arg> "$@" is shim_failing_git's exact-element match) holds, it marks
-// <dir>/.fired and fails as the harness's shims did; otherwise it execs the
-// git on the test process's PATH, resolved here once, so a stub directory
-// already on PATH can never be the "real" git.
-func stubGit(t *testing.T, dir, cond, message string) {
-	t.Helper()
-	writeExec(t, dir+"/git", fmt.Sprintf(`#!/usr/bin/env bash
-has() { local m="$1" a; shift; for a in "$@"; do [ "$a" = "$m" ] && return 0; done; return 1; }
-if %s; then
-  : > "${0%%/*}/.fired"
-  echo "fatal: %s" >&2
-  exit 128
-fi
-exec %q "$@"
-`, cond, message, fixtureGit))
-}
-
-// guardResult is one in-process run: stdout, stderr, and the two merged in
-// write order with trailing newlines stripped, as the harness's
-// OUT="$(guard 2>&1)" read them.
-type guardResult struct {
-	rc               int
-	out, stdout, err string
-}
-
-// lockedWriter serialises writes: a guard's child process has its stdout and
-// stderr copied by two goroutines, and both land in one merged buffer.
-type lockedWriter struct {
-	mu *sync.Mutex
-	w  io.Writer
-}
-
-func (l lockedWriter) Write(p []byte) (int, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.w.Write(p)
-}
-
-func runGuard(name string, args []string, env core.Env) guardResult {
-	fn := foldedGuards[name]
-	if fn == nil {
-		fn = inProcessGuards[name]
-	}
-	if fn == nil {
-		fn = Registry[name]
-	}
-	if fn == nil {
-		return guardResult{rc: -1, out: name + " is not registered"}
-	}
-	var mu sync.Mutex
-	var all, o, e bytes.Buffer
-	// A guard that hands both writers to a child process gets two copying
-	// goroutines, so the merged buffer they share takes a lock.
-	rc := fn(args, env, lockedWriter{&mu, io.MultiWriter(&o, &all)}, lockedWriter{&mu, io.MultiWriter(&e, &all)})
-	return guardResult{rc, strings.TrimRight(all.String(), "\n"), o.String(), e.String()}
-}
 
 // baseRefUsageWant is base_ref_usage_message from scripts/lib/base-ref-usage.sh at d71a2327
 // plus the newline the heredoc ends in.
@@ -149,30 +34,30 @@ func baseRefUsageWant(script string) string {
 
 type bmCheck struct {
 	label string
-	ok    func(r guardResult, fx *bmFx) bool
+	ok    func(r guardtest.GuardResult, fx *bmFx) bool
 }
 
 func bmRC(label string, want int) bmCheck {
-	return bmCheck{label, func(r guardResult, _ *bmFx) bool { return r.rc == want }}
+	return bmCheck{label, func(r guardtest.GuardResult, _ *bmFx) bool { return r.Rc == want }}
 }
 
 func bmPrefix(label, p string) bmCheck {
-	return bmCheck{label, func(r guardResult, _ *bmFx) bool { return strings.HasPrefix(r.out, p) }}
+	return bmCheck{label, func(r guardtest.GuardResult, _ *bmFx) bool { return strings.HasPrefix(r.Out, p) }}
 }
 
 func bmHas(label, s string) bmCheck {
-	return bmCheck{label, func(r guardResult, _ *bmFx) bool { return strings.Contains(r.out, s) }}
+	return bmCheck{label, func(r guardtest.GuardResult, _ *bmFx) bool { return strings.Contains(r.Out, s) }}
 }
 
 func bmLacks(label, s string) bmCheck {
-	return bmCheck{label, func(r guardResult, _ *bmFx) bool { return !strings.Contains(r.out, s) }}
+	return bmCheck{label, func(r guardtest.GuardResult, _ *bmFx) bool { return !strings.Contains(r.Out, s) }}
 }
 
 // noVerdict is the harness's `case "$OUT" in <verdict>*) fail`.
 func noVerdict(label string, prefixes ...string) bmCheck {
-	return bmCheck{label, func(r guardResult, _ *bmFx) bool {
+	return bmCheck{label, func(r guardtest.GuardResult, _ *bmFx) bool {
 		for _, p := range prefixes {
-			if strings.HasPrefix(r.out, p) {
+			if strings.HasPrefix(r.Out, p) {
 				return false
 			}
 		}
@@ -182,7 +67,7 @@ func noVerdict(label string, prefixes ...string) bmCheck {
 
 // shimFired is assert_shim_fired.
 func shimFired(label string) bmCheck {
-	return bmCheck{label + ": shim actually intercepted the call", func(_ guardResult, fx *bmFx) bool {
+	return bmCheck{label + ": shim actually intercepted the call", func(_ guardtest.GuardResult, fx *bmFx) bool {
 		_, err := os.Stat(fx.stub + "/.fired")
 		return err == nil
 	}}
@@ -192,18 +77,18 @@ func shimFired(label string) bmCheck {
 // template), recorded its RECORDED_BASE, stub the case's shim directory.
 type bmFx struct {
 	dir, repo, recorded, stub string
-	g                         fxGit
+	g                         guardtest.FxGit
 }
 
 // advanceBase is advance_base: one commit per file on main, then back to demo.
 func (fx *bmFx) advanceBase(files ...string) {
-	fx.g.git(fx.repo, "checkout", "-q", "main")
+	fx.g.Git(fx.repo, "checkout", "-q", "main")
 	for _, f := range files {
-		fx.g.appendLine(fx.repo+"/"+f, "moved")
-		fx.g.git(fx.repo, "add", f)
-		fx.g.git(fx.repo, "commit", "-qm", "advance: "+f)
+		fx.g.AppendLine(fx.repo+"/"+f, "moved")
+		fx.g.Git(fx.repo, "add", f)
+		fx.g.Git(fx.repo, "commit", "-qm", "advance: "+f)
 	}
-	fx.g.git(fx.repo, "checkout", "-q", "demo")
+	fx.g.Git(fx.repo, "checkout", "-q", "demo")
 }
 
 // withOrigin is new_repo_with_origin, built fresh: a clone carries its
@@ -211,15 +96,15 @@ func (fx *bmFx) advanceBase(files ...string) {
 func (fx *bmFx) withOrigin() {
 	origin := fx.dir + "/origin"
 	fx.repo = fx.dir + "/clone"
-	fx.g.copyShape(origin, repoShape{Branch: "main", Bare: true})
-	fx.g.git("", "clone", "-q", origin, fx.repo)
-	fx.g.write(fx.repo+"/base.txt", "base")
-	fx.g.write(fx.repo+"/shared.txt", "shared-base")
-	fx.g.git(fx.repo, "add", "base.txt", "shared.txt")
-	fx.g.git(fx.repo, "commit", "-qm", "base")
-	fx.g.git(fx.repo, "push", "-q", "origin", "main")
-	fx.recorded = fx.g.git(fx.repo, "rev-parse", "HEAD")
-	fx.g.git(fx.repo, "checkout", "-q", "-b", "demo")
+	fx.g.CopyShape(origin, guardtest.RepoShape{Branch: "main", Bare: true})
+	fx.g.Git("", "clone", "-q", origin, fx.repo)
+	fx.g.Write(fx.repo+"/base.txt", "base")
+	fx.g.Write(fx.repo+"/shared.txt", "shared-base")
+	fx.g.Git(fx.repo, "add", "base.txt", "shared.txt")
+	fx.g.Git(fx.repo, "commit", "-qm", "base")
+	fx.g.Git(fx.repo, "push", "-q", "origin", "main")
+	fx.recorded = fx.g.Git(fx.repo, "rev-parse", "HEAD")
+	fx.g.Git(fx.repo, "checkout", "-q", "-b", "demo")
 }
 
 // wide is case 6's files: n tracked files, each touched by the base and by
@@ -236,16 +121,16 @@ func (fx *bmFx) wide(n int) {
 // by this change.
 func (fx *bmFx) overlap(files ...string) {
 	for _, f := range files {
-		fx.g.write(fx.repo+"/"+f, "wide-base")
+		fx.g.Write(fx.repo+"/"+f, "wide-base")
 	}
-	fx.g.git(fx.repo, append([]string{"add"}, files...)...)
-	fx.g.git(fx.repo, "commit", "-qm", "add wide files")
+	fx.g.Git(fx.repo, append([]string{"add"}, files...)...)
+	fx.g.Git(fx.repo, "commit", "-qm", "add wide files")
 	fx.advanceBase(files...)
 	for _, f := range files {
-		fx.g.appendLine(fx.repo+"/"+f, "demo-wide")
-		fx.g.git(fx.repo, "add", f)
+		fx.g.AppendLine(fx.repo+"/"+f, "demo-wide")
+		fx.g.Git(fx.repo, "add", f)
 	}
-	fx.g.git(fx.repo, "commit", "-qm", "demo touches all wide files")
+	fx.g.Git(fx.repo, "commit", "-qm", "demo touches all wide files")
 }
 
 func TestCheckBaseMoved(t *testing.T) {
@@ -254,27 +139,27 @@ func TestCheckBaseMoved(t *testing.T) {
 	// new_repo, built once and copied per case: main with base.txt and
 	// shared.txt in one commit, and demo checked out at it.
 	tmpl := t.TempDir() + "/repo"
-	var g fxGit
-	g.copyShape(tmpl, repoShape{Branch: "main"})
-	g.write(tmpl+"/base.txt", "base")
-	g.write(tmpl+"/shared.txt", "shared-base")
-	g.git(tmpl, "add", "base.txt", "shared.txt")
-	g.git(tmpl, "commit", "-qm", "base")
-	recorded := g.git(tmpl, "rev-parse", "HEAD")
-	g.git(tmpl, "checkout", "-q", "-b", "demo")
-	if g.err != nil {
-		t.Fatal(g.err)
+	var g guardtest.FxGit
+	g.CopyShape(tmpl, guardtest.RepoShape{Branch: "main"})
+	g.Write(tmpl+"/base.txt", "base")
+	g.Write(tmpl+"/shared.txt", "shared-base")
+	g.Git(tmpl, "add", "base.txt", "shared.txt")
+	g.Git(tmpl, "commit", "-qm", "base")
+	recorded := g.Git(tmpl, "rev-parse", "HEAD")
+	g.Git(tmpl, "checkout", "-q", "-b", "demo")
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	notVerdict := []string{"CLEAR", "MOVED", "REFUSE"}
 
 	type bmCase struct {
-		fresh  bool                                // no template copy (origin cases, argument cases)
-		setup  func(fx *bmFx)                      // nil: nothing beyond new_repo
-		stub   string                              // stubGit condition; "" runs with no shim
-		msg    string                              // the stub's fatal message
-		args   func(fx *bmFx) []string             // nil: {repo, main, recorded}
-		prep   func(t *testing.T, fx *bmFx)        // runs in the parent, before any subtest
-		run    func(fx *bmFx) (guardResult, error) // replaces the guard run entirely
+		fresh  bool                                          // no template copy (origin cases, argument cases)
+		setup  func(fx *bmFx)                                // nil: nothing beyond new_repo
+		stub   string                                        // StubGit condition; "" runs with no shim
+		msg    string                                        // the stub's fatal message
+		args   func(fx *bmFx) []string                       // nil: {repo, main, recorded}
+		prep   func(t *testing.T, fx *bmFx)                  // runs in the parent, before any subtest
+		run    func(fx *bmFx) (guardtest.GuardResult, error) // replaces the guard run entirely
 		checks []bmCheck
 	}
 	cases := []bmCase{
@@ -289,20 +174,20 @@ func TestCheckBaseMoved(t *testing.T) {
 			bmLacks("moved with no overlap: names no overlapping path", "overlaps:")}},
 		{setup: func(fx *bmFx) {
 			fx.advanceBase("shared.txt")
-			fx.g.appendLine(fx.repo+"/shared.txt", "demo-committed")
-			fx.g.git(fx.repo, "add", "shared.txt")
-			fx.g.git(fx.repo, "commit", "-qm", "demo touches shared, committed")
+			fx.g.AppendLine(fx.repo+"/shared.txt", "demo-committed")
+			fx.g.Git(fx.repo, "add", "shared.txt")
+			fx.g.Git(fx.repo, "commit", "-qm", "demo touches shared, committed")
 		}, checks: []bmCheck{
 			bmPrefix("moved with committed overlap -> MOVED", "MOVED"),
 			bmHas("moved with committed overlap: names shared.txt", "overlaps: shared.txt")}},
 		{setup: func(fx *bmFx) {
 			fx.advanceBase("shared.txt")
-			fx.g.appendLine(fx.repo+"/shared.txt", "demo-staged")
-			fx.g.git(fx.repo, "add", "shared.txt")
+			fx.g.AppendLine(fx.repo+"/shared.txt", "demo-staged")
+			fx.g.Git(fx.repo, "add", "shared.txt")
 		}, checks: []bmCheck{bmHas("moved with staged-only overlap: names shared.txt", "overlaps: shared.txt")}},
 		{setup: func(fx *bmFx) {
 			fx.advanceBase("shared.txt")
-			fx.g.appendLine(fx.repo+"/shared.txt", "demo-unstaged")
+			fx.g.AppendLine(fx.repo+"/shared.txt", "demo-unstaged")
 		}, checks: []bmCheck{bmHas("moved with unstaged-only overlap: names shared.txt", "overlaps: shared.txt")}},
 		{setup: func(fx *bmFx) { fx.wide(11) }, checks: []bmCheck{
 			bmHas("overlap over 10: carries a (+1 more) tail", "(+1 more)"),
@@ -310,9 +195,9 @@ func TestCheckBaseMoved(t *testing.T) {
 			bmLacks("overlap over 10: eleventh path is not named individually", "wide11.txt")}},
 		{setup: func(fx *bmFx) { fx.wide(10) }, checks: []bmCheck{
 			bmLacks("overlap of exactly 10: no (+N more) tail", "more)"),
-			{"overlap of exactly 10: all ten paths named", func(r guardResult, _ *bmFx) bool {
+			{"overlap of exactly 10: all ten paths named", func(r guardtest.GuardResult, _ *bmFx) bool {
 				for i := 1; i <= 10; i++ {
-					if !strings.Contains(r.out, fmt.Sprintf("wide%02d.txt", i)) {
+					if !strings.Contains(r.Out, fmt.Sprintf("wide%02d.txt", i)) {
 						return false
 					}
 				}
@@ -347,9 +232,9 @@ func TestCheckBaseMoved(t *testing.T) {
 		// 9d: RECORDED_BASE..HEAD is unique to the COMMITTED_RAW capture.
 		{setup: func(fx *bmFx) {
 			fx.advanceBase("unrelated1.txt")
-			fx.g.write(fx.repo+"/demo.txt", "work")
-			fx.g.git(fx.repo, "add", "demo.txt")
-			fx.g.git(fx.repo, "commit", "-qm", "demo work")
+			fx.g.Write(fx.repo+"/demo.txt", "work")
+			fx.g.Git(fx.repo, "add", "demo.txt")
+			fx.g.Git(fx.repo, "commit", "-qm", "demo work")
 		}, stub: `has "` + recorded + `..HEAD" "$@"`, msg: "simulated COMMITTED_RAW read failure", checks: []bmCheck{
 			bmRC("unreadable committed-paths list -> exit 2", 2),
 			noVerdict("unreadable committed-paths list: emits no verdict line", notVerdict...),
@@ -358,8 +243,8 @@ func TestCheckBaseMoved(t *testing.T) {
 		// 9e: --cached is unique to the STAGED_RAW capture.
 		{setup: func(fx *bmFx) {
 			fx.advanceBase("unrelated1.txt")
-			fx.g.write(fx.repo+"/demo.txt", "staged")
-			fx.g.git(fx.repo, "add", "demo.txt")
+			fx.g.Write(fx.repo+"/demo.txt", "staged")
+			fx.g.Git(fx.repo, "add", "demo.txt")
 		}, stub: `has --cached "$@"`, msg: "simulated STAGED_RAW read failure", checks: []bmCheck{
 			bmRC("unreadable staged-paths list -> exit 2", 2),
 			noVerdict("unreadable staged-paths list: emits no verdict line", notVerdict...),
@@ -369,7 +254,7 @@ func TestCheckBaseMoved(t *testing.T) {
 		// five-argument call, so the stub matches on the count.
 		{setup: func(fx *bmFx) {
 			fx.advanceBase("unrelated1.txt")
-			fx.g.appendLine(fx.repo+"/shared.txt", "unstaged")
+			fx.g.AppendLine(fx.repo+"/shared.txt", "unstaged")
 		}, stub: `[ "$#" -eq 5 ] && [ "$3" = "diff" ] && [ "$4" = "--no-renames" ] && [ "$5" = "--name-only" ]`,
 			msg: "simulated UNSTAGED_RAW read failure", checks: []bmCheck{
 				bmRC("unreadable unstaged-paths list -> exit 2", 2),
@@ -386,15 +271,15 @@ func TestCheckBaseMoved(t *testing.T) {
 		// 10: origin/main moved, local main left behind; handed the bare name.
 		{fresh: true, setup: func(fx *bmFx) {
 			fx.withOrigin()
-			fx.g.git(fx.repo, "branch", "-q", "tmp-advance", "main")
-			fx.g.git(fx.repo, "checkout", "-q", "tmp-advance")
-			fx.g.appendLine(fx.repo+"/unrelated.txt", "moved")
-			fx.g.git(fx.repo, "add", "unrelated.txt")
-			fx.g.git(fx.repo, "commit", "-qm", "advance: unrelated.txt")
-			fx.g.git(fx.repo, "push", "-q", "origin", "tmp-advance:main")
-			fx.g.git(fx.repo, "checkout", "-q", "demo")
-			fx.g.git(fx.repo, "branch", "-q", "-D", "tmp-advance")
-			fx.g.git(fx.repo, "fetch", "-q", "origin")
+			fx.g.Git(fx.repo, "branch", "-q", "tmp-advance", "main")
+			fx.g.Git(fx.repo, "checkout", "-q", "tmp-advance")
+			fx.g.AppendLine(fx.repo+"/unrelated.txt", "moved")
+			fx.g.Git(fx.repo, "add", "unrelated.txt")
+			fx.g.Git(fx.repo, "commit", "-qm", "advance: unrelated.txt")
+			fx.g.Git(fx.repo, "push", "-q", "origin", "tmp-advance:main")
+			fx.g.Git(fx.repo, "checkout", "-q", "demo")
+			fx.g.Git(fx.repo, "branch", "-q", "-D", "tmp-advance")
+			fx.g.Git(fx.repo, "fetch", "-q", "origin")
 		}, checks: []bmCheck{
 			bmPrefix("bare name behind origin, origin moved -> MOVED", "MOVED"),
 			bmHas("bare name behind origin: verdict names origin/main", "origin/main")}},
@@ -402,9 +287,9 @@ func TestCheckBaseMoved(t *testing.T) {
 			bmRC("missing arguments -> exit 2", 2),
 			noVerdict("missing arguments: emits no verdict line", notVerdict...)}},
 		{fresh: true, args: func(*bmFx) []string { return nil }, checks: []bmCheck{
-			{"missing arguments: stdout is empty", func(r guardResult, _ *bmFx) bool { return r.stdout == "" }},
-			{"missing arguments: stderr is exactly the usage message", func(r guardResult, _ *bmFx) bool {
-				return r.err == baseRefUsageWant("flow-guard check-base-moved")
+			{"missing arguments: stdout is empty", func(r guardtest.GuardResult, _ *bmFx) bool { return r.Stdout == "" }},
+			{"missing arguments: stderr is exactly the usage message", func(r guardtest.GuardResult, _ *bmFx) bool {
+				return r.Err == baseRefUsageWant("flow-guard check-base-moved")
 			}}}},
 		{fresh: true, args: func(fx *bmFx) []string { return []string{fx.dir, "main", "deadbeef"} }, checks: []bmCheck{
 			bmRC("non-repository -> exit 2", 2),
@@ -413,9 +298,9 @@ func TestCheckBaseMoved(t *testing.T) {
 		// the real git — handed the first stub's own match argument, it must
 		// reach git rather than the first stub.
 		{fresh: true, prep: func(t *testing.T, fx *bmFx) {
-			stubGit(t, fx.dir+"/one", `has chain-marker-one "$@"`, "first shim fired")
-			stubGit(t, fx.dir+"/two", `has chain-marker-two "$@"`, "second shim fired")
-		}, run: func(fx *bmFx) (guardResult, error) {
+			guardtest.StubGit(t, fx.dir+"/one", `has chain-marker-one "$@"`, "first shim fired")
+			guardtest.StubGit(t, fx.dir+"/two", `has chain-marker-two "$@"`, "second shim fired")
+		}, run: func(fx *bmFx) (guardtest.GuardResult, error) {
 			cmd := exec.Command(fx.dir+"/two/git", "chain-marker-one")
 			cmd.Env = append(os.Environ(), "PATH="+fx.dir+"/one:"+os.Getenv("PATH"))
 			out, err := cmd.CombinedOutput()
@@ -423,41 +308,41 @@ func TestCheckBaseMoved(t *testing.T) {
 			if ee, ok := err.(*exec.ExitError); ok {
 				rc = ee.ExitCode()
 			} else if err != nil {
-				return guardResult{}, err
+				return guardtest.GuardResult{}, err
 			}
-			return guardResult{rc: rc, out: string(out)}, nil
+			return guardtest.GuardResult{Rc: rc, Out: string(out)}, nil
 		}, checks: []bmCheck{
 			bmLacks("shim chaining: second shim's real-git did not resolve to the first shim", "first shim fired"),
-			{"shim chaining: second shim exited a real-git error, not the first shim's 128", func(r guardResult, _ *bmFx) bool {
-				return r.rc != 128
+			{"shim chaining: second shim exited a real-git error, not the first shim's 128", func(r guardtest.GuardResult, _ *bmFx) bool {
+				return r.Rc != 128
 			}}}},
 		// 14: movement entirely carried by this branch (KAN-535) is CLEAR.
 		{fresh: true, setup: func(fx *bmFx) {
 			fx.withOrigin()
-			fx.g.git(fx.repo, "commit", "-qm", "demo note commit", "--allow-empty")
-			carry := fx.g.git(fx.repo, "rev-parse", "HEAD")
-			fx.g.appendLine(fx.repo+"/shared.txt", "demo-work")
-			fx.g.git(fx.repo, "add", "shared.txt")
-			fx.g.git(fx.repo, "commit", "-qm", "demo work on top")
-			fx.g.git(fx.repo, "push", "-q", "origin", carry+":main")
-			fx.g.git(fx.repo, "fetch", "-q", "origin")
+			fx.g.Git(fx.repo, "commit", "-qm", "demo note commit", "--allow-empty")
+			carry := fx.g.Git(fx.repo, "rev-parse", "HEAD")
+			fx.g.AppendLine(fx.repo+"/shared.txt", "demo-work")
+			fx.g.Git(fx.repo, "add", "shared.txt")
+			fx.g.Git(fx.repo, "commit", "-qm", "demo work on top")
+			fx.g.Git(fx.repo, "push", "-q", "origin", carry+":main")
+			fx.g.Git(fx.repo, "fetch", "-q", "origin")
 		}, checks: []bmCheck{
 			bmPrefix("movement entirely carried -> CLEAR", "CLEAR"),
 			bmHas("movement entirely carried: names the carried movement", "already carried by this branch"),
 			bmHas("movement entirely carried: verdict names the moved ref origin/main", "origin/main")}},
 		// 15: movement only partly carried stays MOVED with the full count.
 		{setup: func(fx *bmFx) {
-			fx.g.git(fx.repo, "commit", "-qm", "carried commit", "--allow-empty")
-			carried := fx.g.git(fx.repo, "rev-parse", "HEAD")
-			fx.g.appendLine(fx.repo+"/shared.txt", "demo-work")
-			fx.g.git(fx.repo, "add", "shared.txt")
-			fx.g.git(fx.repo, "commit", "-qm", "demo work")
-			fx.g.git(fx.repo, "branch", "-f", "main", carried)
-			fx.g.git(fx.repo, "checkout", "-q", "main")
-			fx.g.appendLine(fx.repo+"/unrelated1.txt", "unrelated")
-			fx.g.git(fx.repo, "add", "unrelated1.txt")
-			fx.g.git(fx.repo, "commit", "-qm", "unrelated advance")
-			fx.g.git(fx.repo, "checkout", "-q", "demo")
+			fx.g.Git(fx.repo, "commit", "-qm", "carried commit", "--allow-empty")
+			carried := fx.g.Git(fx.repo, "rev-parse", "HEAD")
+			fx.g.AppendLine(fx.repo+"/shared.txt", "demo-work")
+			fx.g.Git(fx.repo, "add", "shared.txt")
+			fx.g.Git(fx.repo, "commit", "-qm", "demo work")
+			fx.g.Git(fx.repo, "branch", "-f", "main", carried)
+			fx.g.Git(fx.repo, "checkout", "-q", "main")
+			fx.g.AppendLine(fx.repo+"/unrelated1.txt", "unrelated")
+			fx.g.Git(fx.repo, "add", "unrelated1.txt")
+			fx.g.Git(fx.repo, "commit", "-qm", "unrelated advance")
+			fx.g.Git(fx.repo, "checkout", "-q", "demo")
 		}, checks: []bmCheck{
 			bmPrefix("movement partially carried -> MOVED", "MOVED"),
 			bmHas("movement partially carried: names the full commit count", "2 commits")}},
@@ -467,15 +352,15 @@ func TestCheckBaseMoved(t *testing.T) {
 		// prints a non-ASCII path quoted, so its own order puts it last where
 		// the byte sort of the quoted form (a leading `"`) puts it first.
 		{setup: func(fx *bmFx) { fx.overlap("a.txt", "_.txt", "Z.txt", "ä.txt") }, checks: []bmCheck{
-			{"port: overlaps are listed in C byte order", func(r guardResult, _ *bmFx) bool {
-				return strings.HasSuffix(r.out, `overlaps: "\303\244.txt", Z.txt, _.txt, a.txt`)
+			{"port: overlaps are listed in C byte order", func(r guardtest.GuardResult, _ *bmFx) bool {
+				return strings.HasSuffix(r.Out, `overlaps: "\303\244.txt", Z.txt, _.txt, a.txt`)
 			}}}},
 		// KAN-298: the usage names the base-ref rule. The harness grepped the
 		// script's source; the text now lives in Go, so the printed usage is
 		// read instead.
 		{fresh: true, args: func(*bmFx) []string { return nil }, checks: []bmCheck{
-			{"usage message states the base-ref rule", func(r guardResult, _ *bmFx) bool {
-				return strings.Contains(r.err, "prefers refs/remotes/origin/<base-ref>")
+			{"usage message states the base-ref rule", func(r guardtest.GuardResult, _ *bmFx) bool {
+				return strings.Contains(r.Err, "prefers refs/remotes/origin/<base-ref>")
 			}}}},
 	}
 
@@ -489,17 +374,17 @@ func TestCheckBaseMoved(t *testing.T) {
 		}
 		if c.stub != "" {
 			fx.stub = fx.dir + "/shim"
-			stubGit(t, fx.stub, c.stub, c.msg)
+			guardtest.StubGit(t, fx.stub, c.stub, c.msg)
 		}
 		if c.prep != nil {
 			c.prep(t, fx)
 		}
-		run := func() (guardResult, error) {
+		run := func() (guardtest.GuardResult, error) {
 			if c.setup != nil {
 				c.setup(fx)
 			}
-			if fx.g.err != nil {
-				return guardResult{}, fx.g.err
+			if fx.g.Err != nil {
+				return guardtest.GuardResult{}, fx.g.Err
 			}
 			if c.run != nil {
 				return c.run(fx)
@@ -510,7 +395,7 @@ func TestCheckBaseMoved(t *testing.T) {
 			}
 			env := core.Env{Dir: fx.dir, Getenv: os.Getenv, LookupEnv: os.LookupEnv}
 			if fx.stub != "" {
-				env.Getenv = pathEnv(fx.stub)
+				env.Getenv = guardtest.PathEnv(fx.stub)
 			}
 			return runGuard("check-base-moved", args, env), nil
 		}
@@ -526,7 +411,7 @@ func TestCheckBaseMoved(t *testing.T) {
 						t.Fatal(err)
 					}
 					if !chk.ok(r, fx) {
-						t.Fatalf("rc=%d out=%s", r.rc, r.out)
+						t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 					}
 				})
 			}
@@ -540,13 +425,13 @@ func bmNewFx(t *testing.T) *bmFx {
 	t.Helper()
 	fx := &bmFx{dir: t.TempDir()}
 	fx.repo = fx.dir + "/repo"
-	fx.g.copyShape(fx.repo, repoShape{Branch: "main"})
-	fx.g.write(fx.repo+"/base.txt", "base")
-	fx.g.write(fx.repo+"/shared.txt", "shared-base")
-	fx.g.git(fx.repo, "add", "base.txt", "shared.txt")
-	fx.g.git(fx.repo, "commit", "-qm", "base")
-	fx.recorded = fx.g.git(fx.repo, "rev-parse", "HEAD")
-	fx.g.git(fx.repo, "checkout", "-q", "-b", "demo")
+	fx.g.CopyShape(fx.repo, guardtest.RepoShape{Branch: "main"})
+	fx.g.Write(fx.repo+"/base.txt", "base")
+	fx.g.Write(fx.repo+"/shared.txt", "shared-base")
+	fx.g.Git(fx.repo, "add", "base.txt", "shared.txt")
+	fx.g.Git(fx.repo, "commit", "-qm", "base")
+	fx.recorded = fx.g.Git(fx.repo, "rev-parse", "HEAD")
+	fx.g.Git(fx.repo, "checkout", "-q", "-b", "demo")
 	return fx
 }
 
@@ -574,13 +459,13 @@ func TestBaseMovedFullOverlap(t *testing.T) {
 		{"unmoved", nil, nil, 0, "CLEAR: $REPO — main has not moved since the recorded merge base\n", "", "CLEAR", "main", nil},
 		{"moved but carried", func(fx *bmFx) {
 			fx.advanceBase("unrelated1.txt")
-			fx.g.git(fx.repo, "merge", "-q", "--ff-only", "main")
+			fx.g.Git(fx.repo, "merge", "-q", "--ff-only", "main")
 		}, nil, 0, "CLEAR: $REPO — the 1 commits main gained since the recorded merge base are all already carried by this branch — nothing to rebase; merge base now $MAIN\n", "", "CLEAR", "main", nil},
 		{"moved, no overlap", func(fx *bmFx) { fx.advanceBase("unrelated1.txt", "unrelated2.txt") }, nil, 0,
 			"MOVED: $REPO — 2 commits on main since the recorded merge base; no overlap with this change's paths\n", "", "MOVED", "main", nil},
 		{"moved, one overlap", func(fx *bmFx) {
 			fx.advanceBase("shared.txt")
-			fx.g.appendLine(fx.repo+"/shared.txt", "demo-unstaged")
+			fx.g.AppendLine(fx.repo+"/shared.txt", "demo-unstaged")
 		}, nil, 0, "MOVED: $REPO — 1 commits on main since the recorded merge base; overlaps: shared.txt\n", "", "MOVED", "main", []string{"shared.txt"}},
 		{"moved, eleven overlaps", func(fx *bmFx) { fx.wide(11) }, nil, 0,
 			"MOVED: $REPO — 11 commits on main since the recorded merge base; overlaps: " + strings.Join(wide[:10], ", ") + " (+1 more)\n", "", "MOVED", "main", wide},
@@ -592,7 +477,7 @@ func TestBaseMovedFullOverlap(t *testing.T) {
 			"REFUSE: base ref 'no-such-base' does not resolve in $REPO — cannot tell whether the base has moved\n", "", "REFUSE", "no-such-base", nil},
 		{"not a directory", nil, func(fx *bmFx) []string { return []string{fx.repo + "/missing", "main", fx.recorded} }, 2,
 			"", "check-base-moved: $REPO/missing is not a directory — cannot determine anything\n", "", "", nil},
-		{"not a git worktree", func(fx *bmFx) { mkdir(t, fx.dir+"/plain") }, func(fx *bmFx) []string { return []string{fx.dir + "/plain", "main", fx.recorded} }, 2,
+		{"not a git worktree", func(fx *bmFx) { guardtest.Mkdir(t, fx.dir+"/plain") }, func(fx *bmFx) []string { return []string{fx.dir + "/plain", "main", fx.recorded} }, 2,
 			"", "check-base-moved: $DIR/plain is not a git worktree — cannot determine anything\n", "", "", nil},
 	}
 	for _, c := range cases {
@@ -602,18 +487,18 @@ func TestBaseMovedFullOverlap(t *testing.T) {
 			if c.setup != nil {
 				c.setup(fx)
 			}
-			if fx.g.err != nil {
-				t.Fatal(fx.g.err)
+			if fx.g.Err != nil {
+				t.Fatal(fx.g.Err)
 			}
 			args := []string{fx.repo, "main", fx.recorded}
 			if c.args != nil {
 				args = c.args(fx)
 			}
-			subst := strings.NewReplacer("$REPO", fx.repo, "$DIR", fx.dir, "$REC", fx.recorded, "$MAIN", fx.g.git(fx.repo, "rev-parse", "main"))
+			subst := strings.NewReplacer("$REPO", fx.repo, "$DIR", fx.dir, "$REC", fx.recorded, "$MAIN", fx.g.Git(fx.repo, "rev-parse", "main"))
 			env := core.Env{Dir: fx.dir, Getenv: os.Getenv, LookupEnv: os.LookupEnv}
 			r := runGuard("check-base-moved", args, env)
-			if r.rc != c.code || r.stdout != subst.Replace(c.out) || r.err != subst.Replace(c.err) {
-				t.Fatalf("got exit %d stdout %q stderr %q\nwant exit %d stdout %q stderr %q", r.rc, r.stdout, r.err, c.code, subst.Replace(c.out), subst.Replace(c.err))
+			if r.Rc != c.code || r.Stdout != subst.Replace(c.out) || r.Err != subst.Replace(c.err) {
+				t.Fatalf("got exit %d stdout %q stderr %q\nwant exit %d stdout %q stderr %q", r.Rc, r.Stdout, r.Err, c.code, subst.Replace(c.out), subst.Replace(c.err))
 			}
 			v := baseMoved(env, args[0], args[1], args[2], io.Discard)
 			if line := strings.TrimSuffix(subst.Replace(c.out), "\n"); v.code != c.code || v.line != line || v.kind != c.kind || v.ref != c.ref ||
@@ -638,7 +523,7 @@ func TestRunGuardMergesAChildsTwoStreams(t *testing.T) {
 	}
 	t.Cleanup(func() { delete(Registry, "test-two-streams") })
 	r := runGuard("test-two-streams", nil, core.Env{})
-	if r.rc != 0 || strings.Count(r.out, "out")+strings.Count(r.out, "err") != 400 {
-		t.Fatalf("runGuard = rc %d, %d lines merged; want rc 0 and 400", r.rc, strings.Count(r.out, "out")+strings.Count(r.out, "err"))
+	if r.Rc != 0 || strings.Count(r.Out, "out")+strings.Count(r.Out, "err") != 400 {
+		t.Fatalf("runGuard = rc %d, %d lines merged; want rc 0 and 400", r.Rc, strings.Count(r.Out, "out")+strings.Count(r.Out, "err"))
 	}
 }

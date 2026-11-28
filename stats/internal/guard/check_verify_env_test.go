@@ -38,8 +38,8 @@ func TestCheckVerifyEnv(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			r := runGuard("check-verify-env", c.args, core.Env{})
-			if r.rc != c.rc || !strings.Contains(r.out, c.want) {
-				t.Fatalf("rc=%d out=%q, want rc=%d containing %q", r.rc, r.out, c.rc, c.want)
+			if r.Rc != c.rc || !strings.Contains(r.Out, c.want) {
+				t.Fatalf("rc=%d out=%q, want rc=%d containing %q", r.Rc, r.Out, c.rc, c.want)
 			}
 		})
 	}

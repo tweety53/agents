@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // The row is read from the worktree's own .flow/project.md: the main
@@ -13,8 +15,8 @@ func TestDesignRepoReadsTheWorktree(t *testing.T) {
 	t.Parallel()
 	main, wt := t.TempDir(), t.TempDir()
 	for dir, row := range map[string]string{main: "", wt: "| `design repo` | `/d/design git@x:d.git` |\n"} {
-		mkdir(t, filepath.Join(dir, ".flow"))
-		writeFile(t, filepath.Join(dir, ".flow", "project.md"), "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `mockups` | `m` |\n"+row)
+		guardtest.Mkdir(t, filepath.Join(dir, ".flow"))
+		guardtest.WriteFile(t, filepath.Join(dir, ".flow", "project.md"), "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `mockups` | `m` |\n"+row)
 	}
 	run := func(args ...string) (string, int) {
 		var out, errs bytes.Buffer

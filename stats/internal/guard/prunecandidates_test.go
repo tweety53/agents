@@ -71,16 +71,16 @@ func TestPruneCandidates(t *testing.T) {
 	srv := pcServer(t, health, incidents, "[]", &query)
 
 	r := runGuard("prune-candidates", []string{"-days", "30"}, pcEnv(srv.URL))
-	if r.rc != 0 {
-		t.Fatalf("rc = %d, want 0; out:\n%s", r.rc, r.out)
+	if r.Rc != 0 {
+		t.Fatalf("rc = %d, want 0; out:\n%s", r.Rc, r.Out)
 	}
 	for _, want := range []string{
 		"never-fired check-fix-revert runs=12",
 		"friction enforce-agent-baseline incidents=2 minutes-lost=5 latest: Dispatch blocked: second",
 		"never-ran check-guard-calls",
 	} {
-		if !strings.Contains(r.out, want) {
-			t.Errorf("output lacks %q:\n%s", want, r.out)
+		if !strings.Contains(r.Out, want) {
+			t.Errorf("output lacks %q:\n%s", want, r.Out)
 		}
 	}
 	for _, unwanted := range []string{
@@ -90,8 +90,8 @@ func TestPruneCandidates(t *testing.T) {
 		"never-ran check-fix-revert",
 		"never-ran prune-candidates",
 	} {
-		if strings.Contains(r.out, unwanted) {
-			t.Errorf("output carries %q:\n%s", unwanted, r.out)
+		if strings.Contains(r.Out, unwanted) {
+			t.Errorf("output carries %q:\n%s", unwanted, r.Out)
 		}
 	}
 	from := now.Add(-30 * 24 * time.Hour).Format("2006-01-02")
@@ -104,11 +104,11 @@ func TestPruneCandidatesCannotAnswer(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	srv.Close()
 	r := runGuard("prune-candidates", nil, pcEnv(srv.URL))
-	if r.rc != 2 || !strings.Contains(r.err, "flowd") {
-		t.Fatalf("rc = %d, want 2 naming flowd; out:\n%s", r.rc, r.out)
+	if r.Rc != 2 || !strings.Contains(r.Err, "flowd") {
+		t.Fatalf("rc = %d, want 2 naming flowd; out:\n%s", r.Rc, r.Out)
 	}
-	if r := runGuard("prune-candidates", []string{"-days", "0"}, pcEnv(srv.URL)); r.rc != 2 {
-		t.Fatalf("-days 0: rc = %d, want 2", r.rc)
+	if r := runGuard("prune-candidates", []string{"-days", "0"}, pcEnv(srv.URL)); r.Rc != 2 {
+		t.Fatalf("-days 0: rc = %d, want 2", r.Rc)
 	}
 }
 
@@ -131,19 +131,19 @@ func TestPruneCandidatesNeverLoaded(t *testing.T) {
 	var query string
 	srv := pcServer(t, "[]", "[]", `[{"path":"skills/flow/SKILL.md","loads":3},{"path":"rules/x.md","loads":1}]`, &query)
 	r := runGuard("prune-candidates", nil, pcEnvAt(srv.URL, root))
-	if r.rc != 0 {
-		t.Fatalf("rc = %d, want 0; out:\n%s", r.rc, r.out)
+	if r.Rc != 0 {
+		t.Fatalf("rc = %d, want 0; out:\n%s", r.Rc, r.Out)
 	}
 	want := "never-loaded skills/flow/fix.md conditional: fix run, cross-repo, sdd, live check, fix round, optional slots, isolation, pipeline defects, progress, UI\n" +
 		"never-loaded skills/flow/zeta.md\n"
-	if !strings.HasSuffix(r.stdout, want) || strings.Contains(r.stdout, "SKILL.md") || strings.Contains(r.stdout, "run.go") {
-		t.Errorf("stdout:\n%s\nwant suffix:\n%s", r.stdout, want)
+	if !strings.HasSuffix(r.Stdout, want) || strings.Contains(r.Stdout, "SKILL.md") || strings.Contains(r.Stdout, "run.go") {
+		t.Errorf("stdout:\n%s\nwant suffix:\n%s", r.Stdout, want)
 	}
 
 	empty := pcServer(t, "[]", "[]", "[]", &query)
 	r = runGuard("prune-candidates", nil, pcEnvAt(empty.URL, root))
-	if r.rc != 0 || !strings.HasSuffix(r.stdout, "never-loaded: no load recorded in the window\n") || strings.Contains(r.stdout, "never-loaded skills/") {
-		t.Errorf("no loads: rc=%d stdout:\n%s", r.rc, r.stdout)
+	if r.Rc != 0 || !strings.HasSuffix(r.Stdout, "never-loaded: no load recorded in the window\n") || strings.Contains(r.Stdout, "never-loaded skills/") {
+		t.Errorf("no loads: rc=%d stdout:\n%s", r.Rc, r.Stdout)
 	}
 }
 
@@ -158,7 +158,7 @@ func TestPruneCandidatesNeverLoadedWindow(t *testing.T) {
 	var query string
 	srv := pcServer(t, "[]", "[]", `[{"path":"skills/a.md","loads":1,"first":"2026-11-28T09:00:00Z"},{"path":"skills/b.md","loads":1,"first":"2026-11-27T20:08:00Z"}]`, &query)
 	r := runGuard("prune-candidates", nil, pcEnvAt(srv.URL, root))
-	if r.rc != 0 || !strings.Contains(r.stdout, "never-loaded window: 2026-11-27T20:08:00Z .. ") {
-		t.Errorf("rc=%d stdout:\n%s", r.rc, r.stdout)
+	if r.Rc != 0 || !strings.Contains(r.Stdout, "never-loaded window: 2026-11-27T20:08:00Z .. ") {
+		t.Errorf("rc=%d stdout:\n%s", r.Rc, r.Stdout)
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 func detachedEnv(dir string) core.Env {
@@ -76,9 +77,9 @@ func TestAwaitDetachedExited(t *testing.T) {
 	for i := 1; i <= 50; i++ {
 		log.WriteString("line" + strconv.Itoa(i) + "\n")
 	}
-	writeFile(t, filepath.Join(dir, "out.log"), log.String())
-	writeFile(t, filepath.Join(dir, "pid"), "1\n")
-	writeFile(t, filepath.Join(dir, "exit"), "2\n")
+	guardtest.WriteFile(t, filepath.Join(dir, "out.log"), log.String())
+	guardtest.WriteFile(t, filepath.Join(dir, "pid"), "1\n")
+	guardtest.WriteFile(t, filepath.Join(dir, "exit"), "2\n")
 	var o, e bytes.Buffer
 	if rc := awaitDetached([]string{dir, "-timeout", "1"}, detachedEnv(dir), &o, &e); rc != 0 {
 		t.Fatalf("rc %d", rc)
@@ -94,8 +95,8 @@ func TestAwaitDetachedExited(t *testing.T) {
 func TestAwaitDetachedRunning(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "out.log"), "a\nb\n")
-	writeFile(t, filepath.Join(dir, "pid"), strconv.Itoa(os.Getpid())+"\n")
+	guardtest.WriteFile(t, filepath.Join(dir, "out.log"), "a\nb\n")
+	guardtest.WriteFile(t, filepath.Join(dir, "pid"), strconv.Itoa(os.Getpid())+"\n")
 	var o, e bytes.Buffer
 	start := time.Now()
 	if rc := awaitDetached([]string{dir, "-timeout", "1"}, detachedEnv(dir), &o, &e); rc != 0 {
@@ -113,8 +114,8 @@ func TestAwaitDetachedRunning(t *testing.T) {
 func TestAwaitDetachedLost(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "out.log"), "")
-	writeFile(t, filepath.Join(dir, "pid"), "999999\n")
+	guardtest.WriteFile(t, filepath.Join(dir, "out.log"), "")
+	guardtest.WriteFile(t, filepath.Join(dir, "pid"), "999999\n")
 	var o, e bytes.Buffer
 	if rc := awaitDetached([]string{dir, "-timeout", "1"}, detachedEnv(dir), &o, &e); rc != 1 || o.String() != "LOST\n" {
 		t.Errorf("rc %d stdout %q", rc, o.String())
@@ -125,8 +126,8 @@ func TestAwaitDetachedLost(t *testing.T) {
 func TestAwaitDetachedRecordsItsSleepAsWait(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "out.log"), "")
-	writeFile(t, filepath.Join(dir, "pid"), strconv.Itoa(os.Getpid())+"\n")
+	guardtest.WriteFile(t, filepath.Join(dir, "out.log"), "")
+	guardtest.WriteFile(t, filepath.Join(dir, "pid"), strconv.Itoa(os.Getpid())+"\n")
 	env := detachedEnv(dir)
 	env.Reasons = &core.Reasons{}
 	var o, e bytes.Buffer

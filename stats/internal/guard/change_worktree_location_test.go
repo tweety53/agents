@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // cwlFx is a main checkout on `main` with linked worktrees on spectre/demo,
@@ -14,19 +15,19 @@ func cwlFx(t *testing.T) (sandbox, main string) {
 	t.Helper()
 	sandbox = t.TempDir()
 	main = sandbox + "/repo"
-	var g fxGit
-	g.copyShape(main, repoShape{Branch: "main"})
-	g.write(main+"/README.md", "seed")
-	g.git(main, "add", "-A")
-	g.git(main, "commit", "-q", "-m", "seed")
-	g.git(main, "worktree", "add", "-q", "-b", "spectre/demo", main+"/.worktrees/demo")
-	g.git(main, "worktree", "add", "-q", "-b", "spectre/other", main+"/.worktrees/other")
-	g.git(main, "worktree", "add", "-q", "--detach", main+"/.worktrees/detached")
-	if g.err != nil {
-		t.Fatal(g.err)
+	var g guardtest.FxGit
+	g.CopyShape(main, guardtest.RepoShape{Branch: "main"})
+	g.Write(main+"/README.md", "seed")
+	g.Git(main, "add", "-A")
+	g.Git(main, "commit", "-q", "-m", "seed")
+	g.Git(main, "worktree", "add", "-q", "-b", "spectre/demo", main+"/.worktrees/demo")
+	g.Git(main, "worktree", "add", "-q", "-b", "spectre/other", main+"/.worktrees/other")
+	g.Git(main, "worktree", "add", "-q", "--detach", main+"/.worktrees/detached")
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
-	mkdir(t, sandbox+"/plain")
-	mkdir(t, main+"/.worktrees/demo/sub")
+	guardtest.Mkdir(t, sandbox+"/plain")
+	guardtest.Mkdir(t, main+"/.worktrees/demo/sub")
 	return sandbox, main
 }
 
@@ -55,11 +56,11 @@ func TestChangeWorktreeLocationRefusesAMainCheckout(t *testing.T) {
 	t.Run("main checkout on spectre/<name> is still refused, with only the main-checkout line", func(t *testing.T) {
 		t.Parallel()
 		_, main := cwlFx(t)
-		var g fxGit
-		g.git(main+"/.worktrees/demo", "checkout", "-q", "--detach")
-		g.git(main, "checkout", "-q", "spectre/demo")
-		if g.err != nil {
-			t.Fatal(g.err)
+		var g guardtest.FxGit
+		g.Git(main+"/.worktrees/demo", "checkout", "-q", "--detach")
+		g.Git(main, "checkout", "-q", "spectre/demo")
+		if g.Err != nil {
+			t.Fatal(g.Err)
 		}
 		cwlRun(t, env, 1, "WORKTREE-LOCATION-MAIN-CHECKOUT: "+main+"\n", main, "demo")
 	})

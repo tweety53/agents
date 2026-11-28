@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -53,11 +54,11 @@ func bpArgs(parts ...[]string) []string {
 func bpBuild(t *testing.T) string {
 	t.Helper()
 	repo := t.TempDir() + "/base"
-	gitRun(t, "", "init", "-q", "-b", "main", "--template=", repo)
-	writeFile(t, repo+"/config.yaml", bpConfig)
-	writeFile(t, repo+"/README.md", "readme v1\n")
-	gitRun(t, repo, "add", "config.yaml", "README.md")
-	gitRun(t, repo, "commit", "-qm", "fixture")
+	guardtest.GitRun(t, "", "init", "-q", "-b", "main", "--template=", repo)
+	guardtest.WriteFile(t, repo+"/config.yaml", bpConfig)
+	guardtest.WriteFile(t, repo+"/README.md", "readme v1\n")
+	guardtest.GitRun(t, repo, "add", "config.yaml", "README.md")
+	guardtest.GitRun(t, repo, "commit", "-qm", "fixture")
 	return repo
 }
 
@@ -105,8 +106,8 @@ func bpParity(t *testing.T, base, bashDir string, prep func(t *testing.T, repo s
 			cmd.Stdout, cmd.Stderr = &out, &errb
 			_ = cmd.Run()
 			r = mvRes{cmd.ProcessState.ExitCode(),
-				bashUsage(bpBashDiag.ReplaceAllString(out.String(), "break-and-prove: ")),
-				bashUsage(bpBashDiag.ReplaceAllString(errb.String(), "break-and-prove: "))}
+				guardtest.BashUsage(bpBashDiag.ReplaceAllString(out.String(), "break-and-prove: ")),
+				guardtest.BashUsage(bpBashDiag.ReplaceAllString(errb.String(), "break-and-prove: "))}
 		} else {
 			r = bpProve(repo, args...)
 			// The root line is the port's own addition; the bash at base never prints it.
@@ -137,7 +138,7 @@ type bpCase struct {
 func bpPatch(t *testing.T, repo, body string) string {
 	t.Helper()
 	p := repo + ".parent.patch"
-	writeFile(t, p, body)
+	guardtest.WriteFile(t, p, body)
 	return p
 }
 
@@ -165,7 +166,7 @@ func TestBreakAndProve(t *testing.T) {
 	cases := []bpCase{
 		// 1. proof held — sed mutation.
 		{"1 proof held — sed mutation", func(t *testing.T, repo string) []string {
-			writeFile(t, repo+"/.config-before", bpConfig)
+			guardtest.WriteFile(t, repo+"/.config-before", bpConfig)
 			return bpArgs(bpSed, bpTest)
 		}, func(t *testing.T, repo string, r mvRes) {
 			rcIs(t, "proof held (sed mutation) — exit code", r, 0)
@@ -183,7 +184,7 @@ func TestBreakAndProve(t *testing.T) {
 		// KAN-329 failure: `git checkout --` destroyed such edits; the
 		// snapshot must not.
 		{"3 uncommitted edit on the target file survives", func(t *testing.T, repo string) []string {
-			writeFile(t, repo+"/config.yaml", bpConfig+"# tuned by hand\n")
+			guardtest.WriteFile(t, repo+"/config.yaml", bpConfig+"# tuned by hand\n")
 			return bpArgs(bpSed, bpTest)
 		}, func(t *testing.T, repo string, r mvRes) {
 			rcIs(t, "uncommitted edit on the target file survives — exit code", r, 0)
@@ -192,7 +193,7 @@ func TestBreakAndProve(t *testing.T) {
 		}},
 		// 4. uncommitted edit on a second file survives.
 		{"4 uncommitted edit on a second file survives", func(t *testing.T, repo string) []string {
-			writeFile(t, repo+"/README.md", "readme v1\nuncommitted note\n")
+			guardtest.WriteFile(t, repo+"/README.md", "readme v1\nuncommitted note\n")
 			return bpArgs(bpSed, bpTest)
 		}, func(t *testing.T, repo string, r mvRes) {
 			rcIs(t, "uncommitted edit on a second file survives — exit code", r, 0)
@@ -291,7 +292,7 @@ func TestBreakAndProve(t *testing.T) {
 		// 17. test command that cannot exec (127) — exit 4, never a false
 		// verdict.
 		{"17 test command 127", func(t *testing.T, repo string) []string {
-			writeFile(t, repo+"/.config-before", bpConfig)
+			guardtest.WriteFile(t, repo+"/.config-before", bpConfig)
 			return bpArgs(bpSed, []string{"--", "./no-such-command-anywhere"})
 		}, func(t *testing.T, repo string, r mvRes) {
 			rcIs(t, "test command 127 exits 4", r, 4)
@@ -301,7 +302,7 @@ func TestBreakAndProve(t *testing.T) {
 		// 18. test command that exists but is not executable (126) — exit 4
 		// too.
 		{"18 test command 126", func(t *testing.T, repo string) []string {
-			writeFile(t, repo+"/nonexec-cmd", "#!/usr/bin/env bash\necho should-not-run\n")
+			guardtest.WriteFile(t, repo+"/nonexec-cmd", "#!/usr/bin/env bash\necho should-not-run\n")
 			return bpArgs(bpSed, []string{"--", "./nonexec-cmd"})
 		}, func(t *testing.T, repo string, r mvRes) {
 			rcIs(t, "test command 126 exits 4", r, 4)
@@ -321,7 +322,7 @@ func TestBreakAndProve(t *testing.T) {
 			_ = os.Chmod(repo+"/config.yaml", 0o644)
 		}},
 		{"port: an executable without #! runs as a bash script", func(t *testing.T, repo string) []string {
-			writeExec(t, repo+"/no-shebang", "grep -q 'mode: strict' config.yaml\n")
+			guardtest.WriteExec(t, repo+"/no-shebang", "grep -q 'mode: strict' config.yaml\n")
 			return bpArgs(bpSed, []string{"--", "./no-shebang"})
 		}, func(t *testing.T, repo string, r mvRes) { rcIs(t, "no #!: proof held", r, 0) }},
 		{"port: a test command not on PATH", func(t *testing.T, repo string) []string {
@@ -337,7 +338,7 @@ func TestBreakAndProve(t *testing.T) {
 			contains(t, "failing sed: named", r, "sed failed with exit")
 		}},
 		{"port: a patch target outside the repository is refused", func(t *testing.T, repo string) []string {
-			writeFile(t, filepath.Dir(repo)+"/outside/config.yaml", bpConfig)
+			guardtest.WriteFile(t, filepath.Dir(repo)+"/outside/config.yaml", bpConfig)
 			return bpArgs([]string{"--patch", bpPatch(t, repo, bpFlipPatch), "../outside/config.yaml"}, bpTest)
 		}, func(t *testing.T, repo string, r mvRes) {
 			rcIs(t, "outside target: exits 2", r, 2)
@@ -424,7 +425,7 @@ func TestBreakAndProve(t *testing.T) {
 	// reaches it.
 	t.Run("shim", func(t *testing.T) {
 		t.Parallel()
-		shim := guardShim(t, "break-and-prove")
+		shim := guardtest.GuardShim(t, "break-and-prove")
 		linkDir := t.TempDir()
 		link := linkDir + "/break-and-prove.sh"
 		symlink(t, shim, link)
@@ -433,7 +434,7 @@ func TestBreakAndProve(t *testing.T) {
 			"shim through a symlink: no arguments exits 4 with the usage line": link} {
 			cmd := exec.Command("/bin/bash", path)
 			cmd.Dir = t.TempDir()
-			cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
+			cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t))
 			var out, errb bytes.Buffer
 			cmd.Stdout, cmd.Stderr = &out, &errb
 			_ = cmd.Run()
@@ -454,10 +455,10 @@ func TestBreakAndProve(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		cmd := exec.Command("/bin/bash", append([]string{guardShim(t, "break-and-prove")}, bpArgs(bpSed,
+		cmd := exec.Command("/bin/bash", append([]string{guardtest.GuardShim(t, "break-and-prove")}, bpArgs(bpSed,
 			[]string{"--", "sh", "-c", `echo ready > "$BP_READY"; read -r _ < "$BP_RELEASE"; exit 1`})...)...)
 		cmd.Dir = repo
-		cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "BP_READY="+ready, "BP_RELEASE="+release)
+		cmd.Env = append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "BP_READY="+ready, "BP_RELEASE="+release)
 		// Files, not buffers: Wait then waits for the process alone, never
 		// for a pipe the orphaned test command still holds.
 		out := mvCreate(t, dir+"/stdout")
@@ -493,7 +494,7 @@ const bpUsage = "break-and-prove: usage: flow-guard break-and-prove [--clean <co
 // it sets the process PATH the port's exec resolves against.
 func TestBreakAndProveRelativePath(t *testing.T) {
 	repo := bpRepo(t, bpBuild(t))
-	writeExec(t, repo+"/chk", "#!/bin/sh\ngrep -q 'mode: strict' config.yaml\n")
+	guardtest.WriteExec(t, repo+"/chk", "#!/bin/sh\ngrep -q 'mode: strict' config.yaml\n")
 	t.Setenv("PATH", ".:"+os.Getenv("PATH"))
 	r := bpProve(repo, bpArgs(bpSed, []string{"--", "chk"})...)
 	if r.rc != 0 || bpConfigOf(repo) != bpConfig {
@@ -544,10 +545,10 @@ func TestBreakAndProveSubdirectoryShellForm(t *testing.T) {
 	sed := []string{"--sed", "s/mode: strict/mode: lax/", "sub/config.yaml"}
 	setup := func(t *testing.T) string {
 		repo := bpRepo(t, base)
-		writeFile(t, repo+"/sub/config.yaml", bpConfig)
-		writeFile(t, repo+"/.gitignore", "sub/cache/\n")
-		gitRun(t, repo, "add", "sub/config.yaml", ".gitignore")
-		gitRun(t, repo, "commit", "-qm", "sub")
+		guardtest.WriteFile(t, repo+"/sub/config.yaml", bpConfig)
+		guardtest.WriteFile(t, repo+"/.gitignore", "sub/cache/\n")
+		guardtest.GitRun(t, repo, "add", "sub/config.yaml", ".gitignore")
+		guardtest.GitRun(t, repo, "commit", "-qm", "sub")
 		return repo
 	}
 	t.Run("documented form", func(t *testing.T) {
@@ -605,7 +606,7 @@ func mvCheck(t *testing.T, label string, ok bool, format string, a ...any) {
 }
 
 // mvCopyTree copies src to dst; an executable is linked to its master inode
-// (writeExec), so a copied guard or harness costs no fresh assessment.
+// (WriteExec), so a copied guard or harness costs no fresh assessment.
 func mvCopyTree(t *testing.T, src, dst string) {
 	t.Helper()
 	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
@@ -625,7 +626,7 @@ func mvCopyTree(t *testing.T, src, dst string) {
 			return err
 		}
 		if fi.Mode()&0o111 != 0 {
-			writeExec(t, target, string(b))
+			guardtest.WriteExec(t, target, string(b))
 			return nil
 		}
 		return os.WriteFile(target, b, fi.Mode().Perm())
@@ -651,8 +652,8 @@ func bashAtBase(t *testing.T, rels ...string) string {
 	t.Helper()
 	dir := t.TempDir()
 	for _, rel := range rels {
-		src := historicalFile(t, "../../..", "d71a2327", "scripts/"+rel)
-		writeFile(t, filepath.Join(dir, rel), string(src))
+		src := guardtest.HistoricalFile(t, "../../..", "d71a2327", "scripts/"+rel)
+		guardtest.WriteFile(t, filepath.Join(dir, rel), string(src))
 	}
 	return dir
 }

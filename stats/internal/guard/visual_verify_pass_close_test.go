@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -24,20 +25,20 @@ func vvcFixture(t *testing.T, extra string) *vvpFix {
 	f := vvpFixture(t, extra)
 	f.environ = append(f.environ, "GIT_CONFIG_GLOBAL=/dev/null", "GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
 		"GIT_COMMITTER_NAME=test", "GIT_COMMITTER_EMAIL=test@example.com")
-	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/design.md"), "# design\n\nFrame f1 is the home screen.\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "spectre/changes/demo/design.md"), "# design\n\nFrame f1 is the home screen.\n")
 	if strings.Contains(extra, "`mockups`") {
-		writeFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
+		guardtest.WriteFile(t, filepath.Join(f.wt, "design/mockups/f1.png"), "png\n")
 	}
-	writeFile(t, filepath.Join(f.wt, ".gitignore"), "spectre/changes/\n")
-	gitRun(t, f.wt, "add", "-A")
-	gitRun(t, f.wt, "add", "-f", "spectre/changes/demo/design.md")
-	gitRun(t, f.wt, "commit", "-qm", "design")
+	guardtest.WriteFile(t, filepath.Join(f.wt, ".gitignore"), "spectre/changes/\n")
+	guardtest.GitRun(t, f.wt, "add", "-A")
+	guardtest.GitRun(t, f.wt, "add", "-f", "spectre/changes/demo/design.md")
+	guardtest.GitRun(t, f.wt, "commit", "-qm", "design")
 	f.green()
 	if rc, out, _ := f.prepare(); rc != 0 {
 		t.Fatalf("prepare: exit %d\n%s", rc, out)
 	}
 	f.captures(f.wt)
-	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/visual-verification/uncommitted.txt"), "# vv\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "spectre/changes/demo/visual-verification/uncommitted.txt"), "# vv\n")
 	return f
 }
 
@@ -45,7 +46,7 @@ func vvcFixture(t *testing.T, extra string) *vvpFix {
 // under root's tests/visual.
 func (f *vvpFix) captures(root string) {
 	for _, p := range []string{"home.spec.ts", "home.spec.ts-home.png", "full-app-suite.spec.ts", "full-app-suite.zip"} {
-		writeFile(f.t, filepath.Join(root, "tests/visual", p), p+"\n")
+		guardtest.WriteFile(f.t, filepath.Join(root, "tests/visual", p), p+"\n")
 	}
 }
 
@@ -61,7 +62,7 @@ func (f *vvpFix) report(key, root, verdict, body string) string {
 		"- home: " + shots + "/home.spec.ts-home.png\n" +
 		"- per view, no frame composed: home sweeps: text done\n" + body
 	path := filepath.Join(f.wt, ".superpowers/sdd/verify-report-"+key+".md")
-	writeFile(f.t, path, r)
+	guardtest.WriteFile(f.t, path, r)
 	f.manifest(path, shots)
 	return path
 }
@@ -73,7 +74,7 @@ func (f *vvpFix) manifest(report, shots string, pairs ...vvmPair) {
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	writeFile(f.t, vrManifestPath(report), string(m))
+	guardtest.WriteFile(f.t, vrManifestPath(report), string(m))
 }
 
 func vvcVerdict(capture, steps, cause string, departures ...string) string {
@@ -153,21 +154,21 @@ func TestVisualVerifyPassCloseRest(t *testing.T) {
 	// Two worktrees: `-rest` goes before the repository suffix.
 	h := vvcFixture(t, "")
 	w, _ := h.sibling("gymie-frontend")
-	writeFile(t, h.stagePath(), strings.Replace(h.stageFile(), "set 1\n", "set 2\n", 1))
+	guardtest.WriteFile(t, h.stagePath(), strings.Replace(h.stageFile(), "set 1\n", "set 2\n", 1))
 	h.appendRow("visual-verify-demo", h.wt)
 	h.report("visual-verify-demo", h.wt, vvcVerdict("0", undone, ""), "- steps: "+undone+"\n")
 	if rc, out, _ := h.close("visual-verify-demo"); rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: rest visual-verify-rest-demo") {
 		t.Fatalf("a suffixed key: exit %d\n%s", rc, out)
 	}
 	h.appendRow("visual-verify-gymie-frontend", w)
-	writeFile(t, filepath.Join(w, ".superpowers/sdd/verify-report-visual-verify-gymie-frontend.md"), "## Verdict\n- steps: 10 not done\n")
+	guardtest.WriteFile(t, filepath.Join(w, ".superpowers/sdd/verify-report-visual-verify-gymie-frontend.md"), "## Verdict\n- steps: 10 not done\n")
 	if rc, out, _ := h.close("visual-verify-gymie-frontend"); rc != 0 || !strings.HasSuffix(strings.TrimSpace(out), "NEXT: rest visual-verify-rest-gymie-frontend") {
 		t.Fatalf("a sibling's key: exit %d\n%s", rc, out)
 	}
 }
 
 func (f *vvpFix) appendRow(key, w string) {
-	writeFile(f.t, f.stagePath(), f.stageFile()+"row "+key+" "+w+"\n")
+	guardtest.WriteFile(f.t, f.stagePath(), f.stageFile()+"row "+key+" "+w+"\n")
 }
 
 const vvcBlocked = "4 done | 7 done | 8 blocked — capture exit 1 | 9 blocked — capture exit 1 | 10 blocked — capture exit 1 | 11 blocked — capture exit 1 | motion n/a — no motion named"
@@ -200,7 +201,7 @@ func TestVisualVerifyPassCloseBlockedDefaults(t *testing.T) {
 func TestVisualVerifyPassCloseDieMarksNoStage(t *testing.T) {
 	t.Parallel()
 	f := vvcFixture(t, "")
-	writeExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2 $3\" in \"record dispatch end\") echo store down; exit 1;; esac\n")
+	guardtest.WriteExec(t, filepath.Join(f.bin, "flow"), "#!/bin/sh\necho \"$*\" >> "+f.log+"\ncase \"$1 $2 $3\" in \"record dispatch end\") echo store down; exit 1;; esac\n")
 	f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
 	rc, out, calls := f.close("visual-verify")
 	if rc != 2 || strings.Contains(calls, "stage ") {
@@ -264,7 +265,7 @@ func TestVisualVerifyPassCloseEscalates(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	f := vvcFixture(t, "")
-	writeFile(t, filepath.Join(f.wt, "spectre/changes/demo/tasks.md"),
+	guardtest.WriteFile(t, filepath.Join(f.wt, "spectre/changes/demo/tasks.md"),
 		"- [x] 1. In-run fix 1 — flow.visual-verify: two departures\n**Opener:** visual-verify\n\n"+
 			"- [ ] 2. In-run fix 2 — flow.verify: one test fails\n**Opener:** verify-demo\n")
 	f.report("visual-verify", f.wt, vvcDepartures(2), "- steps: "+vvcSteps+"\n")
@@ -318,10 +319,10 @@ func TestVisualVerifyPassCloseCommitsPathspec(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	f := vvcFixture(t, "")
-	writeFile(t, filepath.Join(f.wt, "foreign.txt"), "x\n")
-	gitRun(t, f.wt, "add", "foreign.txt")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "foreign.txt"), "x\n")
+	guardtest.GitRun(t, f.wt, "add", "foreign.txt")
 	// A suite PNG the report counts but never names (kan-1060 gated review).
-	writeFile(t, filepath.Join(f.wt, "tests/visual/full-app-suite.spec.ts-snapshots/home-darwin.png"), "png\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/full-app-suite.spec.ts-snapshots/home-darwin.png"), "png\n")
 	f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
 	if rc, out, _ := f.close("visual-verify"); rc != 0 {
 		t.Fatalf("exit %d\n%s", rc, out)
@@ -361,18 +362,18 @@ func TestVisualVerifyPassCloseCommitsPathspec(t *testing.T) {
 	for _, inWorktree := range []bool{false, true} {
 		h := vvcFixture(t, "")
 		regress := filepath.Join(filepath.Dir(h.wt), "regress")
-		writeFile(t, filepath.Join(regress, "README"), "r\n")
-		fixtureRepo(t, regress, repoShape{Branch: "main"})
-		gitRun(t, regress, "add", "-A")
-		gitRun(t, regress, "commit", "-qm", "r")
+		guardtest.WriteFile(t, filepath.Join(regress, "README"), "r\n")
+		guardtest.FixtureRepo(t, regress, guardtest.RepoShape{Branch: "main"})
+		guardtest.GitRun(t, regress, "add", "-A")
+		guardtest.GitRun(t, regress, "commit", "-qm", "r")
 		capture := regress
 		if inWorktree {
 			capture = filepath.Join(filepath.Dir(h.wt), "regress-worktrees", "demo")
-			gitRun(t, regress, "worktree", "add", "-q", "-b", "spectre/demo", capture)
+			guardtest.GitRun(t, regress, "worktree", "add", "-q", "-b", "spectre/demo", capture)
 		}
 		h.captures(capture)
 		h.report("visual-verify", capture, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
-		writeFile(t, filepath.Join(h.wt, ".flow/project.md"), "# project\n\n"+vvpSect(t, "| `regression checkout` | `"+regress+"` |\n| `regression repo` | `x/regress` |\n"))
+		guardtest.WriteFile(t, filepath.Join(h.wt, ".flow/project.md"), "# project\n\n"+vvpSect(t, "| `regression checkout` | `"+regress+"` |\n| `regression repo` | `x/regress` |\n"))
 		rc, out, _ := h.close("visual-verify")
 		if rc != 0 || vvcLog(t, capture, "%s") != "test: record the visual-verify visual verification" ||
 			strings.Contains(out, "PUSH:") == inWorktree ||
@@ -386,7 +387,7 @@ func TestVisualVerifyPassCloseSkipsIgnoredPaths(t *testing.T) {
 	t.Parallel()
 	f := vvcFixture(t, "")
 	png := filepath.Join(f.wt, "spectre/changes/demo/visual-verification/home.png")
-	writeFile(t, png, "png\n")
+	guardtest.WriteFile(t, png, "png\n")
 	f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n- verifier capture: "+png+"\n")
 	rc, out, _ := f.close("visual-verify")
 	if rc != 0 {
@@ -454,10 +455,10 @@ func TestVisualVerifyPassCloseKeepsTheRound(t *testing.T) {
 func TestVvpBaseInReadsEachCheckoutsRoundBase(t *testing.T) {
 	t.Parallel()
 	other := t.TempDir()
-	gitRun(t, other, "init", "-q")
-	writeFile(t, filepath.Join(other, "fidelity/a.png"), "png\n")
-	gitRun(t, other, "add", ".")
-	gitRun(t, other, "-c", "user.email=a@b", "-c", "user.name=a", "commit", "-qm", "capture")
+	guardtest.GitRun(t, other, "init", "-q")
+	guardtest.WriteFile(t, filepath.Join(other, "fidelity/a.png"), "png\n")
+	guardtest.GitRun(t, other, "add", ".")
+	guardtest.GitRun(t, other, "-c", "user.email=a@b", "-c", "user.name=a", "commit", "-qm", "capture")
 	otherBase := vgHead(t, other)
 	foreign := strings.Repeat("0", 40)
 	v := &vvp{env: core.Env{Getenv: os.Getenv}, bases: map[string]string{other: otherBase}}
@@ -498,7 +499,7 @@ func TestCloseCheckOnlyWritesNothing(t *testing.T) {
 	path := f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
 	good, _, calls := f.run("close", "--check-only", path, "0")
 	bad := filepath.Join(f.wt, ".superpowers/sdd/verify-report-bad.md")
-	writeFile(t, bad, "## Verdict\n- Model: opus\n")
+	guardtest.WriteFile(t, bad, "## Verdict\n- Model: opus\n")
 	rc, out, calls2 := f.run("close", "--check-only", bad, "0")
 	if good != 0 || rc != 1 || strings.TrimSpace(out) == "" {
 		t.Fatalf("good exit %d, bad exit %d\n%s", good, rc, out)
@@ -527,7 +528,7 @@ func TestCloseCheckOnlyFailsOnJudgeGap(t *testing.T) {
 func TestCloseCheckOnlyDerivesMechanicalLines(t *testing.T) {
 	t.Parallel()
 	f := vvcFixture(t, "| `mockups` | `design/mockups` |\n")
-	writeFile(t, filepath.Join(f.wt, "tests/visual/home.spec.ts.mockups"), "home.png f1\n")
+	guardtest.WriteFile(t, filepath.Join(f.wt, "tests/visual/home.spec.ts.mockups"), "home.png f1\n")
 	design := filepath.Join(f.wt, "spectre/changes/demo/design.md")
 	shots := filepath.Join(f.wt, "tests/visual")
 	pair := vvmPair{Spec: shots + "/home.spec.ts", Frame: "f1", Capture: shots + "/home.spec.ts-home.png", Diff: "0.01", Bands: []any{}, Seams: []any{}, Over: []any{}}
@@ -570,7 +571,7 @@ func TestVisualVerifyPassCloseRefusesAStaleRecord(t *testing.T) {
 			t.Parallel()
 			f := vvcFixture(t, "")
 			if c.record != "" {
-				writeFile(t, record(f), c.record)
+				guardtest.WriteFile(t, record(f), c.record)
 			}
 			f.report("visual-verify", f.wt, vvcVerdict("0", vvcSteps, ""), "- steps: "+vvcSteps+"\n")
 			rc, out, _ := f.close("visual-verify")

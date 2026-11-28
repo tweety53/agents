@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // The begin hook records a dispatch row under its dispatcher's token -- the main thread's, else
@@ -22,8 +23,8 @@ func TestEnforceAgentBaselineBeginsUnderTheDispatchersToken(t *testing.T) {
 	t.Cleanup(srv.Close)
 	tmp := t.TempDir()
 	repo := filepath.Join(tmp, "repo")
-	fixtureRepo(t, repo, repoShape{Branch: "main"})
-	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\necho '[]'\n")
+	guardtest.FixtureRepo(t, repo, guardtest.RepoShape{Branch: "main"})
+	guardtest.WriteExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\necho '[]'\n")
 	env := core.Env{Getenv: func(k string) string {
 		switch k {
 		case "FLOW_ADDR":

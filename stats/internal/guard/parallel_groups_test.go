@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // pgTask is one plan task for pgSelect: open unless done, its After set and Files.
@@ -60,17 +61,17 @@ func TestParallelGroupsSelect(t *testing.T) {
 func pgFixture(t *testing.T) (wt string, env core.Env) {
 	t.Helper()
 	wt = t.TempDir() + "/wt"
-	mkdir(t, wt)
-	fixtureRepo(t, wt, repoShape{Branch: "spectre/demo"})
-	gitRun(t, wt, "config", "user.name", "t")
-	gitRun(t, wt, "config", "user.email", "t@t")
-	writeFile(t, wt+"/.gitignore", ".superpowers/\nspectre/\n")
-	writeFile(t, wt+"/base.txt", "base\n")
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-q", "-m", "base")
-	writeFile(t, wt+"/spectre/changes/demo/tasks.md", "# Tasks\n\n- [ ] 1. one\n\n**Files:**\n- `a.txt`\n\n**After:** none\n\n- [ ] 2. two\n\n**Files:**\n- `b.txt`\n\n**After:** none\n")
-	writeFile(t, wt+"/.superpowers/sdd/decision.json", `{"groups":[{"tasks":["1"],"reason":"r"},{"tasks":["2"],"reason":"r"}],"panel":[],"visual":{"verify":"skipped"}}`)
-	return wt, core.Env{Getenv: pathEnv(""), Dir: wt}
+	guardtest.Mkdir(t, wt)
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{Branch: "spectre/demo"})
+	guardtest.GitRun(t, wt, "config", "user.name", "t")
+	guardtest.GitRun(t, wt, "config", "user.email", "t@t")
+	guardtest.WriteFile(t, wt+"/.gitignore", ".superpowers/\nspectre/\n")
+	guardtest.WriteFile(t, wt+"/base.txt", "base\n")
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-q", "-m", "base")
+	guardtest.WriteFile(t, wt+"/spectre/changes/demo/tasks.md", "# Tasks\n\n- [ ] 1. one\n\n**Files:**\n- `a.txt`\n\n**After:** none\n\n- [ ] 2. two\n\n**Files:**\n- `b.txt`\n\n**After:** none\n")
+	guardtest.WriteFile(t, wt+"/.superpowers/sdd/decision.json", `{"groups":[{"tasks":["1"],"reason":"r"},{"tasks":["2"],"reason":"r"}],"panel":[],"visual":{"verify":"skipped"}}`)
+	return wt, core.Env{Getenv: guardtest.PathEnv(""), Dir: wt}
 }
 
 func TestParallelGroupsNext(t *testing.T) {
@@ -78,16 +79,16 @@ func TestParallelGroupsNext(t *testing.T) {
 	t.Run("two independent groups", func(t *testing.T) {
 		t.Parallel()
 		wt, env := pgFixture(t)
-		if r := runGuard("parallel-groups", []string{"next", wt}, env); r.rc != 0 || r.out != "GROUPS: 1 2" {
-			t.Fatalf("exit %d, want 0 and GROUPS: 1 2\n%s", r.rc, r.out)
+		if r := runGuard("parallel-groups", []string{"next", wt}, env); r.Rc != 0 || r.Out != "GROUPS: 1 2" {
+			t.Fatalf("exit %d, want 0 and GROUPS: 1 2\n%s", r.Rc, r.Out)
 		}
 	})
 	t.Run("a JVM build is serial", func(t *testing.T) {
 		t.Parallel()
 		wt, env := pgFixture(t)
-		writeFile(t, wt+"/settings.gradle.kts", "")
-		if r := runGuard("parallel-groups", []string{"next", wt}, env); r.rc != 0 || r.out != "SERIAL: JVM build — one build at a time\nGROUPS: 1" {
-			t.Fatalf("exit %d, want 0 and SERIAL then GROUPS: 1\n%s", r.rc, r.out)
+		guardtest.WriteFile(t, wt+"/settings.gradle.kts", "")
+		if r := runGuard("parallel-groups", []string{"next", wt}, env); r.Rc != 0 || r.Out != "SERIAL: JVM build — one build at a time\nGROUPS: 1" {
+			t.Fatalf("exit %d, want 0 and SERIAL then GROUPS: 1\n%s", r.Rc, r.Out)
 		}
 	})
 	t.Run("no decision is a usage error", func(t *testing.T) {
@@ -96,8 +97,8 @@ func TestParallelGroupsNext(t *testing.T) {
 		if err := os.Remove(wt + "/.superpowers/sdd/decision.json"); err != nil {
 			t.Fatal(err)
 		}
-		if r := runGuard("parallel-groups", []string{"next", wt}, env); r.rc != 2 {
-			t.Fatalf("exit %d, want 2\n%s", r.rc, r.out)
+		if r := runGuard("parallel-groups", []string{"next", wt}, env); r.Rc != 2 {
+			t.Fatalf("exit %d, want 2\n%s", r.Rc, r.Out)
 		}
 	})
 }
@@ -107,15 +108,15 @@ func TestParallelGroupsNext(t *testing.T) {
 func pgCopy(t *testing.T, wt string, env core.Env, g, id string, files ...string) string {
 	t.Helper()
 	cp := wt + "-group-" + g
-	if r := runGuard("throwaway-worktree", []string{"create", wt, cp, "--sdd"}, env); r.rc != 0 {
-		t.Fatalf("create %s: %s", cp, r.out)
+	if r := runGuard("throwaway-worktree", []string{"create", wt, cp, "--sdd"}, env); r.Rc != 0 {
+		t.Fatalf("create %s: %s", cp, r.Out)
 	}
 	for i := 0; i < len(files); i += 2 {
-		writeFile(t, cp+"/"+files[i], files[i+1])
+		guardtest.WriteFile(t, cp+"/"+files[i], files[i+1])
 	}
-	gitRun(t, cp, "add", "-A")
-	gitRun(t, cp, "commit", "-q", "-m", "task "+id, "-m", "Task-Id: "+id)
-	writeFile(t, cp+"/.superpowers/sdd/implementer-report-"+g+".md", "report\n")
+	guardtest.GitRun(t, cp, "add", "-A")
+	guardtest.GitRun(t, cp, "commit", "-q", "-m", "task "+id, "-m", "Task-Id: "+id)
+	guardtest.WriteFile(t, cp+"/.superpowers/sdd/implementer-report-"+g+".md", "report\n")
 	return cp
 }
 
@@ -126,10 +127,10 @@ func TestParallelGroupsMerge(t *testing.T) {
 		wt, env := pgFixture(t)
 		c2 := pgCopy(t, wt, env, "2", "2", "b.txt", "b\n")
 		c3 := pgCopy(t, wt, env, "3", "3", "c.txt", "c\n")
-		gitRun(t, wt, "commit", "-q", "--allow-empty", "-m", "task 1", "-m", "Task-Id: 1")
+		guardtest.GitRun(t, wt, "commit", "-q", "--allow-empty", "-m", "task 1", "-m", "Task-Id: 1")
 		r := runGuard("parallel-groups", []string{"merge", wt, c2, c3}, env)
-		if r.rc != 0 || strings.Count(r.out, "PICKED: ") != 2 {
-			t.Fatalf("exit %d, want 0 and two PICKED lines\n%s", r.rc, r.out)
+		if r.Rc != 0 || strings.Count(r.Out, "PICKED: ") != 2 {
+			t.Fatalf("exit %d, want 0 and two PICKED lines\n%s", r.Rc, r.Out)
 		}
 		if got := tcfGit(t, wt, "log", "--format=%s", "-3"); got != "task 3\ntask 2\ntask 1" {
 			t.Errorf("log %q, want task 1, 2, 3 in order", got)
@@ -149,8 +150,8 @@ func TestParallelGroupsMerge(t *testing.T) {
 		c2 := pgCopy(t, wt, env, "2", "2", "b.txt", "b\n")
 		c3 := pgCopy(t, wt, env, "3", "3", "b.txt", "other\n")
 		r := runGuard("parallel-groups", []string{"merge", wt, c2, c3}, env)
-		if r.rc != 1 || !strings.Contains(r.out, "BLOCKED: "+c3) {
-			t.Fatalf("exit %d, want 1 and BLOCKED naming %s\n%s", r.rc, c3, r.out)
+		if r.Rc != 1 || !strings.Contains(r.Out, "BLOCKED: "+c3) {
+			t.Fatalf("exit %d, want 1 and BLOCKED naming %s\n%s", r.Rc, c3, r.Out)
 		}
 		if got := tcfGit(t, wt, "status", "--porcelain", "--untracked-files=no"); got != "" {
 			t.Errorf("canonical tree left dirty: %q", got)
@@ -166,10 +167,10 @@ func TestParallelGroupsMerge(t *testing.T) {
 		t.Parallel()
 		wt, env := pgFixture(t)
 		c2 := pgCopy(t, wt, env, "2", "2", "b.txt", "b\n")
-		writeFile(t, c2+"/wip.txt", "wip\n")
+		guardtest.WriteFile(t, c2+"/wip.txt", "wip\n")
 		before := tcfGit(t, wt, "rev-parse", "HEAD")
-		if r := runGuard("parallel-groups", []string{"merge", wt, c2}, env); r.rc != 1 || !strings.Contains(r.out, "BLOCKED: "+c2) {
-			t.Fatalf("exit %d, want 1 and BLOCKED\n%s", r.rc, r.out)
+		if r := runGuard("parallel-groups", []string{"merge", wt, c2}, env); r.Rc != 1 || !strings.Contains(r.Out, "BLOCKED: "+c2) {
+			t.Fatalf("exit %d, want 1 and BLOCKED\n%s", r.Rc, r.Out)
 		}
 		if tcfGit(t, wt, "rev-parse", "HEAD") != before {
 			t.Error("HEAD moved")

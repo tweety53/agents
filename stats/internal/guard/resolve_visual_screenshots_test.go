@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // Every case of scripts/test-resolve-visual-screenshots.sh at 3915fbc0, one
@@ -43,13 +44,13 @@ type rvsFixture struct {
 // rvsRoot is the harness's new_root: a temp root with an empty .flow/.
 func rvsRoot(t *testing.T) string {
 	root := t.TempDir()
-	mkdir(t, root+"/.flow")
+	guardtest.Mkdir(t, root+"/.flow")
 	return root
 }
 
 func rvsTouch(t *testing.T, paths ...string) {
 	for _, p := range paths {
-		writeFile(t, p, "")
+		guardtest.WriteFile(t, p, "")
 	}
 }
 
@@ -59,13 +60,13 @@ func rvsTouch(t *testing.T, paths ...string) {
 // the change worktree's path as `git worktree list --porcelain` spells it.
 var rvsGit = sync.OnceValues(func() (struct{ pw, projChange, projElse, wt string }, error) {
 	var f struct{ pw, projChange, projElse, wt string }
-	top, err := os.MkdirTemp(execFixtures.dir, "resolve-visual-screenshots")
+	top, err := os.MkdirTemp(guardtest.ExecFixtures.Dir, "resolve-visual-screenshots")
 	if err != nil {
 		return f, err
 	}
 	git := func(args ...string) (string, error) {
-		cmd := exec.Command(fixtureGit, args...)
-		cmd.Env = append(append(os.Environ(), fixtureGitEnv...),
+		cmd := exec.Command(guardtest.FixtureGit, args...)
+		cmd.Env = append(append(os.Environ(), guardtest.FixtureGitEnv...),
 			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -81,12 +82,12 @@ var rvsGit = sync.OnceValues(func() (struct{ pw, projChange, projElse, wt string
 		return f, err
 	}
 	cfg := "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `gymie-frontend/**` |\n| `screenshots` | `.` |\n| `regression checkout` | `" + f.pw + "` |\n| `regression repo` | `git@github.com:tweety53/gymie-playwright.git` |\n"
-	for dir, s := range map[string]repoShape{
+	for dir, s := range map[string]guardtest.RepoShape{
 		f.pw:         {Branch: "main"},
 		f.projChange: {Branch: "spectre/change"},
 		f.projElse:   {Branch: "spectre/change"},
 	} {
-		if err := copyShape(dir, s); err != nil {
+		if err := guardtest.CopyShape(dir, s); err != nil {
 			return f, err
 		}
 	}
@@ -132,14 +133,14 @@ var rvsCases = map[string]func(t *testing.T) rvsFixture{
 	"case 1": func(t *testing.T) rvsFixture {
 		root := rvsRoot(t)
 		rvsTouch(t, root+"/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png")
-		writeFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
+		guardtest.WriteFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
 		return rvsFixture{root, []string{root, "baseline.spec.ts"}, 0,
 			root + "/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png\n", ""}
 	},
 	"case 2": func(t *testing.T) rvsFixture {
 		root := rvsRoot(t)
 		rvsTouch(t, root+"/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png")
-		writeFile(t, root+"/.flow/project.md", rvsSection("."))
+		guardtest.WriteFile(t, root+"/.flow/project.md", rvsSection("."))
 		return rvsFixture{root, []string{root, "baseline.spec.ts"}, 0,
 			root + "/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png\n", ""}
 	},
@@ -156,14 +157,14 @@ var rvsCases = map[string]func(t *testing.T) rvsFixture{
 	},
 	"case 4": func(t *testing.T) rvsFixture {
 		root := rvsRoot(t)
-		mkdir(t, root+"/tests/visual")
-		writeFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
+		guardtest.Mkdir(t, root+"/tests/visual")
+		guardtest.WriteFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
 		return rvsFixture{root, []string{root, "baseline.spec.ts"}, 1, "",
 			rvsName + "zero PNGs under " + root + "/tests/visual matched `baseline.spec.ts`\n"}
 	},
 	"case 5": func(t *testing.T) rvsFixture {
 		root := rvsRoot(t)
-		writeFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
+		guardtest.WriteFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
 		return rvsFixture{root, []string{root, "baseline.spec.ts"}, 1, "",
 			rvsName + "zero PNGs under " + root + "/tests/visual matched `baseline.spec.ts`\n"}
 	},
@@ -171,7 +172,7 @@ var rvsCases = map[string]func(t *testing.T) rvsFixture{
 		root := rvsRoot(t)
 		rvsTouch(t, root+"/checkout/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png",
 			root+"/tests/visual/baseline.spec.ts-snapshots/decoy.png")
-		writeFile(t, root+"/.flow/project.md", rvsCheckoutSection(root+"/checkout"))
+		guardtest.WriteFile(t, root+"/.flow/project.md", rvsCheckoutSection(root+"/checkout"))
 		return rvsFixture{root, []string{root, "baseline.spec.ts"}, 0,
 			root + "/checkout/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png\n", ""}
 	},
@@ -184,7 +185,7 @@ var rvsCases = map[string]func(t *testing.T) rvsFixture{
 	"empty checkout": func(t *testing.T) rvsFixture {
 		root := rvsRoot(t)
 		rvsTouch(t, root+"/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png")
-		writeFile(t, root+"/.flow/project.md", strings.Replace(rvsCheckoutSection("x"), "| `x` |", "|  |", 1))
+		guardtest.WriteFile(t, root+"/.flow/project.md", strings.Replace(rvsCheckoutSection("x"), "| `x` |", "|  |", 1))
 		return rvsFixture{root, []string{root, "baseline.spec.ts"}, 2, "",
 			rvsName + "`regression checkout` names ``, which is not an existing directory — cannot resolve `screenshots` relative to it\n"}
 	},
@@ -195,19 +196,19 @@ var rvsCases = map[string]func(t *testing.T) rvsFixture{
 	},
 	"case 8": func(t *testing.T) rvsFixture {
 		root := rvsRoot(t)
-		writeFile(t, root+"/.flow/project.md", "# Project\n\n## run\n\necho hi\n\n")
+		guardtest.WriteFile(t, root+"/.flow/project.md", "# Project\n\n## run\n\necho hi\n\n")
 		return rvsFixture{root, []string{root, "baseline.spec.ts"}, 2, "",
 			rvsName + root + "/.flow/project.md declares no '## visual verification' section — cannot resolve where screenshots live\n"}
 	},
 	"case 9": func(t *testing.T) rvsFixture {
 		root := rvsRoot(t)
-		writeFile(t, root+"/.flow/project.md", "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `stats/web/src/**` |\n\n| Command | Runs |\n|---------|------|\n| `verify` | `npm run test:visual` |\n| `capture` | `npx playwright test <spec>` |\n")
+		guardtest.WriteFile(t, root+"/.flow/project.md", "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `stats/web/src/**` |\n\n| Command | Runs |\n|---------|------|\n| `verify` | `npm run test:visual` |\n| `capture` | `npx playwright test <spec>` |\n")
 		return rvsFixture{root, []string{root, "baseline.spec.ts"}, 2, "",
 			rvsName + "`screenshots` is absent or empty in " + root + "/.flow/project.md — cannot resolve where captures land\n"}
 	},
 	"case 10": func(t *testing.T) rvsFixture {
 		root := rvsRoot(t)
-		writeFile(t, root+"/.flow/project.md", "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `stats/web/src/**` |\n| `screenshots` | |\n\n| Command | Runs |\n|---------|------|\n| `verify` | `npm run test:visual` |\n| `capture` | `npx playwright test <spec>` |\n")
+		guardtest.WriteFile(t, root+"/.flow/project.md", "## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `stats/web/src/**` |\n| `screenshots` | |\n\n| Command | Runs |\n|---------|------|\n| `verify` | `npm run test:visual` |\n| `capture` | `npx playwright test <spec>` |\n")
 		return rvsFixture{root, []string{root, "baseline.spec.ts"}, 2, "",
 			rvsName + "`screenshots` is absent or empty in " + root + "/.flow/project.md — cannot resolve where captures land\n"}
 	},
@@ -218,13 +219,13 @@ var rvsCases = map[string]func(t *testing.T) rvsFixture{
 	},
 	"case 12": func(t *testing.T) rvsFixture {
 		root := rvsRoot(t)
-		writeFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
+		guardtest.WriteFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
 		return rvsFixture{root, []string{root}, 2, "",
 			rvsName + "usage: flow-guard resolve-visual-screenshots <project root> <capture spec basename>\n"}
 	},
 	"case 13": func(t *testing.T) rvsFixture {
 		root := rvsRoot(t)
-		writeFile(t, root+"/.flow/project.md", rvsCheckoutSection(root+"/does-not-exist"))
+		guardtest.WriteFile(t, root+"/.flow/project.md", rvsCheckoutSection(root+"/does-not-exist"))
 		return rvsFixture{root, []string{root, "baseline.spec.ts"}, 2, "",
 			rvsName + "`regression checkout` names `" + root + "/does-not-exist`, which is not an existing directory — cannot resolve `screenshots` relative to it\n"}
 	},
@@ -232,14 +233,14 @@ var rvsCases = map[string]func(t *testing.T) rvsFixture{
 		root := rvsRoot(t)
 		rvsTouch(t, root+"/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png",
 			root+"/tests/visual/visual-baseline.spec.ts-snapshots/decoy.png")
-		writeFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
+		guardtest.WriteFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
 		return rvsFixture{root, []string{root, "baseline.spec.ts"}, 0,
 			root + "/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png\n", ""}
 	},
 	"case 15": func(t *testing.T) rvsFixture {
 		root := rvsRoot(t)
 		rvsTouch(t, root+"/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png")
-		writeFile(t, root+"/.flow/project.md", "\xef\xbb\xbf"+rvsSection("tests/visual"))
+		guardtest.WriteFile(t, root+"/.flow/project.md", "\xef\xbb\xbf"+rvsSection("tests/visual"))
 		return rvsFixture{root, []string{root, "baseline.spec.ts"}, 0,
 			root + "/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png\n", ""}
 	},
@@ -258,18 +259,18 @@ var rvsCases = map[string]func(t *testing.T) rvsFixture{
 		g := rvsGitFixture(t)
 		root := t.TempDir()
 		for _, a := range [][]string{{"init", "-q"}, {"-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "i"}, {"checkout", "-q", "--detach"}} {
-			cmd := exec.Command(fixtureGit, append([]string{"-C", root}, a...)...)
-			cmd.Env = append(os.Environ(), fixtureGitEnv...)
+			cmd := exec.Command(guardtest.FixtureGit, append([]string{"-C", root}, a...)...)
+			cmd.Env = append(os.Environ(), guardtest.FixtureGitEnv...)
 			if out, err := cmd.CombinedOutput(); err != nil {
 				t.Fatalf("git %v: %v\n%s", a, err, out)
 			}
 		}
-		writeFile(t, root+"/.git/rebase-merge/head-name", "refs/heads/spectre/change\n")
+		guardtest.WriteFile(t, root+"/.git/rebase-merge/head-name", "refs/heads/spectre/change\n")
 		cfg, err := os.ReadFile(g.projChange + "/.flow/project.md")
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeFile(t, root+"/.flow/project.md", string(cfg))
+		guardtest.WriteFile(t, root+"/.flow/project.md", string(cfg))
 		return rvsFixture{root, []string{root, "app.spec.ts"}, 0,
 			g.wt + "/app.spec.ts-snapshots/home-darwin.png\n", ""}
 	},
@@ -278,7 +279,7 @@ var rvsCases = map[string]func(t *testing.T) rvsFixture{
 		root := rvsRoot(t)
 		d := root + "/tests/visual/s.spec.ts-snapshots/"
 		rvsTouch(t, d+"B.png", d+"a.png", d+"_x.png", d+"A-1.png")
-		writeFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
+		guardtest.WriteFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
 		return rvsFixture{root, []string{root, "s.spec.ts"}, 0,
 			d + "A-1.png\n" + d + "B.png\n" + d + "_x.png\n" + d + "a.png\n", ""}
 	},
@@ -287,9 +288,9 @@ var rvsCases = map[string]func(t *testing.T) rvsFixture{
 	"symlinked cwd": func(t *testing.T) rvsFixture {
 		td := t.TempDir()
 		proj := td + "/real/proj"
-		mkdir(t, proj+"/.flow")
+		guardtest.Mkdir(t, proj+"/.flow")
 		rvsTouch(t, proj+"/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png")
-		writeFile(t, proj+"/.flow/project.md", rvsSection("tests/visual"))
+		guardtest.WriteFile(t, proj+"/.flow/project.md", rvsSection("tests/visual"))
 		if err := os.Symlink(td+"/real", td+"/link"); err != nil {
 			t.Fatal(err)
 		}
@@ -308,7 +309,7 @@ var rvsCases = map[string]func(t *testing.T) rvsFixture{
 		if err := os.Symlink(root+"/elsewhere", root+"/tests/visual/baseline.spec.ts-linked"); err != nil {
 			t.Fatal(err)
 		}
-		writeFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
+		guardtest.WriteFile(t, root+"/.flow/project.md", rvsSection("tests/visual"))
 		return rvsFixture{root, []string{root, "baseline.spec.ts"}, 0, d + "real.png\n", ""}
 	},
 }
@@ -318,7 +319,7 @@ func rvsCase3(t *testing.T) string {
 	rvsTouch(t, root+"/node_modules/some-pkg/assets/icon.png",
 		root+"/node_modules/some-pkg/assets/baseline.spec.ts.png",
 		root+"/tests/visual/baseline.spec.ts-snapshots/dashboard-darwin.png")
-	writeFile(t, root+"/.flow/project.md", rvsSection("."))
+	guardtest.WriteFile(t, root+"/.flow/project.md", rvsSection("."))
 	return root
 }
 

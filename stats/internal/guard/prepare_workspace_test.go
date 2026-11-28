@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -43,15 +44,15 @@ func pwRepo(t *testing.T, name, cfg string) string {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(repo) })
-	fixtureRepo(t, repo, repoShape{})
-	writeFile(t, filepath.Join(repo, "README.md"), "seed\n")
-	gitRun(t, repo, "add", "-A")
-	gitRun(t, repo, "commit", "-q", "-m", "seed")
-	gitRun(t, repo, "checkout", "-q", "-b", "spectre/"+name)
+	guardtest.FixtureRepo(t, repo, guardtest.RepoShape{})
+	guardtest.WriteFile(t, filepath.Join(repo, "README.md"), "seed\n")
+	guardtest.GitRun(t, repo, "add", "-A")
+	guardtest.GitRun(t, repo, "commit", "-q", "-m", "seed")
+	guardtest.GitRun(t, repo, "checkout", "-q", "-b", "spectre/"+name)
 	if cfg != "" {
-		writeFile(t, filepath.Join(repo, ".flow", "project.md"), cfg+"\n")
-		gitRun(t, repo, "add", "-A")
-		gitRun(t, repo, "commit", "-q", "-m", "configure")
+		guardtest.WriteFile(t, filepath.Join(repo, ".flow", "project.md"), cfg+"\n")
+		guardtest.GitRun(t, repo, "add", "-A")
+		guardtest.GitRun(t, repo, "commit", "-q", "-m", "configure")
 	}
 	return repo
 }
@@ -63,7 +64,7 @@ func pwLoopRun(t *testing.T, branch string) pwResult {
 	t.Helper()
 	reference := pwRun(t, pwRepo(t, branch, pwPortSection("8080")))
 	repo := pwRepo(t, branch, pwPortSection("8080"))
-	gitRun(t, repo, "checkout", "-q", "-b", branch)
+	guardtest.GitRun(t, repo, "checkout", "-q", "-b", branch)
 	r := pwRun(t, repo)
 	if r.out != reference.out {
 		r.rc = 99
@@ -220,7 +221,7 @@ func TestPrepareWorkspace(t *testing.T) {
 		{"other", func(t *testing.T) pwResult {
 			repo := pwRepo(t, "kan-12-other", pwPortSection("8080"))
 			// A loop prefix anywhere but the branch's start is no loop branch.
-			gitRun(t, repo, "checkout", "-q", "-b", "feature/self-review-kan-12")
+			guardtest.GitRun(t, repo, "checkout", "-q", "-b", "feature/self-review-kan-12")
 			return pwRun(t, repo)
 		}, []check{
 			{"other branch still refused", func(r pwResult) bool {
@@ -229,7 +230,7 @@ func TestPrepareWorkspace(t *testing.T) {
 		}},
 		{"detached", func(t *testing.T) pwResult {
 			repo := pwRepo(t, "kan-10-detached", pwPortSection("8080"))
-			gitRun(t, repo, "checkout", "-q", "--detach")
+			guardtest.GitRun(t, repo, "checkout", "-q", "--detach")
 			return pwRun(t, repo)
 		}, []check{
 			{"a detached worktree is exit 2 naming detached HEAD", func(r pwResult) bool {

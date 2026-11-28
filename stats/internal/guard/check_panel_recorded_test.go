@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // TestCheckPanelRecorded: a report that raises findings with no panel row in the store fails; a
@@ -14,10 +16,10 @@ func TestCheckPanelRecorded(t *testing.T) {
 	t.Parallel()
 	run := func(report, rows string) int {
 		env, _, _ := awaitRowsEnv(t, rows, rows)
-		writeFile(t, filepath.Join(env.Dir, "rows.json"), rows)
+		guardtest.WriteFile(t, filepath.Join(env.Dir, "rows.json"), rows)
 		wt := filepath.Join(t.TempDir(), "chg")
-		writeFile(t, filepath.Join(wt, ".superpowers/sdd/panel-report-0-primary.md"), report)
-		writeExec(t, filepath.Join(env.Dir, "bin", "flow"), "#!/usr/bin/env bash\ncat "+env.Dir+"/rows.json\n")
+		guardtest.WriteFile(t, filepath.Join(wt, ".superpowers/sdd/panel-report-0-primary.md"), report)
+		guardtest.WriteExec(t, filepath.Join(env.Dir, "bin", "flow"), "#!/usr/bin/env bash\ncat "+env.Dir+"/rows.json\n")
 		var o, e bytes.Buffer
 		return checkPanelRecorded([]string{wt, "0"}, env, &o, &e)
 	}
@@ -42,9 +44,9 @@ func TestCheckPanelRecordedReadsOnlyItsOwnChange(t *testing.T) {
 	t.Parallel()
 	env, _, _ := awaitRowsEnv(t, `[]`, `[]`)
 	wt := filepath.Join(t.TempDir(), "open-change")
-	writeFile(t, filepath.Join(wt, ".superpowers/sdd/panel-report-0-primary.md"), "Important: 1\n")
+	guardtest.WriteFile(t, filepath.Join(wt, ".superpowers/sdd/panel-report-0-primary.md"), "Important: 1\n")
 	args := filepath.Join(env.Dir, "args")
-	writeExec(t, filepath.Join(env.Dir, "bin", "flow"), "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >"+args+"\necho '[]'\n")
+	guardtest.WriteExec(t, filepath.Join(env.Dir, "bin", "flow"), "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >"+args+"\necho '[]'\n")
 	var o, e bytes.Buffer
 	if rc := checkPanelRecorded([]string{wt, "0"}, env, &o, &e); rc != 1 {
 		t.Errorf("rc %d, want 1: the open change holds no row of its own", rc)

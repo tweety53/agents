@@ -12,6 +12,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // The declared length tolerance decides `over` in code: a 2px offset is
@@ -82,7 +84,7 @@ func TestVisualVerifyPassMeasureToleranceRow(t *testing.T) {
 	flagged := func(t *testing.T, dy int, row string) (int, string, vvmFix) {
 		f := vvmFixture(t, "a.png frame-a\n")
 		vvmPNG(t, filepath.Join(f.wt, "tests/visual/app.spec.ts-snapshots/a-darwin.png"), dy)
-		writeFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n"+vvpSect(t, "| `mockups` | `design/frames` |\n"+row))
+		guardtest.WriteFile(t, filepath.Join(f.wt, ".flow/project.md"), "# project\n\n"+vvpSect(t, "| `mockups` | `design/frames` |\n"+row))
 		rc, stdout, stderr := f.run(t, f.wt, "demo", "visual-verify", "tests/visual/app.spec.ts")
 		if rc != 0 {
 			t.Fatalf("dy %d row %q: exit %d, stdout %q, stderr %q", dy, row, rc, stdout, stderr)
@@ -109,7 +111,7 @@ func TestVisualVerifyPassMeasureToleranceRow(t *testing.T) {
 	}
 
 	bad := vvmFixture(t, "a.png frame-a\n")
-	writeFile(t, filepath.Join(bad.wt, ".flow/project.md"), "# project\n\n"+vvpSect(t, "| `mockups` | `design/frames` |\n| `tolerance` | `2` |\n"))
+	guardtest.WriteFile(t, filepath.Join(bad.wt, ".flow/project.md"), "# project\n\n"+vvpSect(t, "| `mockups` | `design/frames` |\n| `tolerance` | `2` |\n"))
 	if rc, _, stderr := bad.run(t, bad.wt, "demo", "visual-verify", "tests/visual/app.spec.ts"); rc != 2 || !strings.Contains(stderr, "tolerance") {
 		t.Fatalf("a tolerance row with no unit: exit %d, stderr %q; want 2 naming the row", rc, stderr)
 	}
@@ -207,7 +209,7 @@ func vvmRowsPNG(t *testing.T, path string, rows [][4]int) {
 	if err := png.Encode(&b, im); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, path, b.String())
+	guardtest.WriteFile(t, path, b.String())
 }
 
 // kan-1155's WU10, reduced: the capture is the frame scrolled 54px — every

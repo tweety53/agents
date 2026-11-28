@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -229,10 +230,10 @@ func TestComposeMockupFrames(t *testing.T) {
 			}
 			paths = append(paths, p)
 		}
-		mkdir(t, dir+"/frames")
-		writeFile(t, dir+"/map", "c0.png f\n")
+		guardtest.Mkdir(t, dir+"/frames")
+		guardtest.WriteFile(t, dir+"/map", "c0.png f\n")
 		peak := func(stdin []string) int64 {
-			cmd := exec.Command(guardBinary(t), "compose-mockup-frames", dir+"/map", dir+"/frames", dir+"/out")
+			cmd := exec.Command(guardtest.GuardBinary(t), "compose-mockup-frames", dir+"/map", dir+"/frames", dir+"/out")
 			cmd.Stdin = strings.NewReader(strings.Join(stdin, "\n") + "\n")
 			if out, err := cmd.CombinedOutput(); !strings.Contains(string(out), "no frame `f.png`") {
 				t.Fatalf("compose did not reach the map line: %v\n%s", err, out)

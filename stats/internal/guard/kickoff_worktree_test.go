@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -20,7 +21,7 @@ import (
 // dead port and a temp FLOW_STATE_DIR so it writes the on-disk fallback and
 // never reaches the dev store.
 var kwFlowBuilt = sync.OnceValues(func() (string, error) {
-	dir := filepath.Join(execFixtures.dir, "flow-cli")
+	dir := filepath.Join(guardtest.ExecFixtures.Dir, "flow-cli")
 	cmd := exec.Command("go", "build", "-o", dir+"/flow", "./cmd/flow")
 	cmd.Dir = "../.."
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -44,23 +45,23 @@ const kwName = "kan-1-demo"
 func kwNew(t *testing.T, projectMD string, withFlow bool) kwFx {
 	t.Helper()
 	fx := kwNoRepo(t, withFlow)
-	fixtureRepoWithOrigin(t, fx.project, fx.origin, repoShape{Branch: "main", Commit: "init"})
-	var g fxGit
-	g.git(fx.project, "config", "user.name", "test")
-	g.git(fx.project, "config", "user.email", "test@example.com")
+	guardtest.FixtureRepoWithOrigin(t, fx.project, fx.origin, guardtest.RepoShape{Branch: "main", Commit: "init"})
+	var g guardtest.FxGit
+	g.Git(fx.project, "config", "user.name", "test")
+	g.Git(fx.project, "config", "user.email", "test@example.com")
 	// Every project ignores .superpowers/, so kickoff adds no commit; one
 	// that does not is TestKickoffWorktreeIgnoresScratch's.
-	writeFile(t, fx.project+"/.gitignore", ".superpowers/\n")
+	guardtest.WriteFile(t, fx.project+"/.gitignore", ".superpowers/\n")
 	if projectMD != "" {
-		writeFile(t, fx.project+"/.flow/project.md", projectMD)
+		guardtest.WriteFile(t, fx.project+"/.flow/project.md", projectMD)
 	} else {
-		writeFile(t, fx.project+"/README.md", "readme\n")
+		guardtest.WriteFile(t, fx.project+"/README.md", "readme\n")
 	}
-	g.git(fx.project, "add", "-A")
-	g.git(fx.project, "commit", "-q", "-m", "project")
-	g.git(fx.project, "push", "-q", "origin", "HEAD:main")
-	if g.err != nil {
-		t.Fatal(g.err)
+	g.Git(fx.project, "add", "-A")
+	g.Git(fx.project, "commit", "-q", "-m", "project")
+	g.Git(fx.project, "push", "-q", "origin", "HEAD:main")
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	return fx
 }
@@ -85,8 +86,8 @@ func kwNoRepo(t *testing.T, withFlow bool) kwFx {
 		}
 		path = append(path, dir)
 	}
-	// The shim and its guards run git over this PATH (fixtureGitPath).
-	gitDir, err := fixtureGitDir()
+	// The shim and its guards run git over this PATH (FixtureGitPath).
+	gitDir, err := guardtest.FixtureGitDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +105,7 @@ func kwNoRepo(t *testing.T, withFlow bool) kwFx {
 	_ = ln.Close()
 	fx.env = append(os.Environ(),
 		"PATH="+strings.Join(path, string(filepath.ListSeparator)),
-		"FLOW_GUARD_CACHE_DIR="+guardCache(t),
+		"FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t),
 		"FLOW_ADDR="+dead, "FLOW_RECORDS_ADDR="+dead,
 		"FLOW_STATE_DIR="+tmp+"/state",
 		"GIT_AUTHOR_NAME=test", "GIT_AUTHOR_EMAIL=test@example.com",
@@ -136,9 +137,9 @@ func (fx kwFx) started(t *testing.T) {
 
 // run execs the real shim, so its siblings and the flow-guard build are the
 // ones production runs.
-func (fx kwFx) run(t *testing.T, args ...string) guardResult {
+func (fx kwFx) run(t *testing.T, args ...string) guardtest.GuardResult {
 	t.Helper()
-	cmd := exec.Command("bash", append([]string{guardShim(t, "kickoff-worktree")}, args...)...)
+	cmd := exec.Command("bash", append([]string{guardtest.GuardShim(t, "kickoff-worktree")}, args...)...)
 	cmd.Env = fx.env
 	var o, e bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &o, &e
@@ -150,15 +151,15 @@ func (fx kwFx) run(t *testing.T, args ...string) guardResult {
 		}
 		rc = ee.ExitCode()
 	}
-	return guardResult{rc: rc, stdout: o.String(), err: e.String(), out: o.String() + e.String()}
+	return guardtest.GuardResult{Rc: rc, Stdout: o.String(), Err: e.String(), Out: o.String() + e.String()}
 }
 
 func (fx kwFx) git(t *testing.T, dir string, args ...string) string {
 	t.Helper()
-	var g fxGit
-	out := g.git(dir, args...)
-	if g.err != nil {
-		t.Fatal(g.err)
+	var g guardtest.FxGit
+	out := g.Git(dir, args...)
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	return out
 }
@@ -186,8 +187,8 @@ func TestKickoffWorktree(t *testing.T) {
 		r := fx.run(t, fx.project, kwName)
 		wt := fx.project + "-worktrees/" + kwName
 		mb := fx.git(t, fx.origin, "rev-parse", "main")
-		if r.rc != 0 || r.stdout != "worktree: "+wt+"\nmerge-base: "+mb+"\n" {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		if r.Rc != 0 || r.Stdout != "worktree: "+wt+"\nmerge-base: "+mb+"\n" {
+			t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 		}
 		if b := fx.git(t, wt, "branch", "--show-current"); b != "spectre/"+kwName {
 			t.Errorf("branch = %q", b)
@@ -220,11 +221,11 @@ func TestKickoffWorktree(t *testing.T) {
 		fx.started(t)
 		r := fx.run(t, fx.project, kwName)
 		wt := fx.project + "-worktrees/" + kwName
-		if r.rc != 0 || r.stdout != "worktree: "+wt+"\nmerge-base: "+tip+"\n" {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		if r.Rc != 0 || r.Stdout != "worktree: "+wt+"\nmerge-base: "+tip+"\n" {
+			t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 		}
-		if !strings.Contains(r.err, "no ## worktree setup") {
-			t.Errorf("stderr does not say setup was skipped: %s", r.err)
+		if !strings.Contains(r.Err, "no ## worktree setup") {
+			t.Errorf("stderr does not say setup was skipped: %s", r.Err)
 		}
 	})
 
@@ -234,8 +235,8 @@ func TestKickoffWorktree(t *testing.T) {
 		fx.started(t)
 		r := fx.run(t, fx.project, kwName)
 		wt := fx.project + "-worktrees/" + kwName
-		if r.rc != 1 || !strings.Contains(r.err, "sh -c 'echo boom; exit 3'") || !strings.Contains(r.err, "boom") {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		if r.Rc != 1 || !strings.Contains(r.Err, "sh -c 'echo boom; exit 3'") || !strings.Contains(r.Err, "boom") {
+			t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 		}
 		if _, err := os.Stat(wt + "/first-ran"); err != nil {
 			t.Errorf("first command did not run: %v", err)
@@ -246,8 +247,8 @@ func TestKickoffWorktree(t *testing.T) {
 		if rec := fx.flow(t, "", "state", "get", "-C", fx.project, kwName); !strings.Contains(rec, `"`+wt+`":`) {
 			t.Errorf("worktree not persisted: %s", rec)
 		}
-		var g fxGit
-		if g.git(fx.origin, "rev-parse", "-q", "--verify", "spectre/"+kwName); g.err == nil {
+		var g guardtest.FxGit
+		if g.Git(fx.origin, "rev-parse", "-q", "--verify", "spectre/"+kwName); g.Err == nil {
 			t.Errorf("branch was pushed after a failed setup")
 		}
 	})
@@ -256,8 +257,8 @@ func TestKickoffWorktree(t *testing.T) {
 		t.Parallel()
 		fx := kwNoRepo(t, false)
 		r := fx.run(t, fx.project, kwName)
-		if r.rc != 2 || r.stdout != "" || !strings.Contains(r.err, "kickoff-worktree: no flow binary on PATH") {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		if r.Rc != 2 || r.Stdout != "" || !strings.Contains(r.Err, "kickoff-worktree: no flow binary on PATH") {
+			t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 		}
 		if _, err := os.Stat(fx.project + "-worktrees"); err == nil {
 			t.Errorf("<project>-worktrees exists: a worktree was added")
@@ -268,11 +269,11 @@ func TestKickoffWorktree(t *testing.T) {
 		t.Parallel()
 		fx := kwNew(t, "", true)
 		r := fx.run(t, fx.project, kwName)
-		if r.rc != 1 || !strings.Contains(r.err, "write STARTED before adding a worktree") {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		if r.Rc != 1 || !strings.Contains(r.Err, "write STARTED before adding a worktree") {
+			t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 		}
-		var g fxGit
-		if g.git(fx.origin, "rev-parse", "-q", "--verify", "spectre/"+kwName); g.err == nil {
+		var g guardtest.FxGit
+		if g.Git(fx.origin, "rev-parse", "-q", "--verify", "spectre/"+kwName); g.Err == nil {
 			t.Errorf("branch was pushed with nothing persisted")
 		}
 	})
@@ -288,8 +289,8 @@ func TestKickoffWorktree(t *testing.T) {
 		fx.started(t)
 		r := fx.run(t, fx.project, kwName, "feature/offline-mode")
 		wt := fx.project + "-worktrees/" + kwName
-		if r.rc != 0 || r.stdout != "worktree: "+wt+"\nmerge-base: "+tip+"\n" {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		if r.Rc != 0 || r.Stdout != "worktree: "+wt+"\nmerge-base: "+tip+"\n" {
+			t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 		}
 		if got := fx.git(t, wt, "config", "--get", "branch.spectre/"+kwName+".flowBase"); got != "feature/offline-mode" {
 			t.Errorf("flowBase = %q", got)
@@ -302,8 +303,8 @@ func TestKickoffWorktree(t *testing.T) {
 		fx.started(t)
 		def := fx.git(t, fx.project, "rev-parse", "origin/HEAD")
 		r := fx.run(t, fx.project, kwName, "feature/nope")
-		if r.rc != 0 || !strings.Contains(r.err, "kickoff-worktree: origin/feature/nope did not exist") {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		if r.Rc != 0 || !strings.Contains(r.Err, "kickoff-worktree: origin/feature/nope did not exist") {
+			t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 		}
 		if got := fx.git(t, "", "--git-dir", fx.origin, "rev-parse", "refs/heads/feature/nope"); got != def {
 			t.Errorf("origin feature/nope = %q, want %q", got, def)
@@ -331,13 +332,13 @@ func TestKickoffWorktree(t *testing.T) {
 		kwPushFeature(t, canon)
 		tip := kwPushFeature(t, peer)
 		canon.started(t)
-		if r := canon.run(t, canon.project, kwName, "feature/x"); r.rc != 0 {
-			t.Fatalf("kickoff rc=%d out=%s", r.rc, r.out)
+		if r := canon.run(t, canon.project, kwName, "feature/x"); r.Rc != 0 {
+			t.Fatalf("kickoff rc=%d out=%s", r.Rc, r.Out)
 		}
 		r := canon.run(t, "--from", canon.project+"-worktrees/"+kwName, peer.project, kwName)
 		wt := peer.project + "-worktrees/" + kwName
-		if r.rc != 0 || r.stdout != "worktree: "+wt+"\nmerge-base: "+tip+"\n" {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		if r.Rc != 0 || r.Stdout != "worktree: "+wt+"\nmerge-base: "+tip+"\n" {
+			t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 		}
 		if got := canon.git(t, wt, "config", "--get", "branch.spectre/"+kwName+".flowBase"); got != "feature/x" {
 			t.Errorf("flowBase = %q", got)
@@ -352,12 +353,12 @@ func TestKickoffWorktree(t *testing.T) {
 		canon, peer := kwNew(t, "", true), kwNew(t, "", true)
 		kwPushFeature(t, canon)
 		canon.started(t)
-		if r := canon.run(t, canon.project, kwName, "feature/x"); r.rc != 0 {
-			t.Fatalf("kickoff rc=%d out=%s", r.rc, r.out)
+		if r := canon.run(t, canon.project, kwName, "feature/x"); r.Rc != 0 {
+			t.Fatalf("kickoff rc=%d out=%s", r.Rc, r.Out)
 		}
 		r := canon.run(t, "--from", canon.project+"-worktrees/"+kwName, peer.project, kwName)
-		if r.rc != 0 || !strings.Contains(r.err, "origin/feature/x did not exist") {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		if r.Rc != 0 || !strings.Contains(r.Err, "origin/feature/x did not exist") {
+			t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 		}
 		if _, err := os.Stat(peer.project + "-worktrees/" + kwName); err != nil {
 			t.Errorf("no worktree added: %v", err)
@@ -372,8 +373,8 @@ func TestKickoffWorktree(t *testing.T) {
 		fx := kwNew(t, "", true)
 		fx.started(t)
 		r := fx.run(t, "--from", t.TempDir(), fx.project, kwName)
-		if r.rc != 2 || !strings.Contains(r.err, "is not a git worktree") {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		if r.Rc != 2 || !strings.Contains(r.Err, "is not a git worktree") {
+			t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 		}
 		if _, err := os.Stat(fx.project + "-worktrees/" + kwName); err == nil {
 			t.Errorf("a worktree was added off an unreadable base")
@@ -387,8 +388,8 @@ func TestKickoffWorktree(t *testing.T) {
 		fx.git(t, fx.project, "push", "-q", "origin", "main:refs/heads/spectre/"+kwName)
 		fx.started(t)
 		r := fx.run(t, fx.project, kwName, "feature/x")
-		if r.rc != 1 || !strings.Contains(r.err, "does not descend from origin/feature/x") || !strings.Contains(r.err, "git rebase --onto origin/feature/x") {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		if r.Rc != 1 || !strings.Contains(r.Err, "does not descend from origin/feature/x") || !strings.Contains(r.Err, "git rebase --onto origin/feature/x") {
+			t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 		}
 		if _, err := os.Stat(fx.project + "-worktrees/" + kwName); err == nil {
 			t.Errorf("a worktree was added off the wrong base")
@@ -399,8 +400,8 @@ func TestKickoffWorktree(t *testing.T) {
 		t.Parallel()
 		fx := kwNoRepo(t, true)
 		r := fx.run(t, fx.project)
-		if r.rc != 2 || r.err != "usage: flow-guard kickoff-worktree [--from <worktree>] <project> <name> [<base>]\n" {
-			t.Fatalf("rc=%d out=%s", r.rc, r.out)
+		if r.Rc != 2 || r.Err != "usage: flow-guard kickoff-worktree [--from <worktree>] <project> <name> [<base>]\n" {
+			t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 		}
 	})
 }
@@ -418,8 +419,8 @@ func TestKickoffWorktreeSiblingLayout(t *testing.T) {
 	before, _ := os.ReadFile(exclude)
 	r := fx.run(t, fx.project, kwName)
 	wt := filepath.Dir(fx.project) + "/project-worktrees/" + kwName
-	if r.rc != 0 || !strings.HasPrefix(r.stdout, "worktree: "+wt+"\n") {
-		t.Fatalf("rc=%d out=%s", r.rc, r.out)
+	if r.Rc != 0 || !strings.HasPrefix(r.Stdout, "worktree: "+wt+"\n") {
+		t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 	}
 	if b := fx.git(t, wt, "branch", "--show-current"); b != "spectre/"+kwName {
 		t.Errorf("branch = %q", b)
@@ -440,14 +441,14 @@ func TestKickoffWorktreeSymlinkedProject(t *testing.T) {
 	fx := kwNew(t, "", true)
 	fx.started(t)
 	link := filepath.Dir(fx.project) + "/link/via"
-	mkdir(t, filepath.Dir(link))
+	guardtest.Mkdir(t, filepath.Dir(link))
 	if err := os.Symlink(fx.project, link); err != nil {
 		t.Fatal(err)
 	}
 	r := fx.run(t, link, kwName)
 	wt := fx.project + "-worktrees/" + kwName
-	if r.rc != 0 || !strings.HasPrefix(r.stdout, "worktree: "+wt+"\n") {
-		t.Fatalf("rc=%d out=%s", r.rc, r.out)
+	if r.Rc != 0 || !strings.HasPrefix(r.Stdout, "worktree: "+wt+"\n") {
+		t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 	}
 }
 
@@ -474,8 +475,8 @@ func TestKickoffWorktreeFromWritesMergeOrder(t *testing.T) {
 			t.Parallel()
 			canon, peer := kwNew(t, "", true), kwNew(t, "", true)
 			canon.started(t)
-			if r := canon.run(t, canon.project, kwName); r.rc != 0 {
-				t.Fatalf("kickoff rc=%d out=%s", r.rc, r.out)
+			if r := canon.run(t, canon.project, kwName); r.Rc != 0 {
+				t.Fatalf("kickoff rc=%d out=%s", r.Rc, r.Out)
 			}
 			from := canon.project + "-worktrees/" + kwName
 			rel, err := filepath.Rel(canon.project, peer.project)
@@ -486,17 +487,17 @@ func TestKickoffWorktreeFromWritesMergeOrder(t *testing.T) {
 			if tc.peers != "" {
 				peers += tc.peers + " " + rel + "\n"
 			}
-			writeFile(t, from+"/spectre/peers", peers)
+			guardtest.WriteFile(t, from+"/spectre/peers", peers)
 			link := from + "/spectre/changes/" + kwName + "/link.md"
 			if tc.changeDir {
-				mkdir(t, filepath.Dir(link))
+				guardtest.Mkdir(t, filepath.Dir(link))
 			}
 			if tc.link != "" {
-				writeFile(t, link, tc.link)
+				guardtest.WriteFile(t, link, tc.link)
 			}
 			r := canon.run(t, "--from", from, peer.project, kwName)
-			if r.rc != tc.rc {
-				t.Fatalf("rc=%d out=%s", r.rc, r.out)
+			if r.Rc != tc.rc {
+				t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 			}
 			got, _ := os.ReadFile(link)
 			if string(got) != tc.want {
@@ -522,8 +523,8 @@ func TestKickoffWorktreeFromListsEveryRecordedWorktree(t *testing.T) {
 	t.Parallel()
 	canon, a, b := kwNew(t, "", true), kwNew(t, "", true), kwNew(t, "", true)
 	canon.started(t)
-	if r := canon.run(t, canon.project, kwName); r.rc != 0 {
-		t.Fatalf("kickoff rc=%d out=%s", r.rc, r.out)
+	if r := canon.run(t, canon.project, kwName); r.Rc != 0 {
+		t.Fatalf("kickoff rc=%d out=%s", r.Rc, r.Out)
 	}
 	from := canon.project + "-worktrees/" + kwName
 	peers := ""
@@ -534,14 +535,14 @@ func TestKickoffWorktreeFromListsEveryRecordedWorktree(t *testing.T) {
 		}
 		peers += p.name + " " + rel + "\n"
 	}
-	writeFile(t, from+"/spectre/peers", peers)
-	if r := canon.run(t, "--from", from, a.project, kwName); r.rc != 0 {
-		t.Fatalf("alpha rc=%d out=%s", r.rc, r.out)
+	guardtest.WriteFile(t, from+"/spectre/peers", peers)
+	if r := canon.run(t, "--from", from, a.project, kwName); r.Rc != 0 {
+		t.Fatalf("alpha rc=%d out=%s", r.Rc, r.Out)
 	}
 	link := from + "/spectre/changes/" + kwName + "/link.md"
-	mkdir(t, filepath.Dir(link))
-	if r := canon.run(t, "--from", from, b.project, kwName); r.rc != 0 {
-		t.Fatalf("beta rc=%d out=%s", r.rc, r.out)
+	guardtest.Mkdir(t, filepath.Dir(link))
+	if r := canon.run(t, "--from", from, b.project, kwName); r.Rc != 0 {
+		t.Fatalf("beta rc=%d out=%s", r.Rc, r.Out)
 	}
 	got, _ := os.ReadFile(link)
 	if want := "## Merge order\n\n1. `.`\n2. `alpha`\n3. `beta`\n"; string(got) != want {
@@ -585,8 +586,8 @@ func TestKickoffWorktreeIgnoresScratch(t *testing.T) {
 	fx.started(t)
 	r := fx.run(t, fx.project, kwName)
 	wt := fx.project + "-worktrees/" + kwName
-	if r.rc != 0 {
-		t.Fatalf("rc=%d out=%s", r.rc, r.out)
+	if r.Rc != 0 {
+		t.Fatalf("rc=%d out=%s", r.Rc, r.Out)
 	}
 	if s := fx.git(t, wt, "log", "-1", "--format=%s"); s != "chore: ignore .superpowers/ scratch" {
 		t.Errorf("HEAD subject = %q", s)
@@ -595,7 +596,7 @@ func TestKickoffWorktreeIgnoresScratch(t *testing.T) {
 	if tip := fx.git(t, wt, "rev-parse", "origin/spectre/"+kwName); tip != head {
 		t.Errorf("origin/spectre/%s = %s, want HEAD %s", kwName, tip, head)
 	}
-	if want := "worktree: " + wt + "\nmerge-base: " + fx.git(t, wt, "rev-parse", "HEAD^") + "\n"; r.stdout != want {
-		t.Errorf("stdout = %q, want %q", r.stdout, want)
+	if want := "worktree: " + wt + "\nmerge-base: " + fx.git(t, wt, "rev-parse", "HEAD^") + "\n"; r.Stdout != want {
+		t.Errorf("stdout = %q, want %q", r.Stdout, want)
 	}
 }

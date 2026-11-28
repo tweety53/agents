@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // TestCheckBaseBehind pins scripts/check-base-behind.sh's lines (kan-1007: a
@@ -21,53 +22,53 @@ func TestCheckBaseBehind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var g fxGit
+	var g guardtest.FxGit
 	seed, origin, wt := root+"/seed", root+"/origin.git", root+"/wt"
-	g.copyShape(seed, repoShape{Branch: "main", Commit: "one"})
-	g.git(seed, "branch", "feature/x")
-	g.git("", "clone", "-q", "--bare", seed, origin)
-	g.git("", "clone", "-q", origin, wt)
-	g.git(wt, "checkout", "-q", "-b", "spectre/c", "origin/feature/x")
-	if g.err != nil {
-		t.Fatal(g.err)
+	g.CopyShape(seed, guardtest.RepoShape{Branch: "main", Commit: "one"})
+	g.Git(seed, "branch", "feature/x")
+	g.Git("", "clone", "-q", "--bare", seed, origin)
+	g.Git("", "clone", "-q", origin, wt)
+	g.Git(wt, "checkout", "-q", "-b", "spectre/c", "origin/feature/x")
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	env := core.Env{Getenv: os.Getenv}
-	run := func(args ...string) guardResult { return runGuard("check-base-behind", args, env) }
+	run := func(args ...string) guardtest.GuardResult { return runGuard("check-base-behind", args, env) }
 
-	if r := run(); r.rc != 2 || r.stdout != "" {
-		t.Fatalf("(a) no argument: rc %d stdout %q", r.rc, r.stdout)
+	if r := run(); r.Rc != 2 || r.Stdout != "" {
+		t.Fatalf("(a) no argument: rc %d stdout %q", r.Rc, r.Stdout)
 	}
-	if r := run(t.TempDir()); r.rc != 2 || r.stdout != "" {
-		t.Fatalf("(b) no repository: rc %d stdout %q", r.rc, r.stdout)
+	if r := run(t.TempDir()); r.Rc != 2 || r.Stdout != "" {
+		t.Fatalf("(b) no repository: rc %d stdout %q", r.Rc, r.Stdout)
 	}
-	if r := run(wt); r.rc != 0 || r.stdout != "BASE-CURRENT: "+wt+" — no recorded base\n" {
-		t.Fatalf("(c) no recorded base: rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
+	if r := run(wt); r.Rc != 0 || r.Stdout != "BASE-CURRENT: "+wt+" — no recorded base\n" {
+		t.Fatalf("(c) no recorded base: rc %d stdout %q stderr %q", r.Rc, r.Stdout, r.Err)
 	}
-	g.git(wt, "config", "branch.spectre/c.flowBase", "main")
-	if r := run(wt); r.rc != 0 || r.stdout != "BASE-CURRENT: "+wt+" — main is the tracked branch\n" {
-		t.Fatalf("(d) base is tracked: rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
+	g.Git(wt, "config", "branch.spectre/c.flowBase", "main")
+	if r := run(wt); r.Rc != 0 || r.Stdout != "BASE-CURRENT: "+wt+" — main is the tracked branch\n" {
+		t.Fatalf("(d) base is tracked: rc %d stdout %q stderr %q", r.Rc, r.Stdout, r.Err)
 	}
-	g.git(wt, "config", "branch.spectre/c.flowBase", "feature/x")
-	g.git(seed, "commit", "-q", "--allow-empty", "-m", "two")
-	g.git(seed, "push", "-q", origin, "main")
-	if g.err != nil {
-		t.Fatal(g.err)
+	g.Git(wt, "config", "branch.spectre/c.flowBase", "feature/x")
+	g.Git(seed, "commit", "-q", "--allow-empty", "-m", "two")
+	g.Git(seed, "push", "-q", origin, "main")
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	setFetchHead(t, wt+"/.git/FETCH_HEAD", true, 2*time.Minute) // (d)'s fetch is no longer fresh
 	r := run(wt)
-	lines := strings.Split(strings.TrimRight(r.stdout, "\n"), "\n")
-	if r.rc != 1 || len(lines) != 2 ||
+	lines := strings.Split(strings.TrimRight(r.Stdout, "\n"), "\n")
+	if r.Rc != 1 || len(lines) != 2 ||
 		lines[0] != "BASE-BEHIND: "+wt+" — origin/feature/x lacks 1 commits of origin/main; sync the base, never merge main into the change branch (kan-1007):" ||
 		lines[1] != "  flow-guard sync-base-behind "+wt {
-		t.Fatalf("(e) base behind: rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
+		t.Fatalf("(e) base behind: rc %d stdout %q stderr %q", r.Rc, r.Stdout, r.Err)
 	}
-	g.git(wt, "config", "user.name", "test")
-	g.git(wt, "config", "user.email", "test@example.com")
-	if r := runGuard("sync-base-behind", []string{wt}, env); r.rc != 0 {
-		t.Fatalf("(f) sync: rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
+	g.Git(wt, "config", "user.name", "test")
+	g.Git(wt, "config", "user.email", "test@example.com")
+	if r := runGuard("sync-base-behind", []string{wt}, env); r.Rc != 0 {
+		t.Fatalf("(f) sync: rc %d stdout %q stderr %q", r.Rc, r.Stdout, r.Err)
 	}
-	if r := run(wt); r.rc != 0 || r.stdout != "BASE-CURRENT: "+wt+" — origin/feature/x holds every commit of origin/main\n" {
-		t.Fatalf("(f) synced: rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
+	if r := run(wt); r.Rc != 0 || r.Stdout != "BASE-CURRENT: "+wt+" — origin/feature/x holds every commit of origin/main\n" {
+		t.Fatalf("(f) synced: rc %d stdout %q stderr %q", r.Rc, r.Stdout, r.Err)
 	}
 }
 
@@ -79,17 +80,17 @@ func TestCheckBaseBehindFetchesOncePerRepository(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var g fxGit
+	var g guardtest.FxGit
 	seed, origin, a, b := root+"/seed", root+"/origin.git", root+"/a", root+"/b"
-	g.copyShape(seed, repoShape{Branch: "main", Commit: "one"})
-	g.git("", "clone", "-q", "--bare", seed, origin)
-	g.git("", "clone", "-q", origin, a)
-	g.git(a, "worktree", "add", "-q", "-b", "c1", b)
-	g.git(a, "config", "branch.c1.flowBase", "main")
-	g.git(a, "checkout", "-q", "-b", "c2")
-	g.git(a, "config", "branch.c2.flowBase", "main")
-	if g.err != nil {
-		t.Fatal(g.err)
+	g.CopyShape(seed, guardtest.RepoShape{Branch: "main", Commit: "one"})
+	g.Git("", "clone", "-q", "--bare", seed, origin)
+	g.Git("", "clone", "-q", origin, a)
+	g.Git(a, "worktree", "add", "-q", "-b", "c1", b)
+	g.Git(a, "config", "branch.c1.flowBase", "main")
+	g.Git(a, "checkout", "-q", "-b", "c2")
+	g.Git(a, "config", "branch.c2.flowBase", "main")
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	real, err := exec.LookPath("git")
 	if err != nil {
@@ -109,8 +110,8 @@ func TestCheckBaseBehindFetchesOncePerRepository(t *testing.T) {
 		}
 		return os.Getenv(k)
 	}}
-	if r := runGuard("check-base-behind", []string{a, b}, env); r.rc != 0 {
-		t.Fatalf("rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
+	if r := runGuard("check-base-behind", []string{a, b}, env); r.Rc != 0 {
+		t.Fatalf("rc %d stdout %q stderr %q", r.Rc, r.Stdout, r.Err)
 	}
 	if got, _ := os.ReadFile(log); strings.Count(string(got), "f") != 1 {
 		t.Fatalf("fetches = %q, want exactly one", got)

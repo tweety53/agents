@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -24,7 +25,7 @@ import (
 // answers from bin/<verb>.json, fails like an unreachable store when
 // bin/<verb>.fail exists, and prints a FLOW_ADDR diagnostic on stderr when
 // bin/<verb>.diag does -- one body for every fixture, so one assessed inode
-// (writeExec).
+// (WriteExec).
 const uwStub = `#!/usr/bin/env bash
 d="${0%/*}"
 v="$2"
@@ -52,9 +53,9 @@ type uwFix struct {
 // stay untracked -- and returns `<dir>=<base sha>`, a range argument.
 func uwCommits(t *testing.T, dir, baseMsg, msg string) string {
 	t.Helper()
-	fixtureRepo(t, dir, repoShape{Commit: baseMsg})
+	guardtest.FixtureRepo(t, dir, guardtest.RepoShape{Commit: baseMsg})
 	base := tcfGit(t, dir, "rev-parse", "HEAD")
-	gitRun(t, dir, "commit", "-q", "--allow-empty", "-m", msg)
+	guardtest.GitRun(t, dir, "commit", "-q", "--allow-empty", "-m", msg)
 	return dir + "=" + base
 }
 
@@ -69,7 +70,7 @@ type uwResult struct {
 func newUWBare(t *testing.T, wt string) *uwFix {
 	t.Helper()
 	f := &uwFix{wt: wt, bin: wt + "/bin"}
-	writeExec(t, f.bin+"/flow", uwStub)
+	guardtest.WriteExec(t, f.bin+"/flow", uwStub)
 	f.setFile(t, "verdicts.json", "[]\n")
 	f.setFile(t, "dispatches.json", `[{"key":"task-1-implementer","outcome":"completed"}]`+"\n")
 	// A pass row for every round a fixture's panel rows run in (0..2).
@@ -77,7 +78,7 @@ func newUWBare(t *testing.T, wt string) *uwFix {
 	// A recorded change summary: the bundle header signal six reads.
 	f.setFile(t, "bundle.json", "# Self-review context bundle for demo\n\nfound: 1 of 1 sources; skipped: 0 of 1 sources\n\n## change summary\n\nwhat changed\n")
 	f.setFindings(t)
-	get := pathEnv(f.bin)
+	get := guardtest.PathEnv(f.bin)
 	f.env = core.Env{Getenv: get, Dir: wt,
 		Findings: func(string) ([]byte, error) { return f.findings, f.fErr }}
 	return f
@@ -97,7 +98,7 @@ func newUW(t *testing.T) *uwFix {
 func newUWSatellite(t *testing.T, wt, peer string) *uwFix {
 	t.Helper()
 	f := newUWBare(t, wt)
-	writeFile(t, wt+"/spectre/changes/sat-demo/link.md", "## Part of\n\n`"+peer+":canon-demo`\n")
+	guardtest.WriteFile(t, wt+"/spectre/changes/sat-demo/link.md", "## Part of\n\n`"+peer+":canon-demo`\n")
 	return f
 }
 
@@ -106,18 +107,18 @@ func newUWSatellite(t *testing.T, wt, peer string) *uwFix {
 func uwCanonTree(t *testing.T, parent, line string) string {
 	t.Helper()
 	dir := parent + "/canon-tree"
-	writeFile(t, dir+"/spectre/changes/canon-demo/tasks.md", "- "+line+"\n")
+	guardtest.WriteFile(t, dir+"/spectre/changes/canon-demo/tasks.md", "- "+line+"\n")
 	return dir
 }
 
 func (f *uwFix) plan(t *testing.T, body string) {
 	t.Helper()
-	writeFile(t, f.wt+"/spectre/changes/demo/tasks.md", body)
+	guardtest.WriteFile(t, f.wt+"/spectre/changes/demo/tasks.md", body)
 }
 
 func (f *uwFix) setFile(t *testing.T, name, body string) {
 	t.Helper()
-	writeFile(t, f.bin+"/"+name, body)
+	guardtest.WriteFile(t, f.bin+"/"+name, body)
 }
 
 // setFindings is set_findings: refs F1..Fn, one per status, each of
@@ -274,7 +275,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		return func(t *testing.T, f *uwFix) { f.setFindings(t, statuses...) }
 	}
 	file := func(rel, body string) func(t *testing.T, f *uwFix) {
-		return func(t *testing.T, f *uwFix) { writeFile(t, f.wt+"/"+rel, body) }
+		return func(t *testing.T, f *uwFix) { guardtest.WriteFile(t, f.wt+"/"+rel, body) }
 	}
 
 	// 1. The whole point of the CLEAR verdict: a finished change is not interrupted.
@@ -305,11 +306,11 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	// later commit, dated 11:00, touches path; f.ranges is its range.
 	coded := func(path string) func(t *testing.T, f *uwFix) {
 		return func(t *testing.T, f *uwFix) {
-			fixtureRepo(t, f.wt, repoShape{Commit: "base"})
+			guardtest.FixtureRepo(t, f.wt, guardtest.RepoShape{Commit: "base"})
 			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
-			writeFile(t, f.wt+"/"+path, "x\n")
-			gitRun(t, f.wt, "add", path)
-			gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")
+			guardtest.WriteFile(t, f.wt+"/"+path, "x\n")
+			guardtest.GitRun(t, f.wt, "add", path)
+			guardtest.GitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")
 			f.ranges = []string{f.wt + "=" + base}
 		}
 	}
@@ -323,11 +324,11 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		f := newUW(t)
 		f.setFile(t, "dispatches.json", "["+verifyRow(before)+"]\n")
 		origin := t.TempDir() + "/origin.git"
-		fixtureRepoWithOrigin(t, f.wt, origin, repoShape{Branch: "main", Commit: "base"})
-		gitRun(t, f.wt, "checkout", "-q", "-b", "feature")
-		writeFile(t, f.wt+"/src/a.go", "package a\n")
-		gitRun(t, f.wt, "add", "src/a.go")
-		gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: the appended task\n\nTask-Id: 7")
+		guardtest.FixtureRepoWithOrigin(t, f.wt, origin, guardtest.RepoShape{Branch: "main", Commit: "base"})
+		guardtest.GitRun(t, f.wt, "checkout", "-q", "-b", "feature")
+		guardtest.WriteFile(t, f.wt+"/src/a.go", "package a\n")
+		guardtest.GitRun(t, f.wt, "add", "src/a.go")
+		guardtest.GitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: the appended task\n\nTask-Id: 7")
 		return f.run(t, f.wt, "demo")
 	}, uwVerdict("a call with no range derives the worktree's own merge base", "OUTSTANDING:"))
 	each(demo(verified("src/a.go", before)),
@@ -337,16 +338,16 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		uwVerdict("a completed verify row after the last code commit is CLEAR", "CLEAR:"))
 	each(demo(func(t *testing.T, f *uwFix) {
 		verified("src/a.go", after)(t, f)
-		writeFile(t, f.wt+"/src/b.go", "y\n")
-		gitRun(t, f.wt, "add", "src/b.go")
-		gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T13:00:00Z", "-m", "feat: reshaped\n\nFlow-Key: flow.commit-two")
+		guardtest.WriteFile(t, f.wt+"/src/b.go", "y\n")
+		guardtest.GitRun(t, f.wt, "add", "src/b.go")
+		guardtest.GitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T13:00:00Z", "-m", "feat: reshaped\n\nFlow-Key: flow.commit-two")
 	}),
 		uwVerdict("run 1's reshaped flow.commit-two commit after the verify row is CLEAR", "CLEAR:"))
 	each(demo(func(t *testing.T, f *uwFix) {
 		verified("src/a.go", after)(t, f)
-		writeFile(t, f.wt+"/src/c.png", "png\n")
-		gitRun(t, f.wt, "add", "src/c.png")
-		gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T13:00:00Z", "-m", "test: record the visual-verify-fix-3-full-gymie visual verification\n\nFlow-Key: flow.visual-verify")
+		guardtest.WriteFile(t, f.wt+"/src/c.png", "png\n")
+		guardtest.GitRun(t, f.wt, "add", "src/c.png")
+		guardtest.GitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T13:00:00Z", "-m", "test: record the visual-verify-fix-3-full-gymie visual verification\n\nFlow-Key: flow.visual-verify")
 	}),
 		uwVerdict("the pipeline's flow.visual-verify record commit after the verify row is CLEAR", "CLEAR:"))
 	each(demo(verified("spectre/changes/demo/tasks.md", before)),
@@ -499,7 +500,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		f := newUWBare(t, parent+"/wt")
 		f.plan(t, "- [x] 1.1 done\n")
 		f.setFindings(t, "fixed")
-		writeFile(t, parent+"/planted/spectre/changes/clear/tasks.md", "- [x] 1.1 done\n")
+		guardtest.WriteFile(t, parent+"/planted/spectre/changes/clear/tasks.md", "- [x] 1.1 done\n")
 		return f.run(t, f.wt, "../../../planted/spectre/changes/clear")
 	}
 	each(traversal,
@@ -559,7 +560,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		if err := os.Rename(uwCanonTree(t, parent, "[ ] not done"), parent+"/peer-tree"); err != nil {
 			t.Fatal(err)
 		}
-		writeFile(t, f.wt+"/spectre/peers", "peery ../peer-tree\n")
+		guardtest.WriteFile(t, f.wt+"/spectre/peers", "peery ../peer-tree\n")
 		return f.run(t, f.wt, "sat-demo")
 	},
 		uwVerdict("a satellite resolving through peers reaches the peer's canonical plan", "OUTSTANDING:"),
@@ -572,9 +573,9 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		if err := os.Rename(uwCanonTree(t, parent, "[x] done"), parent+"/peer-tree"); err != nil {
 			t.Fatal(err)
 		}
-		writeFile(t, f.wt+"/spectre/peers", "peerw ../peer-tree\n")
+		guardtest.WriteFile(t, f.wt+"/spectre/peers", "peerw ../peer-tree\n")
 		empty := t.TempDir()
-		mkdir(t, empty+"/spectre/changes")
+		guardtest.Mkdir(t, empty+"/spectre/changes")
 		return f.run(t, f.wt, "sat-demo", empty)
 	},
 		uwRC("a canonical worktree with no plan there exits 2, not 0", 2),
@@ -586,7 +587,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	// 12e. No canonical argument, and the declared peer is absent from disk.
 	each(func(t *testing.T) uwResult {
 		f := newUWSatellite(t, t.TempDir()+"/sat-tree", "ghost")
-		writeFile(t, f.wt+"/spectre/peers", "ghost ../not-checked-out\n")
+		guardtest.WriteFile(t, f.wt+"/spectre/peers", "ghost ../not-checked-out\n")
 		return f.run(t, f.wt, "sat-demo")
 	},
 		uwRC("a satellite whose peer is absent exits 2, not 0", 2),
@@ -596,7 +597,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	//      missing-plan case.
 	each(demo(func(t *testing.T, f *uwFix) {
 		rmAll("spectre/changes/demo")(t, f)
-		writeFile(t, f.wt+"/spectre/changes/demo/link.md", "## Parts\n\n`peerz:some-part`\n\n## Merge order\n\n1. `.`\n2. `peerz`\n")
+		guardtest.WriteFile(t, f.wt+"/spectre/changes/demo/link.md", "## Parts\n\n`peerz:some-part`\n\n## Merge order\n\n1. `.`\n2. `peerz`\n")
 	}),
 		uwVerdict("a link.md with no ## Part of is not a satellite, so a missing plan is still OUTSTANDING", "OUTSTANDING:"),
 		uwReason("a link.md with no ## Part of names the missing-plan signal, same as no link.md at all", "no plan at"))
@@ -605,7 +606,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		uwVerdict("a plain change ignores a supplied canonical-worktree argument when its own plan exists", "CLEAR:"))
 	// 12h. The fix-sub-change sweep follows the plan into the canonical tree.
 	each(satCanon("[x] done", func(t *testing.T, canon string) {
-		writeFile(t, canon+"/spectre/changes/canon-demo-fix-1/tasks.md", "- [ ] 1.1 the fix is not done\n")
+		guardtest.WriteFile(t, canon+"/spectre/changes/canon-demo-fix-1/tasks.md", "- [ ] 1.1 the fix is not done\n")
 	}),
 		uwVerdict("a satellite whose canonical tree carries an unchecked canonical-fix sibling is OUTSTANDING, not CLEAR", "OUTSTANDING:"),
 		uwReason("the unchecked canonical-fix sibling is counted, even though the canonical plan itself is fully checked", "1 unchecked plan item(s)"))
@@ -669,7 +670,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		f := newUWBare(t, t.TempDir())
 		f.env.Findings = nil
 		canon := t.TempDir()
-		writeFile(t, canon+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
+		guardtest.WriteFile(t, canon+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
 		r := f.run(t, f.wt, "demo", canon)
 		r.canon = canon
 		return r
@@ -693,7 +694,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		f.env.Findings = nil
 		f.setFile(t, "dispatches.json", `[{"key":"task-14-reviewer"}]`+"\n")
 		canon := t.TempDir()
-		writeFile(t, canon+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
+		guardtest.WriteFile(t, canon+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
 		return f.run(t, f.wt, "demo", canon)
 	},
 		uwVerdict("case 26a: a non-plan worktree does not repeat the change's open dispatch rows", "CLEAR:"))
@@ -730,7 +731,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 		f := newUWBare(t, t.TempDir())
 		f.env.Findings = nil
 		canon := t.TempDir()
-		writeFile(t, canon+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
+		guardtest.WriteFile(t, canon+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
 		f.setFile(t, "find.json", `{"source":"store","complete":true,"records":[{"projectKey":"proj-a","name":"demo","state":"IN_PROGRESS","worktrees":{"`+
 			f.wt+`":null,"`+canon+`":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"updatedAt":"2026-09-10T10:00:00Z","updatedBy":"/flow-fast"}]}`+"\n")
 		r := f.run(t, f.wt, "demo")
@@ -753,8 +754,8 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	each(func(t *testing.T) uwResult {
 		f := newUWBare(t, t.TempDir())
 		a, b := t.TempDir(), t.TempDir()
-		writeFile(t, a+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
-		writeFile(t, b+"/spectre/changes/demo/tasks.md", "- [ ] 1. not done\n")
+		guardtest.WriteFile(t, a+"/spectre/changes/demo/tasks.md", "- [x] 1. done\n")
+		guardtest.WriteFile(t, b+"/spectre/changes/demo/tasks.md", "- [ ] 1. not done\n")
 		f.setFile(t, "find.json", `{"source":"store","complete":true,"records":[`+"\n"+
 			`{"projectKey":"proj-a","name":"demo","worktrees":{"`+a+`":"cccccccccccccccccccccccccccccccccccccccc"}},`+"\n"+
 			`{"projectKey":"proj-b","name":"demo","worktrees":{"`+b+`":"dddddddddddddddddddddddddddddddddddddddd"}}]}`+"\n")
@@ -787,11 +788,11 @@ func TestCheckUnfinishedWorkRefusesAnUnsplitRangeList(t *testing.T) {
 // row started at 12:00 with outcome, a recorded panel pass beside it.
 func uwVerifyCase(t *testing.T, outcome, startedAt string) uwResult {
 	f := newUW(t)
-	fixtureRepo(t, f.wt, repoShape{Commit: "base"})
+	guardtest.FixtureRepo(t, f.wt, guardtest.RepoShape{Commit: "base"})
 	base := tcfGit(t, f.wt, "rev-parse", "HEAD")
-	writeFile(t, f.wt+"/src/a.go", "x\n")
-	gitRun(t, f.wt, "add", "src/a.go")
-	gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")
+	guardtest.WriteFile(t, f.wt+"/src/a.go", "x\n")
+	guardtest.GitRun(t, f.wt, "add", "src/a.go")
+	guardtest.GitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")
 	f.setFile(t, "dispatches.json", `[{"seq":9,"key":"verify","role":"verifier","outcome":"`+outcome+`","startedAt":"`+startedAt+`"}]`+"\n")
 	f.setFile(t, "passes.json", `[{"id":1,"round":0,"note":"roster: full"}]`+"\n")
 	return f.run(t, f.wt, "demo", "", f.wt+"="+base)
@@ -834,7 +835,7 @@ func TestCheckUnfinishedWorkParentAction(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newUW(t)
-			writeFile(t, f.wt+"/spectre/changes/demo/design.md", tc.design)
+			guardtest.WriteFile(t, f.wt+"/spectre/changes/demo/design.md", tc.design)
 			if r := f.run(t, f.wt, "demo"); r.rc != 0 || !strings.Contains(r.out, tc.want) {
 				t.Errorf("rc=%d out=%q err=%q, want %q", r.rc, r.out, r.err, tc.want)
 			}
@@ -868,7 +869,7 @@ func TestCheckUnfinishedWorkOutstandingRecordsItsReason(t *testing.T) {
 			f := newUW(t)
 			r := &core.Reasons{}
 			f.env.Reasons = r
-			writeFile(t, f.wt+"/spectre/changes/demo/design.md", tc.design)
+			guardtest.WriteFile(t, f.wt+"/spectre/changes/demo/design.md", tc.design)
 			res := f.run(t, f.wt, "demo")
 			if res.rc != 0 || !strings.HasPrefix(res.out, tc.verdict) || !slices.Equal(r.IDs(), tc.want) {
 				t.Errorf("rc=%d out=%q recorded %q; want 0, %s and %q", res.rc, res.out, r.IDs(), tc.verdict, tc.want)
@@ -887,16 +888,16 @@ func TestUnfinishedWorkSkipsVisualVerifierCommit(t *testing.T) {
 	t.Parallel()
 	run := func(t *testing.T, key, role string) uwResult {
 		f := newUW(t)
-		fixtureRepo(t, f.wt, repoShape{Commit: "base"})
+		guardtest.FixtureRepo(t, f.wt, guardtest.RepoShape{Commit: "base"})
 		base := tcfGit(t, f.wt, "rev-parse", "HEAD")
-		writeFile(t, f.wt+"/src/a.go", "x\n")
-		gitRun(t, f.wt, "add", "src/a.go")
-		gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")
+		guardtest.WriteFile(t, f.wt+"/src/a.go", "x\n")
+		guardtest.GitRun(t, f.wt, "add", "src/a.go")
+		guardtest.GitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")
 		f.setFile(t, "dispatches.json", `[{"seq":9,"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-01T12:00:00Z"},`+
 			`{"seq":10,"key":"`+key+`","role":"`+role+`","outcome":"completed","startedAt":"2026-01-01T12:30:00Z"}]`+"\n")
-		writeFile(t, f.wt+"/fidelity/x.spec.ts", "// capture\n")
-		gitRun(t, f.wt, "add", "fidelity/x.spec.ts")
-		gitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T13:00:00Z", "-m", "test: capture\n\nFlow-Key: "+key)
+		guardtest.WriteFile(t, f.wt+"/fidelity/x.spec.ts", "// capture\n")
+		guardtest.GitRun(t, f.wt, "add", "fidelity/x.spec.ts")
+		guardtest.GitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T13:00:00Z", "-m", "test: capture\n\nFlow-Key: "+key)
 		return f.run(t, f.wt, "demo", "", f.wt+"="+base)
 	}
 	if r := run(t, "visual-verify-gymie", "verifier"); !strings.HasPrefix(r.out, "CLEAR:") {

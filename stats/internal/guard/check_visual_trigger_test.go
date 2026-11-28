@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // Every case of scripts/test-check-visual-trigger.sh at 3915fbc0, one subtest
@@ -71,13 +72,13 @@ func vtRun(t *testing.T, c vtCase) (code int, stdout, stderr, root string) {
 		t.Fatal("check-visual-trigger is not registered")
 	}
 	root = t.TempDir() + c.sub
-	mkdir(t, root+"/.flow")
+	guardtest.Mkdir(t, root+"/.flow")
 	if c.cfg != nil {
 		body := *c.cfg + "\n"
 		if c.bom {
 			body = "\xef\xbb\xbf" + body
 		}
-		writeFile(t, root+"/.flow/project.md", body)
+		guardtest.WriteFile(t, root+"/.flow/project.md", body)
 	}
 	if c.setup != nil {
 		c.setup(t, root)
@@ -133,7 +134,7 @@ func TestCheckVisualTrigger(t *testing.T) {
 			out: vtMatched("gymie-admin-frontend/src/App.tsx", "gymie-admin-frontend/**") + vtMatch},
 		"case 16": {root: "/nonexistent/check-visual-trigger-test", paths: []string{"stats/web/src/App.tsx"}, code: 2,
 			err: vtNoRoot + "$ROOT is not a directory — cannot tell whether it declares a visual verification section\n" + vtCannot + "not a directory\n"},
-		"case 17": {setup: func(t *testing.T, root string) { mkdir(t, root+"/.flow/project.md") }, paths: []string{"stats/web/src/App.tsx"}, code: 2,
+		"case 17": {setup: func(t *testing.T, root string) { guardtest.Mkdir(t, root+"/.flow/project.md") }, paths: []string{"stats/web/src/App.tsx"}, code: 2,
 			err: vtNoRoot + "$ROOT/.flow/project.md is not a regular file — cannot resolve what it declares\n" + vtCannot + ".flow/project.md is not a regular file\n"},
 		"case 18": {cfg: vtStr(vtMinimal + "\n\n" + vtMinimal), paths: []string{"stats/web/src/App.tsx"}, code: 2,
 			err: vtNoRoot + "$ROOT/.flow/project.md declares 2 '## visual verification' sections — a second declaration is ambiguous, so neither was read\n" + vtCannot + "the section is declared more than once\n"},
@@ -208,7 +209,7 @@ func TestCheckVisualTrigger(t *testing.T) {
 	t.Run("a relative root through a symlinked working directory prints the root as given", func(t *testing.T) {
 		t.Parallel()
 		base := t.TempDir()
-		writeFile(t, base+"/real/proj/.flow/project.md", vtMinimal+"\n")
+		guardtest.WriteFile(t, base+"/real/proj/.flow/project.md", vtMinimal+"\n")
 		if err := os.Symlink(base+"/real", base+"/link"); err != nil {
 			t.Fatal(err)
 		}
@@ -293,8 +294,8 @@ func TestCheckVisualTrigger(t *testing.T) {
 		// compose-mockup-frames refuses the same failure with exit 2; "no
 		// changed paths" would be a confident NO-MATCH on paths never read.
 		root := t.TempDir()
-		mkdir(t, root+"/.flow")
-		writeFile(t, root+"/.flow/project.md", vtMinimal+"\n")
+		guardtest.Mkdir(t, root+"/.flow")
+		guardtest.WriteFile(t, root+"/.flow/project.md", vtMinimal+"\n")
 		var out, errb bytes.Buffer
 		code := Registry["check-visual-trigger"]([]string{root}, core.Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: iotest.ErrReader(errors.New("boom"))}, &out, &errb)
 		if code != 2 || out.Len() != 0 || errb.String() != vtPrefix+"cannot read stdin: boom\nVISUAL-TRIGGER-CANNOT-ANSWER: "+root+" — stdin could not be read\n" {
@@ -337,7 +338,7 @@ func TestVisualTriggerExit2Tokens(t *testing.T) {
 		{"no .flow/project.md", vtCase{paths: []string{"a"}}, notCfg},
 		{"no visual verification section", vtCase{cfg: vtStr("# Project\n")}, notCfg},
 		{"not a directory", vtCase{root: "/nonexistent/vt-token"}, cannot},
-		{"project.md not a regular file", vtCase{setup: func(t *testing.T, root string) { mkdir(t, root+"/.flow/project.md") }}, cannot},
+		{"project.md not a regular file", vtCase{setup: func(t *testing.T, root string) { guardtest.Mkdir(t, root+"/.flow/project.md") }}, cannot},
 		{"project.md unreadable", vtCase{cfg: &vtMinimal, setup: func(t *testing.T, root string) {
 			if err := os.Chmod(root+"/.flow/project.md", 0); err != nil {
 				t.Fatal(err)
@@ -362,7 +363,7 @@ func TestVisualTriggerExit2Tokens(t *testing.T) {
 		vtAssertToken(t, code, out.String()+errb.String(), errb.String(), cannot, "(no root)")
 	}
 	root := t.TempDir()
-	writeFile(t, root+"/.flow/project.md", vtMinimal+"\n")
+	guardtest.WriteFile(t, root+"/.flow/project.md", vtMinimal+"\n")
 	var out, errb bytes.Buffer
 	code := Registry["check-visual-trigger"]([]string{root}, core.Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: iotest.ErrReader(errors.New("boom"))}, &out, &errb)
 	vtAssertToken(t, code, out.String()+errb.String(), errb.String(), cannot, root)
@@ -394,7 +395,7 @@ func vtAssertToken(t *testing.T, code int, all, errOut, token, root string) {
 func TestVisualTriggerRepoPrefix(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()
-	writeFile(t, root+"/.flow/project.md", vtSection("`gymie-frontend/**`")+"\n")
+	guardtest.WriteFile(t, root+"/.flow/project.md", vtSection("`gymie-frontend/**`")+"\n")
 	run := func(args ...string) (int, string) {
 		var out, errb bytes.Buffer
 		code := Registry["check-visual-trigger"](args, core.Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader("./composeApp/src/App.kt\n\n")}, &out, &errb)

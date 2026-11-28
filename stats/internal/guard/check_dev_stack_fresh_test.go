@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // Every case of scripts/test-check-dev-stack-fresh.sh at b1b0d601, one
@@ -43,18 +44,18 @@ func dsfRoot(t *testing.T, cfg string, files map[string]string) string {
 	return root
 }
 
-func dsfRun(args ...string) guardResult {
+func dsfRun(args ...string) guardtest.GuardResult {
 	return runGuard("check-dev-stack-fresh", args, core.Env{Getenv: os.Getenv, Dir: "/"})
 }
 
-func dsfAssert(t *testing.T, r guardResult, rc int, wants ...string) {
+func dsfAssert(t *testing.T, r guardtest.GuardResult, rc int, wants ...string) {
 	t.Helper()
-	if r.rc != rc {
-		t.Fatalf("rc = %d, want %d; out:\n%s", r.rc, rc, r.out)
+	if r.Rc != rc {
+		t.Fatalf("rc = %d, want %d; out:\n%s", r.Rc, rc, r.Out)
 	}
 	for _, w := range wants {
-		if !strings.Contains(r.out, w) {
-			t.Errorf("output lacks %q:\n%s", w, r.out)
+		if !strings.Contains(r.Out, w) {
+			t.Errorf("output lacks %q:\n%s", w, r.Out)
 		}
 	}
 }

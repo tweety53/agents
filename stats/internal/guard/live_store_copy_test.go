@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -41,12 +42,12 @@ func TestLiveStoreCopy(t *testing.T) {
 	pidfile := "/tmp/flowd-" + port + ".pid"
 
 	repo := t.TempDir()
-	var g fxGit
-	g.copyShape(repo, repoShape{Branch: "main", Commit: "base"})
-	if g.err != nil {
-		t.Fatal(g.err)
+	var g guardtest.FxGit
+	g.CopyShape(repo, guardtest.RepoShape{Branch: "main", Commit: "base"})
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
-	mkdir(t, repo+"/stats") // up builds flowd from <repo>/stats
+	guardtest.Mkdir(t, repo+"/stats") // up builds flowd from <repo>/stats
 	sdd := repo + "/.superpowers/sdd/" + name
 	t.Cleanup(func() {
 		if pid, ok := lscPid(pidfile); ok && pid > 0 {
@@ -56,16 +57,16 @@ func TestLiveStoreCopy(t *testing.T) {
 		_ = os.Remove(pidfile)
 	})
 
-	writeExec(t, stub+"/docker", "#!/usr/bin/env bash\necho \"docker $*\" >>\"$LOG\"\n")
-	writeExec(t, stub+"/make", "#!/usr/bin/env bash\necho \"make $*\" >>\"$LOG\"\n")
-	writeExec(t, stub+"/curl", "#!/usr/bin/env bash\n[ -e \"$STUB/up\" ]\n")
-	writeExec(t, stub+"/go", `#!/usr/bin/env bash
+	guardtest.WriteExec(t, stub+"/docker", "#!/usr/bin/env bash\necho \"docker $*\" >>\"$LOG\"\n")
+	guardtest.WriteExec(t, stub+"/make", "#!/usr/bin/env bash\necho \"make $*\" >>\"$LOG\"\n")
+	guardtest.WriteExec(t, stub+"/curl", "#!/usr/bin/env bash\n[ -e \"$STUB/up\" ]\n")
+	guardtest.WriteExec(t, stub+"/go", `#!/usr/bin/env bash
 echo "go $*" >>"$LOG"
 out=$3
 printf '#!/usr/bin/env bash\nprintf "%%s\\n%%s\\n" $$ "$0" >"$TMPDIR/flowd-$FLOWD_PORT.pid"\necho "$FLOWD_DSN" >>"$LOG"\necho "TRANSCRIPTS=$FLOW_TRANSCRIPTS_DIR" >>"$LOG"\ntouch "$STUB/up"\nexec sleep 300\n' >"$out"
 chmod +x "$out"
 `)
-	writeExec(t, stub+"/flow", "#!/usr/bin/env bash\n{ echo \"flow $*\"; echo \"FLOW_ADDR=$FLOW_ADDR\"; cat; echo; } >>\"$LOG\"\n")
+	guardtest.WriteExec(t, stub+"/flow", "#!/usr/bin/env bash\n{ echo \"flow $*\"; echo \"FLOW_ADDR=$FLOW_ADDR\"; cat; echo; } >>\"$LOG\"\n")
 
 	vars := map[string]string{"STUB": stub, "LOG": log, "PATH": stub + ":" + os.Getenv("PATH"), "FLOW_GUARD_REPO_ROOT": repo}
 	var out string
@@ -92,7 +93,7 @@ chmod +x "$out"
 		return rc
 	}
 	readLog := func() string { b, _ := os.ReadFile(log); return string(b) }
-	resetLog := func() { writeFile(t, log, "") }
+	resetLog := func() { guardtest.WriteFile(t, log, "") }
 	hasLine := func(text, line string) bool {
 		for _, l := range strings.Split(text, "\n") {
 			if l == line {
@@ -121,7 +122,7 @@ chmod +x "$out"
 	}
 
 	t.Run("an existing scratch change directory is refused before any side effect", func(t *testing.T) {
-		mkdir(t, sdd)
+		guardtest.Mkdir(t, sdd)
 		resetLog()
 		nothingRan(t, lsc(nil, "up", name, port))
 		if err := os.RemoveAll(sdd); err != nil {
@@ -148,7 +149,7 @@ chmod +x "$out"
 	t.Run("up fails, never hangs, when psql exits before pg_dump is done", func(t *testing.T) {
 		early := t.TempDir()
 		// pg_dump writes far past a pipe buffer; psql reads nothing and fails.
-		writeExec(t, early+"/docker", `#!/usr/bin/env bash
+		guardtest.WriteExec(t, early+"/docker", `#!/usr/bin/env bash
 case "$*" in
 *pg_dump*) head -c 4194304 /dev/zero ;;
 *psql\ -q*) exit 1 ;;
@@ -303,16 +304,16 @@ esac
 // reaches the dev stack.
 func TestLiveStoreCopyRefusesAnotherCheckout(t *testing.T) {
 	a, b := t.TempDir(), t.TempDir()
-	var g fxGit
+	var g guardtest.FxGit
 	for _, r := range []string{a, b} {
-		g.copyShape(r, repoShape{Branch: "main", Commit: "base"})
+		g.CopyShape(r, guardtest.RepoShape{Branch: "main", Commit: "base"})
 	}
-	if g.err != nil {
-		t.Fatal(g.err)
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	stub := t.TempDir()
 	for _, tool := range []string{"docker", "make", "go", "curl", "flow"} {
-		writeExec(t, stub+"/"+tool, "#!/usr/bin/env bash\nexit 1\n")
+		guardtest.WriteExec(t, stub+"/"+tool, "#!/usr/bin/env bash\nexit 1\n")
 	}
 	name := fmt.Sprintf("lsc-foreign%d", os.Getpid())
 	dir := "/tmp/flow-live-" + strings.ReplaceAll(name, "-", "_")

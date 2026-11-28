@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // The throwaway-worktree guard replaces three bash fences: the mutation
@@ -26,7 +27,7 @@ import (
 // with each placeholder replaced by its value.
 func twFence(t *testing.T, doc, marker string, n int, repl ...string) string {
 	t.Helper()
-	src := historicalFile(t, "../../..", "ae805186", doc)
+	src := guardtest.HistoricalFile(t, "../../..", "ae805186", doc)
 	s := string(src)
 	i := strings.Index(s, marker)
 	if i < 0 {
@@ -46,24 +47,24 @@ func twFence(t *testing.T, doc, marker string, n int, repl ...string) string {
 func twRepo(t *testing.T) string {
 	t.Helper()
 	wt := filepath.Join(t.TempDir(), "wt")
-	mkdir(t, wt)
-	fixtureRepo(t, wt, repoShape{})
-	writeFile(t, wt+"/.gitignore", ".superpowers/\n")
-	writeFile(t, wt+"/a.txt", "a\n")
-	writeFile(t, wt+"/b.txt", "b\n")
-	writeFile(t, wt+"/old.txt", "moved\n")
-	writeExec(t, wt+"/bin/run.sh", "#!/bin/sh\necho run\n")
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-q", "-m", "base")
-	writeFile(t, wt+"/a.txt", "a edited\n")
-	writeFile(t, wt+"/staged.txt", "staged\n")
-	gitRun(t, wt, "add", "staged.txt")
-	gitRun(t, wt, "mv", "old.txt", "new.txt")
-	gitRun(t, wt, "rm", "-q", "b.txt")
-	writeFile(t, wt+"/top.txt", "untracked\n")
-	writeFile(t, wt+"/u/deep/x.txt", "untracked deep\n")
-	writeFile(t, wt+"/.superpowers/sdd/dispatch.md", "bundle\n")
-	writeFile(t, wt+"/.superpowers/sdd/reproducers/r.sh", "repro\n")
+	guardtest.Mkdir(t, wt)
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
+	guardtest.WriteFile(t, wt+"/.gitignore", ".superpowers/\n")
+	guardtest.WriteFile(t, wt+"/a.txt", "a\n")
+	guardtest.WriteFile(t, wt+"/b.txt", "b\n")
+	guardtest.WriteFile(t, wt+"/old.txt", "moved\n")
+	guardtest.WriteExec(t, wt+"/bin/run.sh", "#!/bin/sh\necho run\n")
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-q", "-m", "base")
+	guardtest.WriteFile(t, wt+"/a.txt", "a edited\n")
+	guardtest.WriteFile(t, wt+"/staged.txt", "staged\n")
+	guardtest.GitRun(t, wt, "add", "staged.txt")
+	guardtest.GitRun(t, wt, "mv", "old.txt", "new.txt")
+	guardtest.GitRun(t, wt, "rm", "-q", "b.txt")
+	guardtest.WriteFile(t, wt+"/top.txt", "untracked\n")
+	guardtest.WriteFile(t, wt+"/u/deep/x.txt", "untracked deep\n")
+	guardtest.WriteFile(t, wt+"/.superpowers/sdd/dispatch.md", "bundle\n")
+	guardtest.WriteFile(t, wt+"/.superpowers/sdd/reproducers/r.sh", "repro\n")
 	return wt
 }
 
@@ -106,7 +107,7 @@ func twTree(t *testing.T, root string) string {
 func twBash(t *testing.T, script string) {
 	t.Helper()
 	cmd := exec.Command("bash", "-c", script)
-	cmd.Env = append(os.Environ(), fixtureGitEnv...)
+	cmd.Env = append(os.Environ(), guardtest.FixtureGitEnv...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("fence: %v\n%s", err, out)
 	}
@@ -126,7 +127,7 @@ func twGuard(t *testing.T, args ...string) {
 
 func twStatus(t *testing.T, dir string) string {
 	t.Helper()
-	out, err := exec.Command(fixtureGit, "-C", dir, "status", "--porcelain").Output()
+	out, err := exec.Command(guardtest.FixtureGit, "-C", dir, "status", "--porcelain").Output()
 	if err != nil {
 		t.Fatalf("git status in %s: %v", dir, err)
 	}
@@ -193,20 +194,20 @@ func TestThrowawayWorktreeCreateCopiesTheChangeDirectory(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			wt := filepath.Join(t.TempDir(), "wt")
-			mkdir(t, wt)
-			fixtureRepo(t, wt, repoShape{})
-			writeFile(t, wt+"/a.txt", "a\n")
+			guardtest.Mkdir(t, wt)
+			guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
+			guardtest.WriteFile(t, wt+"/a.txt", "a\n")
 			if tc.tracked {
-				writeFile(t, wt+"/.gitignore", ".superpowers/\n")
-				writeFile(t, wt+"/spectre/changes/demo/proposal.md", "proposal\n")
+				guardtest.WriteFile(t, wt+"/.gitignore", ".superpowers/\n")
+				guardtest.WriteFile(t, wt+"/spectre/changes/demo/proposal.md", "proposal\n")
 			} else {
-				writeFile(t, wt+"/.gitignore", ".superpowers/\nspectre/changes/\n")
+				guardtest.WriteFile(t, wt+"/.gitignore", ".superpowers/\nspectre/changes/\n")
 			}
-			gitRun(t, wt, "add", "-A")
-			gitRun(t, wt, "commit", "-q", "-m", "base")
-			writeFile(t, wt+"/spectre/changes/demo/tasks.md", "tasks\n")
+			guardtest.GitRun(t, wt, "add", "-A")
+			guardtest.GitRun(t, wt, "commit", "-q", "-m", "base")
+			guardtest.WriteFile(t, wt+"/spectre/changes/demo/tasks.md", "tasks\n")
 			if !tc.tracked {
-				writeFile(t, wt+"/spectre/changes/demo/patches/a.diff", "diff\n")
+				guardtest.WriteFile(t, wt+"/spectre/changes/demo/patches/a.diff", "diff\n")
 			}
 			twGuard(t, "create", wt, wt+"-copy")
 			for _, f := range tc.files {
@@ -232,7 +233,7 @@ func twFoldFixture(t *testing.T) (wt, cp string) {
 	t.Helper()
 	wt = twRepo(t)
 	cp = wt + "-mutation-1"
-	gitRun(t, wt, "worktree", "add", "-q", "--detach", cp, "HEAD")
+	guardtest.GitRun(t, wt, "worktree", "add", "-q", "--detach", cp, "HEAD")
 	old, now := time.Unix(1_700_000_000, 0), time.Unix(1_700_000_100, 0)
 	for _, f := range []struct {
 		path, body string
@@ -247,7 +248,7 @@ func twFoldFixture(t *testing.T) (wt, cp string) {
 		{cp + "/.superpowers/sdd/reproducers/new.sh", "copy repro\n", now},
 		{cp + "/.superpowers/sdd/other.md", "never folded\n", now},
 	} {
-		writeFile(t, f.path, f.body)
+		guardtest.WriteFile(t, f.path, f.body)
 		if err := os.Chtimes(f.path, f.at, f.at); err != nil {
 			t.Fatal(err)
 		}
@@ -286,7 +287,7 @@ func TestThrowawayWorktreeRemoveFoldBack(t *testing.T) {
 			if _, err := os.Stat(goCP); err == nil {
 				t.Errorf("copy %s still exists", goCP)
 			}
-			list, err := exec.Command(fixtureGit, "-C", goWT, "worktree", "list", "--porcelain").Output()
+			list, err := exec.Command(guardtest.FixtureGit, "-C", goWT, "worktree", "list", "--porcelain").Output()
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -308,10 +309,10 @@ func TestThrowawayWorktreeFoldBackCarriesTheGroupBundle(t *testing.T) {
 	t.Parallel()
 	wt := twRepo(t)
 	cp := wt + "-mutation-2"
-	gitRun(t, wt, "worktree", "add", "-q", "--detach", cp, "HEAD")
-	writeFile(t, cp+"/.superpowers/sdd/dispatch-context-group-2.md", "group 2 bundle\n")
-	writeFile(t, cp+"/.superpowers/sdd/implementer-report-2.md", "group 2 report\n")
-	writeFile(t, cp+"/.superpowers/sdd/task-3.diff", "never folded\n")
+	guardtest.GitRun(t, wt, "worktree", "add", "-q", "--detach", cp, "HEAD")
+	guardtest.WriteFile(t, cp+"/.superpowers/sdd/dispatch-context-group-2.md", "group 2 bundle\n")
+	guardtest.WriteFile(t, cp+"/.superpowers/sdd/implementer-report-2.md", "group 2 report\n")
+	guardtest.WriteFile(t, cp+"/.superpowers/sdd/task-3.diff", "never folded\n")
 	twGuard(t, "remove", wt, cp, "--fold-back")
 	for name, want := range map[string]string{
 		"dispatch-context-group-2.md": "group 2 bundle\n",
@@ -330,13 +331,13 @@ func TestThrowawayWorktreeFoldBackCarriesFrames(t *testing.T) {
 	t.Parallel()
 	wt := twRepo(t)
 	cp := wt + "-mutation-3"
-	gitRun(t, wt, "worktree", "add", "-q", "--detach", cp, "HEAD")
+	guardtest.GitRun(t, wt, "worktree", "add", "-q", "--detach", cp, "HEAD")
 	fr := "/.superpowers/sdd/demo-frames/"
-	writeFile(t, cp+fr+"render.cjs", "render\n")
-	writeFile(t, cp+fr+"sub/a.png", "png a\n")
-	writeFile(t, cp+fr+"empty.png", "")
-	writeFile(t, cp+fr+"kept.png", "copy kept\n")
-	writeFile(t, wt+fr+"kept.png", "worktree kept\n")
+	guardtest.WriteFile(t, cp+fr+"render.cjs", "render\n")
+	guardtest.WriteFile(t, cp+fr+"sub/a.png", "png a\n")
+	guardtest.WriteFile(t, cp+fr+"empty.png", "")
+	guardtest.WriteFile(t, cp+fr+"kept.png", "copy kept\n")
+	guardtest.WriteFile(t, wt+fr+"kept.png", "worktree kept\n")
 	later := time.Now().Add(time.Hour)
 	if err := os.Chtimes(wt+fr+"kept.png", later, later); err != nil {
 		t.Fatal(err)
@@ -376,7 +377,7 @@ func TestThrowawayWorktreeRemoveFoldBackFailureStillRemoves(t *testing.T) {
 	if _, err := os.Stat(cp); err == nil {
 		t.Errorf("copy %s still exists after a failed fold-back", cp)
 	}
-	list, err := exec.Command(fixtureGit, "-C", wt, "worktree", "list", "--porcelain").Output()
+	list, err := exec.Command(guardtest.FixtureGit, "-C", wt, "worktree", "list", "--porcelain").Output()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -447,19 +448,19 @@ func TestThrowawayWorktreeFoldBackDropsAHeldRootReport(t *testing.T) {
 func TestThrowawayWorktreeCopyCarriesTheFlowBase(t *testing.T) {
 	t.Parallel()
 	git := func(dir string, args ...string) (string, error) {
-		out, err := exec.Command(fixtureGit, append([]string{"-C", dir}, args...)...).Output()
+		out, err := exec.Command(guardtest.FixtureGit, append([]string{"-C", dir}, args...)...).Output()
 		return strings.TrimSpace(string(out)), err
 	}
 	src := func(t *testing.T, base string) string {
 		wt := filepath.Join(t.TempDir(), "wt")
-		mkdir(t, wt)
-		fixtureRepo(t, wt, repoShape{})
-		writeFile(t, wt+"/a.txt", "a\n")
-		gitRun(t, wt, "add", "-A")
-		gitRun(t, wt, "commit", "-q", "-m", "base")
-		gitRun(t, wt, "checkout", "-q", "-b", "spectre/x")
+		guardtest.Mkdir(t, wt)
+		guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
+		guardtest.WriteFile(t, wt+"/a.txt", "a\n")
+		guardtest.GitRun(t, wt, "add", "-A")
+		guardtest.GitRun(t, wt, "commit", "-q", "-m", "base")
+		guardtest.GitRun(t, wt, "checkout", "-q", "-b", "spectre/x")
 		if base != "" {
-			gitRun(t, wt, "config", "branch.spectre/x.flowBase", base)
+			guardtest.GitRun(t, wt, "config", "branch.spectre/x.flowBase", base)
 		}
 		return wt
 	}
@@ -497,10 +498,10 @@ func TestThrowawayWorktreeCopyCarriesTheFlowBase(t *testing.T) {
 	t.Run("stale branch reset", func(t *testing.T) {
 		t.Parallel()
 		wt := src(t, "feature/t")
-		gitRun(t, wt, "branch", "flow-copy/wt-copy")
-		writeFile(t, wt+"/b.txt", "b\n")
-		gitRun(t, wt, "add", "-A")
-		gitRun(t, wt, "commit", "-q", "-m", "next")
+		guardtest.GitRun(t, wt, "branch", "flow-copy/wt-copy")
+		guardtest.WriteFile(t, wt+"/b.txt", "b\n")
+		guardtest.GitRun(t, wt, "add", "-A")
+		guardtest.GitRun(t, wt, "commit", "-q", "-m", "next")
 		cp := wt + "-copy"
 		twGuard(t, "create", wt, cp)
 		h, _ := git(wt, "rev-parse", "HEAD")
@@ -512,7 +513,7 @@ func TestThrowawayWorktreeCopyCarriesTheFlowBase(t *testing.T) {
 		t.Parallel()
 		wt := src(t, "feature/t")
 		cp := wt + "-copy"
-		gitRun(t, wt, "worktree", "add", "-q", "--detach", cp, "HEAD")
+		guardtest.GitRun(t, wt, "worktree", "add", "-q", "--detach", cp, "HEAD")
 		twGuard(t, "remove", wt, cp)
 		if _, err := os.Stat(cp); err == nil {
 			t.Error("the detached copy survived remove")

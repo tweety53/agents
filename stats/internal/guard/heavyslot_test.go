@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // fakeSlots is flowd's heavy-slot API as HeavySlot calls it: acquire grants
@@ -145,16 +146,16 @@ func TestHeavyRunsWaitForASlot(t *testing.T) {
 		"shots/day.spec.ts.sources": "src/Day.tsx\n",
 		"plan/tasks.md":             "- [ ] 4. In-run fix 1 — visual-verify: x\n\n**Files:** `src/Day.tsx`\n**Tests:** none\n",
 	} {
-		writeFile(t, filepath.Join(root, p), body)
+		guardtest.WriteFile(t, filepath.Join(root, p), body)
 	}
-	gitRun(t, root, "init", "-q")
-	gitRun(t, root, "add", "-A")
-	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
-	writeFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 1 }\n")
+	guardtest.GitRun(t, root, "init", "-q")
+	guardtest.GitRun(t, root, "add", "-A")
+	guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	guardtest.WriteFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 1 }\n")
 	ran := filepath.Join(t.TempDir(), "ran")
 	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, env)
-	if r.rc != 3 || core.IsFile(ran) || core.IsFile(filepath.Join(root, ".git/flow-recapture.jsonl")) {
-		t.Errorf("recapture with no slot: rc=%d out=%q, want 3 with nothing run and no receipt", r.rc, r.out)
+	if r.Rc != 3 || core.IsFile(ran) || core.IsFile(filepath.Join(root, ".git/flow-recapture.jsonl")) {
+		t.Errorf("recapture with no slot: rc=%d out=%q, want 3 with nothing run and no receipt", r.Rc, r.Out)
 	}
 }
 

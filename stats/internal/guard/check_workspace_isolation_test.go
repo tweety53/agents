@@ -36,6 +36,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -64,7 +65,7 @@ func wiQ(s string) string { return strings.ReplaceAll(s, "~", "`") }
 // printf '%s\n' writes it.
 func wiConfig(t *testing.T, root, body string) {
 	t.Helper()
-	writeFile(t, root+"/.flow/project.md", body+"\n")
+	guardtest.WriteFile(t, root+"/.flow/project.md", body+"\n")
 }
 
 // The rows a correct declaration is built from, kept in one place so a case
@@ -119,7 +120,7 @@ func wiFile(t *testing.T, body string) wiResult {
 func wiRaw(t *testing.T, body string) wiResult {
 	t.Helper()
 	root := t.TempDir()
-	writeFile(t, root+"/.flow/project.md", body)
+	guardtest.WriteFile(t, root+"/.flow/project.md", body)
 	return wiRun(t, nil, root)
 }
 
@@ -272,7 +273,7 @@ func TestCheckWorkspaceIsolation(t *testing.T) {
 	//     own NEVER FAIL OPEN invariant broken in the one script written to
 	//     hold it. Anyone able to land a pull request can create the symlink.
 	dirCfg := t.TempDir()
-	mkdir(t, dirCfg+"/.flow/project.md")
+	guardtest.Mkdir(t, dirCfg+"/.flow/project.md")
 	wiRefuses(t, wiRun(t, nil, dirCfg), "a project.md that is a directory")
 
 	// 2d. A `.flow/project.md` that is a symlink to nowhere. A test that
@@ -280,7 +281,7 @@ func TestCheckWorkspaceIsolation(t *testing.T) {
 	//     ordinary, silent "no .flow/project.md" verdict — an absence
 	//     manufactured out of a path someone deliberately pointed at nothing.
 	dangling := t.TempDir()
-	mkdir(t, dangling+"/.flow")
+	guardtest.Mkdir(t, dangling+"/.flow")
 	if err := os.Symlink(t.TempDir()+"/no-such-configuration-target", dangling+"/.flow/project.md"); err != nil {
 		t.Fatal(err)
 	}
@@ -289,9 +290,9 @@ func TestCheckWorkspaceIsolation(t *testing.T) {
 	// 2e. A `.flow/project.md` that is a symlink to a REAL file is still read:
 	//     the refusals above exclude a file type rather than an indirection.
 	linked := t.TempDir()
-	mkdir(t, linked+"/.flow")
+	guardtest.Mkdir(t, linked+"/.flow")
 	target := t.TempDir() + "/linked-project.md"
-	writeFile(t, target, "# fixture\n")
+	guardtest.WriteFile(t, target, "# fixture\n")
 	if err := os.Symlink(target, linked+"/.flow/project.md"); err != nil {
 		t.Fatal(err)
 	}
@@ -720,11 +721,11 @@ Prose that is not a second declaration.
 	//       configurations differ in one byte and sit in the SAME project
 	//       root, so the two reports are comparable in full.
 	same := t.TempDir()
-	writeFile(t, same+"/.flow/project.md", isoHead+wiQ("| ~queue\033[2K~ | ~Q~ | ~x~ | ~x-<id>~ |\n"))
+	guardtest.WriteFile(t, same+"/.flow/project.md", isoHead+wiQ("| ~queue\033[2K~ | ~Q~ | ~x~ | ~x-<id>~ |\n"))
 	esc := wiRun(t, nil, same)
 	wiInvalid(t, esc, "a cell holding a real ESC byte is reported as invalid")
 	wiNotReported(t, esc, `\\x1b`, "a real ESC byte renders with a single backslash")
-	writeFile(t, same+"/.flow/project.md", isoHead+wiQ(`| ~queue\x1b[2K~ | ~Q~ | ~x~ | ~x-<id>~ |`+"\n"))
+	guardtest.WriteFile(t, same+"/.flow/project.md", isoHead+wiQ(`| ~queue\x1b[2K~ | ~Q~ | ~x~ | ~x-<id>~ |`+"\n"))
 	lit := wiRun(t, nil, same)
 	wiInvalid(t, lit, `a cell holding the four literal characters \x1b is reported as invalid`)
 	wiReports(t, lit, `\\x1b[2K`, "a literal backslash in the cell is doubled in the report")

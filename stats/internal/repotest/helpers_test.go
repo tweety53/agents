@@ -256,13 +256,13 @@ func lastEnv(env []string, k string) string {
 }
 
 // policyFlowDir holds a `flow` that answers `policy get` with the seeded
-// pairs (internal/guard/testdata/policy.json) and hands every other call to
+// pairs (internal/guard/guardtest/testdata/policy.json) and hands every other call to
 // the next `flow` on PATH -- a test's own fake, or none: check-loop-dispatch
 // reads the pairs through `flow policy get` (kan-1103), and the dev store's
 // pairs, or a `flow` built before them, must never decide a hook case.
 func policyFlowDir(t *testing.T) string {
 	t.Helper()
-	fixture, err := filepath.Abs("../guard/testdata/policy.json")
+	fixture, err := filepath.Abs("../guard/guardtest/testdata/policy.json")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // The close-task fixture: the change "demo" on branch spectre/demo with a
@@ -25,14 +26,14 @@ type ctFx struct {
 // origin of its own (none when origin is false).
 func ctRepo(t *testing.T, dir string, origin bool) {
 	t.Helper()
-	mkdir(t, dir)
-	fixtureRepo(t, dir, repoShape{Branch: "spectre/demo"})
-	writeFile(t, dir+"/base.txt", "base\n")
-	gitRun(t, dir, "add", "-A")
-	gitRun(t, dir, "commit", "-q", "-m", "base")
+	guardtest.Mkdir(t, dir)
+	guardtest.FixtureRepo(t, dir, guardtest.RepoShape{Branch: "spectre/demo"})
+	guardtest.WriteFile(t, dir+"/base.txt", "base\n")
+	guardtest.GitRun(t, dir, "add", "-A")
+	guardtest.GitRun(t, dir, "commit", "-q", "-m", "base")
 	if origin {
-		fixtureRepo(t, dir+".origin", repoShape{Bare: true})
-		gitRun(t, dir, "remote", "add", "origin", dir+".origin")
+		guardtest.FixtureRepo(t, dir+".origin", guardtest.RepoShape{Bare: true})
+		guardtest.GitRun(t, dir, "remote", "add", "origin", dir+".origin")
 	}
 }
 
@@ -46,10 +47,10 @@ func ctFixture(t *testing.T, origin bool, tickRC string) *ctFx {
 	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
 	bin := root + "/bin"
 	// Both stubs find root from their own path, so their bodies are shared
-	// across fixtures and each is assessed once (execFixtures).
-	writeExec(t, bin+"/flow", "#!/bin/sh\necho \"flow $*\" >> \"${0%/bin/flow}/calls.log\"\nexit "+tickRC+"\n")
-	writeExec(t, bin+"/git", "#!/bin/sh\ncase \" $* \" in *\" push \"*) echo \"git $*\" >> \"${0%/bin/git}/calls.log\";; *) exec "+fixtureGit+" \"$@\";; esac\nexec "+fixtureGit+" \"$@\"\n")
-	fx.env = core.Env{Getenv: pathEnv(bin), Dir: fx.wt}
+	// across fixtures and each is assessed once (ExecFixtures).
+	guardtest.WriteExec(t, bin+"/flow", "#!/bin/sh\necho \"flow $*\" >> \"${0%/bin/flow}/calls.log\"\nexit "+tickRC+"\n")
+	guardtest.WriteExec(t, bin+"/git", "#!/bin/sh\ncase \" $* \" in *\" push \"*) echo \"git $*\" >> \"${0%/bin/git}/calls.log\";; *) exec "+guardtest.FixtureGit+" \"$@\";; esac\nexec "+guardtest.FixtureGit+" \"$@\"\n")
+	fx.env = core.Env{Getenv: guardtest.PathEnv(bin), Dir: fx.wt}
 	return fx
 }
 
@@ -67,11 +68,11 @@ func (fx *ctFx) commit(t *testing.T, dir, subject, taskID string, files ...strin
 	t.Helper()
 	var paths []string
 	for i := 0; i < len(files); i += 2 {
-		writeFile(t, dir+"/"+files[i], files[i+1])
+		guardtest.WriteFile(t, dir+"/"+files[i], files[i+1])
 		paths = append(paths, files[i])
 	}
-	gitRun(t, dir, append([]string{"add", "-f", "--"}, paths...)...)
-	gitRun(t, dir, "commit", "-q", "-m", subject, "-m", "Task-Id: "+taskID)
+	guardtest.GitRun(t, dir, append([]string{"add", "-f", "--"}, paths...)...)
+	guardtest.GitRun(t, dir, "commit", "-q", "-m", subject, "-m", "Task-Id: "+taskID)
 	return tcfGit(t, dir, "rev-parse", "HEAD")
 }
 
@@ -87,7 +88,7 @@ func (fx *ctFx) calls(t *testing.T) []string {
 	return strings.Split(strings.TrimRight(string(b), "\n"), "\n")
 }
 
-func (fx *ctFx) run(args ...string) guardResult {
+func (fx *ctFx) run(args ...string) guardtest.GuardResult {
 	return runGuard("close-task", args, fx.env)
 }
 
@@ -107,8 +108,8 @@ func TestCloseTask(t *testing.T) {
 		fx := ctFixture(t, true, "0")
 		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
 		s2 := fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
-		if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2); r.rc != 0 {
-			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+		if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1, "2:"+s2); r.Rc != 0 {
+			t.Fatalf("exit %d, want 0\n%s", r.Rc, r.Out)
 		}
 		ctEqual(t, fx.calls(t), []string{
 			"flow tasks tick -C " + fx.wt + " demo 1",
@@ -122,10 +123,10 @@ func TestCloseTask(t *testing.T) {
 		t.Parallel()
 		fx := ctFixture(t, true, "0")
 		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-		gitRun(t, fx.wt, "reset", "-q", "--hard", fx.base)
+		guardtest.GitRun(t, fx.wt, "reset", "-q", "--hard", fx.base)
 		for _, sha := range []string{s1, "0000000"} {
-			if r := fx.run(fx.wt, "demo", fx.base, "1:"+sha); r.rc != 1 || !strings.Contains(r.err, "RE-COMMIT") {
-				t.Fatalf("%s: exit %d, want 1 and RE-COMMIT\n%s", sha, r.rc, r.out)
+			if r := fx.run(fx.wt, "demo", fx.base, "1:"+sha); r.Rc != 1 || !strings.Contains(r.Err, "RE-COMMIT") {
+				t.Fatalf("%s: exit %d, want 1 and RE-COMMIT\n%s", sha, r.Rc, r.Out)
 			}
 		}
 		ctEqual(t, fx.calls(t), nil)
@@ -135,8 +136,8 @@ func TestCloseTask(t *testing.T) {
 		fx := ctFixture(t, true, "0")
 		fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
 		fx.commit(t, fx.wt, "two", "2", "b.txt", "b\n")
-		if r := fx.run(fx.wt, "demo", fx.base, "1"); r.rc != 0 {
-			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+		if r := fx.run(fx.wt, "demo", fx.base, "1"); r.Rc != 0 {
+			t.Fatalf("exit %d, want 0\n%s", r.Rc, r.Out)
 		}
 		ctEqual(t, fx.calls(t), []string{"flow tasks tick -C " + fx.wt + " demo 1"})
 	})
@@ -144,8 +145,8 @@ func TestCloseTask(t *testing.T) {
 		t.Parallel()
 		fx := ctFixture(t, true, "0")
 		for _, a := range []string{"1", "1:", ":abc"} { // "1": no commit carries Task-Id: 1
-			if r := fx.run(fx.wt, "demo", fx.base, a); r.rc != 2 {
-				t.Errorf("%q: exit %d, want 2\n%s", a, r.rc, r.out)
+			if r := fx.run(fx.wt, "demo", fx.base, a); r.Rc != 2 {
+				t.Errorf("%q: exit %d, want 2\n%s", a, r.Rc, r.Out)
 			}
 		}
 		ctEqual(t, fx.calls(t), nil)
@@ -154,8 +155,8 @@ func TestCloseTask(t *testing.T) {
 		t.Parallel()
 		fx := ctFixture(t, true, "1")
 		s1 := fx.commit(t, fx.wt, "one", "1", "a.txt", "a\n")
-		if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.rc != 2 {
-			t.Fatalf("exit %d, want 2\n%s", r.rc, r.out)
+		if r := fx.run(fx.wt, "demo", fx.base, "1:"+s1); r.Rc != 2 {
+			t.Fatalf("exit %d, want 2\n%s", r.Rc, r.Out)
 		}
 		ctEqual(t, fx.calls(t), []string{"flow tasks tick -C " + fx.wt + " demo 1"})
 	})
@@ -164,8 +165,8 @@ func TestCloseTask(t *testing.T) {
 		fx := ctFixture(t, true, "0").withPeer(t)
 		s3 := fx.commit(t, fx.wt, "three", "3", "c.txt", "c\n")
 		p3 := fx.commit(t, fx.peer, "three", "3", "d.txt", "d\n")
-		if r := fx.run(fx.wt, "demo", fx.base, "3:"+fx.wt+"="+s3+","+fx.peer+"="+p3); r.rc != 0 {
-			t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
+		if r := fx.run(fx.wt, "demo", fx.base, "3:"+fx.wt+"="+s3+","+fx.peer+"="+p3); r.Rc != 0 {
+			t.Fatalf("exit %d, want 0\n%s", r.Rc, r.Out)
 		}
 		ctEqual(t, fx.calls(t), []string{
 			"flow tasks tick -C " + fx.wt + " demo 3",

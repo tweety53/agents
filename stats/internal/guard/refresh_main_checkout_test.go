@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -20,27 +21,27 @@ func behindRepo(t *testing.T) (repo, origin string) {
 		t.Fatal(err)
 	}
 	origin, repo, other := dir+"/origin.git", dir+"/repo", dir+"/other"
-	fixtureRepo(t, origin, repoShape{Branch: "main", Bare: true})
-	gitRun(t, "", "clone", "-q", origin, repo)
-	writeFile(t, repo+"/f.txt", "a\n")
-	gitRun(t, repo, "add", "f.txt")
-	gitRun(t, repo, "commit", "-q", "-m", "A")
-	gitRun(t, repo, "push", "-q", "origin", "main")
-	gitRun(t, "", "clone", "-q", origin, other)
-	writeFile(t, other+"/f.txt", "b\n")
-	writeFile(t, other+"/g.txt", "new\n")
-	gitRun(t, other, "add", "f.txt", "g.txt")
-	gitRun(t, other, "commit", "-q", "-m", "B")
-	gitRun(t, other, "push", "-q", "origin", "main")
+	guardtest.FixtureRepo(t, origin, guardtest.RepoShape{Branch: "main", Bare: true})
+	guardtest.GitRun(t, "", "clone", "-q", origin, repo)
+	guardtest.WriteFile(t, repo+"/f.txt", "a\n")
+	guardtest.GitRun(t, repo, "add", "f.txt")
+	guardtest.GitRun(t, repo, "commit", "-q", "-m", "A")
+	guardtest.GitRun(t, repo, "push", "-q", "origin", "main")
+	guardtest.GitRun(t, "", "clone", "-q", origin, other)
+	guardtest.WriteFile(t, other+"/f.txt", "b\n")
+	guardtest.WriteFile(t, other+"/g.txt", "new\n")
+	guardtest.GitRun(t, other, "add", "f.txt", "g.txt")
+	guardtest.GitRun(t, other, "commit", "-q", "-m", "B")
+	guardtest.GitRun(t, other, "push", "-q", "origin", "main")
 	return repo, origin
 }
 
 func rmcRev(t *testing.T, repo, rev string) string {
 	t.Helper()
-	var g fxGit
-	s := g.git(repo, "rev-parse", "--short", rev)
-	if g.err != nil {
-		t.Fatal(g.err)
+	var g guardtest.FxGit
+	s := g.Git(repo, "rev-parse", "--short", rev)
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	return s
 }
@@ -51,10 +52,10 @@ func TestRefreshMainCheckout(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	env := core.Env{Getenv: os.Getenv}
-	run := func(args ...string) guardResult { return runGuard("refresh-main-checkout", args, env) }
-	refused := func(t *testing.T, r guardResult, repo, reason string) {
+	run := func(args ...string) guardtest.GuardResult { return runGuard("refresh-main-checkout", args, env) }
+	refused := func(t *testing.T, r guardtest.GuardResult, repo, reason string) {
 		t.Helper()
-		if want := "REFRESH-REFUSED: " + repo + " " + reason + " — nothing touched\n"; r.rc != 1 || r.stdout != want {
+		if want := "REFRESH-REFUSED: " + repo + " " + reason + " — nothing touched\n"; r.Rc != 1 || r.Stdout != want {
 			t.Fatalf("want exit 1, stdout %q; got %+v", want, r)
 		}
 	}
@@ -72,14 +73,14 @@ func TestRefreshMainCheckout(t *testing.T) {
 		old := rmcRev(t, repo, "HEAD")
 		r := run(repo, "main")
 		tip := rmcRev(t, repo, "origin/main")
-		if want := "REFRESH-DONE: " + repo + " fast-forwarded " + old + " -> " + tip + "\n"; r.rc != 0 || r.stdout != want {
+		if want := "REFRESH-DONE: " + repo + " fast-forwarded " + old + " -> " + tip + "\n"; r.Rc != 0 || r.Stdout != want {
 			t.Fatalf("want %q; got %+v", want, r)
 		}
 		if body, _ := os.ReadFile(repo + "/f.txt"); string(body) != "b\n" || !rmcExists(repo+"/g.txt") {
 			t.Fatal("worktree not at B")
 		}
 		r = run(repo, "main")
-		if want := "REFRESH-CURRENT: " + repo + " already at " + tip + "\n"; r.rc != 0 || r.stdout != want {
+		if want := "REFRESH-CURRENT: " + repo + " already at " + tip + "\n"; r.Rc != 0 || r.Stdout != want {
 			t.Fatalf("want %q; got %+v", want, r)
 		}
 	})
@@ -87,8 +88,8 @@ func TestRefreshMainCheckout(t *testing.T) {
 	t.Run("untracked survives", func(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
-		writeFile(t, repo+"/untracked.txt", "loose\n")
-		if r := run(repo, "main"); r.rc != 0 || !rmcExists(repo+"/untracked.txt") {
+		guardtest.WriteFile(t, repo+"/untracked.txt", "loose\n")
+		if r := run(repo, "main"); r.Rc != 0 || !rmcExists(repo+"/untracked.txt") {
 			t.Fatalf("untracked file lost; %+v", r)
 		}
 	})
@@ -100,8 +101,8 @@ func TestRefreshMainCheckout(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
 		before := rmcRev(t, repo, "main")
-		writeFile(t, repo+"/g.txt", "mine\n")
-		if r := run(repo, "main"); r.rc != 2 || r.stdout != "" || !strings.Contains(r.err, "g.txt") {
+		guardtest.WriteFile(t, repo+"/g.txt", "mine\n")
+		if r := run(repo, "main"); r.Rc != 2 || r.Stdout != "" || !strings.Contains(r.Err, "g.txt") {
 			t.Fatalf("want exit 2, no verdict, git's message naming g.txt; got %+v", r)
 		}
 		unmoved(t, repo, before)
@@ -114,7 +115,7 @@ func TestRefreshMainCheckout(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
 		before := rmcRev(t, repo, "main")
-		gitRun(t, repo, "checkout", "-q", "--detach")
+		guardtest.GitRun(t, repo, "checkout", "-q", "--detach")
 		refused(t, run(repo, "main"), repo, "is detached")
 		unmoved(t, repo, before)
 	})
@@ -123,7 +124,7 @@ func TestRefreshMainCheckout(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
 		before := rmcRev(t, repo, "main")
-		gitRun(t, repo, "checkout", "-q", "-b", "other")
+		guardtest.GitRun(t, repo, "checkout", "-q", "-b", "other")
 		refused(t, run(repo, "main"), repo, "is on other, not main")
 		unmoved(t, repo, before)
 	})
@@ -132,7 +133,7 @@ func TestRefreshMainCheckout(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
 		before := rmcRev(t, repo, "main")
-		writeFile(t, repo+"/f.txt", "a\nedited\n")
+		guardtest.WriteFile(t, repo+"/f.txt", "a\nedited\n")
 		refused(t, run(repo, "main"), repo, "has tracked changes")
 		unmoved(t, repo, before)
 		if body, _ := os.ReadFile(repo + "/f.txt"); !strings.Contains(string(body), "edited") {
@@ -144,8 +145,8 @@ func TestRefreshMainCheckout(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
 		before := rmcRev(t, repo, "main")
-		writeFile(t, repo+"/h.txt", "real\n")
-		gitRun(t, repo, "add", "h.txt")
+		guardtest.WriteFile(t, repo+"/h.txt", "real\n")
+		guardtest.GitRun(t, repo, "add", "h.txt")
 		refused(t, run(repo, "main"), repo, "has tracked changes")
 		unmoved(t, repo, before)
 		if !rmcExists(repo + "/h.txt") {
@@ -156,9 +157,9 @@ func TestRefreshMainCheckout(t *testing.T) {
 	t.Run("local commits not on origin refused", func(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
-		writeFile(t, repo+"/local.txt", "mine\n")
-		gitRun(t, repo, "add", "local.txt")
-		gitRun(t, repo, "commit", "-q", "-m", "local")
+		guardtest.WriteFile(t, repo+"/local.txt", "mine\n")
+		guardtest.GitRun(t, repo, "add", "local.txt")
+		guardtest.GitRun(t, repo, "commit", "-q", "-m", "local")
 		before := rmcRev(t, repo, "main")
 		refused(t, run(repo, "main"), repo, "has main commits origin/main lacks")
 		unmoved(t, repo, before)
@@ -167,7 +168,7 @@ func TestRefreshMainCheckout(t *testing.T) {
 	t.Run("no origin base refused", func(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
-		gitRun(t, repo, "checkout", "-q", "-b", "trunk")
+		guardtest.GitRun(t, repo, "checkout", "-q", "-b", "trunk")
 		before := rmcRev(t, repo, "trunk")
 		refused(t, run(repo, "trunk"), repo, "has no origin/trunk")
 		unmoved(t, repo, before)
@@ -177,7 +178,7 @@ func TestRefreshMainCheckout(t *testing.T) {
 		t.Parallel()
 		const usage = "usage: flow-guard refresh-main-checkout <main-checkout> <base>\n"
 		for _, args := range [][]string{{t.TempDir()}, {t.TempDir() + "/absent", "main"}} {
-			if r := run(args...); r.rc != 2 || r.stdout != "" || r.err != usage {
+			if r := run(args...); r.Rc != 2 || r.Stdout != "" || r.Err != usage {
 				t.Fatalf("%v: want exit 2 with usage; got %+v", args, r)
 			}
 		}
@@ -188,8 +189,8 @@ func TestRefreshMainCheckout(t *testing.T) {
 	t.Run("unborn HEAD cannot answer", func(t *testing.T) {
 		t.Parallel()
 		repo := t.TempDir() + "/repo"
-		fixtureRepo(t, repo, repoShape{Branch: "main"})
-		if r := run(repo, "main"); r.rc != 2 || r.stdout != "" || r.err == "" {
+		guardtest.FixtureRepo(t, repo, guardtest.RepoShape{Branch: "main"})
+		if r := run(repo, "main"); r.Rc != 2 || r.Stdout != "" || r.Err == "" {
 			t.Fatalf("want exit 2, git's message on stderr; got %+v", r)
 		}
 	})
@@ -210,16 +211,16 @@ func TestRefreshMainCheckoutRestartsFlowdWhenStatsMoved(t *testing.T) {
 			repo, origin := behindRepo(t)
 			dir := filepath.Dir(repo)
 			other := dir + "/other"
-			writeFile(t, other+"/stats/Makefile", "restart:\n\ttrue\n")
-			writeFile(t, other+"/stats/cmd/flowd/main.go", "package main\n")
-			gitRun(t, other, "add", "-A")
-			gitRun(t, other, "commit", "-q", "-m", "C")
-			gitRun(t, other, "push", "-q", origin, "main")
+			guardtest.WriteFile(t, other+"/stats/Makefile", "restart:\n\ttrue\n")
+			guardtest.WriteFile(t, other+"/stats/cmd/flowd/main.go", "package main\n")
+			guardtest.GitRun(t, other, "add", "-A")
+			guardtest.GitRun(t, other, "commit", "-q", "-m", "C")
+			guardtest.GitRun(t, other, "push", "-q", origin, "main")
 			log := dir + "/make.log"
-			writeExec(t, dir+"/bin/make", "#!/usr/bin/env bash\nprintf 'make %s\\n' \"$*\" >>"+log+"\nexit "+tc.exit+"\n")
-			r := runGuard("refresh-main-checkout", []string{repo, "main"}, core.Env{Getenv: pathEnv(dir + "/bin")})
+			guardtest.WriteExec(t, dir+"/bin/make", "#!/usr/bin/env bash\nprintf 'make %s\\n' \"$*\" >>"+log+"\nexit "+tc.exit+"\n")
+			r := runGuard("refresh-main-checkout", []string{repo, "main"}, core.Env{Getenv: guardtest.PathEnv(dir + "/bin")})
 			calls, _ := os.ReadFile(log)
-			if r.rc != tc.rc || !strings.Contains(r.stdout, "REFRESH-DONE: ") || !strings.Contains(r.stdout, tc.line) ||
+			if r.Rc != tc.rc || !strings.Contains(r.Stdout, "REFRESH-DONE: ") || !strings.Contains(r.Stdout, tc.line) ||
 				!strings.Contains(string(calls), "make -C "+repo+"/stats restart") {
 				t.Fatalf("%+v\n%s", r, calls)
 			}
@@ -239,19 +240,19 @@ func TestRefreshMainCheckoutDiscardsLandedCopies(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
 		old := rmcRev(t, repo, "HEAD")
-		writeFile(t, repo+"/f.txt", "b\n")
-		writeFile(t, repo+"/g.txt", "new\n")
-		gitRun(t, repo, "add", "g.txt")
+		guardtest.WriteFile(t, repo+"/f.txt", "b\n")
+		guardtest.WriteFile(t, repo+"/g.txt", "new\n")
+		guardtest.GitRun(t, repo, "add", "g.txt")
 		r := runGuard("refresh-main-checkout", []string{repo, "main"}, env)
 		tip := rmcRev(t, repo, "origin/main")
 		want := "REFRESH-DISCARDED: " + repo + " 2 tracked paths identical to origin/main\n" +
 			"REFRESH-DONE: " + repo + " fast-forwarded " + old + " -> " + tip + "\n"
-		if r.rc != 0 || r.stdout != want {
+		if r.Rc != 0 || r.Stdout != want {
 			t.Fatalf("want %q; got %+v", want, r)
 		}
-		var g fxGit
-		if s := g.git(repo, "status", "--porcelain"); g.err != nil || s != "" {
-			t.Fatalf("checkout not clean: %q %v", s, g.err)
+		var g guardtest.FxGit
+		if s := g.Git(repo, "status", "--porcelain"); g.Err != nil || s != "" {
+			t.Fatalf("checkout not clean: %q %v", s, g.Err)
 		}
 	})
 
@@ -261,11 +262,11 @@ func TestRefreshMainCheckoutDiscardsLandedCopies(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
 		before := rmcRev(t, repo, "main")
-		writeFile(t, repo+"/f.txt", "b\n")
-		writeFile(t, repo+"/g.txt", "mine\n")
-		gitRun(t, repo, "add", "g.txt")
+		guardtest.WriteFile(t, repo+"/f.txt", "b\n")
+		guardtest.WriteFile(t, repo+"/g.txt", "mine\n")
+		guardtest.GitRun(t, repo, "add", "g.txt")
 		r := runGuard("refresh-main-checkout", []string{repo, "main"}, env)
-		if want := "REFRESH-REFUSED: " + repo + " has tracked changes — nothing touched\n"; r.rc != 1 || r.stdout != want {
+		if want := "REFRESH-REFUSED: " + repo + " has tracked changes — nothing touched\n"; r.Rc != 1 || r.Stdout != want {
 			t.Fatalf("want exit 1, stdout %q; got %+v", want, r)
 		}
 		if got := rmcRev(t, repo, "main"); got != before {
@@ -276,9 +277,9 @@ func TestRefreshMainCheckoutDiscardsLandedCopies(t *testing.T) {
 		}
 	})
 
-	refusedKept := func(t *testing.T, r guardResult, repo, reason string) {
+	refusedKept := func(t *testing.T, r guardtest.GuardResult, repo, reason string) {
 		t.Helper()
-		if want := "REFRESH-REFUSED: " + repo + " " + reason + " — nothing touched\n"; r.rc != 1 || r.stdout != want {
+		if want := "REFRESH-REFUSED: " + repo + " " + reason + " — nothing touched\n"; r.Rc != 1 || r.Stdout != want {
 			t.Fatalf("want exit 1, stdout %q; got %+v", want, r)
 		}
 	}
@@ -288,13 +289,13 @@ func TestRefreshMainCheckoutDiscardsLandedCopies(t *testing.T) {
 	t.Run("an index copy differing from origin refuses", func(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
-		writeFile(t, repo+"/f.txt", "mine\n")
-		gitRun(t, repo, "add", "f.txt")
-		writeFile(t, repo+"/f.txt", "b\n")
+		guardtest.WriteFile(t, repo+"/f.txt", "mine\n")
+		guardtest.GitRun(t, repo, "add", "f.txt")
+		guardtest.WriteFile(t, repo+"/f.txt", "b\n")
 		refusedKept(t, runGuard("refresh-main-checkout", []string{repo, "main"}, env), repo, "has tracked changes")
-		var g fxGit
-		if s := g.git(repo, "show", ":f.txt"); g.err != nil || s != "mine" {
-			t.Fatalf("index copy lost: %q %v", s, g.err)
+		var g guardtest.FxGit
+		if s := g.Git(repo, "show", ":f.txt"); g.Err != nil || s != "mine" {
+			t.Fatalf("index copy lost: %q %v", s, g.Err)
 		}
 	})
 
@@ -303,9 +304,9 @@ func TestRefreshMainCheckoutDiscardsLandedCopies(t *testing.T) {
 	t.Run("a filtered path refuses", func(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
-		writeFile(t, repo+"/.git/info/attributes", "f.txt filter=strip\n")
-		gitRun(t, repo, "config", "filter.strip.clean", "sed '/^OUT/d'")
-		writeFile(t, repo+"/f.txt", "b\nOUT precious\n")
+		guardtest.WriteFile(t, repo+"/.git/info/attributes", "f.txt filter=strip\n")
+		guardtest.GitRun(t, repo, "config", "filter.strip.clean", "sed '/^OUT/d'")
+		guardtest.WriteFile(t, repo+"/f.txt", "b\nOUT precious\n")
 		refusedKept(t, runGuard("refresh-main-checkout", []string{repo, "main"}, env), repo, "has tracked changes")
 		if body, _ := os.ReadFile(repo + "/f.txt"); !strings.Contains(string(body), "OUT precious") {
 			t.Fatal("filtered content discarded")
@@ -317,8 +318,8 @@ func TestRefreshMainCheckoutDiscardsLandedCopies(t *testing.T) {
 	t.Run("an untracked path origin adds refuses before discarding", func(t *testing.T) {
 		t.Parallel()
 		repo, _ := behindRepo(t)
-		writeFile(t, repo+"/f.txt", "b\n")
-		writeFile(t, repo+"/g.txt", "mine\n")
+		guardtest.WriteFile(t, repo+"/f.txt", "b\n")
+		guardtest.WriteFile(t, repo+"/g.txt", "mine\n")
 		refusedKept(t, runGuard("refresh-main-checkout", []string{repo, "main"}, env), repo, "has untracked g.txt origin/main adds")
 		if body, _ := os.ReadFile(repo + "/f.txt"); string(body) != "b\n" {
 			t.Fatal("copy discarded ahead of a failing fast-forward")

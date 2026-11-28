@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -33,24 +34,24 @@ func lpNew(t *testing.T, rows string, branches ...string) lpFx {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, fx.repo+"/"+core.PolicyFile, string(table))
-	fixtureRepo(t, fx.repo, repoShape{Branch: "main"})
-	gitRun(t, fx.repo, "add", "-A")
-	gitRun(t, fx.repo, "commit", "-q", "-m", "init")
+	guardtest.WriteFile(t, fx.repo+"/"+core.PolicyFile, string(table))
+	guardtest.FixtureRepo(t, fx.repo, guardtest.RepoShape{Branch: "main"})
+	guardtest.GitRun(t, fx.repo, "add", "-A")
+	guardtest.GitRun(t, fx.repo, "commit", "-q", "-m", "init")
 	for _, b := range branches {
-		gitRun(t, fx.repo, "branch", b)
+		guardtest.GitRun(t, fx.repo, "branch", b)
 	}
 	if rows != "" {
-		writeFile(t, fx.rows, rows)
+		guardtest.WriteFile(t, fx.rows, rows)
 	}
 	bin := tmp + "/bin"
-	writeExec(t, bin+"/flow", "#!/usr/bin/env bash\n"+policyStub+`printf '%s\n' "$*" >>`+fx.log+`
+	guardtest.WriteExec(t, bin+"/flow", "#!/usr/bin/env bash\n"+guardtest.PolicyStub+`printf '%s\n' "$*" >>`+fx.log+`
 case "$1 $2" in
   "record dispatches") [ -f `+fx.rows+` ] && exec cat `+fx.rows+`; exit 1 ;;
   "record dispatch") echo "recorded: dispatch 1" ;;
 esac
 `)
-	fx.env = core.Env{Getenv: pathEnv(bin), Dir: tmp}
+	fx.env = core.Env{Getenv: guardtest.PathEnv(bin), Dir: tmp}
 	return fx
 }
 
@@ -93,7 +94,7 @@ func lpRowsJSON(prefix, token string, rows ...string) string {
 // every suffix lands on a role the allowed-pairs table carries.
 func TestLoopSuffixRoles(t *testing.T) {
 	t.Parallel()
-	rows, err := core.PolicyTable(noFlowEnv(t))
+	rows, err := core.PolicyTable(guardtest.NoFlowEnv(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,8 +179,8 @@ func TestCheckLoopDispatchBeginRefused(t *testing.T) {
 	t.Parallel()
 	fx := lpNew(t, `[]`, lpBranch)
 	bin := t.TempDir()
-	writeExec(t, bin+"/flow", "#!/bin/sh\nexit 1\n")
-	fx.env.Getenv = pathEnv(bin)
+	guardtest.WriteExec(t, bin+"/flow", "#!/bin/sh\nexit 1\n")
+	fx.env.Getenv = guardtest.PathEnv(bin)
 	if rc, out := fx.run(t, "pipeline-fix-6-plan", "flow-medium", "opus"); rc != 2 || !strings.Contains(out, "not recorded") {
 		t.Fatalf("rc %d, want 2: %s", rc, out)
 	}
@@ -194,11 +195,11 @@ func TestCheckLoopDispatchOwnBranchInAnotherProject(t *testing.T) {
 	t.Parallel()
 	fx := lpNew(t, `[]`)
 	proj := filepath.Dir(fx.repo) + "/gymie"
-	writeFile(t, proj+"/README.md", "gymie\n")
-	fixtureRepo(t, proj, repoShape{Branch: "develop"})
-	gitRun(t, proj, "add", "-A")
-	gitRun(t, proj, "commit", "-q", "-m", "init")
-	gitRun(t, proj, "branch", "spectre/kan-1-demo")
+	guardtest.WriteFile(t, proj+"/README.md", "gymie\n")
+	guardtest.FixtureRepo(t, proj, guardtest.RepoShape{Branch: "develop"})
+	guardtest.GitRun(t, proj, "add", "-A")
+	guardtest.GitRun(t, proj, "commit", "-q", "-m", "init")
+	guardtest.GitRun(t, proj, "branch", "spectre/kan-1-demo")
 	fx.env.Dir = proj
 	if rc, out := fx.run(t, "self-review-kan-1-demo-review-1", "flow-low", "opus"); rc != 0 {
 		t.Fatalf("rc %d: %s", rc, out)
@@ -206,7 +207,7 @@ func TestCheckLoopDispatchOwnBranchInAnotherProject(t *testing.T) {
 	if calls := fx.calls(t); !strings.Contains(calls, "record dispatch begin -C "+proj+" -change kan-1-demo -role reviewer") {
 		t.Fatalf("the own-branch loop was not filed in the caller's project:\n%s", calls)
 	}
-	gitRun(t, fx.repo, "branch", "self-review-kan-1-demo")
+	guardtest.GitRun(t, fx.repo, "branch", "self-review-kan-1-demo")
 	if rc, out := fx.run(t, "self-review-kan-1-demo-fix", "flow-medium", "opus"); rc != 0 ||
 		!strings.Contains(fx.calls(t), "record dispatch begin -C "+fx.repo+" -change self-review-kan-1-demo") {
 		t.Fatalf("a self-review loop branch left <agents repo>: rc %d: %s\n%s", rc, out, fx.calls(t))

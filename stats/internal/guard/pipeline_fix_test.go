@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -38,32 +39,32 @@ func pfNew(t *testing.T, rows string) pfFx {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixtureRepo(t, fx.origin, repoShape{Branch: "main", Bare: true})
-	gitRun(t, "", "clone", "-q", fx.origin, fx.repo)
+	guardtest.FixtureRepo(t, fx.origin, guardtest.RepoShape{Branch: "main", Bare: true})
+	guardtest.GitRun(t, "", "clone", "-q", fx.origin, fx.repo)
 	pfIdentity(t, fx.repo)
-	writeFile(t, fx.repo+"/"+core.PolicyFile, string(table))
-	writeFile(t, fx.repo+"/.flow/project.md", pfProject)
-	writeFile(t, fx.repo+"/.gitignore", ".setup-ran\n.superpowers/\nspectre/changes/\n")
-	writeExec(t, fx.repo+"/scripts/foo.sh", "#!/usr/bin/env bash\necho foo\n")
-	writeExec(t, fx.repo+"/scripts/test-foo.sh", "#!/usr/bin/env bash\nscripts/foo.sh | grep -q foo\n")
-	gitRun(t, fx.repo, "add", "-A")
-	gitRun(t, fx.repo, "commit", "-q", "-m", "init")
-	gitRun(t, fx.repo, "push", "-q", "origin", "HEAD:main")
-	gitRun(t, fx.repo, "remote", "set-head", "origin", "main")
-	gitRun(t, "", "clone", "-q", fx.origin, fx.other)
+	guardtest.WriteFile(t, fx.repo+"/"+core.PolicyFile, string(table))
+	guardtest.WriteFile(t, fx.repo+"/.flow/project.md", pfProject)
+	guardtest.WriteFile(t, fx.repo+"/.gitignore", ".setup-ran\n.superpowers/\nspectre/changes/\n")
+	guardtest.WriteExec(t, fx.repo+"/scripts/foo.sh", "#!/usr/bin/env bash\necho foo\n")
+	guardtest.WriteExec(t, fx.repo+"/scripts/test-foo.sh", "#!/usr/bin/env bash\nscripts/foo.sh | grep -q foo\n")
+	guardtest.GitRun(t, fx.repo, "add", "-A")
+	guardtest.GitRun(t, fx.repo, "commit", "-q", "-m", "init")
+	guardtest.GitRun(t, fx.repo, "push", "-q", "origin", "HEAD:main")
+	guardtest.GitRun(t, fx.repo, "remote", "set-head", "origin", "main")
+	guardtest.GitRun(t, "", "clone", "-q", fx.origin, fx.other)
 	if rows != "" {
-		writeFile(t, fx.rows, rows)
+		guardtest.WriteFile(t, fx.rows, rows)
 	}
-	writeFile(t, fx.states, `{"source":"store","complete":true,"records":[{"name":"pipeline-fix-old-5","state":"FINISHED"}]}`)
+	guardtest.WriteFile(t, fx.states, `{"source":"store","complete":true,"records":[{"name":"pipeline-fix-old-5","state":"FINISHED"}]}`)
 	bin := tmp + "/bin"
-	writeExec(t, bin+"/flow", "#!/usr/bin/env bash\n"+policyStub+`printf '%s\n' "$*" >>`+fx.log+`
+	guardtest.WriteExec(t, bin+"/flow", "#!/usr/bin/env bash\n"+guardtest.PolicyStub+`printf '%s\n' "$*" >>`+fx.log+`
 case "$1 $2" in
   "record dispatches") [ -f `+fx.rows+` ] && exec cat `+fx.rows+`; exit 1 ;;
   "state list") exec cat `+fx.states+` ;;
   "state set") cat >>`+fx.log+`; echo >>`+fx.log+` ;;
 esac
 `)
-	projectGet := guardShim(t, "project-get")
+	projectGet := guardtest.GuardShim(t, "project-get")
 	fx.env = core.Env{Dir: tmp, Getenv: func(k string) string {
 		switch k {
 		case "FLOW_GUARD_REPO_ROOT":
@@ -71,7 +72,7 @@ esac
 		case "FLOW_GUARD_PROJECT_GET":
 			return projectGet
 		}
-		return pathEnv(bin)(k)
+		return guardtest.PathEnv(bin)(k)
 	}}
 	return fx
 }
@@ -92,8 +93,8 @@ func (fx pfFx) wt(branch string) string {
 // process environment, so these tests run in parallel.
 func pfIdentity(t *testing.T, repo string) {
 	t.Helper()
-	gitRun(t, repo, "config", "user.name", "test")
-	gitRun(t, repo, "config", "user.email", "test@example.com")
+	guardtest.GitRun(t, repo, "config", "user.name", "test")
+	guardtest.GitRun(t, repo, "config", "user.email", "test@example.com")
 }
 
 // smoke: core — a pipeline fix's start
@@ -134,7 +135,7 @@ func TestPipelineFixStartLeavesNothingWhenTheStateWriteFails(t *testing.T) {
 	if !ok {
 		t.Fatal("no flow stub")
 	}
-	writeExec(t, flow, "#!/usr/bin/env bash\necho 'flow: state set refused' >&2\nexit 1\n")
+	guardtest.WriteExec(t, flow, "#!/usr/bin/env bash\necho 'flow: state set refused' >&2\nexit 1\n")
 	if rc, out := fx.pf(t, "start", "kan-1-demo"); rc != 1 || !strings.Contains(out, "state set refused") {
 		t.Fatalf("rc %d: %s", rc, out)
 	}
@@ -155,7 +156,7 @@ func TestPipelineFixStartRefusesANonUniqueK(t *testing.T) {
 			t.Fatalf("k %s: rc %d: %s", k, rc, out)
 		}
 	}
-	gitRun(t, fx.repo, "branch", "pipeline-fix-other-9")
+	guardtest.GitRun(t, fx.repo, "branch", "pipeline-fix-other-9")
 	if rc, out := fx.pf(t, "start", "kan-1-demo", "10"); rc != 0 {
 		t.Fatalf("one past a live branch: rc %d: %s", rc, out)
 	}
@@ -164,13 +165,13 @@ func TestPipelineFixStartRefusesANonUniqueK(t *testing.T) {
 func TestPipelineFixEnd(t *testing.T) {
 	t.Parallel()
 	fx := pfNew(t, lpRowsJSON("pipeline-fix-6-", lpBranch, "plan completed"))
-	gitRun(t, fx.repo, "branch", lpBranch)
+	guardtest.GitRun(t, fx.repo, "branch", lpBranch)
 	if rc, out := fx.pf(t, "end", "pipeline-fix-6-review-1", "completed"); rc != 2 {
 		t.Fatalf("a review closed completed: rc %d: %s", rc, out)
 	}
 	report := func(body string) string {
 		p := filepath.Join(t.TempDir(), "report.md")
-		writeFile(t, p, body)
+		guardtest.WriteFile(t, p, body)
 		return p
 	}
 	if rc, out := fx.pf(t, "end", "pipeline-fix-6-review-1", report("Verdict: ok\n")); rc != 2 || !strings.Contains(out, "Critical: <n>") {
@@ -197,14 +198,14 @@ func TestPipelineFixVerify(t *testing.T) {
 		t.Fatal(out)
 	}
 	wt := fx.wt(lpBranch)
-	writeExec(t, wt+"/scripts/foo.sh", "#!/usr/bin/env bash\necho foo bar\n")
-	gitRun(t, wt, "commit", "-q", "-am", "fix: foo")
+	guardtest.WriteExec(t, wt+"/scripts/foo.sh", "#!/usr/bin/env bash\necho foo bar\n")
+	guardtest.GitRun(t, wt, "commit", "-q", "-am", "fix: foo")
 	rc, out := fx.pf(t, "verify", wt)
 	if rc != 0 || !strings.Contains(out, "green: true") || !strings.Contains(out, "green: scripts/test-foo.sh") || strings.Contains(out, "cd stats") {
 		t.Fatalf("rc %d: %s", rc, out)
 	}
-	writeExec(t, wt+"/scripts/foo.sh", "#!/usr/bin/env bash\necho bar\n")
-	gitRun(t, wt, "commit", "-q", "-am", "fix: break foo")
+	guardtest.WriteExec(t, wt+"/scripts/foo.sh", "#!/usr/bin/env bash\necho bar\n")
+	guardtest.GitRun(t, wt, "commit", "-q", "-am", "fix: break foo")
 	if rc, out := fx.pf(t, "verify", wt); rc != 1 || !strings.Contains(out, "red: scripts/test-foo.sh (exit 1)") {
 		t.Fatalf("a red harness: rc %d: %s", rc, out)
 	}
@@ -215,12 +216,12 @@ func TestPipelineFixVerify(t *testing.T) {
 func TestPipelineFixChecksGoAudits(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
-	writeFile(t, wt+"/.flow/project.md", pfProject)
+	guardtest.WriteFile(t, wt+"/.flow/project.md", pfProject)
 	pe0 := pfEnv{}
 	if cmds, _ := pfChecks(core.Env{Getenv: os.Getenv}, pe0, wt, []string{"stats/internal/guard/x.go", "hooks/h.py"}); slices.ContainsFunc(cmds, func(c string) bool { return strings.Contains(c, "internal/repotest") }) {
 		t.Fatalf("a worktree without stats/internal/repotest: %q selects it", cmds)
 	}
-	writeFile(t, wt+"/stats/internal/repotest/doc.go", "package repotest\n")
+	guardtest.WriteFile(t, wt+"/stats/internal/repotest/doc.go", "package repotest\n")
 	audits := "cd stats && go test ./internal/repotest/ -run '^Test(GitConfigPins|FlowAddrDeclaration)$' -count=1"
 	pe := pfEnv{}
 	env := core.Env{Getenv: os.Getenv}
@@ -237,7 +238,7 @@ func TestPipelineFixChecksGoAudits(t *testing.T) {
 func TestPipelineFixChecksSkipLintAnnotations(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
-	writeFile(t, wt+"/.flow/project.md", "## lint\n\n```bash\n# concurrent\ntrue\n```\n")
+	guardtest.WriteFile(t, wt+"/.flow/project.md", "## lint\n\n```bash\n# concurrent\ntrue\n```\n")
 	cmds, rc := pfChecks(core.Env{Getenv: os.Getenv}, pfEnv{}, wt, nil)
 	if rc != 0 || slices.ContainsFunc(cmds, func(c string) bool { return strings.HasPrefix(c, "#") }) || !slices.Contains(cmds, "true") {
 		t.Fatalf("rc %d, checks %q: want `true` and no `#` line", rc, cmds)
@@ -249,13 +250,13 @@ func TestPipelineFixChecksSkipLintAnnotations(t *testing.T) {
 func TestPipelineFixChecksScriptAudits(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
-	writeFile(t, wt+"/.flow/project.md", pfProject)
+	guardtest.WriteFile(t, wt+"/.flow/project.md", pfProject)
 	pe := pfEnv{}
 	env := core.Env{Getenv: os.Getenv}
 	if cmds, _ := pfChecks(env, pe, wt, []string{"scripts/pipeline-fix.sh"}); slices.Contains(cmds, pfScriptAudits) {
 		t.Fatalf("a worktree without stats/internal/guard: %q selects %s", cmds, pfScriptAudits)
 	}
-	writeFile(t, wt+"/stats/internal/guard/doc.go", "package guard\n")
+	guardtest.WriteFile(t, wt+"/stats/internal/guard/doc.go", "package guard\n")
 	for _, p := range []string{"scripts/pipeline-fix.sh", "scripts/lib/flow-guard.sh", "setup.sh"} {
 		if cmds, rc := pfChecks(env, pe, wt, []string{p}); rc != 0 || !slices.Contains(cmds, pfScriptAudits) {
 			t.Fatalf("touched %s: rc %d, %q lacks %s", p, rc, cmds, pfScriptAudits)
@@ -270,8 +271,8 @@ func TestPipelineFixChecksScriptAudits(t *testing.T) {
 func TestPipelineFixChecksHooks(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
-	writeFile(t, wt+"/.flow/project.md", pfProject)
-	writeFile(t, wt+"/stats/internal/repotest/doc.go", "package repotest\n")
+	guardtest.WriteFile(t, wt+"/.flow/project.md", pfProject)
+	guardtest.WriteFile(t, wt+"/stats/internal/repotest/doc.go", "package repotest\n")
 	pe := pfEnv{}
 	want := "cd stats && go test ./internal/repotest/ -count=1"
 	if cmds, rc := pfChecks(core.Env{Getenv: os.Getenv}, pe, wt, []string{"hooks/block-unsafe-commands.py"}); rc != 0 || !slices.Contains(cmds, want) {
@@ -301,24 +302,24 @@ func TestPipelineFixLand(t *testing.T) {
 				t.Fatal(out)
 			}
 			wt := fx.wt(lpBranch)
-			writeFile(t, wt+"/docs/fix.md", "fix\n")
-			gitRun(t, wt, "add", "docs/fix.md")
-			gitRun(t, wt, "commit", "-q", "-m", "docs: fix")
+			guardtest.WriteFile(t, wt+"/docs/fix.md", "fix\n")
+			guardtest.GitRun(t, wt, "add", "docs/fix.md")
+			guardtest.GitRun(t, wt, "commit", "-q", "-m", "docs: fix")
 			if tc.red {
-				writeExec(t, wt+"/scripts/foo.sh", "#!/usr/bin/env bash\necho bar\n")
-				gitRun(t, wt, "commit", "-q", "-am", "fix: break foo")
+				guardtest.WriteExec(t, wt+"/scripts/foo.sh", "#!/usr/bin/env bash\necho bar\n")
+				guardtest.GitRun(t, wt, "commit", "-q", "-am", "fix: break foo")
 			}
 			if tc.moved {
-				writeFile(t, fx.other+"/docs/other.md", "other\n")
-				gitRun(t, fx.other, "add", "docs/other.md")
-				gitRun(t, fx.other, "commit", "-q", "-m", "docs: other")
-				gitRun(t, fx.other, "push", "-q", "origin", "HEAD:main")
+				guardtest.WriteFile(t, fx.other+"/docs/other.md", "other\n")
+				guardtest.GitRun(t, fx.other, "add", "docs/other.md")
+				guardtest.GitRun(t, fx.other, "commit", "-q", "-m", "docs: other")
+				guardtest.GitRun(t, fx.other, "push", "-q", "origin", "HEAD:main")
 			}
 			rc, out := fx.pf(t, "land", wt, "important")
 			if rc != tc.rc {
 				t.Fatalf("rc %d, want %d: %s", rc, tc.rc, out)
 			}
-			_, log := kwRun(fx.env, "", fixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
+			_, log := kwRun(fx.env, "", guardtest.FixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
 			if tc.rc != 0 {
 				if strings.Contains(log, "docs: fix") || !strings.Contains(out, tc.refusal) {
 					t.Fatalf("refused landing pushed or named no review: %s\n%s", out, log)
@@ -331,7 +332,7 @@ func TestPipelineFixLand(t *testing.T) {
 			if tc.moved && (!strings.Contains(log, "docs: other") || !strings.Contains(out, "green: true")) {
 				t.Fatalf("the moved base was not rebased onto and verified: %s\n%s", out, log)
 			}
-			if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, fixtureGit, fx.repo, lpBranch) {
+			if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, guardtest.FixtureGit, fx.repo, lpBranch) {
 				t.Fatalf("worktree or branch left behind: %s", out)
 			}
 			if !strings.Contains(fx.calls(t), `"state":"FINISHED"`) {
@@ -372,16 +373,16 @@ func TestPipelineFixLandRecordsTheFixedRow(t *testing.T) {
 				t.Fatal(out)
 			}
 			wt := fx.wt(tc.branch)
-			writeFile(t, wt+"/docs/fix.md", "fix\n")
-			gitRun(t, wt, "add", "docs/fix.md")
-			gitRun(t, wt, "commit", "-q", "-m", "docs: fix")
-			_, first := kwRun(fx.env, "", fixtureGit, "-C", wt, "rev-parse", "HEAD")
-			writeFile(t, wt+"/docs/more.md", "more\n")
-			gitRun(t, wt, "add", "docs/more.md")
-			gitRun(t, wt, "commit", "-q", "-m", "docs: more")
+			guardtest.WriteFile(t, wt+"/docs/fix.md", "fix\n")
+			guardtest.GitRun(t, wt, "add", "docs/fix.md")
+			guardtest.GitRun(t, wt, "commit", "-q", "-m", "docs: fix")
+			_, first := kwRun(fx.env, "", guardtest.FixtureGit, "-C", wt, "rev-parse", "HEAD")
+			guardtest.WriteFile(t, wt+"/docs/more.md", "more\n")
+			guardtest.GitRun(t, wt, "add", "docs/more.md")
+			guardtest.GitRun(t, wt, "commit", "-q", "-m", "docs: more")
 			var o, e bytes.Buffer
 			rc := pipelineFix(append([]string{"land", wt}, tc.grade...), fx.env, &o, &e)
-			_, log := kwRun(fx.env, "", fixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
+			_, log := kwRun(fx.env, "", guardtest.FixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
 			if rc != tc.rc {
 				t.Fatalf("rc %d, want %d: %s%s", rc, tc.rc, o.String(), e.String())
 			}
@@ -413,16 +414,16 @@ func TestPipelineFixLandFromItsOwnWorktree(t *testing.T) {
 		t.Fatal(out)
 	}
 	wt := fx.wt(lpBranch)
-	writeFile(t, wt+"/docs/fix.md", "fix\n")
-	gitRun(t, wt, "add", "docs/fix.md")
-	gitRun(t, wt, "commit", "-q", "-m", "docs: fix")
+	guardtest.WriteFile(t, wt+"/docs/fix.md", "fix\n")
+	guardtest.GitRun(t, wt, "add", "docs/fix.md")
+	guardtest.GitRun(t, wt, "commit", "-q", "-m", "docs: fix")
 	fx.env.Dir = wt
 	rc, out := fx.pf(t, "land", wt, "important")
 	if rc != 0 || !strings.Contains(out, "landed: ") {
 		t.Fatalf("rc %d, want 0 and landed: %s", rc, out)
 	}
 	fx.env.Dir = fx.repo // the checks below must not run in the removed worktree
-	if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, fixtureGit, fx.repo, lpBranch) {
+	if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, guardtest.FixtureGit, fx.repo, lpBranch) {
 		t.Fatalf("worktree or branch left behind: %s", out)
 	}
 }
@@ -443,7 +444,7 @@ func TestPipelineFixDropFromItsOwnWorktree(t *testing.T) {
 		t.Fatalf("rc %d, want 0 and dropped: %s", rc, out)
 	}
 	fx.env.Dir = fx.repo // the checks below must not run in the removed worktree
-	if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, fixtureGit, fx.repo, lpBranch) {
+	if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, guardtest.FixtureGit, fx.repo, lpBranch) {
 		t.Fatalf("worktree or branch left behind: %s", out)
 	}
 }
@@ -458,7 +459,7 @@ func TestPipelineFixRemoveNamesASilentFailure(t *testing.T) {
 		t.Fatal(out)
 	}
 	git := filepath.Join(t.TempDir(), "git")
-	writeExec(t, git, "#!/usr/bin/env bash\ncase \" $* \" in *\" branch -D \"*) exit 1 ;; esac\nexec "+fixtureGit+" \"$@\"\n")
+	guardtest.WriteExec(t, git, "#!/usr/bin/env bash\ncase \" $* \" in *\" branch -D \"*) exit 1 ;; esac\nexec "+guardtest.FixtureGit+" \"$@\"\n")
 	var stderr bytes.Buffer
 	if rc := pfRemove(fx.env, pfEnv{git: git, main: fx.repo}, fx.wt(lpBranch), lpBranch, false, &stderr); rc != 1 || !strings.Contains(stderr.String(), "branch -D "+lpBranch+" exited 1") {
 		t.Fatalf("rc %d, stderr %q: want 1 naming the failed branch -D", rc, stderr.String())
@@ -472,11 +473,11 @@ func TestPipelineFixDrop(t *testing.T) {
 		t.Fatal(out)
 	}
 	wt := fx.wt(lpBranch)
-	writeFile(t, wt+"/scratch.txt", "left\n")
+	guardtest.WriteFile(t, wt+"/scratch.txt", "left\n")
 	if rc, out := fx.pf(t, "drop", wt); rc != 0 || !strings.Contains(out, "dropped: "+lpBranch) {
 		t.Fatalf("rc %d: %s", rc, out)
 	}
-	if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, fixtureGit, fx.repo, lpBranch) {
+	if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, guardtest.FixtureGit, fx.repo, lpBranch) {
 		t.Fatal("worktree or branch left behind")
 	}
 	if !strings.Contains(fx.calls(t), `"withdrawn":true`) {
@@ -513,18 +514,18 @@ func TestPipelineFixOwnBranchInAnotherProject(t *testing.T) {
 	fx := pfNew(t, lpRowsJSON(token+"-", token, "plan completed", "fix completed"))
 	tmp := filepath.Dir(fx.repo)
 	porigin, proj := tmp+"/gymie.git", tmp+"/gymie"
-	fixtureRepo(t, porigin, repoShape{Branch: "develop", Bare: true})
-	gitRun(t, "", "clone", "-q", porigin, proj)
+	guardtest.FixtureRepo(t, porigin, guardtest.RepoShape{Branch: "develop", Bare: true})
+	guardtest.GitRun(t, "", "clone", "-q", porigin, proj)
 	pfIdentity(t, proj)
-	writeFile(t, proj+"/README.md", "gymie\n")
-	gitRun(t, proj, "add", "-A")
-	gitRun(t, proj, "commit", "-q", "-m", "init")
-	gitRun(t, proj, "push", "-q", "origin", "HEAD:develop")
-	gitRun(t, proj, "remote", "set-head", "origin", "develop")
-	gitRun(t, proj, "checkout", "-q", "-b", "spectre/kan-1-demo")
-	writeFile(t, proj+"/.flow/project.md", "# gymie\n\n## lint\n\n```bash\ntrue\n```\n")
-	gitRun(t, proj, "add", "-A")
-	gitRun(t, proj, "commit", "-q", "-m", "fix: tooling")
+	guardtest.WriteFile(t, proj+"/README.md", "gymie\n")
+	guardtest.GitRun(t, proj, "add", "-A")
+	guardtest.GitRun(t, proj, "commit", "-q", "-m", "init")
+	guardtest.GitRun(t, proj, "push", "-q", "origin", "HEAD:develop")
+	guardtest.GitRun(t, proj, "remote", "set-head", "origin", "develop")
+	guardtest.GitRun(t, proj, "checkout", "-q", "-b", "spectre/kan-1-demo")
+	guardtest.WriteFile(t, proj+"/.flow/project.md", "# gymie\n\n## lint\n\n```bash\ntrue\n```\n")
+	guardtest.GitRun(t, proj, "add", "-A")
+	guardtest.GitRun(t, proj, "commit", "-q", "-m", "fix: tooling")
 	fx.env.Dir = proj
 	if rc, out := fx.pf(t, "end", token+"-fix-1", "completed"); rc != 0 ||
 		!strings.Contains(fx.calls(t), "record dispatch end -C "+proj+" -change kan-1-demo -key "+token+"-fix-1") {
@@ -534,7 +535,7 @@ func TestPipelineFixOwnBranchInAnotherProject(t *testing.T) {
 		t.Fatalf("verify against the worktree's own origin/HEAD: rc %d: %s", rc, out)
 	}
 	p := filepath.Join(t.TempDir(), "report.md")
-	writeFile(t, p, "Critical: 0\nImportant: 0\n")
+	guardtest.WriteFile(t, p, "Critical: 0\nImportant: 0\n")
 	if rc, out := fx.pf(t, "end", token+"-review-1", p); rc != 0 {
 		t.Fatalf("end review clean: rc %d: %s", rc, out)
 	}
@@ -555,16 +556,16 @@ func TestPipelineFixLandRestartsFlowdWhenStatsMoved(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fx := pfNew(t, reviewed)
-			writeExec(t, filepath.Dir(fx.repo)+"/bin/make", "#!/usr/bin/env bash\nprintf 'make %s\\n' \"$*\" >>"+fx.log+"\n")
+			guardtest.WriteExec(t, filepath.Dir(fx.repo)+"/bin/make", "#!/usr/bin/env bash\nprintf 'make %s\\n' \"$*\" >>"+fx.log+"\n")
 			if rc, out := fx.pf(t, "start", "kan-1-demo", "6"); rc != 0 {
 				t.Fatal(out)
 			}
 			wt := fx.wt(lpBranch)
 			for _, p := range tc.paths {
-				writeFile(t, wt+"/"+p, "restart:\n\ttrue\n")
+				guardtest.WriteFile(t, wt+"/"+p, "restart:\n\ttrue\n")
 			}
-			gitRun(t, wt, "add", "-A")
-			gitRun(t, wt, "commit", "-q", "-m", "fix: "+tc.paths[0])
+			guardtest.GitRun(t, wt, "add", "-A")
+			guardtest.GitRun(t, wt, "commit", "-q", "-m", "fix: "+tc.paths[0])
 			rc, out := fx.pf(t, "land", wt, "important")
 			if rc != 0 {
 				t.Fatalf("rc %d: %s", rc, out)
@@ -590,28 +591,28 @@ func TestPipelineFixVerifyRunsVisualOnUIPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, wt+"/.flow/project.md", string(b)+"\n## visual verification\n\n"+
+	guardtest.WriteFile(t, wt+"/.flow/project.md", string(b)+"\n## visual verification\n\n"+
 		"| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**` |\n\n"+
 		"| Command | Runs |\n|---------|------|\n| `verify` | `test ! -e .visual-red` |\n")
-	writeFile(t, wt+"/docs/a.md", "a\n")
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-q", "-m", "docs: visual section")
+	guardtest.WriteFile(t, wt+"/docs/a.md", "a\n")
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-q", "-m", "docs: visual section")
 	const vis = "test ! -e .visual-red"
 	if rc, out := fx.pf(t, "verify", wt); rc != 0 || strings.Contains(out, vis) {
 		t.Fatalf("(a) rc %d, no ui path ran the visual row: %s", rc, out)
 	}
-	writeFile(t, wt+"/web/src/a.ts", "a\n")
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-q", "-m", "fix: ui")
+	guardtest.WriteFile(t, wt+"/web/src/a.ts", "a\n")
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-q", "-m", "fix: ui")
 	if rc, out := fx.pf(t, "verify", wt); rc != 0 || !strings.Contains(out, "green: "+vis) {
 		t.Fatalf("(b) rc %d: %s", rc, out)
 	}
-	writeFile(t, wt+"/.visual-red", "x\n")
+	guardtest.WriteFile(t, wt+"/.visual-red", "x\n")
 	if rc, out := fx.pf(t, "verify", wt); rc != 1 || !strings.Contains(out, "red: "+vis+" (exit 1)") {
 		t.Fatalf("(c) rc %d: %s", rc, out)
 	}
 	rc, out := fx.pf(t, "land", wt, "important")
-	_, log := kwRun(fx.env, "", fixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
+	_, log := kwRun(fx.env, "", guardtest.FixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
 	if rc != 1 || !strings.Contains(out, "red: "+vis) || strings.Contains(log, "fix: ui") {
 		t.Fatalf("(d) rc %d: %s\n%s", rc, out, log)
 	}
@@ -635,10 +636,10 @@ func TestPipelineFixVerifyFillsVisualSpecs(t *testing.T) {
 		return base + "\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n" + uiPaths +
 			"\n| Command | Runs |\n|---------|------|\n| `specs` | `echo web/a.spec.ts` |\n| `verify` | `" + vis + "` |\n"
 	}
-	writeFile(t, wt+"/.flow/project.md", section("| `ui paths` | `web/src/**` |\n"))
-	writeFile(t, wt+"/web/src/a.ts", "a\n")
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-q", "-m", "fix: ui")
+	guardtest.WriteFile(t, wt+"/.flow/project.md", section("| `ui paths` | `web/src/**` |\n"))
+	guardtest.WriteFile(t, wt+"/web/src/a.ts", "a\n")
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-q", "-m", "fix: ui")
 	if rc, out := fx.pf(t, "verify", wt); rc != 0 || !strings.Contains(out, `green: test "web/a.spec.ts" = web/a.spec.ts`) {
 		t.Fatalf("(a) rc %d, specs paths not substituted: %s", rc, out)
 	}
@@ -650,14 +651,14 @@ func TestPipelineFixVerifyFillsVisualSpecs(t *testing.T) {
 			"\n| Command | Runs |\n|---------|------|\n" + specsRow + "| `verify` | `" + smokeVis + "` |\n"
 	}
 	for name, row := range map[string]string{"empty specs row": "| `specs` | `true` |\n", "no specs row": ""} {
-		writeFile(t, wt+"/.flow/project.md", smokeSection(row))
+		guardtest.WriteFile(t, wt+"/.flow/project.md", smokeSection(row))
 		if rc, out := fx.pf(t, "verify", wt); rc != 0 || !strings.Contains(out, `green: test "--grep @smoke" = "--grep @smoke"`) {
 			t.Fatalf("(%s) rc %d, smoke set not filled: %s", name, rc, out)
 		}
 	}
 	// No `ui paths` row: the trigger cannot answer, no merge base is read,
 	// so a specs row has nothing to scope to and the visual line is red.
-	writeFile(t, wt+"/.flow/project.md", section(""))
+	guardtest.WriteFile(t, wt+"/.flow/project.md", section(""))
 	if rc, out := fx.pf(t, "verify", wt); rc != 1 || !strings.Contains(out, "red: visual verify — no merge base to scope the specs row to") {
 		t.Fatalf("(b) rc %d: %s", rc, out)
 	}

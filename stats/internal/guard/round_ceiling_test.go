@@ -45,12 +45,12 @@ func TestRoundCeiling(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			r := runGuard("round-ceiling", []string{project(t, c.body), c.failed}, core.Env{})
-			if r.rc != c.rc || !strings.Contains(r.out, c.want) {
-				t.Fatalf("rc=%d out=%q, want rc=%d containing %q", r.rc, r.out, c.rc, c.want)
+			if r.Rc != c.rc || !strings.Contains(r.Out, c.want) {
+				t.Fatalf("rc=%d out=%q, want rc=%d containing %q", r.Rc, r.Out, c.rc, c.want)
 			}
 		})
 	}
-	if r := runGuard("round-ceiling", nil, core.Env{}); r.rc != 2 {
-		t.Fatalf("no args: rc=%d, want 2", r.rc)
+	if r := runGuard("round-ceiling", nil, core.Env{}); r.Rc != 2 {
+		t.Fatalf("no args: rc=%d, want 2", r.Rc)
 	}
 }

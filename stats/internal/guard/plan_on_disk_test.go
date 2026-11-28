@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // TestFindCanonicalIgnoresADropCommit pins that integrate-change reads the
@@ -16,19 +18,19 @@ func TestFindCanonicalIgnoresADropCommit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixtureRepo(t, wt, repoShape{Branch: "main"})
-	writeFile(t, wt+"/spectre/changes/demo/tasks.md", "# Tasks\n\n- [x] 1. Do the work\n")
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-q", "-m", "chore(spectre): plan demo")
-	gitRun(t, wt, "rm", "-r", "-q", "spectre/changes/demo")
-	gitRun(t, wt, "commit", "-q", "-m", "chore(spectre): drop demo")
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{Branch: "main"})
+	guardtest.WriteFile(t, wt+"/spectre/changes/demo/tasks.md", "# Tasks\n\n- [x] 1. Do the work\n")
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-q", "-m", "chore(spectre): plan demo")
+	guardtest.GitRun(t, wt, "rm", "-r", "-q", "spectre/changes/demo")
+	guardtest.GitRun(t, wt, "commit", "-q", "-m", "chore(spectre): drop demo")
 
 	c := &ic{wt: []string{wt}, name: "demo"}
 	if c.findCanonical() {
 		t.Fatalf("findCanonical found %q from history; want nothing with no plan on disk", c.canon)
 	}
 
-	writeFile(t, wt+"/spectre/changes/demo/tasks.md", "# Tasks\n\n- [x] 1. Do the work\n")
+	guardtest.WriteFile(t, wt+"/spectre/changes/demo/tasks.md", "# Tasks\n\n- [x] 1. Do the work\n")
 	if !c.findCanonical() || c.canon != wt || c.spec != "spectre" {
 		t.Fatalf("plan on disk: canon %q spec %q, want %q spectre", c.canon, c.spec, wt)
 	}
@@ -44,13 +46,13 @@ func TestMergeOrderMissingLinkIsSingleRepo(t *testing.T) {
 		t.Fatal(err)
 	}
 	a, b := top+"/a", top+"/b"
-	fixtureRepo(t, a, repoShape{Branch: "main"})
-	writeFile(t, a+"/spectre/changes/demo/link.md", "## Merge order\n\n1. `b`\n2. `.`\n")
-	writeFile(t, a+"/spectre/peers", "b ../b\n")
-	gitRun(t, a, "add", "-A")
-	gitRun(t, a, "commit", "-q", "-m", "chore(spectre): plan demo")
-	gitRun(t, a, "rm", "-r", "-q", "spectre/changes/demo")
-	gitRun(t, a, "commit", "-q", "-m", "chore(spectre): drop demo")
+	guardtest.FixtureRepo(t, a, guardtest.RepoShape{Branch: "main"})
+	guardtest.WriteFile(t, a+"/spectre/changes/demo/link.md", "## Merge order\n\n1. `b`\n2. `.`\n")
+	guardtest.WriteFile(t, a+"/spectre/peers", "b ../b\n")
+	guardtest.GitRun(t, a, "add", "-A")
+	guardtest.GitRun(t, a, "commit", "-q", "-m", "chore(spectre): plan demo")
+	guardtest.GitRun(t, a, "rm", "-r", "-q", "spectre/changes/demo")
+	guardtest.GitRun(t, a, "commit", "-q", "-m", "chore(spectre): drop demo")
 
 	c := &ic{wt: []string{a, b}, name: "demo", canon: a, spec: "spectre"}
 	c.mergeOrder()

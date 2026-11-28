@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -32,11 +33,11 @@ func TestRebuildFullAppSuiteZip(t *testing.T) {
 		t.Fatal(err)
 	}
 	bashDir := t.TempDir()
-	writeExec(t, filepath.Join(bashDir, "rebuild-full-app-suite-zip.sh"),
-		string(historicalFile(t, repo, "8c54d6d3", "scripts/rebuild-full-app-suite-zip.sh")))
+	guardtest.WriteExec(t, filepath.Join(bashDir, "rebuild-full-app-suite-zip.sh"),
+		string(guardtest.HistoricalFile(t, repo, "8c54d6d3", "scripts/rebuild-full-app-suite-zip.sh")))
 	// The bash's sibling, now run through the bootstrap.
-	writeExec(t, filepath.Join(bashDir, "resolve-visual-screenshots.sh"), "#!/bin/sh\nexec '"+filepath.Join(repo, "scripts/flow-guard")+"' resolve-visual-screenshots \"$@\"\n")
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "FLOW_GUARD_REPO_ROOT="+repo)
+	guardtest.WriteExec(t, filepath.Join(bashDir, "resolve-visual-screenshots.sh"), "#!/bin/sh\nexec '"+filepath.Join(repo, "scripts/flow-guard")+"' resolve-visual-screenshots \"$@\"\n")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "FLOW_GUARD_REPO_ROOT="+repo)
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -49,10 +50,10 @@ func TestRebuildFullAppSuiteZip(t *testing.T) {
 	type twin struct{ root string }
 	newTwin := func(t *testing.T) twin {
 		p := t.TempDir()
-		writeFile(t, filepath.Join(p, ".flow/project.md"), "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `screenshots` | `shots` |\n")
-		writeFile(t, filepath.Join(p, "shots/full-app-suite.spec.ts-snapshots/a.png"), "a")
-		writeFile(t, filepath.Join(p, "shots/full-app-suite.spec.ts-snapshots/b.png"), "b")
-		writeFile(t, filepath.Join(p, "shots/other.spec.ts-snapshots/c.png"), "c")
+		guardtest.WriteFile(t, filepath.Join(p, ".flow/project.md"), "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `screenshots` | `shots` |\n")
+		guardtest.WriteFile(t, filepath.Join(p, "shots/full-app-suite.spec.ts-snapshots/a.png"), "a")
+		guardtest.WriteFile(t, filepath.Join(p, "shots/full-app-suite.spec.ts-snapshots/b.png"), "b")
+		guardtest.WriteFile(t, filepath.Join(p, "shots/other.spec.ts-snapshots/c.png"), "c")
 		return twin{p}
 	}
 	type res struct {
@@ -176,7 +177,7 @@ func TestRebuildFullAppSuiteZip(t *testing.T) {
 		t.Parallel()
 		g, b := newTwin(t), newTwin(t)
 		rebuild(t, g, b, full)
-		both(g, b, func(p string) { writeFile(t, filepath.Join(p, ".flow/project.md"), "# p\n") })
+		both(g, b, func(p string) { guardtest.WriteFile(t, filepath.Join(p, ".flow/project.md"), "# p\n") })
 		r := rebuild(t, g, b, full)
 		if _, err := os.Stat(filepath.Join(g.root, "shots/full-app-suite.zip")); r.rc != 2 || err != nil {
 			t.Errorf("exit %d, zip stat err %v", r.rc, err)

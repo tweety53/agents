@@ -49,8 +49,8 @@ func TestCheckIdenticalBaselines(t *testing.T) {
 			}
 			r := runGuard("check-identical-baselines", nil, core.Env{Stdin: strings.NewReader(stdin.String())})
 			want := strings.ReplaceAll(c.want, "%D%", root)
-			if r.rc != c.rc || r.stdout != want {
-				t.Fatalf("rc=%d stdout=%q, want rc=%d stdout=%q", r.rc, r.stdout, c.rc, want)
+			if r.Rc != c.rc || r.Stdout != want {
+				t.Fatalf("rc=%d stdout=%q, want rc=%d stdout=%q", r.Rc, r.Stdout, c.rc, want)
 			}
 		})
 	}
@@ -65,8 +65,8 @@ func TestCheckIdenticalBaselines(t *testing.T) {
 	} {
 		t.Run("exit 2: "+name, func(t *testing.T) {
 			r := runGuard("check-identical-baselines", tc.args, core.Env{Stdin: strings.NewReader(tc.stdin)})
-			if r.rc != 2 || r.stdout != "" {
-				t.Fatalf("rc=%d stdout=%q, want 2 and empty stdout", r.rc, r.stdout)
+			if r.Rc != 2 || r.Stdout != "" {
+				t.Fatalf("rc=%d stdout=%q, want 2 and empty stdout", r.Rc, r.Stdout)
 			}
 		})
 	}

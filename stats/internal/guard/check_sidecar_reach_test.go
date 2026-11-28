@@ -97,8 +97,8 @@ func TestCheckSidecarReach(t *testing.T) {
 				want = strings.ReplaceAll(want, "MOCKUPS", mockups)
 			}
 			r := runGuard("check-sidecar-reach", args, core.Env{})
-			if r.rc != c.rc || (want != "" && r.stdout != want) {
-				t.Fatalf("rc=%d stdout=%q, want rc=%d stdout=%q", r.rc, r.stdout, c.rc, want)
+			if r.Rc != c.rc || (want != "" && r.Stdout != want) {
+				t.Fatalf("rc=%d stdout=%q, want rc=%d stdout=%q", r.Rc, r.Stdout, c.rc, want)
 			}
 		})
 	}
@@ -115,8 +115,8 @@ func TestCheckSidecarReach(t *testing.T) {
 	} {
 		t.Run("exit 2: "+name, func(t *testing.T) {
 			r := runGuard("check-sidecar-reach", args, core.Env{})
-			if r.rc != 2 || r.stdout != "" {
-				t.Fatalf("rc=%d stdout=%q, want 2 and empty stdout", r.rc, r.stdout)
+			if r.Rc != 2 || r.Stdout != "" {
+				t.Fatalf("rc=%d stdout=%q, want 2 and empty stdout", r.Rc, r.Stdout)
 			}
 		})
 	}
@@ -141,10 +141,10 @@ func TestCheckSidecarReachSingleFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := runGuard("check-sidecar-reach", []string{filepath.Join(root, "a.spec.ts.mockups"), mockups}, core.Env{})
-	if want := "SIDECAR-REACH-OK: 1 lines in 1 sidecars\n"; r.rc != 0 || r.stdout != want {
-		t.Fatalf("sidecar alone: rc=%d stdout=%q, want rc=0 stdout=%q", r.rc, r.stdout, want)
+	if want := "SIDECAR-REACH-OK: 1 lines in 1 sidecars\n"; r.Rc != 0 || r.Stdout != want {
+		t.Fatalf("sidecar alone: rc=%d stdout=%q, want rc=0 stdout=%q", r.Rc, r.Stdout, want)
 	}
-	if r := runGuard("check-sidecar-reach", []string{root, mockups}, core.Env{}); r.rc != 1 {
-		t.Fatalf("capture root: rc=%d stdout=%q, want rc=1", r.rc, r.stdout)
+	if r := runGuard("check-sidecar-reach", []string{root, mockups}, core.Env{}); r.Rc != 1 {
+		t.Fatalf("capture root: rc=%d stdout=%q, want rc=1", r.Rc, r.Stdout)
 	}
 }

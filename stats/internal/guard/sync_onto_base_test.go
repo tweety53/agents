@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -14,8 +15,8 @@ import (
 // and stub's directory first on PATH when stub is not "".
 func sobEnv(t *testing.T, dir, root, stub string) core.Env {
 	t.Helper()
-	// The moving stub execs fixtureGit itself; without it, fixtureGitPath.
-	path := fixtureGitPath(t)
+	// The moving stub execs FixtureGit itself; without it, FixtureGitPath.
+	path := guardtest.FixtureGitPath(t)
 	get := func(k string) string {
 		if k == "PATH" {
 			return path
@@ -23,7 +24,7 @@ func sobEnv(t *testing.T, dir, root, stub string) core.Env {
 		return os.Getenv(k)
 	}
 	if stub != "" {
-		get = pathEnv(stub)
+		get = guardtest.PathEnv(stub)
 	}
 	return core.Env{Dir: dir, Getenv: func(k string) string {
 		if k == "FLOW_GUARD_REPO_ROOT" {
@@ -40,29 +41,29 @@ func sobOverlapFx(t *testing.T) *bmFx {
 	t.Helper()
 	fx := rbNewFx(t)
 	five := "1\n2\n3\n4\n5\n"
-	fx.g.git(fx.repo, "checkout", "-q", "main")
+	fx.g.Git(fx.repo, "checkout", "-q", "main")
 	for _, f := range []string{"multi.txt", "plain.txt"} {
-		if fx.g.err == nil {
-			fx.g.err = os.WriteFile(fx.repo+"/"+f, []byte(five), 0o644)
+		if fx.g.Err == nil {
+			fx.g.Err = os.WriteFile(fx.repo+"/"+f, []byte(five), 0o644)
 		}
 	}
-	fx.g.git(fx.repo, "add", "multi.txt", "plain.txt")
-	fx.g.git(fx.repo, "commit", "-qm", "five-line files")
-	fx.recorded = fx.g.git(fx.repo, "rev-parse", "HEAD")
+	fx.g.Git(fx.repo, "add", "multi.txt", "plain.txt")
+	fx.g.Git(fx.repo, "commit", "-qm", "five-line files")
+	fx.recorded = fx.g.Git(fx.repo, "rev-parse", "HEAD")
 	for _, f := range []string{"multi.txt", "plain.txt"} {
-		if fx.g.err == nil {
-			fx.g.err = os.WriteFile(fx.repo+"/"+f, []byte("base\n2\n3\n4\n5\n"), 0o644)
+		if fx.g.Err == nil {
+			fx.g.Err = os.WriteFile(fx.repo+"/"+f, []byte("base\n2\n3\n4\n5\n"), 0o644)
 		}
 	}
-	fx.g.git(fx.repo, "commit", "-qam", "base edits line 1")
-	fx.g.git(fx.repo, "checkout", "-q", "demo")
-	fx.g.git(fx.repo, "rebase", "-q", fx.recorded)
+	fx.g.Git(fx.repo, "commit", "-qam", "base edits line 1")
+	fx.g.Git(fx.repo, "checkout", "-q", "demo")
+	fx.g.Git(fx.repo, "rebase", "-q", fx.recorded)
 	for _, f := range []string{"multi.txt", "plain.txt"} {
-		if fx.g.err == nil {
-			fx.g.err = os.WriteFile(fx.repo+"/"+f, []byte("1\n2\n3\n4\nchange\n"), 0o644)
+		if fx.g.Err == nil {
+			fx.g.Err = os.WriteFile(fx.repo+"/"+f, []byte("1\n2\n3\n4\nchange\n"), 0o644)
 		}
 	}
-	fx.g.git(fx.repo, "commit", "-qam", "change edits line 5")
+	fx.g.Git(fx.repo, "commit", "-qam", "change edits line 5")
 	return fx
 }
 
@@ -70,14 +71,14 @@ func sobOverlapFx(t *testing.T) *bmFx {
 // time a rebase starts -- a fetch landing mid-sync -- and logs each move to
 // dir/.moves; with once, only the first rebase moves it. Every other call
 // execs the real git at once, and dir is read from the stub's own path, so
-// the stub's body is one of two and each is assessed once (execFixtures).
+// the stub's body is one of two and each is assessed once (ExecFixtures).
 func sobMovingStub(t *testing.T, dir string, once bool) string {
 	t.Helper()
 	stop := ""
 	if once {
 		stop = `: > "$D/.stop"`
 	}
-	writeExec(t, dir+"/stub/git", fmt.Sprintf(`#!/bin/sh
+	guardtest.WriteExec(t, dir+"/stub/git", fmt.Sprintf(`#!/bin/sh
 [ "${3-}" = rebase ] || exec %[1]q "$@"
 REAL=%[1]q D="${0%%/stub/git}"
 if [ "${4-}" != --continue ] && [ ! -e "$D/.stop" ]; then
@@ -87,7 +88,7 @@ if [ "${4-}" != --continue ] && [ ! -e "$D/.stop" ]; then
   %[2]s
 fi
 exec "$REAL" "$@"
-`, fixtureGit, stop))
+`, guardtest.FixtureGit, stop))
 	return dir + "/stub"
 }
 
@@ -131,9 +132,9 @@ func TestSyncOntoBase(t *testing.T) {
 		{label: "a conflict is left mid-rebase with exit 1", fx: func(t *testing.T) *bmFx {
 			fx := rbNewFx(t)
 			fx.advanceBase("shared.txt")
-			fx.g.appendLine(fx.repo+"/shared.txt", "demo")
-			fx.g.git(fx.repo, "commit", "-qam", "demo touches shared")
-			fx.g.write(fx.repo+"/spectre/changes/demo/tasks.md", "plan edited")
+			fx.g.AppendLine(fx.repo+"/shared.txt", "demo")
+			fx.g.Git(fx.repo, "commit", "-qam", "demo touches shared")
+			fx.g.Write(fx.repo+"/spectre/changes/demo/tasks.md", "plan edited")
 			return fx
 		}, code: 1,
 			out: "MOVED: $WT — 1 commits on main since the recorded merge base; overlaps: shared.txt\nCONFLICT: $WT — onto $TIP; unmerged: shared.txt\n",
@@ -145,20 +146,20 @@ func TestSyncOntoBase(t *testing.T) {
 		{label: "a conflicted snapshot PNG or full app suite zip is named for recapture", fx: func(t *testing.T) *bmFx {
 			fx := rbNewFx(t)
 			paths := []string{"e2e/a.spec.ts-snapshots/x.png", "full-app-suite.zip", "logo.png", "shared.txt"}
-			fx.g.git(fx.repo, "checkout", "-q", "main")
-			mkdir(t, fx.repo+"/e2e/a.spec.ts-snapshots")
+			fx.g.Git(fx.repo, "checkout", "-q", "main")
+			guardtest.Mkdir(t, fx.repo+"/e2e/a.spec.ts-snapshots")
 			for _, f := range paths {
-				fx.g.write(fx.repo+"/"+f, "base side")
+				fx.g.Write(fx.repo+"/"+f, "base side")
 			}
-			fx.g.git(fx.repo, "add", "-A")
-			fx.g.git(fx.repo, "commit", "-qm", "base re-baselines")
-			fx.g.git(fx.repo, "checkout", "-q", "demo")
-			mkdir(t, fx.repo+"/e2e/a.spec.ts-snapshots")
+			fx.g.Git(fx.repo, "add", "-A")
+			fx.g.Git(fx.repo, "commit", "-qm", "base re-baselines")
+			fx.g.Git(fx.repo, "checkout", "-q", "demo")
+			guardtest.Mkdir(t, fx.repo+"/e2e/a.spec.ts-snapshots")
 			for _, f := range paths {
-				fx.g.write(fx.repo+"/"+f, "change side")
+				fx.g.Write(fx.repo+"/"+f, "change side")
 			}
-			fx.g.git(fx.repo, "add", "-A")
-			fx.g.git(fx.repo, "commit", "-qm", "demo re-baselines")
+			fx.g.Git(fx.repo, "add", "-A")
+			fx.g.Git(fx.repo, "commit", "-qm", "demo re-baselines")
 			return fx
 		}, code: 1,
 			out: "MOVED: $WT — 1 commits on main since the recorded merge base; overlaps: e2e/a.spec.ts-snapshots/x.png, full-app-suite.zip, logo.png, shared.txt\n" +
@@ -173,8 +174,8 @@ func TestSyncOntoBase(t *testing.T) {
 		t.Run(c.label, func(t *testing.T) {
 			t.Parallel()
 			fx := c.fx(t)
-			if fx.g.err != nil {
-				t.Fatal(fx.g.err)
+			if fx.g.Err != nil {
+				t.Fatal(fx.g.Err)
 			}
 			stub := ""
 			if c.stub != "" {
@@ -185,11 +186,11 @@ func TestSyncOntoBase(t *testing.T) {
 				args = c.args(fx)
 			}
 			r := runGuard("sync-onto-base", args, sobEnv(t, fx.dir, root, stub))
-			want := strings.NewReplacer("$WT", fx.repo, "$ROOT", root, "$TIP", fx.g.git(fx.repo, "rev-parse", "main")).Replace(c.out)
-			if r.rc != c.code || r.stdout != want {
-				t.Fatalf("got exit %d stdout %q\nwant exit %d stdout %q\nstderr %s", r.rc, r.stdout, c.code, want, r.err)
+			want := strings.NewReplacer("$WT", fx.repo, "$ROOT", root, "$TIP", fx.g.Git(fx.repo, "rev-parse", "main")).Replace(c.out)
+			if r.Rc != c.code || r.Stdout != want {
+				t.Fatalf("got exit %d stdout %q\nwant exit %d stdout %q\nstderr %s", r.Rc, r.Stdout, c.code, want, r.Err)
 			}
-			if c.code == 2 && r.err == "" && !strings.HasPrefix(r.stdout, "REFUSE:") {
+			if c.code == 2 && r.Err == "" && !strings.HasPrefix(r.Stdout, "REFUSE:") {
 				t.Error("exit 2 with no REFUSE line and nothing on stderr")
 			}
 			if moves := strings.Count(rbRead(fx.dir+"/.moves"), "moved"); moves != c.moves {
@@ -211,44 +212,44 @@ func TestSyncOntoBaseResume(t *testing.T) {
 		t.Helper()
 		fx := rbNewFx(t)
 		fx.advanceBase("shared.txt")
-		fx.g.appendLine(fx.repo+"/shared.txt", "demo")
-		fx.g.git(fx.repo, "commit", "-qam", "demo touches shared")
-		fx.g.write(fx.repo+"/spectre/changes/demo/tasks.md", "plan edited")
-		if fx.g.err != nil {
-			t.Fatal(fx.g.err)
+		fx.g.AppendLine(fx.repo+"/shared.txt", "demo")
+		fx.g.Git(fx.repo, "commit", "-qam", "demo touches shared")
+		fx.g.Write(fx.repo+"/spectre/changes/demo/tasks.md", "plan edited")
+		if fx.g.Err != nil {
+			t.Fatal(fx.g.Err)
 		}
-		if r := runGuard("sync-onto-base", []string{fx.repo, "main", fx.recorded}, sobEnv(t, fx.dir, root, "")); r.rc != 1 {
-			t.Fatalf("setup: sync exit %d, want the conflict's 1\n%s%s", r.rc, r.stdout, r.err)
+		if r := runGuard("sync-onto-base", []string{fx.repo, "main", fx.recorded}, sobEnv(t, fx.dir, root, "")); r.Rc != 1 {
+			t.Fatalf("setup: sync exit %d, want the conflict's 1\n%s%s", r.Rc, r.Stdout, r.Err)
 		}
-		return fx, fx.g.git(fx.repo, "rev-parse", "main")
+		return fx, fx.g.Git(fx.repo, "rev-parse", "main")
 	}
 
 	t.Run("resolved: re-checks, the plan edit untouched", func(t *testing.T) {
 		t.Parallel()
 		fx, onto := conflicted(t)
-		fx.g.write(fx.repo+"/shared.txt", "resolved")
-		fx.g.git(fx.repo, "add", "shared.txt")
-		fx.g.git(fx.repo, "-c", "core.editor=true", "rebase", "--continue")
+		fx.g.Write(fx.repo+"/shared.txt", "resolved")
+		fx.g.Git(fx.repo, "add", "shared.txt")
+		fx.g.Git(fx.repo, "-c", "core.editor=true", "rebase", "--continue")
 		// The base moves again over a path this change also carries, so the
 		// resumed re-check rebases once more.
-		fx.g.write(fx.repo+"/later.txt", "moved")
-		fx.g.git(fx.repo, "add", "later.txt")
-		fx.g.git(fx.repo, "commit", "-qm", "change adds later.txt")
+		fx.g.Write(fx.repo+"/later.txt", "moved")
+		fx.g.Git(fx.repo, "add", "later.txt")
+		fx.g.Git(fx.repo, "commit", "-qm", "change adds later.txt")
 		fx.advanceBase("later.txt")
-		tip := fx.g.git(fx.repo, "rev-parse", "main")
-		if fx.g.err != nil {
-			t.Fatal(fx.g.err)
+		tip := fx.g.Git(fx.repo, "rev-parse", "main")
+		if fx.g.Err != nil {
+			t.Fatal(fx.g.Err)
 		}
 		r := runGuard("sync-onto-base", []string{"--resume", fx.repo, "main", onto}, sobEnv(t, fx.dir, root, ""))
 		want := "MOVED: " + fx.repo + " — 1 commits on main since the recorded merge base; overlaps: later.txt\n" +
 			"CLEAR: " + fx.repo + " — main has not moved since the recorded merge base\nREBASED: " + fx.repo + " — onto " + tip + "\n"
-		if r.rc != 0 || r.stdout != want {
-			t.Fatalf("got exit %d stdout %q\nwant 0 %q\nstderr %s", r.rc, r.stdout, want, r.err)
+		if r.Rc != 0 || r.Stdout != want {
+			t.Fatalf("got exit %d stdout %q\nwant 0 %q\nstderr %s", r.Rc, r.Stdout, want, r.Err)
 		}
 		if got := rbRead(fx.repo + "/spectre/changes/demo/tasks.md"); got != "plan edited\n" {
 			t.Errorf("planning file %q, want the edit untouched", got)
 		}
-		if l := fx.g.git(fx.repo, "stash", "list"); l != "" {
+		if l := fx.g.Git(fx.repo, "stash", "list"); l != "" {
 			t.Errorf("stash list %q, want nothing stashed", l)
 		}
 	})
@@ -257,8 +258,8 @@ func TestSyncOntoBaseResume(t *testing.T) {
 		t.Parallel()
 		fx, onto := conflicted(t)
 		r := runGuard("sync-onto-base", []string{"--resume", fx.repo, "main", onto}, sobEnv(t, fx.dir, root, ""))
-		if r.rc != 2 || r.stdout != "" || !strings.Contains(r.err, "still in progress") {
-			t.Fatalf("got exit %d stdout %q stderr %q, want a refusal naming the rebase in progress", r.rc, r.stdout, r.err)
+		if r.Rc != 2 || r.Stdout != "" || !strings.Contains(r.Err, "still in progress") {
+			t.Fatalf("got exit %d stdout %q stderr %q, want a refusal naming the rebase in progress", r.Rc, r.Stdout, r.Err)
 		}
 	})
 
@@ -266,13 +267,13 @@ func TestSyncOntoBaseResume(t *testing.T) {
 		t.Parallel()
 		fx := rbNewFx(t)
 		fx.advanceBase("unrelated1.txt")
-		onto := fx.g.git(fx.repo, "rev-parse", "main")
-		if fx.g.err != nil {
-			t.Fatal(fx.g.err)
+		onto := fx.g.Git(fx.repo, "rev-parse", "main")
+		if fx.g.Err != nil {
+			t.Fatal(fx.g.Err)
 		}
 		r := runGuard("sync-onto-base", []string{"--resume", fx.repo, "main", onto}, sobEnv(t, fx.dir, root, ""))
-		if r.rc != 2 || r.stdout != "" || !strings.Contains(r.err, "ancestor") {
-			t.Fatalf("got exit %d stdout %q stderr %q, want a refusal naming the ancestry", r.rc, r.stdout, r.err)
+		if r.Rc != 2 || r.Stdout != "" || !strings.Contains(r.Err, "ancestor") {
+			t.Fatalf("got exit %d stdout %q stderr %q, want a refusal naming the ancestry", r.Rc, r.Stdout, r.Err)
 		}
 	})
 }

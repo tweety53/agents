@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -46,9 +47,9 @@ func vpBin(t *testing.T, held []int, nodeBody string) string {
 		fmt.Fprintf(&b, "*\" -iTCP:%d \"*) printf 'COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME\\nholder 4242 me 3u IPv4 0x0 0t0 TCP 127.0.0.1:%d (LISTEN)\\n'; exit 0;;\n", p, p)
 	}
 	b.WriteString("esac\nexit 1\n")
-	writeExec(t, filepath.Join(bin, "lsof"), b.String())
+	guardtest.WriteExec(t, filepath.Join(bin, "lsof"), b.String())
 	if nodeBody != "" {
-		writeExec(t, filepath.Join(bin, "node"), "#!/bin/sh\n"+nodeBody)
+		guardtest.WriteExec(t, filepath.Join(bin, "node"), "#!/bin/sh\n"+nodeBody)
 	}
 	return bin
 }
@@ -78,9 +79,9 @@ func vpRun(t *testing.T, wt string, apps []string, stdin, path string) (int, str
 func vpTree(t *testing.T, files map[string]string) string {
 	t.Helper()
 	wt := t.TempDir()
-	mkdir(t, filepath.Join(wt, "web"))
+	guardtest.Mkdir(t, filepath.Join(wt, "web"))
 	for rel, body := range files {
-		writeFile(t, filepath.Join(wt, rel), body)
+		guardtest.WriteFile(t, filepath.Join(wt, rel), body)
 	}
 	return wt
 }
@@ -194,7 +195,7 @@ func TestCheckVisualPreflightPorts(t *testing.T) {
 	t.Run("lsof cannot answer", func(t *testing.T) {
 		wt := vpTree(t, nil)
 		bin := t.TempDir()
-		writeExec(t, filepath.Join(bin, "lsof"), "#!/bin/sh\nexit 7\n")
+		guardtest.WriteExec(t, filepath.Join(bin, "lsof"), "#!/bin/sh\nexit 7\n")
 		code, out, errOut := vpRun(t, wt, []string{vpApp}, "", bin)
 		vpWant{code: 2, contains: []string{"lsof"}, omits: []string{"PREFLIGHT-OK"}}.check(t, code, out, errOut)
 	})
@@ -400,9 +401,9 @@ func TestCheckVisualPreflightPlaywright(t *testing.T) {
 	t.Run("real node resolving in a checkout above the worktree", func(t *testing.T) {
 		nodeDir := realNode(t)
 		outer := t.TempDir()
-		writeFile(t, filepath.Join(outer, "node_modules/@playwright/test/package.json"), "{\"name\":\"@playwright/test\"}\n")
+		guardtest.WriteFile(t, filepath.Join(outer, "node_modules/@playwright/test/package.json"), "{\"name\":\"@playwright/test\"}\n")
 		wt := filepath.Join(outer, "wt")
-		mkdir(t, filepath.Join(wt, "web"))
+		guardtest.Mkdir(t, filepath.Join(wt, "web"))
 		code, out, errOut := vpRun(t, wt, []string{vpApp}, "", vpBin(t, nil, "")+":"+nodeDir)
 		vpWant{code: 1, contains: []string{"FAIL: playwright — web", "node_modules/@playwright/test/package.json"}}.check(t, code, out, errOut)
 	})
@@ -430,18 +431,18 @@ func TestCheckVisualPreflightCrossRepo(t *testing.T) {
 	t.Parallel()
 	top := t.TempDir()
 	be, fe := filepath.Join(top, "backend"), filepath.Join(top, "frontend")
-	writeFile(t, filepath.Join(be, ".git"), "gitdir: /elsewhere\n")
-	writeFile(t, filepath.Join(be, ".flow/project.md"), vpIsolation)
-	mkdir(t, filepath.Join(fe, ".git"))
-	writeFile(t, filepath.Join(fe, "src/api.ts"), "fetch(\"//localhost:8080/x\")\n")
+	guardtest.WriteFile(t, filepath.Join(be, ".git"), "gitdir: /elsewhere\n")
+	guardtest.WriteFile(t, filepath.Join(be, ".flow/project.md"), vpIsolation)
+	guardtest.Mkdir(t, filepath.Join(fe, ".git"))
+	guardtest.WriteFile(t, filepath.Join(fe, "src/api.ts"), "fetch(\"//localhost:8080/x\")\n")
 
 	code, out, errOut := vpRun(t, be, []string{"../frontend=http://localhost:8093"}, vpStdin, vpBin(t, nil, ""))
 	vpWant{code: 0, contains: []string{"PREFLIGHT-OK: " + be}, omits: []string{"FAIL:"}}.check(t, code, out, errOut)
 
 	// The same tree with the app root in <worktree>'s own repository keeps
 	// today's verdict: the moved row's default fails.
-	mkdir(t, filepath.Join(be, "web"))
-	writeFile(t, filepath.Join(be, "web/api.ts"), "fetch(\"//localhost:8080/x\")\n")
+	guardtest.Mkdir(t, filepath.Join(be, "web"))
+	guardtest.WriteFile(t, filepath.Join(be, "web/api.ts"), "fetch(\"//localhost:8080/x\")\n")
 	code, out, errOut = vpRun(t, be, []string{vpApp}, vpStdin, vpBin(t, nil, ""))
 	vpWant{code: 1, contains: []string{"FAIL: base-url — web/api.ts:1:"}}.check(t, code, out, errOut)
 }
@@ -452,26 +453,26 @@ func TestCheckVisualPreflightFlowBaseSiblings(t *testing.T) {
 	t.Parallel()
 	top := t.TempDir()
 	wt, fe := filepath.Join(top, "be"), filepath.Join(top, "fe")
-	mkdir(t, fe)
+	guardtest.Mkdir(t, fe)
 	apps := "\n## apps\n\n| App | Repo root | Kind | URL | Notes |\n|---|---|---|---|---|\n" +
 		"| be | `" + wt + "` | backend | - | - |\n| fe | `" + fe + "` | frontend | - | - |\n"
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), vpIsolation+apps)
-	mkdir(t, filepath.Join(wt, "web"))
-	g := &fxGit{}
-	g.copyShape(wt, repoShape{Branch: "spectre/x"})
-	if g.err != nil {
-		t.Fatal(g.err)
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), vpIsolation+apps)
+	guardtest.Mkdir(t, filepath.Join(wt, "web"))
+	g := &guardtest.FxGit{}
+	g.CopyShape(wt, guardtest.RepoShape{Branch: "spectre/x"})
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	bin := vpBin(t, nil, "")
 
 	code, out, errOut := vpRun(t, wt, []string{vpApp}, vpStdin, bin)
 	vpWant{code: 0, omits: []string{"FAIL: siblings"}}.check(t, code, out, errOut)
 
-	g.git(wt, "config", "branch.spectre/x.flowBase", "feature/y")
+	g.Git(wt, "config", "branch.spectre/x.flowBase", "feature/y")
 	code, out, errOut = vpRun(t, wt, []string{vpApp}, vpStdin, bin)
 	vpWant{code: 1, contains: []string{"FAIL: siblings — " + fe + "-worktrees/x"}}.check(t, code, out, errOut)
 
-	mkdir(t, fe+"-worktrees/x")
+	guardtest.Mkdir(t, fe+"-worktrees/x")
 	code, out, errOut = vpRun(t, wt, []string{vpApp}, vpStdin, bin)
 	vpWant{code: 0, omits: []string{"FAIL: siblings"}}.check(t, code, out, errOut)
 }
@@ -520,14 +521,14 @@ func TestCheckVisualPreflightWrongWorktreeServer(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			wts := filepath.Join(t.TempDir(), "proj-worktrees")
 			wt := filepath.Join(wts, "mine")
-			mkdir(t, filepath.Join(wt, "web"))
+			guardtest.Mkdir(t, filepath.Join(wt, "web"))
 			cwd := ""
 			if c.cwd != "" {
 				cwd = filepath.Join(wts, c.cwd)
 			}
 			bin := t.TempDir()
 			script := fmt.Sprintf("#!/bin/sh\ncase \" $* \" in\n*\" -d cwd \"*) [ -n %q ] && printf 'p4242\\nn%%s\\n' %q; exit 0;;\n*\" -iTCP:%d \"*) printf 'COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME\\nholder 4242 me 3u IPv4 0x0 0t0 TCP 127.0.0.1:%d (LISTEN)\\n'; exit 0;;\nesac\nexit 1\n", cwd, cwd, port, port)
-			writeExec(t, filepath.Join(bin, "lsof"), script)
+			guardtest.WriteExec(t, filepath.Join(bin, "lsof"), script)
 			code, out, errOut := vpRun(t, wt, []string{"web=" + srv.URL}, "", bin)
 			want := vpWant{code: c.code}
 			if c.code == 1 {

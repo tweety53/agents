@@ -26,10 +26,10 @@ func TestBuildSlotPromptGolden(t *testing.T) {
 				"-global-constraints", "/g/gc.md", "-worktrees", "/w,/f", "-repo", "gymie", "-fix-report", "/r/panel-fix-report-2.md")
 		}
 		r := runGuard("build-slot-prompt", args, core.Env{})
-		if r.rc != 0 {
-			t.Fatalf("%s: rc %d: %s", id, r.rc, r.out)
+		if r.Rc != 0 {
+			t.Fatalf("%s: rc %d: %s", id, r.Rc, r.Out)
 		}
-		got, _ := os.ReadFile(strings.TrimSpace(r.stdout))
+		got, _ := os.ReadFile(strings.TrimSpace(r.Stdout))
 		s := strings.NewReplacer(skill, "<SKILL>", wt, "<WT>", d, "<DIFF>").Replace(string(got))
 		golden := filepath.Join("testdata/build-slot-prompt", id+".golden")
 		want, err := os.ReadFile(golden)

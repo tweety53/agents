@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // TestAffectedSpecs pins the mapping flow-guard affected-specs prints: a
@@ -47,11 +48,11 @@ func TestAffectedSpecs(t *testing.T) {
 		"docs/notes.md":                             "notes\n",
 	}
 	for p, body := range files {
-		writeFile(t, filepath.Join(root, p), body)
+		guardtest.WriteFile(t, filepath.Join(root, p), body)
 	}
-	gitRun(t, root, "init", "-q")
-	gitRun(t, root, "add", "-A")
-	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	guardtest.GitRun(t, root, "init", "-q")
+	guardtest.GitRun(t, root, "add", "-A")
+	guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
 
 	const home, rooms, day = "tests/home.spec.ts", "tests/rooms.spec.ts", "tests/day.spec.ts"
 	all := []string{day, home, rooms}
@@ -77,53 +78,53 @@ func TestAffectedSpecs(t *testing.T) {
 		{"a baseline PNG selects nothing", "web/tests/home.spec.ts-snapshots/home.png", nil, ""},
 	}
 	for _, c := range cases {
-		writeFile(t, filepath.Join(root, c.touch), files[c.touch]+"\n/* edited */\n")
+		guardtest.WriteFile(t, filepath.Join(root, c.touch), files[c.touch]+"\n/* edited */\n")
 		r := runGuard("affected-specs", []string{root, "HEAD", filepath.Join(root, "web/tests")}, env)
-		if got := strings.Fields(r.stdout); r.rc != 0 || strings.Join(got, " ") != strings.Join(c.want, " ") || !strings.Contains(r.err, c.errHas) {
-			t.Errorf("%s: rc=%d stdout=%q err=%q, want %q", c.name, r.rc, r.stdout, r.err, c.want)
+		if got := strings.Fields(r.Stdout); r.Rc != 0 || strings.Join(got, " ") != strings.Join(c.want, " ") || !strings.Contains(r.Err, c.errHas) {
+			t.Errorf("%s: rc=%d stdout=%q err=%q, want %q", c.name, r.Rc, r.Stdout, r.Err, c.want)
 		}
-		writeFile(t, filepath.Join(root, c.touch), files[c.touch])
+		guardtest.WriteFile(t, filepath.Join(root, c.touch), files[c.touch])
 	}
 
 	// The task set: only a file a sidecar names selects a spec, beside the
 	// specs the task's Tests and Regression name.
 	plan := filepath.Join(t.TempDir(), "tasks.md")
-	writeFile(t, plan, "- [ ] 7. In-run fix 1 — visual-verify: x\n\n**Tests:** none\n**Regression:** e2e/tests/rooms.spec.ts renders the seed\n")
+	guardtest.WriteFile(t, plan, "- [ ] 7. In-run fix 1 — visual-verify: x\n\n**Tests:** none\n**Regression:** e2e/tests/rooms.spec.ts renders the seed\n")
 	for touch, want := range map[string]string{
 		"seed/fixture.sql":        rooms,
 		"web/src/shared/Chip.tsx": rooms,
 		"web/src/pages/Home.tsx":  home + " " + rooms,
 		"web/tests/day.spec.ts":   day + " " + rooms,
 	} {
-		writeFile(t, filepath.Join(root, touch), files[touch]+"\n/* edited */\n")
+		guardtest.WriteFile(t, filepath.Join(root, touch), files[touch]+"\n/* edited */\n")
 		r := runGuard("affected-specs", []string{"-task", plan + ":7", root, "HEAD", filepath.Join(root, "web/tests")}, env)
-		if got := strings.Join(strings.Fields(r.stdout), " "); r.rc != 0 || got != want || strings.Contains(r.err, "all:") {
-			t.Errorf("-task, %s: rc=%d stdout=%q err=%q, want %q", touch, r.rc, r.stdout, r.err, want)
+		if got := strings.Join(strings.Fields(r.Stdout), " "); r.Rc != 0 || got != want || strings.Contains(r.Err, "all:") {
+			t.Errorf("-task, %s: rc=%d stdout=%q err=%q, want %q", touch, r.Rc, r.Stdout, r.Err, want)
 		}
-		writeFile(t, filepath.Join(root, touch), files[touch])
+		guardtest.WriteFile(t, filepath.Join(root, touch), files[touch])
 	}
-	if r := runGuard("affected-specs", []string{"-task", plan + ":8", root, "HEAD", filepath.Join(root, "web/tests")}, env); r.rc != 2 {
-		t.Errorf("-task naming no task: rc=%d, want 2", r.rc)
+	if r := runGuard("affected-specs", []string{"-task", plan + ":8", root, "HEAD", filepath.Join(root, "web/tests")}, env); r.Rc != 2 {
+		t.Errorf("-task naming no task: rc=%d, want 2", r.Rc)
 	}
 
 	// A spec with no sidecar renders an unknown screen: any UI change selects it.
-	writeFile(t, filepath.Join(root, "web/tests/legacy.spec.ts"), "test('legacy', () => {})\n")
-	writeFile(t, filepath.Join(root, "web/src/pages/Home.tsx"), files["web/src/pages/Home.tsx"]+"// edited\n")
+	guardtest.WriteFile(t, filepath.Join(root, "web/tests/legacy.spec.ts"), "test('legacy', () => {})\n")
+	guardtest.WriteFile(t, filepath.Join(root, "web/src/pages/Home.tsx"), files["web/src/pages/Home.tsx"]+"// edited\n")
 	r := runGuard("affected-specs", []string{root, "HEAD", filepath.Join(root, "web/tests")}, env)
-	if r.rc != 0 || r.stdout != home+"\ntests/legacy.spec.ts\n" {
-		t.Errorf("unmapped spec: rc=%d stdout=%q err=%q", r.rc, r.stdout, r.err)
+	if r.Rc != 0 || r.Stdout != home+"\ntests/legacy.spec.ts\n" {
+		t.Errorf("unmapped spec: rc=%d stdout=%q err=%q", r.Rc, r.Stdout, r.Err)
 	}
 	// The same edit, committed, read as a range.
-	gitRun(t, root, "add", "-A")
-	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "edit")
+	guardtest.GitRun(t, root, "add", "-A")
+	guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "edit")
 	r = runGuard("affected-specs", []string{root, "HEAD^..HEAD", filepath.Join(root, "web/tests")}, env)
-	if r.rc != 0 || !strings.Contains(r.stdout, home) || strings.Contains(r.stdout, rooms) {
-		t.Errorf("range: rc=%d stdout=%q err=%q", r.rc, r.stdout, r.err)
+	if r.Rc != 0 || !strings.Contains(r.Stdout, home) || strings.Contains(r.Stdout, rooms) {
+		t.Errorf("range: rc=%d stdout=%q err=%q", r.Rc, r.Stdout, r.Err)
 	}
 
 	for _, args := range [][]string{{root, "HEAD"}, {root, "no-such-rev", filepath.Join(root, "web/tests")}, {root, "HEAD", filepath.Join(root, "missing")}} {
-		if r := runGuard("affected-specs", args, env); r.rc != 2 || r.stdout != "" {
-			t.Errorf("%v: rc=%d out=%q, want exit 2", args[1:], r.rc, r.out)
+		if r := runGuard("affected-specs", args, env); r.Rc != 2 || r.Stdout != "" {
+			t.Errorf("%v: rc=%d out=%q, want exit 2", args[1:], r.Rc, r.Out)
 		}
 	}
 }
@@ -143,21 +144,21 @@ func TestAffectedSpecsSpecRootEditIsNoUIChange(t *testing.T) {
 		"tests/rooms.spec.ts":        "test('rooms', () => {})\n",
 	}
 	for p, body := range files {
-		writeFile(t, filepath.Join(root, p), body)
+		guardtest.WriteFile(t, filepath.Join(root, p), body)
 	}
-	gitRun(t, root, "init", "-q")
-	gitRun(t, root, "add", "-A")
-	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	guardtest.GitRun(t, root, "init", "-q")
+	guardtest.GitRun(t, root, "add", "-A")
+	guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
 	for touch, want := range map[string]string{
 		"tests/home.spec.ts":     "home.spec.ts\n",
 		"web/src/pages/Home.tsx": "home.spec.ts\nrooms.spec.ts\n",
 	} {
-		writeFile(t, filepath.Join(root, touch), files[touch]+"// edited\n")
+		guardtest.WriteFile(t, filepath.Join(root, touch), files[touch]+"// edited\n")
 		r := runGuard("affected-specs", []string{root, "HEAD", filepath.Join(root, "tests")}, env)
-		if r.rc != 0 || r.stdout != want {
-			t.Errorf("%s: rc=%d stdout=%q err=%q, want %q", touch, r.rc, r.stdout, r.err, want)
+		if r.Rc != 0 || r.Stdout != want {
+			t.Errorf("%s: rc=%d stdout=%q err=%q, want %q", touch, r.Rc, r.Stdout, r.Err, want)
 		}
-		writeFile(t, filepath.Join(root, touch), files[touch])
+		guardtest.WriteFile(t, filepath.Join(root, touch), files[touch])
 	}
 }
 
@@ -178,13 +179,13 @@ func TestAffectedSpecsSelectsByTest(t *testing.T) {
 		"shots/day.spec.ts.sources": "src/Day.tsx:12,3\nsrc/Week.tsx:12\nsrc/Whole.tsx\n",
 	}
 	for p, body := range files {
-		writeFile(t, filepath.Join(root, p), body)
+		guardtest.WriteFile(t, filepath.Join(root, p), body)
 	}
-	gitRun(t, root, "init", "-q")
-	gitRun(t, root, "add", "-A")
-	gitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	guardtest.GitRun(t, root, "init", "-q")
+	guardtest.GitRun(t, root, "add", "-A")
+	guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
 	plan := filepath.Join(t.TempDir(), "tasks.md")
-	writeFile(t, plan, "- [ ] 1. A\n\n**Tests:** none\n\n- [ ] 2. B\n\n**Tests:** `shots/day.spec.ts:40` › probe\n**Regression:** shots/day.spec.ts:7\n")
+	guardtest.WriteFile(t, plan, "- [ ] 1. A\n\n**Tests:** none\n\n- [ ] 2. B\n\n**Tests:** `shots/day.spec.ts:40` › probe\n**Regression:** shots/day.spec.ts:7\n")
 	const spec = "shots/day.spec.ts"
 	for _, c := range []struct {
 		touch []string
@@ -200,18 +201,18 @@ func TestAffectedSpecsSelectsByTest(t *testing.T) {
 		{[]string{"src/Week.tsx"}, "2", spec + ":7 " + spec + ":12 " + spec + ":40"},
 	} {
 		for _, f := range c.touch {
-			writeFile(t, filepath.Join(root, f), files[f]+"// edited\n")
+			guardtest.WriteFile(t, filepath.Join(root, f), files[f]+"// edited\n")
 		}
 		args := []string{root, "HEAD", filepath.Join(root, "shots")}
 		if c.task != "" {
 			args = append([]string{"-task", plan + ":" + c.task}, args...)
 		}
 		r := runGuard("affected-specs", args, env)
-		if got := strings.Join(strings.Fields(r.stdout), " "); r.rc != 0 || got != c.want {
-			t.Errorf("%v task %q: rc=%d stdout=%q err=%q, want %q", c.touch, c.task, r.rc, r.stdout, r.err, c.want)
+		if got := strings.Join(strings.Fields(r.Stdout), " "); r.Rc != 0 || got != c.want {
+			t.Errorf("%v task %q: rc=%d stdout=%q err=%q, want %q", c.touch, c.task, r.Rc, r.Stdout, r.Err, c.want)
 		}
 		for _, f := range c.touch {
-			writeFile(t, filepath.Join(root, f), files[f])
+			guardtest.WriteFile(t, filepath.Join(root, f), files[f])
 		}
 	}
 }

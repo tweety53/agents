@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // vgRepo makes a git worktree with one commit and returns it with that
@@ -20,10 +21,10 @@ func vgRepo(t *testing.T) (string, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(wt, "src/a.go"), "package a\n")
-	fixtureRepo(t, wt, repoShape{})
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-qm", "a")
+	guardtest.WriteFile(t, filepath.Join(wt, "src/a.go"), "package a\n")
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-qm", "a")
 	return wt, vgHead(t, wt)
 }
 
@@ -38,9 +39,9 @@ func vgHead(t *testing.T, wt string) string {
 
 func vgCommit(t *testing.T, wt, path string) string {
 	t.Helper()
-	writeFile(t, filepath.Join(wt, path), "changed\n")
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-qm", "edit "+path)
+	guardtest.WriteFile(t, filepath.Join(wt, path), "changed\n")
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-qm", "edit "+path)
 	return vgHead(t, wt)
 }
 

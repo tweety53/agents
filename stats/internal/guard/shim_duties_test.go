@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 func TestCannotAnswerCodes(t *testing.T) {
@@ -67,15 +68,15 @@ func cwdFixture(t *testing.T) (main, wt, bare string) {
 		t.Fatal(err)
 	}
 	main, wt, bare = dir+"/main", dir+"/wt", dir+"/bare"
-	var g fxGit
-	g.copyShape(main, repoShape{Branch: "main", Commit: "base"})
-	writeExec(t, main+"/scripts/flow-guard", "#!/bin/sh\n")
-	g.git(main, "add", "scripts/flow-guard")
-	g.git(main, "commit", "-q", "-m", "bootstrap")
-	g.git(main, "worktree", "add", "-q", "--detach", wt, "HEAD")
-	g.git(main, "worktree", "add", "-q", "--detach", bare, "HEAD~1")
-	if g.err != nil {
-		t.Fatal(g.err)
+	var g guardtest.FxGit
+	g.CopyShape(main, guardtest.RepoShape{Branch: "main", Commit: "base"})
+	guardtest.WriteExec(t, main+"/scripts/flow-guard", "#!/bin/sh\n")
+	g.Git(main, "add", "scripts/flow-guard")
+	g.Git(main, "commit", "-q", "-m", "bootstrap")
+	g.Git(main, "worktree", "add", "-q", "--detach", wt, "HEAD")
+	g.Git(main, "worktree", "add", "-q", "--detach", bare, "HEAD~1")
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	return main, wt, bare
 }
@@ -107,11 +108,11 @@ func TestCwdCheckoutReexec(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var g fxGit
-	g.copyShape(other, repoShape{Branch: "main"})
-	writeExec(t, other+"/scripts/flow-guard", "#!/bin/sh\n")
-	if g.err != nil {
-		t.Fatal(g.err)
+	var g guardtest.FxGit
+	g.CopyShape(other, guardtest.RepoShape{Branch: "main"})
+	guardtest.WriteExec(t, other+"/scripts/flow-guard", "#!/bin/sh\n")
+	if g.Err != nil {
+		t.Fatal(g.Err)
 	}
 	for _, c := range []struct{ what, root, dir string }{
 		{"its own checkout", main, main},

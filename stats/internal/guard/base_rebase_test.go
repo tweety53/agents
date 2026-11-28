@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -20,10 +21,10 @@ func rbNewFx(t *testing.T) *bmFx {
 	fx := bmNewFx(t)
 	for _, kv := range [][2]string{{"user.name", "Test"}, {"user.email", "test@example.invalid"},
 		{"commit.gpgsign", "false"}, {"rebase.autoStash", "false"}} {
-		fx.g.git(fx.repo, "config", kv[0], kv[1])
+		fx.g.Git(fx.repo, "config", kv[0], kv[1])
 	}
-	mkdir(t, fx.repo+"/spectre/changes/demo")
-	fx.g.write(fx.repo+"/spectre/changes/demo/tasks.md", "plan")
+	guardtest.Mkdir(t, fx.repo+"/spectre/changes/demo")
+	fx.g.Write(fx.repo+"/spectre/changes/demo/tasks.md", "plan")
 	return fx
 }
 
@@ -39,18 +40,18 @@ func TestRebaseOntoTip(t *testing.T) {
 		t.Parallel()
 		fx := rbNewFx(t)
 		fx.advanceBase("unrelated1.txt")
-		fx.g.appendLine(fx.repo+"/base.txt", "demo")
-		fx.g.git(fx.repo, "commit", "-qam", "demo work")
-		tip := fx.g.git(fx.repo, "rev-parse", "main")
-		if fx.g.err != nil {
-			t.Fatal(fx.g.err)
+		fx.g.AppendLine(fx.repo+"/base.txt", "demo")
+		fx.g.Git(fx.repo, "commit", "-qam", "demo work")
+		tip := fx.g.Git(fx.repo, "rev-parse", "main")
+		if fx.g.Err != nil {
+			t.Fatal(fx.g.Err)
 		}
 		var errb bytes.Buffer
 		o, err := rebaseOntoTip(core.Env{Dir: fx.dir, Getenv: os.Getenv}, fx.repo, "main", &errb)
 		if err != nil || o.kind != "rebased" || o.sha != tip || len(o.unmerged) != 0 {
 			t.Fatalf("got %+v, %v; want rebased onto %s\nstderr %s", o, err, tip, errb.String())
 		}
-		if mb := fx.g.git(fx.repo, "merge-base", "HEAD", "main"); mb != tip {
+		if mb := fx.g.Git(fx.repo, "merge-base", "HEAD", "main"); mb != tip {
 			t.Errorf("merge base %s, want the tip %s", mb, tip)
 		}
 	})
@@ -59,11 +60,11 @@ func TestRebaseOntoTip(t *testing.T) {
 		t.Parallel()
 		fx := rbNewFx(t)
 		fx.advanceBase("shared.txt")
-		fx.g.appendLine(fx.repo+"/shared.txt", "demo")
-		fx.g.git(fx.repo, "commit", "-qam", "demo touches shared")
-		tip := fx.g.git(fx.repo, "rev-parse", "main")
-		if fx.g.err != nil {
-			t.Fatal(fx.g.err)
+		fx.g.AppendLine(fx.repo+"/shared.txt", "demo")
+		fx.g.Git(fx.repo, "commit", "-qam", "demo touches shared")
+		tip := fx.g.Git(fx.repo, "rev-parse", "main")
+		if fx.g.Err != nil {
+			t.Fatal(fx.g.Err)
 		}
 		var errb bytes.Buffer
 		o, err := rebaseOntoTip(core.Env{Dir: fx.dir, Getenv: os.Getenv}, fx.repo, "main", &errb)
@@ -79,9 +80,9 @@ func TestRebaseOntoTip(t *testing.T) {
 		t.Parallel()
 		fx := rbNewFx(t)
 		fx.advanceBase("unrelated1.txt")
-		fx.g.appendLine(fx.repo+"/base.txt", "unstaged implementation edit")
-		if fx.g.err != nil {
-			t.Fatal(fx.g.err)
+		fx.g.AppendLine(fx.repo+"/base.txt", "unstaged implementation edit")
+		if fx.g.Err != nil {
+			t.Fatal(fx.g.Err)
 		}
 		var errb bytes.Buffer
 		o, err := rebaseOntoTip(core.Env{Dir: fx.dir, Getenv: os.Getenv}, fx.repo, "main", &errb)
@@ -97,31 +98,31 @@ func TestRebaseOntoTip(t *testing.T) {
 		t.Parallel()
 		fx := rbNewFx(t)
 		fx.advanceBase("unrelated1.txt")
-		pinned := fx.g.git(fx.repo, "rev-parse", "main")
+		pinned := fx.g.Git(fx.repo, "rev-parse", "main")
 		fx.advanceBase("unrelated2.txt")
-		fx.g.git(fx.repo, "branch", "later", "main")
-		fx.g.git(fx.repo, "update-ref", "refs/heads/main", pinned)
-		if fx.g.err != nil {
-			t.Fatal(fx.g.err)
+		fx.g.Git(fx.repo, "branch", "later", "main")
+		fx.g.Git(fx.repo, "update-ref", "refs/heads/main", pinned)
+		if fx.g.Err != nil {
+			t.Fatal(fx.g.Err)
 		}
 		// The stub moves main to `later` the moment rebase starts: a rebase
 		// onto the name would land on the moved ref, one onto the sha not.
 		stub := fx.dir + "/stub"
-		writeExec(t, stub+"/git", fmt.Sprintf(`#!/usr/bin/env bash
+		guardtest.WriteExec(t, stub+"/git", fmt.Sprintf(`#!/usr/bin/env bash
 for a in "$@"; do
   if [ "$a" = rebase ]; then %[1]q "$1" "$2" update-ref refs/heads/main "$(%[1]q "$1" "$2" rev-parse later)"; break; fi
 done
 exec %[1]q "$@"
-`, fixtureGit))
+`, guardtest.FixtureGit))
 		var errb bytes.Buffer
-		o, err := rebaseOntoTip(core.Env{Dir: fx.dir, Getenv: pathEnv(stub)}, fx.repo, "main", &errb)
+		o, err := rebaseOntoTip(core.Env{Dir: fx.dir, Getenv: guardtest.PathEnv(stub)}, fx.repo, "main", &errb)
 		if err != nil || o.kind != "rebased" || o.sha != pinned {
 			t.Fatalf("got %+v, %v; want rebased onto %s\nstderr %s", o, err, pinned, errb.String())
 		}
-		if later := fx.g.git(fx.repo, "rev-parse", "later"); fx.g.git(fx.repo, "rev-parse", "main") != later {
+		if later := fx.g.Git(fx.repo, "rev-parse", "later"); fx.g.Git(fx.repo, "rev-parse", "main") != later {
 			t.Fatal("the stub never moved main: the pin was not exercised")
 		}
-		if fx.g.git(fx.repo, "merge-base", "HEAD", "later") != pinned {
+		if fx.g.Git(fx.repo, "merge-base", "HEAD", "later") != pinned {
 			t.Error("HEAD was rebased onto the moved ref, not the pinned sha")
 		}
 	})

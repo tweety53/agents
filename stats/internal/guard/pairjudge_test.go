@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 var pjCandidateLine = regexp.MustCompile(`(?m)^- (\S+)$`)
@@ -51,8 +52,8 @@ func TestPairJudgeCandidates(t *testing.T) {
 			t.Parallel()
 			stub := newPJStub(t, pjJSON("PAIR: "+c.want[0]+"\nREASON: r", ""))
 			args := append([]string{c.args[0], pjDigest(t, "a plan")}, c.args[1:]...)
-			if r := runGuard("pair-judge", args, pjEnv(t, c.policy, stub)); r.rc != 0 {
-				t.Fatalf("rc=%d out=%q, want 0", r.rc, r.out)
+			if r := runGuard("pair-judge", args, pjEnv(t, c.policy, stub)); r.Rc != 0 {
+				t.Fatalf("rc=%d out=%q, want 0", r.Rc, r.Out)
 			}
 			if got := stub.candidates(t); !slices.Equal(got, c.want) {
 				t.Errorf("candidates = %q, want %q", got, c.want)
@@ -69,8 +70,8 @@ func TestPairJudgeCandidates(t *testing.T) {
 			t.Parallel()
 			stub := newPJStub(t, pjJSON("PAIR: "+pair+"\nREASON: r", ""))
 			policy := pjPolicy(`"explorer":{"base":["` + pair + `","opus/Explore@high"],"optin":[],"marked":[]}`)
-			if r := runGuard("pair-judge", []string{"explorer", pjDigest(t, "a plan")}, pjEnv(t, policy, stub)); r.rc != 0 || !strings.HasPrefix(r.stdout, want) {
-				t.Errorf("rc=%d stdout=%q, want 0 opening %q", r.rc, r.stdout, want)
+			if r := runGuard("pair-judge", []string{"explorer", pjDigest(t, "a plan")}, pjEnv(t, policy, stub)); r.Rc != 0 || !strings.HasPrefix(r.Stdout, want) {
+				t.Errorf("rc=%d stdout=%q, want 0 opening %q", r.Rc, r.Stdout, want)
 			}
 		})
 	}
@@ -83,8 +84,8 @@ func TestPairJudgeJudgesTheDesigner(t *testing.T) {
 	stub := newPJStub(t, pjJSON("PAIR: opus/flow-low\nREASON: a small adjustment", ""))
 	policy := pjPolicy(`"designer":{"base":["opus/flow-medium","opus/flow-low"],"optin":[],"marked":[]}`)
 	r := runGuard("pair-judge", []string{"designer", pjDigest(t, "move one icon")}, pjEnv(t, policy, stub))
-	if r.rc != 0 || !strings.HasPrefix(r.stdout, "opus low judge ") || !stub.ran() {
-		t.Errorf("rc=%d stdout=%q ran=%v, want 0, `opus low judge …` and the judge run", r.rc, r.stdout, stub.ran())
+	if r.Rc != 0 || !strings.HasPrefix(r.Stdout, "opus low judge ") || !stub.ran() {
+		t.Errorf("rc=%d stdout=%q ran=%v, want 0, `opus low judge …` and the judge run", r.Rc, r.Stdout, stub.ran())
 	}
 }
 
@@ -95,8 +96,8 @@ func TestPairJudgeSingle(t *testing.T) {
 	stub := newPJStub(t, pjAnswer)
 	policy := pjPolicy(`"panel-fix":{"base":["opus/flow-low"],"optin":["opus/flow-high"],"marked":[]}`)
 	r := runGuard("pair-judge", []string{"panel-fix", pjDigest(t, "a plan")}, pjEnv(t, policy, stub))
-	if r.rc != 0 || r.stdout != "opus low single the only candidate\n" {
-		t.Fatalf("rc=%d stdout=%q, want 0 and `opus low single the only candidate`", r.rc, r.stdout)
+	if r.Rc != 0 || r.Stdout != "opus low single the only candidate\n" {
+		t.Fatalf("rc=%d stdout=%q, want 0 and `opus low single the only candidate`", r.Rc, r.Stdout)
 	}
 	if stub.ran() {
 		t.Error("the judge ran for a single candidate")
@@ -121,11 +122,11 @@ func TestPairJudgeSavesThePickBesideTheDigest(t *testing.T) {
 	for _, pair := range []string{"opus/flow-low", "sonnet/flow-medium"} {
 		policy := pjPolicy(`"panel-fix":{"base":["` + pair + `"],"optin":[],"marked":[]}`)
 		r := runGuard("pair-judge", []string{"panel-fix", digest}, pjEnv(t, policy, stub))
-		if r.rc != 0 {
-			t.Fatalf("%s: rc=%d out=%q, want 0", pair, r.rc, r.out)
+		if r.Rc != 0 {
+			t.Fatalf("%s: rc=%d out=%q, want 0", pair, r.Rc, r.Out)
 		}
-		if got := mustRead(t, pick); got != r.stdout {
-			t.Errorf("%s: %s = %q, want the printed line %q", pair, pick, got, r.stdout)
+		if got := mustRead(t, pick); got != r.Stdout {
+			t.Errorf("%s: %s = %q, want the printed line %q", pair, pick, got, r.Stdout)
 		}
 	}
 }
@@ -143,8 +144,8 @@ func TestPairJudgeRefusalSavesNoPick(t *testing.T) {
 		t.Fatal(err)
 	}
 	stub := newPJStub(t, pjAnswer)
-	if r := runGuard("pair-judge", []string{"pair-judge", digest}, pjEnv(t, testPolicy, stub)); r.rc != 2 {
-		t.Fatalf("rc=%d out=%q, want 2", r.rc, r.out)
+	if r := runGuard("pair-judge", []string{"pair-judge", digest}, pjEnv(t, guardtest.TestPolicy, stub)); r.Rc != 2 {
+		t.Fatalf("rc=%d out=%q, want 2", r.Rc, r.Out)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "x.pick")); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("x.pick: stat err = %v, want not exist", err)
@@ -162,8 +163,8 @@ func TestPairJudgeTakesThePick(t *testing.T) {
 	policy := pjPolicy(`"implementer":{"base":["opus/flow-low","opus/flow-medium","sonnet/flow-low"],"optin":[],"marked":[]}`)
 	const digest = "Task 1: rename foo to bar across 40 Markdown files.\n"
 	r := runGuard("pair-judge", []string{"implementer", pjDigest(t, digest)}, pjEnv(t, policy, stub))
-	if r.rc != 0 || !strings.HasPrefix(r.stdout, "sonnet low judge renames only (judge ") {
-		t.Fatalf("rc=%d stdout=%q, want 0 opening `sonnet low judge renames only (judge `", r.rc, r.stdout)
+	if r.Rc != 0 || !strings.HasPrefix(r.Stdout, "sonnet low judge renames only (judge ") {
+		t.Fatalf("rc=%d stdout=%q, want 0 opening `sonnet low judge renames only (judge `", r.Rc, r.Stdout)
 	}
 	argv := strings.Join(stub.argv(t), "\x00")
 	for _, want := range [][]string{
@@ -193,11 +194,11 @@ func TestPairJudgeTakesThePick(t *testing.T) {
 func TestPairJudgeRunsInEnvDir(t *testing.T) {
 	t.Parallel()
 	stub := newPJStub(t, "pwd -P > '"+"DIR/pwd'\n"+pjAnswer)
-	writeExec(t, stub.cmd(), strings.ReplaceAll(mustRead(t, stub.cmd()), "DIR", stub.dir))
+	guardtest.WriteExec(t, stub.cmd(), strings.ReplaceAll(mustRead(t, stub.cmd()), "DIR", stub.dir))
 	env := pjEnv(t, pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`), stub)
 	env.Dir = t.TempDir()
-	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, env); r.rc != 0 {
-		t.Fatalf("rc=%d stdout=%q", r.rc, r.stdout)
+	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, env); r.Rc != 0 {
+		t.Fatalf("rc=%d stdout=%q", r.Rc, r.Stdout)
 	}
 	want, _ := filepath.EvalSymlinks(env.Dir)
 	if got := strings.TrimSpace(mustRead(t, stub.dir+"/pwd")); got != want {
@@ -210,10 +211,10 @@ func TestPairJudgeRunsInEnvDir(t *testing.T) {
 func TestPairJudgeOrphanHoldingPipes(t *testing.T) {
 	t.Parallel()
 	stub := newPJStub(t, "/bin/sleep 15 & echo $! > 'DIR/orphan.pid'\n"+pjAnswer)
-	writeExec(t, stub.cmd(), strings.ReplaceAll(mustRead(t, stub.cmd()), "DIR", stub.dir))
+	guardtest.WriteExec(t, stub.cmd(), strings.ReplaceAll(mustRead(t, stub.cmd()), "DIR", stub.dir))
 	env := pjEnv(t, pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`), stub)
-	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, env); r.rc != 0 {
-		t.Fatalf("rc=%d stdout=%q", r.rc, r.stdout)
+	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, env); r.Rc != 0 {
+		t.Fatalf("rc=%d stdout=%q", r.Rc, r.Stdout)
 	}
 	pid, err := strconv.Atoi(strings.TrimSpace(mustRead(t, stub.dir+"/orphan.pid")))
 	if err != nil {
@@ -260,13 +261,13 @@ func TestPairJudgeFallsBack(t *testing.T) {
 			stub := newPJStub(t, c.answer)
 			env := pjEnv(t, c.policy, stub)
 			if c.missing {
-				env = policyFlowEnv(t, c.policy, "FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.dir+"/absent")
+				env = guardtest.PolicyFlowEnv(t, c.policy, "FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.dir+"/absent")
 			}
 			env.PairJudgeTimeout = c.timeout
 			start := time.Now()
 			r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, env)
-			if r.rc != 0 || !strings.HasPrefix(r.stdout, "opus low fallback ") || !strings.Contains(r.stdout, c.cause) || strings.Count(r.stdout, "\n") != 1 {
-				t.Fatalf("rc=%d stdout=%q, want 0 and one `opus low fallback …%s…` line", r.rc, r.stdout, c.cause)
+			if r.Rc != 0 || !strings.HasPrefix(r.Stdout, "opus low fallback ") || !strings.Contains(r.Stdout, c.cause) || strings.Count(r.Stdout, "\n") != 1 {
+				t.Fatalf("rc=%d stdout=%q, want 0 and one `opus low fallback …%s…` line", r.Rc, r.Stdout, c.cause)
 			}
 			if c.timeout > 0 && time.Since(start) > 4*time.Second {
 				t.Errorf("a %v deadline took %v", c.timeout, time.Since(start))
@@ -290,8 +291,8 @@ func TestPairJudgeCapsTheDigest(t *testing.T) {
 		small: small,
 	} {
 		stub := newPJStub(t, pjAnswer)
-		if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, digest)}, pjEnv(t, policy, stub)); r.rc != 0 {
-			t.Fatalf("rc=%d out=%q, want 0", r.rc, r.out)
+		if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, digest)}, pjEnv(t, policy, stub)); r.Rc != 0 {
+			t.Fatalf("rc=%d out=%q, want 0", r.Rc, r.Out)
 		}
 		if got := stub.stdin(t); got != want {
 			t.Errorf("a %d-byte digest reached the judge as %d bytes ending %q, want %d ending %q",
@@ -305,7 +306,7 @@ func TestPairJudgeCapsTheDigest(t *testing.T) {
 func TestPairJudgeRefuses(t *testing.T) {
 	t.Parallel()
 	stub := newPJStub(t, pjAnswer)
-	env := pjEnv(t, testPolicy, stub)
+	env := pjEnv(t, guardtest.TestPolicy, stub)
 	digest := pjDigest(t, "a plan")
 	cases := map[string]struct {
 		args []string
@@ -315,7 +316,7 @@ func TestPairJudgeRefuses(t *testing.T) {
 		"one argument":      {[]string{"implementer"}, env},
 		"a third argument":  {[]string{"implementer", digest, "-opus-only"}, env},
 		"unreadable digest": {[]string{"implementer", digest + ".absent"}, env},
-		"no policy":         {[]string{"implementer", digest}, fakeFlowEnvBare(t, "exit 1\n", "FLOW_PAIR_JUDGE_CMD="+stub.cmd())},
+		"no policy":         {[]string{"implementer", digest}, guardtest.FakeFlowEnvBare(t, "exit 1\n", "FLOW_PAIR_JUDGE_CMD="+stub.cmd())},
 		"no candidates": {[]string{"implementer", digest}, pjEnv(t,
 			pjPolicy(`"implementer":{"base":[],"optin":["opus/flow-high"],"marked":[]}`), stub)},
 	}
@@ -327,8 +328,8 @@ func TestPairJudgeRefuses(t *testing.T) {
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
-			if r := runGuard("pair-judge", c.args, c.env); r.rc != 2 || r.stdout != "" {
-				t.Errorf("rc=%d out=%q, want 2 and no stdout", r.rc, r.out)
+			if r := runGuard("pair-judge", c.args, c.env); r.Rc != 2 || r.Stdout != "" {
+				t.Errorf("rc=%d out=%q, want 2 and no stdout", r.Rc, r.Out)
 			}
 		})
 	}
@@ -359,17 +360,17 @@ func TestPairJudgeRecordsItsSpend(t *testing.T) {
 			t.Parallel()
 			stub := newPJStub(t, c.answer)
 			r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, pjEnv(t, policy, stub))
-			if r.rc != 0 || !strings.HasPrefix(r.stdout, c.prefix) || !strings.HasSuffix(r.stdout, c.suffix) {
-				t.Fatalf("rc=%d stdout=%q, want 0, opening %q and ending %q", r.rc, r.stdout, c.prefix, c.suffix)
+			if r.Rc != 0 || !strings.HasPrefix(r.Stdout, c.prefix) || !strings.HasSuffix(r.Stdout, c.suffix) {
+				t.Fatalf("rc=%d stdout=%q, want 0, opening %q and ending %q", r.Rc, r.Stdout, c.prefix, c.suffix)
 			}
 			for _, s := range c.has {
-				if !strings.Contains(r.stdout, s) {
-					t.Errorf("stdout %q lacks %q", r.stdout, s)
+				if !strings.Contains(r.Stdout, s) {
+					t.Errorf("stdout %q lacks %q", r.Stdout, s)
 				}
 			}
 			for _, s := range c.lacks {
-				if strings.Contains(r.stdout, s) {
-					t.Errorf("stdout %q carries %q", r.stdout, s)
+				if strings.Contains(r.Stdout, s) {
+					t.Errorf("stdout %q carries %q", r.Stdout, s)
 				}
 			}
 		})
@@ -392,8 +393,8 @@ func TestPairJudgeGroupDigestDropsThePlanInputs(t *testing.T) {
 		if err := os.WriteFile(p, []byte(tasks+inputs+"after\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		if r := runGuard("pair-judge", []string{"implementer", p}, pjEnv(t, policy, stub)); r.rc != 0 {
-			t.Fatalf("%s: rc=%d err=%q", name, r.rc, r.err)
+		if r := runGuard("pair-judge", []string{"implementer", p}, pjEnv(t, policy, stub)); r.Rc != 0 {
+			t.Fatalf("%s: rc=%d err=%q", name, r.Rc, r.Err)
 		}
 		if got := stub.stdin(t); got != want {
 			t.Errorf("%s: stdin = %q, want %q", name, got, want)
@@ -408,8 +409,8 @@ func TestPairJudgeRunsWithoutAutoMemory(t *testing.T) {
 	t.Parallel()
 	stub := newPJStub(t, `printf '%s' "$CLAUDE_CODE_DISABLE_AUTO_MEMORY" > "$(dirname "$0")/memory"`+"\n"+pjAnswer)
 	policy := pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`)
-	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "Task 1.\n")}, pjEnv(t, policy, stub)); r.rc != 0 {
-		t.Fatalf("rc=%d err=%q", r.rc, r.err)
+	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "Task 1.\n")}, pjEnv(t, policy, stub)); r.Rc != 0 {
+		t.Fatalf("rc=%d err=%q", r.Rc, r.Err)
 	}
 	if got := mustRead(t, stub.dir+"/memory"); got != "1" {
 		t.Errorf("CLAUDE_CODE_DISABLE_AUTO_MEMORY = %q in the judge's environment, want 1", got)
@@ -436,8 +437,8 @@ func TestPairJudgeRecordsItsHeadlessCall(t *testing.T) {
 	stub := newPJStub(t, pjJSON("PAIR: sonnet/flow-low\nREASON: renames only", `,"total_cost_usd":0.0123`))
 	env := pjEnv(t, pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`), stub)
 	env.Reasons = &core.Reasons{}
-	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, env); r.rc != 0 {
-		t.Fatalf("rc=%d stdout=%q", r.rc, r.stdout)
+	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, env); r.Rc != 0 {
+		t.Fatalf("rc=%d stdout=%q", r.Rc, r.Stdout)
 	}
 	h := env.Reasons.Headless()
 	if h == nil || h.Role != "pair-judge" || h.Model != "sonnet" || h.Effort != "low" || h.CostUSD == nil {
@@ -453,20 +454,20 @@ func TestJudgeGetsTheAPIKeyFromItsFile(t *testing.T) {
 	for _, c := range []struct{ name, content string }{{"key", "sk-test\n"}, {"empty", ""}} {
 		stub := newPJStub(t, "printf '%s' \"$ANTHROPIC_API_KEY\" > '"+t.TempDir()+"/unused'\nprintf '%s' \"$ANTHROPIC_API_KEY\" > $(dirname $0)/key\n"+pjJSON("PAIR: opus/flow-low\nREASON: r", ""))
 		keyFile := filepath.Join(t.TempDir(), "key")
-		writeFile(t, keyFile, c.content)
-		env := policyFlowEnv(t, pjPolicy(`"planner":{"base":["opus/flow-low","opus/flow-medium"],"optin":[],"marked":[]},"pair-judge":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}`),
+		guardtest.WriteFile(t, keyFile, c.content)
+		env := guardtest.PolicyFlowEnv(t, pjPolicy(`"planner":{"base":["opus/flow-low","opus/flow-medium"],"optin":[],"marked":[]},"pair-judge":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}`),
 			"FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd(), "FLOW_HEADLESS_API_KEY_FILE="+keyFile)
 		env.Environ = pjChildEnviron("")
 		r := runGuard("pair-judge", []string{"planner", pjDigest(t, "d")}, env)
 		got, _ := os.ReadFile(stub.dir + "/key")
 		switch c.name {
 		case "key":
-			if r.rc != 0 || string(got) != "sk-test" {
-				t.Errorf("rc=%d key=%q err=%q", r.rc, got, r.err)
+			if r.Rc != 0 || string(got) != "sk-test" {
+				t.Errorf("rc=%d key=%q err=%q", r.Rc, got, r.Err)
 			}
 		default:
-			if stub.ran() || !strings.Contains(r.stdout, "unreadable or empty") {
-				t.Errorf("ran=%v stdout=%q", stub.ran(), r.stdout)
+			if stub.ran() || !strings.Contains(r.Stdout, "unreadable or empty") {
+				t.Errorf("ran=%v stdout=%q", stub.ran(), r.Stdout)
 			}
 		}
 	}
@@ -479,13 +480,13 @@ func TestJudgeKeyFileOffAndDefault(t *testing.T) {
 	for _, mode := range []string{"off", "default"} {
 		stub := newPJStub(t, "printf '%s' \"$ANTHROPIC_API_KEY\" > $(dirname $0)/key\n"+pjJSON("PAIR: opus/flow-low\nREASON: r", ""))
 		home := t.TempDir()
-		writeFile(t, home+"/.config/flow/headless-api-key", "sk-home\n")
+		guardtest.WriteFile(t, home+"/.config/flow/headless-api-key", "sk-home\n")
 		extra := "HOME=" + home
 		want := "sk-home"
 		if mode == "off" {
 			extra, want = "FLOW_HEADLESS_API_KEY_FILE=off", ""
 		}
-		env := policyFlowEnv(t, pjPolicy(`"planner":{"base":["opus/flow-low","opus/flow-medium"],"optin":[],"marked":[]},"pair-judge":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}`),
+		env := guardtest.PolicyFlowEnv(t, pjPolicy(`"planner":{"base":["opus/flow-low","opus/flow-medium"],"optin":[],"marked":[]},"pair-judge":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}`),
 			"FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd(), extra, "HOME="+home)
 		env.Environ = pjChildEnviron("")
 		runGuard("pair-judge", []string{"planner", pjDigest(t, "d")}, env)
@@ -513,11 +514,11 @@ func TestImplementerOpusLowSplitsWithSonnetLow(t *testing.T) {
 		{"other role stays", "panel-fix", "opus/flow-low", "opus low judge", true},
 	} {
 		stub := newPJStub(t, pjJSON("PAIR: "+c.pick+"\nREASON: r", ""))
-		env := policyFlowEnv(t, pol(c.role), "FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd())
+		env := guardtest.PolicyFlowEnv(t, pol(c.role), "FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd())
 		env.PairJudgeCoin = func() bool { return c.coin }
 		r := runGuard("pair-judge", []string{c.role, pjDigest(t, "d")}, env)
-		if !strings.HasPrefix(r.stdout, c.want) {
-			t.Errorf("%s: stdout %q, want prefix %q", c.name, r.stdout, c.want)
+		if !strings.HasPrefix(r.Stdout, c.want) {
+			t.Errorf("%s: stdout %q, want prefix %q", c.name, r.Stdout, c.want)
 		}
 	}
 }
@@ -579,9 +580,9 @@ func TestPairJudgeAppendsNamedFiles(t *testing.T) {
 	}
 	policy := pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`)
 	stub := newPJStub(t, pjAnswer)
-	env := policyFlowEnv(t, policy, "FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd(), "HOME="+repo)
-	if r := runGuard("pair-judge", []string{"implementer", digest}, env); r.rc != 0 {
-		t.Fatalf("rc=%d out=%q, want 0", r.rc, r.out)
+	env := guardtest.PolicyFlowEnv(t, policy, "FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd(), "HOME="+repo)
+	if r := runGuard("pair-judge", []string{"implementer", digest}, env); r.Rc != 0 {
+		t.Fatalf("rc=%d out=%q, want 0", r.Rc, r.Out)
 	}
 	want := brief.String() +
 		"\n\n--- " + repo + "/plan.md:1 ---\nthe plan\n" +
@@ -751,8 +752,8 @@ func pjWantStdin(t *testing.T, digest, brief, want string) {
 	}
 	policy := pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`)
 	stub := newPJStub(t, pjAnswer)
-	if r := runGuard("pair-judge", []string{"implementer", digest}, pjEnv(t, policy, stub)); r.rc != 0 {
-		t.Fatalf("rc=%d out=%q, want 0", r.rc, r.out)
+	if r := runGuard("pair-judge", []string{"implementer", digest}, pjEnv(t, policy, stub)); r.Rc != 0 {
+		t.Fatalf("rc=%d out=%q, want 0", r.Rc, r.Out)
 	}
 	if got := stub.stdin(t); got != want {
 		t.Errorf("stdin is %d bytes ending %q, want %d ending %q", len(got), got[max(0, len(got)-40):], len(want), want[max(0, len(want)-40):])
@@ -776,8 +777,8 @@ func TestJudgeKeyOnlyForAnthropicBaseURL(t *testing.T) {
 	} {
 		stub := newPJStub(t, "printf '%s' \"$ANTHROPIC_API_KEY\" > $(dirname $0)/key\n"+pjJSON("PAIR: opus/flow-low\nREASON: r", ""))
 		keyFile := filepath.Join(t.TempDir(), "key")
-		writeFile(t, keyFile, "sk-dummy\n")
-		env := policyFlowEnv(t, pjPolicy(`"planner":{"base":["opus/flow-low","opus/flow-medium"],"optin":[],"marked":[]},"pair-judge":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}`),
+		guardtest.WriteFile(t, keyFile, "sk-dummy\n")
+		env := guardtest.PolicyFlowEnv(t, pjPolicy(`"planner":{"base":["opus/flow-low","opus/flow-medium"],"optin":[],"marked":[]},"pair-judge":{"base":["sonnet/flow-low"],"optin":[],"marked":[]}`),
 			"FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd(), "FLOW_HEADLESS_API_KEY_FILE="+keyFile)
 		env.Environ = pjChildEnviron(c.base)
 		runGuard("pair-judge", []string{"planner", pjDigest(t, "d")}, env)

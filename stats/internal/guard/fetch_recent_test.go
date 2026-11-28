@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // setFetchHead writes path as a full fetch of origin of the repository it
@@ -29,7 +30,7 @@ func setFetchHead(t *testing.T, path string, ok bool, age time.Duration) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, path, body)
+	guardtest.WriteFile(t, path, body)
 	at := time.Now().Add(-age)
 	if err := os.Chtimes(path, at, at); err != nil {
 		t.Fatal(err)

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -74,24 +75,24 @@ func vvCheckoutRow(dir string) string { return "| `regression checkout` | `" + d
 func vvRoot(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	mkdir(t, root+"/.flow")
+	guardtest.Mkdir(t, root+"/.flow")
 	return root
 }
 
 // vvWriteCfg is write_cfg: body plus the newline printf '%s\n' adds.
 func vvWriteCfg(t *testing.T, root, body string) {
 	t.Helper()
-	writeFile(t, root+"/.flow/project.md", body+"\n")
+	guardtest.WriteFile(t, root+"/.flow/project.md", body+"\n")
 }
 
 // vvGitCheckout is make_git_checkout: a REAL `git init` checkout, with a REAL
 // `origin` remote set via `git remote add` when a URL is given.
 func vvGitCheckout(t *testing.T, dir, origin string) {
 	t.Helper()
-	mkdir(t, dir)
-	fixtureRepo(t, dir, repoShape{})
+	guardtest.Mkdir(t, dir)
+	guardtest.FixtureRepo(t, dir, guardtest.RepoShape{})
 	if origin != "" {
-		gitRun(t, dir, "remote", "add", "origin", origin)
+		guardtest.GitRun(t, dir, "remote", "add", "origin", origin)
 	}
 }
 
@@ -202,7 +203,7 @@ func vvCases() map[string]vvCase {
 		// Case 11: `regression checkout` names an existing directory that is
 		// not a git checkout — exit 1.
 		"case 11": {vvCfg(func(t *testing.T, root string) string {
-			mkdir(t, root+"/plain-dir")
+			guardtest.Mkdir(t, root+"/plain-dir")
 			return vvSection([]string{vvUIRow, vvShotsDot, vvCheckoutRow(root + "/plain-dir"), vvRepoRow},
 				[]string{vvVerifyRow, vvCaptureRow})
 		}), []vvCheck{vvExit("case 11", 1), vvNames("case 11", "not a git checkout")}},
@@ -241,7 +242,7 @@ func vvCases() map[string]vvCase {
 		// exit 2.
 		"case 17": {func(t *testing.T) (string, int) {
 			root := vvRoot(t)
-			mkdir(t, root+"/.flow/project.md")
+			guardtest.Mkdir(t, root+"/.flow/project.md")
 			return vvGuard(t, vvEnv(root), root)
 		}, []vvCheck{vvExit("case 17", 2)}},
 
@@ -281,12 +282,12 @@ func vvCases() map[string]vvCase {
 			dir := root + "/\x1b[2K\x1b[1mVISUAL-OK: forged\x1b[0m"
 			vvGitCheckout(t, dir, vvRepoURL)
 			bin := t.TempDir()
-			writeExec(t, bin+"/git", "#!/usr/bin/env bash\ncase \" $* \" in\n"+
+			guardtest.WriteExec(t, bin+"/git", "#!/usr/bin/env bash\ncase \" $* \" in\n"+
 				"  *\" remote get-url origin \"*)\n    echo \"fatal: unable to auto-detect email address\" >&2\n    exit 128\n    ;;\nesac\n"+
-				"exec \""+fixtureGit+"\" \"$@\"\n")
+				"exec \""+guardtest.FixtureGit+"\" \"$@\"\n")
 			vvWriteCfg(t, root, vvSection([]string{vvUIRow, vvShotsDot, vvCheckoutRow(dir), vvRepoRow}, []string{vvVerifyRow, vvCaptureRow}))
 			env := vvEnv(root)
-			env.Getenv = pathEnv(bin)
+			env.Getenv = guardtest.PathEnv(bin)
 			return vvGuard(t, env, root)
 		}, []vvCheck{vvExit("case 21", 2), vvNames("case 21", `\x1b[2K`),
 			{"case 21: no raw ESC byte reached the captured output", func(out string, _ int) bool { return !strings.Contains(out, "\x1b") }}}},
@@ -299,7 +300,7 @@ func vvCases() map[string]vvCase {
 		"case 22": {func(t *testing.T) (string, int) {
 			root := vvRoot(t)
 			vvGitCheckout(t, root+"/ambient", vvRepoURL)
-			mkdir(t, root+"/not-a-git-dir")
+			guardtest.Mkdir(t, root+"/not-a-git-dir")
 			vvWriteCfg(t, root, vvSection([]string{vvUIRow, vvShotsDot, vvCheckoutRow(root + "/not-a-git-dir"), vvRepoRow},
 				[]string{vvVerifyRow, vvCaptureRow}))
 			cmd := exec.Command(os.Args[0], "-test.run=^TestVVAmbientGitDirHelper$")

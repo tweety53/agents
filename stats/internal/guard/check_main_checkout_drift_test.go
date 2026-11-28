@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -25,14 +26,14 @@ func newDriftRepo(t *testing.T) string {
 		t.Fatal(err)
 	}
 	repo := dir + "/repo"
-	fixtureRepo(t, repo, repoShape{Branch: "main"})
-	writeFile(t, repo+"/base.txt", "base\n")
-	gitRun(t, repo, "add", "base.txt")
-	gitRun(t, repo, "commit", "-qm", "base")
-	gitRun(t, "", "clone", "-q", "--bare", repo, dir+"/origin.git")
-	gitRun(t, repo, "remote", "add", "origin", dir+"/origin.git")
-	gitRun(t, repo, "fetch", "-q", "origin")
-	gitRun(t, repo, "remote", "set-head", "origin", "-a")
+	guardtest.FixtureRepo(t, repo, guardtest.RepoShape{Branch: "main"})
+	guardtest.WriteFile(t, repo+"/base.txt", "base\n")
+	guardtest.GitRun(t, repo, "add", "base.txt")
+	guardtest.GitRun(t, repo, "commit", "-qm", "base")
+	guardtest.GitRun(t, "", "clone", "-q", "--bare", repo, dir+"/origin.git")
+	guardtest.GitRun(t, repo, "remote", "add", "origin", dir+"/origin.git")
+	guardtest.GitRun(t, repo, "fetch", "-q", "origin")
+	guardtest.GitRun(t, repo, "remote", "set-head", "origin", "-a")
 	return repo
 }
 
@@ -59,14 +60,14 @@ func TestCheckMainCheckoutDrift(t *testing.T) {
 		// both are refusals.
 		{"regular file argument", func(t *testing.T) []string {
 			f := t.TempDir() + "/file"
-			writeFile(t, f, "x\n")
+			guardtest.WriteFile(t, f, "x\n")
 			return []string{f}
 		}, func(a []string) string { return "check-main-checkout-drift: " + a[0] + " is not a directory\n" }},
 		// `symbolic-ref -d` removes the symref itself; `update-ref -d` on a
 		// symref dereferences and would delete the branch instead.
 		{"no origin/HEAD", func(t *testing.T) []string {
 			r := newDriftRepo(t)
-			gitRun(t, r, "symbolic-ref", "-d", "refs/remotes/origin/HEAD")
+			guardtest.GitRun(t, r, "symbolic-ref", "-d", "refs/remotes/origin/HEAD")
 			return []string{r}
 		}, func(a []string) string {
 			return "check-main-checkout-drift: " + a[0] + " has no resolvable refs/remotes/origin/HEAD — the default branch cannot be named\n"
@@ -75,7 +76,7 @@ func TestCheckMainCheckoutDrift(t *testing.T) {
 		// naming a branch that resolves to nothing.
 		{"dangling origin/HEAD", func(t *testing.T) []string {
 			r := newDriftRepo(t)
-			gitRun(t, r, "update-ref", "-d", "refs/remotes/origin/main")
+			guardtest.GitRun(t, r, "update-ref", "-d", "refs/remotes/origin/main")
 			return []string{r}
 		}, func(a []string) string {
 			return "check-main-checkout-drift: " + a[0] + "'s refs/remotes/origin/HEAD dangles — main does not resolve\n"
@@ -86,7 +87,7 @@ func TestCheckMainCheckoutDrift(t *testing.T) {
 			t.Parallel()
 			args := tc.args(t)
 			r := runGuard("check-main-checkout-drift", args, env)
-			if r.rc != 2 || r.stdout != "" || r.err != tc.wantErr(args) {
+			if r.Rc != 2 || r.Stdout != "" || r.Err != tc.wantErr(args) {
 				t.Fatalf("want exit 2, empty stdout, stderr %q; got %+v", tc.wantErr(args), r)
 			}
 		})
@@ -100,37 +101,37 @@ func TestCheckMainCheckoutDrift(t *testing.T) {
 		{"clean repo", func(_ *testing.T, r string) string { return r },
 			func(r string) string { return "DRIFT-CLEAN: " + r + " — main\n" }},
 		{"untracked-only repo", func(t *testing.T, r string) string {
-			writeFile(t, r+"/stray.txt", "stray\n")
+			guardtest.WriteFile(t, r+"/stray.txt", "stray\n")
 			return r
 		}, func(r string) string { return "DRIFT-DIRTY: " + r + " — 1 entries\n" }},
 		{"foreign branch", func(t *testing.T, r string) string {
-			gitRun(t, r, "checkout", "-qb", "feature")
+			guardtest.GitRun(t, r, "checkout", "-qb", "feature")
 			return r
 		}, func(r string) string { return "DRIFT-BRANCH: " + r + " — on feature, not main\n" }},
 		{"detached HEAD", func(t *testing.T, r string) string {
-			gitRun(t, r, "checkout", "-q", "--detach", "HEAD")
+			guardtest.GitRun(t, r, "checkout", "-q", "--detach", "HEAD")
 			return r
 		}, func(r string) string { return "DRIFT-BRANCH: " + r + " — on (detached HEAD), not main\n" }},
 		{"unstaged drift", func(t *testing.T, r string) string {
-			writeFile(t, r+"/base.txt", "base\nreverted\n")
+			guardtest.WriteFile(t, r+"/base.txt", "base\nreverted\n")
 			return r
 		}, func(r string) string { return "DRIFT-DIRTY: " + r + " — 1 entries\n" }},
 		{"staged + unstaged mix", func(t *testing.T, r string) string {
-			writeFile(t, r+"/staged.txt", "staged\n")
-			gitRun(t, r, "add", "staged.txt")
-			writeFile(t, r+"/base.txt", "base\nreverted\n")
+			guardtest.WriteFile(t, r+"/staged.txt", "staged\n")
+			guardtest.GitRun(t, r, "add", "staged.txt")
+			guardtest.WriteFile(t, r+"/base.txt", "base\nreverted\n")
 			return r
 		}, func(r string) string { return "DRIFT-DIRTY: " + r + " — 2 entries\n" }},
 		{"foreign branch + reverted content", func(t *testing.T, r string) string {
-			gitRun(t, r, "checkout", "-qb", "kan-527")
-			writeFile(t, r+"/base.txt", "base\nreverted\n")
+			guardtest.GitRun(t, r, "checkout", "-qb", "kan-527")
+			guardtest.WriteFile(t, r+"/base.txt", "base\nreverted\n")
 			return r
 		}, func(r string) string {
 			return "DRIFT-BRANCH: " + r + " — on kan-527, not main\nDRIFT-DIRTY: " + r + " — 1 entries\n"
 		}},
 		// A symlinked argument resolves to the real path in the verdict.
 		{"physical path", func(t *testing.T, r string) string {
-			gitRun(t, r, "checkout", "-qb", "feature")
+			guardtest.GitRun(t, r, "checkout", "-qb", "feature")
 			link := t.TempDir() + "/via-link"
 			if err := os.Symlink(r, link); err != nil {
 				t.Fatal(err)
@@ -144,7 +145,7 @@ func TestCheckMainCheckoutDrift(t *testing.T) {
 			repo := newDriftRepo(t)
 			arg := tc.setup(t, repo)
 			r := runGuard("check-main-checkout-drift", []string{arg}, env)
-			if r.rc != 0 || r.stdout != tc.want(repo) || r.err != "" {
+			if r.Rc != 0 || r.Stdout != tc.want(repo) || r.Err != "" {
 				t.Fatalf("want exit 0, stdout %q; got %+v", tc.want(repo), r)
 			}
 		})

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -39,13 +40,13 @@ func TestRunVerifyList(t *testing.T) {
 		t.Fatal(err)
 	}
 	bashDir := t.TempDir()
-	writeExec(t, filepath.Join(bashDir, "run-verify-list.sh"),
-		string(historicalFile(t, repo, "8c54d6d3", "scripts/run-verify-list.sh")))
+	guardtest.WriteExec(t, filepath.Join(bashDir, "run-verify-list.sh"),
+		string(guardtest.HistoricalFile(t, repo, "8c54d6d3", "scripts/run-verify-list.sh")))
 	// The bash's sibling, now run through the bootstrap; its check-spec-reach.sh row is dropped from the comparison.
 	for _, l := range []string{"project-get"} {
-		writeExec(t, filepath.Join(bashDir, l+".sh"), "#!/bin/sh\nexec '"+filepath.Join(repo, "scripts/flow-guard")+"' "+l+" \"$@\"\n")
+		guardtest.WriteExec(t, filepath.Join(bashDir, l+".sh"), "#!/bin/sh\nexec '"+filepath.Join(repo, "scripts/flow-guard")+"' "+l+" \"$@\"\n")
 	}
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t))
 	goEnviron := environ
 	getenv := func(k string) string {
 		for i := len(goEnviron) - 1; i >= 0; i-- {
@@ -57,7 +58,7 @@ func TestRunVerifyList(t *testing.T) {
 	}
 	gitIn := func(t *testing.T, dir string, args ...string) {
 		t.Helper()
-		cmd := exec.Command(fixtureGit, append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...)
+		cmd := exec.Command(guardtest.FixtureGit, append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...)
 		// A pinned date gives both twins the same shas, so the skip lines
 		// naming one compare byte for byte.
 		cmd.Env = append(os.Environ(), "GIT_AUTHOR_DATE=2026-01-01T00:00:00Z", "GIT_COMMITTER_DATE=2026-01-01T00:00:00Z")
@@ -67,7 +68,7 @@ func TestRunVerifyList(t *testing.T) {
 	}
 	gitOutIn := func(t *testing.T, dir string, args ...string) string {
 		t.Helper()
-		out, err := exec.Command(fixtureGit, append([]string{"-C", dir}, args...)...).Output()
+		out, err := exec.Command(guardtest.FixtureGit, append([]string{"-C", dir}, args...)...).Output()
 		if err != nil {
 			t.Fatalf("git %v: %v", args, err)
 		}
@@ -81,7 +82,7 @@ func TestRunVerifyList(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeFile(t, filepath.Join(r, ".flow/project.md"), "## lint\n\nProse outside the fence is never run.\n\n```bash\n# a comment line is never run\nprintf 'one\\n'\nprintf 'to-stderr\\n' >&2; exit 3\ncat\nseq 1 25\npwd\n```\n\n## test\n\n```bash\nprintf 'ok\\n'\nprintf nonl\necho next\n```\n")
+		guardtest.WriteFile(t, filepath.Join(r, ".flow/project.md"), "## lint\n\nProse outside the fence is never run.\n\n```bash\n# a comment line is never run\nprintf 'one\\n'\nprintf 'to-stderr\\n' >&2; exit 3\ncat\nseq 1 25\npwd\n```\n\n## test\n\n```bash\nprintf 'ok\\n'\nprintf nonl\necho next\n```\n")
 		return r
 	}
 	gr, br := newRoot(), newRoot()
@@ -153,7 +154,7 @@ func TestRunVerifyList(t *testing.T) {
 			t.Errorf("unexpected %q in %q", s, r.out)
 		}
 	}
-	project := func(dir, body string) { writeFile(t, filepath.Join(dir, ".flow/project.md"), body) }
+	project := func(dir, body string) { guardtest.WriteFile(t, filepath.Join(dir, ".flow/project.md"), body) }
 
 	t.Run("a failing command fails the list", func(t *testing.T) {
 		r := run(t, "<ROOT>", "lint")
@@ -230,9 +231,9 @@ func TestRunVerifyList(t *testing.T) {
 		both(func(root string) {
 			g := filepath.Join(root, "git")
 			project(g, "## test\n\n```bash\n# inputs: web/\necho ran >> \"$(git rev-parse --git-dir)/web-runs\"; echo web\n# inputs: go/\necho go\necho all\n```\n")
-			writeFile(t, filepath.Join(g, "web/a"), "a\n")
-			writeFile(t, filepath.Join(g, "go/b"), "b\n")
-			fixtureRepo(t, g, repoShape{})
+			guardtest.WriteFile(t, filepath.Join(g, "web/a"), "a\n")
+			guardtest.WriteFile(t, filepath.Join(g, "go/b"), "b\n")
+			guardtest.FixtureRepo(t, g, guardtest.RepoShape{})
 			gitIn(t, g, "add", "-A")
 			gitIn(t, g, "commit", "-q", "-m", "one")
 		})
@@ -262,7 +263,7 @@ func TestRunVerifyList(t *testing.T) {
 		}
 
 		both(func(root string) {
-			writeFile(t, filepath.Join(root, "git/go/b"), "c\n")
+			guardtest.WriteFile(t, filepath.Join(root, "git/go/b"), "c\n")
 			gitIn(t, filepath.Join(root, "git"), "commit", "-q", "-am", "two")
 		})
 		r = run(t, "<ROOT>/git", "test")
@@ -270,7 +271,7 @@ func TestRunVerifyList(t *testing.T) {
 		has(t, r, "- `echo go` — exit 0")
 		has(t, r, "- `echo all` — exit 0")
 
-		both(func(root string) { writeFile(t, filepath.Join(root, "git/web/a"), "dirty\n") })
+		both(func(root string) { guardtest.WriteFile(t, filepath.Join(root, "git/web/a"), "dirty\n") })
 		has(t, run(t, "<ROOT>/git", "test"), "echo web` — exit 0")
 
 		both(func(root string) { gitIn(t, filepath.Join(root, "git"), "checkout", "-q", "--", "web/a") })
@@ -278,7 +279,7 @@ func TestRunVerifyList(t *testing.T) {
 		both(func(root string) {
 			p := filepath.Join(root, "git/.flow/project.md")
 			b, _ := os.ReadFile(p)
-			writeFile(t, p, strings.Replace(string(b), "\necho go\n", "\necho go2\n", 1))
+			guardtest.WriteFile(t, p, strings.Replace(string(b), "\necho go\n", "\necho go2\n", 1))
 			gitIn(t, filepath.Join(root, "git"), "commit", "-q", "-am", "three")
 		})
 		has(t, run(t, "<ROOT>/git", "test"), "- `echo go2` — exit 0")
@@ -289,7 +290,7 @@ func TestRunVerifyList(t *testing.T) {
 		both(func(root string) {
 			f := filepath.Join(root, "fail")
 			project(f, "## test\n\n```bash\nseq 1 25; exit 4\ntrue\n```\n")
-			fixtureRepo(t, f, repoShape{})
+			guardtest.FixtureRepo(t, f, guardtest.RepoShape{})
 			gitIn(t, f, "add", "-A")
 			gitIn(t, f, "commit", "-q", "-m", "one")
 		})
@@ -328,13 +329,13 @@ func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	guardtest.WriteExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	path := dir + ":" + os.Getenv("PATH")
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+path)
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "PATH="+path)
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -355,7 +356,7 @@ func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 		return rc, regexp.MustCompile(`(?m)^flow record run .*\n`).ReplaceAllString(string(calls), "")
 	}
 	project := func(cmds string) {
-		writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+cmds+"\n```\n")
+		guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+cmds+"\n```\n")
 	}
 	rec := []string{"kan-1", "verify", "mf-k1", "opus", "low"}
 	begin := "flow record dispatch begin -C " + wt + " -change kan-1 -role verifier -model opus -effort low -agent-id inline -key verify -session-token mf-k1\n"
@@ -389,14 +390,14 @@ func TestRunVerifyListRecordsSuiteRuntimes(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/usr/bin/env bash\necho \"$*\" >> "+log+"\nif [ \"$1 $2\" = \"suite record\" ]; then\n  while [ \"$1\" != -- ]; do shift; done\n  shift\n  exec \"$@\"\nfi\n")
+	guardtest.WriteExec(t, filepath.Join(dir, "flow"), "#!/usr/bin/env bash\necho \"$*\" >> "+log+"\nif [ \"$1 $2\" = \"suite record\" ]; then\n  while [ \"$1\" != -- ]; do shift; done\n  shift\n  exec \"$@\"\nfi\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n# suite: demo-suite\necho one\necho two\n```\n")
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n# suite: demo-suite\necho one\necho two\n```\n")
 	run := func(path string) (int, string) {
-		environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+path)
+		environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "PATH="+path)
 		getenv := func(k string) string {
 			for i := len(environ) - 1; i >= 0; i-- {
 				if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -433,7 +434,7 @@ func TestRunVerifyListStopsOnARefusedBegin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -442,10 +443,10 @@ func TestRunVerifyListStopsOnARefusedBegin(t *testing.T) {
 		}
 		return ""
 	}
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\necho ran >> "+log+"\n```\n")
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\necho ran >> "+log+"\n```\n")
 	run := func(flow string) (int, string, string) {
 		os.Remove(log)
-		writeExec(t, filepath.Join(dir, "flow"), flow)
+		guardtest.WriteExec(t, filepath.Join(dir, "flow"), flow)
 		var o, e bytes.Buffer
 		rc := runVerifyList([]string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low"},
 			core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
@@ -472,7 +473,7 @@ func TestRunVerifyListRecordsAgainstTheCanonicalWorktree(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	guardtest.WriteExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -481,9 +482,9 @@ func TestRunVerifyListRecordsAgainstTheCanonicalWorktree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(canon, "spectre/changes/kan-1/tasks.md"), "")
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\ntrue\n```\n")
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
+	guardtest.WriteFile(t, filepath.Join(canon, "spectre/changes/kan-1/tasks.md"), "")
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\ntrue\n```\n")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -532,12 +533,12 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	guardtest.WriteExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -560,16 +561,16 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	}
 	gitIn := func(t *testing.T, dir string, args ...string) {
 		t.Helper()
-		if out, err := exec.Command(fixtureGit, append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
+		if out, err := exec.Command(guardtest.FixtureGit, append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
 	}
 	commit := func(cmds, msg string) {
-		writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+cmds+"\n```\n")
+		guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+cmds+"\n```\n")
 		gitIn(t, wt, "add", "-A")
 		gitIn(t, wt, "commit", "-q", "-m", msg)
 	}
-	fixtureRepo(t, wt, repoShape{})
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
 
 	commit("exit 1", "one")
 	if rc, calls := run(); rc != 1 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure -cause-detail "+filepath.Join(wt, ".git", "flow-verify-failed", "test-0.log"))) {
@@ -584,13 +585,13 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	}
 	// Every test command skipped but the visual verify ran: a check ran, so the
 	// row ends completed.
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n# inputs: go/\ntrue\n```\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**` |\n| `screenshots` | `web/tests/visual` |\n\n| Command | Runs |\n|---------|------|\n| `verify` | `echo VISUAL-RAN <specs>` |\n| `capture` | `true <spec>` |\n")
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n# inputs: go/\ntrue\n```\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**` |\n| `screenshots` | `web/tests/visual` |\n\n| Command | Runs |\n|---------|------|\n| `verify` | `echo VISUAL-RAN <specs>` |\n| `capture` | `true <spec>` |\n")
 	gitIn(t, wt, "add", "-A")
 	gitIn(t, wt, "commit", "-q", "-m", "visual")
 	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome completed")) {
 		t.Errorf("a green list with a visual verify: exit %d, calls:\n%s", rc, calls)
 	}
-	writeFile(t, filepath.Join(wt, "web/src/a.tsx"), "x\n")
+	guardtest.WriteFile(t, filepath.Join(wt, "web/src/a.tsx"), "x\n")
 	gitIn(t, wt, "add", "-A")
 	gitIn(t, wt, "commit", "-q", "-m", "ui")
 	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome completed")) {
@@ -598,7 +599,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	}
 	// A lint list whose every command is skipped ends completed, never skipped.
 	list = "lint"
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n")
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n")
 	gitIn(t, wt, "add", "-A")
 	gitIn(t, wt, "commit", "-q", "-m", "three")
 	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome completed")) {
@@ -609,7 +610,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	}
 	// A blocked lint group is never masked by the test group ending the same
 	// row later, whether that test group ends skipped or completed.
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\nexit 1\n```\n\n## test\n\n```bash\ntrue\n```\n")
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\nexit 1\n```\n\n## test\n\n```bash\ntrue\n```\n")
 	gitIn(t, wt, "add", "-A")
 	gitIn(t, wt, "commit", "-q", "-m", "four")
 	list = "test"
@@ -622,14 +623,14 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure")) {
 		t.Errorf("a skipped test list after a blocked lint: exit %d, calls:\n%s", rc, calls)
 	}
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\nexit 1\n```\n\n## test\n\n```bash\necho changed\n```\n")
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\nexit 1\n```\n\n## test\n\n```bash\necho changed\n```\n")
 	gitIn(t, wt, "add", "-A")
 	gitIn(t, wt, "commit", "-q", "-m", "five")
 	if rc, calls := run(); rc != 0 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure")) {
 		t.Errorf("a completed test list after a blocked lint: exit %d, calls:\n%s", rc, calls)
 	}
 	list = "lint"
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n\n## test\n\n```bash\ntrue\n```\n")
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n\n## test\n\n```bash\ntrue\n```\n")
 	gitIn(t, wt, "add", "-A")
 	gitIn(t, wt, "commit", "-q", "-m", "six")
 	run()
@@ -640,7 +641,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	// Both groups run at once under one key, so either may end first: a
 	// blocked test group is never masked by the lint group ending green later
 	// (kan-1058 self-review, R2).
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n\n## test\n\n```bash\nexit 1\n```\n")
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n\n## test\n\n```bash\nexit 1\n```\n")
 	gitIn(t, wt, "add", "-A")
 	gitIn(t, wt, "commit", "-q", "-m", "seven")
 	if rc, calls := run(); rc != 1 || !strings.HasSuffix(calls, endWith("-outcome blocked -cause test-failure -cause-detail "+filepath.Join(wt, ".git", "flow-verify-failed", "test-0.log"))) {
@@ -661,12 +662,12 @@ func TestRunVerifyListLeavesTheRowOpenWhileASiblingRuns(t *testing.T) {
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
 	gate := filepath.Join(dir, "go")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	guardtest.WriteExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -677,7 +678,7 @@ func TestRunVerifyListLeavesTheRowOpenWhileASiblingRuns(t *testing.T) {
 	}
 	git := func(args ...string) string {
 		t.Helper()
-		out, err := exec.Command(fixtureGit, append([]string{"-C", wt, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput()
+		out, err := exec.Command(guardtest.FixtureGit, append([]string{"-C", wt, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput()
 		if err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
@@ -689,8 +690,8 @@ func TestRunVerifyListLeavesTheRowOpenWhileASiblingRuns(t *testing.T) {
 			core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 	}
 	calls := func() string { b, _ := os.ReadFile(log); return string(b) }
-	fixtureRepo(t, wt, repoShape{})
-	writeFile(t, filepath.Join(wt, ".flow/project.md"),
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"),
 		"## lint\n\n```bash\ntrue\n```\n\n## test\n\n```bash\nwhile [ ! -f "+gate+" ]; do sleep 0.05; done\n```\n")
 	git("add", "-A")
 	git("commit", "-q", "-m", "one")
@@ -710,7 +711,7 @@ func TestRunVerifyListLeavesTheRowOpenWhileASiblingRuns(t *testing.T) {
 	if !strings.Contains(lint, "dispatch begin") || strings.Contains(lint, "dispatch end") {
 		t.Errorf("a lint group ending green while test runs must begin and not end the row, calls:\n%s", lint)
 	}
-	writeFile(t, gate, "")
+	guardtest.WriteFile(t, gate, "")
 	if rc := <-done; rc != 0 {
 		t.Fatalf("test exit %d", rc)
 	}
@@ -721,7 +722,7 @@ func TestRunVerifyListLeavesTheRowOpenWhileASiblingRuns(t *testing.T) {
 
 	// A test group killed before its end leaves its running mark: a later
 	// green lint group leaves the row open for the parent.
-	writeFile(t, git("rev-parse", "--path-format=absolute", "--git-path", "flow-verify-running-verify-mf-k1-test"), "")
+	guardtest.WriteFile(t, git("rev-parse", "--path-format=absolute", "--git-path", "flow-verify-running-verify-mf-k1-test"), "")
 	os.Remove(log)
 	if rc := run("lint"); rc != 0 {
 		t.Fatalf("lint exit %d", rc)
@@ -740,9 +741,9 @@ func TestRunVerifyListKeepsResultFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixtureRepo(t, wt, repoShape{})
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\nmkdir -p build/test-results && echo \"<x n='$$'/>\" > build/test-results/TEST-a.xml; exit 1\n```\n")
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\nmkdir -p build/test-results && echo \"<x n='$$'/>\" > build/test-results/TEST-a.xml; exit 1\n```\n")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -786,15 +787,15 @@ func TestRunVerifyListSurvivesAClosedStdout(t *testing.T) {
 	}
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	guardtest.WriteExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\nseq 1 200000\ntrue\n```\n")
-	fixtureRepo(t, wt, repoShape{})
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\nseq 1 200000\ntrue\n```\n")
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
 	for _, args := range [][]string{{"add", "-A"}, {"commit", "-q", "-m", "one"}} {
-		if out, err := exec.Command(fixtureGit, append([]string{"-C", wt, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
+		if out, err := exec.Command(guardtest.FixtureGit, append([]string{"-C", wt, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
 	}
@@ -804,7 +805,7 @@ func TestRunVerifyListSurvivesAClosedStdout(t *testing.T) {
 	}
 	r.Close()
 	cmd := exec.Command(os.Args[0], "-test.run=^TestRunVerifyListSurvivesAClosedStdout$")
-	cmd.Env = append(os.Environ(), "RVL_SIGPIPE_WT="+wt, "FLOW_GUARD_CACHE_DIR="+guardCache(t),
+	cmd.Env = append(os.Environ(), "RVL_SIGPIPE_WT="+wt, "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t),
 		"PATH="+dir+":"+os.Getenv("PATH"))
 	var stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = w, &stderr
@@ -826,12 +827,12 @@ func TestRunVerifyListSurvivesAClosedStdout(t *testing.T) {
 // Notify form: a list command's pipeline producer still dies of SIGPIPE (141),
 // which an inherited signal.Ignore would turn into an EPIPE write error.
 func TestRunVerifyListKeepsSIGPIPEForCommands(t *testing.T) {
-	t.Setenv("FLOW_GUARD_CACHE_DIR", guardCache(t))
+	t.Setenv("FLOW_GUARD_CACHE_DIR", guardtest.GuardCache(t))
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\nbash -c 'yes | head -1 >/dev/null; test ${PIPESTATUS[0]} = 141'\n```\n")
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\nbash -c 'yes | head -1 >/dev/null; test ${PIPESTATUS[0]} = 141'\n```\n")
 	var out, errb bytes.Buffer
 	if rc := runVerifyList([]string{wt, "test"}, core.Env{Getenv: os.Getenv, Environ: os.Environ, Dir: wt}, &out, &errb); rc != 0 {
 		t.Fatalf("rc %d, want 0: the producer did not die of SIGPIPE\nstdout:\n%s\nstderr:\n%s", rc, out.String(), errb.String())
@@ -888,7 +889,7 @@ func rvlRunRows(t *testing.T, dir, path string, extra []string, dispatches func(
 	}
 	// FLOW_VERIFY_FULL= and FLOW_SMOKE_KEEP= last: every run through here is
 	// a default run, whatever the process carries.
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+strings.Join(bare, ":"), "FLOW_VERIFY_FULL=", "FLOW_SMOKE_KEEP=", rvlOperatorFull+"=")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "PATH="+strings.Join(bare, ":"), "FLOW_VERIFY_FULL=", "FLOW_SMOKE_KEEP=", rvlOperatorFull+"=")
 	environ = append(environ, extra...)
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
@@ -906,7 +907,7 @@ func rvlRunRows(t *testing.T, dir, path string, extra []string, dispatches func(
 // rvlGit runs git in dir with a fixed identity, failing the test on error.
 func rvlGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
-	out, err := exec.Command(fixtureGit, append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput()
+	out, err := exec.Command(guardtest.FixtureGit, append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...).CombinedOutput()
 	if err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
 	}
@@ -939,17 +940,17 @@ func rvlVisualSetup(t *testing.T, verify, file, decision, specs string, noOrigin
 	checkoutPath := ""
 	if checkout {
 		checkoutPath = app
-		writeFile(t, filepath.Join(app, "a"), "x\n")
-		fixtureRepo(t, app, repoShape{Branch: "main"})
+		guardtest.WriteFile(t, filepath.Join(app, "a"), "x\n")
+		guardtest.FixtureRepo(t, app, guardtest.RepoShape{Branch: "main"})
 		git(t, app, "add", "-A")
 		git(t, app, "commit", "-q", "-m", "base")
 		if !noAppWT {
 			git(t, app, "worktree", "add", "-q", "-b", "work", appWT)
 		}
 	}
-	writeFile(t, filepath.Join(seed, ".flow/project.md"), project(verify, checkoutPath, specs))
-	writeFile(t, filepath.Join(seed, ".gitignore"), ".superpowers/\n")
-	fixtureRepo(t, seed, repoShape{Branch: "main"})
+	guardtest.WriteFile(t, filepath.Join(seed, ".flow/project.md"), project(verify, checkoutPath, specs))
+	guardtest.WriteFile(t, filepath.Join(seed, ".gitignore"), ".superpowers/\n")
+	guardtest.FixtureRepo(t, seed, guardtest.RepoShape{Branch: "main"})
 	git(t, seed, "add", "-A")
 	git(t, seed, "commit", "-q", "-m", "base")
 	if noOrigin {
@@ -960,11 +961,11 @@ func rvlVisualSetup(t *testing.T, verify, file, decision, specs string, noOrigin
 		git(t, base, "clone", "-q", filepath.Join(base, "origin.git"), wt)
 	}
 	git(t, wt, "checkout", "-q", "-b", "work")
-	writeFile(t, filepath.Join(wt, file), "x\n")
+	guardtest.WriteFile(t, filepath.Join(wt, file), "x\n")
 	git(t, wt, "add", "-A")
 	git(t, wt, "commit", "-q", "-m", "change")
 	if decision != "" {
-		writeFile(t, filepath.Join(wt, ".superpowers/sdd/decision.json"), decision)
+		guardtest.WriteFile(t, filepath.Join(wt, ".superpowers/sdd/decision.json"), decision)
 	}
 	return wt, appWT
 }
@@ -1079,14 +1080,14 @@ func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	guardtest.WriteExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	tmp, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
 	wt := filepath.Join(tmp, "repo-x")
-	fixtureRepo(t, wt, repoShape{})
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -1103,7 +1104,7 @@ func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
 		return rc, string(calls), e.String()
 	}
 	project := func(on string) {
-		writeFile(t, filepath.Join(on, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n")
+		guardtest.WriteFile(t, filepath.Join(on, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n")
 	}
 	project(wt)
 	base := filepath.Base(wt)
@@ -1122,9 +1123,9 @@ func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
 			t.Errorf("key %s: exit %d, calls %q, stderr %q", key, rc, calls, errs)
 		}
 	}
-	gitRun(t, wt, "commit", "-q", "--allow-empty", "-m", "init")
+	guardtest.GitRun(t, wt, "commit", "-q", "--allow-empty", "-m", "init")
 	other := filepath.Join(tmp, "other")
-	gitRun(t, wt, "worktree", "add", "-q", other)
+	guardtest.GitRun(t, wt, "worktree", "add", "-q", other)
 	project(other)
 	admitted(other, "verify-"+base)
 }
@@ -1136,7 +1137,7 @@ func TestRunVerifyListRecordsHead(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
+	guardtest.WriteExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\necho \"flow $*\" >> "+log+"\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -1145,11 +1146,11 @@ func TestRunVerifyListRecordsHead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\ntrue\n```\n")
-	fixtureRepo(t, wt, repoShape{})
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-qm", "a")
-	fixtureRepo(t, canon, repoShape{Commit: "c"})
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\ntrue\n```\n")
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-qm", "a")
+	guardtest.FixtureRepo(t, canon, guardtest.RepoShape{Commit: "c"})
 	head := func(d string) string {
 		out, err := exec.Command("git", "-C", d, "rev-parse", "HEAD").Output()
 		if err != nil {
@@ -1157,7 +1158,7 @@ func TestRunVerifyListRecordsHead(t *testing.T) {
 		}
 		return strings.TrimSpace(string(out))
 	}
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -1227,17 +1228,17 @@ func TestRunVerifyListStampsLintGreen(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\n"+cmd+"\n```\n")
-		fixtureRepo(t, wt, repoShape{})
-		gitRun(t, wt, "add", "-A")
-		gitRun(t, wt, "commit", "-qm", "a")
+		guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\n"+cmd+"\n```\n")
+		guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
+		guardtest.GitRun(t, wt, "add", "-A")
+		guardtest.GitRun(t, wt, "commit", "-qm", "a")
 		out, err := exec.Command("git", "-C", wt, "rev-parse", "--path-format=absolute", "--git-path", "flow-lint-green").Output()
 		if err != nil {
 			t.Fatal(err)
 		}
 		return wt, strings.TrimSpace(string(out))
 	}
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -1271,7 +1272,7 @@ func TestRunVerifyListStampsLintGreen(t *testing.T) {
 	})
 	t.Run("dirty", func(t *testing.T) {
 		wt, f := setup(t, "true")
-		writeFile(t, filepath.Join(wt, "untracked"), "x")
+		guardtest.WriteFile(t, filepath.Join(wt, "untracked"), "x")
 		rc, out := lint(wt)
 		if _, ok := stamp(f); rc != 0 || ok {
 			t.Fatalf("exit %d, stamp written %v; want exit 0, no stamp\n%s", rc, ok, out)
@@ -1280,8 +1281,8 @@ func TestRunVerifyListStampsLintGreen(t *testing.T) {
 	t.Run("stale", func(t *testing.T) {
 		wt, f := setup(t, "true")
 		old := head(t, wt)
-		writeFile(t, f, old+"\n")
-		gitRun(t, wt, "commit", "-q", "--allow-empty", "-m", "b")
+		guardtest.WriteFile(t, f, old+"\n")
+		guardtest.GitRun(t, wt, "commit", "-q", "--allow-empty", "-m", "b")
 		rc, out := lint(wt)
 		if got, _ := stamp(f); rc != 0 || got != head(t, wt)+"\n" || got == old+"\n" {
 			t.Fatalf("exit %d, stamp %q, want the newer %s\n%s", rc, got, head(t, wt), out)
@@ -1299,7 +1300,7 @@ func TestRunVerifyListRunsConcurrentLintTogether(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\n"+
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\n"+
 		"# concurrent\nsleep 1; touch a; echo one\n"+
 		"# concurrent\nsleep 1; touch b; echo two; exit 3\n"+
 		"ls a b >/dev/null && touch m && echo three\n"+
@@ -1338,12 +1339,12 @@ func TestRunVerifyListSkipsACommandGreenAtHead(t *testing.T) {
 	}
 	a := `echo ran >> "$(git rev-parse --git-dir)/a-runs"; echo a`
 	b := `test -f "$(git rev-parse --git-dir)/b-ok"`
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+a+"\n"+b+"\n```\n")
-	fixtureRepo(t, wt, repoShape{})
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-qm", "a")
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+a+"\n"+b+"\n```\n")
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-qm", "a")
 	gitDir := filepath.Join(wt, ".git")
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -1365,7 +1366,7 @@ func TestRunVerifyListSkipsACommandGreenAtHead(t *testing.T) {
 	if rc, out := test(); rc != 1 || runs() != 1 {
 		t.Fatalf("run 1: exit %d, a-runs %d; want 1, 1\n%s", rc, runs(), out)
 	}
-	writeFile(t, filepath.Join(gitDir, "b-ok"), "")
+	guardtest.WriteFile(t, filepath.Join(gitDir, "b-ok"), "")
 	head, err := exec.Command("git", "-C", wt, "rev-parse", "HEAD").Output()
 	if err != nil {
 		t.Fatal(err)
@@ -1374,9 +1375,9 @@ func TestRunVerifyListSkipsACommandGreenAtHead(t *testing.T) {
 	if want := "- `" + a + "` — skipped, passed at " + strings.TrimSpace(string(head)) + "\n"; rc != 0 || !strings.Contains(out, want) || runs() != 1 || !strings.Contains(out, "- `"+b+"` — exit 0\n") {
 		t.Fatalf("run 2: exit %d, a-runs %d; want 0, 1, %q and b exit 0\n%s", rc, runs(), want, out)
 	}
-	writeFile(t, filepath.Join(wt, "more.txt"), "x")
-	gitRun(t, wt, "add", "-A")
-	gitRun(t, wt, "commit", "-qm", "b")
+	guardtest.WriteFile(t, filepath.Join(wt, "more.txt"), "x")
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-qm", "b")
 	if rc, out := test(); runs() != 2 {
 		t.Fatalf("run 3: exit %d, a-runs %d; want 2\n%s", rc, runs(), out)
 	}
@@ -1398,7 +1399,7 @@ func TestRunVerifyListClassifiesAFailingTestCommand(t *testing.T) {
 	defect := `echo ran >> ` + g + `/d; echo '--- FAIL: TestBroken (0.00s)'; exit 1`
 	undecided := `echo 'make: no rule'; exit 2`
 	race := `echo ran >> ` + g + `/r; echo 'WARNING: DATA RACE'; exit 1`
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -1408,12 +1409,12 @@ func TestRunVerifyListClassifiesAFailingTestCommand(t *testing.T) {
 		return ""
 	}
 	test := func(cmds ...string) (int, string) {
-		writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+strings.Join(cmds, "\n")+"\n```\n")
+		guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+strings.Join(cmds, "\n")+"\n```\n")
 		var o, e bytes.Buffer
 		rc := runVerifyList([]string{wt, "test"}, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 		return rc, o.String()
 	}
-	fixtureRepo(t, wt, repoShape{})
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
 	runs := func(f string) int {
 		b, _ := os.ReadFile(filepath.Join(wt, ".git", f))
 		return strings.Count(string(b), "\n")
@@ -1468,7 +1469,7 @@ func TestRvlVisualFailuresReadsTheSummaryBlocks(t *testing.T) {
 func rvlScript(t *testing.T, body string) string {
 	t.Helper()
 	p := filepath.Join(t.TempDir(), "cell.sh")
-	writeExec(t, p, "#!/usr/bin/env bash\n"+body)
+	guardtest.WriteExec(t, p, "#!/usr/bin/env bash\n"+body)
 	return "bash " + p
 }
 
@@ -1481,7 +1482,7 @@ func rvlFailingList(t *testing.T, wt string) string {
 func TestRunVerifyListWritesTheFailingVisualTests(t *testing.T) {
 	t.Parallel()
 	summary := filepath.Join(t.TempDir(), "summary")
-	writeFile(t, summary, rvlSummary)
+	guardtest.WriteFile(t, summary, rvlSummary)
 	wt, _ := rvlVisualSetup(t, rvlScript(t, "cat "+summary+"\nexit 1\n")+" <specs>", "web/src/a.tsx", "", "", false, false, false)
 	rc, out := rvlRunIn(t, wt, "", wt, "visual")
 	list := rvlFailingList(t, wt)
@@ -1494,7 +1495,7 @@ func TestRunVerifyListWritesTheFailingVisualTests(t *testing.T) {
 func TestRunVerifyListGroupsFailuresByTheChangeSpecs(t *testing.T) {
 	t.Parallel()
 	summary := filepath.Join(t.TempDir(), "summary")
-	writeFile(t, summary, rvlSummary)
+	guardtest.WriteFile(t, summary, rvlSummary)
 	verify := rvlScript(t, "cat "+summary+"\nexit 1\n") + " <specs>"
 	wt, _ := rvlVisualSetup(t, verify, "web/src/a.tsx", "", "echo fidelity/templates.spec.ts:12 tests/auth.spec.ts", false, false, false)
 	_, out := rvlRunIn(t, wt, "", wt, "visual")
@@ -1517,7 +1518,7 @@ func TestRunVerifyListEmptiesTheFailingListWhenNoneParse(t *testing.T) {
 	t.Parallel()
 	wt, _ := rvlVisualSetup(t, rvlScript(t, "echo boom\nexit 1\n")+" <specs>", "web/src/a.tsx", "", "", false, false, false)
 	list := rvlFailingList(t, wt)
-	writeFile(t, list, "fidelity/old.spec.ts:1\n")
+	guardtest.WriteFile(t, list, "fidelity/old.spec.ts:1\n")
 	rc, out := rvlRunIn(t, wt, "", wt, "visual")
 	b, err := os.ReadFile(list)
 	if rc != 1 || err != nil || len(b) != 0 || !strings.Contains(out, "  failing list: none parsed\n") {
@@ -1528,7 +1529,7 @@ func TestRunVerifyListEmptiesTheFailingListWhenNoneParse(t *testing.T) {
 func TestRunVerifyListReportsAnUnwritableFailingList(t *testing.T) {
 	t.Parallel()
 	summary := filepath.Join(t.TempDir(), "summary")
-	writeFile(t, summary, rvlSummary)
+	guardtest.WriteFile(t, summary, rvlSummary)
 	wt, _ := rvlVisualSetup(t, rvlScript(t, "cat "+summary+"\nexit 1\n")+" <specs>", "web/src/a.tsx", "", "", false, false, false)
 	list := rvlFailingList(t, wt)
 	if err := os.MkdirAll(list, 0o777); err != nil {
@@ -1547,7 +1548,7 @@ func rvlNarrowFixture(t *testing.T, out string, rc int) (wt, argv, marker string
 	t.Helper()
 	d := t.TempDir()
 	argv, marker = filepath.Join(d, "argv"), filepath.Join(d, "marker")
-	writeFile(t, filepath.Join(d, "out"), out)
+	guardtest.WriteFile(t, filepath.Join(d, "out"), out)
 	verify := rvlScript(t, "echo \"$*\" > "+argv+"\ncat "+filepath.Join(d, "out")+"\nexit "+strconv.Itoa(rc)+"\n") + " <specs>"
 	specs := rvlScript(t, "touch "+marker+"\necho fidelity/a.spec.ts\n")
 	wt, _ = rvlVisualSetup(t, verify, "web/src/a.tsx", "", specs, false, false, false)
@@ -1558,7 +1559,7 @@ func TestRunVerifyListOnlyRunsTheFailingList(t *testing.T) {
 	t.Parallel()
 	wt, argv, _ := rvlNarrowFixture(t, "", 0)
 	list := rvlFailingList(t, wt)
-	writeFile(t, list, "fidelity/b.spec.ts:8\ntests/c.spec.ts:4\n")
+	guardtest.WriteFile(t, list, "fidelity/b.spec.ts:8\ntests/c.spec.ts:4\n")
 	rc, out := rvlRunIn(t, wt, "", "-only", list, wt, "visual")
 	got, _ := os.ReadFile(argv)
 	if want := "fidelity/b.spec.ts:8 tests/c.spec.ts:4 --retries=1\n"; rc != 0 || string(got) != want {
@@ -1578,7 +1579,7 @@ func TestRunVerifyListOnlyGroupsFailuresByTheChangeSpecs(t *testing.T) {
 	t.Parallel()
 	wt, argv, _ := rvlNarrowFixture(t, "  2 failed\n    [fidelity] › fidelity/a.spec.ts:20:3 › a\n    [fidelity] › tests/c.spec.ts:4:3 › c\n", 1)
 	list := filepath.Join(t.TempDir(), "only")
-	writeFile(t, list, "fidelity/a.spec.ts:20\ntests/c.spec.ts:4\n")
+	guardtest.WriteFile(t, list, "fidelity/a.spec.ts:20\ntests/c.spec.ts:4\n")
 	_, out := rvlRunIn(t, wt, "", "-only", list, wt, "visual")
 	got, _ := os.ReadFile(argv)
 	if want := "fidelity/a.spec.ts:20 tests/c.spec.ts:4 --retries=1\n"; string(got) != want {
@@ -1594,8 +1595,8 @@ func TestRunVerifyListOnlyGroupsFailuresByTheChangeSpecs(t *testing.T) {
 func TestRvlNextRoundIsNumericAndClaimsTheRound(t *testing.T) {
 	t.Parallel()
 	keep := t.TempDir()
-	writeFile(t, filepath.Join(keep, "visual-plain-r2.log"), "")
-	writeFile(t, filepath.Join(keep, "visual-plain-r10.log"), "")
+	guardtest.WriteFile(t, filepath.Join(keep, "visual-plain-r2.log"), "")
+	guardtest.WriteFile(t, filepath.Join(keep, "visual-plain-r10.log"), "")
 	// r10 sorts before r2: the highest is taken numerically (F12), and a
 	// second claim before any log is written takes the next round (F14).
 	if a, b := rvlNextRound(keep), rvlNextRound(keep); a != 11 || b != 12 {
@@ -1612,7 +1613,7 @@ func TestRunVerifyListOnlyReportsARetryPassAsFlaky(t *testing.T) {
 	t.Parallel()
 	wt, argv, _ := rvlNarrowFixture(t, "  1 flaky\n    [fidelity] › fidelity/a.spec.ts:20:3 › a\n", 0)
 	list := rvlFailingList(t, wt)
-	writeFile(t, list, "fidelity/a.spec.ts:20\n")
+	guardtest.WriteFile(t, list, "fidelity/a.spec.ts:20\n")
 	rc, out := rvlRunIn(t, wt, "", "-only", list, wt, "visual")
 	got, _ := os.ReadFile(argv)
 	if want := "fidelity/a.spec.ts:20 --retries=1\n"; rc != 0 || string(got) != want {
@@ -1626,7 +1627,7 @@ func TestRunVerifyListOnlyReportsARetryPassAsFlaky(t *testing.T) {
 	}
 	wt, _, _ = rvlNarrowFixture(t, "  1 failed\n    [fidelity] › tests/c.spec.ts:4:3 › c\n  1 flaky\n    [fidelity] › fidelity/a.spec.ts:20:3 › a\n", 1)
 	list = rvlFailingList(t, wt)
-	writeFile(t, list, "fidelity/a.spec.ts:20\ntests/c.spec.ts:4\ntests/d.spec.ts:9\n")
+	guardtest.WriteFile(t, list, "fidelity/a.spec.ts:20\ntests/c.spec.ts:4\ntests/d.spec.ts:9\n")
 	rc, out = rvlRunIn(t, wt, "", "-only", list, wt, "visual")
 	if rc != 1 || !strings.Contains(out, "  flaky (1): fidelity/a.spec.ts:20 — ") {
 		t.Errorf("a twice-failed test beside a flaky one: exit %d, want 1 and the flaky line\n%s", rc, out)
@@ -1640,9 +1641,9 @@ func TestRunVerifyListNarrowedRunRefusals(t *testing.T) {
 	t.Parallel()
 	wt, argv, marker := rvlNarrowFixture(t, "", 0)
 	empty := filepath.Join(t.TempDir(), "empty")
-	writeFile(t, empty, "")
+	guardtest.WriteFile(t, empty, "")
 	full := filepath.Join(t.TempDir(), "full")
-	writeFile(t, full, "tests/c.spec.ts:4\n")
+	guardtest.WriteFile(t, full, "tests/c.spec.ts:4\n")
 	missing := filepath.Join(t.TempDir(), "missing")
 	noSpecs, _ := rvlVisualSetup(t, "echo whole", "web/src/a.tsx", "", "", false, false, false)
 	for _, tc := range []struct {
@@ -1675,7 +1676,7 @@ func TestRunVerifyListKeepsEveryVisualRound(t *testing.T) {
 	keep := filepath.Dir(rvlFailingList(t, wt))
 	rvlRunIn(t, wt, "", wt, "visual")
 	only := filepath.Join(t.TempDir(), "only")
-	writeFile(t, only, "tests/c.spec.ts:4\n")
+	guardtest.WriteFile(t, only, "tests/c.spec.ts:4\n")
 	_, out := rvlRunIn(t, wt, "", "-only", only, wt, "visual")
 	for f, want := range map[string]string{
 		"visual-plain-r1.log":             "",
@@ -1703,8 +1704,8 @@ func TestRunVerifyListKeepsTheTestListsRunStartCleanup(t *testing.T) {
 	t.Parallel()
 	wt, _ := rvlVisualSetup(t, "true <specs>", "docs/a.md", "", "", false, false, false)
 	keep := filepath.Dir(rvlFailingList(t, wt))
-	writeFile(t, filepath.Join(keep, "test-0.log"), "stale\n")
-	writeFile(t, filepath.Join(keep, "visual-plain-r1.log"), "round 1\n")
+	guardtest.WriteFile(t, filepath.Join(keep, "test-0.log"), "stale\n")
+	guardtest.WriteFile(t, filepath.Join(keep, "visual-plain-r1.log"), "round 1\n")
 	rvlRunIn(t, wt, "", wt, "test")
 	if _, err := os.Stat(filepath.Join(keep, "test-0.log")); err == nil {
 		t.Error("a test run left the stale test-0.log")
@@ -1722,8 +1723,8 @@ func rvlFlowStub(t *testing.T, state string, stateRC int) (dir, log string) {
 	t.Helper()
 	dir = t.TempDir()
 	log = filepath.Join(dir, "calls")
-	writeFile(t, filepath.Join(dir, "state.json"), state)
-	writeExec(t, filepath.Join(dir, "flow"), "#!/usr/bin/env bash\necho \"$*\" >> "+log+"\n"+
+	guardtest.WriteFile(t, filepath.Join(dir, "state.json"), state)
+	guardtest.WriteExec(t, filepath.Join(dir, "flow"), "#!/usr/bin/env bash\necho \"$*\" >> "+log+"\n"+
 		"if [ \"$1 $2\" = \"state get\" ]; then cat "+filepath.Join(dir, "state.json")+"; exit "+strconv.Itoa(stateRC)+"; fi\n"+
 		"if [ \"$1 $2\" = \"suite record\" ]; then\n  while [ \"$1\" != -- ]; do shift; done\n  shift\n  exec \"$@\"\nfi\n")
 	return dir, log
@@ -1746,15 +1747,15 @@ func TestRunVerifyListScopesSpecsToTheKickoffBase(t *testing.T) {
 	wt, _ := rvlVisualSetup(t, "echo VISUAL [<specs>]", "docs/a.md", "", "echo <merge-base>", false, false, false)
 	k := rvlGit(t, wt, "rev-parse", "HEAD~1")
 	rvlGit(t, wt, "checkout", "-q", "-b", "spectre/demo", k)
-	writeFile(t, filepath.Join(wt, "web/src/k.tsx"), "x\n")
+	guardtest.WriteFile(t, filepath.Join(wt, "web/src/k.tsx"), "x\n")
 	rvlGit(t, wt, "add", "-A")
 	rvlGit(t, wt, "commit", "-q", "-m", "ui")
-	writeFile(t, filepath.Join(wt, "README"), "m\n")
+	guardtest.WriteFile(t, filepath.Join(wt, "README"), "m\n")
 	rvlGit(t, wt, "add", "-A")
 	rvlGit(t, wt, "commit", "-q", "-m", "m")
 	rvlGit(t, wt, "push", "-q", "-f", "origin", "HEAD:main")
 	rvlGit(t, wt, "fetch", "-q", "origin")
-	writeFile(t, filepath.Join(wt, "docs/b.md"), "x\n")
+	guardtest.WriteFile(t, filepath.Join(wt, "docs/b.md"), "x\n")
 	rvlGit(t, wt, "add", "-A")
 	rvlGit(t, wt, "commit", "-q", "-m", "change")
 	stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{wt: k}), 0)
@@ -1800,7 +1801,7 @@ func TestRunVerifyListReadsTheRecordFromTheCanonicalWorktree(t *testing.T) {
 	rvlGit(t, wt, "branch", "-m", "spectre/demo")
 	canon := t.TempDir()
 	only := filepath.Join(t.TempDir(), "only")
-	writeFile(t, only, "tests/c.spec.ts:4\n")
+	guardtest.WriteFile(t, only, "tests/c.spec.ts:4\n")
 	for _, tc := range []struct {
 		want string
 		args []string
@@ -1843,12 +1844,12 @@ func TestRunVerifyListRunsSpecsFromTheSiblingFrontend(t *testing.T) {
 	// A sibling worktree of a repository named `web`, whose diff touches
 	// src/a.tsx -- web/src/a.tsx under the canonical `ui paths`.
 	sib := filepath.Join(t.TempDir(), "web")
-	writeFile(t, filepath.Join(sib, "README"), "x\n")
-	fixtureRepo(t, sib, repoShape{Branch: "main"})
+	guardtest.WriteFile(t, filepath.Join(sib, "README"), "x\n")
+	guardtest.FixtureRepo(t, sib, guardtest.RepoShape{Branch: "main"})
 	rvlGit(t, sib, "add", "-A")
 	rvlGit(t, sib, "commit", "-q", "-m", "base")
 	sibBase := rvlGit(t, sib, "rev-parse", "HEAD")
-	writeFile(t, filepath.Join(sib, "src/a.tsx"), "x\n")
+	guardtest.WriteFile(t, filepath.Join(sib, "src/a.tsx"), "x\n")
 	rvlGit(t, sib, "add", "-A")
 	rvlGit(t, sib, "commit", "-q", "-m", "ui")
 	stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{wt: rvlGit(t, wt, "merge-base", "HEAD", "origin/main"), sib: sibBase}), 0)
@@ -1866,7 +1867,7 @@ func TestRunVerifyListRecordsTheVisualSuiteOnPlainRuns(t *testing.T) {
 	t.Parallel()
 	wt, _ := rvlVisualSetup(t, "echo VISUAL-RAN <specs>", "web/src/a.tsx", "", "", false, false, false)
 	list := rvlFailingList(t, wt)
-	writeFile(t, list, "tests/c.spec.ts:4\n")
+	guardtest.WriteFile(t, list, "tests/c.spec.ts:4\n")
 	for _, tc := range []struct {
 		args   []string
 		record bool
@@ -1901,13 +1902,13 @@ func TestRunVerifyListRecordsNoRowForAGuardSkippedSuite(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		writeFile(t, filepath.Join(repo, ".flow/project.md"), "## test\n\n```bash\n"+list+"```\n")
-		fixtureRepo(t, repo, repoShape{Branch: "main"})
+		guardtest.WriteFile(t, filepath.Join(repo, ".flow/project.md"), "## test\n\n```bash\n"+list+"```\n")
+		guardtest.FixtureRepo(t, repo, guardtest.RepoShape{Branch: "main"})
 		rvlGit(t, repo, "add", "-A")
 		rvlGit(t, repo, "commit", "-q", "-m", "base")
 		rvlGit(t, repo, "update-ref", "refs/remotes/origin/main", "HEAD")
 		base = rvlGit(t, repo, "rev-parse", "HEAD")
-		writeFile(t, filepath.Join(repo, "docs/a.md"), "a\n")
+		guardtest.WriteFile(t, filepath.Join(repo, "docs/a.md"), "a\n")
 		rvlGit(t, repo, "add", "-A")
 		rvlGit(t, repo, "commit", "-q", "-m", "docs")
 		return repo, base
@@ -1921,7 +1922,7 @@ func TestRunVerifyListRecordsNoRowForAGuardSkippedSuite(t *testing.T) {
 			"# suite: chain\nflow-guard unchanged . ':!docs' || echo A && echo CHAIN-RAN\n")
 		stub, flowLog := rvlFlowStub(t, "", 1)
 		guardLog := filepath.Join(stub, "guard-calls")
-		writeExec(t, filepath.Join(stub, "flow-guard"), "#!/usr/bin/env bash\necho \"$*\" >> "+guardLog+"\nexit 1\n")
+		guardtest.WriteExec(t, filepath.Join(stub, "flow-guard"), "#!/usr/bin/env bash\necho \"$*\" >> "+guardLog+"\nexit 1\n")
 
 		rc, out := rvlRunIn(t, repo, stub, repo, "test")
 		if rc != 0 {
@@ -1948,7 +1949,7 @@ func TestRunVerifyListRecordsNoRowForAGuardSkippedSuite(t *testing.T) {
 		t.Parallel()
 		repo, _ := fixture(t, quiet)
 		stub, flowLog := rvlFlowStub(t, "", 1)
-		writeExec(t, filepath.Join(stub, "flow-guard"), "#!/usr/bin/env bash\necho \"$*\" >> "+filepath.Join(stub, "guard-calls")+"\nexit 1\n")
+		guardtest.WriteExec(t, filepath.Join(stub, "flow-guard"), "#!/usr/bin/env bash\necho \"$*\" >> "+filepath.Join(stub, "guard-calls")+"\nexit 1\n")
 		if rc, out := rvlRunIn(t, repo, stub, repo, "test", "kan-1", "verify", "mf-k1", "opus", "low"); rc != 0 {
 			t.Fatalf("quiet alone: exit %d, want 0\n%s", rc, out)
 		}
@@ -1967,8 +1968,8 @@ func rvlFullRepo(t *testing.T, list string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(repo, ".flow/project.md"), "## test\n\n```bash\n"+list+"```\n")
-	fixtureRepo(t, repo, repoShape{Branch: "main"})
+	guardtest.WriteFile(t, filepath.Join(repo, ".flow/project.md"), "## test\n\n```bash\n"+list+"```\n")
+	guardtest.FixtureRepo(t, repo, guardtest.RepoShape{Branch: "main"})
 	rvlGit(t, repo, "add", "-A")
 	rvlGit(t, repo, "commit", "-q", "-m", "base")
 	rvlGit(t, repo, "update-ref", "refs/remotes/origin/main", "HEAD")
@@ -1980,7 +1981,7 @@ func rvlFullRepo(t *testing.T, list string) string {
 func TestRunVerifyListFullRunsEverySuite(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
-	repo := rvlFullRepo(t, "# suite: quiet\n"+guardBinary(t)+" unchanged . || { echo QUIET-RAN; }\n# suite: plain\necho \"FULL=$FLOW_VERIFY_FULL\"\n")
+	repo := rvlFullRepo(t, "# suite: quiet\n"+guardtest.GuardBinary(t)+" unchanged . || { echo QUIET-RAN; }\n# suite: plain\necho \"FULL=$FLOW_VERIFY_FULL\"\n")
 	stub, log := rvlFlowStub(t, "", 1)
 	rc, out := rvlRunIn(t, repo, stub, repo, "test")
 	if rc != 0 || !strings.Contains(out, "— suite skipped") || strings.Contains(out, "  QUIET-RAN\n") || !strings.Contains(out, "  FULL=\n") {
@@ -2066,7 +2067,7 @@ func TestRunVerifyListFullRunsTheVisualSuiteWhole(t *testing.T) {
 func TestRunVerifyListFullUsage(t *testing.T) {
 	t.Parallel()
 	repo := rvlFullRepo(t, "touch ran\n")
-	writeFile(t, filepath.Join(repo, "only.txt"), "a.spec.ts\n")
+	guardtest.WriteFile(t, filepath.Join(repo, "only.txt"), "a.spec.ts\n")
 	for _, args := range [][]string{
 		{"-full", repo, "lint"},
 		{"-full", "-only", filepath.Join(repo, "only.txt"), repo, "visual"},
@@ -2087,12 +2088,12 @@ func TestRunVerifyListReRunsTheVisualRowWhenASiblingMoves(t *testing.T) {
 	t.Parallel()
 	wt, _ := rvlVisualSetup(t, "echo VISUAL <specs>", "docs/a.md", "", "", false, false, false)
 	sib := filepath.Join(t.TempDir(), "web")
-	writeFile(t, filepath.Join(sib, "README"), "x\n")
-	fixtureRepo(t, sib, repoShape{Branch: "main"})
+	guardtest.WriteFile(t, filepath.Join(sib, "README"), "x\n")
+	guardtest.FixtureRepo(t, sib, guardtest.RepoShape{Branch: "main"})
 	rvlGit(t, sib, "add", "-A")
 	rvlGit(t, sib, "commit", "-q", "-m", "base")
 	sibBase := rvlGit(t, sib, "rev-parse", "HEAD")
-	writeFile(t, filepath.Join(sib, "src/a.tsx"), "x\n")
+	guardtest.WriteFile(t, filepath.Join(sib, "src/a.tsx"), "x\n")
 	rvlGit(t, sib, "add", "-A")
 	rvlGit(t, sib, "commit", "-q", "-m", "ui")
 	stub, _ := rvlFlowStub(t, rvlStateJSON(t, map[string]string{wt: rvlGit(t, wt, "merge-base", "HEAD", "origin/main"), sib: sibBase}), 0)
@@ -2104,7 +2105,7 @@ func TestRunVerifyListReRunsTheVisualRowWhenASiblingMoves(t *testing.T) {
 	if rc, out := rvlRunIn(t, wt, stub, args...); rc != 0 || strings.Contains(out, ran) {
 		t.Fatalf("run 2: exit %d, the visual row ran with nothing moved:\n%s", rc, out)
 	}
-	writeFile(t, filepath.Join(sib, "src/b.tsx"), "x\n")
+	guardtest.WriteFile(t, filepath.Join(sib, "src/b.tsx"), "x\n")
 	rvlGit(t, sib, "add", "-A")
 	rvlGit(t, sib, "commit", "-q", "-m", "more ui")
 	if rc, out := rvlRunIn(t, wt, stub, args...); rc != 0 || !strings.Contains(out, ran) {
@@ -2143,7 +2144,7 @@ func rvlWideFixture(t *testing.T, n int) (wt, argv string) {
 echo tests/smoke.spec.ts:1
 `) + " <frontend-root> <merge-base>"
 	wt, _ = rvlVisualSetup(t, verify, "web/src/a.tsx", "", specs, false, false, false)
-	writeFile(t, filepath.Join(wt, "tests/s7.spec.ts"), "x\n")
+	guardtest.WriteFile(t, filepath.Join(wt, "tests/s7.spec.ts"), "x\n")
 	rvlGit(t, wt, "add", "-A")
 	rvlGit(t, wt, "commit", "-q", "-m", "spec")
 	return wt, argv
@@ -2177,7 +2178,7 @@ func TestRunVerifyListNarrowsAWideSelection(t *testing.T) {
 		fmt.Fprintf(&b, "tests/s%d.spec.ts:3 ", i)
 	}
 	only := filepath.Join(t.TempDir(), "only")
-	writeFile(t, only, b.String())
+	guardtest.WriteFile(t, only, b.String())
 	if rc, out := rvlRunIn(t, wt, "", "-only", only, wt, "visual"); rc != 0 || strings.Contains(out, "narrowed") {
 		t.Errorf("-only: exit %d, want 0 and no narrowing:\n%.600s", rc, out)
 	}
@@ -2221,7 +2222,7 @@ esac; done | sort -u
 `) + " <frontend-root> <merge-base>"
 	wt, _ = rvlVisualSetup(t, verify, "web/src/theme.css", "", specs, false, false, false)
 	h1 = rvlGit(t, wt, "rev-parse", "HEAD")
-	writeFile(t, filepath.Join(wt, "web/src/b.tsx"), "x\n")
+	guardtest.WriteFile(t, filepath.Join(wt, "web/src/b.tsx"), "x\n")
 	rvlGit(t, wt, "add", "-A")
 	rvlGit(t, wt, "commit", "-q", "-m", "fix")
 	return wt, argv, h1
@@ -2267,7 +2268,7 @@ func TestRunVerifyListReRunCoversTheFailingList(t *testing.T) {
 	t.Parallel()
 	wt, argv, h1 := rvlRoundFixture(t, 0)
 	list := rvlFailingList(t, wt)
-	writeFile(t, list, "b.spec.ts:8\ntests/c.spec.ts:4\n")
+	guardtest.WriteFile(t, list, "b.spec.ts:8\ntests/c.spec.ts:4\n")
 	stub, _ := rvlFlowStub(t, "{}", 1)
 	rc, out := rvlRunRows(t, wt, stub, nil, rvlRows(t, "verify", h1), wt, "visual", "work", "verify-fix-1", "tok", "opus", "low")
 	got, _ := os.ReadFile(argv)
@@ -2286,9 +2287,9 @@ func TestRunVerifyListOnlyGroupsAsTheFailingRowDid(t *testing.T) {
 	t.Parallel()
 	wt, argv, h1 := rvlRoundFixture(t, 1)
 	head := rvlGit(t, wt, "rev-parse", "HEAD")
-	writeFile(t, argv+".summary", "  1 failed\n    [p] › a.spec.ts:1:1 › a\n")
+	guardtest.WriteFile(t, argv+".summary", "  1 failed\n    [p] › a.spec.ts:1:1 › a\n")
 	only := filepath.Join(t.TempDir(), "only")
-	writeFile(t, only, "a.spec.ts:1\n")
+	guardtest.WriteFile(t, only, "a.spec.ts:1\n")
 	for want, rows := range map[string]func(string) ([]byte, error){
 		"  failing in the change's specs (1): a.spec.ts:1\n": rvlRows(t, "verify", head),
 		"  failing elsewhere (1): a.spec.ts:1\n":             rvlRows(t, "verify", h1, "verify-fix-1", head),
@@ -2315,10 +2316,10 @@ func TestRunVerifyListRefusesAnUnsuffixedKeyInAMultiWorktreeChange(t *testing.T)
 	if err := os.MkdirAll(wt, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n")
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## lint\n\n```bash\ntrue\n```\n")
 	run := func(state, key string) (int, string, string) {
 		dir, log := rvlFlowStub(t, state, 0)
-		environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
+		environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
 		getenv := func(k string) string {
 			for i := len(environ) - 1; i >= 0; i-- {
 				if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -2357,7 +2358,7 @@ func TestRunVerifyListAppliesPrepareWorkspace(t *testing.T) {
 			"\n## lint\n\n```bash\ntouch ran\nprintf '%s\\n' \"$FRONTEND_URL\" > out.txt\n```\n"
 	}
 	run := func(wt string, extra ...string) (int, string) {
-		environ := append(append(slices.DeleteFunc(os.Environ(), func(kv string) bool { return strings.HasPrefix(kv, "FRONTEND_URL=") }), "FLOW_GUARD_CACHE_DIR="+guardCache(t)), extra...)
+		environ := append(append(slices.DeleteFunc(os.Environ(), func(kv string) bool { return strings.HasPrefix(kv, "FRONTEND_URL=") }), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t)), extra...)
 		getenv := func(k string) string {
 			for i := len(environ) - 1; i >= 0; i-- {
 				if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -2385,7 +2386,7 @@ func TestRunVerifyListAppliesPrepareWorkspace(t *testing.T) {
 	// A /flow-fast or /flow-interactive worktree is on `<name>`, carries no
 	// workspace, and ran the list before f16: it still does, with no value.
 	fast := pwRepo(t, "demo", iso("url"))
-	gitRun(t, fast, "checkout", "-q", "-b", "kan-1-demo")
+	guardtest.GitRun(t, fast, "checkout", "-q", "-b", "kan-1-demo")
 	if rc, out := run(fast); rc != 0 || !strings.HasPrefix(out, "\n") || !strings.Contains(out, "`touch ran`") {
 		t.Errorf("a worktree on a bare <name> branch: exit %d, want 0, the list run and no workspace value:\n%s", rc, out)
 	}
@@ -2408,9 +2409,9 @@ func TestRunVerifyListAbortsTheSupersededOpenRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := filepath.Join(wt, "a")
-	fixtureRepo(t, a, repoShape{})
-	writeFile(t, filepath.Join(a, ".flow/project.md"), "## lint\n\n```bash\necho ran >> "+log+"\n```\n")
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
+	guardtest.FixtureRepo(t, a, guardtest.RepoShape{})
+	guardtest.WriteFile(t, filepath.Join(a, ".flow/project.md"), "## lint\n\n```bash\necho ran >> "+log+"\n```\n")
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
@@ -2421,7 +2422,7 @@ func TestRunVerifyListAbortsTheSupersededOpenRow(t *testing.T) {
 	}
 	run := func(endRC int) (int, string, string) {
 		os.Remove(log)
-		writeExec(t, filepath.Join(dir, "flow"), fmt.Sprintf("#!/bin/sh\n[ \"$1\" = state ] && exit 0\n"+
+		guardtest.WriteExec(t, filepath.Join(dir, "flow"), fmt.Sprintf("#!/bin/sh\n[ \"$1\" = state ] && exit 0\n"+
 			"[ \"$2\" = dispatches ] && { echo '%s'; exit 0; }\necho \"flow $*\" >> %s\n"+
 			"[ \"$3\" = end ] && echo nope && exit %d\nexit 0\n", rows, log, endRC))
 		var o, e bytes.Buffer
@@ -2449,7 +2450,7 @@ func TestRunVerifyListRecordsItsCost(t *testing.T) {
 	t.Parallel()
 	wt, _, _ := rvlNarrowFixture(t, "  1 failed\n    [fidelity] › fidelity/a.spec.ts:20:3 › a\n  1 flaky\n    [fidelity] › tests/c.spec.ts:4:3 › c\n  2 passed (1.0s)\n", 1)
 	only := filepath.Join(t.TempDir(), "only")
-	writeFile(t, only, "fidelity/a.spec.ts:20\n")
+	guardtest.WriteFile(t, only, "fidelity/a.spec.ts:20\n")
 	for label, args := range map[string][]string{"visual": {wt, "visual"}, "visual-only": {"-only", only, wt, "visual"}} {
 		stub, log := rvlFlowStub(t, "{}", 0)
 		rvlRunIn(t, wt, stub, args...)
@@ -2485,20 +2486,20 @@ func TestRunVerifyListPadsAFastCompletedRow(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
 	dir := t.TempDir()
-	writeExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\n[ \"$3\" = begin ] && touch "+dir+"/begin\n[ \"$3\" = end ] && touch "+dir+"/end\nexit 0\n")
+	guardtest.WriteExec(t, filepath.Join(dir, "flow"), "#!/bin/sh\n[ \"$1\" = state ] && exit 0\n[ \"$2\" = dispatches ] && exit 0\n[ \"$3\" = begin ] && touch "+dir+"/begin\n[ \"$3\" = end ] && touch "+dir+"/end\nexit 0\n")
 	wt, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixtureRepo(t, wt, repoShape{})
-	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\ntrue\n```\n")
-	if out, err := exec.Command(fixtureGit, "-C", wt, "add", "-A").CombinedOutput(); err != nil {
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
+	guardtest.WriteFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\ntrue\n```\n")
+	if out, err := exec.Command(guardtest.FixtureGit, "-C", wt, "add", "-A").CombinedOutput(); err != nil {
 		t.Fatalf("git add: %v\n%s", err, out)
 	}
-	if out, err := exec.Command(fixtureGit, "-C", wt, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "x").CombinedOutput(); err != nil {
+	if out, err := exec.Command(guardtest.FixtureGit, "-C", wt, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "x").CombinedOutput(); err != nil {
 		t.Fatalf("git commit: %v\n%s", err, out)
 	}
-	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
+	environ := append(os.Environ(), "FLOW_GUARD_CACHE_DIR="+guardtest.GuardCache(t), "PATH="+dir+":"+os.Getenv("PATH"))
 	getenv := func(k string) string {
 		for i := len(environ) - 1; i >= 0; i-- {
 			if v, ok := strings.CutPrefix(environ[i], k+"="); ok {
