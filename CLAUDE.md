@@ -32,6 +32,23 @@ Rules, skills, contracts, templates and rationale appendices state the rule and 
 
 ---
 
+### Written files owe completeness and non-repetition
+
+**A written file owes completeness and non-repetition — both at once, never one in place of the
+other.** Non-repetition binds two subjects and no others: the Markdown of the `agents` repository
+these rules and skills are authored in, and the artifacts a `/flow*` run generates in any project
+— `proposal.md`, `design.md`, `tasks.md`, panel records, self-review reports. A
+consuming project's pre-existing documentation is not subject to it. Such a file states a thing once
+and does not restate what another file states canonically.
+
+**Cut, never paraphrase.** Delete a restating passage; do not reword one to say the same thing in
+fewer words. A normative sentence re-said differently is a changed requirement that no guard
+detects, where a deletion is visible in the diff. Never cut a normative sentence, an exit-code
+contract, an ordering constraint, a scenario, a worked example, or a recorded reason a rejected
+alternative was rejected.
+
+---
+
 ### No scripts in bash
 
 Every new script, and any new logic added to an existing one, is Go in `flow-guard`:

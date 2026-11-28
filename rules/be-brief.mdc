@@ -1,5 +1,5 @@
 ---
-description: Answer at the length the question needs and stop — prose only; the agents repo's Markdown and flow artifacts owe completeness and non-repetition
+description: Answer at the length the question needs and stop — prose only; written files stay complete
 alwaysApply: true
 ---
 
@@ -10,19 +10,6 @@ Answer at the length the question needs and stop. Always on, every session and e
 the user asks for more detail in that moment. **Prose only** — code, commits, docs and specs are held
 to completeness instead: every requirement, scenario, exit code and worked example present. Lead with
 the answer: no preamble, no recap.
-
-**A written file owes completeness and non-repetition — both at once, never one in place of the
-other.** Non-repetition binds two subjects and no others: the Markdown of the `agents` repository
-these rules and skills are authored in, and the artifacts a `/flow*` run generates in any project
-— `proposal.md`, `design.md`, `tasks.md`, panel records, self-review reports. A
-consuming project's pre-existing documentation is not subject to it. Such a file states a thing once
-and does not restate what another file states canonically.
-
-**Cut, never paraphrase.** Delete a restating passage; do not reword one to say the same thing in
-fewer words. A normative sentence re-said differently is a changed requirement that no guard
-detects, where a deletion is visible in the diff. Never cut a normative sentence, an exit-code
-contract, an ordering constraint, a scenario, a worked example, or a recorded reason a rejected
-alternative was rejected.
 
 **Keep the user posted, and never let a report become a stop.** In multi-step work, dispatch the
 next step before writing up the last one — one line per completed unit, and one line naming what
@@ -67,10 +54,8 @@ It compresses the report back to you, never the agent's files.
 
 ## Scope
 
-The length rule governs **prose only** — never code, commit messages, docs, specs, or anything
-written to a file. Those stay as full and careful as they would otherwise be. What a written file
-owes instead, and which files owe it, is stated once in the core paragraphs above. A subagent's chat
-report is compressed; what it writes to disk is not.
+What a written file of the `agents` repository, or a `/flow*` run's artifact, owes instead is stated
+once in that repository's `CLAUDE.md` (**Written files owe completeness and non-repetition**).
 
 ## What to cut
 
@@ -92,18 +77,13 @@ three.
 
 ## Never compress
 
-Security warnings. Confirming an irreversible or outward-facing action. Any sequence whose order
-matters. Anything ambiguous in short form. A correction, a caveat, or a reason something might be
-wrong is always worth the words.
+A correction, a caveat, or a reason something might be wrong is always worth the words.
 
 ## Subagents
 
-This is one of the rules `~/.claude/rules/agent-baseline.md` carries, so a dispatch that includes the
-baseline pointer already binds the agent to it at any depth. State it directly in the dispatch too —
-it governs the one artifact the parent actually reads:
-
-> Report tersely: findings first, bullets over prose, no preamble, no recap. Full prose in whatever
-> you write to disk.
+This is one of the rules `rules/agent-baseline.md` carries, so a dispatch that includes the
+baseline pointer already binds the agent to it at any depth. State the core's reporting block directly in the dispatch too —
+it governs the one artifact the parent actually reads.
 
 ### Always, not only when it seems to matter
 
@@ -121,8 +101,9 @@ explicitly too, so the agent cannot read "terse" as applying to the file.
 
 ### The exceptions
 
-- **`subagent_type: "fork"`** inherits the parent's full conversation context, the global rules file
-  included. The line is redundant there — harmless, but not required.
+- **`subagent_type: "fork"`** outside a flow session inherits the parent's full conversation context,
+  the global rules file included. The line is redundant there — harmless, but not required. Inside a
+  flow session the `enforce-agent-baseline` hook denies every `fork`; dispatch a fresh agent.
 - **A dispatch that asks for verbatim output** — a full error, a raw diff, a complete file listing —
   needs that carve-out stated alongside the block, or the agent will summarise what you wanted
   quoted.

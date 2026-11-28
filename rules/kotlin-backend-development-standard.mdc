@@ -1,5 +1,5 @@
 ---
-description: Kotlin backend core/infrastructure architecture — domain, ports, services, presentation, and integrations for Gymie Spring modules
+description: Kotlin backend core/infrastructure architecture — domain, ports, services, presentation, and integrations for Spring backend modules
 globs: src/**/*.kt,**/*.kts
 alwaysApply: false
 ---
@@ -12,7 +12,7 @@ Follow [JetBrains Kotlin coding conventions](https://kotlinlang.org/docs/coding-
 
 detekt 1.x's `>=`-compared `threshold` fields — the size and count ceilings a plan cites: `TooManyFunctions`' `thresholdInClasses`/`thresholdInFiles`, `LongMethod`, `LargeClass`, `LongParameterList`, `NestedBlockDepth`, `ComplexCondition`, `CyclomaticComplexMethod` — are **first-failing counts, not safe maxima**: the rule fires once the count reaches the threshold, so `TooManyFunctions` with `thresholdInClasses: 20` fails a class at exactly 20 functions and the largest compliant class holds 19. Two thresholds are the exceptions and already are safe maxima — `NamedArguments` and `NestedScopeFunctions` compare with strict `>` — and detekt 2.x renames the size fields to `allowed*` under that same strict comparison. A plan citing a first-failing ceiling must state the safe maximum — the configured threshold minus one, read off the project's `detekt.yml` — never the bare threshold, which fails the first file or class that reaches it.
 
-## 2. Gymie Gradle layout
+## 2. Gradle layout
 
 | Path | Module | Role |
 |------|--------|------|
@@ -23,10 +23,10 @@ detekt 1.x's `>=`-compared `threshold` fields — the size and count ceilings a 
 
 ## 3. Domain module layout (`core` + `infrastructure`)
 
-Every domain Gradle module (e.g. `:auth`) splits **all** code into two top-level packages under `com.gymie.<module>`:
+Every domain Gradle module (e.g. `:auth`) splits **all** code into two top-level packages under `com.<org>.<module>`:
 
 ```
-com/gymie/auth/
+com/<org>/auth/
 ├── core/                                    # business logic ONLY
 │   ├── domain/                              # domain models (data class / sealed class)
 │   │   └── <domainName>/

@@ -5,7 +5,6 @@ alwaysApply: true
 
 # Work end to end — stop only to plan or to test by hand
 
-<!-- core -->
 **The one thing that matters is apps and tooling that work end to end.** However many fix rounds,
 re-runs, tooling updates or tooling fixes it takes, keep going: a red check, a failing guard, a
 broken script or a stale environment is the next thing to fix, never a report or a question.
@@ -15,7 +14,8 @@ and every subagent.
 **Only two parts are interactive: planning, and manual testing of the implementation with the fixes
 it finds — the latter only when the user explicitly asked to stop after implementation.** Everywhere
 else a question with a recommended option is never asked: take that option, record it, and continue
-(**What still stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). Still stop for
+(**What still stops**, `skills/flow-contracts/operator-prompts-auto-resolution.md`; **Fewest
+operator actions**, `skills/flow-contracts/pipeline.md`, is this rule's `/flow` statement). Still stop for
 a choice no option can honestly be recommended for, an outward-facing or irreversible action another
 rule requires confirmed, and a cause outside your reach — production, a credential only the user
 holds, a repository you were not given. **The flow tooling is never outside your reach:** a guard,
@@ -27,10 +27,5 @@ dispatch's remit: a read-only role reports, and its dispatcher fixes.
 
 **A blocked agent reports BLOCKED, never routes around.** No prompt tells an agent to change guard-written output (a manifest, a ledger, a state file) except by re-running its guard, or to get past a blocking hook or guard another way. The agent reports `BLOCKED` naming the hook or guard, and its parent fixes the tooling in the run.
 
-<!-- /core -->
-
-## How `/flow` applies it
-
-**Fewest operator actions** (`skills/flow-contracts/pipeline.md`) is this rule's `/flow`
-statement, and **What still stops** (`skills/flow-contracts/operator-prompts-auto-resolution.md`)
-its list of exceptions.
+**Every defect you notice is fixed — never handed back as "possible, not checked"**, per **Reporting
+back** (`rules/agent-baseline.md`).

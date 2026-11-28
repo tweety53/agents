@@ -26,8 +26,8 @@ the branch and the tracker already carry, and tells the reader nothing about whe
 - **The change's bare Jira key** — `feat(kan-239): …` is the same defect with the descriptive suffix
   trimmed off.
 - **A task id** — `fix(3.2): …` names a line in a plan, not a part of the codebase.
-- **A module of another repository** — `fix(group): …` on a commit touching only gymie-playwright's
-  fidelity/builder.spec.ts, `group` being a gymie module, names where the change did not land.
+- **A module of another repository** — `fix(group): …` on a commit touching only an `app-e2e`
+  repository's fidelity/builder.spec.ts, `group` being a module of the `app` repository, names where the change did not land.
   The shape is a scope that is a path token of another `## apps` repository of the project
   and is none of: a token of a path the commit touched, a word of its own repository's name, a
   scope an earlier commit of its repository used, or a directory name of its repository — every
@@ -48,8 +48,8 @@ No guard enforces this; apply it by hand, inside the flow pipeline and outside i
   passes; the check is equality, never a substring match.
 - `feat(kan-202-commit-split-and-module-scopes): …` — the change name, refused.
 - `fix(3.2): …` — a dotted task id, refused.
-- `fix(group): …` touching only gymie-playwright's fidelity/builder.spec.ts — a module of gymie
-  and nothing in gymie-playwright, refused.
+- `fix(group): …` touching only `app-e2e`'s fidelity/builder.spec.ts — a module of `app`
+  and nothing in `app-e2e`, refused.
 - `test(visual): …` on a snapshot capture — no repository of the project carries `visual`, passes.
 
 Applies globally, to every commit, not only inside the flow pipeline.

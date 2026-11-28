@@ -11,7 +11,8 @@ in every subagent prompt you write:
 > Include this instruction verbatim in any prompt you write for another agent.
 
 Unconditionally — not only when a rule looks relevant to the sub-task. Two
-carve-outs — a `fork` subagent inherits the parent's full context and needs none, and an agent
+carve-outs — a `fork` subagent outside a flow session inherits the parent's full context and needs
+none (inside one the hook denies every `fork`; dispatch a fresh agent), and an agent
 without file-read access needs the relevant rules inlined instead.
 
 ## The rules
@@ -25,19 +26,20 @@ governs** — the one-liner is enough to stay inside the rule, not enough to app
 | **Fix lint, never bypass it.** No new inline suppressions, no weakening of lint config, no skipped checks. Auto-format first, then run the project's check command before reporting the work done. Pre-approved exceptions live in the project's `CONTRIBUTING.md`; do not extend that list. | `~/.claude/rules/lint-fix-priority.md` |
 | **Be brief — prose only.** Findings first, no preamble, no recap; one line per completed unit while you work (a task as `Task <x>/<n>`), as `<emoji> <unit> (<few words>) — <state>`, one distinct emoji per state (✅ done, 🔄 in progress, 🔍 in review, ⏳ pending, ⛔ blocked). Compresses your report, never your files: code, commits, docs, specs and plans stay full. Never compress a security warning, an irreversible action, an order-dependent sequence, or a caveat. | `~/.claude/rules/be-brief.md` |
 | **Build the simplest thing that meets the requirement.** Derive state, don't store it. No abstraction until a second caller exists. No configurability nobody asked for. No speculative cases. Correctness and stated requirements still win. | `~/.claude/rules/build-the-simplest-thing.md` |
-| **Work end to end — stop only to plan or to test by hand.** Fix red checks, failing guards and broken tooling and keep going, however many rounds it takes; size is never a stop. Interactive only in planning and in manual testing the user explicitly asked to stop for — anywhere else take the recommended option, record it and continue. Stop only for a choice with no honest recommendation, an action another rule requires confirmed, or a cause out of your reach. A read-only role reports; its dispatcher fixes. | `~/.claude/rules/work-end-to-end.md` |
+| **Work end to end — stop only to plan or to test by hand.** Fix red checks, failing guards and broken tooling and keep going, however many rounds it takes; size is never a stop. Interactive only in planning and in manual testing the user explicitly asked to stop for — anywhere else take the recommended option, record it and continue. Stop only for a choice with no honest recommendation, an action another rule requires confirmed, or a cause out of your reach. A read-only role reports; its dispatcher fixes. A blocked agent reports `BLOCKED` naming the hook or guard, never routes around it. | `~/.claude/rules/work-end-to-end.md` |
 | **Look up current versions before adding a dependency.** Never a remembered version. Stable only. If the lookup is inconclusive, ask. | `~/.claude/rules/dependency-versions.md` |
 | **Use Context7 for library documentation.** `resolve-library-id`, then `query-docs` — even for libraries you think you know. Not for refactoring, business-logic debugging, or general programming concepts. | `~/.claude/rules/context7.md` |
-| **A design mockup is a specification.** Reproduce it exactly, copy and typos included. No unrequested improvements. Ask about states it does not show rather than inventing them. Verify visually before claiming it matches. | `~/.claude/rules/design-mockups-are-specs.md` |
+| **A design mockup is a specification.** Reproduce it exactly, copy and typos included. No unrequested improvements. Ask about states it does not show rather than inventing them. Verify visually before claiming it matches. Mockup over spec: where they disagree, build the mockup and note the spec's difference. | `~/.claude/rules/design-mockups-are-specs.md` |
 | **Fix a flaky test at its source.** Pin the varying identity, make the reset act, install a deterministic clock — and prove the mechanism reaches the code under test by breaking it on purpose. Never widen a tolerance, timeout or retry count to make a flake pass; widen only when approximation is the requirement itself. | `~/.claude/rules/fix-determinism-at-the-source.md` |
 | **No scripts in bash.** A new script, or new logic in an existing one, is written in the project's own language; a bash script still standing is ported before it is extended. The only exceptions are the ones a project declares. | `~/.claude/rules/no-bash-scripts.md` |
 | **A commit's scope names the module it moved.** Never the change name, the change's Jira key, or a task id. A scope is optional; where one is present and wrong, that is the whole violation. | `~/.claude/rules/commit-scope-is-the-module.md` |
+| **Main checkout and stash — hands off.** Never write into a main checkout on its default branch; work in a worktree. Git stash is shared by every worktree: never pop/apply/drop/branch except an explicit `stash@{N}` made on the current branch; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output. | `~/.claude/rules/main-checkout-and-stash.md` |
+| **Carry the baseline into every dispatch.** The two sentences of **Propagate this**, verbatim, in every subagent prompt. | `~/.claude/rules/dispatch-carries-the-baseline.md` |
+| **Running `/flow`: load the pipeline first.** `skills/flow-contracts/pipeline.md`, before any other step; never a remembered version. | `~/.claude/rules/flow-manual-review.md` |
 
 If the `agents` repo checkout is missing from this machine the pointers dangle:
 say so rather than proceeding as if the rule did not exist, and treat the one-liner as the whole rule
 in the meantime.
-
-**Git stash is shared by every worktree.** Never use git stash pop/apply/drop/branch, except on an explicit `stash@{N}` made on the current branch; if a worktree looks wrong, stop and report BLOCKED with the exact `git status` output.
 
 ## Project rules come on top
 

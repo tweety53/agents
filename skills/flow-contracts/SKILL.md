@@ -36,6 +36,13 @@ flow's pipeline and its contract definitions.
 | [artifacts-registry.md](artifacts-registry.md) | Every artifact the pipeline creates, with what creates it, where it lives, and what removes it. **Loaded by `/flow`'s cleanup run** |
 | [session-records.md](session-records.md) | The outcome table for `flow record render`, and what each outcome means for the caller. **Loaded by `/flow`'s implement phase, and bare `/flow`** |
 | [worktree-resolution.md](worktree-resolution.md) | How any step resolves the set of worktrees belonging to a change. **Loaded by `/flow`'s creating run, `/flow`'s implement phase and bare `/flow`** |
+| [operator-prompts.md](operator-prompts.md) | Put an approval or choice to the operator: the one prompt shape — named options, exactly one recommended, the silent default |
+| [operator-prompts-auto-resolution.md](operator-prompts-auto-resolution.md) | Decide whether a prompt is asked at all: past planning a recommended option is taken, and **What still stops** |
+| [guard-verdict-verification.md](guard-verdict-verification.md) | Hand-verify a gate guard's verdict that contradicts the pipeline's structural conventions. **Loaded from `pipeline.md` only when such a verdict fires** |
+| [pipeline-defects.md](pipeline-defects.md) | Fix a defect in the pipeline itself met mid-run. **Loaded from `pipeline.md` only when a run hits one** |
+| [known-bugs.md](known-bugs.md) | Handle a defect a run finds in the project's own product code — **the sweep** |
+| [progress-visibility.md](progress-visibility.md) | How a run's live progress shows: the `flow-task-list` band and hint line, and stage marks. **Loaded from `pipeline.md`** |
+| [quiet-progress.md](quiet-progress.md) | Run with the project's `## progress` mode on: which status prose is suppressed. **Loaded from `pipeline.md` only when the mode is on** |
 
 Each file is **canonical** for its own contract. Where a skill and one of these files disagree, the
 file wins.

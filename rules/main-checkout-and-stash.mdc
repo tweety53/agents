@@ -1,0 +1,23 @@
+---
+description: Never write into a main checkout on its default branch, and never pop, apply, drop or branch a stash entry another change may own
+alwaysApply: true
+---
+
+# Main checkout and stash — hands off
+
+<!-- core -->
+**Never write into a main checkout on its default branch** — no edit, stage, commit, stash or
+reset there; work in a worktree and push. **Git stash is shared by every worktree:** never `git
+stash pop/apply/drop/branch`, except on an explicit `stash@{N}` made on the current branch; if a
+worktree looks wrong, stop and report BLOCKED with the exact `git status` output.
+
+<!-- /core -->
+
+## Why
+
+The main checkout on its default branch is the landing target and a place to read from, never a
+workbench: a session that edits, stages, commits, stashes or resets there leaves residue no later
+session owns. The stash list is shared by every worktree of the repository, so an entry it names
+implicitly may hold another change's work. The `block-unsafe-commands` hook
+(`stats/internal/guard/hookblockunsafecommands.go`) denies both; this rule is what holds where the
+hook is not installed.

@@ -23,7 +23,7 @@ starts life on an unsupported release with known CVEs and a migration already ow
 
 - Package registry or the project's own releases page for the authoritative current version.
 - Context7 (`resolve-library-id`, then `query-docs`) for the docs that go with that version — see
-  `~/.claude/rules/context7.md`.
+  `rules/context7.mdc`.
 - For Docker images, the registry's tag list. Do not assume two images from the same vendor share a
   release cadence or a tag scheme.
 
