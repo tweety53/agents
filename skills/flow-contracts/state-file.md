@@ -42,7 +42,7 @@ undocumented-field payload included — is folded into the same "store failure" 
 and takes the fallback path above, exiting 0. A skill that sends a malformed payload is therefore
 never stopped by this layer; the payload is written to the fallback file and journal as sent, and
 what happens to it next is stated under **The journal is replayed, never merged**
-(`skills/flow-contracts/state-file-internals.md`).
+(`docs/state-file-internals.md`).
 
 A CLI usage error — non-JSON stdin, JSON that is not an object, stdin over the CLI's own size
 cap, or a `worktrees` value that is neither `null` nor a sha (**The record** below) — is a local
@@ -76,7 +76,7 @@ payload naming a field outside those documented above (`mainCheckoutPath` aside)
 it as a refusal — it takes the fallback path like any other store failure. The undocumented field is
 therefore not silently accepted into the store, but it is also not reported to the operator at write
 time; see **The journal is replayed, never merged**
-(`skills/flow-contracts/state-file-internals.md`) for where it actually surfaces.
+(`docs/state-file-internals.md`) for where it actually surfaces.
 
 **Omitting a documented field from a write clears it.** `state set` sends the whole record, and the
 store performs a full overwrite: a field the payload does not carry is stored as absent, exactly as

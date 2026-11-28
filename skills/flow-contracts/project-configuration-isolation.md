@@ -55,7 +55,7 @@ never has to guess whether a cell is a value or an instruction:
   the bucket and nothing around it. `<id>` and `<id_underscored>` cover what `<value:…>` cannot —
   a URL embedding a derived *name* whose own row spells that name inside a larger value, so there
   is no row whose whole value could be substituted. The worked example in **Project configuration
-  — authoring guidance** (`skills/flow-contracts/project-configuration-authoring.md`) carries both
+  — authoring guidance** (`docs/project-configuration-authoring.md`) carries both
   kinds — two `url` rows built from a `<value:…>` reference, and one built from `<id_underscored>`
   directly.
 

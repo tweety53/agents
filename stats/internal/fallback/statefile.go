@@ -6,7 +6,7 @@
 package fallback
 
 import (
-	"crypto/sha1" // reproduces skills/flow-contracts/state-file-internals.md's own key-derivation formula verbatim (`shasum`'s default algorithm) -- not a security use.
+	"crypto/sha1" // reproduces docs/state-file-internals.md's own key-derivation formula verbatim (`shasum`'s default algorithm) -- not a security use.
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -34,7 +34,7 @@ func StateRoot(getenv func(string) string) string {
 
 // StateFilePath returns the on-disk path, under the state root root
 // (StateRoot), for the state file recording projectKey/name, per
-// skills/flow-contracts/state-file-internals.md.
+// docs/state-file-internals.md.
 func StateFilePath(root, projectKey, name string) string {
 	return filepath.Join(root, projectKey, name+".json")
 }
@@ -48,7 +48,7 @@ func JournalFilePath(root, projectKey, name string) string {
 
 // ProjectKey resolves the project key and the main checkout's absolute path
 // for the git repository containing dir, using exactly the algorithm
-// skills/flow-contracts/state-file-internals.md specifies:
+// docs/state-file-internals.md specifies:
 //
 //	MAIN_CHECKOUT="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd -P)"
 //	PROJECT_KEY="$(basename "$MAIN_CHECKOUT")-$(printf '%s' "$MAIN_CHECKOUT" | shasum | cut -c1-8)"

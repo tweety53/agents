@@ -8,7 +8,7 @@ import (
 )
 
 // DefaultStateRoot is the root of every project's state directory, exactly
-// as skills/flow-contracts/state-file-internals.md names it; FLOW_STATE_DIR
+// as docs/state-file-internals.md names it; FLOW_STATE_DIR
 // overrides it (fallback.StateRoot).
 const DefaultStateRoot = "/Users/tweety53/Agents/flow/state"
 

@@ -98,7 +98,7 @@
  {
   "question": "If the database was unreachable, how are the queued state writes replayed later and can they overwrite a finished change?",
   "kind": "any",
-  "file": "skills/flow-contracts/state-file-internals.md",
+  "file": "docs/state-file-internals.md",
   "snippet": "## The journal is replayed, never merged The on-disk journal beside the fallback"
  },
  {
@@ -110,7 +110,7 @@
  {
   "question": "What are the example per-workspace values for database, storage bucket, ports and URLs in an isolated worktree environment?",
   "kind": "any",
-  "file": "skills/flow-contracts/project-configuration-authoring.md",
+  "file": "docs/project-configuration-authoring.md",
   "snippet": "## workspace isolation | Resource | Variable | Default | In a workspace | |-----"
  },
  {
@@ -236,7 +236,7 @@
  {
   "question": "How are conflicts resolved between a queued journal entry and a record already in the store, e.g. one marked finished?",
   "kind": "late",
-  "file": "skills/flow-contracts/state-file-internals.md",
+  "file": "docs/state-file-internals.md",
   "snippet": "## The journal is replayed, never merged The on-disk journal beside the fallback"
  },
  {
