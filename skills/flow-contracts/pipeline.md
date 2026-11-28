@@ -272,6 +272,12 @@ by the planner triaging a plan check (**Plan triage**, `skills/flow/plan-triage.
 whoever turns a task group green (**CONFIDENCE ONCE GREEN**, `skills/flow/implementer-brief.md`).
 `flow confidence` with no argument prints both usages.
 
+**A gap names a missing capability, never a particular thing.** Each `-gap` names a capability or
+process step the pipeline or its tooling lacks, whose presence would move the score to 100 for any
+change ("no guard compares the capture against the frame"). A gap about one particular thing of the
+change at hand — a frame, a row, a plan line, a file, a fixture — is never filed: it is asked to the
+operator at the plan gate, or fixed in the task.
+
 ## Wrong state for this command
 
 **On a mismatch, stop.** Report the actual state, the states the command expects, and the command

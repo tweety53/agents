@@ -43,7 +43,8 @@ this file in full first: its prompt is a stub naming this file, never these para
 > a gap without its command is incomplete. Then run `flow confidence tags`, reuse a
 > printed tag only when it names the same kind of gap — a near fit hides two unrelated gaps under one
 > name — and write a new lowercase kebab-case tag only when none does (a tag names the kind of gap,
-> never the change), and file it:
+> never the change), and file it, its gaps only those **A gap names a missing capability, never a
+> particular thing** (`skills/flow-contracts/pipeline.md`) admits:
 >
 > ```bash
 > flow confidence record -C <abs-worktree> -change <name> -stage implement -task '<the ids of the group, e.g. 2+3>' \

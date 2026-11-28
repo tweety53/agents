@@ -27,7 +27,8 @@ usage: flow confidence record [-addr url] [-timeout dur] [-C dir]
 
 Files one confidence estimate (KAN-1130): how confident the caller is, 1-100,
 that the plan is executed as written, each -gap one thing that would move it
-to 100, in full. -stage plan takes -disposition: raised when the operator had
+to 100, in full: a missing capability of the pipeline, never one particular
+thing of the change (skills/flow-contracts/pipeline.md). -stage plan takes -disposition: raised when the operator had
 the gaps closed, later when they were deferred. -stage implement takes -task,
 the dispatch's task ids ("2+3"). At 100 pass neither -gap nor -tag: the estimate is kept as a plain 100%, outside the review list. A filed estimate is always "to review": its
 review status is set on the Confidence dashboard, never here. An unreachable

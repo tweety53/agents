@@ -29,7 +29,9 @@ then files the estimate with `-disposition raised`.
 
 **Filing is list, then reuse or create.** Run `flow confidence tags`; for each kind of gap, reuse
 a printed tag that fits it, and write a new lowercase kebab-case tag only when none does — a tag
-names the kind of gap (`unchecked-premise`, `missing-fixture`), never the change. Then, once:
+names the kind of gap (`unchecked-premise`, `missing-fixture`), never the change. Which gaps are
+filed is **A gap names a missing capability, never a particular thing**
+(`skills/flow-contracts/pipeline.md`). Then, once:
 
 ```bash
 flow confidence record -change <name> -stage plan -score <score> -disposition raised \
