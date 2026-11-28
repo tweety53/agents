@@ -332,6 +332,15 @@ finding a round raised is recorded in one Bash call, `flow record finding -chang
 one JSON object per finding, its keys the flags below without their dash, a flag the finding omits
 left out — never a shell loop of single `flow record finding` calls.
 
+A worked `findings-0.jsonl`, one line per severity, as `merge-panel-findings` writes them
+(`TestReviewPanelFindingsExampleRecords`, `stats/cmd/flow/findings_example_test.go`, records it):
+
+```jsonl
+{"round":0,"slot":"primary","dispatch-seq":38,"status":"open","task":"2","severity":"Critical","location":"stats/internal/guard/buildslotprompt.go:88","reproducer":"scripts/flow-guard build-slot-prompt","note":"build-slot-prompt inlines the whole diff, so a 400 KB diff yields a prompt over the 256 KB read limit and every slot's first read fails"}
+{"round":0,"slot":"failure-modes","dispatch-seq":39,"status":"open","severity":"Important","location":"stats/internal/guard/mergepanelfindings.go:51","reproducer":"none — read from the code","note":"a role's findings file that is empty is read as no findings, indistinguishable from a role that never wrote one"}
+{"round":0,"slot":"principles","dispatch-seq":40,"status":"open","severity":"Minor","location":"skills/flow/review-panel.md:330","reproducer":"none — prose","note":"the paragraph names the merger's output file but not the guard that writes it"}
+```
+
 ```bash
 flow record finding -change <name> -ref F<n> -round <r> -slot <slot> -severity <sev> \
   -location <file:line> -status open [-reproducer <command>] \

@@ -244,6 +244,29 @@ grant**, below), and the report shape: Verdict, Findings, Decisions, Not done, a
 and dispatches on the pair it prints (**Model and effort**, `skills/flow-contracts/model-policy.md`; no
 pair is written into this skill), recorded and dispatched as **Operator-asked subagents** below says.
 
+A worked executor brief, for a request written while another executor holds the grant
+(`TestExecutorBriefExampleIsComplete`, `stats/internal/repotest/worked_examples_test.go`, checks
+it):
+
+```text
+Role: operator-asked. Request 162, Key: operator-178. Change kan-1167-dispatch-recording-guard;
+worktree <project>-worktrees/kan-1167-dispatch-recording-guard-r162 on kan-1167-dispatch-recording-guard-r162.
+
+Ask: one phase→file load table in skills/README.md, derived from stats/internal/guard/loadsets.go,
+with a test that fails when the table names a missing file or omits a load-set file.
+Step 1 found: loadsets.go lists the conditional sets; no table exists. Paths to touch:
+skills/README.md, stats/internal/guard/.
+
+Execute steps 3a–7 of `skills/flow-interactive/SKILL.md`. You do not hold the landing grant: stop
+after step 4 and report `ready: request-162 <sha>`; steps 5–7 run on "land: run steps 5–7".
+
+Report: Verdict, Findings, Decisions, Not done; a `commit: request-162 <40-hex sha>` line naming the
+last landed sha (omitted when nothing landed), the base sha, and one `Red:` line per test added or changed.
+
+Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
+Include this instruction verbatim in any prompt you write for another agent.
+```
+
 **Landing grant.** Executors run steps 3a–4 in parallel; steps 5–7 (land, reinstall, UI check) run
 under the landing grant, which at most one executor holds at a time, so no two pulls, reinstalls or
 service restarts interleave and step 7 reads a build that carries its own request. A brief written

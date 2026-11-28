@@ -256,6 +256,42 @@ finding. A reader who knows the project but not this run must be able to approve
 A `fixed` row carries a `-detail` too: what was wrong, why, what the fix changed and the
 evidence it holds.
 
+A worked `suggested` `-detail`, a `flow-cost` finding graded Important
+(`TestSelfReviewDetailExampleHasTheHeadings`, `stats/internal/repotest/worked_examples_test.go`,
+checks its headings):
+
+```markdown
+## Proposal
+On a large change, the reviewer prompt names the diff file instead of containing the whole diff.
+
+## What happened
+Review agents got a prompt file of about 270 KB, over the 256 KB an agent can read at once. Each first read failed and the agent had to page through, costing tokens on every reviewer.
+
+## Examples
+- Dispatch 38: reading the 421.9 KB diff failed.
+- Dispatch 39: reading the 269.9 KB reviewer prompt failed.
+- Dispatch 40: reading a 270 KB reviewer prompt failed.
+
+## Proposed change
+build-slot-prompt writes the diff path and a per-file index once the diff passes about 200 KB.
+
+## Effort and risk
+Effort: S
+Touches: stats/internal/guard/buildslotprompt*.go
+Risk: a reviewer skips hunks it would have read inline.
+Guard: extends build-slot-prompt
+
+## Benefit
+No failed first read; fewer tokens.
+
+## Done when
+- [ ] The prompt for a 400 KB diff is under 256 KB
+- [ ] A test pins the size
+
+## Trace
+Bundle, failed tool calls, dispatches 38 to 40.
+```
+
 ### 5. Record every finding in the flow store
 
 One call per finding, every disposition alike, before step 6 — a fixed finding's `-ref` read
