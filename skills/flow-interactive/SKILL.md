@@ -1,20 +1,21 @@
 ---
 name: flow-interactive
-description: Conversational /flow session — one invocation is one change, one Jira issue and one worktree, and a stream of requests the main session coordinates. Each request is looked at live by the coordinator, then one pair-judged operator-asked subagent implements it test-first, verifies it, lands it by merge and push, reinstalls and, when it touches ui paths, checks the live page; an explicit stop runs one self-review pass, cleanup and FINISHED. Every request is recorded in flowd; no spectre artifacts or state file. Use for /flow-interactive.
+description: Conversational /flow session — one invocation is one change, one Jira issue and one session worktree, and a stream of requests the main session coordinates. Each request is looked at live by the coordinator, then one pair-judged operator-asked subagent — up to three at once, each in its request's own worktree — implements it test-first, verifies it, lands it by merge and push, reinstalls and, when it touches ui paths, checks the live page; an explicit stop runs one self-review pass, cleanup and FINISHED. Every request is recorded in flowd; no spectre artifacts or state file. Use for /flow-interactive.
 allowed-tools: Bash(flow:*)
 license: MIT
 ---
 
 One `/flow-interactive` invocation is one **session**: one store change, one Jira issue, one git
-worktree, and a stream of **requests**, each shipped to the base branch on its own. The session
+session worktree, and a stream of **requests**, each shipped to the base branch on its own from a
+worktree of its own. The session
 marks existing `flow.*` stage keys, so labels, phases, cost by stage and the timeline read as they
 do for `/flow`. Each request is a row the store keeps (`flow record request`),
 and every stage run made for it carries its request number (`-request <n>`). The main session is
 the **coordinator**: it looks, records, dispatches and reports, and does nothing else. A request that
 changes code is executed whole — implement, verify, land, reinstall, UI check — by one
-`operator-asked` subagent (**3. Execute**). No review panel per request, no
-spectre artifacts, no plan file, no decision, no state file, and no workspace isolation beyond the
-worktree.
+`operator-asked` subagent (**3. Execute**), up to three of them at once. No review panel per
+request, no spectre artifacts, no plan file, no decision, no state file, and no workspace isolation
+beyond each request's worktree.
 
 **Announce at start:** "Using flow-interactive for change `<name>`."
 
@@ -33,7 +34,9 @@ dispatches (`skills/flow-self-review/SKILL.md`), the in-run fix loop of **Pipeli
 mid-run** (`skills/flow-contracts/pipeline.md`), and a subagent the operator asks for in their
 own words (**Operator-asked subagents**, below). Never write `<project>/spectre/`, save those
 passes' own `self-review-<name>` and `pipeline-fix-<name>-<k>` changes, or a state file. Never push
-to a branch other than `<name>` and `<name>:<base>`. Never set up workspace isolation.
+to a branch other than `<name>`, `<name>:<base>` and `<name>-r<n>:<base>`. Never set up workspace
+isolation for the session worktree; a request worktree gets its own through the project's
+`## workspace isolation` (`skills/flow-contracts/workspace-isolation.md`), removed with it.
 
 ## Stage keys
 
@@ -47,7 +50,9 @@ key list, in the order each section below marks them:
 | **Explicit stop** | `flow.self-review`, `flow.cleanup` |
 
 Every **One request** stage is a `flow stage begin … -request <n>` / `flow stage end` pair; the
-stop's stages carry no `-request`.
+stop's stages carry no `-request`. Each executor makes its request's pairs from that request's
+worktree, and an end closes the open run its own caller began, so executors in flight together
+never close each other's runs.
 
 ## Session start
 
@@ -91,8 +96,8 @@ value ends the run with one line naming `## default landing route` as the sectio
 so does `flow-guard project-get <project> handoff --enum required none` resolving `required` — that
 project asks to test before anything lands.
 
-**Worktree.** One per session, `<project>-worktrees/<name>` on branch `<name>`, created from the main
-checkout, with `<base>` the branch `origin/HEAD` points at — with no `--base`:
+**Worktree.** One session worktree, `<project>-worktrees/<name>` on branch `<name>`, created from the
+main checkout, with `<base>` the branch `origin/HEAD` points at — with no `--base`:
 
 ```bash
 git fetch origin
@@ -110,6 +115,8 @@ run's reach; any other is cured and the setup re-run (**Fewest operator actions*
 worktree runs nothing here — the creating run already ran it. Then `mkdir -p <changeRoot>`, where `<changeRoot>` is
 `<project>-worktrees/<name>/.superpowers/sdd/<name>/`: the record verbs find the change's checkout
 by that directory, and it holds the session's edit scripts. The main checkout is never checked out, staged, committed or written.
+The session worktree holds the coordinator's briefs and the explicit stop's self-review fix
+commits; each code request gets a worktree of its own (**3. Execute**).
 
 **Hook registrations.** Grep the harness's hook config for every identifier `<agents repo>/setup.sh`'s
 `warn_unregistered_hook` checks for that harness (on Claude Code: `enforce-agent-baseline`,
@@ -131,7 +138,7 @@ see X") — recorded at once, `<n>` one past the highest recorded:
 flow record request begin -change <name> -n <n> -title '<one line>'
 ```
 
-A message that changes the in-flight request's own ask is applied to that request instead.
+A message that changes an in-flight request's own ask is applied to that request instead.
 Outside a brainstorm, a question carrying a recommended option is taken, never asked
 (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). A pipeline
 defect met mid-session is fixed per **Pipeline defects found mid-run**
@@ -173,19 +180,63 @@ flow stage end   -command '/flow-interactive' -stage flow.plan -outcome complete
 
 **3. Execute.** A request that changes code is executed by **one fresh subagent**, never by the
 coordinator: it implements, verifies, lands, reinstalls and UI-checks, steps 3a–7 below. A request
-needing no code — a question, a lookup — ends `answered` with no dispatch and no judge call.
+needing no code — a question, a lookup — ends `answered` with no dispatch and no judge call,
+whatever is in flight.
+
+**Request worktree.** Each code request `<n>` is executed in its own worktree `<wt-n>`,
+`<project>-worktrees/<name>-r<n>` on the local branch `<name>-r<n>`, which the coordinator creates
+from the main checkout at dispatch:
+
+```bash
+git fetch origin
+git worktree add <project>-worktrees/<name>-r<n> -b <name>-r<n> origin/<base>
+```
+
+The executor runs the project's `## worktree setup` there, exactly as **Worktree.** runs it, then
+`mkdir -p <wt-n>/.superpowers/sdd/<name>/` — that request's `<changeRoot>`, holding its edit
+scripts and its step-7 screenshot. Its environment is its own: `run-verify-list` and
+`flow-guard prepare-workspace` derive the request's database, bucket and ports from the branch
+`<name>-r<n>` per `skills/flow-contracts/workspace-isolation.md`, and whatever starts the
+applications creates them on demand. Once the request is ended (step 8, any outcome), the
+coordinator removes it all — the worktree's processes, its workspace, the worktree and the branch:
+
+```bash
+<agents repo>/scripts/flow-guard workspace-remove <project> <name>-r<n>
+```
+
+Exit 1 (a dirty or unlanded worktree, or a failed removal) leaves the request ⛔ blocked with the
+guard's lines relayed.
+
+**In flight, cap and queue.** The in-flight count is the number of `git worktree list` entries on
+`refs/heads/<name>-r*` — derived, never stored, so it survives compaction and **Resume**. A code
+request is dispatched, in the background, when the count is below 3 and its step-1 paths to touch
+overlap no in-flight request's brief; otherwise it waits. The queue is the recorded code requests
+with no outcome and no `<name>-r<n>` worktree, in number order; each worktree removal dispatches
+the queue's head, when it now meets both conditions.
 
 The coordinator writes the brief to `<abs-worktree>/.superpowers/sdd/pair-judge/operator-<k>.md`
-(the ask, what step 1 found, the paths to touch, `<name>`, `<n>`, and "execute steps
-3a–7 of `skills/flow-interactive/SKILL.md`", and the report shape: Verdict, Findings, Decisions, Not done, a `commit: request-<n> <40-hex sha>` line naming the last landed sha (the line the stop hook's `end-dispatch-row` reads into the dispatch row; omit it when nothing landed), the base sha, and one `Red:` line per test added or changed; for a request that changes a default time window or filter of a view, the UI-test fixtures, pinned instants and visual baselines that default moves, so the executor fixes them in the same pass), runs `flow-guard pair-judge operator-asked <that file>`
+(the ask, what step 1 found, the paths to touch, `<name>`, `<n>`, `<wt-n>`, and "execute steps
+3a–7 of `skills/flow-interactive/SKILL.md`", whether it holds the landing grant (**Landing
+grant**, below), and the report shape: Verdict, Findings, Decisions, Not done, a `commit: request-<n> <40-hex sha>` line naming the last landed sha (the line the stop hook's `end-dispatch-row` reads into the dispatch row; omit it when nothing landed), the base sha, and one `Red:` line per test added or changed; for a request that changes a default time window or filter of a view, the UI-test fixtures, pinned instants and visual baselines that default moves, so the executor fixes them in the same pass), runs `flow-guard pair-judge operator-asked <that file>`
 and dispatches on the pair it prints (**Model and effort**, `skills/flow-contracts/model-policy.md`; no
 pair is written into this skill), recorded and dispatched as **Operator-asked subagents** below says.
 
-**3a. Implement** (the subagent). Rebase the worktree onto `origin/<base>` on a clean tree; a failing
+**Landing grant.** Executors run steps 3a–4 in parallel; steps 5–7 (land, reinstall, UI check) run
+under the landing grant, which at most one executor holds at a time, so no two pulls, reinstalls or
+service restarts interleave and step 7 reads a build that carries its own request. A brief written
+while no executor holds the grant carries it, and that executor runs steps 3a–7 straight through.
+An executor without it stops after step 4 and reports `ready: request-<n> <sha>`, `<sha>` its
+verified `HEAD`. The grant passes on the holder's final report and the coordinator's step 8: the
+coordinator grants it to the earliest-numbered `ready:` executor by SendMessage to its agent id —
+"land: run steps 5–7 of `skills/flow-interactive/SKILL.md`", with a `Key: operator-<k>` line naming
+that executor's own row — an addition to its own task, which **Reuse** allows.
+
+**3a. Implement** (the subagent, in `<wt-n>`). Rebase the worktree onto `origin/<base>` on a clean tree; a failing
 test first for each behaviour change, seen to fail: for every test the request adds or changes, the executor runs it before the fix, and its final report carries one line per test, `Red: <test name> — <the failure line it printed before the fix>`; a test that cannot fail first (a pure deletion, a test of already-existing behaviour) is listed as `Red: none — <why>`; edits through the Edit tool, or a script written
 to `<changeRoot>` and run by path that asserts each anchor matched exactly once; never a symlinked
-build input (`make -s web-dist` runs `npm ci` itself); one commit with the module as scope, no
-trailer, no `Task-Id:`; push the branch. Fixes of a red step 4 or a step 7 defect are its own commits
+build input (`make -s web-dist` runs `npm ci` itself); one commit on `<name>-r<n>` with the module
+as scope, no trailer, no `Task-Id:`; the branch stays local, since step 5 pushes it straight to
+`<base>`. Fixes of a red step 4 or a step 7 defect are its own commits
 under the **fix ledger** (**The fix ledger**, `skills/flow/fix.md`): `flow-guard check-fix-revert
 <abs-worktree>` runs after each.
 
@@ -195,13 +246,13 @@ flow stage end   -command '/flow-interactive' -stage flow.implement -outcome com
 ```
 
 **4. Verify** (the subagent runs it itself).
-Run `<agents repo>/scripts/flow-guard run-verify-list <worktree> lint` — it runs every command of
+Run `<agents repo>/scripts/flow-guard run-verify-list <wt-n> lint` — it runs every command of
 `## lint`'s fence, never the fence lines `flow-guard project-get` prints with them — and the `## test` commands scoped to what the
 request touched — the packages, modules or test files the diff names, never the whole list; the full suite,
-`<agents repo>/scripts/flow-guard run-verify-list -full <worktree> test`, runs only when the operator asked for it, under the operator's own `FLOW_OPERATOR_FULL_SUITE=1` (**Inline verify**, `skills/flow/verify-and-handoff.md`). When the diff names nothing those commands can scope to, none of them
+`<agents repo>/scripts/flow-guard run-verify-list -full <wt-n> test`, runs only when the operator asked for it, under the operator's own `FLOW_OPERATOR_FULL_SUITE=1` (**Inline verify**, `skills/flow/verify-and-handoff.md`). When the diff names nothing those commands can scope to, none of them
 runs — the report states that empty-scope reason explicitly, the stated reason
 being what makes the skip auditable rather than lazy, never a reflexive run of the whole list in its
-place. Then `<agents repo>/scripts/flow-guard run-verify-list <worktree> visual` runs the `## visual verification` `verify` row when the diff touches `ui paths` — the committed baselines a `lint` list never checks — under **A request's visual list** (`skills/flow/visual-verify.md`), loaded only then. A failure is fixed, committed and re-run; the request never lands red, a failing test it did not introduce included unless its guard proves it pre-existing and unrelated (**the sweep**,
+place. Then `<agents repo>/scripts/flow-guard run-verify-list <wt-n> visual` runs the `## visual verification` `verify` row when the diff touches `ui paths` — the committed baselines a `lint` list never checks — under **A request's visual list** (`skills/flow/visual-verify.md`), loaded only then. A failure is fixed, committed and re-run; the request never lands red, a failing test it did not introduce included unless its guard proves it pre-existing and unrelated (**the sweep**,
 `skills/flow-contracts/known-bugs.md`). The `lint` list,
 exiting 0 on a tree clean before and after it, writes `HEAD` to the worktree's `git rev-parse
 --git-path flow-lint-green`: the evidence the **Request-end guard** reads, so step 4 runs on the
@@ -212,25 +263,28 @@ flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> <n
 flow stage end   -command '/flow-interactive' -stage flow.verify -outcome completed <name>
 ```
 
-**5. Land.** One call lands the request and marks `flow.land` around its push:
+**5. Land** (under the landing grant). One call lands the request and marks `flow.land` around its
+push:
 
 ```bash
-flow interactive land -C <worktree> -n <n>
+flow interactive land -C <wt-n> -n <n>
 ```
 
 Exit 0 prints `commit: <sha>` and `base: <sha>`; on the request's first landing that `base:` is the
 request's **base**, the parent of its first landed commit. A rebase conflict is resolved per the
-**Conflict** bullet of **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`) and the
-call made again. A refusal naming `flow-lint-green` re-runs step 4 on the rebased `HEAD`, then the
+**Conflict** bullet of **Sync the branch onto the base** (`skills/flow/sync-onto-base.md`), then
+step 4 re-runs the `lint` list plus the `## test` commands scoped to the union of the request's diff
+and the conflicted paths — not the whole `## test` list that file's **After a rebase that needed
+resolution** runs, the full suite being the operator's alone — and the call is made again. A refusal naming `flow-lint-green` re-runs step 4 on the rebased `HEAD`, then the
 call; a rejected push leaves the request open and the session says why (⛔ blocked).
 
-**6. Reinstall.** `git -C <project> pull --ff-only` when the main checkout is on `<base>` and
+**6. Reinstall** (under the landing grant). `git -C <project> pull --ff-only` when the main checkout is on `<base>` and
 clean, then the reinstall the project's instruction file requires after a landing, each command
 its own call with its exit code checked; a failed one is re-run once, and a service it restarts
 must answer before anything reads it. A skipped pull is one line; on a request step 7 would
 check, the request stays open (⛔ blocked), since the live page cannot show the landed code.
 
-**7. UI check**, when `flow-guard check-visual-trigger <worktree>` matches the request's diff (`git diff
+**7. UI check** (under the landing grant), when `flow-guard check-visual-trigger <wt-n>` matches the request's diff (`git diff
 --name-only <base>..HEAD` on its stdin): open the live page — the link the operator gave, else the
 URL `## run` serves, by the app's own run-view route, keyed by the project key and `<name>`, never a display name —
 the executor opens it with the project's own installed Playwright through Bash — a short Node script written under `<changeRoot>` that navigates, reloads, takes the screenshot into `<changeRoot>` and exits — never an MCP browser tool, which a `flow-*` subagent does not carry —
@@ -254,7 +308,9 @@ flow record request end -change <name> -n <n> -outcome answered
 flow record request end -change <name> -n <n> -outcome dropped
 ```
 
-`landed` runs the **Request-end guard**, below. Then a short report.
+`landed` runs the **Request-end guard**, below. Then the request's worktree is removed (**Request
+worktree**), the landing grant passes and the queue's head is dispatched (**3. Execute**), and a
+short report.
 
 A request that implements a self-review finding is not ended `landed` until its executor ran `flow self-review finding-implement <id> -commit <last landed sha>` (`skills/flow-self-review/SKILL.md`).
 
@@ -263,8 +319,9 @@ Before `landed`, when `git diff --name-only <base>..<commit>` matches `_test.go`
 A resumed request whose base was never noted passes the parent of its earliest commit found on
 `origin/<base>`, or any older ancestor: a wider range can only demand a UI check, never skip one.
 
-A **mid-turn message** is recorded as the next request at once and worked, in the same turn,
-after the in-flight one ends — never a stop. A turn ends when the queue is empty.
+A **mid-turn message** is recorded as the next request at once, looked at while executors work, and
+dispatched or queued per **In flight, cap and queue**, in the same turn — never a stop. A turn ends
+when the queue is empty and no executor is in flight.
 
 ## Operator-asked subagents
 
@@ -283,15 +340,15 @@ flow record dispatch begin -change <name> -role operator-asked -model <model> -e
 The Agent call's `description` opens with `operator-<k>`, its prompt carries `Role:
 operator-asked` and the baseline pointer, and its `subagent_type` / `model` is the judged pair, one the
 `operator-asked` row of **Allowed pairs** (`skills/flow-contracts/model-policy.md`) admits; an effort
-the operator names above the agent type's own (xhigh, max) rides on the Agent call's `effort`. The agent works in the session's
-worktree, commits on `<name>`; the executor of step 3 runs steps 3a–7 itself, an operator-named
-agent's commits land through steps 4–8 as any other. Its report is relayed, not re-told.
+the operator names above the agent type's own (xhigh, max) rides on the Agent call's `effort`. The agent works in its request's
+worktree `<wt-n>`, commits on `<name>-r<n>`; the executor of step 3 runs steps 3a–7 itself, an
+operator-named agent's commits land through steps 4–8 as any other, under the landing grant. Its report is relayed, not re-told.
 
 ```bash
 flow record dispatch end -change <name> -key operator-<k> -outcome <outcome> -agent-id <the agent's id> [-commit <last sha it landed>]
 ```
 
-**Reuse.** An agent, finished or idle, is sent a message (SendMessage to its agent id) only for an addition to its own earlier task: the fix of its own refusal, a scope change to the same request, a follow-up to the same request. A new request is a fresh dispatch with its own brief, `operator-<k>` row and pair-judge pair, never a resumed agent, even while an earlier agent is idle in the same worktree.
+**Reuse.** An agent, finished or idle, is sent a message (SendMessage to its agent id) only for an addition to its own earlier task: the fix of its own refusal, a scope change to the same request, a follow-up to the same request, the landing grant of its own request. A new request is a fresh dispatch with its own brief, `operator-<k>` row and pair-judge pair, never a resumed agent, even while an earlier agent is idle in the same worktree.
 
 Every end names the agent's id, an aborted row's included, so its tokens are measured; a `completed` end of a request that landed carries `-commit`, the last sha that agent landed. A row whose agent is given up on or replaced is ended `aborted` before the replacement's begin, so no row stays open with no outcome.
 
@@ -327,8 +384,10 @@ land the commit, run the verify and the UI check and end each `completed` — an
 Only a message whose intent is to end the session; anything that could also be a request is kept
 as a request and the session stays open, saying so in one line. Stop:
 
-1. The in-flight request lands (unless the stop drops it); queued requests not started end
-   `dropped` and are listed in the stop report.
+1. Every in-flight request lands, one landing grant at a time (unless the stop drops it); queued
+   requests not started end `dropped` and are listed in the stop report. Every `<name>-r<n>`
+   worktree is removed with `flow-guard workspace-remove` (**Request worktree**) before the
+   session worktree's cleanup (item 4); an exit 1 stops the stop there, ⛔ blocked.
 2. **Self-review**, with `-command '/flow-interactive'`.
    A `flow.self-review` stage already completed for `<name>` skips the pass: a re-run never
    records its findings twice.
@@ -381,5 +440,8 @@ as a request and the session stays open, saying so in one line. Stop:
 remote branch, else `origin/<base>`, when gone, with
 `mkdir -p <changeRoot>` run in it — marks `flow.plan`, continues
 numbering after the highest recorded request,
-and takes an open request from the dead session as the current one: its stages re-run as new
-attempts under the same number.
+and takes the open requests from the dead session as in flight or queued: each is dispatched to a
+fresh executor per **3. Execute**, its stages re-run as new attempts under the same number. An open
+request's surviving `<name>-r<n>` worktree is reused; one gone is recreated from its local branch
+when that survives, else as **Request worktree** creates it, with `## worktree setup` and
+`mkdir -p <changeRoot>` run in it.

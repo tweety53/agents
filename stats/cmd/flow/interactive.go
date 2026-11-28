@@ -7,7 +7,7 @@ package main
 // Usage: flow interactive land [-addr url] [-timeout dur] [-C worktree]
 //          [-change name] -n request [-harness name] [-session-token token]
 //
-// -C is the session's worktree (default: cwd); -n is required, a positive
+// -C is the request's worktree (default: cwd); -n is required, a positive
 // integer; -change defaults to the change the worktree carries (inferChange),
 // -harness and -session-token to what `flow stage begin` infers. In order, each refusal one
 // stderr line and exit 1:
@@ -62,7 +62,7 @@ func runInteractiveLand(ctx context.Context, args []string, getenv func(string) 
 	var addr string
 	registerRecordsAddrFlag(fset, &addr, getenv)
 	timeout := fset.Duration("timeout", defaultTimeout, "store request timeout before falling back")
-	wt := fset.String("C", "", "the session's worktree (default: cwd)")
+	wt := fset.String("C", "", "the request's worktree (default: cwd)")
 	change := fset.String("change", "", "the change name (default: the change the worktree carries)")
 	n := fset.Int("n", 0, "the request's number in the session, a positive integer (required)")
 	harness := fset.String("harness", "", "the harness running the session (default: as flow stage begin infers it)")
