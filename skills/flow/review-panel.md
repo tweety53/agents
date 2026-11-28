@@ -10,6 +10,17 @@ dispatch: mapping each slot id to its prompt and spawning each bundle.
 flow stage begin -command '/flow' -stage flow.review <name>
 ```
 
+**The stage in order.** Each step is stated in the section it names; this list only orders them.
+
+| Step | Action | Next |
+|---|---|---|
+| 1 | Check for an operator-named id, write the diff and its groups (`write-panel-diff`, `diff-groups`), resolve the placeholders (**The panel**) | 2 |
+| 2 | Build each bundle's brief (`build-slot-prompt`), launch the round's bundles, run the test list beside pass 1, `await-rows` (**Bundled dispatch**) | 3 |
+| 3 | Read the round through `merge-panel-findings` (**The findings merger**) | 4 |
+| 4 | Record every finding and confirm every report (**Recording findings, and the record's format**) | a Critical or Important, or a test-list `defect` → 5; only Minors → the `minor-fix` dispatch, then 6; none → 6 |
+| 5 | The fix round (**Panel re-runs**, `skills/flow/review-panel-fix-round.md`) | its re-run round → 2 |
+| 6 | `check-panel-recorded` and the render (**Recording findings, and the record's format**), `flow stage end` (**Panel re-runs**) | `skills/flow/verify-and-handoff.md` |
+
 **The pass log is store rows, rendered — never a hand-written file.** Every fact this file records
 about a panel run the parent records as it arises with `flow record pass` or `flow record mutation`
 (`-change <name> -round <n>`, the round `0` for the initial panel and `1..n` for a fix round).
@@ -369,8 +380,12 @@ this file.
 **Every Critical and Important goes to the fix; every Minor is fixed too, and a Minor never
 causes a fix round of its own.** Every Critical and Important the round raised goes to the fix
 subagent below, closed by the verification that follows it — the fix diff touches a path the finding named, or one of the path condition's accepted
-alternatives below closes the finding. **A round that raised a Critical or Important sends every
-Minor it raised to that same fix**, closed by the same verification. **A round that raised no
+alternatives below closes the finding.
+
+**A round that raised a Critical or Important sends every
+Minor it raised to that same fix**, closed by the same verification.
+
+**A round that raised no
 Critical and no Important has its Minors fixed by one fresh subagent at the round's close** — role
 `minor-fix`, key `panel-<round>-minor-fix` (**Dispatch sites — the parent's closed list**,
 `skills/flow/implement.md`), its pair from `flow-guard pair-judge minor-fix`, its prompt carrying
@@ -382,18 +397,24 @@ commit per worktree at the branch tip —
 naming the module the edits moved. On its return the parent pushes that commit per **Branch
 backup** (`skills/flow-contracts/git-boundaries.md`), ends the row with it as `-commit`, and
 records each finding `flow record status -change <name> -ref F<n> -status fixed`. `flow.verify`'s lint and tests,
-which run after this stage, are that fix's verification. **A Minor is never deferred, and it names a defect only
+which run after this stage, are that fix's verification.
+
+**A Minor is never deferred, and it names a defect only
 when it completes this sentence with a Y that is true at HEAD**: given `<an input, a state or a
 reader>`, `<location>` `<does or says Y>`; it should `<Z>`. One that cannot — a suggestion, a
 hardening against a future edit, a tradeoff the code already states, a test remark naming no
 change that would survive, a layout the project's formatter and lint accept — is withdrawn with
 `-status 'withdrawn names no defect: <the half of the sentence it lacks>'`, as is one no change to
 the tree can resolve, with `-status 'withdrawn <reason>'`, the reason one clause naming the
-mechanism — out of scope, pre-existing and cosmetic are not reasons. **Where Y is a result shipped
+mechanism — out of scope, pre-existing and cosmetic are not reasons.
+
+**Where Y is a result shipped
 code produces at run time — an output, a stored value, an exit code, a permission, a request made —
 the Minor fix carries one test that fails without it, in the same commit**; where the cause cannot
 be forced in one isolated run, the commit body says so. Then proceed to
-the stage close. **No reviewer is dispatched against a
+the stage close.
+
+**No reviewer is dispatched against a
 `review Minors` commit alone**: a further round opens only when `git log <the round's dispatch
 sha>..HEAD` holds a commit with another subject — a task, an in-run fix, a Critical or Important
 fix. A Minor a delta re-run raises on a line its fix round wrote is closed the same way, at that
