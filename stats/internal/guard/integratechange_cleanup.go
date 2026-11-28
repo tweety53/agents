@@ -125,15 +125,9 @@ func (c *ic) cleanup() {
 		id = ""
 	}
 	for _, m := range c.mains {
-		row := c.workspaceCommand(m, "remove")
-		if row == "" || id == "" {
-			c.say("WORKSPACE: " + m + " — skipped, no remove command declared")
+		row, _ := c.removeWorkspace(m, id)
+		if row == "" {
 			continue
-		}
-		if rc := c.bashIn(m, icWithID(row, id)); rc == 0 {
-			c.say("WORKSPACE-REMOVED: " + m)
-		} else {
-			c.say(fmt.Sprintf("WORKSPACE-REMOVE-FAILED: %s — exit %d", m, rc))
 		}
 		orow := c.workspaceCommand(m, "orphans")
 		if orow == "" {
@@ -206,6 +200,24 @@ func (c *ic) cleanup() {
 	}
 	c.markEnd("flow.cleanup", "completed")
 	c.say("NEXT: print the Finished handoff (skills/flow/cleanup.md)")
+}
+
+// removeWorkspace runs <m>'s `remove` row for workspace id, printing its
+// verdict line: the row, "" when none is declared or id is empty, and
+// whether the row ran and failed. Both integrate-change cleanup and
+// workspace-remove tear a change's workspace down through it.
+func (c *ic) removeWorkspace(m, id string) (row string, failed bool) {
+	row = c.workspaceCommand(m, "remove")
+	if row == "" || id == "" {
+		c.say("WORKSPACE: " + m + " — skipped, no remove command declared")
+		return "", false
+	}
+	if rc := c.bashIn(m, icWithID(row, id)); rc != 0 {
+		c.say(fmt.Sprintf("WORKSPACE-REMOVE-FAILED: %s — exit %d", m, rc))
+		return row, true
+	}
+	c.say("WORKSPACE-REMOVED: " + m)
+	return row, false
 }
 
 // bashIn is `(cd <dir> && bash -c <command>)`, both streams passed

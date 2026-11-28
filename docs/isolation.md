@@ -21,6 +21,7 @@ keep their containers and ports, and only the resource inside each is per change
 from the change's name alone, so there is no registry and no lock for two sessions to race on. A
 new database starts empty and is filled by the project's normal migrations, never copied. Cleanup
 removes the database and the bucket.
+`scripts/flow-guard workspace-remove <main> <name>-r<n>` does the same for one landed parallel-request worktree: its processes, workspace, worktree and branches.
 
 Canonical: [`skills/flow-contracts/workspace-isolation.md`](../skills/flow-contracts/workspace-isolation.md)
 and, for what a project declares,
