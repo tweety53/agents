@@ -131,6 +131,22 @@ session's context; never read it here.
 
 ## One request
 
+**The request in order.** Each step is stated in its own paragraph below; this list only orders
+them.
+
+| Step | Run by | Next |
+|---|---|---|
+| Record the request | the coordinator | 1 |
+| 1. Look | the coordinator | big → **Big requests**; needs a brainstorm → 2; changes code → 3; else 8, `answered` |
+| 2. Brainstorm, rarely | the coordinator | 3 |
+| 3. Execute | the coordinator: request worktree, brief, `pair-judge`, dispatch | 3a |
+| 3a. Implement | the executor | 4 |
+| 4. Verify | the executor | holding the landing grant → 5; else `ready:` and wait for it |
+| 5. Land | the executor, under the grant | 6 |
+| 6. Reinstall | the executor, under the grant | `check-visual-trigger` matches → 7; else its report |
+| 7. UI check | the executor, under the grant | a defect → a fix commit, then 4; a pass → its report |
+| 8. End | the coordinator | the worktree removed, the grant passed, the queue's head dispatched |
+
 Every operator message that asks for something is a request — a question included ("why don't I
 see X") — recorded at once, `<n>` one past the highest recorded:
 
@@ -243,7 +259,9 @@ test first for each behaviour change, seen to fail: for every test the request a
 to `<changeRoot>` and run by path that asserts each anchor matched exactly once; never a symlinked
 build input (`make -s web-dist` runs `npm ci` itself); one commit on `<name>-r<n>` with the module
 as scope, no trailer, no `Task-Id:`; the branch stays local, since step 5 pushes it straight to
-`<base>`. Fixes of a red step 4 or a step 7 defect are its own commits
+`<base>`.
+
+Fixes of a red step 4 or a step 7 defect are its own commits
 under the **fix ledger** (**The fix ledger**, `skills/flow/fix.md`): `flow-guard check-fix-revert
 <abs-worktree>` runs after each.
 
@@ -256,11 +274,19 @@ flow stage end   -command '/flow-interactive' -stage flow.implement -request <n>
 Run `flow-guard run-verify-list <wt-n> lint` — it runs every command of
 `## lint`'s fence, never the fence lines `flow-guard project-get` prints with them — and the `## test` commands scoped to what the
 request touched — the packages, modules or test files the diff names, never the whole list; the full suite,
-`flow-guard run-verify-list -full <wt-n> test`, runs only when the operator asked for it, under the operator's own `FLOW_OPERATOR_FULL_SUITE=1` (**Inline verify**, `skills/flow/verify-and-handoff.md`). When the diff names nothing those commands can scope to, none of them
+`flow-guard run-verify-list -full <wt-n> test`, runs only when the operator asked for it, under the operator's own `FLOW_OPERATOR_FULL_SUITE=1` (**Inline verify**, `skills/flow/verify-and-handoff.md`).
+
+When the diff names nothing those commands can scope to, none of them
 runs — the report states that empty-scope reason explicitly, the stated reason
 being what makes the skip auditable rather than lazy, never a reflexive run of the whole list in its
-place. Then `flow-guard run-verify-list <wt-n> visual` runs the `## visual verification` `verify` row when the diff touches `ui paths` — the committed baselines a `lint` list never checks — under **A request's visual list** (`skills/flow/visual-verify.md`), loaded only then. A failure is fixed, committed and re-run; the request never lands red, a failing test it did not introduce included unless its guard proves it pre-existing and unrelated (**the sweep**,
-`skills/flow-contracts/known-bugs.md`). The `lint` list,
+place.
+
+Then `flow-guard run-verify-list <wt-n> visual` runs the `## visual verification` `verify` row when the diff touches `ui paths` — the committed baselines a `lint` list never checks — under **A request's visual list** (`skills/flow/visual-verify.md`), loaded only then.
+
+A failure is fixed, committed and re-run; the request never lands red, a failing test it did not introduce included unless its guard proves it pre-existing and unrelated (**the sweep**,
+`skills/flow-contracts/known-bugs.md`).
+
+The `lint` list,
 exiting 0 on a tree clean before and after it, writes `HEAD` to the worktree's `git rev-parse
 --git-path flow-lint-green`: the evidence the **Request-end guard** reads, so step 4 runs on the
 request's last commit.
@@ -295,10 +321,16 @@ check, the request stays open (⛔ blocked), since the live page cannot show the
 --name-only <base>..HEAD` on its stdin): open the live page — the link the operator gave, else the
 URL `## run` serves, by the app's own run-view route, keyed by the project key and `<name>`, never a display name —
 the executor opens it with the project's own installed Playwright through Bash — a short Node script written under `<changeRoot>` that navigates, reloads, takes the screenshot into `<changeRoot>` and exits — never an MCP browser tool, which a `flow-*` subagent does not carry —
-`location.reload()`, screenshot, and read the screenshot against the ask. When the request changes a view's default (a window, a filter), the executor also reads that view against real live data on the new default and confirms it is non-empty; fixtures alone do not pass. A pass ends the stage
+`location.reload()`, screenshot, and read the screenshot against the ask.
+
+When the request changes a view's default (a window, a filter), the executor also reads that view against real live data on the new default and confirms it is non-empty; fixtures alone do not pass.
+
+A pass ends the stage
 run `-outcome completed`. That end carries `-screenshot <path>`, the screenshot just read, saved
 under `<changeRoot>`. A defect ends it `-outcome failed` with `-reason` naming the defect, and is a fix commit and steps 4–7
-again inside the same request. The stage's end is its own call, made after the screenshot is read —
+again inside the same request.
+
+The stage's end is its own call, made after the screenshot is read —
 never chained to its begin. The order is fixed: the stage's begin is made first, the page opened and the screenshot taken only after it, the screenshot read, and the end made last; a screenshot taken before the begin, or an end made before the screenshot, is refused by the Request-end guard (check 3) and the check is redone.
 
 ```bash
