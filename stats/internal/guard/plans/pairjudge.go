@@ -292,6 +292,15 @@ func pjAsk(env core.Env, rows map[string][]core.PolicyRow, role string, cands []
 	return cands[i], wm[1] + spend, ""
 }
 
+// pjClaudeArgv is the one place the headless Claude CLI flags are spelled: the
+// argv every judge (pair-judge, plan-check) hands its runner, claude or
+// FLOW_PAIR_JUDGE_CMD. TestClaudeFlagsInOneSeam keeps them here.
+func pjClaudeArgv(model, effort, tools, system string) []string {
+	return []string{"-p", "--model", model, "--effort", effort,
+		"--tools", tools, "--setting-sources", "", "--strict-mcp-config", "--no-session-persistence",
+		"--output-format", "json", "--system-prompt", system}
+}
+
 // pjRun runs the judge -- headless `claude -p` (or FLOW_PAIR_JUDGE_CMD) on
 // judgeRole's first base pair, under the deadline, with system as its system
 // prompt and digest on stdin -- for pair-judge (role pair-judge) and
@@ -320,9 +329,7 @@ func pjRun(env core.Env, rows map[string][]core.PolicyRow, judgeRole, system str
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), limit)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, "-p", "--model", judge.model, "--effort", judge.effort,
-		"--tools", tools, "--setting-sources", "", "--strict-mcp-config", "--no-session-persistence",
-		"--output-format", "json", "--system-prompt", system)
+	cmd := exec.CommandContext(ctx, bin, pjClaudeArgv(judge.model, judge.effort, tools, system)...)
 	cmd.Dir = env.Dir
 	cmd.Env = append(core.ChildEnv(env), "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1")
 	f := env.Getenv("FLOW_HEADLESS_API_KEY_FILE")

@@ -805,3 +805,20 @@ func pjChildEnviron(base string) func() []string {
 		return out
 	}
 }
+
+// TestJudgeArgvGolden pins the whole headless argv both judges -- pair-judge
+// (no tools) and plan-check (Read,Grep,Glob) -- hand the runner, which
+// pjClaudeArgv alone builds.
+func TestJudgeArgvGolden(t *testing.T) {
+	t.Parallel()
+	for _, tools := range []string{"", "Read,Grep,Glob"} {
+		stub := newPJStub(t, pjJSON("x", ""))
+		rows := map[string][]core.PolicyRow{"decider": {{Pairs: []string{"opus/flow-medium"}}}}
+		pjRun(pjEnv(t, "{}", stub), rows, "decider", "SYS", []byte("d"), tools, time.Minute)
+		want := []string{"-p", "--model", "opus", "--effort", "medium", "--tools", tools, "--setting-sources", "",
+			"--strict-mcp-config", "--no-session-persistence", "--output-format", "json", "--system-prompt", "SYS"}
+		if got := stub.argv(t); !slices.Equal(got, want) {
+			t.Errorf("tools %q: argv\n%q\nwant\n%q", tools, got, want)
+		}
+	}
+}
