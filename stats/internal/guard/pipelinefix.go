@@ -454,6 +454,9 @@ func pfChecks(env core.Env, pe pfEnv, wt string, touched []string) ([]string, in
 	for _, p := range touched {
 		base := filepath.Base(p)
 		stem := strings.TrimSuffix(base, filepath.Ext(base))
+		if strings.HasPrefix(p, "stats/cmd/flow/setup") { // the installer setup.sh runs; setuptest is its oracle
+			add("cd stats && go test ./internal/setuptest/ -count=1")
+		}
 		switch {
 		case strings.HasPrefix(p, "stats/web/"):
 			rel := strings.TrimPrefix(p, "stats/web/")

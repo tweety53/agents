@@ -70,7 +70,7 @@ func TestTestListRunsTheSmokeSet(t *testing.T) {
 	keep := "keep=$(scripts/flow-guard smoke-keep stats/go.mod=stats/ stats/go.sum=stats/" +
 		" hooks/=stats/internal/repotest/ hooks/=stats/internal/setuptest/" +
 		" scripts/=stats/internal/repotest/ scripts/=stats/internal/setuptest/" +
-		" setup.sh=stats/internal/setuptest/"
+		" setup.sh=stats/internal/setuptest/ stats/cmd/flow/setup=stats/internal/setuptest/"
 	ordered := []string{keep, ") && cd stats && ", `FLOW_SMOKE_KEEP="$keep" GOMAXPROCS=`, " -json ${FLOW_VERIFY_FULL:+-race} -short -count=1 "}
 	for _, name := range []string{"guard-tests", "stats-go"} {
 		line, at := suites[name], 0

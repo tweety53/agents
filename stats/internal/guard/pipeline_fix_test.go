@@ -268,6 +268,19 @@ func TestPipelineFixChecksScriptAudits(t *testing.T) {
 	}
 }
 
+// The installer's Go source selects setuptest, its oracle, as setup.sh does.
+func TestPipelineFixChecksInstaller(t *testing.T) {
+	t.Parallel()
+	wt := t.TempDir()
+	guardtest.WriteFile(t, wt+"/.flow/project.md", pfProject)
+	want := "cd stats && go test ./internal/setuptest/ -count=1"
+	for _, p := range []string{"setup.sh", "stats/cmd/flow/setup.go", "stats/cmd/flow/setup_hooks.go"} {
+		if cmds, rc := pfChecks(core.Env{Getenv: os.Getenv}, pfEnv{}, wt, []string{p}); rc != 0 || !slices.Contains(cmds, want) {
+			t.Fatalf("touched %s: rc %d, %q lacks %s", p, rc, cmds, want)
+		}
+	}
+}
+
 // A touched hook selects the whole repotest package, where its test lives.
 func TestPipelineFixChecksHooks(t *testing.T) {
 	t.Parallel()
