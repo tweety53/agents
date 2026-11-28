@@ -11,6 +11,7 @@ and is done without being asked: an index behind a query, a bounded read, paging
 N+1, batched writes, a timeout on an outbound call, a reusable object built once. Elaborate machinery
 is not: speculative abstraction, configurability or cases nobody asked for wait until the user asks.
 Always on, every project and every subagent.
+So is whether it still works with two app instances, a Redis Cluster or ten times the data.
 
 **Correctness, security and stated requirements always win** — when the simple version genuinely
 won't do, say why in one sentence and build the one that works. If what you are building outgrows the
