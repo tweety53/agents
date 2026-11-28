@@ -922,6 +922,7 @@ describe("the reworked run view (kan-1048)", () => {
                 { id: 8, agentId: "agent-fix", role: "implementer", key: `${SUB}-fix-g1`, model: "opus", startedAt: "2026-01-01T02:31:00Z" },
               ]
             : [],
+        headless: name === SUB ? [] : [{ role: "pair-judge", model: "sonnet", effort: "low", costUSD: 0.25, durationMS: 1000, recordedAt: "2026-01-01T00:05:00Z" }],
       }),
     );
     listFindingsMock.mockImplementation((_p: string, name: string) =>
@@ -941,12 +942,12 @@ describe("the reworked run view (kan-1048)", () => {
     const panel = await screen.findByRole("region", { name: "Self-review" });
     const roles = await within(panel).findAllByTestId("phase-role");
     expect(roles.map((r) => r.textContent)).toEqual(["planner ×1opus ×1 ($1.50)$1.50", "implementer ×1opus ×1 (—)—running", "main session$1.00"]);
-    // Every cost counted once: Total = Main + Self-review, and each panel's lines add up to its header.
+    // Every cost counted once: Total = Main + Self-review, and each panel's lines add up to its header -- the change's headless calls in Main's.
     const usd = (el: Element | null) => Number((el?.textContent ?? "").replace(/[^\d.]/g, ""));
     const main = screen.getByRole("region", { name: "Main" });
     const lines = (p: HTMLElement) => within(p).getAllByTestId("phase-role").reduce((a, r) => a + usd(r.querySelector(".lb-num")), 0);
-    expect(usd(main.querySelector(".lb-phase-cost"))).toBe(3);
-    expect(lines(main)).toBeCloseTo(3, 9);
+    await waitFor(() => expect(usd(main.querySelector(".lb-phase-cost"))).toBe(3.25));
+    expect(lines(main)).toBeCloseTo(3.25, 9);
     expect(lines(panel)).toBeCloseTo(usd(panel.querySelector(".lb-phase-cost")), 9);
     const total = screen.getByRole("group", { name: "Total cost" });
     expect(usd(total.querySelector(".lb-kpi-val"))).toBeCloseTo(usd(main.querySelector(".lb-phase-cost")) + usd(panel.querySelector(".lb-phase-cost")), 9);
@@ -1180,24 +1181,27 @@ describe("the reworked run view (kan-1048)", () => {
     expect(within(main).getAllByTestId("phase-role").some((r) => /^pipeline-fix ×1opus ×1\$0\.25$/.test(r.textContent ?? ""))).toBe(true);
   });
 
-  it("run detail lists the change's headless calls, one line per role, apart from the role lines that add up to the header", async () => {
+  it("run detail lists the change's headless calls as role lines, one per role, and counts them in the header and the total", async () => {
     listStageRunsMock.mockResolvedValue(stageRunsResponse([run(70, "flow.plan", "2026-01-01T00:00:00Z", "2026-01-01T00:30:00Z", { metrics: { cost_usd: 1 } })]));
     const h = (role: string, model: string, effort: string, costUSD: number | null) => ({ role, model, effort, costUSD, durationMS: 1000, recordedAt: "2026-01-01T00:05:00Z" });
     runRecordMock.mockResolvedValueOnce({ dispatches: [], headless: [h("plan-triage", "opus", "low", 0.5), h("pair-judge", "sonnet", "low", 0.01), h("pair-judge", "sonnet", "low", 0.02), h("pair-judge", "opus", "high", null)] } as never);
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const main = await screen.findByRole("region", { name: "Main" });
     const rows = await waitFor(() => {
-      const r = within(main).getAllByTestId("phase-headless").map((x) => x.textContent);
+      const r = within(main).getAllByTestId("phase-role").map((x) => x.textContent);
       expect(r.some((x) => x?.startsWith("pair-judge"))).toBe(true);
       return r;
     });
     expect(rows).toContain("plan-triage ×1opus · low ×1$0.50");
     expect(rows).toContain("pair-judge ×3sonnet · low ×2, opus · high ×1$0.03");
-    // The header counts the panel's runs alone: the role lines add up to it, the headless calls are shown outside it.
+    // The header is the panel's runs plus the change's headless calls, and the role lines, headless ones included, add up to it.
     const usd = (el: Element | null) => Number((el?.textContent ?? "").replace(/[^\d.]/g, ""));
     const lines = within(main).getAllByTestId("phase-role").reduce((a, r) => a + usd(r.querySelector(".lb-num")), 0);
-    expect(lines).toBeCloseTo(usd(main.querySelector(".lb-phase-cost")), 9);
-    expect(within(main).getByTestId("phase-headless-head")).toHaveTextContent("headless calls, not in the header $0.53");
+    expect(usd(main.querySelector(".lb-phase-cost"))).toBeCloseTo(1.53, 9);
+    expect(lines).toBeCloseTo(1.53, 9);
+    expect(within(main).queryByTestId("phase-headless-head")).toBeNull();
+    // Total carries them once: the change's runs (6.50) plus its headless calls (0.53).
+    expect(screen.getByRole("group", { name: "Total cost" }).querySelector(".lb-kpi-val")).toHaveTextContent("$7.03");
   });
 
   it("run detail on a self-review sub-run's own page shows one Main panel of that run's work, its cost split by what each run did", async () => {

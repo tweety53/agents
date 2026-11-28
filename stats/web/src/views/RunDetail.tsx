@@ -433,7 +433,7 @@ function WorkPanel({
   summary: string;
   /** A line under the Now line: Main's view of the self-review. */
   note?: ReactNode;
-  /** The change's headless calls, one line per role under the dispatch roles. */
+  /** The change's headless calls: one role line per role, counted in the header. */
   headless?: HeadlessRow[];
   open?: boolean;
   onToggle?: () => void;
@@ -443,13 +443,14 @@ function WorkPanel({
   const policy = usePolicy();
   const status = workStatus(runs);
   const active = runs.reduce((a, r) => a + runEnd(r, now) - Date.parse(r.startedAt), 0);
-  const cost = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
+  // Headless calls run outside every stage run: the panel carrying them adds their cost to its runs', so its lines still add up to its header.
+  const headlessLines = headlessRoles(headless ?? [], versionResolver(steps, runs));
+  const cost = measuredSum([...runs.map((r) => readCostUsd(r.metrics)), ...headlessLines.map((h) => h.cost)]);
   // Costs are this panel's own runs' priced buckets, so its lines add up to its header.
   const costs = dispatchCosts(runs);
   const residual = residualCosts(runs, steps, costs, policy);
   const { roles, rest: unrecorded } = mergeUnrecorded(roleSummary(steps, costs), residual.unrecorded);
   const rest = { ...residual, unrecorded };
-  const versionOf = versionResolver(steps, runs);
   const groups = useContext(RoleGroupsContext);
   const rowItems: { role: string; node: ReactNode }[] = [
     ...roles.map((r) => ({
@@ -497,10 +498,20 @@ function WorkPanel({
         </li>
       ),
     })),
+    ...headlessLines.map((h) => ({
+      role: h.role,
+      node: (
+        <li key={`headless-${h.role}`} data-testid="phase-role" title="Headless model calls: no agent, one `claude -p` call per guard run">
+          <span className="lb-role">
+            {h.role} <span className="lb-muted">×{h.count}</span>
+          </span>
+          <span className="lb-role-models">{h.models}</span>
+          <span className="lb-num r">{h.cost !== null ? formatUsd(h.cost) : <span className="lb-muted">unpriced</span>}</span>
+          <span />
+        </li>
+      ),
+    })),
   ];
-  // Headless calls run outside every stage run, so the header never counts them: shown apart, below the lines that add up to it.
-  const headlessLines = headlessRoles(headless ?? [], versionOf);
-  const headlessCost = measuredSum(headlessLines.map((h) => h.cost));
   const slug = title.toLowerCase();
   return (
     <section className={`lb-panel lb-phase ${status}`} aria-label={title} style={{ order }}>
@@ -568,21 +579,6 @@ function WorkPanel({
                   <span />
                 </li>
               )}
-              {headlessLines.length > 0 && (
-                <li data-testid="phase-headless-head" className="lb-grp" title="Headless model calls: no agent, one `claude -p` call per guard run">
-                  headless calls, not in the header <span className="lb-num">{headlessCost !== null ? formatUsd(headlessCost) : "unpriced"}</span>
-                </li>
-              )}
-              {headlessLines.map((h) => (
-                <li key={`headless-${h.role}`} data-testid="phase-headless" title="Headless model calls: no agent, one `claude -p` call per guard run">
-                  <span className="lb-role">
-                    {h.role} <span className="lb-muted">×{h.count}</span>
-                  </span>
-                  <span className="lb-role-models">{h.models}</span>
-                  <span className="lb-num r">{h.cost !== null ? formatUsd(h.cost) : <span className="lb-muted">unpriced</span>}</span>
-                  <span />
-                </li>
-              ))}
             </ul>
           )}
         </div>
@@ -989,7 +985,9 @@ export function RunDetail({ project, change }: RunDetailProps) {
                   : "running";
           // The self-review sub-run is this change's work, recorded under its own change: Total carries it once.
           const subCost = measuredSum((sub?.runs ?? []).map((r) => readCostUsd(r.metrics)));
-          const totalCost = measuredSum([summary.totalCostUsd, subCost]);
+          // The change's headless calls run outside every stage run: Total carries them once, as Main's header does.
+          const headlessCost = measuredSum(headless.map((h) => h.costUSD));
+          const totalCost = measuredSum([summary.totalCostUsd, subCost, headlessCost]);
           // A sub-run's every run is Self-review, so its rail splits by what each run did.
           const byStage = isSub ? selfReviewCosts(runs, dispatches) : new Map<string, number>();
           if (!isSub) for (const r of runs) byStage.set(canonicalStage(r.stage), (byStage.get(canonicalStage(r.stage)) ?? 0) + (readCostUsd(r.metrics) ?? 0));
