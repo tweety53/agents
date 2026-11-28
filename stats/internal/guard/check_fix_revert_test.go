@@ -47,7 +47,8 @@ func TestCheckFixRevert(t *testing.T) {
 			env := core.Env{Dir: dir, Getenv: os.Getenv, LookupEnv: os.LookupEnv}
 			args := []string{dir, "base"}
 			if tc.noBase {
-				guardtest.GitRun(t, dir, "config", "branch.main.flowBase", "base")
+				guardtest.GitRun(t, dir, "update-ref", "refs/remotes/origin/feature/x", "base")
+				guardtest.GitRun(t, dir, "config", "branch.main.flowBase", "feature/x")
 				args = []string{dir}
 			}
 			r := runGuard("check-fix-revert", args, env)

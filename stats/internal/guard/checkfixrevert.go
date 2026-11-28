@@ -49,8 +49,11 @@ func checkFixRevert(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) == 2 {
 		base = args[1]
 	} else if br, ok := core.Capture(git("-C", wt, "symbolic-ref", "--short", "HEAD")); ok {
-		// The branch's flow base, as taskrecords.go resolves it: `branch.<current>.flowBase`, else origin/HEAD.
-		base, _ = core.Capture(git("-C", wt, "config", "--get", "branch."+br+".flowBase"))
+		// The branch's flow base, as defaultBase resolves it: origin/`branch.<current>.flowBase`, else
+		// origin/HEAD — a request worktree has no local branch of a non-default base.
+		if rec, _ := core.Capture(git("-C", wt, "config", "--get", "branch."+br+".flowBase")); rec != "" {
+			base = "origin/" + rec
+		}
 	}
 	if base == "" {
 		base = "refs/remotes/origin/HEAD"
