@@ -1165,19 +1165,24 @@ describe("the reworked run view (kan-1048)", () => {
     expect(within(main).getAllByTestId("phase-role").some((r) => /^pipeline-fix ×1opus ×1\$0\.25$/.test(r.textContent ?? ""))).toBe(true);
   });
 
-  it("run detail lists the change's headless calls, one line per role", async () => {
+  it("run detail lists the change's headless calls, one line per role, apart from the role lines that add up to the header", async () => {
     listStageRunsMock.mockResolvedValue(stageRunsResponse([run(70, "flow.plan", "2026-01-01T00:00:00Z", "2026-01-01T00:30:00Z", { metrics: { cost_usd: 1 } })]));
     const h = (role: string, model: string, effort: string, costUSD: number | null) => ({ role, model, effort, costUSD, durationMS: 1000, recordedAt: "2026-01-01T00:05:00Z" });
     runRecordMock.mockResolvedValueOnce({ dispatches: [], headless: [h("plan-triage", "opus", "low", 0.5), h("pair-judge", "sonnet", "low", 0.01), h("pair-judge", "sonnet", "low", 0.02), h("pair-judge", "opus", "high", null)] } as never);
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     const main = await screen.findByRole("region", { name: "Main" });
     const rows = await waitFor(() => {
-      const r = within(main).getAllByTestId("phase-role").map((x) => x.textContent);
+      const r = within(main).getAllByTestId("phase-headless").map((x) => x.textContent);
       expect(r.some((x) => x?.startsWith("pair-judge"))).toBe(true);
       return r;
     });
     expect(rows).toContain("plan-triage ×1opus · low ×1$0.50");
     expect(rows).toContain("pair-judge ×3sonnet · low ×2, opus · high ×1$0.03");
+    // The header counts the panel's runs alone: the role lines add up to it, the headless calls are shown outside it.
+    const usd = (el: Element | null) => Number((el?.textContent ?? "").replace(/[^\d.]/g, ""));
+    const lines = within(main).getAllByTestId("phase-role").reduce((a, r) => a + usd(r.querySelector(".lb-num")), 0);
+    expect(lines).toBeCloseTo(usd(main.querySelector(".lb-phase-cost")), 9);
+    expect(within(main).getByTestId("phase-headless-head")).toHaveTextContent("headless calls, not in the header $0.53");
   });
 
   it("run detail on a self-review sub-run's own page shows one Main panel of that run's work, its cost split by what each run did", async () => {

@@ -483,19 +483,6 @@ function WorkPanel({
         </Fragment>
       ),
     })),
-    ...headlessRoles(headless ?? [], versionOf).map((h) => ({
-      role: h.role,
-      node: (
-        <li key={`headless-${h.role}`} data-testid="phase-role" title="Headless model calls: no agent, one `claude -p` call per guard run">
-          <span className="lb-role">
-            {h.role} <span className="lb-muted">×{h.count}</span>
-          </span>
-          <span className="lb-role-models">{h.models}</span>
-          <span className="lb-num r">{h.cost !== null ? formatUsd(h.cost) : <span className="lb-muted">unpriced</span>}</span>
-          <span />
-        </li>
-      ),
-    })),
     ...rest.unrecorded.map((u) => ({
       role: u.role,
       node: (
@@ -510,6 +497,9 @@ function WorkPanel({
       ),
     })),
   ];
+  // Headless calls run outside every stage run, so the header never counts them: shown apart, below the lines that add up to it.
+  const headlessLines = headlessRoles(headless ?? [], versionOf);
+  const headlessCost = measuredSum(headlessLines.map((h) => h.cost));
   const slug = title.toLowerCase();
   return (
     <section className={`lb-panel lb-phase ${status}`} aria-label={title} style={{ order }}>
@@ -577,6 +567,21 @@ function WorkPanel({
                   <span />
                 </li>
               )}
+              {headlessLines.length > 0 && (
+                <li data-testid="phase-headless-head" className="lb-grp" title="Headless model calls: no agent, one `claude -p` call per guard run">
+                  headless calls, not in the header <span className="lb-num">{headlessCost !== null ? formatUsd(headlessCost) : "unpriced"}</span>
+                </li>
+              )}
+              {headlessLines.map((h) => (
+                <li key={`headless-${h.role}`} data-testid="phase-headless" title="Headless model calls: no agent, one `claude -p` call per guard run">
+                  <span className="lb-role">
+                    {h.role} <span className="lb-muted">×{h.count}</span>
+                  </span>
+                  <span className="lb-role-models">{h.models}</span>
+                  <span className="lb-num r">{h.cost !== null ? formatUsd(h.cost) : <span className="lb-muted">unpriced</span>}</span>
+                  <span />
+                </li>
+              ))}
             </ul>
           )}
         </div>
