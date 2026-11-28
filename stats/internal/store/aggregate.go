@@ -1223,7 +1223,7 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 // of skills/flow/review-panel.md's table for them.
 var extraDispatchDescriptions = map[string]string{
 	"test-sanity":   "Test-sanity — would each test the diff adds or changes fail if its behaviour broke",
-	"performance":   "Performance — second callers, a read repeated in one request, a query per list item",
+	"performance":   "Performance — call and query cost: repeats, N+1, unbounded reads, over-fetch, indexes, transactions, writes, timeouts, caching, blocking, locks, memory, payload, frontend",
 	"failure-modes": "Failure-modes — error return, timeout, partial write, concurrent re-entry",
 	"mutation":      "Mutation — sabotage-proofing",
 }
