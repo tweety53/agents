@@ -21,9 +21,6 @@ type Env struct {
 	// Environ is os.Environ in production (nil reads as it): the whole
 	// environment a guard hands its children.
 	Environ func() []string
-	// Deadlines override the guards' integer-second env knobs in tests only;
-	// zero means "parse the env knob as the bash guard does".
-	SurvivorsTimeout, SurvivorsKillGrace time.Duration
 	// PairJudgeTimeout is pair-judge's model-call deadline; zero means 60 s.
 	PairJudgeTimeout time.Duration
 	// PairJudgeCoin is the 50/50 draw of the implementer's opus/flow-low pick; nil is a fair coin.
@@ -47,22 +44,6 @@ type Env struct {
 	// Dispatches returns `flow record dispatches -change <name>`'s JSON; nil
 	// means exec the `flow` CLI on PATH, as the bash guard does.
 	Dispatches func(change string) ([]byte, error)
-	// Passes returns `flow record passes -change <name>`'s JSON; nil means
-	// exec the `flow` CLI on PATH.
-	Passes func(change string) ([]byte, error)
-	// Decisions returns `flow record decisions -change <name>`'s JSON; nil
-	// means exec the `flow` CLI on PATH.
-	Decisions func(change string) ([]byte, error)
-	// Verdict records `flow record verdict -change <name> -guard <guard>
-	// -worktree <worktree> -verdict <line>`; Verdicts returns `flow record
-	// verdicts -guard <guard> -false-positive`'s JSON. nil means exec the
-	// `flow` CLI on PATH, as the bash guard does.
-	Verdict  func(change, guard, worktree, verdict string) error
-	Verdicts func(guard string) ([]byte, error)
-	// StageKeys returns what `go run ./cmd/flow stage keys` prints from the
-	// repository root's stats module; nil means exec it, as the bash guard
-	// does.
-	StageKeys func() (string, error)
 	// Reasons is the run's reason collector (see Reason); nil, as in every
 	// test's Env{…} literal, makes Reason a no-op.
 	Reasons *Reasons
