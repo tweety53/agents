@@ -357,9 +357,6 @@ const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktr
 	"       flow-guard visual-verify-pass close --check-only <report> <motions named> [--mockups <dir>] [--design <design.md>]\n" +
 	"       flow-guard visual-verify-pass measure <worktree> <name> <key> <spec path> [--prototype]"
 
-// vvpExit unwinds a step to visualVerifyPass with its exit code.
-type vvpExit int
-
 // vvp is one call's state: its arguments and whether it began the stage.
 type vvp struct {
 	env            Env
@@ -378,139 +375,135 @@ type vvp struct {
 	sidecars                         []string // the change's own reach-checked sidecars, set by preflight
 }
 
-func visualVerifyPass(args []string, env Env, stdout, stderr io.Writer) (code int) {
+func visualVerifyPass(args []string, env Env, stdout, stderr io.Writer) int {
 	v := &vvp{env: env, stdout: stdout, stderr: stderr,
 		mergeBase: map[string]string{}, since: map[string]string{}, roundBase: map[string]string{}, defects: map[string][]string{}, apps: map[string][]string{}}
-	defer func() {
-		if r := recover(); r != nil {
-			e, ok := r.(vvpExit)
-			if !ok {
-				panic(r)
-			}
-			code = int(e)
-		}
-	}()
+	return guardCode(v.run(args))
+}
+
+func (v *vvp) run(args []string) error {
 	if len(args) == 0 {
-		v.usage("no subcommand")
+		return v.usage("no subcommand")
 	}
 	switch args[0] {
 	case "prepare":
-		v.parse(args[1:], true)
-		v.prepare()
+		if err := v.parse(args[1:], true); err != nil {
+			return err
+		}
+		return v.prepare()
 	case "close":
 		if len(args) > 1 && args[1] == "--check-only" {
-			v.checkOnly(args[2:])
-			return 0
+			return v.checkOnly(args[2:])
 		}
-		v.parse(args[1:], false)
-		v.close()
+		if err := v.parse(args[1:], false); err != nil {
+			return err
+		}
+		return v.close()
 	case "measure":
-		v.measure(args[1:])
-	default:
-		v.usage("unknown subcommand '" + args[0] + "'")
+		return v.measure(args[1:])
 	}
-	return 0
+	return v.usage("unknown subcommand '" + args[0] + "'")
 }
 
-func (v *vvp) usage(why string) {
+func (v *vvp) usage(why string) error {
 	fmt.Fprintf(v.stderr, "visual-verify-pass: %s\n%s\n", why, vvpUsage)
 	Reason(v.env, "usage")
-	panic(vvpExit(2))
+	return guardExit(2)
 }
 
 // die prints the error and exits 2.
-func (v *vvp) die(id, format string, a ...any) {
+func (v *vvp) die(id, format string, a ...any) error {
 	fmt.Fprintf(v.stderr, "visual-verify-pass: "+format+"\n", a...)
 	Reason(v.env, id)
-	panic(vvpExit(2))
+	return guardExit(2)
 }
 
 func (v *vvp) say(format string, a ...any) { fmt.Fprintf(v.stdout, format+"\n", a...) }
 
-// next prints the closing `NEXT:` line and exits 0.
-func (v *vvp) next(line string) {
+// next prints the closing `NEXT:` line and exits 0: its guardExit(0) is
+// non-nil, so every caller returns it as it does a stop.
+func (v *vvp) next(line string) error {
 	v.say("NEXT: %s", line)
-	panic(vvpExit(0))
+	return guardExit(0)
 }
 
 // stop prints the closing `STOP:` line and exits 1.
-func (v *vvp) stop(id, outcome, line string) {
+func (v *vvp) stop(id, outcome, line string) error {
 	v.say("STOP: %s", line)
 	Reason(v.env, id)
-	panic(vvpExit(1))
+	return guardExit(1)
 }
 
 // abs resolves p against env.Dir, as every guard here does.
 func (v *vvp) abs(p string) string { return pcAbs(v.env, p) }
 
-func (v *vvp) parse(args []string, prepare bool) {
+func (v *vvp) parse(args []string, prepare bool) error {
 	pos := 3
 	if !prepare {
 		pos = 4
 	}
 	if len(args) < pos {
-		v.usage("missing arguments")
+		return v.usage("missing arguments")
 	}
 	v.canon, v.name, v.key = v.abs(args[0]), args[1], args[2]
 	if !prepare {
 		n, err := fmt.Sscan(args[3], &v.motions)
 		if n != 1 || err != nil || v.motions < 0 {
-			v.usage("<motions named> '" + args[3] + "' is not a count")
+			return v.usage("<motions named> '" + args[3] + "' is not a count")
 		}
 	}
 	if !plainChangeName(v.name) || v.key == "" {
-		v.usage("change name '" + v.name + "' or key '" + v.key + "' is not plain")
+		return v.usage("change name '" + v.name + "' or key '" + v.key + "' is not plain")
 	}
 	v.worktrees = []string{v.canon}
 	v.harness = envHarness(v.env)
 	rest := args[pos:]
-	val := func(i int) string {
-		if i+1 >= len(rest) {
-			v.usage(rest[i] + " takes a value")
-		}
-		return rest[i+1]
-	}
-	pair := func(flag, s string) (string, string) {
-		w, sha, ok := strings.Cut(s, "=")
-		if !ok || w == "" || sha == "" {
-			v.usage(flag + " '" + s + "' is not <worktree>=<sha>")
-		}
-		return v.abs(w), sha
-	}
 	for i := 0; i < len(rest); i++ {
-		switch f := rest[i]; {
+		f := rest[i]
+		switch {
+		case f == "--session-token", prepare && (f == "--harness" || f == "--worktree" || f == "--merge-base" || f == "--since" ||
+			f == "--round-base" || f == "--defects" || f == "--app"):
+			if i+1 >= len(rest) {
+				return v.usage(f + " takes a value")
+			}
+		}
+		switch {
 		case f == "--session-token":
-			v.token = val(i)
+			v.token = rest[i+1]
 			i++
 		case prepare && f == "--harness":
-			v.harness = val(i)
+			v.harness = rest[i+1]
 			i++
 		case prepare && f == "--worktree":
-			v.worktrees = append(v.worktrees, v.abs(val(i)))
+			v.worktrees = append(v.worktrees, v.abs(rest[i+1]))
 			i++
 		case prepare && (f == "--merge-base" || f == "--since" || f == "--round-base"):
-			w, sha := pair(f, val(i))
-			map[string]map[string]string{"--merge-base": v.mergeBase, "--since": v.since, "--round-base": v.roundBase}[f][w] = sha
+			s := rest[i+1]
+			w, sha, ok := strings.Cut(s, "=")
+			if !ok || w == "" || sha == "" {
+				return v.usage(f + " '" + s + "' is not <worktree>=<sha>")
+			}
+			map[string]map[string]string{"--merge-base": v.mergeBase, "--since": v.since, "--round-base": v.roundBase}[f][v.abs(w)] = sha
 			i++
 		case prepare && f == "--defects":
-			d := val(i)
+			d := rest[i+1]
 			w, frames, _ := strings.Cut(d, "=")
 			if w == "" || frames == "" {
-				v.usage("--defects '" + d + "' is not <worktree>=<frame>[,<frame>…]")
+				return v.usage("--defects '" + d + "' is not <worktree>=<frame>[,<frame>…]")
 			}
 			for _, fr := range strings.Split(frames, ",") {
 				if fr == "" || strings.ContainsAny(fr, " \t\n") {
-					v.usage("--defects '" + d + "' is not <worktree>=<frame>[,<frame>…]")
+					return v.usage("--defects '" + d + "' is not <worktree>=<frame>[,<frame>…]")
 				}
 				v.defects[v.abs(w)] = append(v.defects[v.abs(w)], fr)
 			}
 			i++
 		case prepare && f == "--app":
-			a := val(i)
+			a := rest[i+1]
 			w, app, ok := strings.Cut(a, ":")
 			root, url, ok2 := strings.Cut(app, "=")
 			if !ok || !ok2 || w == "" || root == "" || url == "" {
-				v.usage("--app '" + a + "' is not <worktree>:<app-root>=<url> — under zsh write \"${W}:<app-root>=<url>\"; \"$W:s…\" applies zsh's :s modifier")
+				return v.usage("--app '" + a + "' is not <worktree>:<app-root>=<url> — under zsh write \"${W}:<app-root>=<url>\"; \"$W:s…\" applies zsh's :s modifier")
 			}
 			v.apps[v.abs(w)] = append(v.apps[v.abs(w)], root+"="+url)
 			i++
@@ -519,40 +512,41 @@ func (v *vvp) parse(args []string, prepare bool) {
 		case prepare && f == "--started":
 			v.started = true
 		default:
-			v.usage("unknown argument '" + f + "'")
+			return v.usage("unknown argument '" + f + "'")
 		}
 	}
 	for w := range v.defects {
 		if v.roundBase[w] == "" {
-			v.usage("--defects for " + w + " without --round-base")
+			return v.usage("--defects for " + w + " without --round-base")
 		}
 	}
 	if v.token == "" {
 		v.token = envToken(v.env)
 	} else if !strings.HasPrefix(v.token, "mf-") || len(v.token) == 3 {
-		v.usage("--session-token mf-<literal-token> is required")
+		return v.usage("--session-token mf-<literal-token> is required")
 	}
 	if v.token == "" {
-		v.usage("--session-token mf-<literal-token> is required outside a Claude Code session")
+		return v.usage("--session-token mf-<literal-token> is required outside a Claude Code session")
 	}
 	if prepare && v.harness == "" {
-		v.usage("--harness is required")
+		return v.usage("--harness is required")
 	}
 	if v.started && !v.cont {
-		v.usage("--started is given with --continue only")
+		return v.usage("--started is given with --continue only")
 	}
 	if prepare && !v.cont {
 		for _, w := range v.worktrees {
 			if v.mergeBase[w] == "" {
-				v.usage("no --merge-base for " + w)
+				return v.usage("no --merge-base for " + w)
 			}
 		}
 	}
 	for _, w := range v.worktrees {
 		if !isDir(w) {
-			v.die("not-a-directory", "%s is not a directory", w)
+			return v.die("not-a-directory", "%s is not a directory", w)
 		}
 	}
+	return nil
 }
 
 // flow runs one `flow` call from PATH, its combined output and exit code.
@@ -612,7 +606,7 @@ func (v *vvp) stagePath() string {
 	return filepath.Join(v.canon, ".superpowers", "sdd", "visual-verify-stage.txt")
 }
 
-func (v *vvp) writeStage(survivors []string) {
+func (v *vvp) writeStage(survivors []string) error {
 	var b strings.Builder
 	fmt.Fprintf(&b, "token %s\nbegin %s\nset %d\n", v.token, time.Now().UTC().Format(time.RFC3339), len(v.worktrees))
 	for _, w := range survivors {
@@ -632,35 +626,37 @@ func (v *vvp) writeStage(survivors []string) {
 		b.WriteString("\n")
 	}
 	if err := os.MkdirAll(filepath.Dir(v.stagePath()), 0o755); err != nil {
-		v.die("cannot-write-the-stage-file", "cannot write the stage file: %v", err)
+		return v.die("cannot-write-the-stage-file", "cannot write the stage file: %v", err)
 	}
 	if err := os.WriteFile(v.stagePath(), []byte(b.String()), 0o644); err != nil {
-		v.die("cannot-write-the-stage-file", "cannot write the stage file: %v", err)
+		return v.die("cannot-write-the-stage-file", "cannot write the stage file: %v", err)
 	}
+	return nil
 }
 
-func (v *vvp) appendStage(line string) {
+func (v *vvp) appendStage(line string) error {
 	f, err := os.OpenFile(v.stagePath(), os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
-		v.die("cannot-append-stage-file", "cannot append to the stage file: %v", err)
+		return v.die("cannot-append-stage-file", "cannot append to the stage file: %v", err)
 	}
 	defer f.Close()
 	fmt.Fprintln(f, line)
+	return nil
 }
 
 // readStage is the stage file's lines, split into their leading word and
 // the rest; exit 2 when it cannot be read.
-func (v *vvp) readStage() [][2]string {
+func (v *vvp) readStage() ([][2]string, error) {
 	b, err := os.ReadFile(v.stagePath())
 	if err != nil {
-		v.die("cannot-read-the-stage-file", "cannot read the stage file %s — run prepare first: %v", v.stagePath(), err)
+		return nil, v.die("cannot-read-the-stage-file", "cannot read the stage file %s — run prepare first: %v", v.stagePath(), err)
 	}
 	var out [][2]string
 	for _, l := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
 		k, rest, _ := strings.Cut(l, " ")
 		out = append(out, [2]string{k, rest})
 	}
-	return out
+	return out, nil
 }
 
 // roundFile is <sdd>/visual-round-<key>.txt, `<round base> <instant>`: prepare

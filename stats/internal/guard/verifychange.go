@@ -78,7 +78,7 @@ func verifyChange(args []string, env Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "verify-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
 	c.childEnv = icChildEnv(env)
-	return icCode(c.verify(args))
+	return guardCode(c.verify(args))
 }
 
 func (c *ic) verify(args []string) error {

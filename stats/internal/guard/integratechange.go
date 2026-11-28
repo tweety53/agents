@@ -38,19 +38,19 @@ func init() {
 	Registry["integrate-change"] = integrateChange
 }
 
-// icExit is a subcommand's exit code, returned up to integrateChange once its
-// lines are written and its reason recorded: the bash's `exit` from inside
-// any helper.
-type icExit int
+// guardExit is a guard's exit code, returned up to its entry point (the
+// integrate-change family's, visual-verify-pass's) once its lines are written
+// and its reason recorded: the bash's `exit` from inside any helper.
+type guardExit int
 
-func (e icExit) Error() string { return fmt.Sprintf("exit %d", int(e)) }
+func (e guardExit) Error() string { return fmt.Sprintf("exit %d", int(e)) }
 
-// icCode is the exit code err carries: 0 for nil.
-func icCode(err error) int {
+// guardCode is the exit code err carries: 0 for nil.
+func guardCode(err error) int {
 	if err == nil {
 		return 0
 	}
-	return int(err.(icExit))
+	return int(err.(guardExit))
 }
 
 // ic is the bash's global state: its flags, the worktree set load_set
@@ -180,7 +180,7 @@ func integrateChange(args []string, env Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "integrate-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
 	c.childEnv = icChildEnv(env)
-	return icCode(c.integrate(args))
+	return guardCode(c.integrate(args))
 }
 
 func (c *ic) integrate(args []string) error {
@@ -218,7 +218,7 @@ func icChildEnv(env Env) []string {
 func (c *ic) die(id, format string, a ...any) error {
 	Reason(c.env, id)
 	fmt.Fprintf(c.stderr, c.prog+": "+format+"\n", a...)
-	return icExit(2)
+	return guardExit(2)
 }
 
 func (c *ic) say(s string) { fmt.Fprintln(c.stdout, s) }
@@ -473,7 +473,7 @@ func (c *ic) stopAs(id, kind, text string) error {
 	}
 	c.say("STOP: " + kind + " — " + text)
 	Reason(c.env, id)
-	return icExit(1)
+	return guardExit(1)
 }
 
 func (c *ic) flags() string { return "--harness " + c.harness + " --session-token " + c.token }

@@ -16,8 +16,11 @@ import (
 // close is `visual-verify-pass.sh close`: the report guards, the row's end,
 // step 12's commit and the stage's end, from the report the verifier wrote
 // for <key> and the stage file prepare wrote. Its outcomes are the comment above's.
-func (v *vvp) close() {
-	stage := v.readStage()
+func (v *vvp) close() error {
+	stage, err := v.readStage()
+	if err != nil {
+		return err
+	}
 	w := ""
 	for _, l := range stage {
 		if k, rw, _ := strings.Cut(l[1], " "); l[0] == "row" && k == v.key {
@@ -28,16 +31,18 @@ func (v *vvp) close() {
 		}
 	}
 	if w == "" {
-		v.die("stage-file-has-no-row", "the stage file %s has no row %s — close names a key prepare began", v.stagePath(), v.key)
+		return v.die("stage-file-has-no-row", "the stage file %s has no row %s — close names a key prepare began", v.stagePath(), v.key)
 	}
 	report := filepath.Join(w, ".superpowers", "sdd", "verify-report-"+v.key+".md")
 	body, err := os.ReadFile(report)
 	if os.IsNotExist(err) {
-		v.endRow("aborted")
-		v.stop("no-report", "stopped", "no report — "+report+" was never written: the verifier ended without its report or its agent died")
+		if err := v.endRow("aborted"); err != nil {
+			return err
+		}
+		return v.stop("no-report", "stopped", "no report — "+report+" was never written: the verifier ended without its report or its agent died")
 	}
 	if err != nil {
-		v.die("cannot-read", "cannot read %s: %v", report, err)
+		return v.die("cannot-read", "cannot read %s: %v", report, err)
 	}
 	changeRoot := filepath.Join(v.canon, specRootLeaf(v.canon, io.Discard), "changes", v.name)
 	design := filepath.Join(changeRoot, "design.md")
@@ -55,17 +60,24 @@ func (v *vvp) close() {
 	if m := v.cells(w)["mockups"]; m != "" {
 		mockups = cellPath(w, m)
 	}
-	verdicts, judgeGap := v.reportChecks(report, design, mockups, frames)
+	verdicts, judgeGap, err := v.reportChecks(report, design, mockups, frames)
+	if err != nil {
+		return err
+	}
 	if l := v.recordPassCheck(changeRoot); l != "" {
 		verdicts = append(verdicts, l)
 	}
 	if len(verdicts) > 0 {
-		v.endRow("aborted")
+		if err := v.endRow("aborted"); err != nil {
+			return err
+		}
 		for _, l := range verdicts {
-			v.appendStage("verdict " + v.key + " " + l)
+			if err := v.appendStage("verdict " + v.key + " " + l); err != nil {
+				return err
+			}
 			v.say("%s", l)
 		}
-		v.next("rest " + v.restKey(w))
+		return v.next("rest " + v.restKey(w))
 	}
 
 	verdict := vvcVerdictBlock(string(body))
@@ -77,25 +89,37 @@ func (v *vvp) close() {
 				prior++
 			}
 		}
-		v.appendStage("blocked " + v.key)
+		if err := v.appendStage("blocked " + v.key); err != nil {
+			return err
+		}
 		nextKey := fmt.Sprintf("visual-verify-%d%s%s", prior+2, vvcFixRound.FindString(v.key), v.suffix(w))
 		if cause == "" {
 			cause = "environment"
 		}
 		switch {
 		case prior == 0:
-			v.endRow("blocked", "-cause", cause)
-			v.next("redispatch " + nextKey)
+			if err := v.endRow("blocked", "-cause", cause); err != nil {
+				return err
+			}
+			return v.next("redispatch " + nextKey)
 		case cause == "environment":
-			v.endRow("blocked", "-cause", cause)
-			v.next("cure-environment " + nextKey)
+			if err := v.endRow("blocked", "-cause", cause); err != nil {
+				return err
+			}
+			return v.next("cure-environment " + nextKey)
 		}
-		v.endRow("blocked", "-cause", cause)
+		if err := v.endRow("blocked", "-cause", cause); err != nil {
+			return err
+		}
 		v.recordJudged(w, body, design)
-		v.commit(w, body)
-		v.endStage()
+		if err := v.commit(w, body); err != nil {
+			return err
+		}
+		if err := v.endStage(); err != nil {
+			return err
+		}
 		v.escalate(w, changeRoot, departures)
-		v.next("loop")
+		return v.next("loop")
 	}
 	if departures > 0 || judgeGap != "" {
 		v.say("%s", verdict)
@@ -103,15 +127,23 @@ func (v *vvp) close() {
 			v.say("%s", judgeGap)
 		}
 		v.recordJudged(w, body, design)
-		v.commit(w, body)
+		if err := v.commit(w, body); err != nil {
+			return err
+		}
 		v.escalate(w, changeRoot, departures)
-		v.next("judge")
+		return v.next("judge")
 	}
-	v.endRow("completed")
+	if err := v.endRow("completed"); err != nil {
+		return err
+	}
 	v.recordJudged(w, body, design)
-	v.commit(w, body)
-	v.endStage()
-	v.next("done")
+	if err := v.commit(w, body); err != nil {
+		return err
+	}
+	if err := v.endStage(); err != nil {
+		return err
+	}
+	return v.next("done")
 }
 
 // recordJudged rewrites the worktree's visual-judged.txt from the row's
@@ -131,7 +163,7 @@ func (v *vvp) recordJudged(w string, report []byte, design string) {
 // reportChecks runs the report guards on report: the verdict lines of an
 // incomplete report, and the one gap that is only a missing sidecar, left to
 // the judge. mockups is "" when none is declared.
-func (v *vvp) reportChecks(report, design, mockups string, frames []string) (verdicts []string, judgeGap string) {
+func (v *vvp) reportChecks(report, design, mockups string, frames []string) (verdicts []string, judgeGap string, err error) {
 	args := []string{report, strconv.Itoa(v.motions)}
 	if design != "" {
 		args = append(args, "--design", design)
@@ -142,7 +174,7 @@ func (v *vvp) reportChecks(report, design, mockups string, frames []string) (ver
 	case 1:
 		verdicts = append(verdicts, out)
 	default:
-		v.die("check-verify-report-cannot-answer", "check-verify-report cannot answer: %s", errs)
+		return nil, "", v.die("check-verify-report-cannot-answer", "check-verify-report cannot answer: %s", errs)
 	}
 	if mockups != "" {
 		rc, out, errs := v.guard("check-frame-list", nil, append([]string{design, mockups, report}, frames...)...)
@@ -153,27 +185,27 @@ func (v *vvp) reportChecks(report, design, mockups string, frames []string) (ver
 		case rc == 1:
 			verdicts = append(verdicts, out)
 		default:
-			v.die("check-frame-list-cannot-answer", "check-frame-list cannot answer: %s", errs)
+			return nil, "", v.die("check-frame-list-cannot-answer", "check-frame-list cannot answer: %s", errs)
 		}
 	}
-	return verdicts, judgeGap
+	return verdicts, judgeGap, nil
 }
 
 // checkOnly is `close --check-only <report> <motions named> ...`: the report
 // guards alone, exit 1 with their messages, 0 on a complete report, and no
 // dispatch row, stage line or verdict written either way.
-func (v *vvp) checkOnly(args []string) {
+func (v *vvp) checkOnly(args []string) error {
 	if len(args) < 2 {
-		v.usage("--check-only takes <report> <motions named>")
+		return v.usage("--check-only takes <report> <motions named>")
 	}
 	report := v.abs(args[0])
 	if n, err := fmt.Sscan(args[1], &v.motions); n != 1 || err != nil || v.motions < 0 {
-		v.usage("<motions named> '" + args[1] + "' is not a count")
+		return v.usage("<motions named> '" + args[1] + "' is not a count")
 	}
 	design, mockups := "", ""
 	for i := 2; i < len(args); i += 2 {
 		if i+1 >= len(args) {
-			v.usage(args[i] + " takes a value")
+			return v.usage(args[i] + " takes a value")
 		}
 		switch args[i] {
 		case "--design":
@@ -181,16 +213,19 @@ func (v *vvp) checkOnly(args []string) {
 		case "--mockups":
 			mockups = v.abs(args[i+1])
 		default:
-			v.usage("unknown argument '" + args[i] + "'")
+			return v.usage("unknown argument '" + args[i] + "'")
 		}
 	}
 	if mockups != "" && design == "" {
-		v.usage("--mockups needs --design")
+		return v.usage("--mockups needs --design")
 	}
 	if _, err := os.Stat(report); err != nil {
-		v.die("cannot-read", "cannot read %s: %v", report, err)
+		return v.die("cannot-read", "cannot read %s: %v", report, err)
 	}
-	verdicts, gap := v.reportChecks(report, design, mockups, nil)
+	verdicts, gap, err := v.reportChecks(report, design, mockups, nil)
+	if err != nil {
+		return err
+	}
 	if gap != "" {
 		verdicts = append(verdicts, gap)
 	}
@@ -199,8 +234,9 @@ func (v *vvp) checkOnly(args []string) {
 	}
 	if len(verdicts) > 0 {
 		Reason(v.env, "report-incomplete")
-		panic(vvpExit(1))
+		return guardExit(1)
 	}
+	return nil
 }
 
 // vvcOnlyNoSidecar is a FRAME-LIST-GAP line whose every gap is `no sidecar
@@ -382,20 +418,23 @@ func (v *vvp) restKey(w string) string {
 
 // endRow is the row's `flow record dispatch end`, recorded in the stage file
 // as `closed <key> <outcome>`.
-func (v *vvp) endRow(outcome string, flags ...string) {
+func (v *vvp) endRow(outcome string, flags ...string) error {
 	argv := append([]string{"record", "dispatch", "end", "-C", v.canon, "-change", v.name, "-key", v.key,
 		"-session-token", v.token, "-outcome", outcome}, flags...)
 	if out, rc := v.flow(argv...); rc != 0 {
-		v.die("flow-record-dispatch-end-failed", "flow record dispatch end failed for %s: %s", v.key, out)
+		return v.die("flow-record-dispatch-end-failed", "flow record dispatch end failed for %s: %s", v.key, out)
 	}
-	v.appendStage("closed " + v.key + " " + outcome)
+	return v.appendStage("closed " + v.key + " " + outcome)
 }
 
 // endStage ends the stage once every surviving worktree's newest row is
 // closed — `stopped` when any is blocked, else `completed` — renders the
 // ledger and prints `STAGE: <outcome>`.
-func (v *vvp) endStage() {
-	stage := v.readStage()
+func (v *vvp) endStage() error {
+	stage, err := v.readStage()
+	if err != nil {
+		return err
+	}
 	// The newest row of each worktree.
 	newest, closed := map[string]string{}, map[string]string{}
 	var order []string
@@ -414,11 +453,11 @@ func (v *vvp) endStage() {
 	for _, w := range order {
 		k, seen := newest[w]
 		if !seen {
-			return
+			return nil
 		}
 		o, ok := closed[k]
 		if !ok {
-			return
+			return nil
 		}
 		if o == "blocked" {
 			outcome = "stopped"
@@ -428,6 +467,7 @@ func (v *vvp) endStage() {
 		fmt.Fprintf(v.stderr, "visual-verify-pass: warning: flow record render failed: %s\n", out)
 	}
 	v.say("STAGE: %s", outcome)
+	return nil
 }
 
 // vvcPath is an absolute path token of a report line.
@@ -440,7 +480,7 @@ var vvcPath = regexp.MustCompile(`/[^\s,;]+`)
 // trailer `Flow-Key: flow.visual-verify`. A checkout on a branch other than
 // spectre/<name> prints `PUSH: git -C <checkout> push`. Then
 // `ROUND-BASE: <worktree>=<HEAD>`.
-func (v *vvp) commit(w string, report []byte) {
+func (v *vvp) commit(w string, report []byte) error {
 	byTop := map[string][]string{}
 	var tops []string
 	add := func(p string) {
@@ -498,14 +538,14 @@ func (v *vvp) commit(w string, report []byte) {
 	for _, top := range tops {
 		paths := byTop[top]
 		if out, ok := v.gitChild(top, append([]string{"add", "--"}, paths...)...); !ok {
-			v.die("git-add-in-failed", "git add in %s failed: %s", top, out)
+			return v.die("git-add-in-failed", "git add in %s failed: %s", top, out)
 		}
 		if _, ok := v.gitChild(top, append([]string{"diff", "--cached", "--quiet", "--"}, paths...)...); ok {
 			continue
 		}
 		if out, ok := v.gitChild(top, append([]string{"commit", "-q", "-m", "test: record the " + v.key + " visual verification",
 			"-m", "Flow-Key: flow.visual-verify", "--"}, paths...)...); !ok {
-			v.die("git-commit-in-failed", "git commit in %s failed: %s", top, out)
+			return v.die("git-commit-in-failed", "git commit in %s failed: %s", top, out)
 		}
 		if branch, _ := v.gitChild(top, "branch", "--show-current"); branch != "spectre/"+v.name {
 			v.say("PUSH: git -C %s push", top)
@@ -513,9 +553,10 @@ func (v *vvp) commit(w string, report []byte) {
 	}
 	head, ok := v.git("-C", w, "rev-parse", "HEAD")
 	if !ok {
-		v.die("head-unresolved", "cannot resolve HEAD in %s", w)
+		return v.die("head-unresolved", "cannot resolve HEAD in %s", w)
 	}
 	v.say("ROUND-BASE: %s=%s", w, head)
+	return nil
 }
 
 // gitChild runs git in dir under the caller's environment (Env.Environ):

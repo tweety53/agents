@@ -54,7 +54,7 @@ func implementChange(args []string, env Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "implement-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
 	c.childEnv = icChildEnv(env)
-	return icCode(c.implementPrepare(args))
+	return guardCode(c.implementPrepare(args))
 }
 
 func (c *ic) implementPrepare(args []string) error {

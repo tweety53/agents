@@ -81,7 +81,7 @@ type vvmManifestOut struct {
 // in process, carrying on past every non-zero exit, each one recorded in the
 // manifest. Exit 0 when every step exited 0, 1 otherwise, 2 on a usage error
 // or an output directory it cannot create.
-func (v *vvp) measure(args []string) {
+func (v *vvp) measure(args []string) error {
 	prototype := false
 	var pos []string
 	for _, a := range args {
@@ -89,28 +89,28 @@ func (v *vvp) measure(args []string) {
 		case a == "--prototype":
 			prototype = true
 		case strings.HasPrefix(a, "--"):
-			v.usage("unknown argument '" + a + "'")
+			return v.usage("unknown argument '" + a + "'")
 		default:
 			pos = append(pos, a)
 		}
 	}
 	if len(pos) != 4 {
-		v.usage("measure takes <worktree> <name> <key> <spec path>")
+		return v.usage("measure takes <worktree> <name> <key> <spec path>")
 	}
 	w, name, key, spec := v.abs(pos[0]), pos[1], pos[2], pos[3]
 	if !plainChangeName(name) || key == "" || strings.ContainsRune(key, '/') {
-		v.usage("change name '" + name + "' or key '" + key + "' is not plain")
+		return v.usage("change name '" + name + "' or key '" + key + "' is not plain")
 	}
 	spec = cellPath(w, spec)
 	tol, ok := vvTolerance(v.cells(w)["tolerance"])
 	if !ok {
-		v.usage("`tolerance` row '" + v.cells(w)["tolerance"] + "' is not `<n>px at <scale>x`")
+		return v.usage("`tolerance` row '" + v.cells(w)["tolerance"] + "' is not `<n>px at <scale>x`")
 	}
 	tolArg := strconv.FormatFloat(tol, 'f', -1, 64)
 	// A spec that is not there measures nothing, and the merge would keep the
 	// last run's pairs under a manifest that reads as this run's.
 	if !vvmExists(spec) {
-		v.usage("spec '" + spec + "' does not exist")
+		return v.usage("spec '" + spec + "' does not exist")
 	}
 	changeRoot := filepath.Join(w, specRootLeaf(w, io.Discard), "changes", name)
 	vvDir := filepath.Join(changeRoot, "visual-verification")
@@ -119,7 +119,7 @@ func (v *vvp) measure(args []string) {
 	matrixDir := filepath.Join(vvDir, "matrix")
 	for _, d := range []string{bandsDir, matrixDir} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
-			v.die("cannot-create-output-directory", "cannot create output directory %s: %v", d, err)
+			return v.die("cannot-create-output-directory", "cannot create output directory %s: %v", d, err)
 		}
 	}
 
@@ -160,7 +160,7 @@ func (v *vvp) measure(args []string) {
 		mockups = cellPath(w, c)
 	}
 	if _, err := os.Stat(sidecar); err != nil && !prototype || mockups == "" {
-		v.writeManifest(sdd, vvDir, key, spec, prototype, m, failed)
+		return v.writeManifest(sdd, vvDir, key, spec, prototype, m, failed)
 	}
 
 	// Each map line is one pair; a stale cropped frame from an earlier run
@@ -184,7 +184,9 @@ func (v *vvp) measure(args []string) {
 	}
 	if prototype && readErr == nil {
 		sidecar = filepath.Join(bandsDir, "prototype.mockups")
-		v.writeOut(sidecar, own)
+		if err := v.writeOut(sidecar, own); err != nil {
+			return err
+		}
 	}
 	composeArgs := []string{sidecar, mockups, vvDir}
 	if frameArg != "" {
@@ -246,7 +248,9 @@ func (v *vvp) measure(args []string) {
 		rc, out, serr := results[i].rc, results[i].out, results[i].serr
 		p.Exits.Matrix, p.Stderr["matrix"] = note(rc), serr
 		p.MatrixFile = filepath.Join(matrixDir, l.frame+".json")
-		v.writeOut(p.MatrixFile, out)
+		if err := v.writeOut(p.MatrixFile, out); err != nil {
+			return err
+		}
 		var mx struct {
 			Delta   map[string]any   `json:"delta"` // the page props nest under `delta`
 			Matrix  []map[string]any `json:"matrix"`
@@ -284,27 +288,28 @@ func (v *vvp) measure(args []string) {
 		v.say("%s", vvmFrameLine(p))
 		m.Pairs = append(m.Pairs, p)
 	}
-	v.writeManifest(sdd, vvDir, key, spec, prototype, m, failed)
+	return v.writeManifest(sdd, vvDir, key, spec, prototype, m, failed)
 }
 
-func (v *vvp) writeOut(path, body string) {
+func (v *vvp) writeOut(path, body string) error {
 	// A frame id carries a directory (`kan-1083/SE1`), so its output file sits below the key's directory.
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		v.die("cannot-write", "cannot write %s: %v", path, err)
+		return v.die("cannot-write", "cannot write %s: %v", path, err)
 	}
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		v.die("cannot-write", "cannot write %s: %v", path, err)
+		return v.die("cannot-write", "cannot write %s: %v", path, err)
 	}
+	return nil
 }
 
 // writeManifest merges m into the key's manifest, prints its path and exits 1
-// when any step failed, else 0. A pair is keyed by (spec, frame, prototype): an
+// when any step failed, else 0; its caller returns what it returns. A pair is keyed by (spec, frame, prototype): an
 // existing manifest that parses keeps every pair m does not replace — m replaces
 // the pairs of its own spec, and of a frame it measured, that were measured the
 // same way (a plain run keeps a spec's prototype pairs and a --prototype run its
 // plain ones). Captures and identical lines are unioned, existing first, and so
 // are steps, m's winning where both carry one (kan-1102 self-review, F2).
-func (v *vvp) writeManifest(sdd, vvDir, key, spec string, prototype bool, m vvmManifestOut, failed bool) {
+func (v *vvp) writeManifest(sdd, vvDir, key, spec string, prototype bool, m vvmManifestOut, failed bool) error {
 	path := filepath.Join(sdd, "visual-manifest-"+key+".json")
 	// Only this call's pairs count, so the line is read before the merge.
 	if base, _, defects, ok := readRound(sdd, key); ok {
@@ -351,7 +356,9 @@ func (v *vvp) writeManifest(sdd, vvDir, key, spec string, prototype bool, m vvmM
 		}
 	}
 	b, _ := json.MarshalIndent(m, "", "  ")
-	v.writeOut(path, string(b)+"\n")
+	if err := v.writeOut(path, string(b)+"\n"); err != nil {
+		return err
+	}
 	// The appendix visual-verification.md cites: every row the declared
 	// tolerance leaves off the over list, with its measured value.
 	within, appendix := 0, "# Within tolerance\n\nRows `visual-verify-pass measure` left off the `over` list because every position or size delta is inside the declared `tolerance` (`## visual verification`), each with its measured deltas in capture px.\n\n"
@@ -364,21 +371,25 @@ func (v *vvp) writeManifest(sdd, vvDir, key, spec string, prototype bool, m vvmM
 		}
 	}
 	if within > 0 {
-		v.writeOut(filepath.Join(vvDir, "within-tolerance.md"), appendix)
+		if err := v.writeOut(filepath.Join(vvDir, "within-tolerance.md"), appendix); err != nil {
+			return err
+		}
 	} else {
 		os.Remove(filepath.Join(vvDir, "within-tolerance.md"))
 	}
 	v.say("within-tolerance: %d", within)
 	// A task's own measure (key `task-<id>`) is the record check-ui-task-measured reads.
 	if strings.HasPrefix(key, "task-") {
-		v.writeOut(filepath.Join(vvDir, key+"-measure.json"), string(b)+"\n")
+		if err := v.writeOut(filepath.Join(vvDir, key+"-measure.json"), string(b)+"\n"); err != nil {
+			return err
+		}
 	}
 	v.say("MANIFEST: %s", path)
 	if failed {
 		Reason(v.env, "measure-failed")
-		panic(vvpExit(1))
+		return guardExit(1)
 	}
-	panic(vvpExit(0))
+	return nil
 }
 
 // vvmFrameLine is measure's `frame:` line for one measured pair
