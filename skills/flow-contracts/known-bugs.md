@@ -81,5 +81,5 @@ run's UI change never verified — stops the landing exactly as above. It is nev
   runs the pass again (**Run 1 — the branch is not merged**,
   `skills/flow-contracts/finish-contract-run1.md`).
 
-Met by the pass `/flow` runs from a saved bundle after landing, the pass's closing report names it for the
+Met by a standalone pass over a saved bundle after landing, the pass's closing report names it for the
 operator to start that fix run.
