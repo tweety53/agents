@@ -108,7 +108,7 @@ after a fix is their decision.
 Brainstorming and the plan gate are the operator's (`skills/flow/brainstorm-planner.md`), and the
 plan gate's `/clear` handoff is the boundary. From the `/flow <name>` that resumes the planned
 change, implementation, review, verify, integrate and cleanup follow in one invocation until the
-landing route ends the run (`skills/flow-contracts/finish-contract-run1.md`). Only **What still stops** ends a turn early. No rule in
+landing route ends the run (`skills/flow-contracts/finish-contract-run1.md`). No rule in
 another file licenses asking a question that carries a recommended option.
 
 **The operator's actions and the run's stops are minimised: a run resolves everything it can
@@ -157,16 +157,13 @@ carrying `Role: no-progress-fixer` and every earlier round's report
 verbatim and naming the approach that failed; a loop whose fix the parent applies inline applies
 it from those same reports by a different approach. Where the evidence itself may be wrong, the
 defect is first reproduced another way — another reproducer, another capture route. A further
-round without progress changes the approach again until the ceiling defers the item; none of them
-stops the run.
+round without progress changes the approach again until the ceiling defers the item.
 
 ### Three failed rounds
 
 **Three failed rounds of one loop are a round without progress too, whatever their defects.** A
 failed round is one that ends without the loop's own clean close. The fix loop counts three failed rounds of one site of **The fix loop** (`skills/flow/fix.md`), a round as that site's row defines it. The fourth round, and each
-later one below the ceiling, is the fresh dispatch above — its fixer —
-on the `no-progress-fixer` role carrying every earlier round's report
-verbatim and naming the approach that failed. It is never a stop and never an ask.
+later one below the ceiling, is the fresh dispatch above — its fixer. It is never a stop and never an ask.
 
 **A `no-progress-fixer` dispatch carries one defect family.** Where the reports name several
 independent families, each gets its own fixer, dispatched one after another — the next only
