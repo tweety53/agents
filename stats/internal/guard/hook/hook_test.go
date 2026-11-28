@@ -1,4 +1,4 @@
-package guard
+package hook
 
 import (
 	"bytes"
@@ -36,7 +36,7 @@ func runHookStreams(t *testing.T, name, stdin string, vars ...string) (string, s
 	}
 	var out, errb bytes.Buffer
 	env := core.Env{Getenv: func(k string) string { return m[k] }, Dir: t.TempDir(), Stdin: strings.NewReader(stdin)}
-	rc := Registry["hook"]([]string{name}, env, &out, &errb)
+	rc := core.Registry["hook"]([]string{name}, env, &out, &errb)
 	return out.String(), errb.String(), rc
 }
 
@@ -215,7 +215,7 @@ func TestHookRecordsItsWallTime(t *testing.T) {
 	before := time.Now()
 	for _, stdin := range []string{`{"tool_name":"Read"}`, `not json`} {
 		env.Stdin = strings.NewReader(stdin)
-		if rc := Registry["hook"]([]string{"enforce-agent-baseline"}, env, io.Discard, io.Discard); rc != 0 {
+		if rc := core.Registry["hook"]([]string{"enforce-agent-baseline"}, env, io.Discard, io.Discard); rc != 0 {
 			t.Fatalf("rc %d", rc)
 		}
 	}

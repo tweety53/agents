@@ -99,7 +99,7 @@ func TestNoStaleSlashCommand(t *testing.T) {
 	}
 }
 
-// derivedRoles are the roles no skill or guard names as a literal: lpRole (stats/internal/guard/loop.go)
+// derivedRoles are the roles no skill or guard names as a literal: LoopRole (stats/internal/guard/hook/loop.go)
 // derives each as "loop-" + its loop key's suffix family.
 var derivedRoles = []string{"loop-fix", "loop-plan", "loop-review-1", "loop-review-r"}
 

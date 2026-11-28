@@ -1,4 +1,4 @@
-package guard
+package hook
 
 import (
 	"bytes"
@@ -27,7 +27,7 @@ import (
 // it to records.HookRunsPath) each run appends its wall time to that local file instead.
 //
 // Exit 2 on a missing or unknown hook name (usage).
-func init() { Registry["hook"] = hook }
+func init() { core.Registry["hook"] = hook }
 
 // hooks maps a hook's name to its body: the decoded payload (nil when stdin is no JSON object)
 // and the raw stdin.

@@ -19,5 +19,5 @@ The main checkout on its default branch is the landing target and a place to rea
 workbench: a session that edits, stages, commits, stashes or resets there leaves residue no later
 session owns. The stash list is shared by every worktree of the repository, so an entry it names
 implicitly may hold another change's work. The `block-unsafe-commands` hook
-(`stats/internal/guard/hookblockunsafecommands.go`) denies both; this rule is what holds where the
+(`stats/internal/guard/hook/hookblockunsafecommands.go`) denies both; this rule is what holds where the
 hook is not installed.

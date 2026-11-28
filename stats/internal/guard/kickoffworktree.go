@@ -112,25 +112,7 @@ func init() {
 	Registry["kickoff-worktree"] = kickoffWorktree
 }
 
-// kwRun runs name args from dir (or env's directory), returning its exit
-// code and combined output.
-func kwRun(env core.Env, dir, name string, args ...string) (int, string) {
-	cmd := exec.Command(name, args...)
-	cmd.Dir = env.Dir
-	if dir != "" {
-		cmd.Dir = dir
-	}
-	return kwCombined(cmd)
-}
-
-// kwCombined runs cmd, returning its exit code and combined output.
-func kwCombined(cmd *exec.Cmd) (int, string) {
-	var out bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &out, &out
-	return core.ExitCode(cmd.Run()), out.String()
-}
-
-// kwStdout runs name args like kwRun but returns stdout alone on exit 0, so
+// kwStdout runs name args like RunCombined but returns stdout alone on exit 0, so
 // a list a command prints is never mixed with its stderr diagnostics; on a
 // failure the output is both streams, for the message.
 func kwStdout(env core.Env, dir, name string, args ...string) (int, string) {
@@ -200,14 +182,14 @@ func kickoffWorktree(args []string, env core.Env, stdout, stderr io.Writer) int 
 	if base == "" && from != "" {
 		// Outside a repository `config --get` still reads the global config
 		// and exits 1, so the worktree is checked first.
-		if rc, _ := kwRun(env, "", git, "-C", from, "rev-parse", "--git-dir"); rc != 0 {
+		if rc, _ := core.RunCombined(env, "", git, "-C", from, "rev-parse", "--git-dir"); rc != 0 {
 			fmt.Fprintf(stderr, "%s: --from %s is not a git worktree — cannot read its base, so none is added\n", self, from)
 			core.Reason(env, "from-not-a-worktree")
 			return 2
 		}
 		// Exit 1 is no flowBase: the default branch, as without --from; any
 		// other failure cannot answer the base.
-		switch rc, out := kwRun(env, "", git, "-C", from, "config", "--get", "branch.spectre/"+name+".flowBase"); rc {
+		switch rc, out := core.RunCombined(env, "", git, "-C", from, "config", "--get", "branch.spectre/"+name+".flowBase"); rc {
 		case 0:
 			base = strings.TrimSpace(out)
 		case 1:
@@ -264,13 +246,13 @@ func kickoffWorktree(args []string, env core.Env, stdout, stderr io.Writer) int 
 	}
 	branch := "spectre/" + name
 	wt := filepath.Join(core.SiblingRoot(physical), name)
-	if rc, out := kwRun(env, "", git, "-C", project, "fetch", "origin"); rc != 0 {
+	if rc, out := core.RunCombined(env, "", git, "-C", project, "fetch", "origin"); rc != 0 {
 		return relay("fetch-failed", 1, out)
 	}
 	// The default branch by name, never HEAD: the main checkout may be on
 	// any branch and is never moved.
 	defaultBranch := func() (string, bool) {
-		rc, out := kwRun(env, "", git, "-C", project, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+		rc, out := core.RunCombined(env, "", git, "-C", project, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
 		if rc != 0 {
 			fmt.Fprintf(stderr, "%s: cannot resolve the default branch — refs/remotes/origin/HEAD is unset (git remote set-head origin --auto)\n", self)
 			return "", false
@@ -280,23 +262,23 @@ func kickoffWorktree(args []string, env core.Env, stdout, stderr io.Writer) int 
 	// A base this origin lacks is created from its default branch, so every
 	// repository of the change records the same base.
 	if base != "" {
-		if rc, _ := kwRun(env, "", git, "-C", project, "rev-parse", "-q", "--verify", "refs/remotes/origin/"+base); rc != 0 {
+		if rc, _ := core.RunCombined(env, "", git, "-C", project, "rev-parse", "-q", "--verify", "refs/remotes/origin/"+base); rc != 0 {
 			def, ok := defaultBranch()
 			if !ok {
 				core.Reason(env, "default-branch-unresolved")
 				return 2
 			}
-			if rc, out := kwRun(env, "", git, "-C", project, "push", "origin", "refs/remotes/"+def+":refs/heads/"+base); rc != 0 {
+			if rc, out := core.RunCombined(env, "", git, "-C", project, "push", "origin", "refs/remotes/"+def+":refs/heads/"+base); rc != 0 {
 				return relay("base-push-failed", 1, out)
 			}
-			if rc, out := kwRun(env, "", git, "-C", project, "fetch", "origin", base); rc != 0 {
+			if rc, out := core.RunCombined(env, "", git, "-C", project, "fetch", "origin", base); rc != 0 {
 				return relay("fetch-failed", 1, out)
 			}
 			fmt.Fprintf(stderr, "%s: origin/%s did not exist in %s — created it from %s\n", self, base, project, def)
 		}
 	}
 	add := []string{"-C", project, "worktree", "add", wt, branch}
-	if rc, _ := kwRun(env, "", git, "-C", project, "rev-parse", "-q", "--verify", "origin/"+branch); rc != 0 {
+	if rc, _ := core.RunCombined(env, "", git, "-C", project, "rev-parse", "-q", "--verify", "origin/"+branch); rc != 0 {
 		start := "origin/" + base
 		if base == "" {
 			def, ok := defaultBranch()
@@ -310,16 +292,16 @@ func kickoffWorktree(args []string, env core.Env, stdout, stderr io.Writer) int 
 	} else if base != "" {
 		// Resuming a pushed branch: it must already sit on <base>, or
 		// flowBase would record a base the branch was never cut from.
-		if rc, _ := kwRun(env, "", git, "-C", project, "merge-base", "--is-ancestor", "origin/"+base, "origin/"+branch); rc != 0 {
+		if rc, _ := core.RunCombined(env, "", git, "-C", project, "merge-base", "--is-ancestor", "origin/"+base, "origin/"+branch); rc != 0 {
 			fmt.Fprintf(stderr, "%s: origin/%s does not descend from origin/%s in %s — stop and ask the operator: rebase it with git rebase --onto origin/%s <its merge base> %s and push, then re-run\n", self, branch, base, project, base, branch)
 			core.Reason(env, "branch-not-cut-from-base")
 			return 1
 		}
 	}
-	if rc, out := kwRun(env, "", git, add...); rc != 0 {
+	if rc, out := core.RunCombined(env, "", git, add...); rc != 0 {
 		return relay("worktree-add-failed", 1, out)
 	}
-	rc, out := kwRun(env, "", git, "-C", wt, "rev-parse", "HEAD")
+	rc, out := core.RunCombined(env, "", git, "-C", wt, "rev-parse", "HEAD")
 	if rc != 0 {
 		return relay("head-unresolved", 1, out)
 	}
@@ -328,13 +310,13 @@ func kickoffWorktree(args []string, env core.Env, stdout, stderr io.Writer) int 
 	if from != "" {
 		stateDir = from
 	}
-	if rc, out := kwRun(env, "", flow, "state", "add-worktree", "-C", stateDir, name, wt, mergeBase); rc != 0 {
+	if rc, out := core.RunCombined(env, "", flow, "state", "add-worktree", "-C", stateDir, name, wt, mergeBase); rc != 0 {
 		return relay("state-add-worktree-failed", 1, out)
 	}
 	// Recorded on the branch, so resolve-base-branch and every guard it
 	// feeds land the change back on <base> rather than on origin/HEAD.
 	if base != "" {
-		if rc, out := kwRun(env, "", git, "-C", wt, "config", "branch."+branch+".flowBase", base); rc != 0 {
+		if rc, out := core.RunCombined(env, "", git, "-C", wt, "config", "branch."+branch+".flowBase", base); rc != 0 {
 			return relay("config-write-failed", 1, out)
 		}
 	}
@@ -351,7 +333,7 @@ func kickoffWorktree(args []string, env core.Env, stdout, stderr io.Writer) int 
 	}
 
 	// 4. The branch exists on the remote from its first minute.
-	if rc, out := kwRun(env, "", git, "-C", wt, "push", "-u", "origin", branch); rc != 0 {
+	if rc, out := core.RunCombined(env, "", git, "-C", wt, "push", "-u", "origin", branch); rc != 0 {
 		return relay("push-failed", 1, out)
 	}
 	fmt.Fprintf(stdout, "worktree: %s\nmerge-base: %s\n", wt, mergeBase)
@@ -404,7 +386,7 @@ func kwRecordedPeers(env core.Env, git, flow, from, name string) []string {
 	}
 	held := map[string]bool{}
 	for wt := range rec.Worktrees {
-		rc, out := kwRun(env, "", git, "-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir")
+		rc, out := core.RunCombined(env, "", git, "-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir")
 		if rc != 0 {
 			continue
 		}
@@ -437,7 +419,7 @@ func kwPeers(env core.Env, git, from string) ([][2]string, string, string) {
 	if err != nil {
 		return nil, "", "cannot read " + filepath.Join(from, "spectre/peers")
 	}
-	rc, out := kwRun(env, "", git, "-C", from, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	rc, out := core.RunCombined(env, "", git, "-C", from, "rev-parse", "--path-format=absolute", "--git-common-dir")
 	if rc != 0 {
 		return nil, "", "cannot resolve " + from + "'s main checkout"
 	}
@@ -525,7 +507,7 @@ func kwSetup(env core.Env, wt, self string, stderr io.Writer) int {
 	case 0:
 		fmt.Fprint(stderr, getErr.String())
 		for _, c := range kwFenced(body.String()) {
-			if rc, cout := kwRun(env, wt, "bash", "-c", c); rc != 0 {
+			if rc, cout := core.RunCombined(env, wt, "bash", "-c", c); rc != 0 {
 				fmt.Fprintf(stderr, "%s: worktree setup command failed (exit %d): %s\n", self, rc, c)
 				fmt.Fprint(stderr, cout)
 				core.Reason(env, "worktree-setup-command-failed")

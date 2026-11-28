@@ -10,6 +10,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/guard/guardtest"
+	"github.com/tweety53/agents/stats/internal/guard/hook"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -58,7 +59,7 @@ esac
 func (fx lpFx) run(t *testing.T, args ...string) (int, string) {
 	t.Helper()
 	var o, e bytes.Buffer
-	rc := checkLoopDispatch(append([]string{fx.repo}, args...), fx.env, &o, &e)
+	rc := hook.CheckLoopDispatch(append([]string{fx.repo}, args...), fx.env, &o, &e)
 	return rc, o.String() + e.String()
 }
 
@@ -101,7 +102,7 @@ func TestLoopSuffixRoles(t *testing.T) {
 	want := map[string]string{"pass": "self-review-pass", "plan": "loop-plan", "plan-2": "loop-plan", "fix": "loop-fix", "fix-3": "loop-fix", "fix-g1": "loop-fix",
 		"fix-v3": "loop-fix", "fix-r1": "loop-fix", "review-1": "loop-review-1", "review-2": "loop-review-r", "review-r1": "loop-review-r"}
 	for suffix, role := range want {
-		got := lpRole(suffix)
+		got := hook.LoopRole(suffix)
 		if got != role {
 			t.Errorf("%s: role %q, want %q", suffix, got, role)
 		}
@@ -110,12 +111,12 @@ func TestLoopSuffixRoles(t *testing.T) {
 		}
 	}
 	for suffix, family := range map[string]string{"fix-r1": "fix-r", "review-r1": "review"} {
-		if got := lpFamily(suffix); got != family {
+		if got := hook.LoopFamily(suffix); got != family {
 			t.Errorf("suffix %q: family %q, want %q", suffix, got, family)
 		}
 	}
 	for _, bad := range []string{"fix-r", "review-r", "fix-x", "review", "plan-a", "pass-1"} {
-		if got := lpRole(bad); got != "" {
+		if got := hook.LoopRole(bad); got != "" {
 			t.Errorf("suffix %q: role %q, want none", bad, got)
 		}
 	}

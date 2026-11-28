@@ -33,7 +33,7 @@ import (
 //	                                                    a guard or hook with two or more incidents
 //	never-loaded <file> [conditional: <condition>]      a .md under <repo>/skills/ no session loaded
 //
-// A load is what the flow-skill-load hook records (stats/internal/guard/hookskillload.go): a Read
+// A load is what the flow-skill-load hook records (stats/internal/guard/hook/hookskillload.go): a Read
 // of the file or a Skill call of its SKILL.md, counted per file — the hook cannot name the section
 // a Read took, so nothing is reported per section. A file a conditional load set names
 // (ConditionalLoadSets) carries that set's condition, so the pass can judge whether the

@@ -1,4 +1,4 @@
-package guard
+package hook
 
 import (
 	"bytes"
@@ -75,7 +75,7 @@ func enforceLoopDispatch(env core.Env, payload map[string]any, _, stderr io.Writ
 		eldRunCheck(env, c, cwd, key, args, stderr)
 		return
 	}
-	out, errb, code, err := hookInProcess(env, hookBound(env, eldCheckTimeout), cwd, checkLoopDispatch, args...)
+	out, errb, code, err := hookInProcess(env, hookBound(env, eldCheckTimeout), cwd, CheckLoopDispatch, args...)
 	switch {
 	case err != nil:
 		fmt.Fprintf(stderr, "enforce-loop-dispatch: %s not recorded: flow-guard check-loop-dispatch could not run (%v)\n", key, err)

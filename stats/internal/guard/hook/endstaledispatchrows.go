@@ -1,4 +1,4 @@
-package guard
+package hook
 
 import (
 	"bytes"
@@ -24,11 +24,11 @@ import (
 // always (fail open: a store failure on one row goes to stderr and the sweep continues).
 // flow-guard hook await-own-agents runs it after every SubagentStop.
 //
-// Go, in flow-guard (stats/internal/guard/endstaledispatchrows.go).
+// Go, in flow-guard (stats/internal/guard/hook/endstaledispatchrows.go).
 // Run in process by the await-own-agents hook and await-rows only; no guard.Registry key.
 const staleFinishedAge = 10 * time.Minute
 
-func endStaleDispatchRows(args []string, env core.Env, stdout, stderr io.Writer) int {
+func EndStaleDispatchRows(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard end-stale-dispatch-rows <worktree>")
@@ -36,7 +36,7 @@ func endStaleDispatchRows(args []string, env core.Env, stdout, stderr io.Writer)
 	}
 	worktree := args[0]
 	change := filepath.Base(worktree)
-	rows, err := flowdDispatches(env, worktree, change)
+	rows, err := core.FlowdDispatches(env, worktree, change)
 	if err != nil {
 		fmt.Fprintf(stderr, "end-stale-dispatch-rows: dispatches unreadable: %v\n", err)
 		return 0

@@ -1,4 +1,4 @@
-package guard
+package hook
 
 import (
 	"bufio"
@@ -48,8 +48,8 @@ import (
 // Exit 0 always: recording is best-effort and never blocks a stop. It prints
 // END-DISPATCH-ROW-OK <key> <outcome>, or END-DISPATCH-ROW-NA <why>.
 //
-// Go, in flow-guard (stats/internal/guard/enddispatchrow.go).
-func init() { Registry["end-dispatch-row"] = endDispatchRow }
+// Go, in flow-guard (stats/internal/guard/hook/enddispatchrow.go).
+func init() { core.Registry["end-dispatch-row"] = endDispatchRow }
 
 var (
 	edrKey    = regexp.MustCompile(`(?m)^Key:[ \t]*(\S+)[ \t]*$`)
@@ -272,9 +272,9 @@ func edrSessionChange(env core.Env, sessionID string) string {
 // failed for a transient reason (no flow change for the session, a refused end). It then aborts the
 // change's visual-verify rows open past 30 minutes (sweepVisualVerifyRows). flow-guard hook await-own-agents
 // runs it after each stop. An agent with no report is never swept: a quiet long build looks the same.
-// Exit 0 always. Go, in flow-guard (stats/internal/guard/enddispatchrow.go).
+// Exit 0 always. Go, in flow-guard (stats/internal/guard/hook/enddispatchrow.go).
 // Run in process by the await-own-agents hook only; no guard.Registry key.
-func sweepDispatchRows(args []string, env core.Env, stdout, stderr io.Writer) int {
+func SweepDispatchRows(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 {
 		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard sweep-dispatch-rows <subagents-dir> <session-id> <cwd>")
@@ -319,7 +319,7 @@ func sweepVisualVerifyRows(args []string, env core.Env) {
 	if change == "" {
 		return
 	}
-	rows, err := flowdDispatches(env, args[2], change)
+	rows, err := core.FlowdDispatches(env, args[2], change)
 	if err != nil {
 		return
 	}

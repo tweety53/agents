@@ -366,7 +366,7 @@ func measureVisualProperties(args []string, env core.Env, stdout, stderr io.Writ
 
 	var props, unknown []string
 	for _, s := range strings.Split(a.props, ",") {
-		if s = pyStrip(s); s != "" {
+		if s = core.PyStrip(s); s != "" {
 			props = append(props, s)
 			if !slices.Contains(mvpAllProps, s) && !slices.Contains(mvpOptIn, s) {
 				unknown = append(unknown, s)
@@ -645,7 +645,7 @@ func (a *mvpArgs) set(name, val string) string {
 // overflow read as ±inf rather than refused. strconv already takes Python's
 // underscores between digits and its inf/infinity/nan spellings.
 func mvpParseFloat(s string) (float64, bool) {
-	s = pyStrip(s)
+	s = core.PyStrip(s)
 	if strings.ContainsAny(s, "xX") {
 		return 0, false
 	}
@@ -668,7 +668,7 @@ func mvpParseBox(text string) (*[4]int, string) {
 	}
 	var b [4]int
 	for i, p := range parts {
-		p = pyStrip(p)
+		p = core.PyStrip(p)
 		if p == "" || strings.Trim(p, "0123456789") != "" {
 			return nil, bad
 		}

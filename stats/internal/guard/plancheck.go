@@ -42,7 +42,7 @@ import (
 // Each panel bundle carries the `pair` its dispatch runs on, one of panel-reviewer's base pairs, and
 // a pair outside them, an opt-in pair included, or a missing one makes the decision unusable; a role
 // with no base pair owes none. flow-guard hook enforce-agent-baseline records that pair's dispatch
-// with `-pair-pick decider: bundle <slots>` (dgpvPick) and asks no pair-judge pick for it; the
+// with `-pair-pick decider: bundle <slots>` (DecidedPair) and asks no pair-judge pick for it; the
 // security bundle this guard adds carries no pair, so its dispatch takes the pair judge's. A group
 // carries no pair — its implementer takes the pair judge's — so one the answer names, or one a kept
 // decision holds, is dropped from the written decision.
@@ -156,7 +156,7 @@ func planCheck(args []string, env core.Env, stdout, stderr io.Writer) int {
 	visual := dgpvVisualHeading.Match(project)
 
 	var report, source, spend, cause, note string
-	var d *dgpvDecision
+	var d *core.PlanDecision
 	repoAt := pdgRepositories(env, planPath, lines)
 	shapePath, shape := filepath.Join(wt, ".superpowers", "sdd", "plan-check-shape.json"), pcShape(tasks, repoAt)
 	if decideOnly {
@@ -326,7 +326,7 @@ func pcFindingText(report, id string) string {
 // pcAsk runs the check once, note appended to the system prompt; a nil decision or empty report
 // is the part to fall back. retry is why the answer is owed one more model call ("" none): a
 // failed run, an unusable decision, or a report with no terminal line.
-func pcAsk(env core.Env, wt, root string, lines []string, tasks []pdbTask, repoAt []string, visual, decideOnly bool, note string) (report string, d *dgpvDecision, source, spend, cause, retry string) {
+func pcAsk(env core.Env, wt, root string, lines []string, tasks []pdbTask, repoAt []string, visual, decideOnly bool, note string) (report string, d *core.PlanDecision, source, spend, cause, retry string) {
 	source = "fallback"
 	repo := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	promptFile, tools, limit := "plan-check-prompt.md", "Read,Grep,Glob", pcLimit
@@ -362,7 +362,7 @@ func pcAsk(env core.Env, wt, root string, lines []string, tasks []pdbTask, repoA
 	}
 	base := dgpvBasePairs(rows)
 	pairs := "\n\n## Allowed pairs\n\n"
-	pairs += "- `" + dgpvBundleRole + "`: " + strings.Join(base[dgpvBundleRole], ", ") + "\n"
+	pairs += "- `" + core.BundleRole + "`: " + strings.Join(base[core.BundleRole], ", ") + "\n"
 	// The rubric, the visual declaration and the allowed pairs lead, so the cap cuts only the artifacts' tail.
 	digest := []byte("## The project declares `## visual verification`: " + declares + pairs + "\n## plan-review-rubric.md\n\n" + rubric +
 		"\n\n## proposal.md\n\n" + read(filepath.Join(root, "proposal.md")) + "\n\n## design.md\n\n" + read(filepath.Join(root, "design.md")) +
@@ -386,7 +386,7 @@ func pcAsk(env core.Env, wt, root string, lines []string, tasks []pdbTask, repoA
 }
 
 // pcParse splits one answer into its report and its checked decision.
-func pcParse(result string, tasks []pdbTask, repoAt []string, visual, decideOnly bool, base map[string][]string, spend string) (report string, d *dgpvDecision, source, cause string) {
+func pcParse(result string, tasks []pdbTask, repoAt []string, visual, decideOnly bool, base map[string][]string, spend string) (report string, d *core.PlanDecision, source, cause string) {
 	source = "fallback"
 	loc := pcSeparator.FindStringIndex(result)
 	if loc == nil {
@@ -407,7 +407,7 @@ func pcParse(result string, tasks []pdbTask, repoAt []string, visual, decideOnly
 	}
 	source = "judge"
 	text := result[loc[1]:]
-	var got dgpvDecision
+	var got core.PlanDecision
 	i, j := strings.Index(text, "{"), strings.LastIndex(text, "}")
 	if i < 0 || j < i || json.Unmarshal([]byte(text[i:j+1]), &got) != nil {
 		return report, nil, source, "plan-check decision is not a JSON object: " + text + spend
@@ -421,22 +421,11 @@ func pcParse(result string, tasks []pdbTask, repoAt []string, visual, decideOnly
 
 var dgpvVisualHeading = regexp.MustCompile(`(?m)^## visual verification[ \t]*$`)
 
-type dgpvEntry struct {
-	Tasks  []string `json:"tasks,omitempty"`
-	Slots  []string `json:"slots,omitempty"`
-	Pair   string   `json:"pair,omitempty"`
-	Reason string   `json:"reason"`
-}
-
-// dgpvBundleRole is the role a decided dispatch runs on: a pass-1 bundle's reviewer. The decider picks
-// its pair from that role's base pairs.
-const dgpvBundleRole = "panel-reviewer"
-
 // dgpvBasePairs is the base pairs of the decided role, as `flow policy get` gives them.
 func dgpvBasePairs(rows map[string][]core.PolicyRow) map[string][]string {
 	base := map[string][]string{}
-	for _, c := range pjCandidates(rows, dgpvBundleRole) {
-		base[dgpvBundleRole] = append(base[dgpvBundleRole], c.pair)
+	for _, c := range pjCandidates(rows, core.BundleRole) {
+		base[core.BundleRole] = append(base[core.BundleRole], c.pair)
 	}
 	return base
 }
@@ -448,11 +437,11 @@ func pcDropGroupPairs(path string) error {
 	if err != nil {
 		return err
 	}
-	var d dgpvDecision
+	var d core.PlanDecision
 	if err := json.Unmarshal(b, &d); err != nil {
 		return err
 	}
-	if !slices.ContainsFunc(d.Groups, func(g dgpvEntry) bool { return g.Pair != "" }) {
+	if !slices.ContainsFunc(d.Groups, func(g core.DecisionEntry) bool { return g.Pair != "" }) {
 		return nil
 	}
 	dgpvClearGroupPairs(&d)
@@ -462,7 +451,7 @@ func pcDropGroupPairs(path string) error {
 	return os.WriteFile(path, b, 0o644)
 }
 
-func dgpvClearGroupPairs(d *dgpvDecision) {
+func dgpvClearGroupPairs(d *core.PlanDecision) {
 	for i := range d.Groups {
 		d.Groups[i].Pair = ""
 	}
@@ -481,49 +470,12 @@ func dgpvPairInvalid(what, pair, role string, base map[string][]string) string {
 	return ""
 }
 
-var dgpvPanelKey = regexp.MustCompile(`^panel-[0-9]+-(.+)$`)
-
-// dgpvPick is the decided pair of the dispatch keyed key on role, read from <wt>/.superpowers/sdd/decision.json,
-// and the `decider: <what>` text its row records as -pair-pick: a bundle's
-// `panel-<round>-<slots>[-<repo>]` on panel-reviewer. "" when the decision
-// names no pair for it or the role's base pairs no longer hold that pair.
-func dgpvPick(wt, role, key string, base []string) (pair, pick string) {
-	b, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "decision.json"))
-	var d dgpvDecision
-	if err != nil || json.Unmarshal(b, &d) != nil {
-		return "", ""
-	}
-	if role == dgpvBundleRole {
-		if m := dgpvPanelKey.FindStringSubmatch(key); m != nil {
-			for _, p := range d.Panel {
-				if s := strings.Join(p.Slots, "+"); m[1] == s || strings.HasPrefix(m[1], s+"-") {
-					pair, pick = p.Pair, "decider: bundle "+s
-				}
-			}
-		}
-	}
-	if pair == "" || !slices.Contains(base, pair) {
-		return "", ""
-	}
-	return pair, pick
-}
-
-type dgpvDecision struct {
-	Groups []dgpvEntry `json:"groups"`
-	Panel  []dgpvEntry `json:"panel"`
-	Visual struct {
-		Verify string `json:"verify"`
-		Reason string `json:"reason"`
-	} `json:"visual"`
-	Overrides []json.RawMessage `json:"overrides"`
-}
-
 // dgpvSlots is the slot catalog, in the order of the table skills/flow/plan-check-decision.md shows
 // the model (TestDgpvCatalogMatchesTheDecisionTable holds the two equal).
 var dgpvSlots = []string{"primary", "principles", "test-sanity", "call-efficiency", "failure-modes", "mutation"}
 
 // dgpvInvalid is why d breaks a rule the header names, "" when none.
-func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, visual bool, base map[string][]string) string {
+func dgpvInvalid(d core.PlanDecision, tasks []pdbTask, repoAt []string, visual bool, base map[string][]string) string {
 	byID := map[string]pdbTask{}
 	for _, t := range tasks {
 		byID[t.id] = t
@@ -580,7 +532,7 @@ func dgpvInvalid(d dgpvDecision, tasks []pdbTask, repoAt []string, visual bool, 
 			}
 			seen = append(seen, s)
 		}
-		if why := dgpvPairInvalid(fmt.Sprintf("bundle %d", bi+1), b.Pair, dgpvBundleRole, base); why != "" {
+		if why := dgpvPairInvalid(fmt.Sprintf("bundle %d", bi+1), b.Pair, core.BundleRole, base); why != "" {
 			return why
 		}
 	}

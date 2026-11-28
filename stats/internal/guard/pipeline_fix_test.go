@@ -10,6 +10,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/guard/guardtest"
+	"github.com/tweety53/agents/stats/internal/guard/hook"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -143,7 +144,7 @@ func TestPipelineFixStartLeavesNothingWhenTheStateWriteFails(t *testing.T) {
 	if _, err := os.Stat(fx.wt(branch)); !os.IsNotExist(err) {
 		t.Fatalf("worktree left behind: %v", err)
 	}
-	if rc, _ := kwRun(fx.env, "", "git", "-C", fx.repo, "rev-parse", "-q", "--verify", "refs/heads/"+branch); rc == 0 {
+	if rc, _ := core.RunCombined(fx.env, "", "git", "-C", fx.repo, "rev-parse", "-q", "--verify", "refs/heads/"+branch); rc == 0 {
 		t.Fatal("branch left behind")
 	}
 }
@@ -319,7 +320,7 @@ func TestPipelineFixLand(t *testing.T) {
 			if rc != tc.rc {
 				t.Fatalf("rc %d, want %d: %s", rc, tc.rc, out)
 			}
-			_, log := kwRun(fx.env, "", guardtest.FixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
+			_, log := core.RunCombined(fx.env, "", guardtest.FixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
 			if tc.rc != 0 {
 				if strings.Contains(log, "docs: fix") || !strings.Contains(out, tc.refusal) {
 					t.Fatalf("refused landing pushed or named no review: %s\n%s", out, log)
@@ -332,7 +333,7 @@ func TestPipelineFixLand(t *testing.T) {
 			if tc.moved && (!strings.Contains(log, "docs: other") || !strings.Contains(out, "green: true")) {
 				t.Fatalf("the moved base was not rebased onto and verified: %s\n%s", out, log)
 			}
-			if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, guardtest.FixtureGit, fx.repo, lpBranch) {
+			if _, err := os.Stat(wt); err == nil || hook.BranchExists(fx.env, guardtest.FixtureGit, fx.repo, lpBranch) {
 				t.Fatalf("worktree or branch left behind: %s", out)
 			}
 			if !strings.Contains(fx.calls(t), `"state":"FINISHED"`) {
@@ -376,13 +377,13 @@ func TestPipelineFixLandRecordsTheFixedRow(t *testing.T) {
 			guardtest.WriteFile(t, wt+"/docs/fix.md", "fix\n")
 			guardtest.GitRun(t, wt, "add", "docs/fix.md")
 			guardtest.GitRun(t, wt, "commit", "-q", "-m", "docs: fix")
-			_, first := kwRun(fx.env, "", guardtest.FixtureGit, "-C", wt, "rev-parse", "HEAD")
+			_, first := core.RunCombined(fx.env, "", guardtest.FixtureGit, "-C", wt, "rev-parse", "HEAD")
 			guardtest.WriteFile(t, wt+"/docs/more.md", "more\n")
 			guardtest.GitRun(t, wt, "add", "docs/more.md")
 			guardtest.GitRun(t, wt, "commit", "-q", "-m", "docs: more")
 			var o, e bytes.Buffer
 			rc := pipelineFix(append([]string{"land", wt}, tc.grade...), fx.env, &o, &e)
-			_, log := kwRun(fx.env, "", guardtest.FixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
+			_, log := core.RunCombined(fx.env, "", guardtest.FixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
 			if rc != tc.rc {
 				t.Fatalf("rc %d, want %d: %s%s", rc, tc.rc, o.String(), e.String())
 			}
@@ -423,7 +424,7 @@ func TestPipelineFixLandFromItsOwnWorktree(t *testing.T) {
 		t.Fatalf("rc %d, want 0 and landed: %s", rc, out)
 	}
 	fx.env.Dir = fx.repo // the checks below must not run in the removed worktree
-	if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, guardtest.FixtureGit, fx.repo, lpBranch) {
+	if _, err := os.Stat(wt); err == nil || hook.BranchExists(fx.env, guardtest.FixtureGit, fx.repo, lpBranch) {
 		t.Fatalf("worktree or branch left behind: %s", out)
 	}
 }
@@ -444,7 +445,7 @@ func TestPipelineFixDropFromItsOwnWorktree(t *testing.T) {
 		t.Fatalf("rc %d, want 0 and dropped: %s", rc, out)
 	}
 	fx.env.Dir = fx.repo // the checks below must not run in the removed worktree
-	if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, guardtest.FixtureGit, fx.repo, lpBranch) {
+	if _, err := os.Stat(wt); err == nil || hook.BranchExists(fx.env, guardtest.FixtureGit, fx.repo, lpBranch) {
 		t.Fatalf("worktree or branch left behind: %s", out)
 	}
 }
@@ -477,7 +478,7 @@ func TestPipelineFixDrop(t *testing.T) {
 	if rc, out := fx.pf(t, "drop", wt); rc != 0 || !strings.Contains(out, "dropped: "+lpBranch) {
 		t.Fatalf("rc %d: %s", rc, out)
 	}
-	if _, err := os.Stat(wt); err == nil || lpBranchExists(fx.env, guardtest.FixtureGit, fx.repo, lpBranch) {
+	if _, err := os.Stat(wt); err == nil || hook.BranchExists(fx.env, guardtest.FixtureGit, fx.repo, lpBranch) {
 		t.Fatal("worktree or branch left behind")
 	}
 	if !strings.Contains(fx.calls(t), `"withdrawn":true`) {
@@ -612,7 +613,7 @@ func TestPipelineFixVerifyRunsVisualOnUIPath(t *testing.T) {
 		t.Fatalf("(c) rc %d: %s", rc, out)
 	}
 	rc, out := fx.pf(t, "land", wt, "important")
-	_, log := kwRun(fx.env, "", guardtest.FixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
+	_, log := core.RunCombined(fx.env, "", guardtest.FixtureGit, "--git-dir", fx.origin, "log", "--format=%s", "main")
 	if rc != 1 || !strings.Contains(out, "red: "+vis) || strings.Contains(log, "fix: ui") {
 		t.Fatalf("(d) rc %d: %s\n%s", rc, out, log)
 	}

@@ -323,7 +323,7 @@ func (v *vvp) preflight(survivors []string) error {
 		}
 		if cmd := strings.TrimSpace(v.cells(w)["smoke"]); cmd != "" {
 			start := time.Now()
-			rc, out := kwRun(v.env, v.captureRoot(w), "sh", "-c", cmd)
+			rc, out := core.RunCombined(v.env, v.captureRoot(w), "sh", "-c", cmd)
 			if rc != 0 {
 				collect("smoke", "", cmd+" exited "+fmt.Sprint(rc)+": "+out)
 			} else {

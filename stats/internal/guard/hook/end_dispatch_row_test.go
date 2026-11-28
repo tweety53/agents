@@ -1,4 +1,4 @@
-package guard
+package hook
 
 import (
 	"bytes"
@@ -194,7 +194,7 @@ func TestSweepDispatchRows(t *testing.T) {
 	}, Dir: tmp}
 	for i := 0; i < 2; i++ { // the second sweep finds nothing new
 		var o, e bytes.Buffer
-		if rc := sweepDispatchRows([]string{tmp, "s1", tmp}, env, &o, &e); rc != 0 {
+		if rc := SweepDispatchRows([]string{tmp, "s1", tmp}, env, &o, &e); rc != 0 {
 			t.Fatalf("rc %d: %s", rc, e.String())
 		}
 	}
@@ -227,7 +227,7 @@ func TestSweepRetriesATransientMiss(t *testing.T) {
 		return os.Getenv(k)
 	}, Dir: tmp}
 	var o, e bytes.Buffer
-	sweepDispatchRows([]string{tmp, "s1", tmp}, env, &o, &e)
+	SweepDispatchRows([]string{tmp, "s1", tmp}, env, &o, &e)
 	if _, err := os.Stat(f + ".swept"); err == nil {
 		t.Error("a transient miss wrote the .swept sidecar; the row would never be retried")
 	}
@@ -295,11 +295,11 @@ func TestSweepAbortsAbandonedVisualVerifyRows(t *testing.T) {
 		`{"key":"visual-verify-gymie","role":"visual-verifier","sessionToken":"mf-old","startedAt":"` + ago(time.Hour) + `","endedAt":"` + ago(50*time.Minute) + `"},` +
 		`{"key":"visual-verify-4-gymie","role":"visual-verifier","sessionToken":"mf-t1","startedAt":"` + ago(5*time.Minute) + `"},` +
 		`{"key":"panel-fix-1","role":"panel-fix","sessionToken":"mf-old","startedAt":"` + ago(time.Hour) + `"}]`
-	srv := fakeFlowdRows(t, func() string { return rows }, func(w http.ResponseWriter, _ *http.Request) {
+	srv := guardtest.FakeFlowdRows(t, func() string { return rows }, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"stageRuns":[{"changeName":"c1","sessionToken":"mf-t1"}]}`))
 	})
 	guardtest.WriteExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >>"+log+"\n")
-	cwd := gitWorktree(t, tmp, "repo")
+	cwd := guardtest.GitWorktree(t, tmp, "repo")
 	env := core.Env{Getenv: func(k string) string {
 		switch k {
 		case "FLOW_ADDR", "FLOW_RECORDS_ADDR":
@@ -310,7 +310,7 @@ func TestSweepAbortsAbandonedVisualVerifyRows(t *testing.T) {
 		return os.Getenv(k)
 	}, Dir: tmp}
 	var o, e bytes.Buffer
-	if rc := sweepDispatchRows([]string{tmp, "s1", cwd}, env, &o, &e); rc != 0 {
+	if rc := SweepDispatchRows([]string{tmp, "s1", cwd}, env, &o, &e); rc != 0 {
 		t.Fatalf("rc %d: %s", rc, e.String())
 	}
 	got, _ := os.ReadFile(log)

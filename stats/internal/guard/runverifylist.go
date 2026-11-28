@@ -918,7 +918,7 @@ func rvlRecordRun(env core.Env, dir, change, kind, label string, start time.Time
 			flaky += n
 		}
 	}
-	kwRun(env, "", flow, "record", "run", "-C", dir, "-change", change, "-kind", kind, "-label", label,
+	core.RunCombined(env, "", flow, "record", "run", "-C", dir, "-change", change, "-kind", kind, "-label", label,
 		"-seconds", strconv.Itoa(int(time.Since(start).Seconds())), "-tests", strconv.Itoa(tests), "-failed", strconv.Itoa(failed), "-exit", strconv.Itoa(exit), "-flaky", strconv.Itoa(flaky))
 }
 
@@ -1188,7 +1188,7 @@ func runVerifyList(args []string, env core.Env, stdout, stderr io.Writer) int {
 			}
 			argv = append(argv, "-key", key, "-session-token", token)
 			argv = append(argv, flags...)
-			rc, out := kwRun(env, "", flow, argv...)
+			rc, out := core.RunCombined(env, "", flow, argv...)
 			if rc == 0 {
 				return true
 			}
@@ -1219,7 +1219,7 @@ func runVerifyList(args []string, env core.Env, stdout, stderr io.Writer) int {
 					r.Key == key || vgFixSuffix.ReplaceAllString(r.Key, "verify$2") != group {
 					continue
 				}
-				if rc, out := kwRun(env, "", flow, "record", "dispatch", "end", "-C", wt, "-change", change, "-key", r.Key, "-session-token", token, "-outcome", "aborted"); rc != 0 {
+				if rc, out := core.RunCombined(env, "", flow, "record", "dispatch", "end", "-C", wt, "-change", change, "-key", r.Key, "-session-token", token, "-outcome", "aborted"); rc != 0 {
 					fmt.Fprintf(stderr, "run-verify-list: flow record dispatch end of superseded row %s failed: %s\n", r.Key, strings.TrimSpace(out))
 				}
 			}

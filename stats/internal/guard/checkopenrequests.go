@@ -41,7 +41,7 @@ func checkOpenRequests(args []string, env core.Env, stdout, stderr io.Writer) in
 	const timeout = 2 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	reqs, err := client.New(recordsAddr(env), &http.Client{Timeout: timeout}).ListRequests(ctx, project, change)
+	reqs, err := client.New(core.RecordsAddr(env), &http.Client{Timeout: timeout}).ListRequests(ctx, project, change)
 	if err != nil && !errors.Is(err, client.ErrNotFound) {
 		core.Reason(env, "store-unreadable")
 		fmt.Fprintf(stderr, "check-open-requests: read %s's requests: %v\n", change, err)

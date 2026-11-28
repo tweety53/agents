@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
@@ -28,9 +29,9 @@ func dgpvFixture(t *testing.T) (wt, root, out string) {
 	return wt, root, filepath.Join(t.TempDir(), "decision.json")
 }
 
-func dgpvRead(t *testing.T, out string) dgpvDecision {
+func dgpvRead(t *testing.T, out string) core.PlanDecision {
 	t.Helper()
-	var d dgpvDecision
+	var d core.PlanDecision
 	b, err := os.ReadFile(out)
 	if err != nil || json.Unmarshal(b, &d) != nil {
 		t.Fatalf("decision %s: %v %s", out, err, b)
@@ -323,7 +324,7 @@ func TestDgpvInvalidGroupSizeLimit(t *testing.T) {
 		tasks = append(tasks, pdbTask{id: id, size: "small", taskLine: i + 1})
 		ids = append(ids, id)
 	}
-	d := dgpvDecision{Groups: []dgpvEntry{{Tasks: ids}}}
+	d := core.PlanDecision{Groups: []core.DecisionEntry{{Tasks: ids}}}
 	if got := dgpvInvalid(d, tasks, make([]string, 6), false, nil); got != "group 1 holds 4 tasks" {
 		t.Errorf("dgpvInvalid = %q", got)
 	}
@@ -334,11 +335,11 @@ func TestDgpvInvalidGroupSizeLimit(t *testing.T) {
 func TestDgpvInvalidMutationNeedsNoGroupCount(t *testing.T) {
 	t.Parallel()
 	tasks := []pdbTask{{id: "1", size: "small", taskLine: 1}, {id: "2", size: "small", taskLine: 2}}
-	panel := []dgpvEntry{{Slots: []string{"primary"}}, {Slots: []string{"mutation"}}}
-	one := dgpvDecision{Groups: []dgpvEntry{{Tasks: []string{"1", "2"}}}, Panel: panel}
+	panel := []core.DecisionEntry{{Slots: []string{"primary"}}, {Slots: []string{"mutation"}}}
+	one := core.PlanDecision{Groups: []core.DecisionEntry{{Tasks: []string{"1", "2"}}}, Panel: panel}
 	one.Visual.Verify = "not configured"
 	two := one
-	two.Groups = []dgpvEntry{{Tasks: []string{"1"}}, {Tasks: []string{"2"}}}
+	two.Groups = []core.DecisionEntry{{Tasks: []string{"1"}}, {Tasks: []string{"2"}}}
 	if got := dgpvInvalid(one, tasks, make([]string, 4), false, nil); got != "" {
 		t.Errorf("one group: dgpvInvalid = %q", got)
 	}
@@ -680,15 +681,15 @@ func TestDgpvPick(t *testing.T) {
 		{"panel-reviewer", "fix-1-review", ""},
 		{"panel-rerun", "panel-5-primary+principles", ""},
 	} {
-		pair, pick := dgpvPick(wt, c.role, c.key, base)
+		pair, pick := core.DecidedPair(wt, c.role, c.key, base)
 		if got := strings.TrimSpace(pair + " " + pick); got != c.want {
 			t.Errorf("dgpvPick(%s, %s) = %q, want %q", c.role, c.key, got, c.want)
 		}
 	}
-	if pair, _ := dgpvPick(wt, "panel-reviewer", "panel-4-mutation", []string{"opus/flow-medium"}); pair != "" {
+	if pair, _ := core.DecidedPair(wt, "panel-reviewer", "panel-4-mutation", []string{"opus/flow-medium"}); pair != "" {
 		t.Errorf("a pair the role no longer admits was used: %s", pair)
 	}
-	if pair, _ := dgpvPick(t.TempDir(), "panel-reviewer", "panel-4-mutation", base); pair != "" {
+	if pair, _ := core.DecidedPair(t.TempDir(), "panel-reviewer", "panel-4-mutation", base); pair != "" {
 		t.Errorf("no decision.json gave pair %s", pair)
 	}
 }

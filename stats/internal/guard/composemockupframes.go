@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
@@ -176,11 +175,11 @@ func composeMockupFrames(args []string, env core.Env, stdout, stderr io.Writer) 
 	// run before anything is composed; the walk below applies them in order.
 	frames := map[int]*cmfGeometry{}
 	for i, raw := range mapLines {
-		line := pyStrip(raw)
+		line := core.PyStrip(raw)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if f := pySplit(line); f[0] == "frame" {
+		if f := core.PySplit(line); f[0] == "frame" {
 			rest := strings.Join(f[1:], " ")
 			if rest == "none" {
 				frames[i] = nil
@@ -224,7 +223,7 @@ func composeMockupFrames(args []string, env core.Env, stdout, stderr io.Writer) 
 	}
 	var stdinPaths []string
 	for _, line := range strings.Split(string(in), "\n") {
-		if p := pyStrip(line); p != "" {
+		if p := core.PyStrip(line); p != "" {
 			stdinPaths = append(stdinPaths, p)
 		}
 	}
@@ -265,11 +264,11 @@ func composeMockupFrames(args []string, env core.Env, stdout, stderr io.Writer) 
 
 	for i, raw := range mapLines {
 		lineno := i + 1
-		line := pyStrip(raw)
+		line := core.PyStrip(raw)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		fields := pySplit(line)
+		fields := core.PySplit(line)
 		if g, ok := frames[i]; ok {
 			geometry = g
 			continue
@@ -417,7 +416,7 @@ func cmfSave(env core.Env, stderr io.Writer, at func(string) string, path string
 func cmfParseGeometry(arg string) (cmfGeometry, bool) {
 	values := map[string]int{}
 	bare := false
-	for _, field := range pySplit(arg) {
+	for _, field := range core.PySplit(arg) {
 		if field == "bare" && !bare {
 			bare = true
 			continue
@@ -675,12 +674,3 @@ func cmfSplitPath(p string) (string, string) {
 	}
 	return head, tail
 }
-
-// pyIsSpace is Python's str.isspace for one code point: Go's unicode.IsSpace
-// plus the four information separators Python also counts.
-func pyIsSpace(r rune) bool { return unicode.IsSpace(r) || r >= 0x1C && r <= 0x1F }
-
-func pyStrip(s string) string { return strings.TrimFunc(s, pyIsSpace) }
-
-// pySplit is Python's str.split() with no arguments.
-func pySplit(s string) []string { return strings.FieldsFunc(s, pyIsSpace) }

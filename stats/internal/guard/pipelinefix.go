@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/hook"
 )
 
 // The contract below moved here from the header of the deleted
@@ -127,7 +128,7 @@ func pipelineFix(args []string, env core.Env, stdout, stderr io.Writer) int {
 		core.Reason(env, "git-unresolved")
 		return 2
 	}
-	main, ok := lpMain(env, git, repo)
+	main, ok := hook.LoopMain(env, git, repo)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: %s is not a git checkout\n", self, repo)
 		core.Reason(env, "not-a-git-checkout")
@@ -177,14 +178,14 @@ func pfRecord(state, branch string, worktrees map[string]string) map[string]any 
 
 // pfBase is dir's origin/HEAD short name, e.g. origin/main.
 func pfBase(env core.Env, git, dir string) (string, bool) {
-	rc, out := kwRun(env, "", git, "-C", dir, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+	rc, out := core.RunCombined(env, "", git, "-C", dir, "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
 	return strings.TrimSpace(out), rc == 0 && strings.HasPrefix(out, "origin/")
 }
 
 func pfStart(env core.Env, pe pfEnv, rest []string, stdout, stderr io.Writer) int {
 	const self = "pipeline-fix start"
 	name := rest[0]
-	if !core.PlainChangeName(name) || (len(rest) == 2 && !lpDigits.MatchString(rest[1])) {
+	if !core.PlainChangeName(name) || (len(rest) == 2 && !hook.Digits.MatchString(rest[1])) {
 		fmt.Fprintf(stderr, "%s: <name> must be a plain change name and <k> a number\n", self)
 		core.Reason(env, "bad-name")
 		return 2
@@ -193,7 +194,7 @@ func pfStart(env core.Env, pe pfEnv, rest []string, stdout, stderr io.Writer) in
 	if len(rest) == 2 {
 		branch = "pipeline-fix-" + name + "-" + rest[1]
 	}
-	if rc, out := kwRun(env, "", pe.git, "-C", pe.main, "fetch", "origin"); rc != 0 {
+	if rc, out := core.RunCombined(env, "", pe.git, "-C", pe.main, "fetch", "origin"); rc != 0 {
 		fmt.Fprint(stderr, out)
 		core.Reason(env, "fetch-failed")
 		return 1
@@ -225,7 +226,7 @@ func pfStart(env core.Env, pe pfEnv, rest []string, stdout, stderr io.Writer) in
 		return 2
 	}
 	wt := filepath.Join(core.SiblingRoot(physical), branch)
-	if rc, out := kwRun(env, "", pe.git, "-C", pe.main, "worktree", "add", "-b", branch, wt, base); rc != 0 {
+	if rc, out := core.RunCombined(env, "", pe.git, "-C", pe.main, "worktree", "add", "-b", branch, wt, base); rc != 0 {
 		fmt.Fprint(stderr, out)
 		core.Reason(env, "worktree-add-failed")
 		return 1
@@ -238,7 +239,7 @@ func pfStart(env core.Env, pe pfEnv, rest []string, stdout, stderr io.Writer) in
 		core.Reason(env, "cannot-create-sdd-dir")
 		return 1
 	}
-	rc, out := kwRun(env, "", pe.git, "-C", wt, "rev-parse", "HEAD")
+	rc, out := core.RunCombined(env, "", pe.git, "-C", wt, "rev-parse", "HEAD")
 	if rc != 0 {
 		fmt.Fprint(stderr, out)
 		core.Reason(env, "head-unresolved")
@@ -271,7 +272,7 @@ var pfNumbered = regexp.MustCompile(`^(?:[0-9]{4}-[0-9]{2}-[0-9]{2}-)?pipeline-f
 // machine, which this refuses (kan-1132 self-review, F3).
 func pfHighestK(env core.Env, pe pfEnv) (int, bool) {
 	var names []string
-	_, refs := kwRun(env, "", pe.git, "-C", pe.main, "for-each-ref", "--format=%(refname:lstrip=2)", "refs/heads/", "refs/remotes/")
+	_, refs := core.RunCombined(env, "", pe.git, "-C", pe.main, "for-each-ref", "--format=%(refname:lstrip=2)", "refs/heads/", "refs/remotes/")
 	for _, r := range strings.Fields(refs) {
 		names = append(names, filepath.Base(r))
 	}
@@ -294,7 +295,7 @@ func pfHighestK(env core.Env, pe pfEnv) (int, bool) {
 		names = append(names, e.Name())
 	}
 	// A dropped loop's branch is gone; drop recorded its <n> here.
-	_, used := kwRun(env, "", pe.git, "-C", pe.main, "config", "--get-all", "flow.loop-k-used")
+	_, used := core.RunCombined(env, "", pe.git, "-C", pe.main, "config", "--get-all", "flow.loop-k-used")
 	for _, k := range strings.Fields(used) {
 		names = append(names, "pipeline-fix-dropped-"+k)
 	}
@@ -310,15 +311,15 @@ func pfHighestK(env core.Env, pe pfEnv) (int, bool) {
 }
 
 // pfLoop resolves key's loop for end.
-func pfLoop(env core.Env, pe pfEnv, key string, stderr io.Writer) (lp lpLoop, suffix string, rc int) {
-	lp, suffix, _, msg, ok := lpFromKey(env, pe.git, pe.main, key)
+func pfLoop(env core.Env, pe pfEnv, key string, stderr io.Writer) (lp hook.Loop, suffix string, rc int) {
+	lp, suffix, _, msg, ok := hook.LoopFromKey(env, pe.git, pe.main, key)
 	if !ok {
 		if msg == "" {
 			msg = key + " is no loop key"
 		}
 		fmt.Fprintf(stderr, "pipeline-fix: %s\n", msg)
 		core.Reason(env, "not-a-loop-key")
-		return lpLoop{}, "", 1
+		return hook.Loop{}, "", 1
 	}
 	return lp, suffix, 0
 }
@@ -350,7 +351,7 @@ func pfEnd(env core.Env, pe pfEnv, key, outcome string, stdout, stderr io.Writer
 	if rc != 0 {
 		return rc
 	}
-	if lpFamily(suffix) == "review" && outcome != "aborted" {
+	if hook.LoopFamily(suffix) == "review" && outcome != "aborted" {
 		// clean: the review raised no Critical and no Important.
 		o, err := pfReviewOutcome(outcome)
 		if err != nil {
@@ -359,17 +360,17 @@ func pfEnd(env core.Env, pe pfEnv, key, outcome string, stdout, stderr io.Writer
 			return 2
 		}
 		outcome = o
-	} else if want := []string{"completed", "aborted"}; lpFamily(suffix) != "review" && !slices.Contains(want, outcome) {
+	} else if want := []string{"completed", "aborted"}; hook.LoopFamily(suffix) != "review" && !slices.Contains(want, outcome) {
 		fmt.Fprintf(stderr, "pipeline-fix end: %s takes outcome %s\n", key, strings.Join(want, " or "))
 		core.Reason(env, "outcome-invalid")
 		return 2
 	}
-	main, change := lp.main, lp.change
-	if lpFamily(suffix) == "pass" {
-		change, main = lpPassTarget(env, pe.git, lp)
+	main, change := lp.Main, lp.Change
+	if hook.LoopFamily(suffix) == "pass" {
+		change, main = hook.PassTarget(env, pe.git, lp)
 	}
 	out, _, frc := core.Flow(env, true, "record", "dispatch", "end", "-C", main, "-change", change,
-		"-key", key, "-session-token", lp.token, "-outcome", outcome)
+		"-key", key, "-session-token", lp.Token, "-outcome", outcome)
 	fmt.Fprint(stdout, string(out))
 	if frc != 0 {
 		core.Reason(env, "dispatch-end-failed")
@@ -380,7 +381,7 @@ func pfEnd(env core.Env, pe pfEnv, key, outcome string, stdout, stderr io.Writer
 
 // pfTouched is every path wt's branch changed against base.
 func pfTouched(env core.Env, pe pfEnv, wt, base string) ([]string, bool) {
-	rc, out := kwRun(env, "", pe.git, "-C", wt, "diff", "--no-renames", "--name-only", base+"...HEAD")
+	rc, out := core.RunCombined(env, "", pe.git, "-C", wt, "diff", "--no-renames", "--name-only", base+"...HEAD")
 	return strings.Fields(out), rc == 0
 }
 
@@ -517,7 +518,7 @@ func pfVerify(env core.Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "red: %s (exit %d)\n%s\n", c, crc, strings.Join(lines, "\n"))
 	}
 	report := func(c, dir string) {
-		if crc, out := kwRun(env, dir, "bash", "-c", c); crc != 0 {
+		if crc, out := core.RunCombined(env, dir, "bash", "-c", c); crc != 0 {
 			fail(c, crc, out)
 			return
 		}
@@ -555,13 +556,13 @@ func pfVerify(env core.Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 }
 
 // pfLoopWorktree is wt's loop branch, or ok false (named on stderr).
-func pfLoopWorktree(env core.Env, pe pfEnv, wt, self string, stderr io.Writer) (string, lpLoop, bool) {
-	rc, out := kwRun(env, "", pe.git, "-C", wt, "branch", "--show-current")
+func pfLoopWorktree(env core.Env, pe pfEnv, wt, self string, stderr io.Writer) (string, hook.Loop, bool) {
+	rc, out := core.RunCombined(env, "", pe.git, "-C", wt, "branch", "--show-current")
 	branch := strings.TrimSpace(out)
-	lp, ok := lpFromBranch(branch)
-	if rc != 0 || !ok || lpOwnBranch(branch) {
+	lp, ok := hook.LoopFromBranch(branch)
+	if rc != 0 || !ok || hook.OwnBranch(branch) {
 		fmt.Fprintf(stderr, "%s: %s is not on a pipeline-fix-* or self-review-* branch\n", self, wt)
-		return "", lpLoop{}, false
+		return "", hook.Loop{}, false
 	}
 	return branch, lp, true
 }
@@ -573,7 +574,7 @@ func pfRemove(env core.Env, pe pfEnv, wt, branch string, force bool, stderr io.W
 		rm = append(rm, "--force")
 	}
 	for _, a := range [][]string{rm, {"-C", pe.main, "branch", "-D", branch}} {
-		if rc, out := kwRun(env, "", pe.git, a...); rc != 0 {
+		if rc, out := core.RunCombined(env, "", pe.git, a...); rc != 0 {
 			if strings.TrimSpace(out) == "" {
 				out = fmt.Sprintf("git %s exited %d\n", strings.Join(a, " "), rc)
 			}
@@ -598,7 +599,7 @@ func pfLand(env core.Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) 
 		core.Reason(env, "not-a-loop-worktree")
 		return 2
 	}
-	pipeline := lpPipelineBranch.FindStringSubmatch(branch)
+	pipeline := hook.PipelineBranch.FindStringSubmatch(branch)
 	if (pipeline != nil && grade != "important" && grade != "minor") || (pipeline == nil && grade != "") {
 		fmt.Fprint(stderr, pfUsage)
 		core.Reason(env, "usage")
@@ -619,14 +620,14 @@ func pfLand(env core.Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) 
 		core.Reason(env, "origin-head-unresolved")
 		return 2
 	}
-	if rc, out := kwRun(env, "", pe.git, "-C", wt, "fetch", "origin"); rc != 0 {
+	if rc, out := core.RunCombined(env, "", pe.git, "-C", wt, "fetch", "origin"); rc != 0 {
 		fmt.Fprint(stderr, out)
 		core.Reason(env, "fetch-failed")
 		return 1
 	}
-	if rc, _ := kwRun(env, "", pe.git, "-C", wt, "merge-base", "--is-ancestor", base, "HEAD"); rc != 0 {
-		if rc, out := kwRun(env, "", pe.git, "-C", wt, "rebase", base); rc != 0 {
-			kwRun(env, "", pe.git, "-C", wt, "rebase", "--abort")
+	if rc, _ := core.RunCombined(env, "", pe.git, "-C", wt, "merge-base", "--is-ancestor", base, "HEAD"); rc != 0 {
+		if rc, out := core.RunCombined(env, "", pe.git, "-C", wt, "rebase", base); rc != 0 {
+			core.RunCombined(env, "", pe.git, "-C", wt, "rebase", "--abort")
 			fmt.Fprintf(stderr, "%s: rebase onto %s stopped — resolve it in %s, then land again\n%s", self, base, wt, out)
 			core.Reason(env, "rebase-onto-stopped")
 			return 1
@@ -639,18 +640,18 @@ func pfLand(env core.Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) 
 		return 1
 	}
 	// The fixed row's fields, read before the push moves base.
-	_, revs := kwRun(env, "", pe.git, "-C", wt, "rev-list", "--reverse", base+"..HEAD")
+	_, revs := core.RunCombined(env, "", pe.git, "-C", wt, "rev-list", "--reverse", base+"..HEAD")
 	firstSHA, _, _ := strings.Cut(strings.TrimSpace(revs), "\n")
-	_, subject := kwRun(env, "", pe.git, "-C", wt, "log", "-1", "--format=%s", firstSHA)
+	_, subject := core.RunCombined(env, "", pe.git, "-C", wt, "log", "-1", "--format=%s", firstSHA)
 	touched, _ := pfTouched(env, pe, wt, base)
 	target := strings.TrimPrefix(base, "origin/")
-	if rc, out := kwRun(env, "", pe.git, "-C", wt, "push", "origin", branch+":"+target); rc != 0 {
+	if rc, out := core.RunCombined(env, "", pe.git, "-C", wt, "push", "origin", branch+":"+target); rc != 0 {
 		fmt.Fprint(stderr, out)
 		core.Reason(env, "push-failed")
 		return 1
 	}
-	_, sha := kwRun(env, "", pe.git, "-C", wt, "rev-parse", "HEAD")
-	if rc, out := pfState(env, pe.main, lp.change, pfRecord("FINISHED", branch, map[string]string{})); rc != 0 {
+	_, sha := core.RunCombined(env, "", pe.git, "-C", wt, "rev-parse", "HEAD")
+	if rc, out := pfState(env, pe.main, lp.Change, pfRecord("FINISHED", branch, map[string]string{})); rc != 0 {
 		fmt.Fprintf(stderr, "%s: pushed, but the loop's state was not written:\n%s", self, out)
 	}
 	recorded := true
@@ -663,9 +664,9 @@ func pfLand(env core.Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) 
 			fmt.Fprintf(stderr, "%s: pushed, but the fixed row was not recorded:\n%s", self, out)
 		}
 	}
-	_, old := kwRun(env, "", pe.git, "-C", pe.main, "rev-parse", "HEAD")
+	_, old := core.RunCombined(env, "", pe.git, "-C", pe.main, "rev-parse", "HEAD")
 	pulled := true
-	if rc, out := kwRun(env, "", pe.git, "-C", pe.main, "pull", "--ff-only"); rc != 0 {
+	if rc, out := core.RunCombined(env, "", pe.git, "-C", pe.main, "pull", "--ff-only"); rc != 0 {
 		pulled = false
 		fmt.Fprintf(stderr, "%s: pushed, but the main checkout did not fast-forward:\n%s", self, out)
 	}
@@ -674,7 +675,7 @@ func pfLand(env core.Env, pe pfEnv, wt, grade string, stdout, stderr io.Writer) 
 	}
 	fmt.Fprintf(stdout, "landed: %s\n", strings.TrimSpace(sha))
 	if pulled {
-		_, now := kwRun(env, "", pe.git, "-C", pe.main, "rev-parse", "HEAD")
+		_, now := core.RunCombined(env, "", pe.git, "-C", pe.main, "rev-parse", "HEAD")
 		if restartFlowdIfStatsMoved(env, pe.main, strings.TrimSpace(old), strings.TrimSpace(now), stdout, stderr) != 0 {
 			core.Reason(env, "flowd-restart-failed")
 			return 1
@@ -710,7 +711,7 @@ func restartFlowdIfStatsMoved(env core.Env, main, old, new string, stdout, stder
 	if !ok {
 		mk = "make"
 	}
-	if rc, out := kwRun(env, "", mk, "-C", dir, "restart"); rc != 0 {
+	if rc, out := core.RunCombined(env, "", mk, "-C", dir, "restart"); rc != 0 {
 		fmt.Fprint(stderr, out)
 		fmt.Fprintf(stdout, "FLOWD-RESTART-FAILED: make -C %s restart exited %d — run it by hand\n", dir, rc)
 		core.Reason(env, "flowd-restart-failed")
@@ -731,7 +732,7 @@ func pfDrop(env core.Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if m := pfNumbered.FindStringSubmatch(branch); m != nil {
-		if rc, out := kwRun(env, "", pe.git, "-C", pe.main, "config", "--add", "flow.loop-k-used", m[1]); rc != 0 {
+		if rc, out := core.RunCombined(env, "", pe.git, "-C", pe.main, "config", "--add", "flow.loop-k-used", m[1]); rc != 0 {
 			fmt.Fprint(stderr, out)
 			core.Reason(env, "config-write-failed")
 			return 1
@@ -739,7 +740,7 @@ func pfDrop(env core.Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 	}
 	rec := pfRecord("FINISHED", branch, map[string]string{})
 	rec["withdrawn"] = true
-	if rc, out := pfState(env, pe.main, lp.change, rec); rc != 0 {
+	if rc, out := pfState(env, pe.main, lp.Change, rec); rc != 0 {
 		fmt.Fprint(stderr, out)
 		core.Reason(env, "state-write-failed")
 		return 1

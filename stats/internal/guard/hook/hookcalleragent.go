@@ -1,4 +1,4 @@
-package guard
+package hook
 
 import (
 	"bytes"

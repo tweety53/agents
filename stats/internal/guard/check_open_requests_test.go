@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
 // openRequestsEnv serves body as the change's request rows from a fake flowd.
@@ -33,7 +34,7 @@ func openRequestsEnv(t *testing.T, body string) (core.Env, string) {
 			return srv.URL
 		}
 		return os.Getenv(k)
-	}, Dir: tmp}, gitWorktree(t, tmp, "chg")
+	}, Dir: tmp}, guardtest.GitWorktree(t, tmp, "chg")
 }
 
 // TestCheckOpenRequestsListsOpen: a begun, never-ended request is listed and exits 1.

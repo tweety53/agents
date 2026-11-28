@@ -88,7 +88,7 @@ func pgNext(env core.Env, wt string, stdout, stderr io.Writer) int {
 	if err != nil {
 		return pgFail(env, stderr, "plan-unreadable", "%v", err)
 	}
-	var d dgpvDecision
+	var d core.PlanDecision
 	raw, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "decision.json"))
 	if err == nil {
 		err = json.Unmarshal(raw, &d)

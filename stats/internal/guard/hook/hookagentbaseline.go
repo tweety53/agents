@@ -1,4 +1,4 @@
-package guard
+package hook
 
 import (
 	"bufio"
@@ -338,7 +338,7 @@ func (e *eab) rowKey(roleID string) string {
 }
 
 // beginRow is the begin argv to write once every deny check has passed, or a deny reason when a
-// judged role's dispatch has no saved pair-judge pick, no pair the decision names for it (dgpvPick,
+// judged role's dispatch has no saved pair-judge pick, no pair the decision names for it (DecidedPair,
 // plancheck.go) and its role more than one base pair, or
 // neither: a row already open, a dispatch with no key or no mapped role, or an unanswered store.
 func (e *eab) beginRow() (args []string, id, reason string) {
@@ -410,7 +410,7 @@ func (e *eab) beginRow() (args []string, id, reason string) {
 	}
 	if roleLine != nil && (ours || !planning) && role != "general" && e.env.Getenv("FLOW_HOOK_ROLE_CHECK") != "off" {
 		base := e.basePairs(roleID)
-		if _, pick := dgpvPick(worktree, roleID, key, base); pick != "" {
+		if _, pick := core.DecidedPair(worktree, roleID, key, base); pick != "" {
 			// The decider picked this dispatch's pair in the decision: no judge call is owed.
 			return append(args, "-pair-pick", pick), "", ""
 		}
@@ -468,14 +468,14 @@ func eabReadPick(path string) string {
 	var fields []string
 	rest := line
 	for len(fields) < 3 {
-		rest = strings.TrimLeftFunc(rest, pyIsSpace)
-		i := strings.IndexFunc(rest, pyIsSpace)
+		rest = strings.TrimLeftFunc(rest, core.PyIsSpace)
+		i := strings.IndexFunc(rest, core.PyIsSpace)
 		if rest == "" || i < 0 {
 			return ""
 		}
 		fields, rest = append(fields, rest[:i]), rest[i:]
 	}
-	reason := pyStrip(rest)
+	reason := core.PyStrip(rest)
 	if reason == "" {
 		return ""
 	}

@@ -42,7 +42,7 @@ func spMatchingFile(projectFile string, tasks []pdbTask) string {
 
 // spAddSecurity appends the `security` bundle to d.Panel when a task file
 // matches `## security paths` and no bundle carries the slot already.
-func spAddSecurity(d *dgpvDecision, projectFile string, tasks []pdbTask) {
+func spAddSecurity(d *core.PlanDecision, projectFile string, tasks []pdbTask) {
 	for _, b := range d.Panel {
 		for _, s := range b.Slots {
 			if s == "security" {
@@ -51,6 +51,6 @@ func spAddSecurity(d *dgpvDecision, projectFile string, tasks []pdbTask) {
 		}
 	}
 	if f := spMatchingFile(projectFile, tasks); f != "" {
-		d.Panel = append(d.Panel, dgpvEntry{Slots: []string{"security"}, Reason: "task file " + f + " matches `## security paths`"})
+		d.Panel = append(d.Panel, core.DecisionEntry{Slots: []string{"security"}, Reason: "task file " + f + " matches `## security paths`"})
 	}
 }

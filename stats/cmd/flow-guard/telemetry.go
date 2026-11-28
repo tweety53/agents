@@ -146,7 +146,7 @@ func bootstrapMS(stamp string, start time.Time) *int {
 
 // dispatched reports whether args name a registered guard -- the only runs
 // recorded; a usage error is not a guard's answer. A `hook` run is never
-// recorded here: a hook records its own wall time (guard/hook.go).
+// recorded here: a hook records its own wall time (guard/hook/hook.go).
 func dispatched(args []string) (string, bool) {
 	if len(args) == 0 || args[0] == "hook" {
 		return "", false

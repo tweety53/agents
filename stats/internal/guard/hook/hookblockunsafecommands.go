@@ -1,4 +1,4 @@
-package guard
+package hook
 
 import (
 	"encoding/json"
@@ -214,7 +214,7 @@ const bucHeredocNote = " A heredoc body the hook could not read as data is scann
 // first use of it, which here is a panic in resolve, git or realpath (its NUL).
 const bucBadCwd = "\x00cwd"
 
-// bucSpace is the character class, for use inside `[...]`, of pyIsSpace: unicode.IsSpace's
+// bucSpace is the character class, for use inside `[...]`, of PyIsSpace: unicode.IsSpace's
 // characters plus \x1C-\x1F, where RE2's `\s` is ASCII only.
 const bucSpace = `\s\v\x1C-\x1F\x{85}\x{2028}\x{2029}\p{Zs}`
 
@@ -389,7 +389,7 @@ func bareCat(command string) bool {
 	command = bareCatText(command)
 	for _, m := range bucBareCatRE.FindAllStringIndex(command, -1) {
 		rest := command[m[1]:]
-		ws := strings.TrimLeftFunc(rest, pyIsSpace)
+		ws := strings.TrimLeftFunc(rest, core.PyIsSpace)
 		if strings.Contains(rest[:len(rest)-len(ws)], "\n") || ws == "" ||
 			strings.ContainsAny(ws[:1], ";&)") || strings.HasPrefix(ws, "||") {
 			return true
@@ -505,7 +505,7 @@ func bucGoTestWord(s string) bool {
 			continue
 		}
 		rest := s[i+2:]
-		ws := strings.TrimLeftFunc(rest, pyIsSpace)
+		ws := strings.TrimLeftFunc(rest, core.PyIsSpace)
 		if len(ws) == len(rest) || !strings.HasPrefix(ws, "test") {
 			continue
 		}
@@ -518,7 +518,7 @@ func bucGoTestWord(s string) bool {
 // bucWholeHeavyPackage is FULL_GO_TEST_RE.search, its `(?=\s|$)` checked after the match.
 func bucWholeHeavyPackage(s string) bool {
 	for _, m := range bucFullGoTestRE.FindAllStringIndex(s, -1) {
-		if r, _ := utf8.DecodeRuneInString(s[m[1]:]); m[1] == len(s) || pyIsSpace(r) {
+		if r, _ := utf8.DecodeRuneInString(s[m[1]:]); m[1] == len(s) || core.PyIsSpace(r) {
 			return true
 		}
 	}
@@ -542,7 +542,7 @@ func (b *buc) git(cwd string, args ...string) (string, bool) {
 			panic("git: stdout is not UTF-8")
 		}
 		if rc == 0 {
-			r = bucGitOut{out: pyStrip(bucNewlines(string(out))), ok: true}
+			r = bucGitOut{out: core.PyStrip(bucNewlines(string(out))), ok: true}
 		}
 	}
 	b.cache[key] = r
@@ -736,7 +736,7 @@ func tokenize(command string) []string {
 		// `2>>f` read as shlex would have split them; a quoted word keeps its quote and never
 		// matches.
 		var words []string
-		for _, w := range pySplit(command) {
+		for _, w := range core.PySplit(command) {
 			words = append(words, bucSplitRedirect(w)...)
 		}
 		return words
@@ -814,7 +814,7 @@ func dataWriteTarget(command string) string {
 			return ""
 		}
 		for _, rest := range lines[k+1:] {
-			if pyStrip(rest) != "" {
+			if core.PyStrip(rest) != "" {
 				return ""
 			}
 		}
@@ -951,7 +951,7 @@ func commandSegments(text string) ([]bucSegment, bool) {
 	var out []bucSegment
 	for _, seg := range bucCommandCutRE.Split(flat+"\n"+strings.Join(spans, "\n"), -1) {
 		var words []string
-		for _, w := range pySplit(seg) {
+		for _, w := range core.PySplit(seg) {
 			words = append(words, strings.Trim(w, `'"`))
 		}
 		for len(words) > 0 && bucLeadingKeywords[words[0]] {
@@ -1236,7 +1236,7 @@ func stripDataHeredocs(command string) string {
 		}
 		parts := bucSegmentSplitRE.Split(line[:o.start], -1)
 		seg := parts[len(parts)-1] + " " + line[o.end:]
-		words := pySplit(seg)
+		words := core.PySplit(seg)
 		for len(words) > 0 && bucAssignmentRE.MatchString(words[0]) {
 			words = words[1:]
 		}
@@ -1263,7 +1263,7 @@ func stripDataHeredocs(command string) string {
 			// `ssh h`, `sqlite3`), so only `flow` reads its body as data.
 			strings.TrimLeft(words[0], `\`) == "flow" &&
 			!slices.ContainsFunc(words[1:], func(w string) bool { return !bucFlowPlainWordRE.MatchString(w) || bucFlowShellWords[w] }) &&
-			!strings.HasSuffix(strings.TrimRightFunc(line, pyIsSpace), `\`) && // a continued opener line hides the rest
+			!strings.HasSuffix(strings.TrimRightFunc(line, core.PyIsSpace), `\`) && // a continued opener line hides the rest
 			!strings.Contains(seg, ">") && // output written to a file may be run later
 			!bucAnyRunner(bucOpenerWordSplitRE.Split(seg, -1)) &&
 			!mayRunCode(bucJoinRest(lines, k, end, ""), "") {
@@ -1796,9 +1796,9 @@ func (b *buc) stashDenial(command, cwd string) string {
 		}
 		group := func(g int) string { return command[start+m[2*g] : start+m[2*g+1]] }
 		p = start + m[1]
-		verb, rest := group(2), pySplit(group(3))
+		verb, rest := group(2), core.PySplit(group(3))
 		target := cwd
-		flags := pySplit(group(1))
+		flags := core.PySplit(group(1))
 		for i, f := range flags {
 			if f == "-C" && i+1 < len(flags) {
 				target = b.resolve(flags[i+1], cwd)

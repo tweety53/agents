@@ -1,4 +1,4 @@
-package guard
+package hook
 
 import (
 	"bytes"
@@ -695,7 +695,7 @@ func bucRunGo(stdin, root string, env []string) bucOut {
 		Dir:       root,
 		Stdin:     strings.NewReader(stdin),
 	}
-	rc := Registry["hook"]([]string{"block-unsafe-commands"}, e, &out, &errb)
+	rc := core.Registry["hook"]([]string{"block-unsafe-commands"}, e, &out, &errb)
 	return bucOut{Stdout: out.String(), Stderr: errb.String(), Exit: rc}
 }
 

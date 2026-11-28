@@ -3,9 +3,7 @@ package guard
 import (
 	"bytes"
 	"net/http"
-	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,37 +13,6 @@ import (
 	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
-// fakeFlowdRows is a flowd answering change records' GET with rows() as their dispatches, under
-// the daemon header the flow client trusts; every other route goes to next (nil: 404).
-func fakeFlowdRows(t *testing.T, rows func() string, next http.HandlerFunc) *httptest.Server {
-	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet && strings.Count(strings.TrimPrefix(r.URL.Path, "/api/v1/records/"), "/") == 1 &&
-			strings.HasPrefix(r.URL.Path, "/api/v1/records/") {
-			w.Header().Set("Flow-Daemon", "flowd/1")
-			_, _ = w.Write([]byte(`{"dispatches":` + rows() + `}`))
-			return
-		}
-		if next == nil {
-			http.NotFound(w, r)
-			return
-		}
-		next(w, r)
-	}))
-	t.Cleanup(srv.Close)
-	return srv
-}
-
-// gitWorktree is a fresh git repository dir/name, so a guard derives a project key from it.
-func gitWorktree(t *testing.T, dir, name string) string {
-	t.Helper()
-	wt := filepath.Join(dir, name)
-	if out, err := exec.Command("git", "init", "-q", wt).CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v %s", err, out)
-	}
-	return wt
-}
-
 // awaitRowsEnv serves the rows from a fake flowd: rows, or rowsEnded once a `flow record dispatch
 // end` -- the sweep's write, still the flow CLI on PATH -- has been called. It returns the env,
 // HOME and the change's worktree.
@@ -53,7 +20,7 @@ func awaitRowsEnv(t *testing.T, rows, rowsEnded string) (core.Env, string, strin
 	t.Helper()
 	tmp := t.TempDir()
 	swept := filepath.Join(tmp, "swept")
-	srv := fakeFlowdRows(t, func() string {
+	srv := guardtest.FakeFlowdRows(t, func() string {
 		if _, err := os.Stat(swept); err == nil {
 			return rowsEnded
 		}
@@ -71,7 +38,7 @@ func awaitRowsEnv(t *testing.T, rows, rowsEnded string) (core.Env, string, strin
 			return srv.URL
 		}
 		return os.Getenv(k)
-	}, Dir: tmp}, home, gitWorktree(t, tmp, "chg")
+	}, Dir: tmp}, home, guardtest.GitWorktree(t, tmp, "chg")
 }
 
 // TestAwaitRowsAllEnded: every named key ended prints one ENDED line per key, in argument order.
@@ -152,7 +119,7 @@ func awaitRowsGitEnv(t *testing.T, wait http.HandlerFunc, rows string) (core.Env
 	t.Helper()
 	tmp := t.TempDir()
 	guardtest.WriteFile(t, filepath.Join(tmp, "rows.json"), rows)
-	srv := fakeFlowdRows(t, func() string {
+	srv := guardtest.FakeFlowdRows(t, func() string {
 		b, _ := os.ReadFile(filepath.Join(tmp, "rows.json"))
 		return string(b)
 	}, wait)
@@ -166,7 +133,7 @@ func awaitRowsGitEnv(t *testing.T, wait http.HandlerFunc, rows string) (core.Env
 			return srv.URL
 		}
 		return os.Getenv(k)
-	}, Dir: tmp}, gitWorktree(t, tmp, "chg"), tmp
+	}, Dir: tmp}, guardtest.GitWorktree(t, tmp, "chg"), tmp
 }
 
 // TestAwaitRowsLongPollWakes: with flowd's wait route answering the moment the row closes,

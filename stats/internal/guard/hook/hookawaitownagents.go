@@ -1,4 +1,4 @@
-package guard
+package hook
 
 import (
 	"bufio"
@@ -119,7 +119,7 @@ func awaitOwnAgents(env core.Env, payload map[string]any, stdout, _ io.Writer) {
 	}
 	cwd := strOf(payload["cwd"])
 	if cwd != "" {
-		aoaInProcess(env, 60*time.Second, cwd, endStaleDispatchRows, cwd)
+		aoaInProcess(env, 60*time.Second, cwd, EndStaleDispatchRows, cwd)
 	}
 	if len(background) > 0 && strings.TrimSpace(strOf(payload["last_assistant_message"])) != "" && !aoaOwesHandback(transcript) {
 		aoaKillBackground(env, transcript, background)
@@ -139,7 +139,7 @@ func awaitOwnAgents(env core.Env, payload map[string]any, stdout, _ io.Writer) {
 		if sessionID := strOf(payload["session_id"]); sessionID != "" && cwd != "" {
 			aoaInProcess(env, 30*time.Second, cwd, endDispatchRow, transcript, sessionID, cwd, strOf(payload["last_assistant_message"]))
 			// A stop is the moment to close rows whose own stop never did.
-			aoaInProcess(env, 60*time.Second, cwd, sweepDispatchRows, folder, sessionID, cwd)
+			aoaInProcess(env, 60*time.Second, cwd, SweepDispatchRows, folder, sessionID, cwd)
 		}
 		return
 	}

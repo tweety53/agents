@@ -1,4 +1,4 @@
-package guard
+package hook
 
 import (
 	"bytes"
@@ -44,7 +44,7 @@ func TestEndStaleDispatchRows(t *testing.T) {
 {"key":"boom","agentId":"ddd","sessionToken":"t","endedAt":null},
 {"key":"closed","agentId":"eee","sessionToken":"t","endedAt":"2026-01-01T00:00:00Z"},
 {"key":"stale2","agentId":"eee","sessionToken":"t","endedAt":null}]`
-	srv := fakeFlowdRows(t, func() string { return rows }, nil)
+	srv := guardtest.FakeFlowdRows(t, func() string { return rows }, nil)
 	log := filepath.Join(tmp, "flow.log")
 	guardtest.WriteExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\n"+
 		"printf '%s\\n' \"$*\" >>"+log+"\n"+
@@ -60,10 +60,10 @@ func TestEndStaleDispatchRows(t *testing.T) {
 		}
 		return os.Getenv(k)
 	}, Dir: tmp}
-	wt := gitWorktree(t, tmp, "chg")
+	wt := guardtest.GitWorktree(t, tmp, "chg")
 	for i := 0; i < 2; i++ {
 		var o, e bytes.Buffer
-		if rc := endStaleDispatchRows([]string{wt}, env, &o, &e); rc != 0 {
+		if rc := EndStaleDispatchRows([]string{wt}, env, &o, &e); rc != 0 {
 			t.Fatalf("rc %d", rc)
 		}
 		if i == 0 && o.String() != "ENDED stale aaa\nENDED stale2 eee\n" {
@@ -88,7 +88,7 @@ func TestEndStaleDispatchRows(t *testing.T) {
 func TestEndStaleDispatchRowsIdempotent(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
-	srv := fakeFlowdRows(t, func() string { return `[{"key":"k","agentId":"aaa","endedAt":"2026-01-01T00:00:00Z"}]` }, nil)
+	srv := guardtest.FakeFlowdRows(t, func() string { return `[{"key":"k","agentId":"aaa","endedAt":"2026-01-01T00:00:00Z"}]` }, nil)
 	env := core.Env{Getenv: func(k string) string {
 		if k == "FLOW_ADDR" || k == "FLOW_RECORDS_ADDR" {
 			return srv.URL
@@ -96,7 +96,7 @@ func TestEndStaleDispatchRowsIdempotent(t *testing.T) {
 		return os.Getenv(k)
 	}, Dir: tmp}
 	var o, e bytes.Buffer
-	if rc := endStaleDispatchRows([]string{gitWorktree(t, tmp, "chg")}, env, &o, &e); rc != 0 || o.Len() != 0 || e.Len() != 0 {
+	if rc := EndStaleDispatchRows([]string{guardtest.GitWorktree(t, tmp, "chg")}, env, &o, &e); rc != 0 || o.Len() != 0 || e.Len() != 0 {
 		t.Errorf("rc %d out %q err %q", rc, o.String(), e.String())
 	}
 }
@@ -122,7 +122,7 @@ func TestEndStaleDispatchRowsReadsTheHandbackReport(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	srv := fakeFlowdRows(t, func() string {
+	srv := guardtest.FakeFlowdRows(t, func() string {
 		return `[{"key":"panel-0-primary","agentId":"aaa","sessionToken":"t","endedAt":null},
 {"key":"task-3-reviewer","agentId":"bbb","sessionToken":"t","endedAt":null}]`
 	}, nil)
@@ -141,7 +141,7 @@ func TestEndStaleDispatchRowsReadsTheHandbackReport(t *testing.T) {
 		return os.Getenv(k)
 	}, Dir: tmp}
 	var o, e bytes.Buffer
-	endStaleDispatchRows([]string{gitWorktree(t, tmp, "chg")}, env, &o, &e)
+	EndStaleDispatchRows([]string{guardtest.GitWorktree(t, tmp, "chg")}, env, &o, &e)
 	got, _ := os.ReadFile(log)
 	for _, want := range []string{"-key panel-0-primary -session-token t -outcome completed -agent-id aaa -ended-at", "-commit " + sha,
 		"-key task-3-reviewer -session-token t -outcome completed -agent-id bbb"} {
