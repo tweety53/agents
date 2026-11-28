@@ -27,6 +27,12 @@ each pass's REPORT FILE path are filled in by that brief.
 > **GO CHANGES:** When a reviewed diff includes a `*.go` file, read and follow the `go-code-review` skill
 > first. A diff with no `.go` file skips this.
 
+> **LARGE DIFF:** A diff file over ~200 KB must not be read whole (the Read tool fails at 256 KB).
+> First list its files (`grep '^diff --git'` or `git diff --stat`), then group them by the
+> functionality they implement together — a feature's code, its tests and its docs/config are one
+> group, not one group per directory — and read each group's hunks with Read offset/limit or Grep,
+> judging each group as a whole before the next. Findings still name task ids, never diff line numbers.
+
 > **REPORT FILE:** write your full report to
 > `<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md` before you end your turn — every
 > finding with its `file:line`, severity, the sentence naming the defect, how to see it (a command where one exists), and the
