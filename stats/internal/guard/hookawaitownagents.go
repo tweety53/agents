@@ -48,7 +48,10 @@ import (
 // for. The hook kills it -- every process holding that command's `<id>.output` file open, found
 // with `lsof`, so only that agent's own task is touched, never the parent's or a sibling's -- and
 // lets the stop through instead of blocking on a notification that may never come (kan-1092 task
-// 19: a hung build left the agent "waiting on 1 shell" until its parent stopped it by hand). A
+// 19: a hung build left the agent "waiting on 1 shell" until its parent stopped it by hand). An
+// agent told to report through SubagentHandback that has not called it has written no report: its
+// plain text is not final, so it blocks as below -- killing its build and closing its row let a
+// parent remove the throwaway copies it was still working in (kan-1161). A
 // stop with no final message blocks only on a background command that is still alive: one with a
 // process holding its `<id>.output` file open (the same `lsof` lookup). A command whose output
 // file is gone or has no holder has ended -- a shell that died, or finished with its notification
@@ -116,7 +119,7 @@ func awaitOwnAgents(env Env, payload map[string]any, stdout, _ io.Writer) {
 	if cwd != "" {
 		aoaInProcess(env, 60*time.Second, cwd, endStaleDispatchRows, cwd)
 	}
-	if len(background) > 0 && strings.TrimSpace(strOf(payload["last_assistant_message"])) != "" {
+	if len(background) > 0 && strings.TrimSpace(strOf(payload["last_assistant_message"])) != "" && !aoaOwesHandback(transcript) {
 		aoaKillBackground(env, transcript, background)
 		background = nil
 	}
@@ -157,6 +160,39 @@ func awaitOwnAgents(env Env, payload map[string]any, stdout, _ io.Writer) {
 	}
 	block("Agents you launched have finished (" + ids + "). Read each hand-back and continue; " +
 		"say so when one returned nothing.")
+}
+
+// aoaOwesHandback: the transcript's harness reminder says the report goes through
+// SubagentHandback, and no assistant turn has called it. Only a string user content is read as the
+// reminder, so a tool result quoting it never counts.
+func aoaOwesHandback(transcript string) bool {
+	b, err := os.ReadFile(transcript)
+	if err != nil {
+		return false
+	}
+	told := false
+	for _, line := range strings.Split(string(b), "\n") {
+		var e struct {
+			Type    string `json:"type"`
+			Message struct {
+				Content any `json:"content"`
+			} `json:"message"`
+		}
+		if json.Unmarshal([]byte(line), &e) != nil {
+			continue
+		}
+		switch c := e.Message.Content.(type) {
+		case string:
+			told = told || e.Type == "user" && strings.HasPrefix(c, "<system-reminder>\nYour final report is delivered through SubagentHandback")
+		case []any:
+			for _, p := range c {
+				if m, ok := p.(map[string]any); ok && e.Type == "assistant" && m["type"] == "tool_use" && m["name"] == "SubagentHandback" {
+					return false
+				}
+			}
+		}
+	}
+	return told
 }
 
 // aoaInProcess runs a dispatch-row guard in process in cwd, bounded, output discarded -- only

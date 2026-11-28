@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -232,4 +233,35 @@ func TestHookRecordsItsWallTime(t *testing.T) {
 		}
 	}
 
+}
+
+// TestHookAwaitOwnAgentsOwedHandback: plain text from an agent that has not yet called
+// SubagentHandback is no final report, so its running background command is waited for, not killed.
+func TestHookAwaitOwnAgentsOwedHandback(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	output := filepath.Join(dir, "b1.output")
+	f, err := os.Create(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	build := exec.Command("sleep", "60")
+	build.Stdout = f
+	if err := build.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = build.Process.Kill(); _ = build.Wait() })
+	transcript := filepath.Join(dir, "agent-p.jsonl")
+	lines := `{"type":"user","message":{"content":"<system-reminder>\nYour final report is delivered through SubagentHandback: call it."}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Bash"}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"Command running in background with ID: b1. Output is being written to: ` + output + `"}]}}
+`
+	if err := os.WriteFile(transcript, []byte(lines), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, rc := runHookInProcess(t, "await-own-agents", `{"agent_id":"p","agent_transcript_path":"`+transcript+`","last_assistant_message":"Waiting for the run."}`)
+	if rc != 0 || !strings.Contains(out, "still running (b1)") {
+		t.Errorf("rc=%d out=%q, want a block naming b1", rc, out)
+	}
 }
