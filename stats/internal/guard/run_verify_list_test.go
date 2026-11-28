@@ -125,6 +125,10 @@ func TestRunVerifyList(t *testing.T) {
 		// The port spells its usage as a flow-guard call, and runs no check-spec-reach row, which the bash twin still appends.
 		respell := strings.NewReplacer("usage: run-verify-list.sh", "usage: flow-guard run-verify-list", "run-verify-list.sh: ", "run-verify-list: ")
 		bashOut := bashSpecReachRow.ReplaceAllString(respell.Replace(norm(br, bo.String(), be.String())), "")
+		// The port also names an exit-2 refusal on stdout, which the bash twin never did.
+		if brc == 2 {
+			bashOut = "- `run-verify-list` — exit 2, no command ran (stderr says why)\n" + bashOut
+		}
 		if b := (res{brc, bashOut}); g != b {
 			t.Errorf("port rc=%d out=%q\nbash rc=%d out=%q", g.rc, g.out, b.rc, b.out)
 		}
@@ -2513,5 +2517,16 @@ func TestRunVerifyListPadsAFastCompletedRow(t *testing.T) {
 	}
 	if d := en.ModTime().Sub(b.ModTime()); d < 3*time.Second {
 		t.Errorf("a fast completed row closed %s after its begin, want at least 3s", d)
+	}
+}
+
+// TestRunVerifyListUsageNamesAnExitOnStdout pins that a usage refusal prints a report-shaped
+// `— exit 2` line on stdout, so a reader counting `— exit [1-9]` lines never reads it as green.
+func TestRunVerifyListUsageNamesAnExitOnStdout(t *testing.T) {
+	t.Parallel()
+	var out, errb bytes.Buffer
+	rc := Registry["run-verify-list"]([]string{t.TempDir(), "lint", "-caller-agent", "x"}, Env{Getenv: func(string) string { return "" }, Environ: os.Environ, Dir: t.TempDir()}, &out, &errb)
+	if rc != 2 || !strings.Contains(out.String(), "— exit 2") {
+		t.Errorf("rc=%d stdout=%q, want 2 and a `— exit 2` line", rc, out.String())
 	}
 }

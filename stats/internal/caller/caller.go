@@ -15,7 +15,10 @@
 // -session-token always wins. With no harness session id there is no token to derive.
 package caller
 
-import "os"
+import (
+	"cmp"
+	"os"
+)
 
 const (
 	// Flag is the leading argument the hook inserts.
@@ -42,12 +45,16 @@ func Token(getenv func(string) string) string {
 	return For(getenv(SessionEnv), getenv(AgentEnv))
 }
 
-// Strip removes a leading `-caller-agent <id>` from args, returning the rest and the id.
+// Strip removes every leading `-caller-agent <id>` from args, returning the rest and the first
+// id: the hook inserts its own pair before any the caller wrote, so a caller's pair never reaches
+// the command as an unknown argument, and the hook's id, the one the harness vouches for, wins.
 func Strip(args []string) ([]string, string) {
-	if len(args) >= 2 && args[0] == Flag {
-		return args[2:], args[1]
+	agent := ""
+	for len(args) >= 2 && args[0] == Flag {
+		agent = cmp.Or(agent, args[1])
+		args = args[2:]
 	}
-	return args, ""
+	return args, agent
 }
 
 // Export strips args and, when they named an agent, sets AgentEnv for this process and every

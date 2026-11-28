@@ -31,6 +31,8 @@ func TestStrip(t *testing.T) {
 		{[]string{Flag, "a9", "stage", "begin"}, []string{"stage", "begin"}, "a9"},
 		{[]string{"stage", "begin"}, []string{"stage", "begin"}, ""},
 		{[]string{Flag}, []string{Flag}, ""},
+		// The hook inserts the flag before one the caller already wrote: both go, the hook's id wins.
+		{[]string{Flag, "hook", Flag, "own", "run-verify-list", "wt", "lint"}, []string{"run-verify-list", "wt", "lint"}, "hook"},
 	} {
 		out, agent := Strip(c.in)
 		if !slices.Equal(out, c.out) || agent != c.agent {

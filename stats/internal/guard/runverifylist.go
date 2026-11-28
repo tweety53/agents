@@ -504,7 +504,18 @@ func keepResults(wt, dir string, since time.Time) string {
 	return kept
 }
 
-func init() { Registry["run-verify-list"] = runVerifyList }
+// A refusal before any command ran (exit 2) also prints a report-shaped `— exit 2` line on
+// stdout: its reason is on stderr, and a reader of stdout alone, counting `— exit [1-9]`
+// lines, would otherwise read the empty report as a list with no failures.
+func init() {
+	Registry["run-verify-list"] = func(args []string, env Env, stdout, stderr io.Writer) int {
+		rc := runVerifyList(args, env, stdout, stderr)
+		if rc == 2 {
+			fmt.Fprintln(stdout, "- `run-verify-list` — exit 2, no command ran (stderr says why)")
+		}
+		return rc
+	}
+}
 
 var (
 	rvlFenceOpen = regexp.MustCompile("^```bash[[:space:]]*$")
