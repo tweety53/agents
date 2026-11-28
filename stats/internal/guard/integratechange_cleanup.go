@@ -54,21 +54,21 @@ func (c *ic) selfReviewCompleted() (done, ok bool) {
 
 // selfReviewPassRow: the change holds a completed self-review-<name>-pass
 // dispatch row, the pass the flow.self-review stage mark stands for.
-func (c *ic) selfReviewPassRow() bool {
+func (c *ic) selfReviewPassRow() (bool, error) {
 	out, rc := c.capture(c.cmd("/", "flow", "record", "dispatches", "-change", c.name, "-C", c.main))
 	if rc != 0 {
-		c.die("self-review-state-unknown", "flowd cannot list the dispatches of %s — nothing was removed", c.name)
+		return false, c.die("self-review-state-unknown", "flowd cannot list the dispatches of %s — nothing was removed", c.name)
 	}
 	var rows []struct{ Key, Outcome string }
 	if json.Unmarshal([]byte(out), &rows) != nil {
-		return false
+		return false, nil
 	}
 	for _, r := range rows {
 		if r.Key == "self-review-"+c.name+"-pass" && r.Outcome == "completed" {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 // icWithID: <command> with the workspace id tokens substituted.
@@ -81,18 +81,24 @@ func icWithID(command, id string) string {
 // shell command.
 var icWorkspaceID = regexp.MustCompile(`^[A-Za-z0-9_.-]*$`)
 
-func (c *ic) cleanup() {
+func (c *ic) cleanup() error {
 	rbase := map[int]string{}
-	c.loadSet()
+	if err := c.loadSet(); err != nil {
+		return err
+	}
 	done, ok := c.selfReviewCompleted()
 	if !ok {
-		c.die("self-review-state-unknown", "flowd cannot say whether flow.self-review completed for %s — nothing was removed", c.name)
+		return c.die("self-review-state-unknown", "flowd cannot say whether flow.self-review completed for %s — nothing was removed", c.name)
 	}
 	if !done {
-		c.stopAs("self-review-not-done", "self-review-report", "flow.self-review has not completed for "+c.name+" — run the self-review pass and end its stage completed, then re-run cleanup; nothing was removed")
+		return c.stopAs("self-review-not-done", "self-review-report", "flow.self-review has not completed for "+c.name+" — run the self-review pass and end its stage completed, then re-run cleanup; nothing was removed")
 	}
-	if !c.selfReviewPassRow() {
-		c.stopAs("self-review-pass-missing", "self-review-report", "flow.self-review completed for "+c.name+" with no completed self-review-"+c.name+"-pass dispatch row — run the self-review pass, then re-run cleanup; nothing was removed")
+	passed, err := c.selfReviewPassRow()
+	if err != nil {
+		return err
+	}
+	if !passed {
+		return c.stopAs("self-review-pass-missing", "self-review-report", "flow.self-review completed for "+c.name+" with no completed self-review-"+c.name+"-pass dispatch row — run the self-review pass, then re-run cleanup; nothing was removed")
 	}
 	c.markBegin("flow.cleanup")
 	// The save keeps tasks.md and self-review-context.md in flowd before
@@ -104,20 +110,22 @@ func (c *ic) cleanup() {
 			fmt.Fprintln(c.stdout, out)
 		}
 		if rc != 0 {
-			c.stopAs("change-save-failed", "change-save", fmt.Sprintf("flow change save exit %d for %s — report its lines, restore each file it names, re-run cleanup; nothing was removed", rc, c.name))
+			return c.stopAs("change-save-failed", "change-save", fmt.Sprintf("flow change save exit %d for %s — report its lines, restore each file it names, re-run cleanup; nothing was removed", rc, c.name))
 		}
 	}
 	for i := range c.wt {
 		if !isDir(c.wt[i]) {
 			continue
 		}
-		c.baseOf(i)
+		if err := c.baseOf(i); err != nil {
+			return err
+		}
 		rbase[i] = c.base
 	}
 	for _, m := range c.mains {
 		c.run("remove-change-worktrees", m, c.name)
 		if c.rc != 0 {
-			c.stopAs("worktree-removal-failed", "worktree-cleanup", fmt.Sprintf("remove-change-worktrees exit %d for %s — report its lines; every worktree it refused is left alone", c.rc, m))
+			return c.stopAs("worktree-removal-failed", "worktree-cleanup", fmt.Sprintf("remove-change-worktrees exit %d for %s — report its lines; every worktree it refused is left alone", c.rc, m))
 		}
 	}
 	id, rc := c.capture(c.cmd("/", "flow", "workspace-id", c.name))
@@ -168,7 +176,7 @@ func (c *ic) cleanup() {
 		}
 	}
 	if !c.writeState("FINISHED", keep, "") {
-		c.stopAs("state-write-failed", "state", "the FINISHED write failed — report it")
+		return c.stopAs("state-write-failed", "state", "the FINISHED write failed — report it")
 	}
 	if c.jiraKey != "" {
 		c.say("JIRA: transition " + c.jiraKey + " to Done")
@@ -200,6 +208,7 @@ func (c *ic) cleanup() {
 	}
 	c.markEnd("flow.cleanup", "completed")
 	c.say("NEXT: print the Finished handoff (skills/flow/cleanup.md)")
+	return nil
 }
 
 // removeWorkspace runs <m>'s `remove` row for workspace id, printing its

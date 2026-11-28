@@ -53,10 +53,12 @@ func (c *ic) onRecordedBase(b string) bool {
 	return false
 }
 
-func (c *ic) prepare() {
-	c.loadSet()
+func (c *ic) prepare() error {
+	if err := c.loadSet(); err != nil {
+		return err
+	}
 	if len(c.wt) == 0 {
-		c.stopAs("worktree-set-empty", "preflight", "the resolved worktree set is empty — report it and ask the operator")
+		return c.stopAs("worktree-set-empty", "preflight", "the resolved worktree set is empty — report it and ask the operator")
 	}
 
 	// A main checkout holds no staged or dirty work — everything is done in
@@ -76,16 +78,18 @@ func (c *ic) prepare() {
 		}
 	}
 	if dirty {
-		c.stopAs("main-checkout-dirty", "main-checkout", "a main checkout holds staged or dirty work, or is off its default branch — report the lines above; the operator cleans it, then re-run prepare")
+		return c.stopAs("main-checkout-dirty", "main-checkout", "a main checkout holds staged or dirty work, or is off its default branch — report the lines above; the operator cleans it, then re-run prepare")
 	}
 
 	run1 := false
 	bm := make([]string, len(c.wt)) // each RUN1 worktree's base-moved line, the preflight's second line
 	for i := range c.wt {
 		if !isDir(c.wt[i]) {
-			c.stopAs("worktree-missing", "preflight", c.wt[i]+" is not on disk — report it and ask the operator")
+			return c.stopAs("worktree-missing", "preflight", c.wt[i]+" is not on disk — report it and ask the operator")
 		}
-		c.baseOf(i)
+		if err := c.baseOf(i); err != nil {
+			return err
+		}
 		c.bases[i] = c.base
 		c.run("check-finish-preflight", c.wt[i], "origin/"+c.base, c.mb[i])
 		switch v := c.verdict("RUN1", "RUN2", "REFUSE"); {
@@ -94,12 +98,12 @@ func (c *ic) prepare() {
 			bm[i] = c.verdict("CLEAR", "MOVED", "REFUSE")
 		case strings.HasPrefix(v, "RUN2:"):
 		default:
-			c.stopAs("verdict-needs-operator", "preflight", "relay the verdict and its hand-verification procedure, then ask the operator")
+			return c.stopAs("verdict-needs-operator", "preflight", "relay the verdict and its hand-verification procedure, then ask the operator")
 		}
 	}
 	if !run1 {
 		c.say("NEXT: run 2 — flow-guard integrate-change cleanup " + c.main + " " + c.name + " " + c.flags())
-		panic(icExit(0))
+		return nil
 	}
 
 	// A worktree off the base another worktree records would land the change
@@ -131,19 +135,19 @@ func (c *ic) prepare() {
 					created = add.Run() == nil
 				}
 				if !created {
-					c.stop("base-mismatch", "creating origin/"+fb+" from "+c.bases[fj]+" and recording it as "+wj+"'s base failed — ask the operator")
+					return c.stop("base-mismatch", "creating origin/"+fb+" from "+c.bases[fj]+" and recording it as "+wj+"'s base failed — ask the operator")
 				}
 				c.say("BASE-CREATED: origin/" + fb + " from " + c.bases[fj] + " in " + wj + "'s repository; " + wj + "'s base recorded as it")
 				c.bases[fj] = fb
 				continue
 			}
-			c.stop("base-mismatch", wj+" resolves base "+c.bases[fj]+", but "+c.wt[fi]+" records "+fb+" — ask the operator; never land it on "+c.bases[fj])
+			return c.stop("base-mismatch", wj+" resolves base "+c.bases[fj]+", but "+c.wt[fi]+" records "+fb+" — ask the operator; never land it on "+c.bases[fj])
 		}
 	}
 
 	c.markBegin("flow.land")
 	if !c.findCanonical() {
-		c.stopAs("tasks-md-not-found", "preflight", "no worktree in the set holds "+c.name+"'s tasks.md — ask the operator")
+		return c.stopAs("tasks-md-not-found", "preflight", "no worktree in the set holds "+c.name+"'s tasks.md — ask the operator")
 	}
 	// This prepare's own flow.land run supersedes a stopped earlier one; a stale
 	// marker would make the next commit open a second run (c.canon is known only now).
@@ -165,11 +169,11 @@ func (c *ic) prepare() {
 		case strings.HasPrefix(v, "0:OUTSTANDING:"):
 			ask = true
 		default:
-			c.stop("no-verdict", fmt.Sprintf("check-unfinished-work reached no verdict for %s (exit %d) — report its output and ask the operator", c.wt[i], c.rc))
+			return c.stop("no-verdict", fmt.Sprintf("check-unfinished-work reached no verdict for %s (exit %d) — report its output and ask the operator", c.wt[i], c.rc))
 		}
 	}
 	if ask {
-		c.stop("unfinished-work", "load skills/flow/unfinished-work-gate.md: finish the unfinished work, asking nothing, then re-run prepare")
+		return c.stop("unfinished-work", "load skills/flow/unfinished-work-gate.md: finish the unfinished work, asking nothing, then re-run prepare")
 	}
 	var moved []int
 	for i := range c.wt {
@@ -184,7 +188,7 @@ func (c *ic) prepare() {
 		case strings.HasPrefix(v, "MOVED:"):
 			moved = append(moved, i)
 		default:
-			c.stop("base-moved", "report the verdict and ask the operator")
+			return c.stop("base-moved", "report the verdict and ask the operator")
 		}
 	}
 	for _, i := range moved {
@@ -192,16 +196,18 @@ func (c *ic) prepare() {
 		switch c.rc {
 		case 0:
 		case 1:
-			c.stop("sync-conflict", "load skills/flow/sync-onto-base.md and resolve in place, run 'flow-guard sync-onto-base --resume', the whole ## lint and ## test lists, then re-run prepare")
+			return c.stop("sync-conflict", "load skills/flow/sync-onto-base.md and resolve in place, run 'flow-guard sync-onto-base --resume', the whole ## lint and ## test lists, then re-run prepare")
 		default:
-			c.stopAs("sync-failed", "sync", fmt.Sprintf("sync-onto-base exit %d — report its output and ask the operator", c.rc))
+			return c.stopAs("sync-failed", "sync", fmt.Sprintf("sync-onto-base exit %d — report its output and ask the operator", c.rc))
 		}
 		vline := c.verdict("REBASED")
 		if k := strings.LastIndex(vline, "onto "); k >= 0 {
 			vline = vline[k+len("onto "):]
 		}
 		c.rb[i] = vline
-		c.rebaseLint(c.wt[i], "")
+		if err := c.rebaseLint(c.wt[i], ""); err != nil {
+			return err
+		}
 	}
 
 	if route := c.defaultRoute(); route != "" {
@@ -233,6 +239,7 @@ func (c *ic) prepare() {
 		}
 	}
 	c.say("NEXT: flow-guard integrate-change commit " + c.main + " " + c.name + subjects + " " + c.flags())
+	return nil
 }
 
 // defaultRoute is project-get.sh's `default landing route`, or nothing.

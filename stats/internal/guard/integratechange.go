@@ -38,9 +38,20 @@ func init() {
 	Registry["integrate-change"] = integrateChange
 }
 
-// icExit unwinds a subcommand to integrateChange with its exit code: the
-// bash's `exit` from inside any helper.
+// icExit is a subcommand's exit code, returned up to integrateChange once its
+// lines are written and its reason recorded: the bash's `exit` from inside
+// any helper.
 type icExit int
+
+func (e icExit) Error() string { return fmt.Sprintf("exit %d", int(e)) }
+
+// icCode is the exit code err carries: 0 for nil.
+func icCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	return int(err.(icExit))
+}
 
 // ic is the bash's global state: its flags, the worktree set load_set
 // reads, and run's OUT/RC.
@@ -165,39 +176,34 @@ type ic struct {
 // process moves to `/` once its arguments are resolved, so it never holds a
 // worktree it removes; every child runs in `/` too, save the calls the bash
 // ran in a subshell `cd`, which keep their own directory.
-func integrateChange(args []string, env Env, stdout, stderr io.Writer) (code int) {
+func integrateChange(args []string, env Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "integrate-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
-	defer func() {
-		if r := recover(); r != nil {
-			e, ok := r.(icExit)
-			if !ok {
-				panic(r)
-			}
-			code = int(e)
-		}
-	}()
 	c.childEnv = icChildEnv(env)
-	c.parse(args)
-	if env.Dir != "/" {
+	return icCode(c.integrate(args))
+}
+
+func (c *ic) integrate(args []string) error {
+	if err := c.parse(args); err != nil {
+		return err
+	}
+	if c.env.Dir != "/" {
 		// The process's own cwd: an in-process caller already runs in `/`.
 		if err := os.Chdir("/"); err != nil {
-			c.die("cannot-cd", "cannot cd /: %v", err)
+			return c.die("cannot-cd", "cannot cd /: %v", err)
 		}
 	}
 	switch args[0] {
 	case "prepare":
-		c.prepare()
+		return c.prepare()
 	case "commit":
-		c.commit()
+		return c.commit()
 	case "land":
-		c.land()
+		return c.land()
 	case "cleanup":
-		c.cleanup()
-	default:
-		c.die("unknown-subcommand", "unknown subcommand '%s'", args[0])
+		return c.cleanup()
 	}
-	return 0
+	return c.die("unknown-subcommand", "unknown subcommand '%s'", args[0])
 }
 
 // icChildEnv is what every child runs under: the environment the caller
@@ -209,15 +215,15 @@ func icChildEnv(env Env) []string {
 	return os.Environ()
 }
 
-func (c *ic) die(id, format string, a ...any) {
+func (c *ic) die(id, format string, a ...any) error {
 	Reason(c.env, id)
 	fmt.Fprintf(c.stderr, c.prog+": "+format+"\n", a...)
-	panic(icExit(2))
+	return icExit(2)
 }
 
 func (c *ic) say(s string) { fmt.Fprintln(c.stdout, s) }
 
-func (c *ic) parse(args []string) {
+func (c *ic) parse(args []string) error {
 	arg := func(i int) string {
 		if i < len(args) {
 			return args[i]
@@ -226,16 +232,16 @@ func (c *ic) parse(args []string) {
 	}
 	sub, mainArg, name := arg(0), arg(1), arg(2)
 	if sub == "" || mainArg == "" || name == "" {
-		c.die("usage", "usage: flow-guard integrate-change prepare|commit|land|cleanup <main-checkout> <name> [flags]")
+		return c.die("usage", "usage: flow-guard integrate-change prepare|commit|land|cleanup <main-checkout> <name> [flags]")
 	}
 	// A relative argument resolves against the directory it was called from.
 	m, ok := icPhys(c.env.Dir, mainArg)
 	if !ok {
-		c.die("not-a-directory", "%s is not a directory", mainArg)
+		return c.die("not-a-directory", "%s is not a directory", mainArg)
 	}
 	c.main = m
 	if !changeNamePlain(name) {
-		c.die("change-name-not-plain", "change name '%s' is not a plain change name", name)
+		return c.die("change-name-not-plain", "change name '%s' is not a plain change name", name)
 	}
 	c.name = name
 	c.harness, c.token = envHarness(c.env), envToken(c.env)
@@ -260,20 +266,21 @@ func (c *ic) parse(args []string) {
 			i++
 		case "--pr-url":
 			if !icPairArg(next()) {
-				c.die("bad-pr-url", "--pr-url takes <worktree>=<url|none>")
+				return c.die("bad-pr-url", "--pr-url takes <worktree>=<url|none>")
 			}
 			c.prArgs = append(c.prArgs, next())
 			i++
 		default:
 			if !strings.Contains(a, "=") {
-				c.die("unknown-argument", "unknown argument '%s'", a)
+				return c.die("unknown-argument", "unknown argument '%s'", a)
 			}
 			c.subjects = append(c.subjects, a)
 		}
 	}
 	if c.harness == "" || c.token == "" {
-		c.die("harness-or-token-missing", "--harness and --session-token are required (or FLOW_HARNESS or CLAUDECODE=1 / FLOW_SESSION_TOKEN or a Claude Code session)")
+		return c.die("harness-or-token-missing", "--harness and --session-token are required (or FLOW_HARNESS or CLAUDECODE=1 / FLOW_SESSION_TOKEN or a Claude Code session)")
 	}
+	return nil
 }
 
 // icPairArg is the bash's `?*=?*`: an `=` with a character either side.
@@ -451,11 +458,11 @@ func (c *ic) reopenLand() {
 	}
 }
 
-func (c *ic) stop(kind, text string) { c.stopAs(kind, kind, text) }
+func (c *ic) stop(kind, text string) error { return c.stopAs(kind, kind, text) }
 
 // stopAs is stop for a printed STOP kind the skills name that is not itself a
 // reason: id is the reason id recorded, kind the word printed after STOP:.
-func (c *ic) stopAs(id, kind, text string) {
+func (c *ic) stopAs(id, kind, text string) error {
 	if c.openStage != "" {
 		if c.openStage == "flow.land" && c.canon != "" {
 			// A stop ends the run; the retry of commit or land reopens it (reopenLand).
@@ -466,7 +473,7 @@ func (c *ic) stopAs(id, kind, text string) {
 	}
 	c.say("STOP: " + kind + " — " + text)
 	Reason(c.env, id)
-	panic(icExit(1))
+	return icExit(1)
 }
 
 func (c *ic) flags() string { return "--harness " + c.harness + " --session-token " + c.token }
@@ -563,10 +570,10 @@ func icJQText(v any) string {
 // (- when none), repo[i] its main checkout (mainOfGone's for one already
 // gone, empty when that cannot be derived), mains the distinct main
 // checkouts, <main-checkout> always among them.
-func (c *ic) loadSet() {
+func (c *ic) loadSet() error {
 	state, rc := c.capture(c.cmd("/", "flow", "state", "get", "-C", c.main, c.name))
 	if rc != 0 {
-		c.die("flow-state-get-failed", "flow state get %s failed", c.name)
+		return c.die("flow-state-get-failed", "flow state get %s failed", c.name)
 	}
 	st := icParseState(state)
 	c.prURLState, c.jiraKey = st.prURL, st.jira
@@ -598,6 +605,7 @@ func (c *ic) loadSet() {
 			c.mains = append(c.mains, r)
 		}
 	}
+	return nil
 }
 
 func icHas(list []string, s string) bool {
@@ -715,15 +723,16 @@ func icLines(s string) []string {
 
 // baseOf: c.base the worktree's base branch, resolve-base-branch.sh's
 // answer, always fetched: land pushes onto origin/<base>.
-func (c *ic) baseOf(i int) {
+func (c *ic) baseOf(i int) error {
 	var rc int
 	c.base, rc = c.capture(c.sibling("resolve-base-branch", "--fetch", c.wt[i]))
 	if rc == 3 {
-		c.stop("no-remote", c.wt[i]+": this repository has no remote, so there is nothing to push to or merge into")
+		return c.stop("no-remote", c.wt[i]+": this repository has no remote, so there is nothing to push to or merge into")
 	}
 	if rc != 0 {
-		c.stopAs("base-unresolved", "base", fmt.Sprintf("%s: no base branch resolved (resolve-base-branch exit %d) — ask the operator", c.wt[i], rc))
+		return c.stopAs("base-unresolved", "base", fmt.Sprintf("%s: no base branch resolved (resolve-base-branch exit %d) — ask the operator", c.wt[i], rc))
 	}
+	return nil
 }
 
 // reshapeBase: a re-run's reshape base in worktree w — the newest
@@ -843,12 +852,12 @@ func (c *ic) writeState(state string, keep []string, pr string) bool {
 // restores them, so an uncommitted narrative edit is already there
 // (kan-1010's self-review). The prefix leads the stop text — land passes
 // what it already pushed.
-func (c *ic) rebaseLint(w, prefix string) {
+func (c *ic) rebaseLint(w, prefix string) error {
 	before, _ := c.git("-C", w, "diff", "--no-renames", "HEAD")
 	out, rc := c.capture(c.sibling("prepare-workspace", w))
 	if rc != 0 {
 		fmt.Fprintln(c.stdout, out)
-		c.stopAs("rebase-workspace-failed", "rebase-lint", prefix+"flow-guard prepare-workspace failed on "+w+" after its rebase, so its ## lint list did not run — report its output above; the change stays IN_PROGRESS")
+		return c.stopAs("rebase-workspace-failed", "rebase-lint", prefix+"flow-guard prepare-workspace failed on "+w+" after its rebase, so its ## lint list did not run — report its output above; the change stays IN_PROGRESS")
 	}
 	cmd := c.sibling("run-verify-list", w, "lint")
 	cmd.Env = append([]string{}, c.childEnv...)
@@ -864,21 +873,23 @@ func (c *ic) rebaseLint(w, prefix string) {
 	switch rc {
 	case 0:
 		if after, _ := c.git("-C", w, "diff", "--no-renames", "HEAD"); after != before {
-			c.stopAs("rebase-lint-changed-files", "rebase-lint", prefix+"the ## lint list rewrote tracked files on "+w+" after its rebase — commit or revert them; the change stays IN_PROGRESS")
+			return c.stopAs("rebase-lint-changed-files", "rebase-lint", prefix+"the ## lint list rewrote tracked files on "+w+" after its rebase — commit or revert them; the change stays IN_PROGRESS")
 		}
 		c.say("REBASE-LINT-PASSED: " + w)
 	case 3:
 		c.say("REBASE-LINT-NONE: " + w + " — its project declares no ## lint list")
 	default:
 		fmt.Fprintln(c.stdout, strings.TrimRight(b.String(), "\n"))
-		c.stopAs("rebase-lint-failed", "rebase-lint", fmt.Sprintf("%sthe ## lint list failed on %s after its rebase (run-verify-list exit %d) — report its output above; the change stays IN_PROGRESS", prefix, w, rc))
+		return c.stopAs("rebase-lint-failed", "rebase-lint", fmt.Sprintf("%sthe ## lint list failed on %s after its rebase (run-verify-list exit %d) — report its output above; the change stays IN_PROGRESS", prefix, w, rc))
 	}
+	return nil
 }
 
-func (c *ic) pushBranch(w string) {
+func (c *ic) pushBranch(w string) error {
 	if !c.gitPass("-C", w, "push", "--force-with-lease", "-u", "origin", "spectre/"+c.name) {
-		c.stopAs("push-rejected", "push", "the branch push from "+w+" was rejected — report git's output; the change stays IN_PROGRESS")
+		return c.stopAs("push-rejected", "push", "the branch push from "+w+" was rejected — report git's output; the change stays IN_PROGRESS")
 	}
+	return nil
 }
 
 // isFixOf is whether dir is a fix sub-change of name: <name>-fix-<digits>.

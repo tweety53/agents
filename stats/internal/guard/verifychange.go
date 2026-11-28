@@ -74,29 +74,29 @@ import (
 // Go, in flow-guard (stats/internal/guard/verifychange.go).
 func init() { Registry["verify-change"] = verifyChange }
 
-func verifyChange(args []string, env Env, stdout, stderr io.Writer) (code int) {
+func verifyChange(args []string, env Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "verify-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
-	defer func() {
-		if r := recover(); r != nil {
-			e, ok := r.(icExit)
-			if !ok {
-				panic(r)
-			}
-			code = int(e)
-		}
-	}()
 	c.childEnv = icChildEnv(env)
-	model, effort, key, claimed := c.parseVerify(args)
-	if env.Dir != "/" {
+	return icCode(c.verify(args))
+}
+
+func (c *ic) verify(args []string) error {
+	model, effort, key, claimed, err := c.parseVerify(args)
+	if err != nil {
+		return err
+	}
+	if c.env.Dir != "/" {
 		if err := os.Chdir("/"); err != nil {
-			c.die("cannot-cd", "cannot cd /: %v", err)
+			return c.die("cannot-cd", "cannot cd /: %v", err)
 		}
 	}
 	c.markBegin("flow.verify")
 	c.openStage = "" // a stop leaves flow.verify open: fix.md step 1 closes it
 
-	c.loadSet()
+	if err := c.loadSet(); err != nil {
+		return err
+	}
 	var wts, mbs, repos []string
 	for i, w := range c.wt {
 		if isDir(w) {
@@ -104,7 +104,7 @@ func verifyChange(args []string, env Env, stdout, stderr io.Writer) (code int) {
 		}
 	}
 	if len(wts) == 0 || !c.findCanonical() {
-		c.stop("no-worktrees", "no worktree of "+c.name+" on disk holds its tasks.md — report the empty resolved set (worktree-resolution.md) and do not proceed")
+		return c.stop("no-worktrees", "no worktree of "+c.name+" on disk holds its tasks.md — report the empty resolved set (worktree-resolution.md) and do not proceed")
 	}
 
 	for _, w := range wts {
@@ -114,10 +114,10 @@ func verifyChange(args []string, env Env, stdout, stderr io.Writer) (code int) {
 		out, rc := c.capture(cmd)
 		if rc != 0 {
 			fmt.Fprintln(c.stdout, out)
-			c.stopAs("prepare-workspace-failed", "prepare-workspace", fmt.Sprintf("flow-guard prepare-workspace %s exited %d — relay its lines and stop before any list runs, the state file unwritten", w, rc))
+			return c.stopAs("prepare-workspace-failed", "prepare-workspace", fmt.Sprintf("flow-guard prepare-workspace %s exited %d — relay its lines and stop before any list runs, the state file unwritten", w, rc))
 		}
 		if strings.Contains(errOut.String(), "(cache index)") && !claimed {
-			c.stopAs("cache-index-unresolved", "cache-index", w+" declares a cache index row — claim it per **The cache index** (workspace-isolation.md), then run this driver again with --cache-index-claimed")
+			return c.stopAs("cache-index-unresolved", "cache-index", w+" declares a cache index row — claim it per **The cache index** (workspace-isolation.md), then run this driver again with --cache-index-claimed")
 		}
 	}
 
@@ -128,7 +128,7 @@ func verifyChange(args []string, env Env, stdout, stderr io.Writer) (code int) {
 		case 1:
 			c.run("sync-base-behind", wts...)
 			if c.rc != 0 {
-				c.stopAs("base-sync-failed", "base-sync", fmt.Sprintf("flow-guard sync-base-behind exited %d — name its stderr in the handoff and stop", c.rc))
+				return c.stopAs("base-sync-failed", "base-sync", fmt.Sprintf("flow-guard sync-base-behind exited %d — name its stderr in the handoff and stop", c.rc))
 			}
 		default:
 			c.say("BASE-BEHIND-UNKNOWN: check-base-behind could not answer — name its stderr in the handoff")
@@ -189,7 +189,7 @@ func verifyChange(args []string, env Env, stdout, stderr io.Writer) (code int) {
 		}
 	}
 	if failed {
-		c.stop("verify-failed", "a list exited non-zero, its VERIFY: line above: 1 — read its VERDICT: block and act per **Inline verify — a failing command** (verify-and-handoff.md); 4 — the store refused the row's begin, clear its cause and run this driver again; 5 — the load never dropped, run it again; 2 — its stderr names the cause. flow.verify stays open")
+		return c.stop("verify-failed", "a list exited non-zero, its VERIFY: line above: 1 — read its VERDICT: block and act per **Inline verify — a failing command** (verify-and-handoff.md); 4 — the store refused the row's begin, clear its cause and run this driver again; 5 — the load never dropped, run it again; 2 — its stderr names the cause. flow.verify stays open")
 	}
 
 	render := c.cmd("/", "flow", "record", "render", "-C", c.main, "-change", c.name, "-kind", "ledger", "-repo", c.canon)
@@ -202,21 +202,21 @@ func verifyChange(args []string, env Env, stdout, stderr io.Writer) (code int) {
 		next = append(next, "live-check")
 	}
 	c.say("NEXT: " + strings.Join(append(next, "visual-verification"), "; "))
-	return 0
+	return nil
 }
 
-func (c *ic) parseVerify(args []string) (model, effort, key string, claimed bool) {
+func (c *ic) parseVerify(args []string) (model, effort, key string, claimed bool, err error) {
 	usage := "usage: flow-guard verify-change <main-checkout> <name> --model <model> --effort <effort> [--key <key>] [--cache-index-claimed] [--harness <h>] [--session-token <t>]"
 	if len(args) < 2 {
-		c.die("usage", "%s", usage)
+		return "", "", "", false, c.die("usage", "%s", usage)
 	}
 	m, ok := icPhys(c.env.Dir, args[0])
 	if !ok {
-		c.die("not-a-directory", "%s is not a directory", args[0])
+		return "", "", "", false, c.die("not-a-directory", "%s is not a directory", args[0])
 	}
 	c.main = m
 	if !changeNamePlain(args[1]) {
-		c.die("change-name-not-plain", "change name '%s' is not a plain change name", args[1])
+		return "", "", "", false, c.die("change-name-not-plain", "change name '%s' is not a plain change name", args[1])
 	}
 	c.name = args[1]
 	c.harness, c.token = envHarness(c.env), envToken(c.env)
@@ -228,7 +228,7 @@ func (c *ic) parseVerify(args []string) (model, effort, key string, claimed bool
 			continue
 		}
 		if i+1 >= len(rest) {
-			c.die("usage", "%s", usage)
+			return "", "", "", false, c.die("usage", "%s", usage)
 		}
 		v := rest[i+1]
 		switch rest[i] {
@@ -243,17 +243,17 @@ func (c *ic) parseVerify(args []string) (model, effort, key string, claimed bool
 		case "--session-token":
 			c.token = v
 		default:
-			c.die("unknown-argument", "unknown argument '%s'", rest[i])
+			return "", "", "", false, c.die("unknown-argument", "unknown argument '%s'", rest[i])
 		}
 		i++
 	}
 	if model == "" || effort == "" {
-		c.die("usage", "%s", usage)
+		return "", "", "", false, c.die("usage", "%s", usage)
 	}
 	if c.harness == "" || c.token == "" {
-		c.die("harness-or-token-missing", "--harness and --session-token are required (or FLOW_HARNESS or CLAUDECODE=1 / FLOW_SESSION_TOKEN or a Claude Code session)")
+		return "", "", "", false, c.die("harness-or-token-missing", "--harness and --session-token are required (or FLOW_HARNESS or CLAUDECODE=1 / FLOW_SESSION_TOKEN or a Claude Code session)")
 	}
-	return model, effort, key, claimed
+	return model, effort, key, claimed, nil
 }
 
 // vcLiveCheck is whether design.md carries a `## Live check` section naming

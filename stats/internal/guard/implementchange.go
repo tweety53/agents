@@ -50,34 +50,33 @@ import (
 // Go, in flow-guard (stats/internal/guard/implementchange.go).
 func init() { Registry["implement-change"] = implementChange }
 
-func implementChange(args []string, env Env, stdout, stderr io.Writer) (code int) {
+func implementChange(args []string, env Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "implement-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
-	defer func() {
-		if r := recover(); r != nil {
-			e, ok := r.(icExit)
-			if !ok {
-				panic(r)
-			}
-			code = int(e)
-		}
-	}()
 	c.childEnv = icChildEnv(env)
+	return icCode(c.implementPrepare(args))
+}
+
+func (c *ic) implementPrepare(args []string) error {
 	if len(args) < 3 || args[0] != "prepare" {
-		c.die("usage", "usage: flow-guard implement-change prepare <main-checkout> <name> [--harness <h>] [--session-token <t>]")
+		return c.die("usage", "usage: flow-guard implement-change prepare <main-checkout> <name> [--harness <h>] [--session-token <t>]")
 	}
-	c.parse(args)
+	if err := c.parse(args); err != nil {
+		return err
+	}
 	if len(c.subjects) > 0 || c.route != "" || len(c.prArgs) > 0 {
-		c.die("usage", "usage: flow-guard implement-change prepare <main-checkout> <name> [--harness <h>] [--session-token <t>]")
+		return c.die("usage", "usage: flow-guard implement-change prepare <main-checkout> <name> [--harness <h>] [--session-token <t>]")
 	}
-	if env.Dir != "/" {
+	if c.env.Dir != "/" {
 		if err := os.Chdir("/"); err != nil {
-			c.die("cannot-cd", "cannot cd /: %v", err)
+			return c.die("cannot-cd", "cannot cd /: %v", err)
 		}
 	}
 	c.markBegin("flow.implement")
 
-	c.loadSet()
+	if err := c.loadSet(); err != nil {
+		return err
+	}
 	var wts []string
 	for _, w := range c.wt {
 		if isDir(w) {
@@ -85,7 +84,7 @@ func implementChange(args []string, env Env, stdout, stderr io.Writer) (code int
 		}
 	}
 	if len(wts) == 0 || !c.findCanonical() {
-		c.stop("no-worktrees", "no worktree of "+c.name+" on disk holds its tasks.md — report the empty resolved set (worktree-resolution.md) and do not proceed")
+		return c.stop("no-worktrees", "no worktree of "+c.name+" on disk holds its tasks.md — report the empty resolved set (worktree-resolution.md) and do not proceed")
 	}
 
 	validate := c.cmd(c.canon, "spectre", "validate", c.name)
@@ -93,9 +92,9 @@ func implementChange(args []string, env Env, stdout, stderr io.Writer) (code int
 	switch rc := rcOf(validate.Run()); rc {
 	case 0:
 	case 1:
-		c.stopAs("validate-failed", "validate", "spectre validate named findings in this change's own artifacts — repair each before any code is touched, then run prepare again")
+		return c.stopAs("validate-failed", "validate", "spectre validate named findings in this change's own artifacts — repair each before any code is touched, then run prepare again")
 	default:
-		c.stopAs("change-missing", "no-change", fmt.Sprintf("spectre validate exited %d — on `no such change`, nothing is proposed under %s: stop and suggest `/flow %s`", rc, c.name, c.name))
+		return c.stopAs("change-missing", "no-change", fmt.Sprintf("spectre validate exited %d — on `no such change`, nothing is proposed under %s: stop and suggest `/flow %s`", rc, c.name, c.name))
 	}
 
 	c.run("check-base-behind", wts...)
@@ -104,7 +103,7 @@ func implementChange(args []string, env Env, stdout, stderr io.Writer) (code int
 	case 1:
 		c.run("sync-base-behind", wts...)
 		if c.rc != 0 {
-			c.stopAs("base-sync-failed", "base-sync", fmt.Sprintf("flow-guard sync-base-behind exited %d — name its stderr in the handoff and stop", c.rc))
+			return c.stopAs("base-sync-failed", "base-sync", fmt.Sprintf("flow-guard sync-base-behind exited %d — name its stderr in the handoff and stop", c.rc))
 		}
 	default:
 		c.say("BASE-BEHIND-UNKNOWN: check-base-behind could not answer — name its stderr in the handoff")
@@ -132,13 +131,13 @@ func implementChange(args []string, env Env, stdout, stderr io.Writer) (code int
 	}
 	c.say(fmt.Sprintf("TASKS: %d/%d", done, total))
 	if total == 0 {
-		c.stopAs("plan-missing", "no-plan", "spectre reads no plan for "+c.name+" — resume at skills/flow/resume.md")
+		return c.stopAs("plan-missing", "no-plan", "spectre reads no plan for "+c.name+" — resume at skills/flow/resume.md")
 	}
 	if done == total {
 		c.markEnd("flow.implement", "completed")
 		c.say("NEXT: review-panel")
-		return 0
+		return nil
 	}
 	c.say("NEXT: execute")
-	return 0
+	return nil
 }

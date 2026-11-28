@@ -50,11 +50,13 @@ func (c *ic) recordLandBase(w string) {
 	}
 }
 
-func (c *ic) land() {
+func (c *ic) land() error {
 	c.canonBase = ""
-	c.loadSet()
+	if err := c.loadSet(); err != nil {
+		return err
+	}
 	if !c.findCanonical() {
-		c.die("no-worktree-in-the-set", "no worktree in the set holds %s's tasks.md", c.name)
+		return c.die("no-worktree-in-the-set", "no worktree in the set holds %s's tasks.md", c.name)
 	}
 	c.mergeOrder()
 	if c.route == "" {
@@ -63,7 +65,7 @@ func (c *ic) land() {
 	switch c.route {
 	case "pull request", "merge and push", "manual":
 	default:
-		c.stopAs("landing-route-not-given", "landing-route", "no route — ask the landing question, then flow-guard integrate-change land "+c.main+" "+c.name+" --route <route> "+c.flags())
+		return c.stopAs("landing-route-not-given", "landing-route", "no route — ask the landing question, then flow-guard integrate-change land "+c.main+" "+c.name+" --route <route> "+c.flags())
 	}
 	c.openStage = "flow.land"
 	c.reopenLand()
@@ -76,8 +78,12 @@ func (c *ic) land() {
 	}
 	for _, o := range c.order {
 		w := c.wt[o]
-		c.baseOf(o)
-		c.pushBranch(w)
+		if err := c.baseOf(o); err != nil {
+			return err
+		}
+		if err := c.pushBranch(w); err != nil {
+			return err
+		}
 		if w == c.canon {
 			c.canonBase = c.base
 		}
@@ -86,21 +92,27 @@ func (c *ic) land() {
 			c.recordLandBase(w)
 			if !c.gitPass("-C", w, "push", "origin", "HEAD:"+c.base) {
 				c.say("PUSH-REJECTED: " + w + " — re-syncing onto origin/" + c.base + " once")
-				c.baseOf(o)
+				if err := c.baseOf(o); err != nil {
+					return err
+				}
 				fork, _ := c.git("-C", w, "merge-base", "HEAD", "origin/"+c.base)
 				c.run("sync-onto-base", w, c.base, fork)
 				switch c.rc {
 				case 0:
 				case 1:
-					c.stop("sync-conflict", "load skills/flow/sync-onto-base.md, resolve in place, --resume, run the whole ## lint and ## test lists, then re-run land — that push is the one retry")
+					return c.stop("sync-conflict", "load skills/flow/sync-onto-base.md, resolve in place, --resume, run the whole ## lint and ## test lists, then re-run land — that push is the one retry")
 				default:
-					c.stopAs("sync-failed", "sync", fmt.Sprintf("sync-onto-base exit %d — report its output", c.rc))
+					return c.stopAs("sync-failed", "sync", fmt.Sprintf("sync-onto-base exit %d — report its output", c.rc))
 				}
-				c.rebaseLint(w, "already pushed: "+alreadyPushed()+"; ")
-				c.pushBranch(w)
+				if err := c.rebaseLint(w, "already pushed: "+alreadyPushed()+"; "); err != nil {
+					return err
+				}
+				if err := c.pushBranch(w); err != nil {
+					return err
+				}
 				c.recordLandBase(w)
 				if !c.gitPass("-C", w, "push", "origin", "HEAD:"+c.base) {
-					c.stopAs("push-rejected", "push", "the second push of "+w+" to origin/"+c.base+" was rejected — report git's output; the change stays IN_PROGRESS")
+					return c.stopAs("push-rejected", "push", "the second push of "+w+" to origin/"+c.base+" was rejected — report git's output; the change stays IN_PROGRESS")
 				}
 			}
 			c.say("PUSHED: " + w + " — spectre/" + c.name + " onto origin/" + c.base)
@@ -124,7 +136,7 @@ func (c *ic) land() {
 				ok = ok && strings.HasPrefix(url, "http")
 			}
 			if !ok {
-				c.stopAs("gh-unusable", "pr", "no usable gh for "+w+" ("+url+") — print the forge's create-PR URL, ask whether it was opened, then re-run land adding --pr-url "+w+"=<url|none> to every --pr-url already given")
+				return c.stopAs("gh-unusable", "pr", "no usable gh for "+w+" ("+url+") — print the forge's create-PR URL, ask whether it was opened, then re-run land adding --pr-url "+w+"=<url|none> to every --pr-url already given")
 			}
 			if url == "none" {
 				continue
@@ -138,7 +150,7 @@ func (c *ic) land() {
 		}
 	}
 	if !c.writeState("IN_PROGRESS", nil, pr) {
-		c.stopAs("state-write-failed", "state", "the IN_PROGRESS write failed — report it")
+		return c.stopAs("state-write-failed", "state", "the IN_PROGRESS write failed — report it")
 	}
 	c.markEnd("flow.land", "completed")
 	c.markBegin("flow.self-review")
@@ -148,4 +160,5 @@ func (c *ic) land() {
 	} else {
 		c.say("NEXT: " + pass + ", end flow.self-review completed, then print the run 1 handoff — waiting on the merge")
 	}
+	return nil
 }

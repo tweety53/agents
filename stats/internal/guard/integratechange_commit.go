@@ -7,11 +7,13 @@ import (
 	"strings"
 )
 
-func (c *ic) commit() {
+func (c *ic) commit() error {
 	c.openStage = "flow.land"
-	c.loadSet()
+	if err := c.loadSet(); err != nil {
+		return err
+	}
 	if !c.findCanonical() {
-		c.die("no-worktree-in-the-set", "no worktree in the set holds %s's tasks.md", c.name)
+		return c.die("no-worktree-in-the-set", "no worktree in the set holds %s's tasks.md", c.name)
 	}
 	c.reopenLand()
 	c.mergeOrder()
@@ -35,7 +37,7 @@ func (c *ic) commit() {
 			// The reshape: every commit since the reshape base folded back into
 			// the index; only HEAD moves.
 			if !c.gitPass("-C", c.wt[o], "reset", "-q", "--soft", rb) {
-				c.stopAs("reshape-failed", "reshape", "git reset --soft "+rb+" failed in "+c.wt[o]+" — report its output")
+				return c.stopAs("reshape-failed", "reshape", "git reset --soft "+rb+" failed in "+c.wt[o]+" — report its output")
 			}
 		}
 		render := c.cmd("/", "flow", "record", "render", "-C", c.main, "-change", c.name, "-kind", "ledger", "-repo", c.canon)
@@ -60,10 +62,10 @@ func (c *ic) commit() {
 				subj = "chore(spectre): merge order"
 			}
 			if subj == "" && len(c.implPaths(c.wt[o], rb)) > 0 {
-				c.stopAs("subject-not-given", "commit-two", "no implementation subject given for "+c.wt[o]+" — pass "+c.wt[o]+"=<subject>")
+				return c.stopAs("subject-not-given", "commit-two", "no implementation subject given for "+c.wt[o]+" — pass "+c.wt[o]+"=<subject>")
 			}
 			if !c.commitTwo(c.wt[o], subj, c.squashed[o]) {
-				c.stopAs("commit-two-failed", "commit-two", "the implementation commit failed in "+c.wt[o]+" — report its lines")
+				return c.stopAs("commit-two-failed", "commit-two", "the implementation commit failed in "+c.wt[o]+" — report its lines")
 			}
 			os.Remove(f)
 		}
@@ -72,9 +74,12 @@ func (c *ic) commit() {
 	// The rewritten branch reaches the remote now, not at land: a run that
 	// stops before land leaves the next plain branch-backup push a fast-forward.
 	for _, o := range c.order {
-		c.pushBranch(c.wt[o])
+		if err := c.pushBranch(c.wt[o]); err != nil {
+			return err
+		}
 	}
 	c.say("NEXT: flow-guard integrate-change land " + c.main + " " + c.name + " " + c.flags())
+	return nil
 }
 
 // icReadTrimmed is `"$(cat <f>)"`.
