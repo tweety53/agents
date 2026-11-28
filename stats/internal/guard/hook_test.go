@@ -236,7 +236,7 @@ func TestHookRecordsItsWallTime(t *testing.T) {
 }
 
 // TestHookAwaitOwnAgentsOwedHandback: plain text from an agent that has not yet called
-// SubagentHandback is no final report, so its running background command is waited for, not killed.
+// SubagentHandback is no final report, so its running background command is waited for, not killed; once it has called it, the stop goes through.
 func TestHookAwaitOwnAgentsOwedHandback(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
@@ -263,5 +263,14 @@ func TestHookAwaitOwnAgentsOwedHandback(t *testing.T) {
 	out, rc := runHookInProcess(t, "await-own-agents", `{"agent_id":"p","agent_transcript_path":"`+transcript+`","last_assistant_message":"Waiting for the run."}`)
 	if rc != 0 || !strings.Contains(out, "still running (b1)") {
 		t.Errorf("rc=%d out=%q, want a block naming b1", rc, out)
+	}
+	lines += `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t2","name":"SubagentHandback"}]}}
+`
+	if err := os.WriteFile(transcript, []byte(lines), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, rc = runHookInProcess(t, "await-own-agents", `{"agent_id":"p","agent_transcript_path":"`+transcript+`","last_assistant_message":"Done."}`)
+	if rc != 0 || out != "" {
+		t.Errorf("rc=%d out=%q, want the stop let through after the handback", rc, out)
 	}
 }

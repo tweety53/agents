@@ -25,11 +25,11 @@ import (
 // project's incidents, and prints, each list sorted:
 //
 //	window: <from> .. <to>
+//	never-loaded window: <first load> .. <to>           the part of the window the never-loaded lines cover
 //	never-ran <guard>                                   a registered guard with no run in the window
 //	never-fired <guard> runs=<n>                        a guard that ran and never refused
 //	friction <guard> incidents=<n> minutes-lost=<m> latest: <symptom>
 //	                                                    a guard or hook with two or more incidents
-//	never-loaded window: <first load> .. <to>           the part of the window the lines below cover
 //	never-loaded <file> [conditional: <condition>]      a .md under <repo>/skills/ no session loaded
 //
 // A load is what the flow-skill-load hook records (stats/internal/guard/hookskillload.go): a Read
