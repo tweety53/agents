@@ -4,6 +4,20 @@ Read by the verifier **Steps 3–13** (`skills/flow/visual-verify.md`) dispatche
 path its prompt carries — the parent never loads it whole. It carries step 4, steps 8–11, the
 motion step and the `## Verdict` and `## Report` templates, run as written.
 
+**The steps in the order they run.** A step's number is its id, not its position: the report's
+`- steps:` line names steps 4, 8–11 and `motion`, which `stats/internal/guard/verifyreport.go`
+checks by number.
+
+| Order | Step | Run by | Stated in | Next |
+|---|---|---|---|---|
+| 1 | 4. Run `setup`, if declared | the verifier | below | step 8 |
+| 2 | 8. Capture | the verifier | below | step 9, after step 10's prototype render (step 9 states it) |
+| 3 | 9. Measure in one call, then read in one turn | the verifier | below | step 10 |
+| 4 | 10. Compose captured frames against their mockups | the verifier | below | the motion step |
+| 5 | The motion step | the verifier | below | step 11 |
+| 6 | 11. Write `<changeRoot>/visual-verification.md` | the verifier | below | `## Verdict` |
+| 7 | Verdict and report | the verifier | `## Verdict`, `## Report` | the parent's `close` |
+
 **A command the harness denies has no exit code.** Its report line reads `blocked — environment:
 <the denial text, verbatim>` where `exit <n>` would stand, and the step's status is `blocked` —
 never an exit code the command did not return.
@@ -23,13 +37,40 @@ reported BLOCKED, naming it.
    extended, when one covers the view; a new spec is authored only for a view none covers. **A capture
    spec carries a `<spec>.sources` sidecar** naming the source files its screen is made of, written
    or extended with the spec; `flow-guard affected-specs`'s header is canonical for its lines. Run
-   `capture` with `<spec>` substituted for the spec's path. **One `capture` run takes the specs of the bundle's `own specs:` line** (the change's own sidecars, by the rule of `skills/flow/visual-verify.md`, step 3) **and any capture spec you author or extend this pass for a new frame — never another spec `specs` prints**, less every spec the bundle names on a `captured:` line, their paths space-joined for `<spec>`, with
+   `capture` with `<spec>` substituted for the spec's path.
+
+   **One `capture` run takes the specs of the bundle's `own specs:` line** (the change's own
+   sidecars, by the rule of `skills/flow/visual-verify.md`, step 3) **and any capture spec you
+   author or extend this pass for a new frame — never another spec `specs` prints**, less every
+   spec the bundle names on a `captured:` line, their paths space-joined for `<spec>`, with
    `--workers=<n> --retries=1`, `<n>` the bundle's `workers:` line, before `--update-snapshots=all` — never one run per
-   spec. With every spec on the `captured:` line, or `own specs: none` and no spec of yours, no capture runs — an empty `<spec>` is never the whole suite. A test that passes on its retry is flaky: its capture stands, the report names it as a defect fixed at its source, and the capture is never run again for it. A project's page limit for ad-hoc probes does not bind the capture suite. A capture whose
+   spec. With every spec on the `captured:` line, or `own specs: none` and no spec of yours, no
+   capture runs — an empty `<spec>` is never the whole suite.
+
+   A test that passes on its retry is flaky: its capture stands, the report names it as a defect
+   fixed at its source, and the capture is never run again for it. A project's page limit for
+   ad-hoc probes does not bind the capture suite. A capture whose
    PNG differs between that count and `--workers=1` is nondeterministic, and is fixed at its source
    (`rules/fix-determinism-at-the-source.mdc`), never tolerated. **Every capture asserts the view is on
    screen before it is taken** — gymie-playwright's `expectRoom` — so a missed navigation fails the
-   capture instead of becoming its baseline. **A capture reached through a click also asserts the state it clicked into, and parks the pointer before it is taken** — a positive control on a drawn, state-dependent property the wrong state cannot satisfy (the selected tab's fill, the opened sheet's tag), and the pointer moved clear of every control (`page.mouse.move(0, 0)`) after the last click — so a missed click fails the capture instead of becoming its baseline, and no hover ink reaches one. **A capture reaches every control it clicks or types into by a structural locator, never a page coordinate** (**D. Basic Workflow #3 — Writing plans**, `skills/flow/brainstorm-planner.md`). **A capture whose subject sits under a scrim, or any dimming or alpha layer, also pins that subject structurally** — the presence of each tag the change draws beneath the layer and the absence of each it removes, covered tags included — because the dimming can shrink a real difference below the screenshot comparison's per-pixel threshold; a dimmed capture whose baseline predates the change is recaptured, never trusted because its diff passes. `screenshots`'s root-not-leaf shape is canonical in
+   capture instead of becoming its baseline.
+
+   **A capture reached through a click also asserts the state it clicked into, and parks the
+   pointer before it is taken** — a positive control on a drawn, state-dependent property the wrong
+   state cannot satisfy (the selected tab's fill, the opened sheet's tag), and the pointer moved
+   clear of every control (`page.mouse.move(0, 0)`) after the last click — so a missed click fails
+   the capture instead of becoming its baseline, and no hover ink reaches one.
+
+   **A capture reaches every control it clicks or types into by a structural locator, never a page
+   coordinate** (**D. Basic Workflow #3 — Writing plans**, `skills/flow/brainstorm-planner.md`).
+
+   **A capture whose subject sits under a scrim, or any dimming or alpha layer, also pins that
+   subject structurally** — the presence of each tag the change draws beneath the layer and the
+   absence of each it removes, covered tags included — because the dimming can shrink a real
+   difference below the screenshot comparison's per-pixel threshold; a dimmed capture whose
+   baseline predates the change is recaptured, never trusted because its diff passes.
+
+   `screenshots`'s root-not-leaf shape is canonical in
    `skills/flow-contracts/project-configuration-visual.md`; nothing here restates it. **Every screenshot
    this spec takes is the full page or viewport, never a clipped region.** A clip is the right tool
    for an implementer's own targeted assertion (a fixed piece of text, an icon), but this stage's
@@ -274,7 +315,13 @@ clock step 8 pins, bring the view to the motion's start, then record frames from
 trigger until the view settles — a CDP screencast (`Page.startScreencast`, each frame acknowledged
 with `Page.screencastFrameAck`) — while driving the trigger (a tap, a navigation, a drag through `page.mouse` in small
 steps). Never sample with `page.screenshot`: the Chromium page this step mandates always
-carries the screencast, and sampling skips the frames it catches. **A motion that changes an element's height is recorded in a viewport tall enough to hold that element's settled height** — step 8's viewport made taller for that recording alone — since an element whose bottom edge leaves the viewport reads as no height change. Write the frames, in order, to `<changeRoot>/visual-verification/motion/<motion
+carries the screencast, and sampling skips the frames it catches.
+
+**A motion that changes an element's height is recorded in a viewport tall enough to hold that
+element's settled height** — step 8's viewport made taller for that recording alone — since an
+element whose bottom edge leaves the viewport reads as no height change.
+
+Write the frames, in order, to `<changeRoot>/visual-verification/motion/<motion
 id>/<nnn>-<ms>.png`, `<ms>` the frame's offset in milliseconds from the trigger — the screencast
 frame's own timestamp — read every one, and
 judge the strip frame by frame: **every frame shows the view
