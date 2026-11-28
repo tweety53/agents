@@ -53,3 +53,28 @@ func TestPruneCacheIgnoresOtherBinaries(t *testing.T) {
 		t.Errorf("a binary outside the cache layout pruned its neighbours: %v", err)
 	}
 }
+
+func TestPruneCacheRunsOncePerWindow(t *testing.T) {
+	cache := t.TempDir()
+	now := time.Now()
+	own := filepath.Join(cache, strings.Repeat("a", 64))
+	stale := filepath.Join(cache, strings.Repeat("b", 64))
+	for _, d := range []string{own, stale} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pruneCache(filepath.Join(own, "flow-guard"), now)
+	old := now.Add(-30 * 24 * time.Hour)
+	if err := os.Chtimes(stale, old, old); err != nil {
+		t.Fatal(err)
+	}
+	pruneCache(filepath.Join(own, "flow-guard"), now.Add(time.Hour))
+	if _, err := os.Stat(stale); err != nil {
+		t.Fatalf("a second run within the window pruned: %v", err)
+	}
+	pruneCache(filepath.Join(own, "flow-guard"), now.Add(pruneInterval+time.Hour))
+	if _, err := os.Stat(stale); err == nil {
+		t.Fatal("a run past the window did not prune")
+	}
+}

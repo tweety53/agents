@@ -26,12 +26,11 @@
 #
 # THE KEY. The cache key is the SHA-256 of the per-file SHA-256 lines of
 # exactly the sources the binary is built from — stats/go.mod, stats/go.sum,
-# and the non-test .go files of stats/cmd/flow-guard/, stats/internal/guard/,
-# stats/internal/records/, stats/internal/modelpolicy/,
-# stats/internal/testcost/ and stats/internal/shlex/ (the only packages
-# it imports from this module: unfinishedwork.go imports records,
-# modelpolicy.go and loop.go modelpolicy,
-# testcost.go testcost, hookblockunsafecommands.go shlex) — named relative to stats/, so two
+# and the non-test .go files of stats/cmd/flow-guard/ and of every package
+# under stats/internal/ (two levels deep) — the whole tree rather than the
+# packages the binary imports, so a new import can never fall outside the key
+# (stats/internal/repotest/flow_guard_key_coverage_test.go fails if one does);
+# an edit to a package it does not import costs one rebuild — named relative to stats/, so two
 # checkouts with the same sources share one binary and a _test.go edit never
 # forces a rebuild. A tree without one of those packages keys without it.
 # The binary lives at
@@ -99,7 +98,7 @@ opening="${name:-flow-guard}:"
 # the flow-guard sources the key hashes.
 flow_guard_files() {
   files=(go.mod go.sum)
-  for f in "$1"/cmd/flow-guard/*.go "$1"/internal/guard/*.go "$1"/internal/records/*.go "$1"/internal/modelpolicy/*.go "$1"/internal/testcost/*.go "$1"/internal/shlex/*.go; do
+  for f in "$1"/cmd/flow-guard/*.go "$1"/internal/*/*.go "$1"/internal/*/*/*.go; do
     case "$f" in *_test.go) ;; *) [ -f "$f" ] && files+=("${f#"$1"/}") ;; esac
   done
 }

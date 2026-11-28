@@ -148,14 +148,18 @@ func copyRealSources(t *testing.T) string {
 	dst := t.TempDir()
 	src := filepath.Join(repoRoot(t), "stats")
 	files := []string{"go.mod", "go.sum"}
-	for _, dir := range []string{"cmd/flow-guard", "internal/guard", "internal/records", "internal/modelpolicy", "internal/testcost", "internal/shlex"} {
-		matches, err := filepath.Glob(filepath.Join(src, dir, "*.go"))
+	for _, glob := range flowGuardKeyGlobs(t) {
+		matches, err := filepath.Glob(filepath.Join(src, glob))
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, m := range matches {
 			if !strings.HasSuffix(m, "_test.go") {
-				files = append(files, filepath.Join(dir, filepath.Base(m)))
+				rel, err := filepath.Rel(src, m)
+				if err != nil {
+					t.Fatal(err)
+				}
+				files = append(files, rel)
 			}
 		}
 	}
