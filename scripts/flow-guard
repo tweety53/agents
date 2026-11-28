@@ -124,16 +124,31 @@ flow_guard_key() {
 
 # A symlink to this file is followed to the file itself before its directory
 # is resolved, so a call through a link elsewhere still answers this checkout.
+# Parameter expansion stands in for dirname, and the root is resolved by a cd
+# in this shell and a cd back, not in a subshell: each fork costs a call about
+# a millisecond. readlink has no builtin, so only a link pays one. The cd back
+# returns to the caller's own logical directory, $OLDPWD restored, whenever
+# $PWD is this directory; a stale or missing $PWD takes the subshell instead.
+# CDPATH is cleared, so a relative directory never resolves through it.
 self="${BASH_SOURCE[0]}"
 while [ -L "$self" ]; do
   link="$(readlink -- "$self")"
-  case "$link" in /*) self="$link" ;; *) self="$(dirname -- "$self")/$link" ;; esac
+  case "$link" in /*) self="$link" ;; *) case "$self" in */*) self="${self%/*}/$link" ;; *) self="$link" ;; esac ;; esac
 done
-root="$(cd -P "$(dirname -- "$self")" && cd .. && pwd)" || {
+case "$self" in */*) dir="${self%/*}" dir="${dir:-/}" ;; *) dir=. ;; esac
+here="${PWD:-}"
+if [ -n "$here" ] && [ "$here" -ef . ]; then
+  old="${OLDPWD-}" hadold="${OLDPWD+1}"
+  CDPATH='' cd -P -- "$dir" && cd .. && root="$PWD" && cd -- "$here" || root=""
+  if [ -n "$hadold" ]; then OLDPWD="$old"; else unset OLDPWD; fi
+else
+  root="$(CDPATH='' cd -P -- "$dir" && cd .. && pwd)" || root=""
+fi
+[ -n "$root" ] || {
   echo "$opening cannot resolve the checkout of ${BASH_SOURCE[0]}" >&2
   exit "$code"
 }
-stats="$(cd "$root/stats" 2>/dev/null && pwd)" || {
+[ -d "$root/stats" ] && [ -x "$root/stats" ] && stats="$root/stats" || {
   echo "$opening cannot build flow-guard — no stats/ source tree beside ${BASH_SOURCE[0]}" >&2
   exit "$code"
 }

@@ -562,3 +562,76 @@ func TestFlowGuardBootstrapStampsItsStart(t *testing.T) {
 		t.Fatalf("inherited: rc=%d out=%q, want the inherited 123.5", r.rc, r.out())
 	}
 }
+
+// TestFlowGuardBootstrapInvocations: every way the bootstrap is reached — an
+// absolute path, a path relative to the caller's directory, a chain of
+// symlinks (relative and absolute hops), and setup.sh's PATH shim — finds the
+// same physical checkout, under a path with a space in it, and leaves the
+// guard in the caller's own logical working directory.
+func TestFlowGuardBootstrapInvocations(t *testing.T) {
+	smoke.Heavy(t)
+	path := os.Getenv("PATH")
+	goBinary(t)
+	parent, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	fix := filepath.Join(parent, "a checkout")
+	if err := os.Rename(newBootstrapFixture(t, "inv"), fix); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(fix, "stats/cmd/flow-guard/main.go"),
+		"package main\n\nimport (\n\t\"fmt\"\n\t\"os\"\n)\n\nfunc main() { wd, _ := os.Getwd(); fmt.Println(os.Getenv(\"FLOW_GUARD_REPO_ROOT\") + \"|\" + wd) }\n", 0o644)
+	boot := filepath.Join(fix, "scripts", "flow-guard")
+
+	links := filepath.Join(parent, "link dir")
+	if err := os.MkdirAll(links, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	rel, err := filepath.Rel(links, boot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, target := range map[string]string{"rel": rel, "abs": boot, "chain": "rel"} {
+		if err := os.Symlink(target, filepath.Join(links, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	shims := filepath.Join(parent, "shim dir")
+	writeFile(t, filepath.Join(shims, "flow-guard"), "#!/bin/sh\nexec '"+boot+"' \"$@\"\n", 0o755)
+
+	caller := filepath.Join(parent, "caller dir")
+	if err := os.MkdirAll(caller, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	callerAlias := filepath.Join(parent, "caller alias")
+	if err := os.Symlink(caller, callerAlias); err != nil {
+		t.Fatal(err)
+	}
+	cache := t.TempDir()
+
+	for _, c := range []struct{ name, dir, cmd string }{
+		{"absolute", caller, boot},
+		{"relative", filepath.Join(fix, "stats"), "../scripts/flow-guard"},
+		{"relative from scripts/", filepath.Join(fix, "scripts"), "./flow-guard"},
+		{"relative symlink", caller, filepath.Join(links, "rel")},
+		{"absolute symlink", caller, filepath.Join(links, "abs")},
+		{"symlink to a symlink", caller, filepath.Join(links, "chain")},
+		{"symlink called by a relative path", links, "./chain"},
+		{"PATH shim", caller, ""},
+		{"from a symlinked working directory", callerAlias, boot},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			env := withPath(bootstrapEnv(cache, "PWD="+c.dir), path)
+			cmd, args := c.cmd, []string{"check-x"}
+			if cmd == "" {
+				env = withPath(bootstrapEnv(cache, "PWD="+c.dir), shims+":"+path)
+				cmd, args = "/bin/sh", []string{"-c", "flow-guard check-x"}
+			}
+			r := runBootstrap(t, c.dir, env, cmd, args...)
+			if want := fix + "|" + c.dir; r.rc != 0 || r.out() != want {
+				t.Fatalf("rc=%d out=%q, want %q", r.rc, r.out(), want)
+			}
+		})
+	}
+}
