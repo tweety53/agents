@@ -194,8 +194,8 @@
  {
   "question": "What should an implementer do when their measurements show the plan is wrong?",
   "kind": "any",
-  "file": "skills/flow-contracts/plan-amendment.md",
-  "snippet": "## When a measurement contradicts the plan A plan is an argument, not a script. "
+  "file": "skills/flow/implementer-brief.md",
+  "snippet": "A plan is an argument, not a script. "
  },
  {
   "question": "What should the operator do when a gate check blocks work that actually looks complete?",

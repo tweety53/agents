@@ -108,9 +108,11 @@ this file in full first: its prompt is a stub naming this file, never these para
 > implementation must satisfy these principles; the panel's principles reviewer checks the diff
 > against them. **Scope lifetime** is the one that bites async work a control starts.
 
-> **PLAN AMENDMENT:** When what you
-> measure contradicts the plan, stop and report the measurement: see **When a measurement
-> contradicts the plan** (`skills/flow-contracts/plan-amendment.md`).
+> **PLAN AMENDMENT:** A plan is an argument, not a script. An implementer who measures something that contradicts the plan
+> reports the measurement and stops, rather than following the plan into a wrong result. The plan or
+> the design is amended before the work continues. Silent deviation and silent compliance are both
+> failures: the first is indistinguishable from a mistake, the second wastes the measurement.
+> A plan claim a run has disproved is a defect in the plan, and the plan is where it is fixed — not routed around in the implementation, and not obeyed anyway.
 
 > **MEASURE A UI TASK BEFORE YOU REPORT:** when a file under your task's `**Files:**` matches the
 > project's `ui paths` (`## visual verification`, `.flow/project.md`), commit, then run

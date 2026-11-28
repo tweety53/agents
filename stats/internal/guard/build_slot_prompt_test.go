@@ -38,6 +38,7 @@ func TestBuildSlotPrompt(t *testing.T) {
 		"**Diff file:** " + d + "/fix-round-2.diff",
 		"**Change artifacts:** /c/proposal.md, /c/design.md",
 		"**Principles:** " + skill + "/engineering-principles.md",
+		"Categorize by actual severity",
 		"REPORT FILE: " + wt + "/.superpowers/sdd/panel-report-2-primary-gymie.md",
 		"REPORT FILE: " + wt + "/.superpowers/sdd/panel-report-2-principles-gymie.md",
 	} {

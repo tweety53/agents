@@ -98,8 +98,7 @@ gap in instructions:
   `skills/flow/implement.md`, `skills/flow/fixer-brief.md`, `skills/flow/engineering-principles.md`) would have prevented the
   bad code.
 - **`reviewer`** — either a **miss**, a defect raised only in a later round or by a later slot that
-  a first-round reviewer instruction (`skills/flow/*-reviewer-prompt.md`,
-  `skills/flow/reviewer-calibration.md`) would have caught, or a **false positive**, a finding later
+  a first-round reviewer instruction (`skills/flow/*-reviewer-prompt.md`) would have caught, or a **false positive**, a finding later
   disproved or withdrawn that cost a fix round for nothing. A visual-verify finding's reviewer
   is the verifier: its miss or false positive targets `skills/flow/visual-verify-verifier.md` or
   `skills/flow/visual-verify.md`.
@@ -197,7 +196,7 @@ question to the operator.
    `<agents repo>/spectre/changes/`, and never merges or pushes. It reports each finding's commit, or a finding it found `big` once under way, left uncommitted.
 2. **Review once, primary only.** The fixer's diff against `origin/<agents-base>` is reviewed by one
    fresh dispatch on the `loop-review-1` row, key `self-review-<name>-review-1`, per
-   `skills/flow/primary-reviewer-prompt.md` and `skills/flow/reviewer-calibration.md`, writing its
+   `skills/flow/primary-reviewer-prompt.md`, writing its
    report to `<sr-dir>/review-1.md`; the parent closes it with `flow-guard pipeline-fix end <key> <report>`,
    the report carrying its `Critical:` and `Important:` lines. Neither line ⇒ item 3. Otherwise one fresh fixer dispatch,
    key `self-review-<name>-fix-r<r>`, corrects them in the same worktree, then a fresh re-review on the
@@ -228,7 +227,7 @@ removes the worktree, and is filed in step 4 as a `big` finding is.
 
 Nothing is asked and no Jira issue is created: the operator reads the suggestions on the Self-review
 dashboard's **To review** tab, approves or declines each, and creates and plans any task themselves.
-Only an impactful finding is suggested: a Critical or Important one (`skills/flow/reviewer-calibration.md`). A Minor
+Only an impactful finding is suggested: a Critical or Important one (**Calibration**, `skills/flow/primary-reviewer-prompt.md`). A Minor
 finding is never recorded as a suggestion — `flow self-review finding` refuses `suggested` with `-severity minor` — and is
 left out of the report; this holds for suggestions only, and fixes are recorded as they always were. Every impactful
 `big` finding, every impactful `flow-fix` finding step 3 or **The base sync** left unfixed, and every impactful

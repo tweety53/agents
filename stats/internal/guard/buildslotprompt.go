@@ -21,7 +21,7 @@ import (
 // runs (-panel), a WORKTREES line (-worktrees), a SECTION line (-repo), the FIX-ROUND SCOPE blockquote of review-panel-fix-round.md with
 // <fix report> filled (-fix-report), then per id a `## PASS <id>` section — the
 // fenced body of <skill-dir>/<id>-reviewer-prompt.md, dedented, its
-// placeholders filled ([CALIBRATION_PATH] and [PRINCIPLES_PATH] resolved
+// placeholders filled ([PRINCIPLES_PATH] resolved
 // beside the templates) — and its REPORT FILE line. Prints the written path.
 //
 // -unread names the sections a round's report left unread: the role's
@@ -43,7 +43,7 @@ import (
 // that no flag filled.
 func init() { Registry["build-slot-prompt"] = buildSlotPrompt }
 
-var bspPlaceholder = regexp.MustCompile(`\[(DIFF_PATH|ARTIFACT_PATHS|CALIBRATION_PATH|PRINCIPLES_PATH|STANDARDS_PATHS|GLOBAL_CONSTRAINTS)\]`)
+var bspPlaceholder = regexp.MustCompile(`\[(DIFF_PATH|ARTIFACT_PATHS|PRINCIPLES_PATH|STANDARDS_PATHS|GLOBAL_CONSTRAINTS)\]`)
 
 func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	usage := func(msg string) int {
@@ -78,12 +78,11 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args[4:]); err != nil || fs.NArg() != 0 {
 		return usage("bad flags")
 	}
-	set := map[string]bool{"CALIBRATION_PATH": true, "PRINCIPLES_PATH": true}
+	set := map[string]bool{"PRINCIPLES_PATH": true}
 	names := map[string]string{"diff": "DIFF_PATH", "artifacts": "ARTIFACT_PATHS", "standards": "STANDARDS_PATHS", "global-constraints": "GLOBAL_CONSTRAINTS"}
 	fs.Visit(func(f *flag.Flag) { set[names[f.Name]] = true })
-	cal := filepath.Join(skillDir, "reviewer-calibration.md")
 	prin := filepath.Join(skillDir, "engineering-principles.md")
-	fill["CALIBRATION_PATH"], fill["PRINCIPLES_PATH"] = &cal, &prin
+	fill["PRINCIPLES_PATH"] = &prin
 	list := func(s string) string { return strings.ReplaceAll(s, ",", ", ") }
 
 	suffix := ""

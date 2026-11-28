@@ -36,7 +36,7 @@
     - Does the diff match `proposal.md` and `design.md`? Is every planned piece present?
     - Does each task's `**Files:**`, `**Tests:**` and `**Commit:**` field in `tasks.md`
       match what the diff actually touched, tested and committed? Drift there is Minor
-      (`skills/flow/reviewer-calibration.md`).
+      (**Calibration**, below).
     - Are deviations justified improvements, or problematic departures? Flag each so the
       implementer can confirm it was intentional. If the plan itself is wrong, say so.
 
@@ -97,8 +97,18 @@
 
     ## Calibration
 
-    Read the calibration file at [CALIBRATION_PATH] and categorize every finding by the
-    severity it defines.
+    Categorize by actual severity — not everything is Critical, and a nitpick is never one.
+
+    A lens with nothing to report says so in one line; a finding manufactured to fill a section is a
+    defect of the review.
+
+    - **Critical** — bugs, security issues, data-loss risks, broken functionality; a
+      planned piece missing outright.
+    - **Important** — architecture problems, poor error handling, test gaps; a defect that produces a wrong result under a
+      realistic input.
+    - **Minor** — code style, optimization opportunities, documentation polish; drift in a plan
+      bookkeeping field (`**Files:**`, `**Tests:**`, `**Commit:**` of `tasks.md`), which the
+      implementer may not write and the parent re-records.
 
     ## Output Format
 

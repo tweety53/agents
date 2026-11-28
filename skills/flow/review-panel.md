@@ -49,7 +49,7 @@ A role a bundle drops leaves the bundle dispatching the roles it still names, an
 naming none is not dispatched.
 
 **A subagent-facing file is passed by absolute path, never read into this context.** This repository's
-`primary-reviewer-prompt.md` and `reviewer-calibration.md` (Primary), `principles-reviewer-prompt.md` and
+`primary-reviewer-prompt.md` (Primary), `principles-reviewer-prompt.md` and
 `engineering-principles.md` (Principles),
 `failure-modes-reviewer-prompt.md` (Failure-modes), `security-reviewer-prompt.md` (Security), and
 `<project>/.flow/project.md`'s standards files are inputs to the slot that reads them; the
@@ -62,7 +62,6 @@ passed to `flow-guard build-slot-prompt` (below), which substitutes it:
 |---|---|---|
 | `[DIFF_PATH]` | all six | the absolute path of the diff this dispatch reads, in `<abs-worktree>/.superpowers/sdd/` of the canonical worktree: `final-review.diff` in pass 1; `late-fix.diff` on a fix's review (`skills/flow/fix.md`, step 4); on a re-run, the round's `fix-round-N.diff` |
 | `[ARTIFACT_PATHS]` | primary | the absolute paths of the change's `proposal.md`, `design.md` and `tasks.md` in the plan directory (`<changeRoot>`, or a satellite's canonical change directory) |
-| `[CALIBRATION_PATH]` | primary | the **absolute** path of `reviewer-calibration.md` beside this file, resolved as `[PRINCIPLES_PATH]` is |
 | `[PRINCIPLES_PATH]` | principles | as the Principles section below resolves it |
 | `[STANDARDS_PATHS]` | principles | as the Principles section below resolves it; empty when none resolve |
 | `[GLOBAL_CONSTRAINTS]` | principles | the absolute path of the change's `design.md`, or `none` when it has none |
