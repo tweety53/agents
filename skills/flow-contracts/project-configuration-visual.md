@@ -57,6 +57,16 @@ it — one `<screenshot name> <frame id>` line per pair, `#` comments and blank 
 `<screenshot name>` is the name the spec passed to `toHaveScreenshot()`; Playwright's own
 `-<platform>` suffix is tolerated on match.
 
+Two comment lines are read by `flow-guard visual-verify-pass measure` (its header is canonical
+for what it does with them), each naming a span of a frame's rows by their top in the measured
+frame's px (the `a` box `top` its matrix file carries):
+
+- `# departure <frame id> <top>-<bottom> <cause>` — a departure from that frame the change
+  accepts, such as one `design.md`'s `## Decisions` records; the cause is the declaration the
+  verifier cites.
+- `# owns task-<id> <frame id> <top>-<bottom>` — the rows of that frame plan task `<id>` builds;
+  a frame no `owns` line names for a task is the task's whole.
+
 With `mockup frame` declared, the composite `flow.verify` writes is three panels — the
 captured frame, the cropped mockup, and a difference panel white wherever any channel differs —
 and the stage prints one `<composite path> diff=<ratio>` line per pair, the ratio being the share

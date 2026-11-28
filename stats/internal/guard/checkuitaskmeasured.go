@@ -36,7 +36,9 @@ import (
 //   - be no older than the newest commit touching the task's files in any of
 //     the worktrees, and
 //   - carry no flagged band, seam or `over` row and no failed compose, after
-//     the declared tolerance and the whole-frame shift fold.
+//     the declared tolerance, the whole-frame shift fold and the sidecar's
+//     `# departure` and `# owns` lines, which set rows aside as `departures`
+//     and `not_owned`.
 //
 // A UI task is not measured per task when a LATER task of the plan lists a
 // `*.mockups` capture-spec sidecar in its **Files:** — no capture spec exists

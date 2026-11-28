@@ -207,6 +207,8 @@ reported BLOCKED, naming it.
    **Before a departure is raised, it is checked against the frame's sidecar comment and
    `design.md`'s `## Decisions`**: one either declares — a part named expected, a control a decision
    gives another form — is reported as declared, citing the declaration, never as a departure.
+   A row the `frame:` line names under `departure:` is one the sidecar declares, its `cause` in the
+   manifest; it is reported as declared, citing that line, and never judged again.
 
    **Enumerate every mockup frame the change touches into an explicit checklist before starting
    the sweep, and account for each one by name at handoff — done, or why not.** "Did a

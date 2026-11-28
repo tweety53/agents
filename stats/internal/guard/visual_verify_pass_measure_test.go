@@ -560,6 +560,92 @@ func TestVisualVerifyPassMeasureNamesChangedFrames(t *testing.T) {
 	}
 }
 
+// vvmMarked is one pair's flagged and set-aside lists, as the manifest carries them.
+type vvmMarked struct {
+	Bands, Seams, Over []any
+	Departures         []map[string]any `json:"departures"`
+	NotOwned           []map[string]any `json:"not_owned"`
+}
+
+func (f vvmFix) marked(t *testing.T, key string) vvmMarked {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(f.wt, ".superpowers/sdd/visual-manifest-"+key+".json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m struct{ Pairs []vvmMarked }
+	if err := json.Unmarshal(b, &m); err != nil || len(m.Pairs) != 1 {
+		t.Fatalf("manifest %s: %v, want one pair", b, err)
+	}
+	return m.Pairs[0]
+}
+
+// TestVisualVerifyPassMeasureReadsDepartureLines: a sidecar `# departure`
+// line sets aside the frame's flagged rows inside its span as `departures`,
+// never flagged, and leaves the rows outside it flagged.
+func TestVisualVerifyPassMeasureReadsDepartureLines(t *testing.T) {
+	t.Parallel()
+	// frame-a's heading (frame top 20) sits 4px low in the capture: one band and one over row.
+	f := vvmFixture(t, "a.png frame-a\n# departure frame-a 15-35 the heading sits lower by design\n")
+	rc, stdout, stderr := f.run(t, f.wt, "demo", "visual-verify", "tests/visual/app.spec.ts")
+	if rc != 0 {
+		t.Fatalf("exit %d, stdout %q, stderr %q", rc, stdout, stderr)
+	}
+	p := f.marked(t, "visual-verify")
+	if n := len(p.Bands) + len(p.Seams) + len(p.Over); n != 0 {
+		t.Fatalf("%d rows still flagged inside the declared span: %+v", n, p)
+	}
+	if len(p.Departures) != 2 {
+		t.Fatalf("departures %+v, want the heading's band and over row", p.Departures)
+	}
+	for _, d := range p.Departures {
+		if d["cause"] != "the heading sits lower by design" || (d["list"] != "bands" && d["list"] != "over") {
+			t.Fatalf("departure %+v, want its cause and the list it left", d)
+		}
+	}
+	if !strings.Contains(stdout, "— over: none — departure: #1") {
+		t.Fatalf("frame line does not name the departure row: %q", stdout)
+	}
+
+	g := vvmFixture(t, "a.png frame-a\n# departure frame-a 50-200 another part\n# departure frame-b 0-300 another frame\n")
+	if rc, _, stderr := g.run(t, g.wt, "demo", "visual-verify", "tests/visual/app.spec.ts"); rc != 0 {
+		t.Fatalf("exit %d, stderr %q", rc, stderr)
+	}
+	if q := g.marked(t, "visual-verify"); len(q.Bands) == 0 || len(q.Over) == 0 || len(q.Departures) != 0 {
+		t.Fatalf("a span or frame missing the row set it aside: %+v", q)
+	}
+}
+
+// TestVisualVerifyPassMeasureScopesToOwnedRows: under the key a sidecar
+// `# owns` line names, the frame's flagged rows outside every owned span are
+// `not_owned`, never flagged; under any other key every row stays flagged.
+func TestVisualVerifyPassMeasureScopesToOwnedRows(t *testing.T) {
+	t.Parallel()
+	f := vvmFixture(t, "a.png frame-a\n# owns task-2 frame-a 50-200\n")
+	if rc, stdout, stderr := f.run(t, f.wt, "demo", "task-2", "tests/visual/app.spec.ts"); rc != 0 || !strings.Contains(stdout, "— not-owned: #1") {
+		t.Fatalf("exit %d, stdout %q, stderr %q, want exit 0 naming row 1 not-owned", rc, stdout, stderr)
+	}
+	p := f.marked(t, "task-2")
+	if n := len(p.Bands) + len(p.Seams) + len(p.Over); n != 0 || len(p.NotOwned) != 2 {
+		t.Fatalf("%d flagged, not_owned %+v; want the heading's band and over row not owned", n, p.NotOwned)
+	}
+	for _, key := range []string{"task-3", "visual-verify"} {
+		if rc, _, stderr := f.run(t, f.wt, "demo", key, "tests/visual/app.spec.ts"); rc != 0 {
+			t.Fatalf("%s: exit %d, stderr %q", key, rc, stderr)
+		}
+		if q := f.marked(t, key); len(q.Bands) == 0 || len(q.Over) == 0 || len(q.NotOwned) != 0 {
+			t.Fatalf("%s: another key's owns line scoped its rows: %+v", key, q)
+		}
+	}
+	g := vvmFixture(t, "a.png frame-a\n# owns task-2 frame-a 15-35\n")
+	if rc, _, stderr := g.run(t, g.wt, "demo", "task-2", "tests/visual/app.spec.ts"); rc != 0 {
+		t.Fatalf("exit %d, stderr %q", rc, stderr)
+	}
+	if q := g.marked(t, "task-2"); len(q.Bands) == 0 || len(q.Over) == 0 || len(q.NotOwned) != 0 {
+		t.Fatalf("an owned row left flagged rows: %+v", q)
+	}
+}
+
 // TestVisualVerifyPassMeasureTakesNoFrames: a pass is one verifier, so
 // measure takes no frame slice and refuses --frames as an unknown argument.
 func TestVisualVerifyPassMeasureTakesNoFrames(t *testing.T) {

@@ -44,6 +44,8 @@ type vvmPair struct {
 	Over       []any             `json:"over"`
 	Within     []any             `json:"within,omitempty"` // rows moved by at most the declared tolerance: recorded, never flagged
 	Shift      *vvmShift         `json:"shift,omitempty"`
+	Departures []any             `json:"departures,omitempty"` // flagged entries a sidecar `# departure` span declares: reported, never flagged
+	NotOwned   []any             `json:"not_owned,omitempty"`  // flagged entries outside every `# owns` span of this key: reported, never flagged
 }
 
 // vvmShift is one whole-frame offset, found one of two ways. `--props matrix`
@@ -272,6 +274,9 @@ func (v *vvp) measure(args []string) {
 				v.say("shift: dy=%s rows=%d frame=%s", strconv.FormatFloat(p.Shift.Dy, 'f', -1, 64), p.Shift.Rows, p.Frame)
 			}
 		}
+		if parsed {
+			vvmSetAside(&p, mx.Matrix, body, key)
+		}
 		v.say("%s", vvmFrameLine(p))
 		m.Pairs = append(m.Pairs, p)
 	}
@@ -403,7 +408,114 @@ func vvmFrameLine(p vvmPair) string {
 	if len(rows) > 0 {
 		over = strings.Join(rows, "; ")
 	}
-	return "frame: " + p.Frame + " — " + p.Composite + " diff=" + p.Diff + " — over: " + over
+	line := "frame: " + p.Frame + " — " + p.Composite + " diff=" + p.Diff + " — over: " + over
+	for _, l := range []struct {
+		name string
+		rows []any
+	}{{"departure", p.Departures}, {"not-owned", p.NotOwned}} {
+		var ns []string
+		for _, o := range l.rows {
+			if r, _ := o.(map[string]any); r["list"] == "over" {
+				ns = append(ns, "#"+strconv.FormatFloat(r["row"].(float64), 'f', -1, 64))
+			}
+		}
+		if len(ns) > 0 {
+			line += " — " + l.name + ": " + strings.Join(ns, ", ")
+		}
+	}
+	return line
+}
+
+// vvmSpan is one `<top>-<bottom>` span of a sidecar `# departure` or `# owns` line.
+type vvmSpan struct {
+	top, bottom float64
+	cause       string
+}
+
+// vvmSpans is the sidecar's `# departure <frame id> <top>-<bottom> <cause>`
+// spans for frame, and its `# owns <key> <frame id> <top>-<bottom>` spans for
+// key and frame. A line whose span does not parse is no line.
+func vvmSpans(sidecar []byte, key, frame string) (departs, owns []vvmSpan) {
+	span := func(s string) (vvmSpan, bool) {
+		a, b, ok := strings.Cut(s, "-")
+		top, errA := strconv.ParseFloat(a, 64)
+		bottom, errB := strconv.ParseFloat(b, 64)
+		return vvmSpan{top: top, bottom: bottom}, ok && errA == nil && errB == nil && top <= bottom
+	}
+	for _, raw := range strings.Split(string(sidecar), "\n") {
+		f := strings.Fields(raw)
+		switch {
+		case len(f) >= 4 && f[0] == "#" && f[1] == "departure" && f[2] == frame:
+			if s, ok := span(f[3]); ok {
+				s.cause = strings.Join(f[4:], " ")
+				departs = append(departs, s)
+			}
+		case len(f) == 5 && f[0] == "#" && f[1] == "owns" && f[2] == key && f[3] == frame:
+			if s, ok := span(f[4]); ok {
+				owns = append(owns, s)
+			}
+		}
+	}
+	return departs, owns
+}
+
+// vvmSetAside moves each flagged band, seam and over row of p whose frame-side
+// top (its `a` box's, else its capture-side `b` box's for an `extra` entry) lies
+// outside every owned span — when the key owns any of the frame — to
+// p.NotOwned, else inside a departure span to p.Departures, tagging it with
+// the `list` it left and, for a departure, the span's `cause`.
+func vvmSetAside(p *vvmPair, matrix []map[string]any, sidecar []byte, key string) {
+	departs, owns := vvmSpans(sidecar, key, p.Frame)
+	if len(departs) == 0 && len(owns) == 0 {
+		return
+	}
+	in := func(spans []vvmSpan, y float64) (vvmSpan, bool) {
+		for _, s := range spans {
+			if y >= s.top && y <= s.bottom {
+				return s, true
+			}
+		}
+		return vvmSpan{}, false
+	}
+	sort := func(list []any, from string, entry func(map[string]any) map[string]any) []any {
+		kept := []any{}
+		for _, o := range list {
+			e, _ := o.(map[string]any)
+			y, ok := vvmTop(entry(e))
+			if _, owned := in(owns, y); ok && len(owns) > 0 && !owned {
+				e["list"] = from
+				p.NotOwned = append(p.NotOwned, e)
+			} else if s, dep := in(departs, y); ok && dep {
+				e["list"], e["cause"] = from, s.cause
+				p.Departures = append(p.Departures, e)
+			} else {
+				kept = append(kept, o)
+			}
+		}
+		return kept
+	}
+	self := func(e map[string]any) map[string]any { return e }
+	p.Bands = sort(p.Bands, "bands", self)
+	p.Seams = sort(p.Seams, "seams", self)
+	p.Over = sort(p.Over, "over", func(e map[string]any) map[string]any {
+		row, _ := e["row"].(float64)
+		if i := int(row) - 1; i >= 0 && i < len(matrix) {
+			return matrix[i]
+		}
+		return nil
+	})
+}
+
+// vvmTop is an entry's frame-side top, else its capture-side one.
+func vvmTop(e map[string]any) (float64, bool) {
+	for _, side := range []string{"a", "b"} {
+		if box, ok := e[side].(map[string]any); ok {
+			if t, ok := box["top"].(float64); ok {
+				return t, true
+			}
+		}
+	}
+	return 0, false
 }
 
 // vvmUnion is a then b, each line once.

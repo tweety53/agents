@@ -267,15 +267,25 @@ import (
 //      bands,seams,matrix into <changeRoot>/visual-verification/matrix/<frame id>.json.
 //      A pair compose did not write is recorded with its non-zero compose exit
 //      and not measured; every other pair still is, and prints
-//        frame: <frame id> — <composite> diff=<ratio> — over: <row>; … | none
+//        frame: <frame id> — <composite> diff=<ratio> — over: <row>; … | none[ — departure: #<n>, …][ — not-owned: #<n>, …]
 //      each <row> one `over` entry below, `#<n>[ <status>] <key> <a>→<b>, …`
-//      (a the frame, b the capture; a key with no figures bare): the
-//      verifier's whole input for that frame beside its composite.
+//      (a the frame, b the capture; a key with no figures bare), and the
+//      departure and not-owned parts the over rows set aside below, each
+//      present only when it names one: the verifier's whole input for that
+//      frame beside its composite. The sidecar's `# departure` and `# owns`
+//      lines (`skills/flow-contracts/project-configuration-visual.md`) set
+//      flagged entries aside: a flagged band, seam or over row whose frame-side
+//      top (an `extra` entry's capture-side one) lies outside every span this
+//      call's <key> `owns` of the frame — when it owns any — goes to
+//      `not_owned`, else one inside a `departure` span of the frame to
+//      `departures`, each tagged with the `list` it left and a departure with
+//      its `cause`; neither is flagged.
 //   4. the manifest <worktree>/.superpowers/sdd/visual-manifest-<key>.json:
 //      `captures`, `identical` (the group lines), `steps` (resolve, identical
 //      and compose, each {exit, stderr}) and `pairs[]` of {spec, frame, capture,
 //      mockup, composite, diff, exits{resolve, identical, compose,
-//      matrix}, stderr, matrix_file, bands, seams, over} —
+//      matrix}, stderr, matrix_file, bands, seams, over, departures,
+//      not_owned} —
 //      `bands` and `seams` the entries flagged by mvpOverLength and
 //      mvpOverColour (measurevisualproperties.go) or missing/extra, `over`
 //      the matrix's summary.over, each row carrying `figures`, `{<key>: {a,
