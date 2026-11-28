@@ -1047,6 +1047,21 @@ describe("the reworked run view (kan-1048)", () => {
     expect(items.indexOf("runner")).toBeGreaterThan(items.indexOf("# Verify"));
   });
 
+  it("run detail prices an inline dispatch carrying its own cost in the main session line alone, so the lines add up to the header", async () => {
+    listStageRunsMock.mockResolvedValue(stageRunsResponse([run(70, "flow.plan", "2026-01-01T00:00:00Z", "2026-01-01T00:30:00Z", { metrics: { cost_usd: 1 } })]));
+    runRecordMock.mockResolvedValueOnce({
+      dispatches: [{ id: 1, agentId: "inline", role: "operator-asked", key: "operator-74", model: "sonnet", effort: "low", metrics: { cost_usd: 0.08 }, startedAt: "2026-01-01T00:05:00Z", endedAt: "2026-01-01T00:10:00Z" }],
+    } as never);
+    render(<RunDetail project={PROJECT} change={CHANGE} />);
+    const main = await screen.findByRole("region", { name: "Main" });
+    const rows = await waitFor(() => {
+      const r = within(main).getAllByTestId("phase-role").map((x) => x.textContent);
+      expect(r.some((x) => x?.startsWith("operator-asked"))).toBe(true);
+      return r;
+    });
+    expect(rows).toEqual(["operator-asked ×1main session ×1 (inline)in main session", "main session$1.00"]);
+  });
+
   it("run detail labels models as family and version, never with a placeholder default effort", async () => {
     runRecordMock.mockResolvedValueOnce({
       dispatches: [

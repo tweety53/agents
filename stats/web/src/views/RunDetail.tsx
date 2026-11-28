@@ -170,8 +170,9 @@ function roleSummary(steps: Step[], costs: Map<string, number>) {
   // The roles table names a role finer than the store's coarse one (a runner is not a visual verifier).
   for (const d of steps) byRole.set(d.policyRole ?? d.role, [...(byRole.get(d.policyRole ?? d.role) ?? []), d]);
   // A dispatch no stage run's bucket priced still carries its own `cost_usd` (KAN-1156: gated reviewers read "—").
-  const costOf = (ds: Step[]) => measuredSum(ds.map((d) => (d.agentId ? costs.get(d.agentId) : undefined) ?? d.ownCostUsd));
-  // The main session ran an inline dispatch itself: its cost is in the "main session" line, never a bucket of its own.
+  // The main session ran an inline dispatch itself: its cost is in the "main session" line, never a bucket of its own --
+  // nor its own recorded `cost_usd`, which that line already holds.
+  const costOf = (ds: Step[]) => measuredSum(ds.map((d) => (d.agentId === "inline" ? undefined : ((d.agentId ? costs.get(d.agentId) : undefined) ?? d.ownCostUsd))));
   // An unpriced group says why: run inline, never run (failed before any agent id), or no agent id to match a bucket by.
   const unpriced = (ds: Step[]) =>
     ds.every((d) => d.agentId === "inline")
