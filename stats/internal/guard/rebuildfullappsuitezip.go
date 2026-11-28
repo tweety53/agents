@@ -79,7 +79,7 @@ func rebuildFullAppSuiteZip(args []string, env core.Env, stdout, stderr io.Write
 	zipPath := args[1] + "/full-app-suite.zip"
 
 	resolve := core.RunSibling(env, "resolve-visual-screenshots", args[0], "full-app-suite.spec.ts")
-	resolve.Env = icChildEnv(env)
+	resolve.Env = core.ChildEnv(env)
 	resolve.Stderr = stderr
 	out, err := resolve.Output()
 	list, rc := strings.TrimRight(string(out), "\n"), core.ExitCode(err)
@@ -124,7 +124,7 @@ func rebuildFullAppSuiteZip(args []string, env core.Env, stdout, stderr io.Write
 		zipBin = p
 	}
 	zip := exec.Command(zipBin, "-q", "-X", "-j", "-@", zipPath)
-	zip.Dir, zip.Env = env.Dir, icChildEnv(env)
+	zip.Dir, zip.Env = env.Dir, core.ChildEnv(env)
 	zip.Stdin = strings.NewReader(list + "\n")
 	zip.Stdout, zip.Stderr = stdout, stderr
 	if zip.Run() != nil {

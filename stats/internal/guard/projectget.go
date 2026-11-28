@@ -104,7 +104,7 @@ func projectGet(args []string, env core.Env, stdout, stderr io.Writer) int {
 				return 2
 			}
 			defer os.Remove(tmp)
-			if isRegular(src) && core.ProjectSection(tmp, key) != core.ProjectSection(src, key) {
+			if core.IsRegular(src) && core.ProjectSection(tmp, key) != core.ProjectSection(src, key) {
 				fmt.Fprintf(stderr, "project-get: WARNING: %s diverges from HEAD on '## %s' — resolving from HEAD; commit or restore the working tree to silence this\n", cfg, key)
 			}
 			src = tmp
@@ -213,10 +213,4 @@ func pgHead(cmd *exec.Cmd) (string, error) {
 		return "", err
 	}
 	return f.Name(), nil
-}
-
-// isRegular is `[ -f <p> ]`.
-func isRegular(p string) bool {
-	st, err := os.Stat(p)
-	return err == nil && st.Mode().IsRegular()
 }

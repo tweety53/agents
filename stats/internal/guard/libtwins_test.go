@@ -14,6 +14,7 @@ import (
 	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/guard/gitops"
 	"github.com/tweety53/agents/stats/internal/guard/guardtest"
+	"github.com/tweety53/agents/stats/internal/guard/plans"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -237,8 +238,8 @@ func TestGitExecSignalStatus(t *testing.T) {
 	}
 }
 
-// TestPanelTouchedPathsParity pins ResolveGit, panelValidateWorktree and
-// panelTouchedPaths against the deleted bash library's three functions, at
+// TestPanelTouchedPathsParity pins ResolveGit, ValidateWorktree and
+// TouchedPaths against the deleted bash library's three functions, at
 // libTwinBase.
 func TestPanelTouchedPathsParity(t *testing.T) {
 	smoke.Heavy(t)
@@ -334,7 +335,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 			t.Parallel()
 			var got guardtest.LibRes
 			var errb strings.Builder
-			if !panelValidateWorktree(guardtest.EnvWith(t, nil), "prog", tc.wt, tc.mb, guardtest.FixtureGit, &errb) {
+			if !plans.ValidateWorktree(guardtest.EnvWith(t, nil), "prog", tc.wt, tc.mb, guardtest.FixtureGit, &errb) {
 				got.Status = 2
 			}
 			got.Stderr = errb.String()
@@ -362,7 +363,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 			t.Parallel()
 			var got guardtest.LibRes
 			var errb strings.Builder
-			paths, ok := panelTouchedPaths(guardtest.EnvWith(t, tc.over), "prog", tc.wt, tc.mb, tc.git, &errb)
+			paths, ok := plans.TouchedPaths(guardtest.EnvWith(t, tc.over), "prog", tc.wt, tc.mb, tc.git, &errb)
 			for _, p := range paths {
 				got.Stdout += p + "\n"
 			}
@@ -375,7 +376,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 	}
 }
 
-// TestStripBOMParity pins stripBOM against lib/strip-bom.sh's strip_bom_cat,
+// TestStripBOMParity pins StripBOM against lib/strip-bom.sh's strip_bom_cat,
 // at visualLibBase.
 func TestStripBOMParity(t *testing.T) {
 	t.Parallel()
@@ -405,12 +406,12 @@ func TestStripBOMParity(t *testing.T) {
 				}
 				return
 			}
-			assertParity(t, guardtest.LibRes{Stdout: string(stripBOM(b))}, bashRes)
+			assertParity(t, guardtest.LibRes{Stdout: string(core.StripBOM(b))}, bashRes)
 		})
 	}
 }
 
-// TestSanitizeDisplayParity pins sanitizeDisplay against
+// TestSanitizeDisplayParity pins SanitizeDisplay against
 // lib/sanitize-display.sh's sanitize_display at visualLibBase, one line per
 // input as every caller's `printf '...\n' | sanitize_display` fed it.
 func TestSanitizeDisplayParity(t *testing.T) {
@@ -435,7 +436,7 @@ func TestSanitizeDisplayParity(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			bashRes := bashRun(t, nil, strings.NewReader(in+"\n"), lib, "sanitize_display")
-			assertParity(t, guardtest.LibRes{Stdout: sanitizeDisplay(in + "\n")}, bashRes)
+			assertParity(t, guardtest.LibRes{Stdout: core.SanitizeDisplay(in + "\n")}, bashRes)
 		})
 	}
 }
@@ -453,17 +454,17 @@ const vtDriver = `{
 `
 
 func vtGoDriver(line string) string {
-	cells := vtSplitCells(line)
+	cells := core.SplitCells(line)
 	var b strings.Builder
 	b.WriteString(strconv.Itoa(len(cells)))
 	for _, c := range cells {
-		b.WriteString("\x1e" + c + "\x1e" + vtTrimCell(c) + "\x1e" + vtFoldCell(c))
+		b.WriteString("\x1e" + c + "\x1e" + core.TrimCell(c) + "\x1e" + core.FoldCell(c))
 	}
-	b.WriteString("\x1eT" + vtTrimCell(line) + "\x1eF" + vtFoldCell(line) + "\n")
+	b.WriteString("\x1eT" + core.TrimCell(line) + "\x1eF" + core.FoldCell(line) + "\n")
 	return b.String()
 }
 
-// TestVisualTableCellsParity pins vtSplitCells, vtTrimCell and vtFoldCell
+// TestVisualTableCellsParity pins SplitCells, TrimCell and FoldCell
 // against lib/visual-table-cells.awk at visualLibBase, run the way its
 // callers ran it — as a second -f beside the caller's program — under
 // LC_ALL=C: the C locale's [[:space:]] and an ASCII-only tolower (the

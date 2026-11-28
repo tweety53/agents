@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/plans"
 )
 
 // flow-guard check-ui-task-measured — the measured gate of a UI task: answer
@@ -101,7 +102,7 @@ func utmJudge(env core.Env, worktrees []string, name, taskID string) (id, msg st
 	}
 	cfg, _ := os.ReadFile(filepath.Join(wt, ".flow", "project.md"))
 	var globs []string
-	for _, g := range strings.Split(vvCells(string(cfg))["ui paths"], ",") {
+	for _, g := range strings.Split(core.Cells(string(cfg))["ui paths"], ",") {
 		if g = strings.Trim(strings.TrimSpace(g), "`"); g != "" {
 			globs = append(globs, g)
 		}
@@ -109,17 +110,17 @@ func utmJudge(env core.Env, worktrees []string, name, taskID string) (id, msg st
 	if len(globs) == 0 {
 		return "", "the project declares no `ui paths`"
 	}
-	lines, err := tcfPlanLines(raw)
+	lines, err := plans.Lines(raw)
 	if err != nil {
 		return "task-not-in-plan", "cannot read " + filepath.Join(changeRoot, "tasks.md") + ": " + err.Error()
 	}
-	task, found := tcfParseTask(lines, taskID)
+	task, found := plans.ParseTask(lines, taskID)
 	if !found {
 		return "task-not-in-plan", "task " + taskID + " is not in " + filepath.Join(changeRoot, "tasks.md")
 	}
 	git := core.EnvGit(env)
 	ui := false
-	for _, f := range task.files {
+	for _, f := range task.Files {
 		f = strings.TrimPrefix(f, "./")
 		if b := filepath.Base(f); strings.HasSuffix(b, "Samples.kt") || strings.HasPrefix(b, "Fake") {
 			continue // a sample or fake draws no frame
@@ -136,9 +137,9 @@ func utmJudge(env core.Env, worktrees []string, name, taskID string) (id, msg st
 			names = append(names, repo+"/"+f)
 		}
 		for _, g := range globs {
-			re := vtGlobRegexp(g)
+			re := core.GlobRegexp(g)
 			for _, n := range names {
-				ui = ui || re.MatchString(vtBytesAsRunes(n))
+				ui = ui || re.MatchString(core.BytesAsRunes(n))
 			}
 		}
 	}
@@ -149,18 +150,18 @@ func utmJudge(env core.Env, worktrees []string, name, taskID string) (id, msg st
 	// A plan that adds its capture spec (a `.mockups` sidecar) in a later task
 	// leaves nothing to measure against yet; flow.verify measures these frames.
 	after := false
-	for _, t := range tcfIterTasks(lines) {
-		if t.id == taskID {
+	for _, t := range plans.IterTasks(lines) {
+		if t.Id == taskID {
 			after = true
 			continue
 		}
 		if !after {
 			continue
 		}
-		later, _ := tcfParseTask(lines, t.id)
-		for _, f := range later.files {
+		later, _ := plans.ParseTask(lines, t.Id)
+		for _, f := range later.Files {
 			if strings.HasSuffix(f, ".mockups") {
-				return "", "the plan adds its capture spec in task " + t.id + "; flow.verify measures this task's frames"
+				return "", "the plan adds its capture spec in task " + t.Id + "; flow.verify measures this task's frames"
 			}
 		}
 	}
@@ -174,7 +175,7 @@ func utmJudge(env core.Env, worktrees []string, name, taskID string) (id, msg st
 	}
 	var last int64 // the newest commit touching the task's files, in any worktree
 	for _, w := range worktrees {
-		out, _ := core.Capture(git(append([]string{"-C", w, "log", "-1", "--format=%ct", "--"}, task.files...)...))
+		out, _ := core.Capture(git(append([]string{"-C", w, "log", "-1", "--format=%ct", "--"}, task.Files...)...))
 		if ct, err := strconv.ParseInt(strings.TrimSpace(out), 10, 64); err == nil {
 			last = max(last, ct)
 		}

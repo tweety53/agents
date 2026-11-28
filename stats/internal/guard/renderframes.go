@@ -105,7 +105,7 @@ func renderFrames(args []string, env core.Env, stdout, stderr io.Writer) int {
 	}
 	root := gitops.WorkspaceAbs(env, args[0])
 	cfg, _ := os.ReadFile(filepath.Join(root, ".flow", "project.md"))
-	cells := vvCells(string(cfg))
+	cells := core.Cells(string(cfg))
 	clone, remote, ok := designRepoRow(root, cells)
 	if !ok {
 		return refuse("design-repo-row-missing", "%s/.flow/project.md declares no `design repo` row of `<clone> <remote>` under `## visual verification`", args[0])
@@ -200,7 +200,7 @@ func renderFrames(args []string, env core.Env, stdout, stderr io.Writer) int {
 		findings = append(findings, f...)
 	}
 	for _, f := range findings {
-		fmt.Fprint(stdout, sanitizeDisplay("RENDER-FINDING: "+f+"\n"))
+		fmt.Fprint(stdout, core.SanitizeDisplay("RENDER-FINDING: "+f+"\n"))
 	}
 	if len(findings) > 0 {
 		fmt.Fprintf(stdout, "FRAMES-MISSING: %d reference(s) not rendered\n", len(findings))

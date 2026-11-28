@@ -400,7 +400,7 @@ var reasonPinExempt = map[string]string{
 	"ExitCode":           "returns a child process's exit status",
 	"Flow":               "returns the flow CLI's exit status",
 	"changePlanStoreDir": "returns a lookup status (0 found, 1 none, 3 ambiguous), not an exit code",
-	"changePlanDir":      "returns a lookup status (0 found, 1 none, 3 ambiguous), not an exit code",
+	"PlanDir":            "returns a lookup status (0 found, 1 none, 3 ambiguous), not an exit code",
 	"ccRunSurvivors":     "returns the survivors command's exit status",
 	"rcOf":               "returns a child process's exit status",
 	"mvpStep":            "returns a step, not an exit code",

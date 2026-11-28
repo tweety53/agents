@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tweety53/agents/stats/internal/guard"
+	"github.com/tweety53/agents/stats/internal/guard/plans"
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/store"
 )
@@ -922,7 +922,7 @@ func readPlan(r store.LiveStateRow, name string, saved savedFile, untick func(n 
 // worktrees are gone. saved is nil where no saved copy may be read.
 func readPlanFile(r store.LiveStateRow, name string, saved savedFile) ([]byte, bool) {
 	for _, root := range r.RepoRoots {
-		if b, err := os.ReadFile(filepath.Join(guard.ChangeDir(filepath.Join(root, "spectre", "changes"), name), "tasks.md")); err == nil {
+		if b, err := os.ReadFile(filepath.Join(plans.ChangeDir(filepath.Join(root, "spectre", "changes"), name), "tasks.md")); err == nil {
 			return b, true
 		}
 	}

@@ -37,14 +37,14 @@ var taskLinePattern = regexp.MustCompile(`^- \[( |x)\] ([0-9]+)\. `)
 
 // headingPattern matches a level-2 or level-3 Markdown heading, which
 // closes a task's body per build-green.md's Placement rule exactly as a
-// following task line does. Mirrors stats/internal/guard/planparse.go's
+// following task line does. Mirrors stats/internal/guard/plans/planparse.go's
 // body-boundary rule exactly: a space OR end-of-line after the "#"s, so a
 // bare "##"/"###" with nothing following it still closes a body.
 var headingPattern = regexp.MustCompile(`^#{2,3}($|\s)`)
 
 // fencePattern matches a fenced code block delimiter: three or more
 // backticks or tildes, with up to three leading spaces of indent.
-// Mirrors stats/internal/guard/planparse.go's fence rule exactly.
+// Mirrors stats/internal/guard/plans/planparse.go's fence rule exactly.
 var fencePattern = regexp.MustCompile("^ {0,3}(`{3,}|~{3,})")
 
 // stepCheckboxPattern matches an unticked step line: two columns of
@@ -63,7 +63,7 @@ var stepCheckboxPattern = regexp.MustCompile(`^  - \[ \] `)
 // A task's body runs from its own task line to the next task line, the
 // next level-2/3 heading, or the end of the file -- build-green.md's
 // Placement rule. Fence state is
-// tracked across the whole scan (mirroring stats/internal/guard/planparse.go's
+// tracked across the whole scan (mirroring stats/internal/guard/plans/planparse.go's
 // task iteration), so a task line, heading or step checkbox shown inside a
 // fenced example opens no task, closes no body and is never ticked --
 // it is documentation, not structure.

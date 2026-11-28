@@ -1,0 +1,218 @@
+package plans
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
+)
+
+// TestAffectedSpecs pins the mapping flow-guard affected-specs prints: a
+// per-screen change selects that screen's one spec, a shared change selects
+// every spec whose screen imports it, and a UI file nothing reaches selects
+// them all.
+func TestAffectedSpecs(t *testing.T) {
+	t.Parallel()
+	env := core.Env{Getenv: os.Getenv}
+	root := t.TempDir()
+	files := map[string]string{
+		".flow/project.md":            "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**` |\n",
+		"web/package.json":            "{}\n",
+		"web/src/pages/Home.tsx":      "import { Chip } from \"../shared/Chip\";\nexport function Home() { return <Chip /> }\n",
+		"web/src/pages/Rooms.tsx":     "import { Chip } from \"../shared/Chip\";\nimport { PushedHeader } from \"../shared/Header\";\nexport function Rooms() { return <PushedHeader /> }\n",
+		"web/src/shared/Chip.tsx":     "import { tokens } from \"./tokens\";\nexport function Chip() { return tokens.gap }\n",
+		"web/src/shared/Header.tsx":   "export function PushedHeader() { return null }\n",
+		"web/src/shared/tokens.ts":    "export const tokens = { gap: 4 };\n",
+		"web/src/App.tsx":             "import { Home } from \"./pages/Home\";\nimport { Rooms } from \"./pages/Rooms\";\nimport { Bar } from \"./shared/Bar\";\nimport { Badge } from \"./shared/Badge\";\nexport function App() { return <Bar /> }\n",
+		"web/src/shared/Bar.tsx":      "export function Bar() { return null }\n",
+		"web/src/shared/Badge.tsx":    "export function Badge() { return null }\n",
+		"web/src/pages/Day.tsx":       "import { Badge } from \"../shared/Badge\";\nexport function Day() { return <Badge /> }\n",
+		"web/src/pages/Home.test.tsx": "import { Home } from \"./Home\";\n",
+		"web/src/main.css":            "body { margin: 0 }\n",
+		// Kotlin: a same-package use carries no import line.
+		"web/src/kt/Palette.kt":                     "package ui\n\nobject Palette { val ink = 1 }\n",
+		"web/src/kt/DayScreen.kt":                   "package ui\n\n@Composable\nfun DayScreen() { Palette.ink }\n",
+		"web/tests/home.spec.ts":                    "test('home', () => {})\n",
+		"web/tests/home.spec.ts.sources":            "# the home screen\nweb/src/pages/Home.tsx\n",
+		"web/tests/rooms.spec.ts":                   "import { open } from \"./support\";\ntest('rooms', () => {})\n",
+		"web/tests/rooms.spec.ts.sources":           "web/src/pages/Rooms.tsx\n",
+		"web/tests/day.spec.ts":                     "test('day', () => {})\n",
+		"web/tests/day.spec.ts.sources":             "web/src/kt/Day*.kt\n",
+		"web/tests/support.ts":                      "export function open() {}\n",
+		"web/tests/home.spec.ts-snapshots/home.png": "png",
+		"web/tests/all.sources":                     "# what every spec renders\nseed/**\n",
+		"seed/fixture.sql":                          "insert\n",
+		"docs/notes.md":                             "notes\n",
+	}
+	for p, body := range files {
+		guardtest.WriteFile(t, filepath.Join(root, p), body)
+	}
+	guardtest.GitRun(t, root, "init", "-q")
+	guardtest.GitRun(t, root, "add", "-A")
+	guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+
+	const home, rooms, day = "tests/home.spec.ts", "tests/rooms.spec.ts", "tests/day.spec.ts"
+	all := []string{day, home, rooms}
+	cases := []struct {
+		name, touch string
+		want        []string
+		errHas      string
+	}{
+		{"a per-screen file selects its own spec", "web/src/pages/Home.tsx", []string{home}, ""},
+		{"a shared file selects every spec importing it", "web/src/shared/Chip.tsx", []string{home, rooms}, ""},
+		{"a shared file one screen imports selects that spec", "web/src/shared/Header.tsx", []string{rooms}, ""},
+		{"tokens reach every importer transitively", "web/src/shared/tokens.ts", []string{home, rooms}, ""},
+		{"a Kotlin name used with no import line is an import", "web/src/kt/Palette.kt", []string{day}, ""},
+		{"the shell selects all", "web/src/shared/Bar.tsx", all, "all: web/src/shared/Bar.tsx"},
+		{"a file one screen and the shell both draw selects all", "web/src/shared/Badge.tsx", all, "all: web/src/shared/Badge.tsx"},
+		{"a unit test moves no capture", "web/src/pages/Home.test.tsx", nil, "test: web/src/pages/Home.test.tsx"},
+		{"a UI file nothing reaches selects all", "web/src/main.css", all, "all: web/src/main.css"},
+		{"a seed listed in all.sources selects all", "seed/fixture.sql", all, "all: seed/fixture.sql — listed in all.sources"},
+		{"a non-UI file nothing reaches selects none", "docs/notes.md", nil, "unreached: docs/notes.md"},
+		{"a spec selects itself", "web/tests/home.spec.ts", []string{home}, ""},
+		{"a sidecar selects its spec", "web/tests/rooms.spec.ts.sources", []string{rooms}, ""},
+		{"a spec helper selects its importers", "web/tests/support.ts", []string{rooms}, ""},
+		{"a baseline PNG selects nothing", "web/tests/home.spec.ts-snapshots/home.png", nil, ""},
+	}
+	for _, c := range cases {
+		guardtest.WriteFile(t, filepath.Join(root, c.touch), files[c.touch]+"\n/* edited */\n")
+		r := runGuard("affected-specs", []string{root, "HEAD", filepath.Join(root, "web/tests")}, env)
+		if got := strings.Fields(r.Stdout); r.Rc != 0 || strings.Join(got, " ") != strings.Join(c.want, " ") || !strings.Contains(r.Err, c.errHas) {
+			t.Errorf("%s: rc=%d stdout=%q err=%q, want %q", c.name, r.Rc, r.Stdout, r.Err, c.want)
+		}
+		guardtest.WriteFile(t, filepath.Join(root, c.touch), files[c.touch])
+	}
+
+	// The task set: only a file a sidecar names selects a spec, beside the
+	// specs the task's Tests and Regression name.
+	plan := filepath.Join(t.TempDir(), "tasks.md")
+	guardtest.WriteFile(t, plan, "- [ ] 7. In-run fix 1 — visual-verify: x\n\n**Tests:** none\n**Regression:** e2e/tests/rooms.spec.ts renders the seed\n")
+	for touch, want := range map[string]string{
+		"seed/fixture.sql":        rooms,
+		"web/src/shared/Chip.tsx": rooms,
+		"web/src/pages/Home.tsx":  home + " " + rooms,
+		"web/tests/day.spec.ts":   day + " " + rooms,
+	} {
+		guardtest.WriteFile(t, filepath.Join(root, touch), files[touch]+"\n/* edited */\n")
+		r := runGuard("affected-specs", []string{"-task", plan + ":7", root, "HEAD", filepath.Join(root, "web/tests")}, env)
+		if got := strings.Join(strings.Fields(r.Stdout), " "); r.Rc != 0 || got != want || strings.Contains(r.Err, "all:") {
+			t.Errorf("-task, %s: rc=%d stdout=%q err=%q, want %q", touch, r.Rc, r.Stdout, r.Err, want)
+		}
+		guardtest.WriteFile(t, filepath.Join(root, touch), files[touch])
+	}
+	if r := runGuard("affected-specs", []string{"-task", plan + ":8", root, "HEAD", filepath.Join(root, "web/tests")}, env); r.Rc != 2 {
+		t.Errorf("-task naming no task: rc=%d, want 2", r.Rc)
+	}
+
+	// A spec with no sidecar renders an unknown screen: any UI change selects it.
+	guardtest.WriteFile(t, filepath.Join(root, "web/tests/legacy.spec.ts"), "test('legacy', () => {})\n")
+	guardtest.WriteFile(t, filepath.Join(root, "web/src/pages/Home.tsx"), files["web/src/pages/Home.tsx"]+"// edited\n")
+	r := runGuard("affected-specs", []string{root, "HEAD", filepath.Join(root, "web/tests")}, env)
+	if r.Rc != 0 || r.Stdout != home+"\ntests/legacy.spec.ts\n" {
+		t.Errorf("unmapped spec: rc=%d stdout=%q err=%q", r.Rc, r.Stdout, r.Err)
+	}
+	// The same edit, committed, read as a range.
+	guardtest.GitRun(t, root, "add", "-A")
+	guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "edit")
+	r = runGuard("affected-specs", []string{root, "HEAD^..HEAD", filepath.Join(root, "web/tests")}, env)
+	if r.Rc != 0 || !strings.Contains(r.Stdout, home) || strings.Contains(r.Stdout, rooms) {
+		t.Errorf("range: rc=%d stdout=%q err=%q", r.Rc, r.Stdout, r.Err)
+	}
+
+	for _, args := range [][]string{{root, "HEAD"}, {root, "no-such-rev", filepath.Join(root, "web/tests")}, {root, "HEAD", filepath.Join(root, "missing")}} {
+		if r := runGuard("affected-specs", args, env); r.Rc != 2 || r.Stdout != "" {
+			t.Errorf("%v: rc=%d out=%q, want exit 2", args[1:], r.Rc, r.Out)
+		}
+	}
+}
+
+// TestAffectedSpecsSpecRootEditIsNoUIChange pins kan-1099 self-review F2: with
+// no `ui paths` row every file is UI, but a file inside the spec root is not,
+// so a spec edit selects itself, not every unmapped spec.
+func TestAffectedSpecsSpecRootEditIsNoUIChange(t *testing.T) {
+	t.Parallel()
+	env := core.Env{Getenv: os.Getenv}
+	root := t.TempDir()
+	files := map[string]string{
+		".flow/project.md":           "# p\n",
+		"web/src/pages/Home.tsx":     "export function Home() { return null }\n",
+		"tests/home.spec.ts":         "test('home', () => {})\n",
+		"tests/home.spec.ts.sources": "web/src/pages/Home.tsx\n",
+		"tests/rooms.spec.ts":        "test('rooms', () => {})\n",
+	}
+	for p, body := range files {
+		guardtest.WriteFile(t, filepath.Join(root, p), body)
+	}
+	guardtest.GitRun(t, root, "init", "-q")
+	guardtest.GitRun(t, root, "add", "-A")
+	guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	for touch, want := range map[string]string{
+		"tests/home.spec.ts":     "home.spec.ts\n",
+		"web/src/pages/Home.tsx": "home.spec.ts\nrooms.spec.ts\n",
+	} {
+		guardtest.WriteFile(t, filepath.Join(root, touch), files[touch]+"// edited\n")
+		r := runGuard("affected-specs", []string{root, "HEAD", filepath.Join(root, "tests")}, env)
+		if r.Rc != 0 || r.Stdout != want {
+			t.Errorf("%s: rc=%d stdout=%q err=%q, want %q", touch, r.Rc, r.Stdout, r.Err, want)
+		}
+		guardtest.WriteFile(t, filepath.Join(root, touch), files[touch])
+	}
+}
+
+// TestAffectedSpecsSelectsByTest pins the kan-1091 fix: a sidecar glob
+// carrying `:<line>,…` and a task field naming `<spec>:<line>` select those
+// tests, never the spec file they sit in, and any whole-spec reach wins.
+func TestAffectedSpecsSelectsByTest(t *testing.T) {
+	t.Parallel()
+	env := core.Env{Getenv: os.Getenv}
+	root := t.TempDir()
+	files := map[string]string{
+		"package.json":              "{}\n",
+		"src/Day.tsx":               "export function Day() {}\n",
+		"src/Week.tsx":              "export function Week() {}\n",
+		"src/Whole.tsx":             "export function Whole() {}\n",
+		"docs/notes.md":             "notes\n",
+		"shots/day.spec.ts":         "test('day', () => {})\n",
+		"shots/day.spec.ts.sources": "src/Day.tsx:12,3\nsrc/Week.tsx:12\nsrc/Whole.tsx\n",
+	}
+	for p, body := range files {
+		guardtest.WriteFile(t, filepath.Join(root, p), body)
+	}
+	guardtest.GitRun(t, root, "init", "-q")
+	guardtest.GitRun(t, root, "add", "-A")
+	guardtest.GitRun(t, root, "-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "base")
+	plan := filepath.Join(t.TempDir(), "tasks.md")
+	guardtest.WriteFile(t, plan, "- [ ] 1. A\n\n**Tests:** none\n\n- [ ] 2. B\n\n**Tests:** `shots/day.spec.ts:40` › probe\n**Regression:** shots/day.spec.ts:7\n")
+	const spec = "shots/day.spec.ts"
+	for _, c := range []struct {
+		touch []string
+		task  string
+		want  string
+	}{
+		{[]string{"src/Day.tsx"}, "", spec + ":3 " + spec + ":12"},
+		{[]string{"src/Day.tsx"}, "1", spec + ":3 " + spec + ":12"},
+		{[]string{"src/Day.tsx", "src/Week.tsx"}, "1", spec + ":3 " + spec + ":12"},
+		{[]string{"src/Day.tsx", "src/Whole.tsx"}, "1", spec},
+		{[]string{"shots/day.spec.ts"}, "1", spec},
+		{[]string{"docs/notes.md"}, "2", spec + ":7 " + spec + ":40"},
+		{[]string{"src/Week.tsx"}, "2", spec + ":7 " + spec + ":12 " + spec + ":40"},
+	} {
+		for _, f := range c.touch {
+			guardtest.WriteFile(t, filepath.Join(root, f), files[f]+"// edited\n")
+		}
+		args := []string{root, "HEAD", filepath.Join(root, "shots")}
+		if c.task != "" {
+			args = append([]string{"-task", plan + ":" + c.task}, args...)
+		}
+		r := runGuard("affected-specs", args, env)
+		if got := strings.Join(strings.Fields(r.Stdout), " "); r.Rc != 0 || got != c.want {
+			t.Errorf("%v task %q: rc=%d stdout=%q err=%q, want %q", c.touch, c.task, r.Rc, r.Stdout, r.Err, c.want)
+		}
+		for _, f := range c.touch {
+			guardtest.WriteFile(t, filepath.Join(root, f), files[f])
+		}
+	}
+}

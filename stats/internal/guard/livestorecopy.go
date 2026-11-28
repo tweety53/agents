@@ -79,7 +79,7 @@ type lsc struct {
 }
 
 func liveStoreCopy(args []string, env core.Env, stdout, stderr io.Writer) (code int) {
-	l := &lsc{env: env, stdout: stdout, stderr: stderr, environ: icChildEnv(env)}
+	l := &lsc{env: env, stdout: stdout, stderr: stderr, environ: core.ChildEnv(env)}
 	defer func() {
 		if r := recover(); r != nil {
 			e, ok := r.(lscExit)

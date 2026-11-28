@@ -66,7 +66,7 @@ A role with exactly one `base` pair needs no judge call: the hook asks for no `.
 call**: each pass-1 panel bundle's dispatch (`panel-<round>-<slots>[-<repo>]`, role
 `panel-reviewer`) on its bundle's `pair`, read from `<abs-worktree>/.superpowers/sdd/decision.json`.
 The decider picks each from the role's base pairs, and `flow-guard plan-check` refuses a decision
-naming any other (its header, `stats/internal/guard/plancheck.go`, is canonical for the field). The
+naming any other (its header, `stats/internal/guard/plans/plancheck.go`, is canonical for the field). The
 dispatch hook records the row with `-pair-pick decider: bundle <slots>`; a decided pair the role no
 longer admits, a decision carrying no pair, and every dispatch the decision does not name — an
 implementer, the `security` bundle, a re-run, a fix, an operator-asked executor, a loop or

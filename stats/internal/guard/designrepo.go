@@ -52,7 +52,7 @@ func designRepo(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return exit(2, "cannot-read", "cannot read the project configuration: %v", err)
 	}
-	clone, remote, ok := designRepoRow(root, vvCells(string(cfg)))
+	clone, remote, ok := designRepoRow(root, core.Cells(string(cfg)))
 	if !ok {
 		return exit(1, "design-repo-row-missing", "%s/.flow/project.md declares no `design repo` row of `<clone> <remote>` under `## visual verification`", args[0])
 	}

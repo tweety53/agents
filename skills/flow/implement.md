@@ -325,7 +325,7 @@ flow record incident -guard <the check that would have caught it> -symptom <what
 
 **Dispatch one implementer per group, in the decision's `groups` order**, on the group's decided
 `pair` (**Decided pairs**, `skills/flow-contracts/model-policy.md`), one wave at a time: the groups `flow-guard parallel-groups next <canonical-worktree>`
-prints on its `GROUPS:` line, its header (`stats/internal/guard/parallelgroups.go`) canonical for
+prints on its `GROUPS:` line, its header (`stats/internal/guard/plans/parallelgroups.go`) canonical for
 which groups may share a wave — one group, the serial default, unless the next ones in order have
 every `**After:**` task ticked and `**Files:**` disjoint from the wave's. The wave's first group
 goes into the canonical worktree; each other group into its own copy,

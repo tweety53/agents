@@ -124,7 +124,7 @@ It writes `<diff minus .diff>.groups.md` beside the diff (`final-review.groups.m
 group, else `## docs and config`), each file with its absolute path and added/removed line
 counts. `build-slot-prompt` names that file in every slot prompt for that diff.
 
-Its header (`stats/internal/guard/writepaneldiff.go`) is canonical for both files' shape. Exit 0
+Its header (`stats/internal/guard/plans/writepaneldiff.go`) is canonical for both files' shape. Exit 0
 prints the two paths; exit 2 — it cannot answer, and nothing was written — stops the run with its
 stderr. Then dispatch the round's
 `panel` bundles in the canonical worktree, each reading the whole combined file; a role is
@@ -179,7 +179,7 @@ flow-guard build-slot-prompt <skill-dir> <abs-worktree> <round> <id[+id]> -diff 
 Its flags carry the values of the placeholder table above, `-worktrees` the resolved set, `-repo`
 only on one repository's dispatch of a multi-repository panel, and `-fix-report` the `<fix report>`
 path(s) on a fix round, and `-panel` every slot the round runs, so a slot takes up the angle of one
-the round omits; `-unread` the sections of a same-round re-dispatch (**The findings merger**), and on the `mutation` dispatch `-copies` its throwaway copies, `<worktree>-mutation-<round>` per repository, and `-tests` every test the plan's `**Tests:**` fields name and every test file in the touched-files list. Its header (`stats/internal/guard/buildslotprompt.go`) is canonical for the
+the round omits; `-unread` the sections of a same-round re-dispatch (**The findings merger**), and on the `mutation` dispatch `-copies` its throwaway copies, `<worktree>-mutation-<round>` per repository, and `-tests` every test the plan's `**Tests:**` fields name and every test file in the touched-files list. Its header (`stats/internal/guard/plans/buildslotprompt.go`) is canonical for the
 file it writes, `<canon>/.superpowers/sdd/slot-prompt-<round>-<ids>[-<repo>].md`, whose path it
 prints; exit 2 names a missing value, or a missing `<diff minus .diff>.groups.md` beside the `-diff` file (the `diff-groups` call above, which every diff — `late-fix.diff` and a fix round's `fix-round-N.diff` included — needs first), and writes nothing.
 
@@ -279,7 +279,7 @@ flow-guard merge-panel-findings <abs-worktree> <round> <id>=<dispatch-seq> [<id>
 ```
 
 one `<id>` per findings file the round's dispatches wrote (`<id>-unread`, `<id>-<repo>` as its report is named), `<dispatch-seq>` the
-seq its dispatch recorded. Its header (`stats/internal/guard/mergepanelfindings.go`) is canonical
+seq its dispatch recorded. Its header (`stats/internal/guard/plans/mergepanelfindings.go`) is canonical
 for its output: `findings-<round>.jsonl`, and one `finding: <id>#<n> — <severity> — <file:line> —
 <task id|none> — <note>` line per finding and one `duplicate: <file:line> — <id>#<n>, …` line per
 location several roles cite. Exit 1 names a role whose findings file is missing or unreadable: that

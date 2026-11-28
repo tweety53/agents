@@ -75,7 +75,7 @@ import (
 // request. This guard never executes anything it reads — `ui paths` values
 // are matched as glob patterns, never interpolated into a shell command —
 // and every interpolated cell that reaches an exit-2 message or a MATCH line
-// passes through sanitizeDisplay (visualsection.go) first — see its comment
+// passes through SanitizeDisplay (visualsection.go) first — see its comment
 // for the forged-verdict reason.
 //
 // THE HEADING SCAN AND TABLE PARSER ARE the in-process visual-verification check (visual-verify-pass prepare)'s OWN
@@ -83,19 +83,19 @@ import (
 // verification` heading regex, the same "a heading at or above this
 // section's own level ends it, a deeper one is prose" rule, and the same
 // `|`-row split with `\|`-escape awareness. They are the Go twins in
-// stats/internal/guard/visualsection.go (vvHeadingCount, vvSectionLines,
-// vtSplitCells, vtTrimCell, vtFoldCell), whose comments carry the reasoning
+// stats/internal/guard/core/visualsection.go (HeadingCount, SectionLines,
+// SplitCells, TrimCell, FoldCell), whose comments carry the reasoning
 // and TestVisualTableCellsParity its parity record.
 //
 // A LEADING UTF-8 BOM IS STRIPPED BEFORE EITHER HEADING READ OR THE TABLE
-// PARSE, via the same file's stripBOM — see its comment for why a BOM would
+// PARSE, via the same file's StripBOM — see its comment for why a BOM would
 // otherwise make this guard read a present `## visual verification` heading
 // as absent and exit 2 ("not configured"), which is worse here than in the
 // other two guards: this is the guard that decides whether flow.visual-verify
 // runs at all, so that misread is a silent skip of the whole stage, not
 // merely a misparse.
 //
-// `ui paths`' OWN PER-ELEMENT TRIM is trimGlobElement in the same file,
+// `ui paths`' OWN PER-ELEMENT TRIM is TrimGlobElement in the same file,
 // shared with check-visual-verification — see its comment for the
 // split-then-strip parse and the single-pass strip it performs.
 //
@@ -160,7 +160,7 @@ func checkVisualTrigger(args []string, env core.Env, stdout, stderr io.Writer) i
 				return nil, err
 			}
 		}
-		paths := awkRecords(strings.ReplaceAll(string(in), "\x00", ""))
+		paths := core.AwkRecords(strings.ReplaceAll(string(in), "\x00", ""))
 		if repo != "" {
 			for i, p := range paths {
 				if p != "" && !strings.HasPrefix(p, "/") {
@@ -212,7 +212,7 @@ func visualTrigger(env core.Env, root string, changed func() ([]string, error), 
 		return vtRefuse(env, stderr, vtCannotAnswer, root, ".flow/project.md could not be read")
 	}
 	text := string(b)
-	switch n := vvHeadingCount(text); {
+	switch n := core.HeadingCount(text); {
 	case n == 0:
 		fmt.Fprintf(stderr, "%s%s declares no '## visual verification' section — not configured, so nothing was matched\n", vtPrefix, cfg)
 		return vtRefuse(env, stderr, vtNotConfigured, root, vtNoSection)
@@ -226,36 +226,36 @@ func visualTrigger(env core.Env, root string, changed func() ([]string, error), 
 	// the section's shape; check-visual-verification already does that, and
 	// this guard's own job is narrower: resolve one field or say it cannot.
 	value := ""
-	for _, l := range vvSectionLines(text) {
-		if cells := vtSplitCells(l.Text); len(cells) == 2 && vtFoldCell(cells[0]) == "ui paths" {
-			value = vtTrimCell(cells[1])
+	for _, l := range core.SectionLines(text) {
+		if cells := core.SplitCells(l.Text); len(cells) == 2 && core.FoldCell(cells[0]) == "ui paths" {
+			value = core.TrimCell(cells[1])
 			break
 		}
 	}
 	if value == "" {
-		fmt.Fprint(stderr, sanitizeDisplay(vtPrefix+"`ui paths` is absent or empty in "+cfg+" — cannot resolve what to match against\n"))
+		fmt.Fprint(stderr, core.SanitizeDisplay(vtPrefix+"`ui paths` is absent or empty in "+cfg+" — cannot resolve what to match against\n"))
 		return vtRefuse(env, stderr, vtCannotAnswer, root, "`ui paths` is absent or empty")
 	}
 
 	// Split on comma first, then strip each element's own backticks and
-	// surrounding whitespace with trimGlobElement -- NEVER an interior
+	// surrounding whitespace with TrimGlobElement -- NEVER an interior
 	// space, so a glob containing one survives the split intact. The value
-	// already went through the table parser's whole-cell vtTrimCell, which
+	// already went through the table parser's whole-cell TrimCell, which
 	// strips only the outermost pair; each element's own backticks are
 	// stripped only now.
 	var globs []string
 	for _, g := range strings.Split(value, ",") {
-		if g = trimGlobElement(g); g != "" {
+		if g = core.TrimGlobElement(g); g != "" {
 			globs = append(globs, g)
 		}
 	}
 	if len(globs) == 0 {
-		fmt.Fprint(stderr, sanitizeDisplay(vtPrefix+"`ui paths` in "+cfg+" resolved to no usable glob\n"))
+		fmt.Fprint(stderr, core.SanitizeDisplay(vtPrefix+"`ui paths` in "+cfg+" resolved to no usable glob\n"))
 		return vtRefuse(env, stderr, vtCannotAnswer, root, "`ui paths` resolved to no usable glob")
 	}
 	res := make([]*regexp.Regexp, len(globs))
 	for i, g := range globs {
-		res[i] = vtGlobRegexp(g)
+		res[i] = core.GlobRegexp(g)
 	}
 
 	paths, err := changed()
@@ -268,10 +268,10 @@ func visualTrigger(env core.Env, root string, changed func() ([]string, error), 
 		if path == "" {
 			continue
 		}
-		p := vtBytesAsRunes(strings.TrimPrefix(path, "./"))
+		p := core.BytesAsRunes(strings.TrimPrefix(path, "./"))
 		for i, re := range res {
 			if re.MatchString(p) {
-				fmt.Fprint(stdout, sanitizeDisplay("MATCH: "+path+" — matched `"+globs[i]+"`\n"))
+				fmt.Fprint(stdout, core.SanitizeDisplay("MATCH: "+path+" — matched `"+globs[i]+"`\n"))
 				matched = true
 			}
 		}
@@ -283,48 +283,4 @@ func visualTrigger(env core.Env, root string, changed func() ([]string, error), 
 	fmt.Fprintf(stdout, "VISUAL-TRIGGER-NO-MATCH: %s — no changed path matched `ui paths`\n", root)
 	core.Reason(env, "visual-trigger-no-match")
 	return 1
-}
-
-// vtGlobRegexp is the bash's glob_to_ere plus glob_match's anchoring: a
-// leading `./` and then a leading `/` stripped from the glob; `**` becomes
-// `.*` (spans `/`); a bare `*` becomes `[^/]*` (one segment); `?` becomes
-// `[^/]`; every listed metacharacter is escaped; anything else is literal.
-//
-// Byte-wise, as the bash matched under LC_ALL=C (c-locale-table-semantics):
-// both the glob and the path go through vtBytesAsRunes, one rune per byte,
-// so `?` is one byte and a non-UTF-8 byte is an ordinary character.
-func vtGlobRegexp(glob string) *regexp.Regexp {
-	glob = strings.TrimPrefix(strings.TrimPrefix(glob, "./"), "/")
-	var b strings.Builder
-	b.WriteString("^")
-	for i := 0; i < len(glob); i++ {
-		switch c := glob[i]; c {
-		case '*':
-			if i+1 < len(glob) && glob[i+1] == '*' {
-				b.WriteString(".*")
-				i++
-				continue
-			}
-			b.WriteString("[^/]*")
-		case '?':
-			b.WriteString("[^/]")
-		case '.', '+', '(', ')', '{', '}', '|', '^', '$', '\\', '[', ']':
-			b.WriteByte('\\')
-			b.WriteByte(c)
-		default:
-			b.WriteRune(rune(c))
-		}
-	}
-	b.WriteString("$")
-	return regexp.MustCompile(b.String())
-}
-
-// vtBytesAsRunes maps each byte of s to the rune of the same value, so a
-// regexp over the result matches byte by byte.
-func vtBytesAsRunes(s string) string {
-	r := make([]rune, len(s))
-	for i := 0; i < len(s); i++ {
-		r[i] = rune(s[i])
-	}
-	return string(r)
 }

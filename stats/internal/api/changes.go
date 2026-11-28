@@ -353,7 +353,7 @@ func (h *changeHandler) list(w http.ResponseWriter, r *http.Request) {
 // stateFindResponse is the one JSON object the find route prints: the same
 // source/complete pair the CLI's state-list output carries, with full
 // change DTOs as records -- worktrees included, the field the guards'
-// state-record plan resolution (stats/internal/guard/changeplan.go) reads.
+// state-record plan resolution (stats/internal/guard/plans/changeplan.go) reads.
 type stateFindResponse struct {
 	Source   string      `json:"source"`
 	Complete bool        `json:"complete"`

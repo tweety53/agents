@@ -20,6 +20,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/guard/gitops"
+	"github.com/tweety53/agents/stats/internal/guard/plans"
 )
 
 // The contract below moved here from the header of the deleted
@@ -441,11 +442,11 @@ func vpRows(cfg string, body []byte, exported map[string]string) ([]vpRow, strin
 
 // vpStart is the `## visual verification` section's `start` command, or "".
 func vpStart(body []byte) (string, string) {
-	if vvHeadingCount(string(body)) > 1 {
+	if core.HeadingCount(string(body)) > 1 {
 		return "", ".flow/project.md declares more than one `## visual verification` section"
 	}
-	for _, l := range vvSectionLines(string(body)) {
-		if c := vtSplitCells(l.Text); len(c) >= 2 && vtFoldCell(c[0]) == "start" {
+	for _, l := range core.SectionLines(string(body)) {
+		if c := core.SplitCells(l.Text); len(c) >= 2 && core.FoldCell(c[0]) == "start" {
 			return c[1], ""
 		}
 	}
@@ -669,7 +670,7 @@ func vpFlowBaseSiblings(wt string) []string {
 	}
 	own := filepath.Dir(real(git("rev-parse", "--path-format=absolute", "--git-common-dir")))
 	var fails []string
-	for _, root := range tcfAppRoots(core.ProjectSection(filepath.Join(wt, ".flow/project.md"), "apps")) {
+	for _, root := range plans.AppRoots(core.ProjectSection(filepath.Join(wt, ".flow/project.md"), "apps")) {
 		if !core.IsDir(root) || real(root) == own {
 			continue
 		}

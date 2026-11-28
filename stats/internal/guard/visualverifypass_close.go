@@ -569,7 +569,7 @@ func (v *vvp) gitChild(dir string, args ...string) (string, bool) {
 		git = p
 	}
 	cmd := exec.Command(git, append([]string{"-C", dir}, args...)...)
-	cmd.Env = icChildEnv(v.env)
+	cmd.Env = core.ChildEnv(v.env)
 	out, err := cmd.CombinedOutput()
 	return strings.TrimSpace(string(out)), err == nil
 }

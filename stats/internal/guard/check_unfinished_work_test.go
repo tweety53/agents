@@ -54,7 +54,7 @@ type uwFix struct {
 func uwCommits(t *testing.T, dir, baseMsg, msg string) string {
 	t.Helper()
 	guardtest.FixtureRepo(t, dir, guardtest.RepoShape{Commit: baseMsg})
-	base := tcfGit(t, dir, "rev-parse", "HEAD")
+	base := guardtest.GitC(t, dir, "rev-parse", "HEAD")
 	guardtest.GitRun(t, dir, "commit", "-q", "--allow-empty", "-m", msg)
 	return dir + "=" + base
 }
@@ -307,7 +307,7 @@ func TestCheckUnfinishedWork(t *testing.T) {
 	coded := func(path string) func(t *testing.T, f *uwFix) {
 		return func(t *testing.T, f *uwFix) {
 			guardtest.FixtureRepo(t, f.wt, guardtest.RepoShape{Commit: "base"})
-			base := tcfGit(t, f.wt, "rev-parse", "HEAD")
+			base := guardtest.GitC(t, f.wt, "rev-parse", "HEAD")
 			guardtest.WriteFile(t, f.wt+"/"+path, "x\n")
 			guardtest.GitRun(t, f.wt, "add", path)
 			guardtest.GitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")
@@ -789,7 +789,7 @@ func TestCheckUnfinishedWorkRefusesAnUnsplitRangeList(t *testing.T) {
 func uwVerifyCase(t *testing.T, outcome, startedAt string) uwResult {
 	f := newUW(t)
 	guardtest.FixtureRepo(t, f.wt, guardtest.RepoShape{Commit: "base"})
-	base := tcfGit(t, f.wt, "rev-parse", "HEAD")
+	base := guardtest.GitC(t, f.wt, "rev-parse", "HEAD")
 	guardtest.WriteFile(t, f.wt+"/src/a.go", "x\n")
 	guardtest.GitRun(t, f.wt, "add", "src/a.go")
 	guardtest.GitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")
@@ -889,7 +889,7 @@ func TestUnfinishedWorkSkipsVisualVerifierCommit(t *testing.T) {
 	run := func(t *testing.T, key, role string) uwResult {
 		f := newUW(t)
 		guardtest.FixtureRepo(t, f.wt, guardtest.RepoShape{Commit: "base"})
-		base := tcfGit(t, f.wt, "rev-parse", "HEAD")
+		base := guardtest.GitC(t, f.wt, "rev-parse", "HEAD")
 		guardtest.WriteFile(t, f.wt+"/src/a.go", "x\n")
 		guardtest.GitRun(t, f.wt, "add", "src/a.go")
 		guardtest.GitRun(t, f.wt, "commit", "-q", "--date=2026-01-01T11:00:00Z", "-m", "fix: code")

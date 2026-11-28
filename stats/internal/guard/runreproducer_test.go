@@ -50,7 +50,7 @@ func TestRunReproducer(t *testing.T) {
 		if core.IsFile(wt + "/new.txt") {
 			t.Error("the command's new.txt reached the worktree")
 		}
-		if out := tcfGit(t, wt, "worktree", "list", "--porcelain"); strings.Count(out, "worktree ") != 1 {
+		if out := guardtest.GitC(t, wt, "worktree", "list", "--porcelain"); strings.Count(out, "worktree ") != 1 {
 			t.Errorf("the copy was not removed:\n%s", out)
 		}
 	})

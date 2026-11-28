@@ -180,7 +180,7 @@ type ic struct {
 func integrateChange(args []string, env core.Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "integrate-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
-	c.childEnv = icChildEnv(env)
+	c.childEnv = core.ChildEnv(env)
 	return guardCode(c.integrate(args))
 }
 
@@ -205,15 +205,6 @@ func (c *ic) integrate(args []string) error {
 		return c.cleanup()
 	}
 	return c.die("unknown-subcommand", "unknown subcommand '%s'", args[0])
-}
-
-// icChildEnv is what every child runs under: the environment the caller
-// handed over, the process's own in production.
-func icChildEnv(env core.Env) []string {
-	if env.Environ != nil {
-		return env.Environ()
-	}
-	return os.Environ()
 }
 
 func (c *ic) die(id, format string, a ...any) error {

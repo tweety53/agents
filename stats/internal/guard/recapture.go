@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/plans"
 )
 
 // flow-guard recapture <tasks.md>:<task-id> <capture-root> <source-worktree>=<base>[,<source-worktree>=<base>…] <command>
@@ -87,7 +88,7 @@ type rcReceipt struct {
 
 // rcSpecFile is the spec file of a token: the token less its `:<line>`.
 func rcSpecFile(token string) string {
-	return asLinesRE.ReplaceAllString(token, "")
+	return plans.LinesRE.ReplaceAllString(token, "")
 }
 
 // rcLeft is what of token no receipt has passed yet, the receipts oldest
@@ -180,7 +181,7 @@ func rcSourcePaths(env core.Env, worktree, captureRoot string, paths []string) [
 		if f == "" || filepath.Base(f) == "full-app-suite.zip" || strings.Contains(filepath.Dir(f)+"/", "-snapshots/") {
 			continue
 		}
-		if abs := filepath.Join(wt, f); asTestRE.MatchString(f) && abs != root && !strings.HasPrefix(abs, root+string(filepath.Separator)) {
+		if abs := filepath.Join(wt, f); plans.TestRE.MatchString(f) && abs != root && !strings.HasPrefix(abs, root+string(filepath.Separator)) {
 			continue
 		}
 		out = append(out, f)
@@ -237,7 +238,7 @@ func recapture(args []string, env core.Env, stdout, stderr io.Writer) int {
 			}
 		}
 		diff, _ := core.Capture(git("-C", wt, "diff", "--name-only", "--no-renames", base))
-		diff += "\n" + asUntracked(env, wt)
+		diff += "\n" + plans.Untracked(env, wt)
 		r := &rcReceipt{Blobs: map[string]string{}}
 		for _, f := range rcSourcePaths(env, wt, root, strings.Split(diff, "\n")) {
 			r.Blobs[f], _ = core.Capture(git("-C", wt, "hash-object", "--", f))
@@ -332,7 +333,7 @@ func rcIsTitle(n string) bool {
 // none -- and every `*.spec.ts` under the capture root, relative
 // to it, whose source holds one of them as a whole quoted string.
 func rcTitleSpecs(task, root string) (titles, specs []string) {
-	named, _ := asTaskNames(task)
+	named, _ := plans.TaskNames(task)
 	for _, m := range regexp.MustCompile("`([^`]+)`").FindAllStringSubmatch(named, -1) {
 		if n := m[1]; rcIsTitle(n) && !slices.Contains(titles, n) {
 			titles = append(titles, n)

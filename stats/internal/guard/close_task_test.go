@@ -44,7 +44,7 @@ func ctFixture(t *testing.T, origin bool, tickRC string) *ctFx {
 	root := t.TempDir()
 	fx := &ctFx{wt: root + "/wt", peer: root + "/peer", log: root + "/calls.log", origin: origin}
 	ctRepo(t, fx.wt, origin)
-	fx.base = tcfGit(t, fx.wt, "rev-parse", "HEAD")
+	fx.base = guardtest.GitC(t, fx.wt, "rev-parse", "HEAD")
 	bin := root + "/bin"
 	// Both stubs find root from their own path, so their bodies are shared
 	// across fixtures and each is assessed once (ExecFixtures).
@@ -73,7 +73,7 @@ func (fx *ctFx) commit(t *testing.T, dir, subject, taskID string, files ...strin
 	}
 	guardtest.GitRun(t, dir, append([]string{"add", "-f", "--"}, paths...)...)
 	guardtest.GitRun(t, dir, "commit", "-q", "-m", subject, "-m", "Task-Id: "+taskID)
-	return tcfGit(t, dir, "rev-parse", "HEAD")
+	return guardtest.GitC(t, dir, "rev-parse", "HEAD")
 }
 
 func (fx *ctFx) calls(t *testing.T) []string {
@@ -115,7 +115,7 @@ func TestCloseTask(t *testing.T) {
 			"flow tasks tick -C " + fx.wt + " demo 1",
 			"flow tasks tick -C " + fx.wt + " demo 2",
 		})
-		if got := tcfGit(t, fx.wt+".origin", "for-each-ref", "refs/heads/spectre/demo"); got != "" {
+		if got := guardtest.GitC(t, fx.wt+".origin", "for-each-ref", "refs/heads/spectre/demo"); got != "" {
 			t.Errorf("origin carries spectre/demo (%s), want it unpushed", got)
 		}
 	})
@@ -171,7 +171,7 @@ func TestCloseTask(t *testing.T) {
 		ctEqual(t, fx.calls(t), []string{
 			"flow tasks tick -C " + fx.wt + " demo 3",
 		})
-		if got := tcfGit(t, filepath.Clean(fx.peer+".origin"), "for-each-ref", "refs/heads/spectre/demo"); got != "" {
+		if got := guardtest.GitC(t, filepath.Clean(fx.peer+".origin"), "for-each-ref", "refs/heads/spectre/demo"); got != "" {
 			t.Errorf("peer origin carries spectre/demo (%s), want it unpushed", got)
 		}
 	})

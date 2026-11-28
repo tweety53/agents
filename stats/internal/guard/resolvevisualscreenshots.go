@@ -84,7 +84,7 @@ import (
 // THE INPUT IS ATTACKER-INFLUENCED, exactly as the in-process visual-verification check (visual-verify-pass prepare)'s
 // own header states: `.flow/project.md` is tracked and editable in any pull
 // request. Every interpolated cell that reaches an exit-2 message passes
-// through sanitizeDisplay first (stats/internal/guard/visualsection.go), for
+// through SanitizeDisplay first (stats/internal/guard/core/visualsection.go), for
 // the identical forged-verdict reason that function's comment documents. The PNG paths this guard
 // prints on success are filesystem paths this guard discovered by walking a
 // real directory, never text lifted out of the config file, so they carry no
@@ -92,10 +92,10 @@ import (
 //
 // THE HEADING SCAN AND TABLE PARSER ARE the in-process visual-verification check (visual-verify-pass prepare)'s OWN
 // CONVENTIONS, reused rather than reinvented — the Go twins in
-// stats/internal/guard/visualsection.go that every visual guard shares.
+// stats/internal/guard/core/visualsection.go that every visual guard shares.
 //
 // A LEADING UTF-8 BOM IS STRIPPED BEFORE EITHER HEADING READ OR THE TABLE
-// PARSE, via stripBOM (stats/internal/guard/visualsection.go) — see its
+// PARSE, via StripBOM (stats/internal/guard/core/visualsection.go) — see its
 // comment for why a BOM would otherwise make this guard read a present
 // `## visual verification` heading as absent and exit 2.
 //
@@ -156,11 +156,11 @@ func resolveVisualScreenshots(args []string, env core.Env, stdout, stderr io.Wri
 		return 2
 	}
 	// A leading UTF-8 BOM is stripped before either heading read or the table
-	// parse (stripBOM, inside vvHeadingCount and vvSectionLines): a BOM would
+	// parse (StripBOM, inside HeadingCount and SectionLines): a BOM would
 	// otherwise make a present `## visual verification` heading read as
 	// absent.
 	text := string(data)
-	switch n := vvHeadingCount(text); {
+	switch n := core.HeadingCount(text); {
 	case n == 0:
 		fmt.Fprintf(stderr, rvsPrefix+"%s declares no '## visual verification' section — cannot resolve where screenshots live\n", cfg)
 		core.Reason(env, "visual-verification-section-missing")
@@ -175,28 +175,28 @@ func resolveVisualScreenshots(args []string, env core.Env, stdout, stderr io.Wri
 	// first row of each.
 	var screenshots, checkout string
 	var haveShots, haveCheckout bool
-	for _, l := range vvSectionLines(text) {
-		cells := vtSplitCells(l.Text)
+	for _, l := range core.SectionLines(text) {
+		cells := core.SplitCells(l.Text)
 		if len(cells) != 2 {
 			continue
 		}
-		switch vtFoldCell(cells[0]) {
+		switch core.FoldCell(cells[0]) {
 		case "screenshots":
 			if !haveShots {
-				screenshots, haveShots = vtTrimCell(cells[1]), true
+				screenshots, haveShots = core.TrimCell(cells[1]), true
 			}
 		case "regression checkout":
 			if !haveCheckout {
-				checkout, haveCheckout = vtTrimCell(cells[1]), true
+				checkout, haveCheckout = core.TrimCell(cells[1]), true
 			}
 		}
 	}
 
 	// Every interpolated cell that reaches an exit-2 message passes through
-	// sanitizeDisplay: `.flow/project.md` is attacker-influenced, and a cell
+	// SanitizeDisplay: `.flow/project.md` is attacker-influenced, and a cell
 	// holding an escape sequence would otherwise write it to the terminal.
 	if screenshots == "" {
-		fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf(rvsPrefix+"`screenshots` is absent or empty in %s — cannot resolve where captures land\n", cfg)))
+		fmt.Fprint(stderr, core.SanitizeDisplay(fmt.Sprintf(rvsPrefix+"`screenshots` is absent or empty in %s — cannot resolve where captures land\n", cfg)))
 		core.Reason(env, "screenshots-unset")
 		return 2
 	}
@@ -205,7 +205,7 @@ func resolveVisualScreenshots(args []string, env core.Env, stdout, stderr io.Wri
 	if haveCheckout {
 		// Relative to the caller's cwd, as the bash's `[ -d ]` and `cd` read it.
 		if !core.IsDir(rvsAt(env, checkout)) {
-			fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf(rvsPrefix+"`regression checkout` names `%s`, which is not an existing directory — cannot resolve `screenshots` relative to it\n", checkout)))
+			fmt.Fprint(stderr, core.SanitizeDisplay(fmt.Sprintf(rvsPrefix+"`regression checkout` names `%s`, which is not an existing directory — cannot resolve `screenshots` relative to it\n", checkout)))
 			core.Reason(env, "regression-checkout-missing")
 			return 2
 		}

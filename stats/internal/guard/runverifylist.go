@@ -692,7 +692,7 @@ func rvlKickoffBases(env core.Env, change, canon string) (worktrees []string, ba
 		return nil, bases
 	}
 	get := exec.Command(flow, "state", "get", "-C", canon, change)
-	get.Dir, get.Env = env.Dir, icChildEnv(env)
+	get.Dir, get.Env = env.Dir, core.ChildEnv(env)
 	out, err := get.Output()
 	if err != nil {
 		return nil, bases
@@ -713,7 +713,7 @@ func rvlKickoffBases(env core.Env, change, canon string) (worktrees []string, ba
 // for change (canon defaulting to wt), less wt itself, sorted and space-joined:
 // "" when none, or when wt's project declares no visual `verify` row.
 func rvlSiblingStamp(env core.Env, wt, change, canon string) string {
-	if b, err := os.ReadFile(filepath.Join(wt, ".flow", "project.md")); err != nil || vvCells(string(b))["verify"] == "" {
+	if b, err := os.ReadFile(filepath.Join(wt, ".flow", "project.md")); err != nil || core.Cells(string(b))["verify"] == "" {
 		return ""
 	}
 	if canon == "" {
@@ -753,7 +753,7 @@ func rvlVisualVerifyFor(env core.Env, wt string, covered, full bool, change, can
 	if err != nil {
 		return "", "", "", "", nar, false
 	}
-	cells := vvCells(string(b))
+	cells := core.Cells(string(b))
 	if cells["verify"] == "" || (covered && !full) {
 		return "", "", "", "", nar, false
 	}
@@ -1228,7 +1228,7 @@ func runVerifyList(args []string, env core.Env, stdout, stderr io.Writer) int {
 		args = args[:2]
 	}
 	wt, list := args[0], args[1]
-	childEnv := icChildEnv(env)
+	childEnv := core.ChildEnv(env)
 	// The workspace's KEY=value lines, a variable the caller sets winning
 	// (f16-run-prepares-workspace). A worktree on a branch that names no
 	// change -- /flow-fast's and /flow-interactive's `<name>` -- carries no
@@ -1253,7 +1253,7 @@ func runVerifyList(args []string, env core.Env, stdout, stderr io.Writer) int {
 	// appends its flag's arguments after the paths it puts there.
 	rawVerify, suffix := "", map[string]string{"only": " --retries=1"}[mode]
 	if b, err := os.ReadFile(filepath.Join(abs(wt), ".flow", "project.md")); err == nil {
-		rawVerify = vvCells(string(b))["verify"]
+		rawVerify = core.Cells(string(b))["verify"]
 	}
 	if mode != "plain" && rawVerify != "" && !strings.Contains(rawVerify, "<specs>") {
 		fmt.Fprintf(stderr, "run-verify-list: the `verify` cell has no <specs> placeholder to narrow — no command ran: %s\n", rawVerify)

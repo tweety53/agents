@@ -23,7 +23,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
-	"github.com/tweety53/agents/stats/internal/guard"
+	"github.com/tweety53/agents/stats/internal/guard/plans"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -133,7 +133,7 @@ var changeNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 // planPath returns <dir>/<spec-root>/changes/<change>/tasks.md
 // (guard.ChangeDir), or an error when change fails changeNamePattern. It resolves only the
 // change's own directory -- no link.md/peer indirection the way
-// stats/internal/guard/changeplan.go's changePlanPath offers guards checking
+// stats/internal/guard/plans/changeplan.go's PlanPath offers guards checking
 // a different worktree's plan from outside it: flow tasks tick only
 // ever runs inside the worktree that owns the plan it is ticking
 // (design.md's tasks-tick-no-peer-indirection).
@@ -141,7 +141,7 @@ func planPath(dir, change string) (string, error) {
 	if !changeNamePattern.MatchString(change) {
 		return "", fmt.Errorf("change name %q must start with a letter or digit and contain only letters, digits, '.', '_' and '-'", change)
 	}
-	return filepath.Join(guard.ChangeDir(filepath.Join(dir, specRootLeaf(dir), "changes"), change), "tasks.md"), nil
+	return filepath.Join(plans.ChangeDir(filepath.Join(dir, specRootLeaf(dir), "changes"), change), "tasks.md"), nil
 }
 
 func runTasksTick(_ context.Context, args []string, stdout, stderr io.Writer) int {

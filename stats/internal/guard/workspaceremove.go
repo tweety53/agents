@@ -120,7 +120,7 @@ func workspaceRemove(args []string, env core.Env, stdout, stderr io.Writer) int 
 	if live {
 		gitops.StopProcesses(env, []string{wt}, stdout)
 	}
-	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "workspace-remove", childEnv: icChildEnv(env)}
+	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "workspace-remove", childEnv: core.ChildEnv(env)}
 	if _, f := c.removeWorkspace(repo, gitops.WorkspaceID(branch)); f {
 		failed = true
 	}

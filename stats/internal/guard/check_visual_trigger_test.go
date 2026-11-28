@@ -99,7 +99,7 @@ func vtRun(t *testing.T, c vtCase) (code int, stdout, stderr, root string) {
 func vtCheck(t *testing.T, c vtCase) {
 	t.Helper()
 	code, out, errOut, root := vtRun(t, c)
-	subst := strings.NewReplacer("$SROOT", strings.TrimSuffix(sanitizeDisplay(root), "\n"), "$ROOT", root)
+	subst := strings.NewReplacer("$SROOT", strings.TrimSuffix(core.SanitizeDisplay(root), "\n"), "$ROOT", root)
 	wantOut, wantErr := subst.Replace(c.out), subst.Replace(c.err)
 	if code != c.code || out != wantOut || errOut != wantErr {
 		t.Fatalf("got exit %d\nstdout %q\nstderr %q\nwant exit %d\nstdout %q\nstderr %q", code, out, errOut, c.code, wantOut, wantErr)
@@ -440,7 +440,7 @@ func TestCheckVisualTriggerCoversEmbeddedSources(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fp := vvCells(string(cfg))["fingerprint"]
+	fp := core.Cells(string(cfg))["fingerprint"]
 	for _, m := range srcs {
 		// kan-1052 self-review R2: a reused stack is restarted only when
 		// `fingerprint` fails, so it must see an embedded source's edit too.

@@ -708,7 +708,7 @@ func (v *vvp) captureChanged(path, base string) bool {
 // cells is a worktree's `## visual verification` two-cell rows.
 func (v *vvp) cells(w string) map[string]string {
 	b, _ := os.ReadFile(filepath.Join(w, ".flow", "project.md"))
-	return vvCells(string(b))
+	return core.Cells(string(b))
 }
 
 // cellPath is a cell's path value, backticks dropped, resolved against w.

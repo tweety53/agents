@@ -19,6 +19,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/guard/gitops"
+	"github.com/tweety53/agents/stats/internal/guard/plans"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -106,7 +107,7 @@ func (v *vvp) inSet(root string) string {
 // a recorded flowBase every `## apps` repository, the set holds no worktree
 // in prints `STOP: kickoff <repo>` before anything is begun.
 func (v *vvp) kickoff() error {
-	roots := tcfAppRoots(core.ProjectSection(filepath.Join(v.canon, ".flow", "project.md"), "apps"))
+	roots := plans.AppRoots(core.ProjectSection(filepath.Join(v.canon, ".flow", "project.md"), "apps"))
 	declared := func(p string) bool {
 		for _, r := range roots {
 			if realPath(r) == realPath(p) {

@@ -348,7 +348,7 @@ func vvCases() map[string]vvCase {
 
 		// Case 27 (KAN-359 task 8): case 26's empty elements sit at the list
 		// boundaries, where the whole-cell trim already removes them before
-		// trimGlobElement runs. This element is INTERIOR and whitespace-and-
+		// TrimGlobElement runs. This element is INTERIOR and whitespace-and-
 		// backtick only, so it is non-vacuous by construction: the real trim
 		// strips it to nothing (VISUAL-INVALID), an identity trim leaves
 		// " ` ` " and counts it usable (VISUAL-OK).

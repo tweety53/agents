@@ -79,7 +79,7 @@ func init() { Registry["verify-change"] = verifyChange }
 func verifyChange(args []string, env core.Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "verify-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
-	c.childEnv = icChildEnv(env)
+	c.childEnv = core.ChildEnv(env)
 	return guardCode(c.verify(args))
 }
 

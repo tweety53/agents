@@ -13,39 +13,11 @@ import (
 	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
-// awaitRowsEnv serves the rows from a fake flowd: rows, or rowsEnded once a `flow record dispatch
-// end` -- the sweep's write, still the flow CLI on PATH -- has been called. It returns the env,
-// HOME and the change's worktree.
-func awaitRowsEnv(t *testing.T, rows, rowsEnded string) (core.Env, string, string) {
-	t.Helper()
-	tmp := t.TempDir()
-	swept := filepath.Join(tmp, "swept")
-	srv := guardtest.FakeFlowdRows(t, func() string {
-		if _, err := os.Stat(swept); err == nil {
-			return rowsEnded
-		}
-		return rows
-	}, nil)
-	guardtest.WriteExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\ntouch "+swept+"\n")
-	home := filepath.Join(tmp, "home")
-	return core.Env{Getenv: func(k string) string {
-		switch k {
-		case "HOME":
-			return home
-		case "PATH":
-			return filepath.Join(tmp, "bin") + ":" + os.Getenv("PATH")
-		case "FLOW_ADDR", "FLOW_RECORDS_ADDR":
-			return srv.URL
-		}
-		return os.Getenv(k)
-	}, Dir: tmp}, home, guardtest.GitWorktree(t, tmp, "chg")
-}
-
 // TestAwaitRowsAllEnded: every named key ended prints one ENDED line per key, in argument order.
 func TestAwaitRowsAllEnded(t *testing.T) {
 	t.Parallel()
 	rows := `[{"key":"a","outcome":"completed","endedAt":"2026-01-01T00:00:00Z"},{"key":"b","outcome":"aborted","endedAt":"2026-01-01T00:00:00Z"},{"key":"c","endedAt":null}]`
-	env, _, wt := awaitRowsEnv(t, rows, rows)
+	env, _, wt := guardtest.RowsEnv(t, rows, rows)
 	var o, e bytes.Buffer
 	if rc := awaitRows([]string{wt, "b", "a"}, env, &o, &e); rc != 0 || o.String() != "ENDED b aborted\nENDED a completed\n" {
 		t.Errorf("rc %d stdout %q err %q", rc, o.String(), e.String())
@@ -56,7 +28,7 @@ func TestAwaitRowsAllEnded(t *testing.T) {
 func TestAwaitRowsWaiting(t *testing.T) {
 	t.Parallel()
 	rows := `[{"key":"a","outcome":"completed","endedAt":"2026-01-01T00:00:00Z"},{"key":"c","endedAt":null}]`
-	env, _, wt := awaitRowsEnv(t, rows, rows)
+	env, _, wt := guardtest.RowsEnv(t, rows, rows)
 	var o, e bytes.Buffer
 	start := time.Now()
 	if rc := awaitRows([]string{wt, "a", "c", "-timeout", "1"}, env, &o, &e); rc != 0 || o.String() != "ENDED a completed\nWAITING c\n" {
@@ -71,7 +43,7 @@ func TestAwaitRowsWaiting(t *testing.T) {
 // the wait and reported.
 func TestAwaitRowsSweepsStale(t *testing.T) {
 	t.Parallel()
-	env, home, wt := awaitRowsEnv(t,
+	env, home, wt := guardtest.RowsEnv(t,
 		`[{"key":"s","agentId":"aaa","sessionToken":"t","endedAt":null}]`,
 		`[{"key":"s","agentId":"aaa","sessionToken":"t","outcome":"aborted","endedAt":"2026-01-01T00:00:00Z"}]`)
 	sub := filepath.Join(home, ".claude", "projects", "p", "sess", "subagents")
@@ -91,7 +63,7 @@ func TestAwaitRowsSweepsStale(t *testing.T) {
 // TestAwaitRowsUnknownKey: a key the change does not record exits 2.
 func TestAwaitRowsUnknownKey(t *testing.T) {
 	t.Parallel()
-	env, _, wt := awaitRowsEnv(t, `[{"key":"a","endedAt":null}]`, `[]`)
+	env, _, wt := guardtest.RowsEnv(t, `[{"key":"a","endedAt":null}]`, `[]`)
 	var o, e bytes.Buffer
 	if rc := awaitRows([]string{wt, "a", "zzz"}, env, &o, &e); rc != 2 {
 		t.Errorf("rc %d stdout %q", rc, o.String())
@@ -102,7 +74,7 @@ func TestAwaitRowsUnknownKey(t *testing.T) {
 func TestAwaitRowsAny(t *testing.T) {
 	t.Parallel()
 	rows := `[{"key":"a","outcome":"completed","endedAt":"2026-01-01T00:00:00Z"},{"key":"b","endedAt":null}]`
-	env, _, wt := awaitRowsEnv(t, rows, rows)
+	env, _, wt := guardtest.RowsEnv(t, rows, rows)
 	var o, e bytes.Buffer
 	start := time.Now()
 	if rc := awaitRows([]string{wt, "-any", "b", "a", "-timeout", "4"}, env, &o, &e); rc != 0 || o.String() != "ENDED a completed\nWAITING b\n" {

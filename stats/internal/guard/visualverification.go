@@ -100,20 +100,20 @@ import (
 // the table parsing happens in flow-guard
 // (stats/internal/guard/visualverification.go), whose only input is the
 // file's text, and every violation line, plus every cell this guard
-// interpolates into a message afterward, passes through sanitizeDisplay
+// interpolates into a message afterward, passes through SanitizeDisplay
 // before it reaches the terminal;
-// see stats/internal/guard/visualsection.go for why escaping and not
+// see stats/internal/guard/core/visualsection.go for why escaping and not
 // stripping or refusing.
 //
-// THE PARSER'S vtSplitCells/vtTrimCell/vtFoldCell TRIO IS SHARED — in
-// stats/internal/guard/visualsection.go, not check-workspace-isolation's own
+// THE PARSER'S SplitCells/TrimCell/FoldCell TRIO IS SHARED — in
+// stats/internal/guard/core/visualsection.go, not check-workspace-isolation's own
 // (wider, four-column; stats/internal/guard/gitops/workspaceisolation.go) copy of
 // the same shape. Its hazards are the same because its input is: a `|`
 // inside a cell, written `\|`, must not split the row; a row may omit its
 // trailing `|`; a file may arrive with CRLF line endings.
 //
 // A LEADING UTF-8 BOM IS STRIPPED BEFORE ANY OF THE ABOVE READS THE FILE, via
-// stripBOM in stats/internal/guard/visualsection.go — see its comment for
+// StripBOM in stats/internal/guard/core/visualsection.go — see its comment for
 // why a BOM would otherwise make a present section read as
 // absent: the fix arrived after flow-guard check-visual-trigger and
 // flow-guard resolve-visual-screenshots already existed, sharing this same
@@ -130,7 +130,7 @@ import (
 // in any pull request. NOTHING read here is executed — this guard never runs
 // `setup`, `verify`, `capture`, `fingerprint`, `start` or `specs`, and never
 // interpolates a cell into a shell. Every violation line, and every cell
-// interpolated into a message afterwards, passes through sanitizeDisplay
+// interpolated into a message afterwards, passes through SanitizeDisplay
 // before it reaches the terminal.
 func checkVisualVerification(args []string, env core.Env, stdout, stderr io.Writer) int {
 	refuse := func(id, msg string) int {
@@ -172,11 +172,11 @@ func checkVisualVerification(args []string, env core.Env, stdout, stderr io.Writ
 	if err != nil {
 		return refuse("grep-failed", "grep exited 2 while looking for the '## visual verification' heading in "+cfg+" — that is a failure to look rather than an absence, so nothing was validated")
 	}
-	// Every read below runs on vvLines — BOM stripped, each line ended at its
+	// Every read below runs on TextLines — BOM stripped, each line ended at its
 	// first NUL as grep and awk ended it.
 	text := string(body)
 
-	count := vvHeadingCount(text)
+	count := core.HeadingCount(text)
 	if count == 0 {
 		fmt.Fprintf(stdout, "VISUAL-OK: %s — declares no `## visual verification` section\n", cfg)
 		return 0
@@ -187,7 +187,7 @@ func checkVisualVerification(args []string, env core.Env, stdout, stderr io.Writ
 	// repos. Neither is validated; validating the first would be this guard
 	// picking the winner the contract declines to pick.
 	if count > 1 {
-		fmt.Fprint(stdout, sanitizeDisplay(fmt.Sprintf("%s:0: the file declares %d `## visual verification` sections — a second declaration is an ambiguous declaration rather than a merge, so neither was validated\n", cfg, count)))
+		fmt.Fprint(stdout, core.SanitizeDisplay(fmt.Sprintf("%s:0: the file declares %d `## visual verification` sections — a second declaration is an ambiguous declaration rather than a merge, so neither was validated\n", cfg, count)))
 		fmt.Fprintf(stdout, "VISUAL-INVALID: %s — 1 violation(s) in the `## visual verification` section\n", cfg)
 		core.Reason(env, "visual-invalid")
 		return 1
@@ -198,13 +198,13 @@ func checkVisualVerification(args []string, env core.Env, stdout, stderr io.Writ
 	// scan is in-process code with no such way to stop short, and scripts/flow-guard is what refuses when flow-guard itself cannot run.
 	v := &vvValidation{cfg: cfg, set: map[string]vvField{}, cmd: map[string]vvField{}}
 	heading := 0
-	for i, l := range vvLines(text) {
-		if vvHeading.MatchString(core.AwkLower(l)) {
+	for i, l := range core.TextLines(text) {
+		if core.Heading.MatchString(core.AwkLower(l)) {
 			heading = i + 1
 			break
 		}
 	}
-	v.scan(vvSectionLines(text))
+	v.scan(core.SectionLines(text))
 
 	// The four "absent or empty" findings for the required settings and
 	// commands.
@@ -225,7 +225,7 @@ func checkVisualVerification(args []string, env core.Env, stdout, stderr io.Writ
 	// rejects a wholly empty cell, but a cell that is non-empty as a whole —
 	// e.g. two empty backtick pairs joined by a comma — resolves, after the
 	// SAME split-then-strip parse check-visual-trigger applies (split on
-	// comma, then trimGlobElement each element), to zero usable elements.
+	// comma, then TrimGlobElement each element), to zero usable elements.
 	// That is exactly the condition under which the trigger guard itself
 	// exits 2 ("resolved to no usable glob"), so a validator that stayed
 	// silent on it would keep blessing a declaration the trigger cannot use.
@@ -234,7 +234,7 @@ func checkVisualVerification(args []string, env core.Env, stdout, stderr io.Writ
 	if f, ok := v.set["ui paths"]; ok && f.val != "" {
 		usable := 0
 		for _, e := range strings.Split(f.val, ",") {
-			if trimGlobElement(e) != "" {
+			if core.TrimGlobElement(e) != "" {
 				usable++
 			}
 		}
@@ -302,7 +302,7 @@ func checkVisualVerification(args []string, env core.Env, stdout, stderr io.Writ
 	}
 
 	if len(v.viol) != 0 {
-		fmt.Fprint(stdout, sanitizeDisplay(strings.Join(v.viol, "")))
+		fmt.Fprint(stdout, core.SanitizeDisplay(strings.Join(v.viol, "")))
 		fmt.Fprintf(stdout, "VISUAL-INVALID: %s — %d violation(s) in the `## visual verification` section\n", cfg, len(v.viol))
 		core.Reason(env, "visual-invalid")
 		return 1
@@ -323,7 +323,7 @@ func checkVisualVerification(args []string, env core.Env, stdout, stderr io.Writ
 // `rev-parse --git-dir` accepted the checkout, which is why the test reaches
 // it through a stub git) is this guard failing to look. The checkout is a
 // cell out of `.flow/project.md` and gitErr is git's own stderr against it,
-// so both go through sanitizeDisplay as every other interpolated cell does.
+// so both go through SanitizeDisplay as every other interpolated cell does.
 func (v *vvValidation) originIs(env core.Env, stderr io.Writer, line int, dir, want, row string) bool {
 	cmd := vvGitClean(env, "-C", dir, "remote", "get-url", "origin")
 	var out, errOut bytes.Buffer
@@ -350,7 +350,7 @@ func (v *vvValidation) originIs(env core.Env, stderr io.Writer, line int, dir, w
 	case strings.Contains(gitErr, "No such remote") || strings.Contains(gitErr, "no such remote"):
 		v.addv(line, "the checkout at `"+dir+"` has no `origin` remote configured, so it cannot match the declared `"+row+"` (`"+want+"`)")
 	default:
-		fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf("check-visual-verification: git remote get-url origin failed unexpectedly in %s (exit %d): %s — cannot determine whether the identity assertion holds\n", dir, rc, gitErr)))
+		fmt.Fprint(stderr, core.SanitizeDisplay(fmt.Sprintf("check-visual-verification: git remote get-url origin failed unexpectedly in %s (exit %d): %s — cannot determine whether the identity assertion holds\n", dir, rc, gitErr)))
 		return false
 	}
 	return true
@@ -405,11 +405,11 @@ func (v *vvValidation) addv(line int, msg string) {
 // ends at any non-table line and at a heading — a `###` subheading keeps the
 // section open (project-configuration-visual.md allows prose beside the two tables,
 // and a subheading is exactly that) but still ends the table above it, which
-// shows here as a gap in the line numbers vvSectionLines leaves out.
-func (v *vvValidation) scan(lines []vvLine) {
-	var blk []vvLine
+// shows here as a gap in the line numbers SectionLines leaves out.
+func (v *vvValidation) scan(lines []core.Line) {
+	var blk []core.Line
 	for _, l := range lines {
-		isRow := strings.HasPrefix(strings.TrimLeft(strings.ReplaceAll(l.Text, "\r", ""), cSpace), "|")
+		isRow := strings.HasPrefix(strings.TrimLeft(strings.ReplaceAll(l.Text, "\r", ""), core.CSpace), "|")
 		if len(blk) > 0 && (!isRow || blk[len(blk)-1].No+1 != l.No) {
 			v.flushBlock(blk)
 			blk = nil
@@ -431,7 +431,7 @@ const (
 func vvHeader(cells []string) string {
 	folded := make([]string, len(cells))
 	for i, c := range cells {
-		folded[i] = vtFoldCell(c)
+		folded[i] = core.FoldCell(c)
 	}
 	return strings.Join(folded, "|")
 }
@@ -440,7 +440,7 @@ var vvDelimiterCell = regexp.MustCompile(`^:?-+:?$`)
 
 func vvIsDelimiter(cells []string) bool {
 	for _, c := range cells {
-		if !vvDelimiterCell.MatchString(vtTrimCell(c)) {
+		if !vvDelimiterCell.MatchString(core.TrimCell(c)) {
 			return false
 		}
 	}
@@ -449,8 +449,8 @@ func vvIsDelimiter(cells []string) bool {
 
 // flushBlock checks one contiguous run of table rows. Its first row is the
 // header, and the header is what says which of the two tables this is.
-func (v *vvValidation) flushBlock(blk []vvLine) {
-	hdr := vvHeader(vtSplitCells(blk[0].Text))
+func (v *vvValidation) flushBlock(blk []core.Line) {
+	hdr := vvHeader(core.SplitCells(blk[0].Text))
 	var kind string
 	switch hdr {
 	case vvSettingHeader:
@@ -466,7 +466,7 @@ func (v *vvValidation) flushBlock(blk []vvLine) {
 		return
 	}
 	for _, row := range blk[1:] {
-		cells := vtSplitCells(row.Text)
+		cells := core.SplitCells(row.Text)
 		if vvIsDelimiter(cells) {
 			continue
 		}
@@ -508,7 +508,7 @@ var vvMockupFrame = regexp.MustCompile(`^scale=[1-9][0-9]* status=[0-9]+ border=
 // is optional, `<clone> <remote>`, read by flow-guard render-frames. `tolerance`
 // is optional, `<n>px at <scale>x`, read by visual-verify-pass measure.
 func (v *vvValidation) settingRow(line int, cells []string) {
-	disp, key := vtTrimCell(cells[0]), vtFoldCell(cells[0])
+	disp, key := core.TrimCell(cells[0]), core.FoldCell(cells[0])
 	switch key {
 	case "ui paths", "screenshots", "regression checkout", "regression repo", "mockups", "mockup frame", "preflight apps", "design repo", "tolerance":
 	default:
@@ -519,7 +519,7 @@ func (v *vvValidation) settingRow(line int, cells []string) {
 		v.addv(line, "a second `"+disp+"` row, the first being at line "+strconv.Itoa(f.line)+" — the row is dropped")
 		return
 	}
-	val := vtTrimCell(cells[1])
+	val := core.TrimCell(cells[1])
 	if key == "mockup frame" && val != "" && !vvMockupFrame.MatchString(val) {
 		v.addv(line, "Setting `mockup frame` must be `scale=<int> status=<px> border=<px>`, got `"+val+"`")
 		return
@@ -557,7 +557,7 @@ func vvTolerance(cell string) (float64, bool) {
 // no spec map declares no `specs`, and a project with no incremental dev
 // server declares no `dev loop`; each absence is silent, as `setup`'s is.
 func (v *vvValidation) commandRow(line int, cells []string) {
-	disp, key := vtTrimCell(cells[0]), vtFoldCell(cells[0])
+	disp, key := core.TrimCell(cells[0]), core.FoldCell(cells[0])
 	switch key {
 	case "setup", "verify", "capture", "fingerprint", "start", "specs", "smoke", "dev loop":
 	default:
@@ -568,5 +568,5 @@ func (v *vvValidation) commandRow(line int, cells []string) {
 		v.addv(line, "a second `"+disp+"` row, the first being at line "+strconv.Itoa(f.line)+" — the row is dropped")
 		return
 	}
-	v.cmd[key] = vvField{line, vtTrimCell(cells[1])}
+	v.cmd[key] = vvField{line, core.TrimCell(cells[1])}
 }

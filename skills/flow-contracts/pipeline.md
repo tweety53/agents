@@ -566,6 +566,6 @@ A change linked to a Jira issue is named `<lowercased-key>-<slug>` — see
 
 A change's directory is `<project>/spectre/changes/<name>/`, on disk in the worktree, never
 committed: `<project>/spectre/changes/` is gitignored and there is no archived path — nothing of it lands. Every step that reads or writes a change's planning artifacts resolves the
-directory this way; the guards resolve it through `changePlanDir`
-(`<agents repo>/stats/internal/guard/changeplan.go`), and `flow tasks`
+directory this way; the guards resolve it through `plans.PlanDir`
+(`<agents repo>/stats/internal/guard/plans/changeplan.go`), and `flow tasks`
 through the same rule.

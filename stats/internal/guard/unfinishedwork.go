@@ -13,6 +13,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/guard/gitops"
+	"github.com/tweety53/agents/stats/internal/guard/plans"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -119,7 +120,7 @@ import (
 // there, not here. Reading that absence the same way as a genuinely missing
 // plan would report OUTSTANDING with nothing an operator can act on — the
 // plan is not missing, it is elsewhere, and this guard's job is to reach it,
-// per stats/internal/guard/changeplan.go (task 7) and design.md's
+// per stats/internal/guard/plans/changeplan.go (task 7) and design.md's
 // `guards-take-the-canonical-worktree-path`. So a satellite takes one of two
 // outcomes and never the third: its canonical plan resolves and is counted
 // exactly like a local one would be, or it does not resolve at all and the
@@ -136,7 +137,7 @@ import (
 // change whose plan resolves only in the canonical worktree, so the worktree
 // this verdict names holds neither signal. Verify from the primary records
 // before acting on the verdict: resolve the plan the way this guard does
-// (stats/internal/guard/changeplan.go) and count column-0 `^- \[ \]` lines by hand;
+// (stats/internal/guard/plans/changeplan.go) and count column-0 `^- \[ \]` lines by hand;
 // run `flow record findings -change <name> -C <worktree>` and expect `[]`.
 // Both clean means the verdict was structural — record it (unfinished-work-gate.md's
 // false-positive course) rather than trusting it or silently overriding it.
@@ -144,7 +145,7 @@ import (
 
 // checkUnfinishedWork is `flow-guard check-unfinished-work`: the comment above is the contract -- one CLEAR/OUTSTANDING verdict line on
 // stdout at exit 0, exit 2 when it cannot answer at all. Plan resolution is
-// changePlanDir (changeplan.go), never a second copy; the findings read is
+// PlanDir (changeplan.go), never a second copy; the findings read is
 // Env.Findings when set, else `flow record findings`; the verdict write and
 // the prior-false-positive read are always the `flow` CLI on Env's PATH. The
 // reasoning for each branch, moved here from the bash body it replaced
@@ -254,7 +255,7 @@ func checkUnfinishedWork(args []string, env core.Env, stdout, stderr io.Writer) 
 	// clearance the header rejects. A fix sub-change's plan is genuinely
 	// optional -- most changes have none -- so its absence is nothing.
 	//
-	// THE PRIMARY PLAN IS RESOLVED THROUGH changePlanDir, NOT COMPOSED
+	// THE PRIMARY PLAN IS RESOLVED THROUGH PlanDir, NOT COMPOSED
 	// DIRECTLY, so a satellite's own `link.md` is followed to its canonical
 	// `tasks.md` instead of reporting the local path's absence as a verdict
 	// (the header's satellite paragraph). The directory, not only the path,
@@ -263,7 +264,7 @@ func checkUnfinishedWork(args []string, env core.Env, stdout, stderr io.Writer) 
 	// beside the canonical change, and sweeping the satellite's own,
 	// plan-less changes/ would report CLEAR over an unchecked fix-round item.
 	//
-	// changePlanDir answers 1 in two shapes told apart below: a plain change
+	// PlanDir answers 1 in two shapes told apart below: a plain change
 	// with no plan and no `## Part of` link -- the ordinary missing-plan case
 	// -- versus a genuine satellite whose canonical plan could not be
 	// reached, which refuses outright. It answers 3 (KAN-267) when the state
@@ -273,7 +274,7 @@ func checkUnfinishedWork(args []string, env core.Env, stdout, stderr io.Writer) 
 	// the silent clearance this guard exists to prevent. Its stderr is shown
 	// only then, as the bash guard showed its captured stderr.
 	var planErr bytes.Buffer
-	planDir, planRC := changePlanDir(env, &planErr, worktree, name, canonical)
+	planDir, planRC := plans.PlanDir(env, &planErr, worktree, name, canonical)
 	if planRC == 3 {
 		_, _ = stderr.Write(planErr.Bytes())
 		fmt.Fprintf(stderr, "%sthe state record resolves '%s' to more than one project's plan — cannot determine anything\n", uwPrefix, name)

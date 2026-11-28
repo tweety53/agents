@@ -62,7 +62,7 @@ import (
 // every `## run` command the pipeline executes already carries.
 //
 // The row is read by the same table helpers every visual guard uses —
-// vtSplitCells, vtTrimCell and vtFoldCell, after stripBOM — and code fences
+// SplitCells, TrimCell and FoldCell, after StripBOM — and code fences
 // are skipped so a worked example inside the section can never declare a
 // row. The mechanism is stats/internal/guard/devstackfresh.go; its test is
 // stats/internal/guard/check_dev_stack_fresh_test.go.
@@ -74,8 +74,8 @@ func init() {
 }
 
 var (
-	dsfClose = regexp.MustCompile("^##[" + cSpace + "]+")
-	dsfBlank = regexp.MustCompile("^[" + cSpace + "]*$")
+	dsfClose = regexp.MustCompile("^##[" + core.CSpace + "]+")
+	dsfBlank = regexp.MustCompile("^[" + core.CSpace + "]*$")
 )
 
 func checkDevStackFresh(args []string, env core.Env, stdout, stderr io.Writer) int {
@@ -141,7 +141,7 @@ func checkDevStackFresh(args []string, env core.Env, stdout, stderr io.Writer) i
 // fences skipped so a worked example never declares a row.
 func dsfFingerprint(text string) (string, bool) {
 	insec, infence, incmd := false, false, false
-	for _, l := range vvLines(text) {
+	for _, l := range core.TextLines(text) {
 		switch {
 		case strings.HasPrefix(l, "```"):
 			infence = !infence
@@ -149,7 +149,7 @@ func dsfFingerprint(text string) (string, bool) {
 		case infence:
 			continue
 		case !insec:
-			insec = vvHeading.MatchString(l)
+			insec = core.Heading.MatchString(l)
 			continue
 		case dsfClose.MatchString(l):
 			return "", false
@@ -157,17 +157,17 @@ func dsfFingerprint(text string) (string, bool) {
 			incmd = false
 			continue
 		}
-		cells := vtSplitCells(l)
+		cells := core.SplitCells(l)
 		if len(cells) < 2 {
 			continue
 		}
-		key := vtFoldCell(cells[0])
-		if key == "command" && vtFoldCell(cells[1]) == "runs" {
+		key := core.FoldCell(cells[0])
+		if key == "command" && core.FoldCell(cells[1]) == "runs" {
 			incmd = true
 			continue
 		}
 		if incmd && key == "fingerprint" {
-			return vtTrimCell(cells[1]), true
+			return core.TrimCell(cells[1]), true
 		}
 	}
 	return "", false
