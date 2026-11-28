@@ -227,6 +227,21 @@ What `flow-guard visual-verify-pass prepare` runs before any other step of **Vis
 
 ## Steps 3–13
 
+**The steps in the order they run.** A step's number is its id, not its position: the verifier's
+report names steps 4, 8–11 and `motion` on its `- steps:` line, which
+`stats/internal/guard/verifyreport.go` checks by number, and no step 7 is run (decision `verifier-runs-no-verify`).
+
+| Order | Step | Run by | Stated in | Next |
+|---|---|---|---|---|
+| 1 | 1. Resolve the section | `prepare` | **Steps 1–2** | step 2 |
+| 2 | 2. Match the diff | `prepare` | **Steps 1–2** | `NEXT: skip` ends the stage; else step 3 |
+| 3 | 3. Pre-flight the workspace | `prepare` | below | `STOP:` ends the stage; else step 5 |
+| 4 | 5. Probe before starting anything | `prepare`, then the parent on `NEXT: start-stack` | below | step 6 |
+| 5 | 6. No fingerprint step | `prepare` | below | `NEXT: dispatch` → the verifier |
+| 6 | 4, 8–11 and the motion step | the verifier | `skills/flow/visual-verify-verifier.md` | its report → `close` |
+| 7 | 12. Commit the spec and its PNGs | `close` | below | `close`'s `NEXT:` line |
+| 8 | 13. Stop the stack step 5 started | the parent | below | **Blocking** |
+
 Steps 1, 2, 3, 5, 6, 12 and 13 are the parent's — `flow-guard visual-verify-pass prepare` and `close`
 run them, and the parent starts and stops the stack, all in the parent's own Bash calls, never a
 subagent's. Steps 4 and 8–11 and the motion step are run by one verifier per worktree
