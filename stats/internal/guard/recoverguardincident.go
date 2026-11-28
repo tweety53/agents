@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 )
 
 // The contract below moved here from the header of the deleted
@@ -115,7 +116,7 @@ func recoverGuardIncident(args []string, env core.Env, stdout, stderr io.Writer)
 		return die("cannot-resolve-repo", 1, err.Error())
 	}
 	git := func(errw io.Writer, a ...string) (string, int) {
-		return gitExec(env.Dir, nil, errw, a...)
+		return gitops.Exec(env.Dir, nil, errw, a...)
 	}
 	top, rc := git(io.Discard, "-C", dir, "rev-parse", "--show-toplevel")
 	if rc != 0 {

@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -541,7 +542,7 @@ func uwDerivedRange(env core.Env, worktree string) ([2]string, bool) {
 	// run: the resolver's reason is not this run's.
 	quiet := env
 	quiet.Reasons = nil
-	if resolveBaseBranch([]string{worktree}, quiet, &out, io.Discard) != 0 {
+	if gitops.ResolveBaseBranch([]string{worktree}, quiet, &out, io.Discard) != 0 {
 		return [2]string{}, false
 	}
 	base, ok := core.Capture(core.EnvGit(env)("-C", worktree, "merge-base", "HEAD", "origin/"+strings.TrimSpace(out.String())))

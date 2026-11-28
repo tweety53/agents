@@ -128,6 +128,18 @@ func TestCheckGuardCallsCompanion(t *testing.T) {
 	if n := gcCompanions(&out, root, []string{"check-foo", "close-task"}); n != 0 {
 		t.Fatalf("with companion: %d findings, out %q", n, out.String())
 	}
+	// A guard living in one of guard's subpackages has its test beside it there.
+	sub := filepath.Join(dir, "gitops")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "check_bar_test.go"), []byte("package gitops\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if n := gcCompanions(&out, root, []string{"check-bar"}); n != 0 {
+		t.Fatalf("with a subpackage companion: %d findings, out %q", n, out.String())
+	}
 }
 
 // TestCheckGuardCallsCompanionWired runs rule C through the registered guard:

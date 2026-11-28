@@ -46,7 +46,7 @@ import (
 // FLOW_RECORDS_ADDR, then FLOW_ADDR, then the dev flowd — where guard runs are recorded.
 //
 // Exit 0 with the report; 2 when flowd cannot be read or the flags are wrong.
-func init() { Registry["prune-candidates"] = pruneCandidates }
+func init() { core.Registry["prune-candidates"] = pruneCandidates }
 
 func pruneCandidates(args []string, env core.Env, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("prune-candidates", flag.ContinueOnError)

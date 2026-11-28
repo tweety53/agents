@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 	"github.com/tweety53/agents/stats/internal/guard/hook"
 )
 
@@ -252,7 +253,7 @@ func pfStart(env core.Env, pe pfEnv, rest []string, stdout, stderr io.Writer) in
 		core.Reason(env, "state-write-failed")
 		return 1
 	}
-	if rc := kwSetup(env, wt, self, stderr); rc != 0 {
+	if rc := gitops.KickoffSetup(env, wt, self, stderr); rc != 0 {
 		return rc
 	}
 	fmt.Fprintf(stdout, "worktree: %s\n", wt)
@@ -419,7 +420,7 @@ func pfChecks(env core.Env, pe pfEnv, wt string, touched []string) ([]string, in
 	goTouched := has(func(p string) bool { return strings.HasPrefix(p, "stats/") && strings.HasSuffix(p, ".go") })
 	webTouched := has(func(p string) bool { return strings.HasPrefix(p, "stats/web/") })
 	var cmds []string
-	for _, l := range kwFenced(body.String()) {
+	for _, l := range gitops.Fenced(body.String()) {
 		switch {
 		case strings.HasPrefix(strings.TrimSpace(l), "#"):
 			// An annotation such as `# concurrent`, never a check.
@@ -533,7 +534,7 @@ func pfVerify(env core.Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 			red++
 			fmt.Fprint(stdout, "red: visual verify — no merge base to scope the specs row to\n")
 		case specs != "":
-			src, out := kwStdout(env, dir, "bash", "-c", specs)
+			src, out := gitops.Stdout(env, dir, "bash", "-c", specs)
 			paths := strings.Fields(out)
 			switch {
 			case src != 0:

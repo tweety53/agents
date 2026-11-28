@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
@@ -61,7 +62,7 @@ func (fx *wrFx) remoteBranch() bool {
 
 func (fx *wrFx) assertUntouched(t *testing.T) {
 	t.Helper()
-	if !rcwExists(fx.wt) {
+	if !guardtest.Exists(fx.wt) {
 		t.Error("the worktree was removed")
 	}
 	if fx.g.Git(fx.repo, "branch", "--list", "demo-r2") == "" {
@@ -70,7 +71,7 @@ func (fx *wrFx) assertUntouched(t *testing.T) {
 	if !fx.remoteBranch() {
 		t.Error("the remote branch was deleted")
 	}
-	if rcwExists(fx.log) {
+	if guardtest.Exists(fx.log) {
 		t.Error("the workspace was removed")
 	}
 }
@@ -85,7 +86,7 @@ func TestWorkspaceRemove(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("exit %d, stdout %q, stderr %q", code, out, errs)
 		}
-		if rcwExists(fx.wt) {
+		if guardtest.Exists(fx.wt) {
 			t.Error("the worktree survived")
 		}
 		if fx.g.Git(fx.repo, "branch", "--list", "demo-r2") != "" {
@@ -94,8 +95,8 @@ func TestWorkspaceRemove(t *testing.T) {
 		if fx.remoteBranch() {
 			t.Error("the remote branch survived")
 		}
-		if b, _ := os.ReadFile(fx.log); strings.TrimSpace(string(b)) != ccWorkspaceID("demo-r2") {
-			t.Errorf("remove row got %q, want %q", b, ccWorkspaceID("demo-r2"))
+		if b, _ := os.ReadFile(fx.log); strings.TrimSpace(string(b)) != gitops.WorkspaceID("demo-r2") {
+			t.Errorf("remove row got %q, want %q", b, gitops.WorkspaceID("demo-r2"))
 		}
 		if !strings.Contains(out, "WORKSPACE-REMOVED: "+fx.repo) {
 			t.Errorf("stdout %q lacks WORKSPACE-REMOVED", out)

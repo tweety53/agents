@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 )
 
 // flow-guard workspace-remove — tear down one parallel request's worktree,
@@ -83,14 +84,14 @@ func workspaceRemove(args []string, env core.Env, stdout, stderr io.Writer) int 
 	hasBranch := git("-C", repo, "show-ref", "--verify", "--quiet", "refs/heads/"+branch).Run() == nil
 
 	// The checks, all before anything is removed.
-	base := recordedBase(git, repo, branch)
+	base := gitops.RecordedBase(git, repo, branch)
 	if base == "" {
 		head, _ := core.Capture(git("-C", repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
 		base = strings.TrimPrefix(head, "origin/")
 	}
 	refused := func(id, what, format string, a ...any) int {
 		core.Reason(env, id)
-		fmt.Fprintf(stdout, "REFUSED: %s — %s\n", what, rcwFlat(fmt.Sprintf(format, a...)))
+		fmt.Fprintf(stdout, "REFUSED: %s — %s\n", what, gitops.Flat(fmt.Sprintf(format, a...)))
 		return 1
 	}
 	live := wt != "" && core.IsDir(wt)
@@ -117,17 +118,17 @@ func workspaceRemove(args []string, env core.Env, stdout, stderr io.Writer) int 
 
 	failed := false
 	if live {
-		swpStop(env, []string{wt}, stdout)
+		gitops.StopProcesses(env, []string{wt}, stdout)
 	}
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "workspace-remove", childEnv: icChildEnv(env)}
-	if _, f := c.removeWorkspace(repo, ccWorkspaceID(branch)); f {
+	if _, f := c.removeWorkspace(repo, gitops.WorkspaceID(branch)); f {
 		failed = true
 	}
 	switch {
 	case live:
 		if out, err := git("-C", repo, "worktree", "remove", wt).CombinedOutput(); err != nil {
 			failed = true
-			fmt.Fprintf(stdout, "REMOVE-FAILED: %s — %s\n", wt, rcwFlat(string(out)))
+			fmt.Fprintf(stdout, "REMOVE-FAILED: %s — %s\n", wt, gitops.Flat(string(out)))
 		} else {
 			fmt.Fprintf(stdout, "REMOVED: %s\n", wt)
 		}
@@ -140,7 +141,7 @@ func workspaceRemove(args []string, env core.Env, stdout, stderr io.Writer) int 
 	if hasBranch {
 		if out, err := git("-C", repo, "branch", "-D", branch).CombinedOutput(); err != nil {
 			failed = true
-			fmt.Fprintf(stdout, "REMOVE-FAILED: %s — %s\n", branch, rcwFlat(string(out)))
+			fmt.Fprintf(stdout, "REMOVE-FAILED: %s — %s\n", branch, gitops.Flat(string(out)))
 		} else {
 			fmt.Fprintf(stdout, "REMOVED: %s\n", branch)
 		}
@@ -150,7 +151,7 @@ func workspaceRemove(args []string, env core.Env, stdout, stderr io.Writer) int 
 	case 0:
 		if out, err := git("-C", repo, "push", "origin", "--delete", branch).CombinedOutput(); err != nil {
 			failed = true
-			fmt.Fprintf(stdout, "REMOTE-REFUSED: origin/%s — %s\n", branch, rcwFlat(string(out)))
+			fmt.Fprintf(stdout, "REMOTE-REFUSED: origin/%s — %s\n", branch, gitops.Flat(string(out)))
 		} else {
 			fmt.Fprintf(stdout, "REMOTE-DELETED: origin/%s\n", branch)
 		}

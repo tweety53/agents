@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 )
 
 // The contract below moved here from the header of the deleted
@@ -106,7 +107,7 @@ import (
 //
 // THE PARSER'S vtSplitCells/vtTrimCell/vtFoldCell TRIO IS SHARED — in
 // stats/internal/guard/visualsection.go, not check-workspace-isolation's own
-// (wider, four-column; stats/internal/guard/workspaceisolation.go) copy of
+// (wider, four-column; stats/internal/guard/gitops/workspaceisolation.go) copy of
 // the same shape. Its hazards are the same because its input is: a `|`
 // inside a cell, written `\|`, must not split the row; a row may omit its
 // trailing `|`; a file may arrive with CRLF line endings.
@@ -141,11 +142,11 @@ func checkVisualVerification(args []string, env core.Env, stdout, stderr io.Writ
 		return refuse("usage", "usage: visual-verification check, run in-process: <project root>")
 	}
 	root := args[0]
-	if !core.IsDir(wiAbs(env, root)) {
+	if !core.IsDir(gitops.WorkspaceAbs(env, root)) {
 		return refuse("not-a-directory", root+" is not a directory — cannot tell whether it declares a visual verification section")
 	}
 	cfg := root + "/.flow/project.md"
-	path := wiAbs(env, cfg)
+	path := gitops.WorkspaceAbs(env, cfg)
 
 	// The file is optional. No `.flow/project.md` at all is a supported,
 	// ordinary case, not an error — matching check-workspace-isolation's own
@@ -257,7 +258,7 @@ func checkVisualVerification(args []string, env core.Env, stdout, stderr io.Writ
 
 	valid := false
 	if hasCheckout {
-		if !core.IsDir(wiAbs(env, checkout.val)) {
+		if !core.IsDir(gitops.WorkspaceAbs(env, checkout.val)) {
 			v.addv(checkout.line, "`regression checkout` names `"+checkout.val+"`, which is not an existing directory")
 		} else if vvGitClean(env, "-C", checkout.val, "rev-parse", "--git-dir").Run() != nil {
 			v.addv(checkout.line, "`regression checkout` names `"+checkout.val+"`, which is not a git checkout")
@@ -290,7 +291,7 @@ func checkVisualVerification(args []string, env core.Env, stdout, stderr io.Writ
 		switch {
 		case len(f) != 2:
 			v.addv(d.line, "`design repo` is `"+d.val+"` — it must be `<clone path> <remote>`, two fields")
-		case !core.IsDir(wiAbs(env, f[0])):
+		case !core.IsDir(gitops.WorkspaceAbs(env, f[0])):
 			v.addv(d.line, "`design repo` names `"+f[0]+"`, which is not an existing directory")
 		case vvGitClean(env, "-C", f[0], "rev-parse", "--git-dir").Run() != nil:
 			v.addv(d.line, "`design repo` names `"+f[0]+"`, which is not a git checkout")

@@ -2,7 +2,6 @@ package guard
 
 import (
 	"bytes"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,7 +65,7 @@ func bpBuild(t *testing.T) string {
 func bpRepo(t *testing.T, base string) string {
 	t.Helper()
 	repo := t.TempDir() + "/repo"
-	mvCopyTree(t, base, repo)
+	guardtest.CopyTreeMode(t, base, repo)
 	return repo
 }
 
@@ -603,37 +602,6 @@ func mvCheck(t *testing.T, label string, ok bool, format string, a ...any) {
 			t.Fatalf(format, a...)
 		}
 	})
-}
-
-// mvCopyTree copies src to dst; an executable is linked to its master inode
-// (WriteExec), so a copied guard or harness costs no fresh assessment.
-func mvCopyTree(t *testing.T, src, dst string) {
-	t.Helper()
-	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		target := dst + strings.TrimPrefix(p, src)
-		if d.IsDir() {
-			return os.MkdirAll(target, 0o755)
-		}
-		b, err := os.ReadFile(p)
-		if err != nil {
-			return err
-		}
-		fi, err := d.Info()
-		if err != nil {
-			return err
-		}
-		if fi.Mode()&0o111 != 0 {
-			guardtest.WriteExec(t, target, string(b))
-			return nil
-		}
-		return os.WriteFile(target, b, fi.Mode().Perm())
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 func mvCreate(t *testing.T, path string) *os.File {

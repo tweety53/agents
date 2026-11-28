@@ -60,7 +60,7 @@ func wpdHand(t *testing.T, out, sem, flags, shape string, triples []string) stri
 	if b, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("hand recipe: %v\n%s", err, b)
 	}
-	return rbRead(out)
+	return guardtest.ReadString(out)
 }
 
 func TestWritePanelDiffParity(t *testing.T) {
@@ -123,10 +123,10 @@ func TestWritePanelDiffParity(t *testing.T) {
 				if r.Stdout != path+"\n"+path+".touched\n" {
 					t.Errorf("stdout %q, want both paths", r.Stdout)
 				}
-				if got := rbRead(path); got != want {
+				if got := guardtest.ReadString(path); got != want {
 					t.Errorf("%s differs from the hand recipe\n got %q\nwant %q", tc.file, got, want)
 				}
-				if got := rbRead(path + ".touched"); got != wantTouched {
+				if got := guardtest.ReadString(path + ".touched"); got != wantTouched {
 					t.Errorf("%s.touched differs from --name-status sections\n got %q\nwant %q", tc.file, got, wantTouched)
 				}
 			})
@@ -209,7 +209,7 @@ func TestWritePanelDiffOmitsDeletedBodies(t *testing.T) {
 	if r.Rc != 0 {
 		t.Fatalf("exit %d, want 0\n%s", r.Rc, r.Out)
 	}
-	diff := rbRead(w.path + "/.superpowers/sdd/final-review.diff")
+	diff := guardtest.ReadString(w.path + "/.superpowers/sdd/final-review.diff")
 	if !strings.Contains(diff, "diff --git a/gone.txt b/gone.txt") || !strings.Contains(diff, "deleted file mode") {
 		t.Errorf("diff lacks gone.txt's deletion header:\n%s", diff)
 	}
@@ -218,7 +218,7 @@ func TestWritePanelDiffOmitsDeletedBodies(t *testing.T) {
 			t.Errorf("diff carries the deleted body line -gone:\n%s", diff)
 		}
 	}
-	if touched := rbRead(w.path + "/.superpowers/sdd/final-review.diff.touched"); !strings.Contains(touched, "D\tgone.txt") {
+	if touched := guardtest.ReadString(w.path + "/.superpowers/sdd/final-review.diff.touched"); !strings.Contains(touched, "D\tgone.txt") {
 		t.Errorf(".touched lacks D\\tgone.txt:\n%s", touched)
 	}
 }
@@ -247,7 +247,7 @@ func TestWritePanelDiffHonoursProjectExcludes(t *testing.T) {
 		t.Fatalf("exit %d, want 0\n%s", r.Rc, r.Out)
 	}
 	for _, f := range []string{"final-review.diff", "final-review.diff.touched"} {
-		body := rbRead(w.path + "/.superpowers/sdd/" + f)
+		body := guardtest.ReadString(w.path + "/.superpowers/sdd/" + f)
 		if strings.Contains(body, "handoff_x/") {
 			t.Errorf("%s carries the excluded handoff_x/:\n%s", f, body)
 		}
@@ -286,7 +286,7 @@ func TestPanelDiffHonoursProjectExcludes(t *testing.T) {
 	if r.Rc != 0 {
 		t.Fatalf("write-panel-diff: exit %d, want 0\n%s", r.Rc, r.Out)
 	}
-	if touched := rbRead(wt + "/.superpowers/sdd/final-review.diff.touched"); strings.Contains(touched, "handoff_x") {
+	if touched := guardtest.ReadString(wt + "/.superpowers/sdd/final-review.diff.touched"); strings.Contains(touched, "handoff_x") {
 		t.Errorf(".touched names the excluded path:\n%s", touched)
 	}
 }

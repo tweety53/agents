@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 )
 
 func init() { Registry["design-repo"] = designRepo }
@@ -43,7 +44,7 @@ func designRepo(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		return exit(2, "usage", "usage: flow-guard design-repo <worktree>")
 	}
-	root := wiAbs(env, args[0])
+	root := gitops.WorkspaceAbs(env, args[0])
 	if info, err := os.Stat(root); err != nil || !info.IsDir() {
 		return exit(2, "worktree-not-a-directory", "%s is not a directory", args[0])
 	}

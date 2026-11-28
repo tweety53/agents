@@ -313,7 +313,7 @@ func TestRecoverGuardIncident(t *testing.T) {
 		fx := &rgiFx{dir: dir, repo: dir, cwd: dir}
 		if !c.fresh {
 			fx.repo = dir + "/repo"
-			gdcCopyTree(t, tmpl, fx.repo)
+			guardtest.CopyTreeT(t, tmpl, fx.repo)
 		}
 		run := func() (guardtest.GuardResult, error) {
 			if c.setup != nil {

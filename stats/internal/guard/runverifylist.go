@@ -105,7 +105,7 @@
 // The list runs `flow-guard prepare-workspace <worktree>` itself before the
 // `begin` and gives every command the KEY=value lines it prints, a variable
 // the caller's environment already sets winning -- save in a worktree on a
-// named branch that names no change (pwChangeName), /flow-fast's and
+// named branch that names no change (ChangeName), /flow-fast's and
 // /flow-interactive's, which carries no workspace; a prepare-workspace that
 // exits non-zero prints its output and exits 2 before any command (kan-1099
 // self-review, F16).
@@ -352,6 +352,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -805,7 +806,7 @@ func rvlVisualVerifyFor(env core.Env, wt string, covered, full bool, change, can
 			if Registry["resolve-base-branch"]([]string{wt}, core.QuietReasons(env), &base, io.Discard) != 0 {
 				return nil, fmt.Errorf("no base branch")
 			}
-			ref := resolveRemoteBase(git, wt, strings.TrimSpace(base.String()))
+			ref := gitops.ResolveRemoteBase(git, wt, strings.TrimSpace(base.String()))
 			fmt.Fprintf(stdout, "- kickoff base: not recorded for %s — selecting from merge-base HEAD %s\n", wt, ref)
 			m, ok := core.Capture(git("-C", wt, "merge-base", "HEAD", ref))
 			if !ok {
@@ -1233,7 +1234,7 @@ func runVerifyList(args []string, env core.Env, stdout, stderr io.Writer) int {
 	// change -- /flow-fast's and /flow-interactive's `<name>` -- carries no
 	// workspace, and prepare-workspace would refuse it.
 	branch, _ := core.Capture(core.EnvGit(env)("-C", abs(wt), "symbolic-ref", "--quiet", "--short", "HEAD"))
-	if _, change := pwChangeName(strings.TrimSpace(branch)); change || strings.TrimSpace(branch) == "" {
+	if _, change := gitops.ChangeName(strings.TrimSpace(branch)); change || strings.TrimSpace(branch) == "" {
 		prep := core.RunSibling(env, "prepare-workspace", abs(wt))
 		prep.Env, prep.Stderr = childEnv, stderr
 		prepOut, prepErr := prep.Output()

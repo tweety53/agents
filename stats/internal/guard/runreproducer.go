@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 )
 
 // flow-guard run-reproducer — run a reviewer's command against a worktree
@@ -69,11 +70,11 @@ func runReproducer(args []string, env core.Env, stdout, stderr io.Writer) int {
 	defer os.RemoveAll(tmp)
 	cp := filepath.Join(tmp, filepath.Base(wt))
 	defer func() {
-		if err := twRemove(env, wt, cp, false); err != nil {
+		if err := gitops.RemoveThrowaway(env, wt, cp, false); err != nil {
 			fmt.Fprintf(stderr, "run-reproducer: warning: the copy %s was not removed: %v\n", cp, err)
 		}
 	}()
-	if err := twCreate(env, wt, cp, true); err != nil {
+	if err := gitops.CreateThrowaway(env, wt, cp, true); err != nil {
 		return fail("copy-failed", "cannot copy "+wt+": "+err.Error())
 	}
 

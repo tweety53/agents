@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 )
 
 // The contract below moved here from the header of the deleted
@@ -566,7 +567,7 @@ var foldedGuards = map[string]core.Func{
 	"check-visual-preflight":    checkVisualPreflight,
 	"check-visual-verification": checkVisualVerification,
 	"check-sidecar-reach":       checkSidecarReach,
-	"check-base-moved":          checkBaseMoved,
+	"check-base-moved":          gitops.CheckBaseMoved,
 }
 
 // guard runs a registered guard in process: its exit, stdout and stderr.

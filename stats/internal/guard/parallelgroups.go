@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 )
 
 // flow-guard parallel-groups — which implementer groups of skills/flow/implement.md's **4. Execute**
@@ -235,7 +236,7 @@ func pgMerge(env core.Env, wt string, copies []string, stdout, stderr io.Writer)
 				fmt.Fprintf(stdout, "PICKED: %s %s\n", picks[i], n)
 			}
 		}
-		if err := twRemove(env, wt, cp, true); err != nil {
+		if err := gitops.RemoveThrowaway(env, wt, cp, true); err != nil {
 			return pgFail(env, stderr, "remove-failed", "%s merged but not removed: %v", cp, err)
 		}
 	}

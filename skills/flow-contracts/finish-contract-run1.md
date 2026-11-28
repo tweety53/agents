@@ -96,7 +96,7 @@ that greps for `CLEAR` in empty output finds nothing.
 
 **The base-moved verdict is the preflight's second line, not a call of its own.** After a `RUN1`
 the preflight prints the base-moved `CLEAR`, `MOVED` or `REFUSE` line for the same worktree,
-the three verdicts and the exit contract being the header's of `stats/internal/guard/basemoved.go`
+the three verdicts and the exit contract being the header's of `stats/internal/guard/gitops/basemoved.go`
 rather than a copy of them here; `<base-ref>` is composed as `origin/$BASE`, exactly as
 above, and `<recorded-merge-base>` is the merge base recorded in the state file's `worktrees` map
 for that worktree. A `MOVED` verdict is relayed with the guard's hand-verification procedure

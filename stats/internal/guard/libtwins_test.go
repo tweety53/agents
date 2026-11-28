@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
@@ -23,27 +24,21 @@ import (
 // the callers set -euo pipefail, and a command substitution does not inherit
 // errexit.
 
-// libRes is one call's observable result, bash or Go.
-type libRes struct {
-	stdout, stderr string
-	status         int
-}
-
 // bashLib sources scripts/lib/<lib> and runs fn with args in the test
 // process's own working directory, the one the Go twin resolves against.
-func bashLib(t *testing.T, lib, fn string, args ...string) libRes {
+func bashLib(t *testing.T, lib, fn string, args ...string) guardtest.LibRes {
 	t.Helper()
 	return bashLibEnv(t, nil, lib, fn, args...)
 }
 
 // bashLibEnv is bashLib with env appended to the process environment.
-func bashLibEnv(t *testing.T, env []string, lib, fn string, args ...string) libRes {
+func bashLibEnv(t *testing.T, env []string, lib, fn string, args ...string) guardtest.LibRes {
 	t.Helper()
 	return bashLibIO(t, env, nil, lib, fn, args...)
 }
 
 // bashLibIO is bashLibEnv with stdin fed to fn (nil: no stdin).
-func bashLibIO(t *testing.T, env []string, stdin io.Reader, lib, fn string, args ...string) libRes {
+func bashLibIO(t *testing.T, env []string, stdin io.Reader, lib, fn string, args ...string) guardtest.LibRes {
 	t.Helper()
 	return bashRun(t, env, stdin, "../../../scripts/lib/"+lib, fn, args...)
 }
@@ -69,7 +64,7 @@ func visualLibAt(t *testing.T, lib string) string {
 
 // bashLibAt is bashLibEnv for deleted libs: it writes each of libs, as it
 // stood at libTwinBase, into a temp dir of its own and sources the first.
-func bashLibAt(t *testing.T, env []string, libs []string, fn string, args ...string) libRes {
+func bashLibAt(t *testing.T, env []string, libs []string, fn string, args ...string) guardtest.LibRes {
 	t.Helper()
 	dir := t.TempDir()
 	for _, lib := range libs {
@@ -78,7 +73,7 @@ func bashLibAt(t *testing.T, env []string, libs []string, fn string, args ...str
 	return bashRun(t, env, nil, filepath.Join(dir, libs[0]), fn, args...)
 }
 
-func bashRun(t *testing.T, env []string, stdin io.Reader, path, fn string, args ...string) libRes {
+func bashRun(t *testing.T, env []string, stdin io.Reader, path, fn string, args ...string) guardtest.LibRes {
 	t.Helper()
 	cmd := exec.Command("bash", append([]string{"-c",
 		`set -uo pipefail; . "$1" || exit 99; shift; "$@"`, "_", path, fn}, args...)...)
@@ -96,10 +91,10 @@ func bashRun(t *testing.T, env []string, stdin io.Reader, path, fn string, args 
 		}
 		status = ee.ExitCode()
 	}
-	return libRes{out.String(), errb.String(), status}
+	return guardtest.LibRes{Stdout: out.String(), Stderr: errb.String(), Status: status}
 }
 
-func assertParity(t *testing.T, goRes, bashRes libRes) {
+func assertParity(t *testing.T, goRes, bashRes guardtest.LibRes) {
 	t.Helper()
 	if goRes != bashRes {
 		t.Errorf("Go twin differs from the bash library\n  go: %#v\nbash: %#v", goRes, bashRes)
@@ -182,11 +177,11 @@ func TestResolveFileParity(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			var got libRes
+			var got guardtest.LibRes
 			if p, ok := core.ResolveFile(tc.in); ok {
-				got.stdout = p + "\n"
+				got.Stdout = p + "\n"
 			} else {
-				got.status = 1
+				got.Status = 1
 			}
 			assertParity(t, got, bashRun(t, nil, nil, lib, "resolve_file", tc.in))
 		})
@@ -221,22 +216,22 @@ func TestProjectSectionParity(t *testing.T) {
 		guardtest.WriteFile(t, file, tc.body)
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			var got libRes
+			var got guardtest.LibRes
 			if s := core.ProjectSection(file, tc.key); s != "" {
-				got.stdout = s + "\n"
+				got.Stdout = s + "\n"
 			}
 			assertParity(t, got, bashLibAt(t, nil, []string{"project-section.sh", "strip-bom.sh"}, "project_section", file, tc.key))
 		})
 	}
 }
 
-// TestGitExecSignalStatus pins gitExec's status for a git killed by a signal
+// TestGitExecSignalStatus pins Exec's status for a git killed by a signal
 // at bash's 128+n, where a raw ExitCode() of -1 would exit 255,
 // outside a guard's 0/2/3/4 contract. The alias's shell SIGTERMs its
-// parent, the git gitExec started.
+// parent, the git Exec started.
 func TestGitExecSignalStatus(t *testing.T) {
 	t.Parallel()
-	_, rc := gitExec(t.TempDir(), nil, io.Discard, "-c", "alias.die=!kill -TERM $PPID", "die")
+	_, rc := gitops.Exec(t.TempDir(), nil, io.Discard, "-c", "alias.die=!kill -TERM $PPID", "die")
 	if rc != 143 {
 		t.Fatalf("gitExec status for a SIGTERM'd git: got %d, want 143", rc)
 	}
@@ -312,14 +307,14 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			over := []string{"PATH=" + tc.path}
-			var got libRes
+			var got guardtest.LibRes
 			var errb strings.Builder
 			if p, ok := core.ResolveGit(guardtest.EnvWith(t, over), "prog", &errb); ok {
-				got.stdout = p + "\n"
+				got.Stdout = p + "\n"
 			} else {
-				got.status = 2
+				got.Status = 2
 			}
-			got.stderr = errb.String()
+			got.Stderr = errb.String()
 			assertParity(t, got, bashLibAt(t, over, []string{"panel-touched-paths.sh"}, "panel_resolve_git", "prog"))
 		})
 	}
@@ -337,15 +332,15 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			var got libRes
+			var got guardtest.LibRes
 			var errb strings.Builder
 			if !panelValidateWorktree(guardtest.EnvWith(t, nil), "prog", tc.wt, tc.mb, guardtest.FixtureGit, &errb) {
-				got.status = 2
+				got.Status = 2
 			}
-			got.stderr = errb.String()
+			got.Stderr = errb.String()
 			want := bashLibAt(t, nil, []string{"panel-touched-paths.sh"}, "panel_validate_worktree", "prog", tc.wt, tc.mb, guardtest.FixtureGit)
 			// The usage line names the guard as it runs now, not the deleted shim.
-			want.stderr = strings.Replace(want.stderr, "usage: prog.sh ", "usage: flow-guard prog ", 1)
+			want.Stderr = strings.Replace(want.Stderr, "usage: prog.sh ", "usage: flow-guard prog ", 1)
 			assertParity(t, got, want)
 		})
 	}
@@ -365,16 +360,16 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			var got libRes
+			var got guardtest.LibRes
 			var errb strings.Builder
 			paths, ok := panelTouchedPaths(guardtest.EnvWith(t, tc.over), "prog", tc.wt, tc.mb, tc.git, &errb)
 			for _, p := range paths {
-				got.stdout += p + "\n"
+				got.Stdout += p + "\n"
 			}
 			if !ok {
-				got.status = 2
+				got.Status = 2
 			}
-			got.stderr = errb.String()
+			got.Stderr = errb.String()
 			assertParity(t, got, bashLibAt(t, tc.over, []string{"panel-touched-paths.sh"}, "panel_touched_paths", "prog", tc.wt, tc.mb, tc.git))
 		})
 	}
@@ -405,12 +400,12 @@ func TestStripBOMParity(t *testing.T) {
 			if err != nil {
 				// The twin takes bytes; a missing file is its caller's read
 				// error. The bash prints nothing on stdout and fails.
-				if bashRes.stdout != "" || bashRes.status == 0 {
-					t.Errorf("missing file: bash printed %q, status %d", bashRes.stdout, bashRes.status)
+				if bashRes.Stdout != "" || bashRes.Status == 0 {
+					t.Errorf("missing file: bash printed %q, status %d", bashRes.Stdout, bashRes.Status)
 				}
 				return
 			}
-			assertParity(t, libRes{stdout: string(stripBOM(b))}, bashRes)
+			assertParity(t, guardtest.LibRes{Stdout: string(stripBOM(b))}, bashRes)
 		})
 	}
 }
@@ -440,7 +435,7 @@ func TestSanitizeDisplayParity(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			bashRes := bashRun(t, nil, strings.NewReader(in+"\n"), lib, "sanitize_display")
-			assertParity(t, libRes{stdout: sanitizeDisplay(in + "\n")}, bashRes)
+			assertParity(t, guardtest.LibRes{Stdout: sanitizeDisplay(in + "\n")}, bashRes)
 		})
 	}
 }
@@ -508,7 +503,7 @@ func TestVisualTableCellsParity(t *testing.T) {
 			if err != nil {
 				t.Fatalf("awk: %v", err)
 			}
-			assertParity(t, libRes{stdout: vtGoDriver(line)}, libRes{stdout: string(out)})
+			assertParity(t, guardtest.LibRes{Stdout: vtGoDriver(line)}, guardtest.LibRes{Stdout: string(out)})
 		})
 	}
 }

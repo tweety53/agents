@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 )
 
 // The contract below moved here from the header of the deleted
@@ -183,7 +184,7 @@ func writePanelDiff(args []string, env core.Env, stdout, stderr io.Writer) int {
 // exclude` fence matches -- `-- . ':(glob,exclude)<glob>'...` -- or nil when
 // the worktree declares none.
 func wpdExcludes(wt string) []string {
-	globs := kwFenced(core.ProjectSection(filepath.Join(wt, ".flow", "project.md"), "panel diff exclude"))
+	globs := gitops.Fenced(core.ProjectSection(filepath.Join(wt, ".flow", "project.md"), "panel diff exclude"))
 	if len(globs) == 0 {
 		return nil
 	}

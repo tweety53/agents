@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 )
 
 // flow-guard render-frames — render the design repository's tagged frames a
@@ -102,7 +103,7 @@ func renderFrames(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
 		return refuse("usage", "usage: flow-guard render-frames <project root> <file>...")
 	}
-	root := wiAbs(env, args[0])
+	root := gitops.WorkspaceAbs(env, args[0])
 	cfg, _ := os.ReadFile(filepath.Join(root, ".flow", "project.md"))
 	cells := vvCells(string(cfg))
 	clone, remote, ok := designRepoRow(root, cells)
@@ -131,7 +132,7 @@ func renderFrames(args []string, env core.Env, stdout, stderr io.Writer) int {
 		}
 	}
 	for _, file := range args[1:] {
-		data, err := os.ReadFile(wiAbs(env, file))
+		data, err := os.ReadFile(gitops.WorkspaceAbs(env, file))
 		if err != nil {
 			return refuse("cannot-read", "cannot read %s: %v", file, err)
 		}

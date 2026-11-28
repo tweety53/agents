@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 	"github.com/tweety53/agents/stats/internal/guard/guardtest"
 )
 
@@ -181,7 +182,7 @@ func TestParallelGroupsMerge(t *testing.T) {
 func TestChangeWorktreesFindsGroupCopies(t *testing.T) {
 	t.Parallel()
 	porcelain := "worktree /w/demo\nbranch refs/heads/spectre/demo\n\nworktree /w/demo-group-2\nbranch refs/heads/flow-copy/demo-group-2\n\n"
-	if _, copies := changeWorktrees([]byte(porcelain), "demo"); !slices.Equal(copies, []string{"/w/demo-group-2"}) {
+	if _, copies := gitops.ChangeWorktrees([]byte(porcelain), "demo"); !slices.Equal(copies, []string{"/w/demo-group-2"}) {
 		t.Errorf("copies %v, want the group copy", copies)
 	}
 }

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 )
 
 // The contract below moved here from the header of the deleted
@@ -139,7 +140,7 @@ func checkVisualPreflight(args []string, env core.Env, stdout, stderr io.Writer)
 		return 2
 	}
 	wt := args[0]
-	wtAbs := wiAbs(env, wt)
+	wtAbs := gitops.WorkspaceAbs(env, wt)
 	if !core.IsDir(wtAbs) {
 		return refuse("not-a-directory", "%s is not a directory — cannot check the workspace", wt)
 	}
@@ -175,7 +176,7 @@ func checkVisualPreflight(args []string, env core.Env, stdout, stderr io.Writer)
 				continue
 			}
 			k, v, ok := strings.Cut(line, "=")
-			if !ok || !wiVariable.MatchString(k) {
+			if !ok || !gitops.IsolationVariable.MatchString(k) {
 				return refuse("bad-stdin-line", "stdin line %q is not KEY=value — pipe flow-guard prepare-workspace's output in", line)
 			}
 			exported[k] = v
@@ -401,14 +402,14 @@ func checkVisualPreflight(args []string, env core.Env, stdout, stderr io.Writer)
 }
 
 // vpRows is the `## workspace isolation` resource rows, each paired with its
-// exported value, parsed by wiValidate. A
+// exported value, parsed by ValidateIsolation. A
 // non-empty message is a reason this guard cannot answer.
 func vpRows(cfg string, body []byte, exported map[string]string) ([]vpRow, string) {
 	recs := core.Lines(body)
 	count := 0
 	for i := range recs {
 		recs[i], _, _ = strings.Cut(recs[i], "\x00")
-		if ccHeading.MatchString(core.ASCIILower(recs[i])) {
+		if gitops.CleanupHeading.MatchString(core.ASCIILower(recs[i])) {
 			count++
 		}
 	}
@@ -418,13 +419,13 @@ func vpRows(cfg string, body []byte, exported map[string]string) ([]vpRow, strin
 	if count > 1 {
 		return nil, cfg + " declares more than one `## workspace isolation` section — run flow-guard prepare-workspace <worktree>"
 	}
-	p := wiValidate(cfg, recs, wiSpace(false), false, true)
-	if len(p.viol) > 0 {
+	p := gitops.ValidateIsolation(cfg, recs, gitops.IsolationSpace(false), false, true)
+	if len(p.Viol) > 0 {
 		return nil, cfg + "'s `## workspace isolation` section is invalid — run flow-guard prepare-workspace <worktree>"
 	}
 	var rows []vpRow
-	for _, l := range p.rows {
-		r := vpRow{res: strings.ToLower(l.res), variable: l.variable, def: l.def}
+	for _, l := range p.Rows {
+		r := vpRow{res: strings.ToLower(l.Res), variable: l.Variable, def: l.Def}
 		if r.res == "cache index" {
 			continue // prepare-workspace.sh exports nothing for it
 		}

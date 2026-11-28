@@ -2354,7 +2354,7 @@ func TestRunVerifyListAppliesPrepareWorkspace(t *testing.T) {
 	t.Parallel()
 	iso := func(res string) string {
 		return "## workspace isolation\n\n| Resource | Variable | Default | In a workspace |\n|----------|----------|---------|----------------|\n" +
-			"| `" + res + "` | `FRONTEND_URL` | `http://localhost:3000` | `http://localhost:4290` |\n" + pwCommands +
+			"| `" + res + "` | `FRONTEND_URL` | `http://localhost:3000` | `http://localhost:4290` |\n" + guardtest.ProjectCommands +
 			"\n## lint\n\n```bash\ntouch ran\nprintf '%s\\n' \"$FRONTEND_URL\" > out.txt\n```\n"
 	}
 	run := func(wt string, extra ...string) (int, string) {
@@ -2372,20 +2372,20 @@ func TestRunVerifyListAppliesPrepareWorkspace(t *testing.T) {
 		b, _ := os.ReadFile(filepath.Join(wt, "out.txt"))
 		return rc, strings.TrimSpace(string(b)) + "\n" + o.String() + e.String()
 	}
-	wt := pwRepo(t, "demo", iso("url"))
+	wt := guardtest.ProjectRepo(t, "demo", iso("url"))
 	if _, out := run(wt); !strings.HasPrefix(out, "http://localhost:4290\n") {
 		t.Errorf("unset: out.txt not the workspace value:\n%s", out)
 	}
 	if _, out := run(wt, "FRONTEND_URL=mine"); !strings.HasPrefix(out, "mine\n") {
 		t.Errorf("caller's value: out.txt not mine:\n%s", out)
 	}
-	bad := pwRepo(t, "demo", iso("widget"))
+	bad := guardtest.ProjectRepo(t, "demo", iso("widget"))
 	if rc, out := run(bad); rc != 2 || strings.Contains(out, "`touch ran`") {
 		t.Errorf("failing prepare-workspace: exit %d, a command ran:\n%s", rc, out)
 	}
 	// A /flow-fast or /flow-interactive worktree is on `<name>`, carries no
 	// workspace, and ran the list before f16: it still does, with no value.
-	fast := pwRepo(t, "demo", iso("url"))
+	fast := guardtest.ProjectRepo(t, "demo", iso("url"))
 	guardtest.GitRun(t, fast, "checkout", "-q", "-b", "kan-1-demo")
 	if rc, out := run(fast); rc != 0 || !strings.HasPrefix(out, "\n") || !strings.Contains(out, "`touch ran`") {
 		t.Errorf("a worktree on a bare <name> branch: exit %d, want 0, the list run and no workspace value:\n%s", rc, out)

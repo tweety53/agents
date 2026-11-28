@@ -51,7 +51,7 @@ import (
 //	   spells a deleted shim tells its caller to run a file that does not
 //	   exist. Comments are not scanned — a literal is what reaches a caller.
 //	C. Every `check-*` guard.Registry entry has its Go test,
-//	   stats/internal/guard/<name, - replaced by _>_test.go (kan-387, moved
+//	   stats/internal/guard/[<package>/]<name, - replaced by _>_test.go (kan-387, moved
 //	   here from the deleted run-guard-tests): a guard with no test is a
 //	   check nothing proves bites, a convention review-panel judgment alone
 //	   never held. The finding names the guard and the missing file. A root
@@ -233,8 +233,8 @@ func gcGoFile(out io.Writer, root, p string) (int, error) {
 }
 
 // gcCompanions is rule C over names: one finding per check-* name with no
-// stats/internal/guard/<name, - as _>_test.go under root. It returns the
-// finding count.
+// stats/internal/guard/<name, - as _>_test.go under root, nor in one of
+// guard's subpackages. It returns the finding count.
 func gcCompanions(out io.Writer, root string, names []string) int {
 	slices.Sort(names)
 	n := 0
@@ -242,8 +242,9 @@ func gcCompanions(out io.Writer, root string, names []string) int {
 		if !strings.HasPrefix(name, "check-") {
 			continue
 		}
-		test := "stats/internal/guard/" + strings.ReplaceAll(name, "-", "_") + "_test.go"
-		if !core.IsFile(filepath.Join(root, test)) {
+		base := strings.ReplaceAll(name, "-", "_") + "_test.go"
+		test := "stats/internal/guard/" + base
+		if sub, _ := filepath.Glob(filepath.Join(root, "stats/internal/guard/*", base)); !core.IsFile(filepath.Join(root, test)) && len(sub) == 0 {
 			fmt.Fprintf(out, "%s:0: guard %s has no Go test — add it beside the guard (rule C)\n", test, name)
 			n++
 		}

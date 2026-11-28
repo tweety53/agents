@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -334,7 +335,7 @@ func (v *vvp) preflight(survivors []string) error {
 			root := v.captureRoot(w)
 			targets := []string{root}
 			if cmd := v.specsCommand(w); cmd != "" {
-				rc, out := kwStdout(v.env, root, "sh", "-c", cmd)
+				rc, out := gitops.Stdout(v.env, root, "sh", "-c", cmd)
 				if rc != 0 {
 					collect("specs", "", cmd+" exited "+fmt.Sprint(rc)+": "+out)
 					continue

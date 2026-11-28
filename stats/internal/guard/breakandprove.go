@@ -19,6 +19,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
 )
 
 // The contract below moved here from the header of the deleted
@@ -80,7 +81,7 @@ import (
 //      the sed expression fails or changes nothing — OR post-restore drift:
 //      the tree no longer matches its pre-mutation snapshot (a new stash
 //      entry or an unexpected status line, each named in the report, per
-//      stats/internal/guard/postmutationcheck.go).
+//      stats/internal/guard/gitops/postmutationcheck.go).
 //   3  could not restore — <file> is not byte-identical to its pre-mutation
 //      snapshot after the restore; the file may still be mutated. Takes
 //      precedence over exit 2 when drift also fired.
@@ -184,7 +185,7 @@ func breakAndProve(args []string, env core.Env, stdout, stderr io.Writer) int {
 
 	// Step 1: resolve the repository root; the clean command, the test
 	// command and every git call below run from it.
-	top, rc := gitExec(origPwd, nil, io.Discard, "rev-parse", "--show-toplevel")
+	top, rc := gitops.Exec(origPwd, nil, io.Discard, "rev-parse", "--show-toplevel")
 	if rc != 0 {
 		return cannotAnswer("not-inside-a-git-worktree", "not inside a git worktree: "+origPwd)
 	}
@@ -217,7 +218,7 @@ func breakAndProve(args []string, env core.Env, stdout, stderr io.Writer) int {
 		// exactly that file, so a patch reaching further is refused rather
 		// than silently narrowed. The touched file is numstat's third column
 		// (cut -f3: a line without a tab is kept whole).
-		numstat, _ := gitExec(root, nil, stderr, "apply", "--numstat", patch)
+		numstat, _ := gitops.Exec(root, nil, stderr, "apply", "--numstat", patch)
 		count, touched := 0, ""
 		for _, line := range strings.Split(numstat, "\n") {
 			if line == "" {
@@ -262,7 +263,7 @@ func breakAndProve(args []string, env core.Env, stdout, stderr io.Writer) int {
 	// Step 7: snapshot the tree the mutation starts from — status and stash
 	// list — so the exit path can tell post-restore residue from the state
 	// the run actually left.
-	tree, rc := snapshotTreeState(root, stderr)
+	tree, rc := gitops.SnapshotTreeState(root, stderr)
 	if rc != 0 {
 		core.Reason(env, "snapshot-failed")
 		return rc
@@ -549,7 +550,7 @@ func (r *bpRun) exit(rc int) int {
 		} else if !r.restored {
 			fmt.Fprintf(r.stdout, "break-and-prove: %s restored byte-exact (restored by the exit trap)\n", r.fileArg)
 		}
-		if drift, _ := checkTreeRestored(r.root, r.tree, r.stderr); len(drift) > 0 {
+		if drift, _ := gitops.CheckTreeRestored(r.root, r.tree, r.stderr); len(drift) > 0 {
 			fmt.Fprintln(r.stderr, "break-and-prove: post-restore drift detected:")
 			for _, d := range drift {
 				fmt.Fprintln(r.stderr, d)
