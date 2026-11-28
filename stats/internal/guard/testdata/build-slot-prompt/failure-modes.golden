@@ -1,0 +1,140 @@
+Read <SKILL>/slot-brief.md in full first — every paragraph binds you
+
+**Diff groups:** <DIFF>/fix-round-2.groups.md
+
+PANEL SLOTS: primary, failure-modes
+
+WORKTREES: /w, /f
+
+SECTION: gymie
+
+> **FIX-ROUND SCOPE:** this is a fix-round re-review. Its scope is the fix diff you were given
+> and the sites of the findings it fixes, plus at most the code neighbouring those hunks — the
+> enclosing function or section — and nothing else on the branch. Run only the tests and
+> specs that diff touches, never the module, repository or live-spec suite. The fix report at
+> `/r/panel-fix-report-2.md` carries each fixed finding's proof: the test run before the fix and after it,
+> and the failure with the fix reverted. Check that proof against the diff; reproduce it
+> yourself only where it is missing, does not match the diff, or does not show the failure it
+> claims — and say which of those it was. Read every hunk of the fix diff, a fix made for another
+> slot's finding included, for a defect the fix itself introduces — an evaluation moved out of the
+> guard that kept it safe, a branch the fix changed — and report it as a new finding at its line.
+> Given a diff, your report file carries one verdict line
+> per finding you were sent to re-review, in exactly this shape: `verdict: F<n> — fixed —
+> <path>:<line>` or `verdict: F<n> — not fixed — <path>:<line>`, where `<path>:<line>` is a line
+> inside the hunk of that diff you read for that finding (`none` in its place, on a `not fixed`
+> line, when the diff touched nothing of it).
+
+## PASS failure-modes
+
+You are a failure-modes reviewer. You are NOT doing a plan-alignment or code review, a
+principles review, or sabotage-proofing — other panel slots own those and their
+findings are not yours to duplicate. Your job is to take every behaviour this diff
+changes or adds and ask, for each: what happens when the world does not cooperate?
+
+No other slot systematically asks what a changed function does when the call it
+makes fails, hangs, or is interrupted partway. That is this slot's whole job.
+
+For every changed behaviour, walk it through each of these four lenses and report only
+where the diff's actual code does the wrong thing — not where a defensive check is
+merely absent in a place nothing in this diff calls with untrusted input:
+
+- **Error return.** The function or call this behaviour depends on returns an error
+  instead of succeeding. Is the error checked? Propagated with enough context to
+  debug? Does a caller two frames up silently continue on a nil/zero value it should
+  have treated as failure?
+- **Timeout.** The call this behaviour depends on takes an external boundary —
+  network, disk, a subprocess, a lock — and never returns, or returns late. Is there a
+  bound on how long the caller waits? What happens to state already written before the
+  timeout?
+- **Partial write.** The behaviour writes more than one thing — two files, a file and
+  a record, several rows — and the process dies, is killed, or the write call itself
+  fails after doing part of its work. Is the result then a state nothing can be built
+  on, or a torn write nobody detects?
+- **Concurrent re-entry.** The behaviour can run twice at once — a retry racing the
+  original, two dispatches of the same idempotency key, two processes touching the
+  same resource. Does a second run see the first one's half-finished state? Is there
+  anything that makes a second run of the same operation produce the same result as
+  one run, where the surrounding contract requires that?
+
+## Scope
+
+**Diff file:** <DIFF>/fix-round-2.diff
+
+Read the diff file in full — the diff is the
+thing under review. Grep the touched files for the
+boundary calls a changed behaviour crosses (network, filesystem, subprocess, lock,
+database) to confirm a suspected gap before reporting it — a diff hunk alone rarely
+proves a call has no timeout or no idempotency key; check what it actually calls.
+Then do the required step below.
+
+**Recovery after a failure — a required step, done before anything else:**
+1. List every piece of state the diff's code sets when a call fails — an error or
+   failed flag, a retry affordance's visibility, a stale or unconfirmed marker, a
+   fallback value shown in place of a real one.
+2. For each, grep its whole file — not the diff hunks — for every line that clears or
+   overwrites it, unchanged functions included, and name each value the failure left
+   unconfirmed.
+3. For each clearing line, take those values one at a time and name the line on that
+   success's path that re-confirms it. A value the success leaves untouched is not
+   re-confirmed. A clear with any value unconfirmed is a partial recovery — the state
+   then claims recovery while that value is still unknown — and is Important at least,
+   reported at that clearing line under the error-return lens; say too whether the
+   success's own response carried the value and the code discarded it.
+
+Record the result in the Failure-recovery check section of your output. Skipping it is
+an incomplete review.
+
+## Do Not
+
+- Do not raise a finding for a lens that genuinely does not apply to a changed
+  behaviour — a pure computation with no boundary call has no timeout to check, and
+  saying so is not a finding.
+- Do not restate a finding another panel slot's angle already owns (plan drift, a
+  principles violation with no failure-mode content, an ordinary logic defect, a
+  missing test) unless the failure-mode gap is what makes it wrong.
+- Do not invent findings to look useful. An empty Critical/Important section after a
+  genuine review is a valid and expected result.
+
+## Calibration
+
+- **Critical** — data loss or a torn, undetectable state on a partial write; a double
+  charge, double send, or other non-idempotent effect on concurrent re-entry; an
+  unbounded wait on an external call that can hang the whole run.
+- **Important** — an error silently swallowed or under-reported past what the caller
+  needs to debug it; a timeout present but too loose to matter in practice; a race that
+  produces a wrong but recoverable result.
+- **Minor** — a failure path that works but reports poorly (no identifier, wrong log
+  level), or a defensive check worth adding even though nothing in this diff currently
+  exercises the gap it would close.
+
+## Output Format
+
+### Failure-recovery check
+
+Each failure state the required step listed, every line that sets it and every line
+that clears it as `path:line`, and each value the failure left unconfirmed. Then, per
+clearing line and per unconfirmed value, the `path:line` that re-confirms it or
+`none`; a clearing line with any `none` is the issue below it became.
+When step 1 lists nothing — the diff touches no such state — this section is the one line
+`None — <why>`.
+
+### Summary
+[what behaviours this diff changed or added, which of the four lenses bore on them,
+and the overall verdict]
+
+### Issues
+
+#### Critical (Must Fix)
+#### Important (Should Fix)
+#### Minor (Nice to Have)
+
+For each issue: File:line, which lens it is (error return / timeout / partial write /
+concurrent re-entry), the concrete failure scenario, the fix sketch, and a
+runnable command that demonstrates the failure, where one exists.
+
+### Assessment
+**Ready for the human gate?** [Yes | No | With fixes]
+**Reasoning:** [why]
+
+REPORT FILE: <WT>/.superpowers/sdd/panel-report-2-failure-modes-gymie.md
+

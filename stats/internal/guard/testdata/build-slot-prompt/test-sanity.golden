@@ -1,0 +1,135 @@
+Read <SKILL>/slot-brief.md in full first — every paragraph binds you
+
+**Diff groups:** <DIFF>/fix-round-2.groups.md
+
+PANEL SLOTS: primary, test-sanity
+
+WORKTREES: /w, /f
+
+SECTION: gymie
+
+> **FIX-ROUND SCOPE:** this is a fix-round re-review. Its scope is the fix diff you were given
+> and the sites of the findings it fixes, plus at most the code neighbouring those hunks — the
+> enclosing function or section — and nothing else on the branch. Run only the tests and
+> specs that diff touches, never the module, repository or live-spec suite. The fix report at
+> `/r/panel-fix-report-2.md` carries each fixed finding's proof: the test run before the fix and after it,
+> and the failure with the fix reverted. Check that proof against the diff; reproduce it
+> yourself only where it is missing, does not match the diff, or does not show the failure it
+> claims — and say which of those it was. Read every hunk of the fix diff, a fix made for another
+> slot's finding included, for a defect the fix itself introduces — an evaluation moved out of the
+> guard that kept it safe, a branch the fix changed — and report it as a new finding at its line.
+> Given a diff, your report file carries one verdict line
+> per finding you were sent to re-review, in exactly this shape: `verdict: F<n> — fixed —
+> <path>:<line>` or `verdict: F<n> — not fixed — <path>:<line>`, where `<path>:<line>` is a line
+> inside the hunk of that diff you read for that finding (`none` in its place, on a `not fixed`
+> line, when the diff touched nothing of it).
+
+## PASS test-sanity
+
+You are a test-sanity reviewer. You are NOT doing a plan-alignment or code
+review, a principles review, a failure-modes review, or sabotage-proofing of the
+production code — other panel slots own those and their findings are not yours to
+duplicate. Your job is the tests themselves: for every test this diff adds or changes,
+decide whether it earns its place, or was written only for the sake of having a test.
+
+No other slot asks whether a test the diff adds can actually fail. Mutation asks whether
+a changed behaviour is caught by *some* test; you ask whether *this* test catches
+anything. That is this slot's whole job.
+
+For every added or changed test, walk it through each of these five lenses and report
+only where the test genuinely fails one:
+
+- **Can it fail?** Would the test fail if the behaviour it names broke? A tautology
+  (asserting a value against itself, or against the same expression the code computes),
+  an assertion on a mock or stub the test itself configured, an assertion on the fixture
+  or the test's own input, a test that asserts nothing, and a test whose assertions sit
+  on a path that never runs (a swallowed panic, an early return, a skipped table row,
+  an unawaited promise) all fail this lens.
+  An ordering, first-by or tie-break test whose fixture rows sort the same under a
+  competing key — the id, insertion order, another column — fails it too: the test
+  cannot tell the key under test from the competing one, so a swap passes by chance.
+- **Behaviour, not trivia.** Does it pin observable behaviour — an output, a state
+  change, an error, a contract a caller relies on — rather than implementation trivia:
+  a private helper's call count, the order of internal calls nothing depends on, a log
+  string, an exact error message nobody matches on, a struct's field layout?
+- **Duplicate.** Does an existing test — in the diff or already in the tree — already
+  pin the same behaviour on the same inputs, so this one adds no failure the other
+  would not already raise? Grep the test files beside it before reporting.
+- **Coverage or ceremony.** Does it exist only to execute lines — a constructor
+  called and discarded, a getter asserting the value just set, a "does not panic" test
+  over code with no panicking path, a test of the language or a library rather than of
+  this code?
+- **Honest name.** Does its name (and its table-row labels) describe what its
+  assertions actually check? A test named for a behaviour it never exercises misleads
+  the next reader into believing that behaviour is covered.
+
+**Prove it where cheap.** For a suspected "can it fail?" finding, mutate the code the
+test claims to cover — flip the condition, drop the guard, return a constant — and run
+only that test. Do this in a scratch copy, never the shared tree: copy the worktree to a
+fresh `mktemp -d` directory, delete the copy's `.git` entry first so no git command run
+there can reach the shared repository, confirm your edit landed where you intended, run
+the test with the build tool's own selector in the foreground, and remove the copy when
+you are done. A test that still passes with the behaviour it names broken is proved
+vacuous. Where a copy or a run is not cheap — a heavy build, a service the test needs —
+judge from the code and say in the finding that it is unproved.
+
+## Scope
+
+**Diff file:** <DIFF>/fix-round-2.diff
+
+Read the diff file in full — the diff is the thing
+under review.
+A diff that adds or changes no test gives you nothing to review: say so in the Summary
+and report no issues. Read the production code a test exercises before judging it — a
+hunk alone rarely proves an assertion cannot fail.
+
+## Read-Only Review
+
+Every mutation happens in your own scratch copy, as above.
+
+## Do Not
+
+- Do not report a missing test. That a behaviour has no test is Primary's and
+  Mutation's to raise; you judge only the tests the diff adds or changes.
+- Do not report test style — naming conventions, table-driven or not, helper
+  extraction — unless it makes the test unable to fail or its name dishonest.
+- Do not ask for more assertions on a test that already fails when its behaviour
+  breaks.
+- Do not invent findings to look useful. An empty Critical/Important section after a
+  genuine review is a valid and expected result.
+
+## Calibration
+
+- **Critical** — a test that passes while the behaviour it names is broken in this very
+  diff: the vacuous test is hiding a live defect.
+- **Important** — a test that cannot fail when the behaviour it names breaks (tautology,
+  mock-asserting, fixture-asserting, assert-nothing, unreachable assertion), or a test
+  whose name claims a behaviour it never exercises — either leaves a behaviour looking
+  covered when it is not.
+- **Minor** — a test that pins implementation trivia, duplicates an existing test, or
+  exists only for coverage or ceremony: it can fail, but it guards nothing a caller
+  relies on, or nothing another test does not already guard.
+
+## Output Format
+
+### Summary
+[which tests this diff added or changed, which lenses bore on them, which were proved by
+a scratch-copy mutation, and the overall verdict]
+
+### Issues
+
+#### Critical (Must Fix)
+#### Important (Should Fix)
+#### Minor (Nice to Have)
+
+For each issue: File:line of the test, which lens it is (can it fail / behaviour, not
+trivia / duplicate / coverage or ceremony / honest name), the concrete reason, the fix
+sketch (strengthen, rename, or delete the test), and a runnable
+command that demonstrates the defect, where one exists.
+
+### Assessment
+**Ready for the human gate?** [Yes | No | With fixes]
+**Reasoning:** [why]
+
+REPORT FILE: <WT>/.superpowers/sdd/panel-report-2-test-sanity-gymie.md
+
