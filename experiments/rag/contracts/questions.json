@@ -93,7 +93,7 @@
   "question": "What is the default stance on how elaborate an implementation should be when nobody requested extra features?",
   "kind": "any",
   "file": "rules/build-the-simplest-thing.mdc",
-  "snippet": "**Complexity is opt-in.** Write the simplest implementation that satisfies what "
+  "snippet": "**Build the simplest reasonable thing.** Cheap, well-known good practice is part of the requirement"
  },
  {
   "question": "If the database was unreachable, how are the queued state writes replayed later and can they overwrite a finished change?",

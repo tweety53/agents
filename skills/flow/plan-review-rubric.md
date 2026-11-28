@@ -35,7 +35,8 @@ Of `proposal.md`, cost and timeline are not asked.
 - Does `proposal.md` say what is new in this change?
 - Does the change treat the root cause, or a symptom of it?
 - Is each part needed now (`rules/build-the-simplest-thing.mdc`)? A part built for a need the
-  artifacts do not state is a `finding`. A part that is needed but placed or built wrongly is
+  artifacts do not state is a `finding` — never the cheap good practice that rule makes part of
+  every requirement. A part that is needed but placed or built wrongly is
   **Design critic**'s.
 - Is each part placed at the right layer — the guard, contract, prompt or store that already
   owns that concern?

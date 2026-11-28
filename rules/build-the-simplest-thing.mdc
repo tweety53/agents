@@ -1,17 +1,16 @@
 ---
-description: Write the simplest implementation that satisfies what was actually asked for
+description: Build reasonable things, not spaceships - cheap good practice included, elaborate machinery not
 alwaysApply: true
 ---
 
-# Build the simplest thing that meets the requirement
+# Build reasonable things, not spaceships
 
 <!-- core -->
-**Complexity is opt-in.** Write the simplest implementation that satisfies what was actually asked
-for. If something more elaborate is wanted, the user will say so — until then the elaborate version
-is not the careful choice, it is the wrong one. Always on, every project and every subagent.
-
-Derive state rather than storing it. No abstraction until a second caller exists. No configurability
-nobody asked for. No speculative cases.
+**Build the simplest reasonable thing.** Cheap, well-known good practice is part of the requirement
+and is done without being asked: an index behind a query, a bounded read, paging in the database, no
+N+1, batched writes, a timeout on an outbound call, a reusable object built once. Elaborate machinery
+is not: speculative abstraction, configurability or cases nobody asked for wait until the user asks.
+Always on, every project and every subagent.
 
 **Correctness, security and stated requirements always win** — when the simple version genuinely
 won't do, say why in one sentence and build the one that works. If what you are building outgrows the
@@ -19,9 +18,10 @@ requirement mid-task, cut it back then rather than refactoring later.
 
 <!-- /core -->
 
-The test is the requirement, not a judgment about what might be needed later. A design handling cases
-nobody asked for isn't more robust — it's more code to read, more state to keep consistent, and more
-surface for a defect to hide in.
+The test for machinery is the requirement, not a judgment about what might be needed later. A design
+handling cases nobody asked for isn't more robust — it's more code to read, more state to keep
+consistent, and more surface for a defect to hide in. A comment naming a ceiling does not excuse
+skipping the cheap practice that removes it.
 
 ## The specific habits
 
@@ -39,6 +39,5 @@ surface for a defect to hide in.
 
 ## The limits
 
-**Correctness, security and stated requirements always win.** This governs the space where several
-correct designs exist and one is smaller — it is never licence to under-build or ignore a real
-constraint.
+This rule governs the space where several correct designs exist and one is smaller — it is never licence
+to under-build or ignore a real constraint.
