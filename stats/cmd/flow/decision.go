@@ -74,10 +74,12 @@ func runDecision(_ context.Context, args []string, stdout, stderr io.Writer) int
 type dDecision struct {
 	Groups []struct {
 		Tasks  []string `json:"tasks"`
+		Pair   string   `json:"pair"`
 		Reason string   `json:"reason"`
 	} `json:"groups"`
 	Panel []struct {
 		Slots  []string `json:"slots"`
+		Pair   string   `json:"pair"`
 		Reason string   `json:"reason"`
 	} `json:"panel"`
 	Visual *struct {
@@ -123,7 +125,7 @@ func parseDecision(body []byte) (dDecision, error) {
 }
 
 // renderDecision is the ## Decision block: one line per choice, each group
-// and bundle with its reason.
+// and bundle with its pair, when it carries one, and its reason.
 func renderDecision(body []byte) (string, error) {
 	d, err := parseDecision(body)
 	if err != nil {
@@ -136,10 +138,10 @@ func renderDecision(body []byte) (string, error) {
 	b.WriteString("## Decision\n\n")
 	var groups, panel []string
 	for _, g := range d.Groups {
-		groups = append(groups, strings.Join(g.Tasks, "+")+dReason(g.Reason))
+		groups = append(groups, strings.Join(g.Tasks, "+")+dPair(g.Pair)+dReason(g.Reason))
 	}
 	for _, p := range d.Panel {
-		panel = append(panel, strings.Join(p.Slots, "+")+dReason(p.Reason))
+		panel = append(panel, strings.Join(p.Slots, "+")+dPair(p.Pair)+dReason(p.Reason))
 	}
 	line("Groups", groups)
 	if len(panel) > 0 {
@@ -170,4 +172,12 @@ func dReason(r string) string {
 		return ""
 	}
 	return " (" + r + ")"
+}
+
+// dPair is " [<pair>]", or "" for none.
+func dPair(p string) string {
+	if p = strings.TrimSpace(p); p == "" {
+		return ""
+	}
+	return " [" + p + "]"
 }

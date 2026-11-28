@@ -40,12 +40,12 @@ func TestDecisionRenderGolden(t *testing.T) {
 	cases := []struct {
 		name, body, want string
 	}{
-		{"decider", `{"groups":[{"tasks":["1","2"],"reason":"2 builds on 1"},{"tasks":["3"],"reason":"independent"}],
-			"panel":[{"slots":["primary","principles"],"reason":"always"},{"slots":["mutation"],"reason":"new logic"}],
+		{"decider", `{"groups":[{"tasks":["1","2"],"pair":"opus/flow-low","reason":"2 builds on 1"},{"tasks":["3"],"reason":"independent"}],
+			"panel":[{"slots":["primary","principles"],"reason":"always"},{"slots":["mutation"],"pair":"sonnet/flow-medium","reason":"new logic"}],
 			"visual":{"verify":"skipped","reason":"no page changes"},"overrides":[]}`,
 			"## Decision\n\n" +
-				"- **Groups:** 1+2 (2 builds on 1) · 3 (independent)\n" +
-				"- **Panel:** primary+principles (always) · mutation (new logic)\n" +
+				"- **Groups:** 1+2 [opus/flow-low] (2 builds on 1) · 3 (independent)\n" +
+				"- **Panel:** primary+principles (always) · mutation [sonnet/flow-medium] (new logic)\n" +
 				"- **Visual verify:** skipped — no page changes\n"},
 		{"overrides and old keys", `{"class":"big","execution":"sdd","groups":[{"tasks":["1"],"bundles":[1],"reason":"one"}],
 			"panel":[{"slots":["primary"],"reason":"r"}],
