@@ -69,7 +69,7 @@ import (
 // `merge base now <sha>`: the caller's `<rebased-merge-base>` for that
 // worktree for the rest of the run.
 
-// CheckBaseMoved is check-base-moved, run in process (foldedGuards) and printed by flow-guard check-finish-preflight after a RUN1, never a subcommand of its own: the comment above is the contract -- one CLEAR/MOVED/REFUSE verdict line on stdout, exit 0
+// CheckBaseMoved is check-base-moved, run in process (FoldedGuards) and printed by flow-guard check-finish-preflight after a RUN1, never a subcommand of its own: the comment above is the contract -- one CLEAR/MOVED/REFUSE verdict line on stdout, exit 0
 // whenever a verdict was reached, exit 2 when the tree cannot be read. The
 // reasoning for each step, moved here from the bash body it replaced
 // (d71a2327), sits beside the code it explains.

@@ -84,7 +84,7 @@ mockup on the right, both at native size, and its ratio field carries this liter
 diff=n/a
 ```
 `flow-guard compose-mockup-frames`'s own header is canonical for its exit codes, the way this
-section already cites its validator, `stats/internal/guard/visualverification.go`, for its shape.
+section already cites its validator, `stats/internal/guard/visual/visualverification.go`, for its shape.
 
 **The full app suite.** One spec, `full-app-suite.spec.ts`, capturing every screen the app has —
 the whole-app regression suite, beside the per-change specs and reached by `verify` like them.
@@ -102,5 +102,5 @@ be, and a mismatch against its real `origin` is reported — but that is an iden
 authorisation, because `<project>/.flow/project.md` is tracked and editable in any pull request, and
 a file inside a repository cannot authorise a push to another repository.
 
-**Mechanically enforced** by `visual-verify-pass prepare`, which validates the section when visual verify starts (no longer a lint step) with `stats/internal/guard/visualverification.go`, canonical for the
+**Mechanically enforced** by `visual-verify-pass prepare`, which validates the section when visual verify starts (no longer a lint step) with `stats/internal/guard/visual/visualverification.go`, canonical for the
 section's exact shape and every violation it reports.

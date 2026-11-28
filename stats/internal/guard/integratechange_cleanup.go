@@ -21,7 +21,7 @@ func (c *ic) workspaceCommand(m, verb string) string {
 	get := c.sibling("project-get", m, "workspace isolation")
 	get.Stderr = nil
 	out, _ := c.capture(get)
-	for _, l := range icLines(out) {
+	for _, l := range core.ReadLines(out) {
 		f := strings.Split(l, "|")
 		if len(f) < 2 {
 			continue

@@ -31,7 +31,7 @@ func (c *ic) commit() error {
 			}
 			rb := icReadTrimmed(f)
 			ids, _ := c.git("-C", c.wt[o], "log", "--no-merges", "--format=%(trailers:key=Task-Id,valueonly)", rb+"..HEAD")
-			for _, id := range icLines(ids) {
+			for _, id := range core.ReadLines(ids) {
 				if t := "Task-Id: " + strings.TrimSpace(id); strings.TrimSpace(id) != "" && !slices.Contains(c.squashed[o], t) {
 					c.squashed[o] = append(c.squashed[o], t)
 				}

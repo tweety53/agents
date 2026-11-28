@@ -99,7 +99,7 @@ writes `<changeRoot>/visual-verification/`.
 **The prompt also carries the REPORT FORMAT paragraph**, `<agents repo>` resolved:
 
 > **REPORT FORMAT:** Before writing `## Report`, read the header of
-> `stats/internal/guard/verifyreport.go`, and run the `check:` line of your bundle (`close --check-only`) on
+> `stats/internal/guard/visual/verifyreport.go`, and run the `check:` line of your bundle (`close --check-only`) on
 > your report before handing back: an exit 1 names what you still owe — do it in this dispatch and
 > run it again. Hand back
 > an incomplete report only for a blocker you cannot cure, named; time, context and a departure
@@ -125,7 +125,7 @@ flow-guard visual-verify-pass close <canonical-worktree> <name> <key> <motions n
 `<motions named>` is the count of motions this dispatch's prompt named, `0` for `motions: none`.
 `close` runs the report check with `--design <changeRoot>/design.md` and, when `mockups` is
 declared, the frame-list check (`close --check-only` is those two alone); the headers of
-`stats/internal/guard/verifyreport.go` and `framelist.go` are canonical for the report's `steps:` line, its
+`stats/internal/guard/visual/verifyreport.go` and `framelist.go` are canonical for the report's `steps:` line, its
 admissible statuses and the frame list, and `close`'s header for its outcomes. Act on its closing line:
 
 - `NEXT: rest <key>` — **the report is incomplete and is never accepted, whatever its prose says**,
@@ -229,7 +229,7 @@ What `flow-guard visual-verify-pass prepare` runs before any other step of **Vis
 
 **The steps in the order they run.** A step's number is its id, not its position: the verifier's
 report names steps 4, 8–11 and `motion` on its `- steps:` line, which
-`stats/internal/guard/verifyreport.go` checks by number, and no step 7 is run (decision `verifier-runs-no-verify`).
+`stats/internal/guard/visual/verifyreport.go` checks by number, and no step 7 is run (decision `verifier-runs-no-verify`).
 
 | Order | Step | Run by | Stated in | Next |
 |---|---|---|---|---|
@@ -324,7 +324,7 @@ verifier reports on a `wire contract` line blocks as a defect in a captured scre
    each check's rule.
 
    Before them, once per stage, it runs the verify-green check on `<canonical-worktree> <name> <the stage's token>`
-   with the set's other worktrees after it; `stats/internal/guard/verifygreen.go`'s header is canonical for the verdict. Its exit 1 →
+   with the set's other worktrees after it; `stats/internal/guard/visual/verifygreen.go`'s header is canonical for the verdict. Its exit 1 →
    no verifier is dispatched: **Verify** has not closed green on this HEAD, so `prepare` ends the
    stage `stopped` with `STOP: verify-not-green`, the run returns to **Verify**, and visual
    verification starts again only once it has.

@@ -190,7 +190,7 @@ font size by eye from a resized or cropped image; measure it with
 and layout, never edges or centres — interpolation and a small viewport shift an edge by
 pixels and hide a gap outright. Every per-control comparison runs the tool on a crop around that one
 control and reads the JSON's `delta` block; its options, properties, output and exit codes are the
-header of `<agents repo>/stats/internal/guard/measurevisualproperties.go`, canonical.
+header of `<agents repo>/stats/internal/guard/visual/measurevisualproperties.go`, canonical.
 
 **Both halves are mandatory and neither substitutes for the other.** The
 script's numbers are the only admissible measurement — no ad-hoc PIL, no reading a coordinate

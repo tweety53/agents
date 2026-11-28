@@ -14,7 +14,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/tweety53/agents/stats/internal/caller"
 	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
@@ -37,21 +36,6 @@ import (
 
 func init() {
 	Registry["integrate-change"] = integrateChange
-}
-
-// guardExit is a guard's exit code, returned up to its entry point (the
-// integrate-change family's, visual-verify-pass's) once its lines are written
-// and its reason recorded: the bash's `exit` from inside any helper.
-type guardExit int
-
-func (e guardExit) Error() string { return fmt.Sprintf("exit %d", int(e)) }
-
-// guardCode is the exit code err carries: 0 for nil.
-func guardCode(err error) int {
-	if err == nil {
-		return 0
-	}
-	return int(err.(guardExit))
 }
 
 // ic is the bash's global state: its flags, the worktree set load_set
@@ -100,7 +84,7 @@ type ic struct {
 //	integrate-change.sh cleanup <main-checkout> <name>
 //
 // Every subcommand also takes --harness <harness> and --session-token
-// <literal token> (else envHarness and envToken: $FLOW_SESSION_TOKEN, else the calling
+// <literal token> (else EnvHarness and EnvToken: $FLOW_SESSION_TOKEN, else the calling
 // agent's token, internal/caller) for its stage
 // marks; a mark the store cannot take is a warning on stderr, never a stop.
 //
@@ -181,7 +165,7 @@ func integrateChange(args []string, env core.Env, stdout, stderr io.Writer) int 
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "integrate-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
 	c.childEnv = core.ChildEnv(env)
-	return guardCode(c.integrate(args))
+	return core.ExitCodeOf(c.integrate(args))
 }
 
 func (c *ic) integrate(args []string) error {
@@ -210,7 +194,7 @@ func (c *ic) integrate(args []string) error {
 func (c *ic) die(id, format string, a ...any) error {
 	core.Reason(c.env, id)
 	fmt.Fprintf(c.stderr, c.prog+": "+format+"\n", a...)
-	return guardExit(2)
+	return core.Exit(2)
 }
 
 func (c *ic) say(s string) { fmt.Fprintln(c.stdout, s) }
@@ -236,7 +220,7 @@ func (c *ic) parse(args []string) error {
 		return c.die("change-name-not-plain", "change name '%s' is not a plain change name", name)
 	}
 	c.name = name
-	c.harness, c.token = envHarness(c.env), envToken(c.env)
+	c.harness, c.token = core.EnvHarness(c.env), core.EnvToken(c.env)
 	rest := args[3:]
 	for i := 0; i < len(rest); i++ {
 		next := func() string {
@@ -465,7 +449,7 @@ func (c *ic) stopAs(id, kind, text string) error {
 	}
 	c.say("STOP: " + kind + " — " + text)
 	core.Reason(c.env, id)
-	return guardExit(1)
+	return core.Exit(1)
 }
 
 func (c *ic) flags() string { return "--harness " + c.harness + " --session-token " + c.token }
@@ -504,60 +488,6 @@ func (c *ic) mainOfGone(w string) (string, bool) {
 	return m, true
 }
 
-// icState is the record `flow state get` prints, its worktrees in the
-// record's own key order (jq's to_entries).
-type icState struct {
-	keys, values []string
-	prURL, jira  string
-}
-
-func icParseState(s string) icState {
-	var st icState
-	var top map[string]json.RawMessage
-	if json.Unmarshal([]byte(s), &top) != nil {
-		return st
-	}
-	var pr, jira any
-	_ = json.Unmarshal(top["prUrl"], &pr)
-	_ = json.Unmarshal(top["jiraIssue"], &jira)
-	st.prURL, st.jira = icJQText(pr), icJQText(jira)
-	dec := json.NewDecoder(bytes.NewReader(top["worktrees"]))
-	if t, err := dec.Token(); err != nil || t != json.Delim('{') {
-		return st
-	}
-	for dec.More() {
-		k, err := dec.Token()
-		if err != nil {
-			return st
-		}
-		var v any
-		if dec.Decode(&v) != nil {
-			return st
-		}
-		val := icJQText(v)
-		if v == nil || v == false {
-			val = "-" // `.value // "-"`: only null and false fall through
-		}
-		st.keys, st.values = append(st.keys, k.(string)), append(st.values, val)
-	}
-	return st
-}
-
-// icJQText is `jq -r '.x // empty'` of one value.
-func icJQText(v any) string {
-	switch x := v.(type) {
-	case nil, bool:
-		if x == true {
-			return "true"
-		}
-		return ""
-	case string:
-		return x
-	}
-	b, _ := json.Marshal(v)
-	return string(b)
-}
-
 // loadSet: the worktree set — wt[i] its path, mb[i] its recorded merge base
 // (- when none), repo[i] its main checkout (mainOfGone's for one already
 // gone, empty when that cannot be derived), mains the distinct main
@@ -567,12 +497,12 @@ func (c *ic) loadSet() error {
 	if rc != 0 {
 		return c.die("flow-state-get-failed", "flow state get %s failed", c.name)
 	}
-	st := icParseState(state)
-	c.prURLState, c.jiraKey = st.prURL, st.jira
+	st := core.ParseState(state)
+	c.prURLState, c.jiraKey = st.PrURL, st.Jira
 	c.wt, c.mb, c.repo, c.mains = nil, nil, nil, []string{c.main}
-	for i, k := range st.keys {
+	for i, k := range st.Keys {
 		if k != "" {
-			c.wt, c.mb = append(c.wt, k), append(c.mb, st.values[i])
+			c.wt, c.mb = append(c.wt, k), append(c.mb, st.Values[i])
 		}
 	}
 	if len(c.wt) == 0 {
@@ -645,7 +575,7 @@ func (c *ic) mergeOrder() {
 	b, err := os.ReadFile(c.canon + "/" + c.spec + "/changes/" + c.name + "/link.md")
 	if err == nil {
 		on := false
-		for _, l := range icLines(string(b)) {
+		for _, l := range core.ReadLines(string(b)) {
 			if strings.HasPrefix(l, "## ") {
 				on = l == "## Merge order"
 			}
@@ -694,7 +624,7 @@ func icPeer(peers, item string) string {
 	if err != nil {
 		return ""
 	}
-	for _, l := range icLines(string(b)) {
+	for _, l := range core.ReadLines(string(b)) {
 		if f := strings.Fields(l); len(f) > 0 && f[0] == item {
 			if len(f) > 1 {
 				return f[1]
@@ -703,14 +633,6 @@ func icPeer(peers, item string) string {
 		}
 	}
 	return ""
-}
-
-// icLines splits text into lines as `read` sees them.
-func icLines(s string) []string {
-	if s == "" {
-		return nil
-	}
-	return strings.Split(strings.TrimSuffix(s, "\n"), "\n")
 }
 
 // baseOf: c.base the worktree's base branch, resolve-base-branch.sh's
@@ -732,7 +654,7 @@ func (c *ic) baseOf(i int) error {
 // commit, already reshaped), else mb.
 func (c *ic) reshapeBase(w, mb string) string {
 	log, _ := c.git("-C", w, "log", "--format=%H %(trailers:key=Flow-Key,valueonly,separator=%x20)", mb+"..HEAD")
-	for _, l := range icLines(log) {
+	for _, l := range core.ReadLines(log) {
 		h, keys, _ := strings.Cut(l, " ")
 		if slices.Contains(strings.Fields(keys), "flow.commit-two") {
 			return h
@@ -746,8 +668,6 @@ func (c *ic) reshapeFile(w string) string {
 	return f
 }
 
-var icExportable = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
-
 // implPaths: the paths commitTwo would put in the implementation commit
 // after a reshape to <rev> — every change against <rev>, committed, staged,
 // unstaged or untracked, outside the change's own <spec>/changes/<name>/ and
@@ -759,7 +679,7 @@ func (c *ic) implPaths(w, rev string) []string {
 	diff, _ := c.capture(c.cmd("/", "git", "-C", w, "diff", "--no-renames", "--name-only", rev))
 	others, _ := c.capture(c.cmd("/", "git", "-C", w, "ls-files", "--others", "--exclude-standard"))
 	var out []string
-	for _, l := range append(icLines(diff), icLines(others)...) {
+	for _, l := range append(core.ReadLines(diff), core.ReadLines(others)...) {
 		dir, _, _ := strings.Cut(strings.TrimPrefix(l, p), "/")
 		// A fix folder counts only while the worktree holds it, as in
 		// commitTwo, which lists it from disk.
@@ -853,9 +773,9 @@ func (c *ic) rebaseLint(w, prefix string) error {
 	}
 	cmd := c.sibling("run-verify-list", w, "lint")
 	cmd.Env = append([]string{}, c.childEnv...)
-	for _, kv := range icLines(out) {
+	for _, kv := range core.ReadLines(out) {
 		// `export "$kv"` refused a name that is no identifier.
-		if icExportable.MatchString(kv) {
+		if core.Exportable.MatchString(kv) {
 			cmd.Env = append(cmd.Env, kv)
 		}
 	}
@@ -888,26 +808,4 @@ func (c *ic) pushBranch(w string) error {
 func isFixOf(dir, name string) bool {
 	n, ok := strings.CutPrefix(dir, name+"-fix-")
 	return ok && n != "" && strings.Trim(n, "0123456789") == ""
-}
-
-// envHarness is the harness a guard's own stage marks name when its caller
-// passes no --harness: $FLOW_HARNESS, else claude-code under Claude Code's
-// CLAUDECODE=1, else "" -- the `flow` CLI's resolveHarness, less its
-// "unknown" floor, so a guard still refuses a mark it cannot attribute.
-// envToken is $FLOW_SESSION_TOKEN, else the calling agent's token (internal/caller), else "".
-func envToken(env core.Env) string {
-	if t := env.Getenv("FLOW_SESSION_TOKEN"); t != "" {
-		return t
-	}
-	return caller.Token(env.Getenv)
-}
-
-func envHarness(env core.Env) string {
-	if h := env.Getenv("FLOW_HARNESS"); h != "" {
-		return h
-	}
-	if env.Getenv("CLAUDECODE") == "1" {
-		return "claude-code"
-	}
-	return ""
 }

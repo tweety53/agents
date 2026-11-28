@@ -92,7 +92,7 @@ func checkGuardCalls(_ []string, env core.Env, stdout, stderr io.Writer) int {
 	finds := make([]strings.Builder, len(files))
 	counts := make([]int, len(files))
 	errs := make([]error, len(files))
-	parallelEach(len(files), func(i int) {
+	core.ParallelEach(len(files), func(i int) {
 		counts[i], errs[i] = gcTextFile(&finds[i], root, files[i])
 	})
 	var out strings.Builder
@@ -161,7 +161,7 @@ func gcTextFile(out io.Writer, root, rel string) (int, error) {
 
 // gcGoLiterals is rule B over the string literals of every non-test .go file
 // under root/stats. It returns the finding count. The files are lexed
-// concurrently (parallelEach) and their findings written in walk order, so
+// concurrently (ParallelEach) and their findings written in walk order, so
 // the output and the error reported -- the first in walk order -- are those
 // of a sequential scan.
 func gcGoLiterals(out io.Writer, root string) (int, error) {
@@ -188,7 +188,7 @@ func gcGoLiterals(out io.Writer, root string) (int, error) {
 	finds := make([]strings.Builder, len(paths))
 	counts := make([]int, len(paths))
 	errs := make([]error, len(paths))
-	parallelEach(len(paths), func(i int) {
+	core.ParallelEach(len(paths), func(i int) {
 		counts[i], errs[i] = gcGoFile(&finds[i], root, paths[i])
 	})
 	n := 0

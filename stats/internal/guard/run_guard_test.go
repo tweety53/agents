@@ -3,12 +3,13 @@ package guard
 import (
 	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/guard/guardtest"
+	"github.com/tweety53/agents/stats/internal/guard/visual"
 )
 
 // runGuard runs the guard named name in process — a folded or in-process-only
 // guard first, then a Registry one — through runFunc.
 func runGuard(name string, args []string, env core.Env) guardtest.GuardResult {
-	fn := foldedGuards[name]
+	fn := visual.FoldedGuards[name]
 	if fn == nil {
 		fn = inProcessGuards[name]
 	}

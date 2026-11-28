@@ -26,8 +26,8 @@ import (
 // --model and --effort are the parent's own session pair, written into each
 // list's `verifier` row. --key is the row's key, `verify` by default; a re-run
 // passes `verify-<k>` or a fix round's `verify-fix-<k>` (skills/flow/fix.md).
-// --harness and --session-token default as integrate-change's do (envHarness,
-// envToken).
+// --harness and --session-token default as integrate-change's do (EnvHarness,
+// EnvToken).
 //
 // In order, every step's lines printed as its guard prints them:
 //
@@ -80,7 +80,7 @@ func verifyChange(args []string, env core.Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "verify-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
 	c.childEnv = core.ChildEnv(env)
-	return guardCode(c.verify(args))
+	return core.ExitCodeOf(c.verify(args))
 }
 
 func (c *ic) verify(args []string) error {
@@ -221,7 +221,7 @@ func (c *ic) parseVerify(args []string) (model, effort, key string, claimed bool
 		return "", "", "", false, c.die("change-name-not-plain", "change name '%s' is not a plain change name", args[1])
 	}
 	c.name = args[1]
-	c.harness, c.token = envHarness(c.env), envToken(c.env)
+	c.harness, c.token = core.EnvHarness(c.env), core.EnvToken(c.env)
 	key = "verify"
 	rest := args[2:]
 	for i := 0; i < len(rest); i++ {

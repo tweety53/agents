@@ -1,0 +1,421 @@
+package visual
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
+)
+
+// Every case of the check-frame-list contract (scripts/check-frame-list.sh):
+// the declared list is the mockups dir's frames design.md names as whole
+// tokens, and each declared frame needs a sidecar line and a report line.
+func TestCheckFrameList(t *testing.T) {
+	t.Parallel()
+	const design = "Frames `Q1` and Q2 (see mockups/M1.png); Q100 and UNCITED-old are other ids.\n"
+	cases := []struct {
+		name    string
+		sidecar string // "" writes no sidecar
+		report  string
+		rc      int
+		want    string
+	}{
+		{"every declared frame captured and reported",
+			"q1 Q1\nq2 Q2\n# comment\nm1 M1\n",
+			"- Q1: match\n- Q2 bands: 3/3 paired\n- M1: match\n",
+			0, "FRAME-LIST-COMPLETE"},
+		{"a declared frame named absent with its reason",
+			"q1 Q1\nq2 Q2\nm1 M1\n",
+			"- Q1: match\n- M1: match\n- frames: Q2: reached only by inference from Q1\n",
+			0, "3 declared"},
+		{"a frame named absent with its reason needs no sidecar line",
+			"q1 Q1\nm1 M1\n",
+			"- Q1: match\n- M1: match\n- frames: Q2: reached only by inference from Q1\n",
+			0, "3 declared"},
+		{"a reason citing a declared frame does not mark it absent",
+			"m1 M1\n",
+			"- M1: match\n- frames: Q2: reached only by inference from Q1\n",
+			1, "no sidecar line: Q1; no report line: Q1"},
+		// KAN-549: design.md declared more frames than the verifier reached.
+		{"verifier reported fewer than declared",
+			"q1 Q1\nq2 Q2\nm1 M1\n",
+			"- Q1: match\n",
+			1, "no report line: M1; no report line: Q2"},
+		{"no sidecar line for a declared frame",
+			"q1 Q1\nq2 Q2\n",
+			"- Q1: x\n- Q2: x\n- M1: x\n",
+			1, "no sidecar line: M1"},
+		{"no sidecar file at all",
+			"",
+			"- Q1: x\n- Q2: x\n- M1: x\n",
+			1, "no sidecar line: M1; no sidecar line: Q1; no sidecar line: Q2"},
+		// kan-1008's self-review: one per-frame line naming two frames reports both.
+		{"a per-frame line naming frames joined by a slash",
+			"q1 Q1\nq2 Q2\nm1 M1\n",
+			"- Q1 / Q2 / M1 bands: 3/3 paired — match\n",
+			0, "FRAME-LIST-COMPLETE"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			mockups := filepath.Join(dir, "mockups")
+			if err := os.Mkdir(mockups, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			for _, f := range []string{"Q1.png", "Q2.png", "Q10.png", "M1.png", "UNCITED.png", "notes.txt"} {
+				if err := os.WriteFile(filepath.Join(mockups, f), nil, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			spec := filepath.Join(dir, "kan-1.spec.ts")
+			if tc.sidecar != "" {
+				if err := os.WriteFile(spec+".mockups", []byte(tc.sidecar), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			designPath := filepath.Join(dir, "design.md")
+			report := filepath.Join(dir, "verify-report-visual-verify.md")
+			if err := os.WriteFile(designPath, []byte(design), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(report, []byte("## Report\n"+tc.report), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			flManifest(t, report, spec)
+			r := runGuard("check-frame-list", []string{designPath, mockups, report}, core.Env{Getenv: os.Getenv})
+			if r.Rc != tc.rc || !strings.Contains(r.Out, tc.want) {
+				t.Fatalf("rc=%d out=%q; want rc=%d containing %q", r.Rc, r.Out, tc.rc, tc.want)
+			}
+		})
+	}
+	dir := t.TempDir()
+	empty := filepath.Join(dir, "design.md")
+	if err := os.WriteFile(empty, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{nil, {empty, dir}, {filepath.Join(dir, "absent.md"), dir, empty}, {empty, empty, empty}, {empty, dir, filepath.Join(dir, "absent.md")}} {
+		if r := runGuard("check-frame-list", args, core.Env{Getenv: os.Getenv}); r.Rc != 2 {
+			t.Fatalf("args %q: rc=%d out=%q; want exit 2", args, r.Rc, r.Out)
+		}
+	}
+}
+
+// flManifest writes report's dispatch manifest naming spec, the one place the
+// check reads the spec from.
+func flManifest(t *testing.T, report, spec string) {
+	t.Helper()
+	guardtest.WriteFile(t, vrManifestPath(report), `{"specs":["`+spec+`"],"pairs":[]}`)
+}
+
+// TestCheckFrameListExpandsRangesAndSkipsConsidered pins kan-1009's
+// self-review: a range `LM-R1 … LM-R4` declares every frame between its
+// ends, and a `**Considered:**` line's rejected alternatives declare none.
+func TestCheckFrameListExpandsRangesAndSkipsConsidered(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	if err := os.Mkdir(mockups, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"LM-R1.png", "LM-R2.png", "LM-R3.png", "LM-R4.png", "R1.png", "R2.png"} {
+		if err := os.WriteFile(filepath.Join(mockups, f), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	spec := filepath.Join(dir, "kan-1.spec.ts")
+	if err := os.WriteFile(spec+".mockups", []byte("a LM-R1\nb LM-R2\nc LM-R3\nd LM-R4\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	check := func(design, report string) guardtest.GuardResult {
+		t.Helper()
+		d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
+		if err := os.WriteFile(d, []byte(design), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(r, []byte("## Report\n"+report), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		flManifest(t, r, spec)
+		return runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
+	}
+	const design = "Frames `docs/design/mockups/LM-R1.png` … `docs/design/mockups/LM-R4.png`.\n" +
+		"  **Considered:** bare `R<n>.png` — `R1.png`/`R2.png` already exist.\n"
+	const all = "- LM-R1: x\n- LM-R2: x\n- LM-R3: x\n- LM-R4: x\n"
+	if r := check(design, all); r.Rc != 0 || !strings.Contains(r.Out, "4 declared") {
+		t.Errorf("full report: rc=%d out=%q; want 0 with 4 declared", r.Rc, r.Out)
+	}
+	r := check(design, strings.Replace(all, "- LM-R2: x\n", "", 1))
+	if r.Rc != 1 || !strings.Contains(r.Out, "no report line: LM-R2") || strings.Contains(r.Out, ": R1") || strings.Contains(r.Out, ": R2") {
+		t.Errorf("gap report: rc=%d out=%q; want 1 naming LM-R2 and no R1/R2", r.Rc, r.Out)
+	}
+	if r := check("Frames LM-R1 … X3.\n", "- LM-R1: x\n"); r.Rc != 0 || !strings.Contains(r.Out, "1 declared") {
+		t.Errorf("mixed-prefix range: rc=%d out=%q; want 0 with 1 declared", r.Rc, r.Out)
+	}
+	// A huge numeric span costs one check per mockup, never one per integer.
+	done := make(chan guardtest.GuardResult, 1)
+	go func() { done <- check("Frames LM-R1 … LM-R4; rows 1 … 2000000000.\n", all) }()
+	select {
+	case r := <-done:
+		if r.Rc != 0 || !strings.Contains(r.Out, "4 declared") {
+			t.Errorf("huge span: rc=%d out=%q; want 0 with 4 declared", r.Rc, r.Out)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("huge span: guard still running after 5s")
+	}
+}
+
+// TestCheckFrameListSkipsAnsweredQuestionLabels pins decision
+// answered-ids-are-labels: an id design.md writes in answer position, `Q1=A`,
+// is a question label, so a mockup of that name is never declared — not even
+// where the design names the id elsewhere as a bare token (kan-1085).
+func TestCheckFrameListSkipsAnsweredQuestionLabels(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	if err := os.Mkdir(mockups, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"AXF1.png", "AX1.png", "Q1.png", "Q2.png", "R2.png"} {
+		if err := os.WriteFile(filepath.Join(mockups, f), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
+	design := "Frames AXF1 and AX1 (Q2, Q13, W1).\n**Chosen:** one table — Q1=A, Q2=A.\n### Admin capture (R2)\n**Chosen:** a new project (R2=A).\n"
+	if err := os.WriteFile(d, []byte(design), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(r, []byte("## Report\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	res := runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
+	if res.Rc != 1 || !strings.Contains(res.Out, "no sidecar line: AX1") || !strings.Contains(res.Out, "no sidecar line: AXF1") {
+		t.Errorf("rc=%d out=%q; want 1 with 2 declared, AX1 and AXF1 named", res.Rc, res.Out)
+	}
+	for _, id := range []string{"Q1", "Q2", "R2"} {
+		if strings.Contains(res.Out, id) {
+			t.Errorf("out=%q names question label %s", res.Out, id)
+		}
+	}
+}
+
+// TestCheckFrameListReadsReportAlone pins decision verdict-only-handback: a
+// `## Verdict` departure line `- <frame id>: …` does not stand in for that
+// frame's missing per-frame line under `## Report`.
+func TestCheckFrameListReadsReportAlone(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	if err := os.Mkdir(mockups, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"Q1.png", "Q2.png"} {
+		if err := os.WriteFile(filepath.Join(mockups, f), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	spec := filepath.Join(dir, "kan-1.spec.ts")
+	if err := os.WriteFile(spec+".mockups", []byte("q1 Q1\nq2 Q2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	design, report := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
+	if err := os.WriteFile(design, []byte("Frames Q1 and Q2.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	body := "## Verdict\n- Q2: fill differs from the mockup\n\n## Report\n- Q1: match\n"
+	if err := os.WriteFile(report, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	flManifest(t, report, spec)
+	r := runGuard("check-frame-list", []string{design, mockups, report}, core.Env{Getenv: os.Getenv})
+	if r.Rc != 1 || !strings.Contains(r.Out, "no report line: Q2") {
+		t.Fatalf("rc=%d out=%q; want exit 1 naming no report line: Q2", r.Rc, r.Out)
+	}
+}
+
+// TestCheckFrameListSkipsCitedQuestionLabels pins decision f1-citation-position
+// (kan-1102 self-review, F1): an id design.md writes in decision-citation position,
+// `round 1, Q1`, `answer-2 Q1` or `question Q4`, is a question label and declares no frame; the
+// same id written as a plain token still declares one.
+func TestCheckFrameListSkipsCitedQuestionLabels(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	if err := os.Mkdir(mockups, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"Q1.png", "Q4.png", "hero.png"} {
+		if err := os.WriteFile(filepath.Join(mockups, f), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	spec := filepath.Join(dir, "kan-1.spec.ts")
+	if err := os.WriteFile(spec+".mockups", []byte("shot hero\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
+	if err := os.WriteFile(r, []byte("## Report\n- hero: x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	flManifest(t, r, spec)
+	check := func(design string) guardtest.GuardResult {
+		t.Helper()
+		if err := os.WriteFile(d, []byte(design), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
+	}
+	if res := check("- Chosen: x — round 1, Q1.\nsee question Q4\nthe hero frame\n"); res.Rc != 0 || !strings.Contains(res.Out, "FRAME-LIST-COMPLETE") || !strings.Contains(res.Out, "1 declared") {
+		t.Errorf("cited: rc=%d out=%q; want 0, FRAME-LIST-COMPLETE with 1 declared", res.Rc, res.Out)
+	}
+	if res := check("- Chosen: x (answer-1 Q4, answer-2 Q1)\nthe hero frame\n"); res.Rc != 0 || !strings.Contains(res.Out, "1 declared") {
+		t.Errorf("answer-N citation: rc=%d out=%q; want 0 with 1 declared", res.Rc, res.Out)
+	}
+	if res := check("the Q1 frame\nthe hero frame\n"); res.Rc != 1 || !strings.Contains(res.Out, "no sidecar line: Q1") {
+		t.Errorf("plain token: rc=%d out=%q; want 1 naming no sidecar line: Q1", res.Rc, res.Out)
+	}
+}
+
+// TestCheckFrameListDeclaresCitedSubDirectoryFrames pins decisions
+// f12-sub-directory-frames and f12-dark-twins-by-name (kan-1084 self-review,
+// F12): a mockups sub-directory design.md cites declares its frames as
+// `<sub>/<id>`, a bare id held by two cited sub-directories declares neither,
+// a cited sub-directory's frame shadows the root's, a root id after a `/`
+// matches only under the mockups root's own name, and no `dk-` twin is inferred.
+func TestCheckFrameListDeclaresCitedSubDirectoryFrames(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	for _, f := range []string{"P3.png", "NS25.png", "kan-1084/P3.png", "kan-1084/FV1.png", "kan-1084/dk-FV1.png",
+		"kan-1083/SL1.png", "kan-1083/NS25.png", "kan-1086/NS25.png"} {
+		p := filepath.Join(mockups, f)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	spec := filepath.Join(dir, "kan-1.spec.ts")
+	d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
+	check := func(design string, ids ...string) guardtest.GuardResult {
+		t.Helper()
+		var side, rep strings.Builder
+		rep.WriteString("## Report\n")
+		for i, id := range ids {
+			fmt.Fprintf(&side, "shot%d %s\n", i, id)
+			rep.WriteString("- " + id + ": ok\n")
+		}
+		for p, b := range map[string]string{spec + ".mockups": side.String(), r: rep.String(), d: design} {
+			if err := os.WriteFile(p, []byte(b), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		flManifest(t, r, spec)
+		return runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
+	}
+	a := "Frames: `docs/design/mockups/kan-1084/` (FV1, P3), SL1 from `docs/design/mockups/kan-1083/`.\nPushed header (P3).\n"
+	if res := check(a, "kan-1084/P3", "kan-1084/FV1", "kan-1083/SL1"); res.Rc != 0 || !strings.Contains(res.Out, "3 declared") {
+		t.Errorf("(a) cited sub-directories: rc=%d out=%q; want 0 with 3 declared", res.Rc, res.Out)
+	}
+	if res := check(a, "P3", "kan-1084/FV1", "kan-1083/SL1"); res.Rc != 1 || !strings.Contains(res.Out, "no sidecar line: kan-1084/P3") {
+		t.Errorf("(b) root P3 for a sub frame: rc=%d out=%q; want 1 naming no sidecar line: kan-1084/P3", res.Rc, res.Out)
+	}
+	c := "From `docs/design/mockups/kan-1083/` and `docs/design/mockups/kan-1086/`: NS25, and docs/design/mockups/kan-1086/NS25.png\n"
+	if res := check(c, "kan-1086/NS25"); res.Rc != 0 || !strings.Contains(res.Out, "1 declared") {
+		t.Errorf("(c) ambiguous bare id: rc=%d out=%q; want 0 with only kan-1086/NS25 declared", res.Rc, res.Out)
+	}
+	if res := check("see `docs/design/mockups/NS25.png` and kan-1099/P3\n", "NS25"); res.Rc != 0 || !strings.Contains(res.Out, "1 declared") {
+		t.Errorf("(d) root ids after a slash: rc=%d out=%q; want 0 with only NS25 declared", res.Rc, res.Out)
+	}
+}
+
+// TestCheckFrameListRootNeedsAnExplicitCitationBesideASubDirectory pins kan-1087 self-review F5:
+// while design.md cites a sub-directory, a rule range or bare token declares no root frame.
+func TestCheckFrameListRootNeedsAnExplicitCitationBesideASubDirectory(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	for _, f := range []string{"R1.png", "R2.png", "R6.png", "v2-plan/A1.png"} {
+		p := filepath.Join(mockups, f)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	spec := filepath.Join(dir, "kan-1.spec.ts")
+	d, r := filepath.Join(dir, "design.md"), filepath.Join(dir, "report.md")
+	check := func(design string, ids ...string) guardtest.GuardResult {
+		t.Helper()
+		var side, rep strings.Builder
+		rep.WriteString("## Report\n")
+		for i, id := range ids {
+			fmt.Fprintf(&side, "shot%d %s\n", i, id)
+			rep.WriteString("- " + id + ": ok\n")
+		}
+		for p, b := range map[string]string{spec + ".mockups": side.String(), r: rep.String(), d: design} {
+			if err := os.WriteFile(p, []byte(b), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		flManifest(t, r, spec)
+		return runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
+	}
+	a := "Frames: `docs/design/mockups/v2-plan/` (A1). The kernel keeps rules R1–R49 (R1, R6, R2).\n"
+	if res := check(a, "v2-plan/A1"); res.Rc != 0 || !strings.Contains(res.Out, "1 declared") {
+		t.Errorf("(a) rule range beside a sub-directory: rc=%d out=%q; want 0 with 1 declared", res.Rc, res.Out)
+	}
+	b := a + "Also `docs/design/mockups/R6.png`.\n"
+	if res := check(b, "v2-plan/A1", "R6"); res.Rc != 0 || !strings.Contains(res.Out, "2 declared") {
+		t.Errorf("(b) explicit root path: rc=%d out=%q; want 0 with 2 declared", res.Rc, res.Out)
+	}
+	if res := check(b, "v2-plan/A1"); res.Rc != 1 || !strings.Contains(res.Out, "no sidecar line: R6") {
+		t.Errorf("(c) explicit root path unmapped: rc=%d out=%q; want 1 naming no sidecar line: R6", res.Rc, res.Out)
+	}
+	if res := check("Frames R1–R2.\n", "R1", "R2"); res.Rc != 0 || !strings.Contains(res.Out, "2 declared") {
+		t.Errorf("(d) range with no sub-directory: rc=%d out=%q; want 0 with 2 declared", res.Rc, res.Out)
+	}
+}
+
+// TestCheckFrameListFrames: with --frames a remainder's report owes only the
+// declared frames of that list, its frames line counted against them alone.
+func TestCheckFrameListFrames(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	mockups := filepath.Join(dir, "mockups")
+	for _, f := range []string{"Q1.png", "Q2.png", "M1.png"} {
+		guardtest.WriteFile(t, filepath.Join(mockups, f), "")
+	}
+	spec := filepath.Join(dir, "kan-1.spec.ts")
+	guardtest.WriteFile(t, spec+".mockups", "q1 Q1\nq2 Q2\nm1 M1\n")
+	design := filepath.Join(dir, "design.md")
+	guardtest.WriteFile(t, design, "Frames Q1, Q2 and M1.\n")
+	report := filepath.Join(dir, "verify-report-visual-verify-rest.md")
+	for _, tc := range []struct {
+		name, body string
+		args       []string
+		rc         int
+		want       string
+	}{
+		{"the slice reported", "- Q1: x\n- Q2: x\n", []string{"--frames", "Q1,Q2"}, 0, "FRAME-LIST-COMPLETE: " + report + " — 2 declared"},
+		{"a slice frame unreported", "- Q1: x\n", []string{"--frames", "Q1,Q2"}, 1, "no report line: Q2"},
+		{"the whole list without --frames", "- Q1: x\n- Q2: x\n", nil, 1, "FRAME-LIST-GAP: " + report + " — no report line: M1"},
+	} {
+		guardtest.WriteFile(t, report, "## Report\n"+tc.body)
+		flManifest(t, report, spec)
+		r := runGuard("check-frame-list", append([]string{design, mockups, report}, tc.args...), core.Env{Getenv: os.Getenv})
+		if r.Rc != tc.rc || !strings.Contains(r.Out, tc.want) {
+			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.Rc, r.Out, tc.rc, tc.want)
+		}
+	}
+	if r := runGuard("check-frame-list", []string{design, mockups, report, "--frames"}, core.Env{Getenv: os.Getenv}); r.Rc != 2 {
+		t.Errorf("--frames with no value: rc=%d out=%q; want exit 2", r.Rc, r.Out)
+	}
+}

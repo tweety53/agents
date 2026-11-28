@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/visual"
 )
 
 // TestReasonKeepsDistinctIDsInFirstSeenOrder pins Reason's contract: distinct
@@ -54,7 +55,7 @@ func TestProbeRecordsNoReasonIntoTheCaller(t *testing.T) {
 		}
 		return ""
 	}, Reasons: r}
-	rvlGuardSkip(env, t.TempDir(), "flow-guard unchanged a/ || go test -count=1 ./...")
+	visual.GuardSkip(env, t.TempDir(), "flow-guard unchanged a/ || go test -count=1 ./...")
 	if ids := r.IDs(); len(ids) != 0 {
 		t.Fatalf("probe recorded %v into the parent run's reasons", ids)
 	}

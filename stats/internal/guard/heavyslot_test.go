@@ -15,6 +15,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/guard/guardtest"
+	"github.com/tweety53/agents/stats/internal/guard/visual"
 )
 
 // fakeSlots is flowd's heavy-slot API as HeavySlot calls it: acquire grants
@@ -133,7 +134,7 @@ func TestHeavyRunsWaitForASlot(t *testing.T) {
 	wt := t.TempDir()
 	for list, want := range map[string]bool{"test": true, "visual": true, "lint": false} {
 		var o, e bytes.Buffer
-		if rc := runVerifyList([]string{wt, list}, env, &o, &e); (rc == 5) != want {
+		if rc := visual.RunVerifyList([]string{wt, list}, env, &o, &e); (rc == 5) != want {
 			t.Errorf("%s list: exit %d, held=%v wanted\n%s", list, rc, want, e.String())
 		}
 	}

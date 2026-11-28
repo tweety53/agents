@@ -1,0 +1,109 @@
+package visual
+
+import (
+	"bufio"
+	"crypto/sha256"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
+)
+
+// The contract below moved here from the header of the deleted
+// scripts/check-identical-baselines.sh shim (KAN-1058).
+//
+// flow-guard check-identical-baselines — name the PNGs of one directory that are
+// byte-identical, so the visual-verify verifier explains each group
+// (kan-998: the pad-up and pad-down baselines were one image, and only a
+// reviewer saw it).
+//
+// Usage: flow-guard resolve-visual-screenshots … | flow-guard check-identical-baselines
+//
+// Takes no argument. Its input is flow-guard resolve-visual-screenshots's output on
+// stdin: absolute PNG paths, one per line; blank lines are skipped. Paths are
+// grouped by directory, then by the SHA-256 of their bytes — a capture and
+// its own baseline in different directories never group.
+//
+// Prints to stdout:
+//   IDENTICAL-NONE: <n> PNGs                          exit 0
+//   identical: <dir>: <name> <name> …                 exit 1, one line per
+//                                                     group, names sorted,
+//                                                     lines sorted by
+//                                                     directory then first name
+//
+// Exit 0 no group, 1 at least one group, 2 cannot answer (an argument given,
+// no path on stdin, a path that cannot be read) — stdout empty, the cause on
+// stderr.
+//
+// Go, in flow-guard (stats/internal/guard/visual/identicalbaselines.go).
+
+// CheckIdenticalBaselines is `flow-guard check-identical-baselines`: the comment above is the contract. PNGs of one directory with the
+// same bytes are named, one group per line.
+// Run in process by visual-verify-pass measure only; no guard.Registry key.
+func CheckIdenticalBaselines(args []string, env core.Env, stdout, stderr io.Writer) int {
+	const prog = "check-identical-baselines"
+	if len(args) != 0 {
+		fmt.Fprintf(stderr, "%s: usage: flow-guard resolve-visual-screenshots … | flow-guard check-identical-baselines\n", prog)
+		core.Reason(env, "usage")
+		return 2
+	}
+	in := env.Stdin
+	if in == nil {
+		in = strings.NewReader("")
+	}
+	// directory → content hash → base names
+	groups := map[string]map[[32]byte][]string{}
+	n := 0
+	sc := bufio.NewScanner(in)
+	for sc.Scan() {
+		path := strings.TrimSpace(sc.Text())
+		if path == "" {
+			continue
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, path, err)
+			core.Reason(env, "cannot-read")
+			return 2
+		}
+		dir := filepath.Dir(path)
+		if groups[dir] == nil {
+			groups[dir] = map[[32]byte][]string{}
+		}
+		sum := sha256.Sum256(data)
+		groups[dir][sum] = append(groups[dir][sum], filepath.Base(path))
+		n++
+	}
+	if err := sc.Err(); err != nil {
+		fmt.Fprintf(stderr, "%s: %v\n", prog, err)
+		core.Reason(env, "cannot-read-input")
+		return 2
+	}
+	if n == 0 {
+		fmt.Fprintf(stderr, "%s: no PNG paths on stdin\n", prog)
+		core.Reason(env, "no-png-paths-on-stdin")
+		return 2
+	}
+	var lines []string
+	for dir, byHash := range groups {
+		for _, names := range byHash {
+			if len(names) > 1 {
+				sort.Strings(names)
+				lines = append(lines, fmt.Sprintf("identical: %s: %s", dir, strings.Join(names, " ")))
+			}
+		}
+	}
+	if len(lines) == 0 {
+		fmt.Fprintf(stdout, "IDENTICAL-NONE: %d PNGs\n", n)
+		return 0
+	}
+	// "identical: <dir>: <first name> …" sorts by directory, then first name.
+	sort.Strings(lines)
+	fmt.Fprintln(stdout, strings.Join(lines, "\n"))
+	core.Reason(env, "baselines-duplicate")
+	return 1
+}

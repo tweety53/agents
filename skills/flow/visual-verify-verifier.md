@@ -5,7 +5,7 @@ path its prompt carries — the parent never loads it whole. It carries step 4, 
 motion step and the `## Verdict` and `## Report` templates, run as written.
 
 **The steps in the order they run.** A step's number is its id, not its position: the report's
-`- steps:` line names steps 4, 8–11 and `motion`, which `stats/internal/guard/verifyreport.go`
+`- steps:` line names steps 4, 8–11 and `motion`, which `stats/internal/guard/visual/verifyreport.go`
 checks by number.
 
 | Order | Step | Run by | Stated in | Next |
@@ -153,7 +153,7 @@ reported BLOCKED, naming it.
    ```
 
    `--prototype` when step 10's approved prototype is the frame. Its header is canonical for what it
-   runs — `flow-guard resolve-visual-screenshots`, the identical-baselines check (`stats/internal/guard/identicalbaselines.go`), `flow-guard compose-mockup-frames`
+   runs — `flow-guard resolve-visual-screenshots`, the identical-baselines check (`stats/internal/guard/visual/identicalbaselines.go`), `flow-guard compose-mockup-frames`
    and `flow-guard measure-visual-properties`'s band, seam and matrix reads on every pair — the files it
    writes and its exits; it carries on past a step's non-zero exit and records each exit and its
    stderr in the manifest it names, `<abs-worktree>/.superpowers/sdd/visual-manifest-<key>.json`, which
@@ -186,7 +186,7 @@ reported BLOCKED, naming it.
    `<spec>.mockups` sidecar beside the capture spec, step 9's `measure` composed every pair it maps
    through `flow-guard compose-mockup-frames`, with this project's resolved `mockup frame` value as its fourth
    argument — a sidecar's `frame` lines override it, each applying to the pairs below it — and printed one
-   `frame:` line per pair (its header, `stats/internal/guard/visualverifypass.go`, is canonical for
+   `frame:` line per pair (its header, `stats/internal/guard/visual/visualverifypass.go`, is canonical for
    the shape). **That line and its composite are the frame's whole input: read every composite once**
    and state, per pair, where the capture departs from the frame. **Never re-render, re-crop, zoom or
    re-measure a composed frame** — no `flow-guard measure-visual-properties` call, no script crop, no
@@ -228,7 +228,7 @@ reported BLOCKED, naming it.
    frame's own annotations alone. A 1px rule the capture omits, a row padding it lacks, a surface fill
    swapped for the page colour, a button border in the wrong colour: each moves the ratio by
    under a hundredth and vanishes in that white. **The length and colour tolerances are `mvpOverLength` and `mvpOverColour`
-   (`<agents repo>/stats/internal/guard/measurevisualproperties.go`)** — `measure` flags by them, and nothing here
+   (`<agents repo>/stats/internal/guard/visual/measurevisualproperties.go`)** — `measure` flags by them, and nothing here
    restates their values; the project's `tolerance` row (**Project configuration — visual
    verification**, `skills/flow-contracts/project-configuration-visual.md`) replaces the length one.
    What the length tolerance let through (`within-tolerance.md`) is not yours to explain.
@@ -369,7 +369,7 @@ steps 8, 9 and 10 read n/a — wire contract, no view drawn — never `done` ove
 never ran.
 
 **No required step is left undone for want of time or context.** The report's `steps:` line gives
-each of steps 4, 8–11 and the motion step a status the report check admits — `stats/internal/guard/verifyreport.go`'s header
+each of steps 4, 8–11 and the motion step a status the report check admits — `stats/internal/guard/visual/verifyreport.go`'s header
 is canonical for them — and the parent runs that check on the report before reading it.
 Run it on your own report before handing back: an exit 1 names the steps still owed, so do them
 and run it again, and hand back an incomplete report only for a blocker you cannot cure, named.

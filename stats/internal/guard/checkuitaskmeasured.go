@@ -11,6 +11,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/guard/plans"
+	"github.com/tweety53/agents/stats/internal/guard/visual"
 )
 
 // flow-guard check-ui-task-measured — the measured gate of a UI task: answer
@@ -169,7 +170,7 @@ func utmJudge(env core.Env, worktrees []string, name, taskID string) (id, msg st
 	record := filepath.Join(changeRoot, "visual-verification", "task-"+taskID+"-measure.json")
 	run := fmt.Sprintf("run: flow-guard visual-verify-pass measure %s %s task-%s <the task's capture spec>", wt, name, taskID)
 	st, err := os.Stat(record)
-	var m vvmManifestOut
+	var m visual.ManifestOut
 	if body, rerr := os.ReadFile(record); err != nil || rerr != nil || json.Unmarshal(body, &m) != nil || len(m.Pairs) == 0 {
 		return "measure-missing", "no measure record with a pair at " + record + " — commit the task, then " + run
 	}

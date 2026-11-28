@@ -30,7 +30,7 @@ func (c *ic) switchBack(m string) {
 	sha, _ := c.git("-C", m, "rev-parse", "--short", "HEAD")
 	// git overwrites an ignored file the target tracks without asking.
 	deleted, _ := c.git("-C", m, "diff", "--name-only", "--no-renames", "--diff-filter=D", d, "HEAD")
-	for _, p := range icLines(deleted) {
+	for _, p := range core.ReadLines(deleted) {
 		if _, err := os.Lstat(m + "/" + p); err == nil {
 			c.say("DRIFT-SWITCH-REFUSED: " + m + " — " + p + " exists on disk and " + d + " tracks it; left on " + b)
 			return
@@ -233,7 +233,7 @@ func (c *ic) prepare() error {
 		sp := core.SpecRootLeaf(c.wt[i], c.stderr)
 		c.gitPass("-C", c.wt[i], "diff", "--no-renames", "--stat", rb, "--", ".", ":(exclude)"+sp+"/changes/")
 		others, _ := c.git("-C", c.wt[i], "ls-files", "--others", "--exclude-standard", "--", ".", ":(exclude)"+sp+"/changes/")
-		for _, l := range icLines(others) {
+		for _, l := range core.ReadLines(others) {
 			c.say(" new: " + l)
 		}
 		if len(c.implPaths(c.wt[i], rb)) > 0 && !c.linkOnly(i, rb) {

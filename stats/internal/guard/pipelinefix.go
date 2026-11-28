@@ -16,6 +16,7 @@ import (
 	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/guard/gitops"
 	"github.com/tweety53/agents/stats/internal/guard/hook"
+	"github.com/tweety53/agents/stats/internal/guard/visual"
 )
 
 // The contract below moved here from the header of the deleted
@@ -407,7 +408,7 @@ const pfScriptAudits = "cd stats && go test ./internal/guard/ -run '^Test(NoPipe
 // Go file, which main landed red without twice (KAN-887's self-review). A
 // touched script or setup.sh selects pfScriptAudits where the worktree has
 // stats/internal/guard. The `## visual verification` row is not among them:
-// pfVerify resolves it last through rvlVisualVerify.
+// pfVerify resolves it last through VisualVerify.
 func pfChecks(env core.Env, pe pfEnv, wt string, touched []string) ([]string, int) {
 	get := core.SiblingCmd(env, "FLOW_GUARD_PROJECT_GET", "project-get", wt, "lint")
 	var body bytes.Buffer
@@ -528,7 +529,7 @@ func pfVerify(env core.Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 	for _, c := range cmds {
 		report(c, wt)
 	}
-	if cmd, specs, dir, _, ok := rvlVisualVerify(env, wt, false); ok {
+	if cmd, specs, dir, _, ok := visual.VisualVerify(env, wt, false); ok {
 		switch {
 		case cmd == "":
 			red++
@@ -540,13 +541,13 @@ func pfVerify(env core.Env, pe pfEnv, wt string, stdout, stderr io.Writer) int {
 			case src != 0:
 				fail(specs, src, out)
 			case len(paths) == 0:
-				report(strings.ReplaceAll(cmd, "<specs>", rvlSmokeSet), dir)
+				report(strings.ReplaceAll(cmd, "<specs>", visual.SmokeSet), dir)
 			default:
 				report(strings.ReplaceAll(cmd, "<specs>", strings.Join(paths, " ")), dir)
 			}
 		default:
 			// No `specs` row: THE SMOKE FALLBACK fills `<specs>` (kan-1132).
-			report(strings.ReplaceAll(cmd, "<specs>", rvlSmokeSet), dir)
+			report(strings.ReplaceAll(cmd, "<specs>", visual.SmokeSet), dir)
 		}
 	}
 	if red > 0 {

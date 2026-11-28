@@ -1,0 +1,175 @@
+package visual
+
+import (
+	"bytes"
+	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/guardtest"
+)
+
+// vgRepo makes a git worktree with one commit and returns it with that
+// commit's sha.
+func vgRepo(t *testing.T) (string, string) {
+	t.Helper()
+	wt, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	guardtest.WriteFile(t, filepath.Join(wt, "src/a.go"), "package a\n")
+	guardtest.FixtureRepo(t, wt, guardtest.RepoShape{})
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-qm", "a")
+	return wt, vgHead(t, wt)
+}
+
+func vgHead(t *testing.T, wt string) string {
+	t.Helper()
+	out, err := exec.Command("git", "-C", wt, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func vgCommit(t *testing.T, wt, path string) string {
+	t.Helper()
+	guardtest.WriteFile(t, filepath.Join(wt, path), "changed\n")
+	guardtest.GitRun(t, wt, "add", "-A")
+	guardtest.GitRun(t, wt, "commit", "-qm", "edit "+path)
+	return vgHead(t, wt)
+}
+
+func vgRow(key, sha string) string {
+	return `{"key":"` + key + `","role":"verifier","sessionToken":"mf-tok","outcome":"completed","diffBase":"` + sha + `"}`
+}
+
+func vgRun(t *testing.T, rows string, args ...string) (int, string) {
+	t.Helper()
+	env := core.Env{Getenv: os.Getenv, Dir: args[0], Dispatches: func(string) ([]byte, error) { return []byte(rows), nil }}
+	var out, errb bytes.Buffer
+	rc := FoldedGuards["check-verify-green"](args, env, &out, &errb)
+	return rc, out.String() + errb.String()
+}
+
+func TestCheckVerifyGreenNeedsAHead(t *testing.T) {
+	t.Parallel()
+	wt, _ := vgRepo(t)
+	rc, out := vgRun(t, "["+vgRow("verify", "")+"]", wt, "demo", "mf-tok")
+	if rc != 1 || !strings.Contains(out, "VERIFY-NOT-GREEN:") || !strings.Contains(out, "verify (no HEAD recorded)") {
+		t.Fatalf("exit %d\n%s", rc, out)
+	}
+}
+
+func TestCheckVerifyGreenSpansPlanningCommits(t *testing.T) {
+	t.Parallel()
+	wt, a := vgRepo(t)
+	vgCommit(t, wt, "spectre/changes/demo/tasks.md")
+	rc, out := vgRun(t, "["+vgRow("verify", a)+"]", wt, "demo", "mf-tok")
+	if rc != 0 || !strings.Contains(out, "VERIFY-GREEN:") || !strings.Contains(out, "verify@"+a[:7]) {
+		t.Fatalf("exit %d\n%s", rc, out)
+	}
+}
+
+func TestCheckVerifyGreenRefusesACodeCommitSinceTheRow(t *testing.T) {
+	t.Parallel()
+	wt, a := vgRepo(t)
+	c := vgCommit(t, wt, "src/a.go")
+	rc, out := vgRun(t, "["+vgRow("verify", a)+"]", wt, "demo", "mf-tok")
+	if rc != 1 || !strings.Contains(out, "VERIFY-NOT-GREEN:") || !strings.Contains(out, c[:7]+" since "+a[:7]) {
+		t.Fatalf("exit %d\n%s", rc, out)
+	}
+}
+
+func TestCheckVerifyGreenJudgesEachWorktree(t *testing.T) {
+	t.Parallel()
+	wa, a := vgRepo(t)
+	wb, _ := vgRepo(t)
+	b := vgCommit(t, wb, "src/b.go")
+	vgCommit(t, wb, "spectre/changes/demo/design.md")
+	rows := "[" + vgRow("verify-a", a) + "," + vgRow("verify-b", b) + "]"
+	if rc, out := vgRun(t, rows, wa, "demo", "mf-tok", wb); rc != 0 || !strings.Contains(out, "verify-a@"+a[:7]) || !strings.Contains(out, "verify-b@"+b[:7]) {
+		t.Fatalf("both resolve: exit %d\n%s", rc, out)
+	}
+	wx, _ := vgRepo(t)
+	x := vgCommit(t, wx, "src/x.go")
+	if rc, out := vgRun(t, "["+vgRow("verify-a", a)+","+vgRow("verify-b", x)+"]", wa, "demo", "mf-tok", wb); rc != 1 || !strings.Contains(out, "verify-b (HEAD resolves in no worktree)") {
+		t.Fatalf("a sha in neither: exit %d\n%s", rc, out)
+	}
+}
+
+// TestCheckVerifyGreenIgnoresAStaleBareRow: a blocked bare `verify-fix-5` row from an
+// earlier attempt is superseded by newer suffixed re-runs (kan-1099).
+func TestCheckVerifyGreenIgnoresAStaleBareRow(t *testing.T) {
+	t.Parallel()
+	wa, a := vgRepo(t)
+	stale := `{"key":"verify-fix-5","role":"verifier","sessionToken":"mf-tok","outcome":"blocked","diffBase":"` + a + `"}`
+	if rc, out := vgRun(t, "["+stale+","+vgRow("verify-fix-6-a", a)+"]", wa, "demo", "mf-tok"); rc != 0 {
+		t.Fatalf("stale bare row: exit %d\n%s", rc, out)
+	}
+	if rc, out := vgRun(t, "["+vgRow("verify-fix-6-a", a)+","+stale+"]", wa, "demo", "mf-tok"); rc != 1 {
+		t.Fatalf("a newer bare blocked row still blocks: exit %d\n%s", rc, out)
+	}
+}
+
+// smoke: core — the gate that reads a verify row as green
+func TestCheckVerifyGreen(t *testing.T) {
+	t.Parallel()
+	wt, head := vgRepo(t)
+	row := func(key, token, outcome string) string {
+		return `{"key":"` + key + `","role":"verifier","sessionToken":"` + token + `","outcome":"` + outcome + `","diffBase":"` + head + `"}`
+	}
+	for _, c := range []struct {
+		name, rows string
+		err        error
+		want       int
+		needle     string
+	}{
+		{"every inline verify row completed", "[" + row("verify-fe", "mf-tok", "completed") + "," + row("verify-be", "mf-tok", "completed") + "]", nil, 0, "VERIFY-GREEN"},
+		{"a cache-skipped verify is green", "[" + row("verify-2-gymie", "mf-tok", "skipped") + "," + row("verify-2-gymie-frontend", "mf-tok", "skipped") + "]", nil, 0, "VERIFY-GREEN"},
+		{"a verify still running", "[" + row("verify", "mf-tok", "") + "]", nil, 1, "verify (running)"},
+		{"a blocked verify", "[" + row("verify", "mf-tok", "blocked") + "]", nil, 1, "verify (blocked)"},
+		{"a blocked verify re-run green by a fix round", "[" + row("verify", "mf-tok", "blocked") + "," + row("verify-fix-1", "mf-tok", "completed") + "]", nil, 0, "1 inline verify row(s) green"},
+		{"a fix round's verify judged per worktree", "[" + row("verify-fe", "mf-tok", "blocked") + "," + row("verify-be", "mf-tok", "completed") + "," + row("verify-fix-1-fe", "mf-tok", "completed") + "]", nil, 0, "2 inline verify row(s) green"},
+		{"a blocked verify re-run green after a new commit", "[" + row("verify", "mf-tok", "blocked") + "," + row("verify-2", "mf-tok", "completed") + "]", nil, 0, "1 inline verify row(s) green"},
+		{"a re-run of a digit-led repository's blocked verify is green", "[" + row("verify-3d-viewer", "mf-tok", "blocked") + "," + row("verify-2-3d-viewer", "mf-tok", "completed") + "]", nil, 0, "1 inline verify row(s) green"},
+		{"a re-run judged per worktree", "[" + row("verify-fe", "mf-tok", "blocked") + "," + row("verify-2-fe", "mf-tok", "completed") + "]", nil, 0, "1 inline verify row(s) green"},
+		{"a fix round's blocked verify after a green one", "[" + row("verify", "mf-tok", "completed") + "," + row("verify-fix-1", "mf-tok", "blocked") + "]", nil, 1, "verify-fix-1 (blocked)"},
+		{"a green verify of an earlier session token counts at the same HEAD", "[" + row("verify", "mf-old", "completed") + "]", nil, 0, "VERIFY-GREEN"},
+		{"a visual verifier does not count", "[" + row("visual-verify", "mf-tok", "completed") + "]", nil, 1, "no inline verify"},
+		{"an unreadable store cannot answer", "", errors.New("down"), 2, "cannot answer"},
+		{"no row for the change names the canonical worktree", "[]", nil, 2, "pass the change's canonical worktree"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			env := core.Env{Getenv: os.Getenv, Dir: wt, Dispatches: func(string) ([]byte, error) { return []byte(c.rows), c.err }}
+			var out, errb bytes.Buffer
+			got := FoldedGuards["check-verify-green"]([]string{env.Dir, "demo", "mf-tok"}, env, &out, &errb)
+			if got != c.want || !strings.Contains(out.String()+errb.String(), c.needle) {
+				t.Fatalf("exit %d, want %d naming %q\n%s%s", got, c.want, c.needle, out.String(), errb.String())
+			}
+		})
+	}
+}
+
+// TestCheckVerifyGreenIgnoresARunnerAgentRow: a runner subagent's own dispatch
+// row (agentId set, not `inline`) carries no HEAD and an odd key; it must not
+// void the green inline rows beside it, nor count as this run's inline verify
+// on its own (kan-1157).
+func TestCheckVerifyGreenIgnoresARunnerAgentRow(t *testing.T) {
+	t.Parallel()
+	wa, a := vgRepo(t)
+	inline := `{"key":"verify-fix-1-gymie","role":"verifier","sessionToken":"mf-tok","outcome":"completed","diffBase":"` + a + `","agentId":"inline"}`
+	agent := `{"key":"verify-2-fix-1","role":"runner","sessionToken":"mf-tok","outcome":"completed","agentId":"af3f10ca894ef1664"}`
+	if rc, out := vgRun(t, "["+inline+","+agent+"]", wa, "demo", "mf-tok"); rc != 0 || !strings.Contains(out, "VERIFY-GREEN:") {
+		t.Fatalf("runner agent row beside green inline rows: exit %d\n%s", rc, out)
+	}
+	if rc, out := vgRun(t, "["+agent+"]", wa, "demo", "mf-tok"); rc != 1 || !strings.Contains(out, "no inline verify") {
+		t.Fatalf("runner agent row alone: exit %d\n%s", rc, out)
+	}
+}

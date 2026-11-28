@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/visual"
 )
 
 // flow-guard smoke-keep — the heavy tests the files a branch touched keep in a default test run.
@@ -55,7 +56,7 @@ func smokeKeep(args []string, env core.Env, stdout, stderr io.Writer) int {
 		}
 		rows = append(rows, row{prefix, kept})
 	}
-	_, paths, ok := changedSinceBase(env, "smoke-keep", stderr)
+	_, paths, ok := visual.ChangedSinceBase(env, "smoke-keep", stderr)
 	if !ok {
 		core.Reason(env, "changes-unresolved")
 		return 2

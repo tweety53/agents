@@ -1,0 +1,695 @@
+package visual
+
+import (
+	"bufio"
+	"bytes"
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"io"
+	"io/fs"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/guard/gitops"
+	"github.com/tweety53/agents/stats/internal/guard/plans"
+)
+
+// The contract below moved here from the header of the deleted
+// scripts/check-visual-preflight.sh shim (KAN-1058).
+//
+// The visual-preflight check, run in-process by `visual-verify-pass prepare` — the five workspace checks `flow.visual-verify`
+// step 3 runs before any verifier is dispatched (skills/flow/visual-verify.md).
+//
+// Usage: flow-guard prepare-workspace <worktree> \
+//          | (in-process) visual-preflight <worktree> <app-root>=<resolved-url> [...]
+//
+// stdin is flow-guard prepare-workspace's `KEY=value` lines; one argument per app
+// `ui paths` matched — its package root, relative to <worktree>, and its
+// worktree-resolved URL. An app root inside a different git repository than
+// <worktree> is checked as its own worktree: checks 2–4 run against that
+// repository's worktree root, its own `.flow/project.md` rows and `start`
+// command, and with that repository's apps only; check 1 is unchanged. The
+// checks:
+//   1. ports    — every `port` row's exported value and every app URL's port:
+//                 a listener `lsof -nP -iTCP:<port> -sTCP:LISTEN` reports fails
+//                 only when its probe goes unanswered (an HTTP GET of the app
+//                 URL the port came through, any response within 5 s; else a
+//                 TCP connect to 127.0.0.1 or ::1). An answering listener whose
+//                 working directory (`lsof -a -p <pid> -d cwd -Fn`) lies in a
+//                 sibling of <worktree> under its `<repo>-worktrees` directory
+//                 fails too: another change's server (KAN-1156). A cwd that
+//                 cannot be read, or lies elsewhere, passes.
+//   2. base-url — for each `## workspace isolation` row whose exported value
+//                 differs from its Default, a non-Markdown text file under an
+//                 app root naming the Default (a `port` row: `:<default>` not
+//                 followed by a digit) on a line not naming the row's Variable
+//                 fails, unless the `## visual verification` `start` command
+//                 names the Variable or the resolved value, or the Default
+//                 appears only inside `${VAR:fallback}` references whose VAR
+//                 the `start` command names or stdin exports. Runtime
+//                 sources only: a file under a test source set (a path
+//                 segment below the app root `test`, `tests` or ending in
+//                 `Test`), a file ending `.example`, and a line whose first
+//                 non-blank characters are `#`, `//`, `/*`, `*` or `<!--`
+//                 are skipped (kan-1086 self-review, F10).
+//   3. origins  — a configuration-shaped file (`.env*`, `*.json`, `*.y*ml`,
+//                 `*.toml`, `*.ini`, `*.properties`, `*.conf`, `*.config.*`;
+//                 never a production `*.prod.*` file)
+//                 whose `allowed[_-]?origins` line or bracketed list names a
+//                 URL must name every app's origin, unless the line holds a
+//                 `${VAR:fallback}` reference whose VAR the `start` command
+//                 names or stdin exports.
+//   4. playwright — `@playwright/test` resolved by `node` from each app root
+//                 must sit inside <worktree>; unresolvable or no `node` is an
+//                 INFO line and passes (setup installs it).
+//   5. siblings — when <worktree>'s branch `spectre/<name>` records
+//                 `branch.<branch>.flowBase`, every `## apps` Repo root other
+//                 than <worktree>'s own repository must hold
+//                 `<root>-worktrees/<name>`; a root absent from this machine
+//                 is skipped.
+// Skipped by checks 2–3: .git node_modules dist build coverage test-results
+// playwright-report testdata vendor .superpowers, a nested checkout, binaries,
+// files over 1 MiB. design-verify.md § VV-18 records why.
+//
+// Prints any INFO: and FAIL: lines, then one verdict line:
+//   PREFLIGHT-OK:     <worktree> — ports, base URL, origins and Playwright all pass
+//   PREFLIGHT-FAILED: <worktree> — <n> failing check line(s)
+// Exit 0 every check passed; 1 at least one FAIL: line; 2 cannot answer
+// (usage, a missing directory, lsof absent or failing, a malformed stdin
+// line, a declared row with no exported value, an invalid or duplicated
+// section) — the cause on stderr.
+
+// checkVisualPreflight is the visual-preflight check `visual-verify-pass prepare` runs in-process: the five
+// workspace checks `flow.visual-verify` step 3 runs before any verifier is
+// dispatched (skills/flow/visual-verify.md). The comment above carries the contract; design-verify.md § VV-18 records why checks 2 and 3 are the
+// mechanical rules below.
+//
+// Nothing read from the tree is executed: `lsof` and `node` are this guard's
+// own commands, resolved on PATH, and the project's `start` command is only
+// searched as text.
+
+const vpUsage = "Usage: visual-preflight (run by visual-verify-pass prepare) <worktree> <app-root>=<resolved-url> [...] < KEY=value lines\n"
+
+// vpProbeTimeout bounds each liveness probe of a held port.
+const vpProbeTimeout = 5 * time.Second
+
+// vpMaxFile is the size above which a file is not scanned: a generated
+// bundle or a data dump, never hand-written configuration.
+const vpMaxFile = 1 << 20
+
+// vpSkipDirs are never descended into: VCS metadata, installed or built
+// output, reports, fixtures and this pipeline's own scratch.
+var vpSkipDirs = map[string]bool{
+	".git": true, "node_modules": true, "dist": true, "build": true, "coverage": true,
+	"test-results": true, "playwright-report": true, "testdata": true, "vendor": true, ".superpowers": true,
+}
+
+var (
+	vpOriginsKey = regexp.MustCompile(`(?i)allowed[_-]?origins`)
+	vpEnvRef     = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*):-?`)
+	vpURL        = regexp.MustCompile(`https?://[^\s"'<>,;\]\}\)]+`)
+	vpConfigExt  = map[string]bool{".json": true, ".yml": true, ".yaml": true, ".toml": true, ".ini": true, ".properties": true, ".conf": true}
+)
+
+// vpTarget is one app argument. base is the worktree it is checked
+// against: <worktree>, or — for an app root inside a different git
+// repository — that repository's worktree root, read as its own worktree.
+type vpTarget struct{ root, url, origin, port, base, dir string }
+
+// vpRow is one `## workspace isolation` resource row with the value
+// prepare-workspace.sh exported for it.
+type vpRow struct{ res, variable, def, value string }
+
+func checkVisualPreflight(args []string, env core.Env, stdout, stderr io.Writer) int {
+	refuse := func(id, format string, a ...any) int {
+		core.Reason(env, id)
+		fmt.Fprintf(stderr, "check-visual-preflight: "+format+"\n", a...)
+		return 2
+	}
+	if len(args) < 2 {
+		fmt.Fprint(stderr, vpUsage)
+		core.Reason(env, "usage")
+		return 2
+	}
+	wt := args[0]
+	wtAbs := gitops.WorkspaceAbs(env, wt)
+	if !core.IsDir(wtAbs) {
+		return refuse("not-a-directory", "%s is not a directory — cannot check the workspace", wt)
+	}
+
+	var apps []vpTarget
+	for _, a := range args[1:] {
+		root, raw, ok := strings.Cut(a, "=")
+		u, err := url.Parse(raw)
+		if !ok || root == "" || err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+			return refuse("argument-is-not-app-root", "argument %q is not <app-root>=<http(s) URL>", a)
+		}
+		dir := filepath.Join(wtAbs, root)
+		if !core.IsDir(dir) {
+			return refuse("app-root-not-a-directory", "app root %s is not a directory under %s", root, wt)
+		}
+		base := wtAbs
+		if r := vpRepoRoot(dir); r != "" && r != vpRepoRoot(wtAbs) {
+			base = r
+		}
+		port := u.Port()
+		if port == "" {
+			port = map[string]string{"http": "80", "https": "443"}[u.Scheme]
+		}
+		apps = append(apps, vpTarget{root: root, url: raw, origin: u.Scheme + "://" + u.Host, port: port, base: base, dir: dir})
+	}
+
+	exported := map[string]string{}
+	if env.Stdin != nil {
+		sc := bufio.NewScanner(env.Stdin)
+		for sc.Scan() {
+			line := strings.TrimRight(sc.Text(), "\r")
+			if line == "" {
+				continue
+			}
+			k, v, ok := strings.Cut(line, "=")
+			if !ok || !gitops.IsolationVariable.MatchString(k) {
+				return refuse("bad-stdin-line", "stdin line %q is not KEY=value — pipe flow-guard prepare-workspace's output in", line)
+			}
+			exported[k] = v
+		}
+		if sc.Err() != nil {
+			return refuse("cannot-read-stdin", "cannot read stdin: %v", sc.Err())
+		}
+	}
+
+	// Each worktree checks 2–4 run against: <worktree> first, then every
+	// foreign repository an app root resolves into, with its own rows,
+	// start command and apps.
+	type vpBase struct {
+		dir   string
+		rows  []vpRow
+		start string
+		apps  []vpTarget
+	}
+	var bases []*vpBase
+	byDir := map[string]*vpBase{}
+	dirs := []string{wtAbs}
+	for _, a := range apps {
+		dirs = append(dirs, a.base)
+	}
+	for _, d := range dirs {
+		if byDir[d] != nil {
+			continue
+		}
+		cfg := filepath.Join(d, ".flow/project.md")
+		body, err := os.ReadFile(cfg)
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return refuse("cannot-read", "cannot read %s: %v", cfg, err)
+		}
+		b := &vpBase{dir: d}
+		var msg string
+		if b.rows, msg = vpRows(cfg, body, exported); msg != "" {
+			return refuse("bad-rows", "%s", msg)
+		}
+		if b.start, msg = vpStart(body); msg != "" {
+			return refuse("bad-start", "%s", msg)
+		}
+		byDir[d] = b
+		bases = append(bases, b)
+	}
+	for _, a := range apps {
+		byDir[a.base].apps = append(byDir[a.base].apps, a)
+	}
+	rows := bases[0].rows
+
+	var fails, infos []string
+
+	// Check 1 — ports held only by their own app.
+	lsof, ok := core.LookPath(env, "lsof")
+	if !ok {
+		return refuse("lsof-is-not-on-path", "lsof is not on PATH — cannot tell which ports are held")
+	}
+	type probe struct{ port, url string }
+	var ports []probe
+	seen := map[string]int{}
+	add := func(p, u string) {
+		if i, ok := seen[p]; ok {
+			if ports[i].url == "" {
+				ports[i].url = u
+			}
+			return
+		}
+		seen[p] = len(ports)
+		ports = append(ports, probe{p, u})
+	}
+	for _, r := range rows {
+		if r.res == "port" {
+			add(r.value, "")
+		}
+	}
+	for _, a := range apps {
+		add(a.port, a.url)
+	}
+	for _, p := range ports {
+		cmd := exec.Command(lsof, "-nP", "-iTCP:"+p.port, "-sTCP:LISTEN")
+		out, err := cmd.Output()
+		var ee *exec.ExitError
+		switch {
+		case err == nil && len(bytes.TrimSpace(out)) > 0:
+		case err == nil, errors.As(err, &ee) && ee.ExitCode() == 1:
+			continue // free
+		default:
+			return refuse("lsof-failed", "lsof -nP -iTCP:%s -sTCP:LISTEN failed (%v) — cannot tell whether the port is held", p.port, err)
+		}
+		var holder, pids []string
+		for _, l := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			if !strings.HasPrefix(l, "COMMAND") {
+				holder = append(holder, strings.TrimSpace(l))
+				if f := strings.Fields(l); len(f) > 1 {
+					pids = append(pids, f[1])
+				}
+			}
+		}
+		if vpAnswers(p.port, p.url) {
+			// An answering server must not run from another worktree of the repository (KAN-1156: a
+			// verifier spent 56m on a wrong server). A holder whose cwd cannot be read passes.
+			for _, pid := range pids {
+				if cwd := vpHolderCwd(lsof, pid); cwd != "" && vpOtherWorktree(cwd, dirs) {
+					fails = append(fails, fmt.Sprintf("FAIL: port %s — answered by pid %s running from %s, another worktree of this repository", p.port, pid, cwd))
+					break
+				}
+			}
+			continue // the already-running stack steps 5 and 6 probe
+		}
+		pr := "GET " + p.url
+		if p.url == "" {
+			pr = "tcp 127.0.0.1:" + p.port + " and [::1]:" + p.port
+		}
+		fails = append(fails, fmt.Sprintf("FAIL: port %s — held by %s; probe %s went unanswered", p.port, strings.Join(holder, " | "), pr))
+	}
+
+	node, haveNode := core.LookPath(env, "node")
+	for _, b := range bases {
+		// Check 2 — the app's base-URL configuration resolves to the workspace's
+		// value: a literal naming a moved row's default, on a line that does not
+		// name the row's Variable, under an app root, for a row the `start`
+		// command does not override.
+		for _, r := range b.rows {
+			if r.value == r.def || vpNames(b.start, r.variable) || (r.value != "" && strings.Contains(b.start, r.value)) {
+				continue
+			}
+			// A default is matched only as a whole literal: no identifier
+			// character right before or after it, so `shop` never hits
+			// `shopping-cart` and `…:8080` never hits `…:80801`.
+			lit := regexp.MustCompile(`(^|[^A-Za-z0-9_])` + regexp.QuoteMeta(r.def) + `([^A-Za-z0-9_]|$)`)
+			if r.res == "port" {
+				lit = regexp.MustCompile(":" + regexp.QuoteMeta(r.def) + `([^0-9]|$)`)
+			}
+			hit := lit.MatchString
+			for _, a := range b.apps {
+				appRel, _ := filepath.Rel(wtAbs, a.dir)
+				vpWalk(wtAbs, a.dir, func(rel string) bool {
+					return !vpMarkdown(rel) && !vpNonRuntime(strings.TrimPrefix(rel, appRel+"/"))
+				}, func(rel string, n int, l string, _ []string) {
+					if hit(vpStripOverridden(l, exported, b.start)) && !vpNames(l, r.variable) && !vpCommentLine(l) {
+						fails = append(fails, fmt.Sprintf("FAIL: base-url — %s:%d: names %s's default %s, which neither $%s nor the start command overrides (resolved: %s)", rel, n, r.variable, r.def, r.variable, r.value))
+					}
+				})
+			}
+		}
+
+		// Check 3 — origin allowed: every allowed-origins list naming at least
+		// one URL, in a configuration-shaped file, carries every app's origin.
+		vpWalk(wtAbs, b.dir, vpConfigFile, func(rel string, n int, l string, rest []string) {
+			if !vpOriginsKey.MatchString(l) {
+				return
+			}
+			text := l
+			if i := strings.LastIndex(l, "["); i >= 0 && !strings.Contains(l[i:], "]") {
+				for _, next := range rest {
+					text += "\n" + next
+					if strings.Contains(next, "]") {
+						break
+					}
+				}
+			}
+			if vpOverridden(text, exported, b.start) {
+				return
+			}
+			found := map[string]bool{}
+			for _, m := range vpURL.FindAllString(text, -1) {
+				if u, err := url.Parse(m); err == nil {
+					found[u.Scheme+"://"+u.Host] = true
+				}
+			}
+			if len(found) == 0 {
+				return
+			}
+			for _, a := range b.apps {
+				if !found[a.origin] {
+					fails = append(fails, fmt.Sprintf("FAIL: origins — %s:%d: the allowed-origins list omits %s", rel, n, a.origin))
+				}
+			}
+		})
+
+		// Check 4 — one Playwright checkout per workspace.
+		realWT, err := filepath.EvalSymlinks(b.dir)
+		if err != nil {
+			realWT = b.dir
+		}
+		for _, a := range b.apps {
+			if !haveNode {
+				infos = append(infos, fmt.Sprintf("INFO: playwright — %s: node is not on PATH, so the module was not resolved", a.root))
+				continue
+			}
+			root := a.dir
+			out, err := exec.Command(node, "-e", "console.log(require.resolve('@playwright/test/package.json', {paths: [process.argv[1]]}))", root).Output()
+			got := strings.TrimSpace(string(out))
+			if err != nil || got == "" {
+				infos = append(infos, fmt.Sprintf("INFO: playwright — %s: @playwright/test does not resolve yet (setup installs it)", a.root))
+				continue
+			}
+			real, err := filepath.EvalSymlinks(got)
+			if err != nil {
+				real = filepath.Clean(got)
+			}
+			if real != realWT && !strings.HasPrefix(real, realWT+string(filepath.Separator)) {
+				fails = append(fails, fmt.Sprintf("FAIL: playwright — %s resolves @playwright/test to %s, outside %s — install this worktree's own before re-running", a.root, got, b.dir))
+			}
+		}
+
+	}
+
+	// Check 5 — a change cut with --base (its branch records a flowBase) has
+	// a worktree in every `## apps` repository: one missing serves that
+	// repository's default branch (kan-1022, kan-1017).
+	fails = append(fails, vpFlowBaseSiblings(wtAbs)...)
+
+	for _, l := range append(infos, fails...) {
+		fmt.Fprintln(stdout, l)
+	}
+	if len(fails) > 0 {
+		fmt.Fprintf(stdout, "PREFLIGHT-FAILED: %s — %d failing check line(s)\n", wt, len(fails))
+		core.Reason(env, "preflight-failed")
+		return 1
+	}
+	fmt.Fprintf(stdout, "PREFLIGHT-OK: %s — ports, base URL, origins and Playwright all pass\n", wt)
+	return 0
+}
+
+// vpRows is the `## workspace isolation` resource rows, each paired with its
+// exported value, parsed by ValidateIsolation. A
+// non-empty message is a reason this guard cannot answer.
+func vpRows(cfg string, body []byte, exported map[string]string) ([]vpRow, string) {
+	recs := core.Lines(body)
+	count := 0
+	for i := range recs {
+		recs[i], _, _ = strings.Cut(recs[i], "\x00")
+		if gitops.CleanupHeading.MatchString(core.ASCIILower(recs[i])) {
+			count++
+		}
+	}
+	if count == 0 {
+		return nil, ""
+	}
+	if count > 1 {
+		return nil, cfg + " declares more than one `## workspace isolation` section — run flow-guard prepare-workspace <worktree>"
+	}
+	p := gitops.ValidateIsolation(cfg, recs, gitops.IsolationSpace(false), false, true)
+	if len(p.Viol) > 0 {
+		return nil, cfg + "'s `## workspace isolation` section is invalid — run flow-guard prepare-workspace <worktree>"
+	}
+	var rows []vpRow
+	for _, l := range p.Rows {
+		r := vpRow{res: strings.ToLower(l.Res), variable: l.Variable, def: l.Def}
+		if r.res == "cache index" {
+			continue // prepare-workspace.sh exports nothing for it
+		}
+		v, ok := exported[r.variable]
+		if !ok {
+			return nil, "no exported value for " + r.variable + " on stdin — pipe flow-guard prepare-workspace <worktree> into this guard"
+		}
+		r.value = v
+		rows = append(rows, r)
+	}
+	return rows, ""
+}
+
+// vpStart is the `## visual verification` section's `start` command, or "".
+func vpStart(body []byte) (string, string) {
+	if core.HeadingCount(string(body)) > 1 {
+		return "", ".flow/project.md declares more than one `## visual verification` section"
+	}
+	for _, l := range core.SectionLines(string(body)) {
+		if c := core.SplitCells(l.Text); len(c) >= 2 && core.FoldCell(c[0]) == "start" {
+			return c[1], ""
+		}
+	}
+	return "", ""
+}
+
+// vpAnswers is whether a held port answers its probe: an HTTP GET of the
+// app URL the port came through (any response), else a TCP connect.
+// vpHolderCwd is the working directory `lsof` reports for pid, "" when it cannot say.
+func vpHolderCwd(lsof, pid string) string {
+	out, err := exec.Command(lsof, "-a", "-p", pid, "-d", "cwd", "-Fn").Output()
+	if err != nil {
+		return ""
+	}
+	for _, l := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(l, "n/") {
+			return l[1:]
+		}
+	}
+	return ""
+}
+
+// vpOtherWorktree reports whether cwd lies in a sibling of one of the checks' worktrees under its
+// `<repo>-worktrees` directory, and in none of the worktrees themselves.
+func vpOtherWorktree(cwd string, dirs []string) bool {
+	in := func(dir string) bool { return cwd == dir || strings.HasPrefix(cwd, dir+"/") }
+	sibling := false
+	for _, b := range dirs {
+		if in(b) {
+			return false
+		}
+		if d := filepath.Dir(b); strings.HasSuffix(d, "-worktrees") && in(d) {
+			sibling = true
+		}
+	}
+	return sibling
+}
+
+func vpAnswers(port, rawURL string) bool {
+	if rawURL != "" {
+		c := &http.Client{
+			Timeout:       vpProbeTimeout,
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+			// A liveness probe of a local dev server: a self-signed
+			// certificate still answers.
+			Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+		}
+		resp, err := c.Get(rawURL)
+		if err != nil {
+			return false
+		}
+		resp.Body.Close()
+		return true
+	}
+	for _, host := range []string{"127.0.0.1", "::1"} {
+		if conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), vpProbeTimeout); err == nil {
+			conn.Close()
+			return true
+		}
+	}
+	return false
+}
+
+// vpOverridden is whether text holds a `${VAR:fallback}` reference whose VAR
+// the start command names or stdin exports: the fallback is a default the
+// environment overrides, never the live value (checks 2 and 3).
+func vpOverridden(text string, exported map[string]string, start string) bool {
+	for _, m := range vpEnvRef.FindAllStringSubmatch(text, -1) {
+		if _, ok := exported[m[1]]; ok || vpNames(start, m[1]) {
+			return true
+		}
+	}
+	return false
+}
+
+// vpStripOverridden is text with every `${VAR:fallback}` span whose VAR
+// the start command names or stdin exports removed, through its matching
+// `}`: an overridden fallback is never the live value, while a Default
+// outside such a span still is (check 2).
+func vpStripOverridden(text string, exported map[string]string, start string) string {
+	var b strings.Builder
+	i := 0
+	for _, m := range vpEnvRef.FindAllStringSubmatchIndex(text, -1) {
+		if m[0] < i {
+			continue
+		}
+		v := text[m[2]:m[3]]
+		if _, ok := exported[v]; !ok && !vpNames(start, v) {
+			continue
+		}
+		end, depth := len(text), 0
+		for j := m[0] + 1; j < len(text); j++ {
+			if text[j] == '{' {
+				depth++
+			} else if text[j] == '}' {
+				if depth--; depth == 0 {
+					end = j + 1
+					break
+				}
+			}
+		}
+		b.WriteString(text[i:m[0]])
+		b.WriteByte(' ')
+		i = end
+	}
+	b.WriteString(text[i:])
+	return b.String()
+}
+
+// vpNames is whether text names the variable as a whole word.
+func vpNames(text, variable string) bool {
+	return regexp.MustCompile(`(^|[^A-Za-z0-9_])` + regexp.QuoteMeta(variable) + `([^A-Za-z0-9_]|$)`).MatchString(text)
+}
+
+// vpNonRuntime is a path, relative to its app root, check 2 does not read:
+// a file under a test source set -- a segment `test` or `tests`, or ending
+// in `Test` (`src/test/`, `commonTest/`) -- or an `.example` file (kan-1086
+// self-review, F10).
+func vpNonRuntime(rel string) bool {
+	if strings.HasSuffix(rel, ".example") {
+		return true
+	}
+	segs := strings.Split(filepath.ToSlash(rel), "/")
+	for _, s := range segs[:len(segs)-1] {
+		if s == "test" || s == "tests" || strings.HasSuffix(s, "Test") {
+			return true
+		}
+	}
+	return false
+}
+
+// vpCommentLine is a line whose first non-blank characters open a comment.
+func vpCommentLine(l string) bool {
+	l = strings.TrimSpace(l)
+	for _, p := range []string{"#", "//", "/*", "*", "<!--"} {
+		if strings.HasPrefix(l, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func vpMarkdown(rel string) bool {
+	switch strings.ToLower(filepath.Ext(rel)) {
+	case ".md", ".markdown", ".mdx":
+		return true
+	}
+	return false
+}
+
+// vpConfigFile is whether a file is configuration-shaped: `.env*`, a
+// config-format extension, or `*.config.*`. Source files are not, so a
+// guard's own tests and fixtures never trigger check 3; nor is a
+// production file (`*.prod.*`), whose origins are never the workspace's.
+func vpConfigFile(rel string) bool {
+	base := filepath.Base(rel)
+	if strings.Contains(base, ".prod.") {
+		return false
+	}
+	return strings.HasPrefix(base, ".env") || vpConfigExt[strings.ToLower(filepath.Ext(base))] || strings.Contains(base, ".config.")
+}
+
+// vpWalk calls visit for every line of every scannable file under dir whose
+// worktree-relative path passes want, with the lines after it. Skipped:
+// vpSkipDirs, a nested checkout (a directory carrying its own .git — a
+// sibling worktree is not this one), non-regular files, files over
+// vpMaxFile, and binaries (a NUL byte).
+func vpWalk(wt, dir string, want func(string) bool, visit func(rel string, n int, line string, rest []string)) {
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if path != dir && path != wt {
+				if vpSkipDirs[d.Name()] {
+					return filepath.SkipDir
+				}
+				if _, err := os.Lstat(filepath.Join(path, ".git")); err == nil {
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+		rel, _ := filepath.Rel(wt, path)
+		if !d.Type().IsRegular() || !want(rel) {
+			return nil
+		}
+		if fi, err := d.Info(); err != nil || fi.Size() > vpMaxFile {
+			return nil
+		}
+		b, err := os.ReadFile(path)
+		if err != nil || bytes.IndexByte(b, 0) >= 0 {
+			return nil
+		}
+		ls := core.Lines(b)
+		for i, l := range ls {
+			visit(rel, i+1, l, ls[i+1:])
+		}
+		return nil
+	})
+}
+
+// vpFlowBaseSiblings is a FAIL line per `## apps` repository other than
+// wt's own holding no `<repo>-worktrees/<name>`, when wt's branch
+// `spectre/<name>` records a flowBase; none otherwise.
+func vpFlowBaseSiblings(wt string) []string {
+	git := func(args ...string) string {
+		out, _ := exec.Command("git", append([]string{"-C", wt}, args...)...).Output()
+		return strings.TrimSpace(string(out))
+	}
+	branch := git("symbolic-ref", "--short", "HEAD")
+	name, ok := strings.CutPrefix(branch, "spectre/")
+	if !ok || name == "" || git("config", "--get", "branch."+branch+".flowBase") == "" {
+		return nil
+	}
+	real := func(p string) string {
+		if r, err := filepath.EvalSymlinks(p); err == nil {
+			return r
+		}
+		return filepath.Clean(p)
+	}
+	own := filepath.Dir(real(git("rev-parse", "--path-format=absolute", "--git-common-dir")))
+	var fails []string
+	for _, root := range plans.AppRoots(core.ProjectSection(filepath.Join(wt, ".flow/project.md"), "apps")) {
+		if !core.IsDir(root) || real(root) == own {
+			continue
+		}
+		if sib := root + "-worktrees/" + name; !core.IsDir(sib) {
+			fails = append(fails, fmt.Sprintf("FAIL: siblings — %s is missing: %s records flowBase, so every `## apps` repository needs its own worktree of the change", sib, branch))
+		}
+	}
+	return fails
+}
+
+// vpRepoRoot is the nearest directory at or above dir carrying a `.git`
+// entry (a checkout's directory or a linked worktree's file), or "".
+func vpRepoRoot(dir string) string {
+	for d := filepath.Clean(dir); ; d = filepath.Dir(d) {
+		if _, err := os.Lstat(filepath.Join(d, ".git")); err == nil {
+			return d
+		}
+		if filepath.Dir(d) == d {
+			return ""
+		}
+	}
+}
