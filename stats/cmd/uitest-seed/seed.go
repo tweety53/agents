@@ -1019,6 +1019,9 @@ func seedSession(ctx context.Context, st *store.Store, name, sessionID string, r
 			continue
 		}
 		end := records.RequestEnd{N: n, Outcome: rq.outcome, EndedAt: &last}
+		if rq.outcome == "dropped" {
+			end.Reason = "superseded"
+		}
 		if rq.outcome == "landed" {
 			end.CommitSHA = rq.commit + strings.Repeat("0", 33)
 			end.BaseSHA = strings.Repeat("0", 40)

@@ -141,7 +141,7 @@ flow record request begin -change <name> -n <n> -title '<one line>'
 A message carrying several distinct asks — a pasted list, numbered or bulleted — is recorded at
 intake as one request per item, its `-title` that item's text on one line, before anything is
 dispatched; an item needing no code ends `answered`. A request is ended only `landed`, `answered`
-with what was found, or `dropped` with a reason the operator can read in the report; that a list is
+with what was found, or `dropped` with `-reason`, stored on the row for the operator to read; that a list is
 worked through, done or all landed is derived from those rows — `flow-guard check-open-requests
 <worktree>` printing nothing — never from memory.
 
@@ -312,7 +312,7 @@ screenshot path). Steps 1–7 are not optional and never reported as left undone
 ```bash
 flow record request end -change <name> -n <n> -outcome landed -commit <last landed sha> -base <base sha>
 flow record request end -change <name> -n <n> -outcome answered
-flow record request end -change <name> -n <n> -outcome dropped
+flow record request end -change <name> -n <n> -outcome dropped -reason '<why, one line>'
 ```
 
 `landed` runs the **Request-end guard**, below. Then the request's worktree is removed (**Request
@@ -384,7 +384,7 @@ Every end names the agent's id, an aborted row's included, so its tokens are mea
 
 Exit codes, those of every record verb: 0 written or journalled; 1 refused, one line naming the
 failed check; 2 usage. `-commit` and `-base` are required with `landed` and refused with
-`answered` and `dropped`; an `-outcome` outside the three is a usage error. A refusal is fixed —
+`answered` and `dropped`; `-reason` is required with `dropped` and refused otherwise; an `-outcome` outside the three is a usage error. A refusal is fixed —
 land the commit, run the verify and the UI check and end each `completed` — and the end re-run, never worked around. The coordinator never repairs a refusal itself: a `flow record request end` refusal (verify or UI-check evidence, lint-green, ancestry) is sent back to the executor that ran the request — per **Reuse** in **Operator-asked subagents**, a fresh dispatch's brief being the refusal text — and the end is re-run on its new report.
 
 ## Explicit stop

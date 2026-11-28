@@ -115,12 +115,16 @@ func TestRequestEndRecordsOutcome(t *testing.T) {
 		if _, err := st.BeginRequest(ctx, projectKey, "kan-1061", records.RequestBegin{N: n, Title: outcome}); err != nil {
 			t.Fatalf("BeginRequest %d: %v", n, err)
 		}
-		got, err := st.EndRequest(ctx, projectKey, "kan-1061", records.RequestEnd{N: n, Outcome: outcome})
+		in := records.RequestEnd{N: n, Outcome: outcome}
+		if outcome == "dropped" {
+			in.Reason = "superseded by request 2"
+		}
+		got, err := st.EndRequest(ctx, projectKey, "kan-1061", in)
 		if err != nil {
 			t.Fatalf("EndRequest %s: %v", outcome, err)
 		}
-		if got.State != outcome {
-			t.Errorf("EndRequest %s: State = %q", outcome, got.State)
+		if got.State != outcome || got.Reason != in.Reason {
+			t.Errorf("EndRequest %s: State/Reason = %q/%q, want %q/%q", outcome, got.State, got.Reason, outcome, in.Reason)
 		}
 	}
 
@@ -128,13 +132,22 @@ func TestRequestEndRecordsOutcome(t *testing.T) {
 		{N: 4, Outcome: "landed", CommitSHA: "c"},
 		{N: 4, Outcome: "landed", BaseSHA: "b"},
 		{N: 4, Outcome: "answered", CommitSHA: "c"},
-		{N: 4, Outcome: "dropped", BaseSHA: "b"},
+		{N: 4, Outcome: "dropped", BaseSHA: "b", Reason: "r"},
 		{N: 4, Outcome: "shipped"},
 		{N: 0, Outcome: "answered"},
 		{N: 4, Outcome: "answered"},
 		{N: 5, Outcome: "landed", CommitSHA: "c5", BaseSHA: "b5"},
 	}
 	for _, in := range bad {
+		if _, err := st.EndRequest(ctx, projectKey, "kan-1061", in); !errors.Is(err, store.ErrInvalidRequest) {
+			t.Errorf("EndRequest %+v: err = %v, want ErrInvalidRequest", in, err)
+		}
+	}
+	// A begun request 6, so only the reason rule can refuse these.
+	if _, err := st.BeginRequest(ctx, projectKey, "kan-1061", records.RequestBegin{N: 6, Title: "six"}); err != nil {
+		t.Fatalf("BeginRequest 6: %v", err)
+	}
+	for _, in := range []records.RequestEnd{{N: 6, Outcome: "dropped"}, {N: 6, Outcome: "answered", Reason: "r"}} {
 		if _, err := st.EndRequest(ctx, projectKey, "kan-1061", in); !errors.Is(err, store.ErrInvalidRequest) {
 			t.Errorf("EndRequest %+v: err = %v, want ErrInvalidRequest", in, err)
 		}
@@ -147,8 +160,8 @@ func TestRequestEndRecordsOutcome(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListRequests: %v", err)
 	}
-	if len(list) != 3 {
-		t.Fatalf("ListRequests returned %d rows, want 3 -- an end for a request never begun writes no row", len(list))
+	if len(list) != 4 {
+		t.Fatalf("ListRequests returned %d rows, want 4 -- an end for a request never begun writes no row", len(list))
 	}
 }
 

@@ -42,7 +42,7 @@ const requestStarted = `EXISTS (SELECT 1 FROM stage_runs sr WHERE sr.change_id =
 const requestColumns = `
 	requests.n, requests.title, requests.brainstorm_reason, requests.received_at, requests.ended_at,
 	COALESCE(requests.outcome, ''), COALESCE(requests.commit_sha, ''), COALESCE(requests.base_sha, ''),
-	` + requestStarted
+	requests.reason, ` + requestStarted
 
 func scanRequest(row rowScanner) (records.Request, error) {
 	var (
@@ -50,7 +50,7 @@ func scanRequest(row rowScanner) (records.Request, error) {
 		started bool
 	)
 	if err := row.Scan(&r.N, &r.Title, &r.BrainstormReason, &r.ReceivedAt, &r.EndedAt,
-		&r.Outcome, &r.CommitSHA, &r.BaseSHA, &started); err != nil {
+		&r.Outcome, &r.CommitSHA, &r.BaseSHA, &r.Reason, &started); err != nil {
 		return records.Request{}, err
 	}
 	r.State = requestState(r.Outcome, started)
@@ -182,6 +182,9 @@ func (s *Store) EndRequest(ctx context.Context, projectKey, change string, in re
 	if err := validateRequestEnd(in.N, in.Outcome, in.CommitSHA, in.BaseSHA); err != nil {
 		return records.Request{}, err
 	}
+	if (in.Outcome == "dropped") != (in.Reason != "") {
+		return records.Request{}, fmt.Errorf("%w: dropped needs a reason, and only dropped takes one", ErrInvalidRequest)
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return records.Request{}, fmt.Errorf("store: end request: %w", err)
@@ -199,7 +202,7 @@ func (s *Store) EndRequest(ctx context.Context, projectKey, change string, in re
 		return records.Request{}, fmt.Errorf("%w: request %d was never begun — flow record request begin -n %d -title '<one line>' first", ErrInvalidRequest, in.N, in.N)
 	}
 	if stored.Outcome != "" {
-		if in.Outcome != stored.Outcome || in.CommitSHA != stored.CommitSHA || in.BaseSHA != stored.BaseSHA {
+		if in.Outcome != stored.Outcome || in.CommitSHA != stored.CommitSHA || in.BaseSHA != stored.BaseSHA || in.Reason != stored.Reason {
 			return records.Request{}, fmt.Errorf("%w: %s/%s request %d ended %s; an end may not change its outcome, commit or base", ErrRequestEnded, projectKey, change, in.N, stored.Outcome)
 		}
 		return stored, nil
@@ -210,11 +213,12 @@ func (s *Store) EndRequest(ctx context.Context, projectKey, change string, in re
 			ended_at = COALESCE($4, now()),
 			outcome = $5,
 			commit_sha = NULLIF($6, ''),
-			base_sha = NULLIF($7, '')
+			base_sha = NULLIF($7, ''),
+			reason = $8
 		FROM changes c
 		WHERE c.id = requests.change_id AND c.project_key = $1 AND c.name = $2 AND requests.n = $3
 		RETURNING `+requestColumns,
-		projectKey, change, in.N, in.EndedAt, in.Outcome, in.CommitSHA, in.BaseSHA))
+		projectKey, change, in.N, in.EndedAt, in.Outcome, in.CommitSHA, in.BaseSHA, in.Reason))
 	if err != nil {
 		return records.Request{}, requestWriteErr("end", projectKey, change, err)
 	}

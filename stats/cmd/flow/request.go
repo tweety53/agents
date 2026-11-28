@@ -97,7 +97,8 @@ func runRecordRequestBegin(ctx context.Context, args []string, getenv func(strin
 
 // runRecordRequestEnd implements `flow record request end`: a request's
 // outcome. landed takes -commit and -base and runs gateLandedRequest
-// before the write; answered and dropped take neither.
+// before the write; answered and dropped take neither, and dropped
+// alone takes -reason, which it requires.
 func runRecordRequestEnd(ctx context.Context, args []string, getenv func(string) string, stdout, stderr io.Writer) int {
 	fset := flag.NewFlagSet("flow record request end", flag.ContinueOnError)
 	fset.SetOutput(stderr)
@@ -107,10 +108,16 @@ func runRecordRequestEnd(ctx context.Context, args []string, getenv func(string)
 	outcome := fset.String("outcome", "", "landed, answered or dropped (required)")
 	commit := fset.String("commit", "", "landed only: the request's last landed commit, a full sha")
 	base := fset.String("base", "", "landed only: origin/<base> right after the request's first landing rebase, a full sha")
+	reason := fset.String("reason", "", "dropped only, required: why the request was dropped, for the operator to read")
 	if ok, code := parseRecordFlags(fset, &f, args, getenv, stderr); !ok {
 		return code
 	}
 	if !requireRequestN(*n, stderr) {
+		return 2
+	}
+	if (*outcome == "dropped") != (*reason != "") {
+		fmt.Fprintln(stderr, "flow: -outcome dropped requires -reason, and only dropped takes it")
+		fmt.Fprint(stderr, recordUsage)
 		return 2
 	}
 	if !slices.Contains(requestOutcomes, *outcome) {
@@ -145,7 +152,7 @@ func runRecordRequestEnd(ctx context.Context, args []string, getenv func(string)
 		}
 	}
 	now := time.Now().UTC()
-	in := records.RequestEnd{N: *n, Outcome: *outcome, CommitSHA: *commit, BaseSHA: *base, EndedAt: &now}
+	in := records.RequestEnd{N: *n, Outcome: *outcome, CommitSHA: *commit, BaseSHA: *base, Reason: *reason, EndedAt: &now}
 	_, callErr := callRecord(ctx, f.addr, f.timeout, func(ctx context.Context, cl *client.Client) (records.Request, error) {
 		return cl.EndRequest(ctx, projectKey, f.change, in)
 	})

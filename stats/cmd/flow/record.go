@@ -359,7 +359,7 @@ const recordUsage = `usage: flow record dispatch begin [-addr url] [-timeout dur
                              -change name -n n [-title line] [-brainstorm-reason why]
        flow record request end [-addr url] [-timeout dur] [-C dir]
                              -change name -n n -outcome landed|answered|dropped
-                             [-commit sha -base sha]
+                             [-commit sha -base sha] [-reason why]
 
 -change, where omitted, is the branch (less spectre/) of the checkout
 holding -C when that checkout carries the change's directory. An explicit
@@ -390,7 +390,7 @@ request begin and request end record one /flow-interactive request
 (KAN-1061), each an upsert by -change and -n: begin needs -title or
 -brainstorm-reason, and an omitted one leaves the stored value. end
 -outcome landed requires -commit and -base (answered and dropped take
-neither) and is refused (exit 1), before anything is written, unless the
+neither; dropped alone takes -reason, and requires it) and is refused (exit 1), before anything is written, unless the
 change's checkout -- the one carrying .superpowers/sdd/<change>/ -- has
 -commit on origin/<base> and -base an ancestor of -commit, and, when
 check-visual-trigger matches the files of -base..-commit, the request's

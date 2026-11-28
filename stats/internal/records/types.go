@@ -836,6 +836,7 @@ type RequestEnd struct {
 	Outcome   string     `json:"outcome"`
 	CommitSHA string     `json:"commitSha,omitempty"`
 	BaseSHA   string     `json:"baseSha,omitempty"`
+	Reason    string     `json:"reason,omitempty"` // dropped only, required: why, for the operator
 	EndedAt   *time.Time `json:"endedAt,omitempty"`
 }
 
@@ -851,6 +852,7 @@ type Request struct {
 	Outcome          string     `json:"outcome"`
 	CommitSHA        string     `json:"commitSha"`
 	BaseSHA          string     `json:"baseSha"`
+	Reason           string     `json:"reason"`
 	State            string     `json:"state"`
 }
 

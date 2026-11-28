@@ -203,6 +203,14 @@ func TestRecordRequestBeginEnd(t *testing.T) {
 		t.Errorf("end body = %s, want answered with no shas and an endedAt", d.bodies[0])
 	}
 
+	d.reset()
+	if code, _, stderr := runRequest(srv.URL, fx.peer, env, "end", "-change", fx.name, "-n", "1", "-outcome", "dropped", "-reason", "superseded"); code != 0 {
+		t.Fatalf("end dropped exit=%d stderr=%q, want 0", code, stderr)
+	}
+	if err := json.Unmarshal(d.bodies[0], &got); err != nil || got["reason"] != "superseded" {
+		t.Errorf("end dropped body = %s (%v), want reason superseded", d.bodies[0], err)
+	}
+
 	sha := strings.Repeat("a", 40)
 	d.reset()
 	for name, args := range map[string][]string{
@@ -211,6 +219,8 @@ func TestRecordRequestBeginEnd(t *testing.T) {
 		"answered with a commit":        {"end", "-change", fx.name, "-n", "1", "-outcome", "answered", "-commit", sha},
 		"an unknown outcome":            {"end", "-change", fx.name, "-n", "1", "-outcome", "merged"},
 		"landed without -base":          {"end", "-change", fx.name, "-n", "1", "-outcome", "landed", "-commit", sha},
+		"dropped without -reason":       {"end", "-change", fx.name, "-n", "1", "-outcome", "dropped"},
+		"answered with -reason":         {"end", "-change", fx.name, "-n", "1", "-outcome", "answered", "-reason", "r"},
 	} {
 		if code, _, stderr := runRequest(srv.URL, fx.peer, env, args...); code != 2 {
 			t.Errorf("%s: exit=%d stderr=%q, want 2", name, code, stderr)
