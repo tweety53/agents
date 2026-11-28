@@ -5,11 +5,7 @@ import { FIXTURE_NOW } from "./support";
 // asserts the control's effect in the DOM (a row appearing or
 // disappearing, an attribute flipping), never a screenshot alone.
 //
-// The dashboard bar (PeriodPicker, Project filter, Go to change, Model)
-// and DataTable's search, column filters and sort headers are rendered by
-// no view since the self-review view lost them (f53e3d149), so their
-// specs were deleted rather than retargeted; the views' own chip filters
-// are exercised in their own specs.
+// The other views' own chip filters are exercised in their own specs.
 
 // The live state board's own filters (kan-1048): fixture rows inside the
 // default 7d at FIXTURE_NOW are kan-101-add-widget (STARTED, running),

@@ -1,6 +1,6 @@
 // Loaded once per test file via vite.config.ts's test.setupFiles. Extends
 // vitest's `expect` with the jest-dom matchers (toBeInTheDocument, etc.)
-// that views.test.tsx and DataTable.test.tsx use to assert what a reader
+// that views.test.tsx and the component tests use to assert what a reader
 // actually sees, rather than only that a component mounted, and unmounts
 // each rendered tree after its test -- this project does not opt into
 // vitest's `globals: true`, so testing-library's own afterEach(cleanup)

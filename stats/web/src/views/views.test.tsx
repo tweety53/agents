@@ -1815,16 +1815,8 @@ describe("the Project column names a project instead of keying it", () => {
 
 });
 
-// F3 (panel round 1, Major): DataTable's exact-match filter and free-text
-// search both key off a column's `accessor`. Task 2 set the Project
-// column's accessor to the *display name*, so the filter dropdown offered
-// one option per distinct display name -- and two projects whose keys
-// differ only in the disambiguating hash suffix collapsed into that one
-// option, silently merging what resolveProjectParam
-// (stats/internal/api/stats.go) refuses server-side with a 400 naming the
-// ambiguity. The fix returns the accessor to the full key: the dropdown
-// now offers one option per key, each of which narrows to exactly the one
-// project it names.
+// Two projects whose keys differ only in the disambiguating hash suffix
+// share a display name and must never merge into one filter.
 describe("the Project filter narrows by key identity, not by display name", () => {
   const BASENAME = "agents";
   const KEY_ONE = `${BASENAME}-a740d89c`;

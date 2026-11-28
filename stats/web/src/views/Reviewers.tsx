@@ -21,7 +21,7 @@
 // One tile per question, each headed by the first slot of its own rank
 // (reviewers-one-tile-per-question, reviewers-tile-edge-states). Formats follow
 // reviewers-display-formats; the Changes column, the model variable and
-// DataTable's search and dropdowns are gone (reviewers-dropped-elements).
+// the table search and dropdowns are gone (reviewers-dropped-elements).
 import { useState } from "react";
 import type { ReviewerProject, ReviewerRow } from "../api";
 import { Chip, ChipGroup } from "../components/Chip";

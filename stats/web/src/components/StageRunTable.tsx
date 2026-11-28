@@ -4,8 +4,7 @@
 // <phase>` row carrying the session's span, duration and cost
 // (session-phase-groups), each row's model shown with its version and effort
 // (model-version-effort), and a row's dispatches opening beneath it. It is a
-// plain table, not DataTable, because DataTable cannot draw group rows under
-// one header (grouped-tables-own-markup).
+// plain table of its own, to draw group rows under one header (grouped-tables-own-markup).
 // A /flow-interactive session's table instead leads with a Request column
 // and lists its runs newest first, ungrouped (the `requests` prop, KAN-1061).
 //

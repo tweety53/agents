@@ -18,7 +18,7 @@ export default defineConfig({
     outDir: "../internal/web/dist",
     emptyOutDir: true,
   },
-  // Task 13 adds component tests (DataTable, the eight views) that render
+  // Task 13 adds component tests (the components, the views) that render
   // real DOM via @testing-library/react, which needs a DOM to render into
   // -- task 12's api.test.ts needed none of this, being pure functions.
   test: {
