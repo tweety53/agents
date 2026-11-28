@@ -47,7 +47,7 @@ func ParseTask(lines []string, taskID string) (Task, bool) {
 
 	task := Task{id: taskID, testsValue: joined("Tests")}
 	if cp := fields["Commit"]; len(cp) > 0 {
-		v := tcfStrip(strings.Join(cp, " "))
+		v := core.TrimSpaceOrSep(strings.Join(cp, " "))
 		if m := tcfBacktickAll.FindStringSubmatch(v); m != nil {
 			v = m[1]
 		}
@@ -60,7 +60,7 @@ func ParseTask(lines []string, taskID string) (Task, bool) {
 		task.baseline = &[2]*big.Int{before, after}
 	}
 	for _, m := range tcfMeasuredRE.FindAllStringSubmatch(baselineValue, -1) {
-		if c := tcfStrip(m[1]); c != "" && !slices.Contains(task.baselineMeasured, c) {
+		if c := core.TrimSpaceOrSep(m[1]); c != "" && !slices.Contains(task.baselineMeasured, c) {
 			task.baselineMeasured = append(task.baselineMeasured, c)
 		}
 	}
@@ -101,11 +101,11 @@ func tcfBodyFields(body []string) map[string][]string {
 		case m != nil:
 			commitField()
 			current, parts = m[1], []string{m[2]}
-		case tcfStrip(line) == "":
+		case core.TrimSpaceOrSep(line) == "":
 			commitField()
 			current, parts = "", nil
 		case current != "":
-			parts = append(parts, tcfStrip(line))
+			parts = append(parts, core.TrimSpaceOrSep(line))
 		}
 		return false
 	})
@@ -266,7 +266,7 @@ func tcfPathShorthand(lines []string) tcfShorthand {
 	var pending []string
 	armed := false
 	tcfUnfenced(lines[:tasks[0].taskLine-1], func(_ int, line string) bool {
-		if tcfStrip(line) == "" {
+		if core.TrimSpaceOrSep(line) == "" {
 			pending, armed = nil, false
 			return false
 		}
@@ -277,7 +277,7 @@ func tcfPathShorthand(lines []string) tcfShorthand {
 					words = []string{segment}
 				}
 			} else {
-				for _, w := range strings.FieldsFunc(segment, tcfIsSpace) {
+				for _, w := range strings.FieldsFunc(segment, core.IsSpaceOrSep) {
 					if w = strings.Trim(w, ".,;:()[]"); w != "" {
 						words = append(words, w)
 					}
@@ -333,7 +333,7 @@ func tcfSelectBuildTag(body []string) *tcfBuildTag {
 		if m == nil {
 			return false
 		}
-		tag = &tcfBuildTag{offset: off, value: tcfStrip(m[1])}
+		tag = &tcfBuildTag{offset: off, value: core.TrimSpaceOrSep(m[1])}
 		if k := tcfBuildKindRE.FindStringSubmatch(m[1]); k != nil {
 			tag.kind = k[1]
 		}
@@ -349,7 +349,7 @@ func tcfBacktickTokens(value string) []string {
 		tokens = append(tokens, m[1])
 	}
 	if tokens == nil {
-		if s := tcfStrip(value); s != "" {
+		if s := core.TrimSpaceOrSep(value); s != "" {
 			tokens = []string{s}
 		}
 	}
@@ -439,7 +439,7 @@ func tcfSelectSquashWith(body []string) (value *string, partners []string, gated
 		if m == nil {
 			return false
 		}
-		v := tcfStrip(m[1])
+		v := core.TrimSpaceOrSep(m[1])
 		if g := tcfSquashValueRE.FindStringSubmatch(v); g != nil {
 			value, partners, gated = &v, tcfDottedIDRE.FindAllString(g[1], -1), off
 			return true
@@ -507,7 +507,7 @@ func tcfFixSuffix(name string) (int, string, bool) {
 
 // tcfFoldedPattern is _folded_ws_pattern.
 func tcfFoldedPattern(token string) *regexp.Regexp {
-	words := strings.FieldsFunc(token, tcfIsSpace)
+	words := strings.FieldsFunc(token, core.IsSpaceOrSep)
 	for i := range words {
 		words[i] = regexp.QuoteMeta(words[i])
 	}
@@ -538,7 +538,7 @@ func tcfAfterIDs(value string) ([]string, bool) {
 	if !tcfAfterValueRE.MatchString(value) {
 		return nil, false
 	}
-	if tcfStrip(value) == "none" {
+	if core.TrimSpaceOrSep(value) == "none" {
 		return []string{}, true
 	}
 	return tcfDottedIDRE.FindAllString(value, -1), true
@@ -565,7 +565,7 @@ func tcfSelectAfter(body []string) *tcfAfter {
 		if m == nil {
 			return false
 		}
-		v := tcfStrip(m[1])
+		v := core.TrimSpaceOrSep(m[1])
 		if ids, ok := tcfAfterIDs(v); ok {
 			found = &tcfAfter{off, v, ids, true}
 			return true
@@ -688,7 +688,7 @@ func pdbParseTasks(lines []string) []pdbTask {
 				inFiles = false
 			}
 			if v, ok := strings.CutPrefix(line, "**Size:**"); ok && !t.sizeDeclared {
-				t.size, t.sizeDeclared = tcfStrip(v), true
+				t.size, t.sizeDeclared = core.TrimSpaceOrSep(v), true
 			}
 			if inline, ok := strings.CutPrefix(line, "**Files:**"); ok {
 				t.filesPresent, inFiles = true, true
@@ -710,7 +710,7 @@ func pdbBullet(line string) (string, bool) {
 	if !ok || len(rest) >= 3 && rest[0] == '[' && strings.IndexByte(" xX", rest[1]) >= 0 && rest[2] == ']' {
 		return "", false
 	}
-	return strings.TrimLeftFunc(rest, tcfIsSpace), true
+	return strings.TrimLeftFunc(rest, core.IsSpaceOrSep), true
 }
 
 var (
@@ -722,10 +722,10 @@ var (
 // after a Create:/Modify:/Delete: prefix, or its remaining text when it
 // quotes none. Paths compare as this literal text, never resolved.
 func pdbExtractPaths(entry string) []string {
-	stripped := tcfStrip(pdbEntryPrefixRE.ReplaceAllLiteralString(tcfStrip(entry), ""))
+	stripped := core.TrimSpaceOrSep(pdbEntryPrefixRE.ReplaceAllLiteralString(core.TrimSpaceOrSep(entry), ""))
 	var paths []string
 	for _, m := range pdbBacktickRE.FindAllStringSubmatch(stripped, -1) {
-		paths = append(paths, tcfStrip(m[1]))
+		paths = append(paths, core.TrimSpaceOrSep(m[1]))
 	}
 	if paths == nil {
 		return []string{stripped}
@@ -812,7 +812,7 @@ func (c tcfCrash) Error() string { return c.msg }
 
 // ---- lib/plan_grammar.py ----
 
-// tcfWS is Python's str \s: the characters str.isspace() accepts.
+// tcfWS is the regexp class of core.IsSpaceOrSep's characters.
 const tcfWS = `\t\n\v\f\r \x{1c}-\x{1f}\x{85}\p{Z}`
 
 var (
@@ -820,11 +820,6 @@ var (
 	tcfTaskLineRE = regexp.MustCompile(`^- \[([ x])\] ([0-9]+)\. `)
 	tcfBoundaryRE = regexp.MustCompile(`^#{2,3}(?:[` + tcfWS + `]|$)`)
 )
-
-func tcfIsSpace(r rune) bool { return unicode.IsSpace(r) || r >= 0x1c && r <= 0x1f }
-
-// tcfStrip is str.strip().
-func tcfStrip(s string) string { return strings.TrimFunc(s, tcfIsSpace) }
 
 type TaskBody struct {
 	Id       string
@@ -902,8 +897,7 @@ type Task struct {
 	unclosedFenceLine int // 0: every fence the body opens is closed
 }
 
-// tcfText is Python's text-mode decode: strict UTF-8, then universal
-// newlines.
+// tcfText is b as text: strict UTF-8, then \r\n and \r read as \n.
 func tcfText(b []byte) (string, error) {
 	if !utf8.Valid(b) {
 		return "", tcfDecodeError(b)
@@ -911,8 +905,8 @@ func tcfText(b []byte) (string, error) {
 	return strings.ReplaceAll(strings.ReplaceAll(string(b), "\r\n", "\n"), "\r", "\n"), nil
 }
 
-// tcfDecodeError is the UnicodeDecodeError line CPython's utf-8 codec
-// raises for b's first invalid sequence.
+// tcfDecodeError names b's first invalid UTF-8 sequence: its byte, its
+// position and why it is invalid.
 func tcfDecodeError(b []byte) error {
 	i := 0
 	for i < len(b) {
@@ -1412,7 +1406,7 @@ func tcfRunGit(env core.Env, worktree string, args ...string) (string, error) {
 		return "", err
 	}
 	if code != 0 {
-		return "", fmt.Errorf("git -C %s %s failed: %s", worktree, strings.Join(args, " "), tcfStrip(se))
+		return "", fmt.Errorf("git -C %s %s failed: %s", worktree, strings.Join(args, " "), core.TrimSpaceOrSep(se))
 	}
 	return so, nil
 }

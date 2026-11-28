@@ -69,7 +69,7 @@ func enforceLoopDispatch(env core.Env, payload map[string]any, _, stderr io.Writ
 		role = r[1]
 	}
 	repo := env.Getenv("FLOW_GUARD_REPO_ROOT")
-	args := []string{repo, key, pyStrOr(in["subagent_type"], ""), pyStrOr(in["model"], ""), role}
+	args := []string{repo, key, strOr(in["subagent_type"], ""), strOr(in["model"], ""), role}
 	// LOOP_DISPATCH_CHECK swaps in a checker process for the hook's own harness only.
 	if c := env.Getenv("LOOP_DISPATCH_CHECK"); c != "" {
 		eldRunCheck(env, c, cwd, key, args, stderr)

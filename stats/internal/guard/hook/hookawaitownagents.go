@@ -333,7 +333,7 @@ func aoaIDKey(v any) string {
 	if s, ok := v.(string); ok {
 		return "s:" + s
 	}
-	return "o:" + pyStr(v)
+	return "o:" + jsonStr(v)
 }
 
 // aoaEachString calls fn on every string, key or value, in a decoded JSON value.

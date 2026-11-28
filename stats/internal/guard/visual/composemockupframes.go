@@ -175,11 +175,11 @@ func composeMockupFrames(args []string, env core.Env, stdout, stderr io.Writer) 
 	// run before anything is composed; the walk below applies them in order.
 	frames := map[int]*cmfGeometry{}
 	for i, raw := range mapLines {
-		line := core.PyStrip(raw)
+		line := core.TrimSpaceOrSep(raw)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if f := core.PySplit(line); f[0] == "frame" {
+		if f := core.FieldsSpaceOrSep(line); f[0] == "frame" {
 			rest := strings.Join(f[1:], " ")
 			if rest == "none" {
 				frames[i] = nil
@@ -205,9 +205,8 @@ func composeMockupFrames(args []string, env core.Env, stdout, stderr io.Writer) 
 		return 2
 	}
 
-	// sys.stdin splits on \n alone on POSIX -- CPython opens it with
-	// newline="\n", not universal newlines -- so a lone \r stays inside the
-	// path it sits in, and strip() drops a \r\n's \r.
+	// Stdin splits on \n alone, so a lone \r stays inside the path it sits
+	// in, and the trim drops a \r\n's \r.
 	var in []byte
 	if env.Stdin != nil {
 		if in, err = io.ReadAll(env.Stdin); err != nil {
@@ -223,7 +222,7 @@ func composeMockupFrames(args []string, env core.Env, stdout, stderr io.Writer) 
 	}
 	var stdinPaths []string
 	for _, line := range strings.Split(string(in), "\n") {
-		if p := core.PyStrip(line); p != "" {
+		if p := core.TrimSpaceOrSep(line); p != "" {
 			stdinPaths = append(stdinPaths, p)
 		}
 	}
@@ -264,11 +263,11 @@ func composeMockupFrames(args []string, env core.Env, stdout, stderr io.Writer) 
 
 	for i, raw := range mapLines {
 		lineno := i + 1
-		line := core.PyStrip(raw)
+		line := core.TrimSpaceOrSep(raw)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		fields := core.PySplit(line)
+		fields := core.FieldsSpaceOrSep(line)
 		if g, ok := frames[i]; ok {
 			geometry = g
 			continue
@@ -416,7 +415,7 @@ func cmfSave(env core.Env, stderr io.Writer, at func(string) string, path string
 func cmfParseGeometry(arg string) (cmfGeometry, bool) {
 	values := map[string]int{}
 	bare := false
-	for _, field := range core.PySplit(arg) {
+	for _, field := range core.FieldsSpaceOrSep(arg) {
 		if field == "bare" && !bare {
 			bare = true
 			continue

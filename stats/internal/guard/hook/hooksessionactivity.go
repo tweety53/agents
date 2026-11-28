@@ -53,8 +53,8 @@ func flowSessionActivity(env core.Env, payload map[string]any, _, _ io.Writer) {
 		State    string `json:"state"`
 		Detail   string `json:"detail"`
 		Subagent bool   `json:"subagent,omitempty"`
-	}{state, detail, (event == "PreToolUse" || event == "PostToolUse") && pyTruthy(payload["agent_id"])})
-	req, err := http.NewRequest(http.MethodPut, core.FlowAddr(env)+"/api/v1/sessions/"+pyQuoteURL(sessionID, "")+"/activity", strings.NewReader(body))
+	}{state, detail, (event == "PreToolUse" || event == "PostToolUse") && isTruthy(payload["agent_id"])})
+	req, err := http.NewRequest(http.MethodPut, core.FlowAddr(env)+"/api/v1/sessions/"+quoteURL(sessionID, "")+"/activity", strings.NewReader(body))
 	if err != nil {
 		return
 	}
@@ -74,19 +74,19 @@ func sessionActivity(p map[string]any) (state, detail string, ok bool) {
 	// (kan-1048 self-review, 1-J). Its Notification still reaches the board,
 	// and names no agent, so its tool calls go out marked "subagent": flowd
 	// lets one only end a permission wait (store.EndSessionPermission).
-	if tool && pyTruthy(p["agent_id"]) {
+	if tool && isTruthy(p["agent_id"]) {
 		return "working", sessionAction(p), true
 	}
 	switch {
 	case event == "PreToolUse" && p["tool_name"] == "AskUserQuestion":
 		in := map[string]any{}
-		if pyTruthy(p["tool_input"]) {
+		if isTruthy(p["tool_input"]) {
 			if in, ok = p["tool_input"].(map[string]any); !ok {
 				return "", "", false
 			}
 		}
 		first := map[string]any{}
-		if qs := in["questions"]; pyTruthy(qs) {
+		if qs := in["questions"]; isTruthy(qs) {
 			l, isList := qs.([]any)
 			if !isList {
 				return "", "", false
@@ -95,9 +95,9 @@ func sessionActivity(p map[string]any) (state, detail string, ok bool) {
 				return "", "", false
 			}
 		}
-		return "question", pyStrOr(first["question"], ""), true
+		return "question", strOr(first["question"], ""), true
 	case event == "Notification":
-		message := pyStrOr(p["message"], "")
+		message := strOr(p["message"], "")
 		if strings.Contains(strings.ToLower(message), "permission") {
 			return "permission", message, true
 		}
@@ -120,9 +120,9 @@ func sessionActivity(p map[string]any) (state, detail string, ok bool) {
 // its own short label -- a Bash call's description (else its first command line), an edited or
 // read file's name, a dispatched agent's or skill's name.
 func sessionAction(p map[string]any) string {
-	tool := pyStrOr(p["tool_name"], "")
+	tool := strOr(p["tool_name"], "")
 	in := map[string]any{}
-	if pyTruthy(p["tool_input"]) {
+	if isTruthy(p["tool_input"]) {
 		var ok bool
 		if in, ok = p["tool_input"].(map[string]any); !ok {
 			return tool
@@ -131,30 +131,30 @@ func sessionAction(p map[string]any) string {
 	label := ""
 	switch tool {
 	case "Bash":
-		if label = pyStrOr(in["description"], ""); label == "" {
-			label = pySplitFirst(pyStrOr(in["command"], ""))
+		if label = strOr(in["description"], ""); label == "" {
+			label = firstLine(strOr(in["command"], ""))
 		}
 		if label != "" {
 			return "Bash: " + label
 		}
 	case "Edit", "Write", "Read", "NotebookEdit":
-		path := pyStrOr(in["file_path"], "")
+		path := strOr(in["file_path"], "")
 		if path == "" {
-			path = pyStrOr(in["notebook_path"], "")
+			path = strOr(in["notebook_path"], "")
 		}
 		if path != "" {
 			return tool + " " + path[strings.LastIndex(path, "/")+1:]
 		}
 	case "Agent", "Task":
-		if label = pyStrOr(in["description"], ""); label == "" {
-			label = pyStrOr(in["subagent_type"], "")
+		if label = strOr(in["description"], ""); label == "" {
+			label = strOr(in["subagent_type"], "")
 		}
 		if label != "" {
 			return "Agent: " + label
 		}
 	case "Skill":
-		if pyTruthy(in["skill"]) {
-			return "Skill " + pyStr(in["skill"])
+		if isTruthy(in["skill"]) {
+			return "Skill " + jsonStr(in["skill"])
 		}
 	}
 	return tool

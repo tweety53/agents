@@ -8,9 +8,9 @@ import (
 	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
-// TestEabReadPickSplitsOnPythonSpace: the pick line is cut as Python's split(maxsplit=3), so an
+// TestEabReadPickSplitsOnUnicodeSpace: the pick line is cut into at most four fields, so an
 // ideographic space separates fields as an ASCII one does.
-func TestEabReadPickSplitsOnPythonSpace(t *testing.T) {
+func TestEabReadPickSplitsOnUnicodeSpace(t *testing.T) {
 	p := t.TempDir() + "/pick"
 	if err := os.WriteFile(p, []byte("opus flow-low src　why　\n"), 0o644); err != nil {
 		t.Fatal(err)

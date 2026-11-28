@@ -44,7 +44,7 @@ func flowActiveChange(env core.Env, payload map[string]any, stdout, _ io.Writer)
 	if sessionID == "" {
 		return
 	}
-	q := func(s string) string { return strings.ReplaceAll(pyQuoteURL(s, " "), " ", "+") }
+	q := func(s string) string { return strings.ReplaceAll(quoteURL(s, " "), " ", "+") }
 	v, err := hookGetJSON(env, core.FlowAddr(env)+"/api/v1/stage-runs?session_id="+q(sessionID)+"&sort=-started_at&limit=50", 2*time.Second)
 	if err != nil {
 		return
@@ -54,7 +54,7 @@ func flowActiveChange(env core.Env, payload map[string]any, stdout, _ io.Writer)
 	var run map[string]any
 	for _, r := range runs {
 		// A pipeline-fix or self-review loop's own change: its stage runs carry the parent's session id.
-		if m, ok := r.(map[string]any); ok && !hasAnyPrefix(pyStrOr(m["changeName"], ""), []string{"pipeline-fix-", "self-review-"}) {
+		if m, ok := r.(map[string]any); ok && !hasAnyPrefix(strOr(m["changeName"], ""), []string{"pipeline-fix-", "self-review-"}) {
 			run = m
 			break
 		}

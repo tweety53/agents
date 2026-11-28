@@ -78,8 +78,8 @@ func hookJSON(v any) string {
 	return strings.TrimSuffix(b.String(), "\n")
 }
 
-// pyTruthy is Python's bool(v) for a decoded JSON value.
-func pyTruthy(v any) bool {
+// isTruthy reports a decoded JSON value as set: not null, false, 0, "", [] or {}.
+func isTruthy(v any) bool {
 	switch x := v.(type) {
 	case nil:
 		return false
@@ -98,8 +98,8 @@ func pyTruthy(v any) bool {
 	return true
 }
 
-// pyStr is Python's str(v) for a decoded JSON value's scalar.
-func pyStr(v any) string {
+// jsonStr is a decoded JSON value's scalar as text; null, true and false read None, True, False.
+func jsonStr(v any) string {
 	switch x := v.(type) {
 	case nil:
 		return "None"
@@ -116,10 +116,10 @@ func pyStr(v any) string {
 	return fmt.Sprint(v)
 }
 
-// pyStrOr is Python's str(v or alt).
-func pyStrOr(v any, alt string) string {
-	if pyTruthy(v) {
-		return pyStr(v)
+// strOr is jsonStr(v) when v isTruthy, else alt.
+func strOr(v any, alt string) string {
+	if isTruthy(v) {
+		return jsonStr(v)
 	}
 	return alt
 }
@@ -130,15 +130,14 @@ func strOf(v any) string {
 	return s
 }
 
-// pyWords is Python's s.split(): the whitespace-separated words.
-func pyWords(v any) []string {
+// fieldsOf is v's whitespace-separated words when v is a string.
+func fieldsOf(v any) []string {
 	s, _ := v.(string)
 	return strings.Fields(s)
 }
 
-// pyQuoteURL is Python's urllib.parse.quote(s, safe): every byte outside letters, digits, `_.-~`
-// and safe percent-encoded.
-func pyQuoteURL(s, safe string) string {
+// quoteURL is s with every byte outside letters, digits, `_.-~` and safe percent-encoded.
+func quoteURL(s, safe string) string {
 	var b strings.Builder
 	for i := 0; i < len(s); i++ {
 		c := s[i]
@@ -151,12 +150,12 @@ func pyQuoteURL(s, safe string) string {
 	return b.String()
 }
 
-// pyFirstLine is Python's (s.strip().splitlines() or [s])[0][:n], n counted in characters.
-func pyFirstLine(s string, n int) string {
+// firstLineCut is the first line of trimmed s (s itself when it trims empty), cut to n characters.
+func firstLineCut(s string, n int) string {
 	t := strings.TrimSpace(s)
 	line := s
 	if t != "" {
-		line = pySplitFirst(t)
+		line = firstLine(t)
 	}
 	if utf8.RuneCountInString(line) > n {
 		line = string([]rune(line)[:n])
@@ -164,8 +163,8 @@ func pyFirstLine(s string, n int) string {
 	return line
 }
 
-// pySplitFirst is Python's (s.splitlines() or [""])[0]: s up to its first line boundary.
-func pySplitFirst(s string) string {
+// firstLine is s up to its first line boundary.
+func firstLine(s string) string {
 	if i := strings.IndexFunc(s, func(r rune) bool {
 		return strings.ContainsRune("\n\r\v\f\x1c\x1d\x1e\u0085\u2028\u2029", r)
 	}); i >= 0 {
@@ -244,7 +243,7 @@ func hookRecordIncident(env core.Env, guardName, reason, cwd, change string) {
 	if cmd == "" {
 		cmd = "flow"
 	}
-	args := []string{"record", "incident", "-guard", guardName, "-symptom", pyFirstLine(reason, 300),
+	args := []string{"record", "incident", "-guard", guardName, "-symptom", firstLineCut(reason, 300),
 		"-recovery", "re-sent per the deny reason", "-minutes-lost", "0"}
 	if cwd != "" {
 		args = append(args, "-C", cwd)

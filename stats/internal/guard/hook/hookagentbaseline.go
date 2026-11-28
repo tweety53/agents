@@ -202,7 +202,7 @@ func enforceAgentBaseline(env core.Env, payload map[string]any, stdout, _ io.Wri
 }
 
 func (e *eab) loopWord() string {
-	if w := pyWords(e.in["description"]); len(w) > 0 && hasAnyPrefix(w[0], eabLoopKeyPrefixes) {
+	if w := fieldsOf(e.in["description"]); len(w) > 0 && hasAnyPrefix(w[0], eabLoopKeyPrefixes) {
 		return w[0]
 	}
 	return ""
@@ -225,8 +225,8 @@ func (e *eab) loopKeyLineReason() (id, reason string) {
 // subagent_type that is not `flow-<effort>` / `flow-planner-<effort>`, with no `effort` on the
 // call. Every flow dispatch runs on a pair its role admits, and every pair names an effort.
 func (e *eab) effortReason() (id, reason string) {
-	agent := pyStrOr(e.in["subagent_type"], "")
-	if eabFlowEffort.MatchString(agent) || pyTruthy(e.in["effort"]) || !e.inFlowSession() {
+	agent := strOr(e.in["subagent_type"], "")
+	if eabFlowEffort.MatchString(agent) || isTruthy(e.in["effort"]) || !e.inFlowSession() {
 		return "", ""
 	}
 	if agent == "" {
@@ -285,10 +285,10 @@ func (e *eab) rolePairReason() (id, reason string) {
 	for _, k := range []string{"base", "optin"} {
 		list, _ := entry[k].([]any)
 		for _, p := range list {
-			admitted = append(admitted, pyStr(p))
+			admitted = append(admitted, jsonStr(p))
 		}
 	}
-	pair := pyStrOr(e.in["model"], "<no model>") + "/" + e.typ
+	pair := strOr(e.in["model"], "<no model>") + "/" + e.typ
 	if slices.Contains(admitted, pair) {
 		return "", ""
 	}
@@ -307,7 +307,7 @@ func (e *eab) beginKey() string {
 	if m := edrKey.FindStringSubmatch(e.prompt); m != nil && eabAdHocKey.MatchString(m[1]) {
 		return m[1]
 	}
-	if w := pyWords(e.in["description"]); len(w) > 0 && edrBeginKey.MatchString(w[0]) {
+	if w := fieldsOf(e.in["description"]); len(w) > 0 && edrBeginKey.MatchString(w[0]) {
 		return w[0]
 	}
 	return ""
@@ -351,7 +351,7 @@ func (e *eab) beginRow() (args []string, id, reason string) {
 	if roleLine != nil {
 		roleID = roleLine[1]
 	} else {
-		roleID = eabUnroled[pyStrOr(e.in["subagent_type"], "")]
+		roleID = eabUnroled[strOr(e.in["subagent_type"], "")]
 	}
 	role := eabRowRole[roleID]
 	key := ""
@@ -391,16 +391,16 @@ func (e *eab) beginRow() (args []string, id, reason string) {
 		return nil, "", ""
 	}
 	for _, r := range rows {
-		if m, ok := r.(map[string]any); ok && !pyTruthy(m["outcome"]) && m["key"] == key {
+		if m, ok := r.(map[string]any); ok && !isTruthy(m["outcome"]) && m["key"] == key {
 			return nil, "", ""
 		}
 	}
 	effort := e.in["effort"]
-	if m := eabFlowEffort.FindStringSubmatch(pyStrOr(e.in["subagent_type"], "")); m != nil {
+	if m := eabFlowEffort.FindStringSubmatch(strOr(e.in["subagent_type"], "")); m != nil {
 		effort = m[1]
 	}
 	args = []string{"record", "dispatch", "begin", "-C", e.cwd, "-change", change, "-role", role,
-		"-model", pyStrOr(e.in["model"], "unknown (agent-defined)"), "-effort", pyStr(effort)}
+		"-model", strOr(e.in["model"], "unknown (agent-defined)"), "-effort", jsonStr(effort)}
 	if m := eabSingleTaskKey.FindStringSubmatch(key); m != nil {
 		args = append(args, "-task", m[1])
 	}
@@ -468,14 +468,14 @@ func eabReadPick(path string) string {
 	var fields []string
 	rest := line
 	for len(fields) < 3 {
-		rest = strings.TrimLeftFunc(rest, core.PyIsSpace)
-		i := strings.IndexFunc(rest, core.PyIsSpace)
+		rest = strings.TrimLeftFunc(rest, core.IsSpaceOrSep)
+		i := strings.IndexFunc(rest, core.IsSpaceOrSep)
 		if rest == "" || i < 0 {
 			return ""
 		}
 		fields, rest = append(fields, rest[:i]), rest[i:]
 	}
-	reason := core.PyStrip(rest)
+	reason := core.TrimSpaceOrSep(rest)
 	if reason == "" {
 		return ""
 	}
@@ -570,7 +570,7 @@ func (e *eab) changeFinished() bool {
 	if change == "" || key == "" {
 		return false
 	}
-	v, err := hookGetJSON(e.env, core.FlowAddr(e.env)+"/api/v1/changes/"+pyQuoteURL(key, "/")+"/"+pyQuoteURL(change, "/"), hookBound(e.env, 2*time.Second))
+	v, err := hookGetJSON(e.env, core.FlowAddr(e.env)+"/api/v1/changes/"+quoteURL(key, "/")+"/"+quoteURL(change, "/"), hookBound(e.env, 2*time.Second))
 	m, _ := v.(map[string]any)
 	return err == nil && m["state"] == "FINISHED"
 }
@@ -593,13 +593,13 @@ func eabSessionChange(env core.Env, sessionID string) (change, project, stage st
 	list, _ := body["stageRuns"].([]any)
 	var runs []map[string]any
 	for _, r := range list {
-		if m, ok := r.(map[string]any); ok && !hasAnyPrefix(pyStrOr(m["changeName"], ""), eabLoopKeyPrefixes) {
+		if m, ok := r.(map[string]any); ok && !hasAnyPrefix(strOr(m["changeName"], ""), eabLoopKeyPrefixes) {
 			runs = append(runs, m)
 		}
 	}
 	var run map[string]any
 	for _, r := range runs {
-		if !pyTruthy(r["endedAt"]) {
+		if !isTruthy(r["endedAt"]) {
 			run = r
 			break
 		}
