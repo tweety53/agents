@@ -8,24 +8,28 @@ import { bodyBackground, DARK_SURFACE_1, FIXTURE_NOW } from "./support";
 //
 // Values below are read from the live UI-test stack rather than assumed:
 // GET /api/v1/stats/reviewers?from=2026-08-08T09:00:00Z&to=2026-08-15T09:00:00Z&projects=1
-// (the default 7d window ending at FIXTURE_NOW) returns thirteen rows, one
-// dispatch each -- kan-102's primary ($0.15, critical 1, minor 1) and
-// principles ($0.1, important 1), and kan-104's mutation ($0.125, important 3,
+// (the default 7d window ending at FIXTURE_NOW) returns thirteen rows --
+// primary ($0.15, critical 1, important 2, minor 4), principles ($0.1,
+// critical 2, important 3) and test-sanity (unpriced, critical 1, minor 2)
+// three dispatches each: kan-102's and two of the uitest-dynamics fixture's,
+// whose last weeks fall inside this window -- and one dispatch each for
+// kan-104's mutation ($0.125, important 3,
 // minor 2, withdrawn 1), exp-test-sanity ($0.125, no findings: the
-// experimental badge and "found nothing"), call-efficiency ($0.15, critical 1,
-// withdrawn 2), failure-modes ($0.15, important 1, withdrawn 1) and
-// test-sanity (unpriced, critical 1, minor 2), plus six unpriced slots with
+// experimental badge and "found nothing"), performance ($0.15, critical 1,
+// withdrawn 2) and failure-modes ($0.15, important 1, withdrawn 1), plus six
+// unpriced slots with
 // no withdrawn finding -- security (important 2), data-integrity (important
 // 1, minor 1), api-contract (minor 3), concurrency (important 1),
-// performance (minor 1) and docs (minor 2) -- and projects
-// [{uitest-alpha, 13}], so the first Project chip after All is "uitest-alpha".
+// observability (minor 1) and docs (minor 2) -- and projects
+// [{uitest-alpha, 13}, {uitest-dynamics, 6}], so the first Project chip after
+// All is "uitest-alpha".
 // Every slot but primary and principles carries a description. Each Rank by
 // chip orders the rows differently (VALUE, SEVERITY, ALARMS below).
 
 const TILES = ["Cost · best value", "Severity · most found", "False alarms · most withdrawn"];
-const VALUE = ["mutation", "primary", "call-efficiency", "principles", "failure-modes", "api-contract", "concurrency", "data-integrity", "docs", "exp-test-sanity", "performance", "security", "test-sanity"];
-const SEVERITY = ["mutation", "test-sanity", "primary", "call-efficiency", "security", "data-integrity", "concurrency", "failure-modes", "principles", "api-contract", "docs", "performance", "exp-test-sanity"];
-const ALARMS = ["call-efficiency", "failure-modes", "mutation", "api-contract", "concurrency", "data-integrity", "docs", "performance", "primary", "principles", "security", "test-sanity", "exp-test-sanity"];
+const VALUE = ["mutation", "principles", "performance", "primary", "failure-modes", "api-contract", "concurrency", "data-integrity", "docs", "exp-test-sanity", "observability", "security", "test-sanity"];
+const SEVERITY = ["mutation", "principles", "performance", "security", "primary", "data-integrity", "test-sanity", "concurrency", "failure-modes", "api-contract", "docs", "observability", "exp-test-sanity"];
+const ALARMS = ["performance", "failure-modes", "mutation", "api-contract", "concurrency", "data-integrity", "docs", "observability", "primary", "principles", "security", "test-sanity", "exp-test-sanity"];
 
 const slotOrder = (page: Page) => page.locator("tbody .rv-slot > span:first-child");
 

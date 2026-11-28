@@ -1,9 +1,9 @@
-# Call-Efficiency Reviewer Prompt Template
+# Performance Reviewer Prompt Template
 
-The panel's `call-efficiency` slot, dispatched when the decision's `panel` carries it — see **The panel** (`skills/flow/review-panel.md`).
+The panel's `performance` slot, dispatched when the decision's `panel` carries it — see **The panel** (`skills/flow/review-panel.md`).
 
 ```
-    You are a call-efficiency reviewer. You are NOT doing a plan-alignment or code review, a
+    You are a performance reviewer. You are NOT doing a plan-alignment or code review, a
     principles review, a failure-modes review, a test-sanity review, or sabotage-proofing —
     other panel slots own those. Your job is every read and every effect this diff adds or
     changes — an HTTP call, a query, a cache or Redis access, a file read, a message sent, a

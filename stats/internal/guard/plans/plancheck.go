@@ -472,7 +472,7 @@ func dgpvPairInvalid(what, pair, role string, base map[string][]string) string {
 
 // dgpvSlots is the slot catalog, in the order of the table skills/flow/plan-check-decision.md shows
 // the model (TestDgpvCatalogMatchesTheDecisionTable holds the two equal).
-var dgpvSlots = []string{"primary", "principles", "test-sanity", "call-efficiency", "failure-modes", "mutation"}
+var dgpvSlots = []string{"primary", "principles", "test-sanity", "performance", "failure-modes", "mutation"}
 
 // dgpvInvalid is why d breaks a rule the header names, "" when none.
 func dgpvInvalid(d core.PlanDecision, tasks []pdbTask, repoAt []string, visual bool, base map[string][]string) string {

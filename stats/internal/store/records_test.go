@@ -6021,7 +6021,7 @@ func TestSetDispatchSlot(t *testing.T) {
 	seedChange(t, st, projectKey, "kan-1")
 
 	b := baseDispatch("reviewer", "opus")
-	b.Key = "panel-3-test-sanity+call-efficiency"
+	b.Key = "panel-3-test-sanity+performance"
 	b.Slot = "test-sanity"
 	b.SessionToken = "mf-reslot"
 	row, err := st.RecordDispatch(ctx, projectKey, "kan-1", b)
@@ -6038,11 +6038,11 @@ func TestSetDispatchSlot(t *testing.T) {
 	if err := st.SetDispatchSlot(ctx, row.ID, "mutation"); err == nil {
 		t.Fatal("SetDispatchSlot accepted a slot the key does not name")
 	}
-	if err := st.SetDispatchSlot(ctx, row.ID, "test-sanity+call-efficiency"); err != nil {
+	if err := st.SetDispatchSlot(ctx, row.ID, "test-sanity+performance"); err != nil {
 		t.Fatalf("SetDispatchSlot: %v", err)
 	}
-	if s := read(); s != "test-sanity+call-efficiency" {
-		t.Fatalf("slot = %q, want test-sanity+call-efficiency", s)
+	if s := read(); s != "test-sanity+performance" {
+		t.Fatalf("slot = %q, want test-sanity+performance", s)
 	}
 	if err := st.SetDispatchSlot(ctx, 1<<62, "primary"); !errors.Is(err, store.ErrDispatchNotFound) {
 		t.Fatalf("unknown id: err = %v, want store.ErrDispatchNotFound", err)

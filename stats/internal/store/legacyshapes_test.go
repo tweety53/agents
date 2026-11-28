@@ -524,3 +524,99 @@ func TestMigration0120FoldsGatedReviewHistory(t *testing.T) {
 		t.Errorf("findings after 0120 twice = %q, want %q", g, want)
 	}
 }
+
+// TestMigration0122RenamesCallEfficiencySlot pins the rename of the
+// call-efficiency review slot to performance across recorded history: a
+// dispatch slot naming it alone or inside a +-bundle, a finding's slot and a
+// decision's slot lists all take the new id; a slot merely containing the
+// text, every other column and every other row are untouched, twice over.
+func TestMigration0122RenamesCallEfficiencySlot(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	dsn := newTestDatabase(t)
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(st.Close)
+	if err := st.RunMigrations(ctx); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		t.Fatalf("open raw pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	exec := func(sql string, args ...any) {
+		t.Helper()
+		if _, err := pool.Exec(ctx, sql, args...); err != nil {
+			t.Fatalf("exec %q: %v", sql, err)
+		}
+	}
+	lines := func(q string) string {
+		t.Helper()
+		rows, err := pool.Query(ctx, q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer rows.Close()
+		var got []string
+		for rows.Next() {
+			var s string
+			if err := rows.Scan(&s); err != nil {
+				t.Fatal(err)
+			}
+			got = append(got, s)
+		}
+		return strings.Join(got, " ")
+	}
+
+	exec(`INSERT INTO projects (project_key, main_checkout_path) VALUES ('p', '/tmp/p')`)
+	exec(`INSERT INTO changes (project_key, name, state, updated_at, updated_by) VALUES
+		('p', 'kan-1', 'FINISHED', now(), '/flow')`)
+	exec(`INSERT INTO dispatches (change_id, seq, role, model, started_at, dispatch_key, slot)
+		SELECT c.id, v.seq, 'panel-reviewer', 'opus', now(), v.k, v.slot FROM changes c, (VALUES
+			(1, 'panel-0-call-efficiency', 'call-efficiency'),
+			(2, 'panel-0-test-sanity+call-efficiency', 'test-sanity+call-efficiency'),
+			(3, 'panel-0-call-efficiency+mutation', 'call-efficiency+mutation'),
+			(4, 'panel-0-exp-call-efficiency', 'exp-call-efficiency'),
+			(5, 'panel-0-primary', 'primary'),
+			(6, 'task-1-implementer', NULL)
+		) AS v(seq, k, slot)`)
+	exec(`INSERT INTO findings (change_id, dispatch_id, ref, round, slot, severity, note, status)
+		SELECT c.id, d.id, v.ref, 0, v.slot, 'important', 'n', 'fixed'
+		FROM (VALUES ('F1', 1, 'call-efficiency'), ('F2', 2, 'test-sanity'), ('F3', 4, 'exp-call-efficiency')) AS v(ref, seq, slot)
+		JOIN dispatches d ON d.seq = v.seq JOIN changes c ON c.id = d.change_id`)
+	exec(`INSERT INTO decisions (change_id, session_token, decision)
+		SELECT c.id, v.tok, v.d::jsonb FROM changes c, (VALUES
+			('t1', '{"panel": [{"slots": ["test-sanity", "call-efficiency"], "reason": "call-efficiency reads"}], "extra_dispatch": {"slots": ["call-efficiency"]}}'),
+			('t2', '{"panel": [{"slots": ["primary"]}]}')
+		) AS v(tok, d)`)
+
+	sql, err := os.ReadFile("migrations/0122_rename_call_efficiency_slot.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(string(sql))
+	exec(string(sql))
+
+	if g, want := lines(`SELECT seq || ':' || dispatch_key || ':' || COALESCE(slot, '-') FROM dispatches ORDER BY seq`),
+		`1:panel-0-call-efficiency:performance `+
+			`2:panel-0-test-sanity+call-efficiency:test-sanity+performance `+
+			`3:panel-0-call-efficiency+mutation:performance+mutation `+
+			`4:panel-0-exp-call-efficiency:exp-call-efficiency `+
+			`5:panel-0-primary:primary `+
+			`6:task-1-implementer:-`; g != want {
+		t.Errorf("dispatches after 0122 twice =\n%s\nwant\n%s", g, want)
+	}
+	if g, want := lines(`SELECT ref || ':' || slot FROM findings ORDER BY ref`), "F1:performance F2:test-sanity F3:exp-call-efficiency"; g != want {
+		t.Errorf("findings after 0122 twice = %q, want %q", g, want)
+	}
+	if g, want := lines(`SELECT decision::text FROM decisions ORDER BY session_token`),
+		`{"panel": [{"slots": ["test-sanity", "performance"], "reason": "call-efficiency reads"}], "extra_dispatch": {"slots": ["performance"]}} `+
+			`{"panel": [{"slots": ["primary"]}]}`; g != want {
+		t.Errorf("decisions after 0122 twice =\n%s\nwant\n%s", g, want)
+	}
+}

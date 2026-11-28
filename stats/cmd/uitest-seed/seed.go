@@ -253,8 +253,8 @@ func fixtureData() []projectFixture {
 					Decision: `{
 						"panel": [
 							{"slots": ["exp-test-sanity", "security", "data-integrity"], "reason": "fixture"},
-							{"slots": ["api-contract", "concurrency", "performance", "docs"], "reason": "fixture"},
-							{"slots": ["test-sanity", "call-efficiency", "failure-modes", "mutation"], "reason": "fixture"}
+							{"slots": ["api-contract", "concurrency", "observability", "docs"], "reason": "fixture"},
+							{"slots": ["test-sanity", "performance", "failure-modes", "mutation"], "reason": "fixture"}
 						]
 					}`,
 					Dispatches: []dispatchFixture{
@@ -267,7 +267,7 @@ func fixtureData() []projectFixture {
 							{Ref: "F6", Severity: "Minor", Note: "the sort-order mutant is equivalent", Status: "withdrawn equivalent mutant"},
 						}},
 						{Slot: "exp-test-sanity", Model: "opus", AgentID: "agent-rv-a", StartedAt: reviewersFixtureAt},
-						{Slot: "call-efficiency", Model: "opus", AgentID: "agent-rv-b", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
+						{Slot: "performance", Model: "opus", AgentID: "agent-rv-b", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
 							{Ref: "F7", Severity: "Critical", Note: "one query per row in the list endpoint"},
 							{Ref: "F8", Severity: "Minor", Note: "the cache is read twice per request", Status: "withdrawn the second read is a different key"},
 							{Ref: "F9", Severity: "Minor", Note: "the second caller re-reads the config", Status: "withdrawn the config is read once at startup"},
@@ -297,7 +297,7 @@ func fixtureData() []projectFixture {
 						{Slot: "concurrency", Model: "opus", AgentID: "agent-concurrency-unpriced", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
 							{Ref: "F22", Severity: "Important", Note: "two writers race on the counter"},
 						}},
-						{Slot: "performance", Model: "opus", AgentID: "agent-performance-unpriced", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
+						{Slot: "observability", Model: "opus", AgentID: "agent-observability-unpriced", StartedAt: reviewersFixtureAt, Findings: []findingFixture{
 							{Ref: "F23", Severity: "Minor", Note: "the list re-sorts on every render"},
 						}},
 						{Slot: "docs", Model: "opus", AgentID: "agent-docs-unpriced", StartedAt: reviewersFixtureAt, Findings: []findingFixture{

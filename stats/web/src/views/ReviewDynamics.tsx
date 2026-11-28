@@ -29,7 +29,7 @@ const CURRENT_SLOTS = new Set([
   "primary",
   "principles",
   "test-sanity",
-  "call-efficiency",
+  "performance",
   "failure-modes",
   "mutation",
 ]);

@@ -51,7 +51,7 @@ Every slot id a `panel` bundle names maps to one prompt:
 | `primary` | **Primary** — plan alignment and senior code review | `primary-reviewer-prompt.md`: `final-review.diff` against `proposal.md`, `design.md` and each task's `**Files:**`/`**Tests:**`/`**Commit:**` fields in `tasks.md`, plus code quality, architecture, testing and production readiness |
 | `principles` | **Principles** | `principles-reviewer-prompt.md`; all three principle groups always apply <!-- refs-guard:allow --> |
 | `test-sanity` | **Test-sanity** — would each test the diff adds or changes fail if its behaviour broke | `test-sanity-reviewer-prompt.md` |
-| `call-efficiency` | **Call-efficiency** — second callers, a read repeated in one request, a query per list item | `call-efficiency-reviewer-prompt.md` |
+| `performance` | **Performance** — second callers, a read repeated in one request, a query per list item | `performance-reviewer-prompt.md` |
 | `failure-modes` | **Failure-modes** — error return, timeout, partial write, concurrent re-entry | `failure-modes-reviewer-prompt.md` |
 | `security` | **Security** — injection, authorisation, secrets, trust boundary; added by `flow-guard plan-check` when a task's `**Files:**` matches the project's `## security paths`, never picked by the decider | `security-reviewer-prompt.md` |
 | `mutation` | **Mutation** — sabotage-proofing | **The mutation-testing brief** (`skills/flow/review-panel-optional-slots.md`), own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |

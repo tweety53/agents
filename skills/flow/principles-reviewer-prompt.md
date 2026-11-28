@@ -93,7 +93,7 @@
 
     - Do not raise defect, performance, or security findings — other panel agents
       cover those and duplicate findings waste a fix round. A slot your brief's PANEL
-      SLOTS line omits (Primary, Call-efficiency, Security) is not running: its angle is
+      SLOTS line omits (Primary, Performance, Security) is not running: its angle is
       yours.
     - Do not flag formatting a formatter would fix silently.
     - Do not restate the principle list back at the reader; cite the entries you

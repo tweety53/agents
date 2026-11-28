@@ -24,14 +24,14 @@ bundle is one reviewer dispatch.
 | `primary` | plan alignment and senior code review — always runs |
 | `principles` | the engineering principles — small functions, clear names, no hidden coupling |
 | `test-sanity` | would each test the diff adds or changes fail if its behaviour broke |
-| `call-efficiency` | second callers, a read repeated in one request, a query per list item |
+| `performance` | second callers, a read repeated in one request, a query per list item |
 | `failure-modes` | error returns, timeouts, partial writes, concurrent re-entry |
 | `mutation` | sabotage-proofing: breaks the code on purpose to prove the tests notice |
 
 `security` is not in this catalog: `flow-guard plan-check` adds it after your answer when a task's
 `**Files:**` matches the project's `## security paths`.
 
-- Pick a reviewer only when the change gives it something to read: no `call-efficiency` for a
+- Pick a reviewer only when the change gives it something to read: no `performance` for a
   change that adds no call, query or request; no `failure-modes` without I/O, persistence or
   concurrency; no `test-sanity` when no test is added or changed; no `mutation` when the change
   adds no logic a test should catch breaking.

@@ -113,7 +113,7 @@ func mergePanelFindings(args []string, env core.Env, stdout, stderr io.Writer) i
 }
 
 // panelSlots are the panel's role ids (**The panel**, skills/flow/review-panel.md).
-var panelSlots = []string{"primary", "principles", "test-sanity", "call-efficiency", "failure-modes", "security", "mutation"}
+var panelSlots = []string{"primary", "principles", "test-sanity", "performance", "failure-modes", "security", "mutation"}
 
 // panelSlotOf is the panel role a findings file's id names: the role it equals
 // or opens with followed by a dash; any other id is its own slot.

@@ -17,7 +17,7 @@ const decision = {
     dispatches: [{ model: "opus", effort: "low", slots: ["primary", "principles"], reason: "pass-1 panel always opus" }],
     rerun_dispatch: { model: "sonnet", effort: "low", reason: "re-run reads a delta" },
   },
-  extra_dispatch: { model: "sonnet", effort: "low", slots: ["test-sanity", "call-efficiency"], reason: "roll 17" },
+  extra_dispatch: { model: "sonnet", effort: "low", slots: ["test-sanity", "performance"], reason: "roll 17" },
   overrides: [{ from: "opus/flow-planner-medium", to: "opus/flow-planner-xhigh", pairs: ["planner"], instruction: "xhigh effort is advised for planning" }],
 };
 
@@ -46,7 +46,7 @@ describe("DecisionsPanel", () => {
       "Fixeropus · low",
       "Review: primary, principlesopus · low",
       "Review re-runsonnet · low",
-      "Review: test-sanity, call-efficiencysonnet · low",
+      "Review: test-sanity, performancesonnet · low",
     ]);
     expect(screen.getByText("Fixer").closest("[data-testid=decision-row]")!.getAttribute("title")).toBe("fixes named findings");
     expect(screen.getByRole("region", { name: "Decisions" })).toHaveTextContent("big · sdd");
@@ -124,13 +124,13 @@ describe("DecisionsPanel with a plan-check decision", () => {
     const run = (key: string, effort: string) => ({ id: 1, key, role: "x", model: "opus", effort, startedAt: "2026-01-01T00:00:00Z" });
     render(
       <DecisionsPanel
-        decision={{ panel: [{ slots: ["test-sanity", "failure-modes"], reason: "r1" }, { slots: ["call-efficiency"], reason: "r2" }, { slots: ["mutation"], reason: "r3" }] }}
-        dispatches={[run("panel-0-test-sanity+call-efficiency", "medium"), run("panel-0-failure-modes", "high"), run("panel-0-mutation", "high")]}
+        decision={{ panel: [{ slots: ["test-sanity", "failure-modes"], reason: "r1" }, { slots: ["performance"], reason: "r2" }, { slots: ["mutation"], reason: "r3" }] }}
+        dispatches={[run("panel-0-test-sanity+performance", "medium"), run("panel-0-failure-modes", "high"), run("panel-0-mutation", "high")]}
       />,
     );
     expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual([
       "Review: test-sanity, failure-modesopus · medium / opus · highr1",
-      "Review: call-efficiencyopus · mediumr2",
+      "Review: performanceopus · mediumr2",
       "Review: mutationopus · highr3",
     ]);
   });

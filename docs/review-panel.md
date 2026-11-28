@@ -12,7 +12,7 @@ by hand.
 | `primary` | Plan alignment and senior code review. **Always runs.** |
 | `principles` | The engineering principles: small functions, clear names, no hidden coupling. |
 | `test-sanity` | Would each test the diff adds fail if its behaviour broke? Picked only when a test is added or changed. |
-| `call-efficiency` | Second callers, a read repeated in one request, a query per list item. Picked only when the change adds a call, query or request. |
+| `performance` | Second callers, a read repeated in one request, a query per list item. Picked only when the change adds a call, query or request. |
 | `failure-modes` | Error returns, timeouts, partial writes, concurrent re-entry. Picked only with I/O, persistence or concurrency. |
 | `mutation` | Breaks the code on purpose to prove the tests notice. Always a bundle alone, in its own throwaway copy of the worktree. |
 | `security` | Injection, authorisation, secrets, trust boundary. Never picked by the model: added automatically when a task's files match the project's `## security paths`. |

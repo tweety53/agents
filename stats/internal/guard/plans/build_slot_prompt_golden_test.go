@@ -15,7 +15,7 @@ import (
 func TestBuildSlotPromptGolden(t *testing.T) {
 	t.Parallel()
 	skill, _ := filepath.Abs("../../../../skills/flow")
-	for _, id := range []string{"primary", "principles", "failure-modes", "security", "test-sanity", "call-efficiency", "mutation"} {
+	for _, id := range []string{"primary", "principles", "failure-modes", "security", "test-sanity", "performance", "mutation"} {
 		wt := t.TempDir()
 		d := bspDiffDir(t)
 		args := []string{skill, wt, "2", id, "-diff", d + "/fix-round-2.diff", "-panel", "primary," + id}

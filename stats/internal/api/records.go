@@ -212,7 +212,7 @@ var ErrInvalidRecord = errors.New("api: invalid record")
 // heatmap.
 var panelSlots = map[string]bool{
 	"primary": true, "principles": true, "test-sanity": true,
-	"call-efficiency": true, "failure-modes": true, "mutation": true, "security": true,
+	"performance": true, "failure-modes": true, "mutation": true, "security": true,
 }
 
 var panelKey = regexp.MustCompile(`^panel-[0-9]+-(.+)$`)

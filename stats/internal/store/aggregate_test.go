@@ -1871,7 +1871,7 @@ func TestReviewersSplitsBundledSlots(t *testing.T) {
 }
 
 // TestReviewersIncludesExtraDispatchSlots seeds the always-on
-// test-sanity+call-efficiency bundle, whose slots a decision records under
+// test-sanity+performance bundle, whose slots a decision records under
 // extra_dispatch.slots and never under panel.roster, and asserts both roles
 // surface as rows, each with its finding and its description.
 func TestReviewersIncludesExtraDispatchSlots(t *testing.T) {
@@ -1882,7 +1882,7 @@ func TestReviewersIncludesExtraDispatchSlots(t *testing.T) {
 	seedChange(t, st, projectKey, "kan-1")
 
 	d := baseDispatch("reviewer", "sonnet")
-	d.Slot = "test-sanity+call-efficiency"
+	d.Slot = "test-sanity+performance"
 	d.StartedAt = time.Date(2026, 6, 10, 9, 0, 0, 0, time.UTC)
 	bundle, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
 	if err != nil {
@@ -1898,7 +1898,7 @@ func TestReviewersIncludesExtraDispatchSlots(t *testing.T) {
 	}
 	if _, _, err := st.RecordDecision(ctx, projectKey, "kan-1", records.Decision{
 		SessionToken: "mf-extra-" + projectKey,
-		Decision:     json.RawMessage(`{"panel": [{"slots": ["test-sanity", "call-efficiency"]}]}`),
+		Decision:     json.RawMessage(`{"panel": [{"slots": ["test-sanity", "performance"]}]}`),
 	}); err != nil {
 		t.Fatalf("RecordDecision: %v", err)
 	}
@@ -1915,7 +1915,7 @@ func TestReviewersIncludesExtraDispatchSlots(t *testing.T) {
 	for _, r := range rows {
 		bySlot[r.Slot] = r
 	}
-	for _, slot := range []string{"test-sanity", "call-efficiency"} {
+	for _, slot := range []string{"test-sanity", "performance"} {
 		r, ok := bySlot[slot]
 		if !ok {
 			t.Fatalf("no row for extra-dispatch slot %q (rows: %+v)", slot, rows)

@@ -3337,7 +3337,7 @@ func TestWatcherStampsALaunchByItsDescriptionKey(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
-	keys := []string{"panel-9-primary+principles", "panel-9-test-sanity+call-efficiency", "visual-verify-fixrun1-final-gymie"}
+	keys := []string{"panel-9-primary+principles", "panel-9-test-sanity+performance", "visual-verify-fixrun1-final-gymie"}
 	var cmd []string
 	for _, k := range keys {
 		cmd = append(cmd, "flow record dispatch begin -change kan-1000 -role reviewer -key "+k+" -session-token mf-k1000f1")
@@ -3466,7 +3466,7 @@ func TestWatcherRetriesAPairWhoseRowIsNotWrittenYet(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "session.jsonl")
-	keys := []string{"panel-0-primary+principles", "panel-0-test-sanity+call-efficiency"}
+	keys := []string{"panel-0-primary+principles", "panel-0-test-sanity+performance"}
 	command, err := json.Marshal("N=kan-1010; flow record dispatch begin -change $N -role reviewer -key " + keys[0] +
 		" -session-token mf-k1010b; flow record dispatch begin -change $N -role reviewer -key " + keys[1] + " -session-token mf-k1010b")
 	if err != nil {
@@ -4442,7 +4442,7 @@ func TestWatcherRetiresBeginsOfHookDeniedLaunches(t *testing.T) {
 		return `{"type":"user","timestamp":"2026-10-20T` + ts + `","sessionId":"s","toolUseResult":{"isAsync":true,"status":"async_launched","agentId":"` + agentID + `"}}`
 	}
 	lines := []string{
-		bash("00:35:51.286Z", `flow record dispatch begin -change kan-995 -role reviewer -key "panel-1-primary+principles" -slot "primary+principles" -session-token mf-k995 && flow record dispatch begin -change kan-995 -role reviewer -key "panel-1-test-sanity+call-efficiency" -slot "test-sanity+call-efficiency" -session-token mf-k995`),
+		bash("00:35:51.286Z", `flow record dispatch begin -change kan-995 -role reviewer -key "panel-1-primary+principles" -slot "primary+principles" -session-token mf-k995 && flow record dispatch begin -change kan-995 -role reviewer -key "panel-1-test-sanity+performance" -slot "test-sanity+performance" -session-token mf-k995`),
 		agentCall("00:36:03.257Z", "toolu_a"),
 		denial("00:36:03.314Z", "toolu_a"),
 		agentCall("00:36:11.607Z", "toolu_b"),

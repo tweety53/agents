@@ -1222,10 +1222,10 @@ func (s *Store) Reviewers(ctx context.Context, period Period, project, model *st
 // extraDispatchDescriptions describes the slots that carry one, in the words
 // of skills/flow/review-panel.md's table for them.
 var extraDispatchDescriptions = map[string]string{
-	"test-sanity":     "Test-sanity — would each test the diff adds or changes fail if its behaviour broke",
-	"call-efficiency": "Call-efficiency — second callers, a read repeated in one request, a query per list item",
-	"failure-modes":   "Failure-modes — error return, timeout, partial write, concurrent re-entry",
-	"mutation":        "Mutation — sabotage-proofing",
+	"test-sanity":   "Test-sanity — would each test the diff adds or changes fail if its behaviour broke",
+	"performance":   "Performance — second callers, a read repeated in one request, a query per list item",
+	"failure-modes": "Failure-modes — error return, timeout, partial write, concurrent re-entry",
+	"mutation":      "Mutation — sabotage-proofing",
 }
 
 // AllRecordedRunsUnmeasured reports the third arm of the absence

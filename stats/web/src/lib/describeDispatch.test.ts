@@ -13,7 +13,7 @@ describe("describeDispatch", () => {
     ["task-3+4-reviewer", "Reviewing tasks 3, 4"],
     ["task-3-reviewer-fix-1", "Reviewing task 3 after fix 1"],
     ["panel-1-primary+mutation", "Code review round 1: primary, mutation"],
-    ["panel-2-test-sanity+call-efficiency", "Code review round 2: test sanity, call efficiency"],
+    ["panel-2-test-sanity+performance", "Code review round 2: test sanity, performance"],
     ["panel-fix-1", "Fixing code review findings, round 1"],
     ["full-suite-fix-2", "Fixing the full test suite, round 2"],
     ["self-review-kan-1048-rework-pass", "Self-review: review pass"],
