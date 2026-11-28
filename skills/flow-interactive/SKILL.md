@@ -20,9 +20,11 @@ beyond each request's worktree.
 **Announce at start:** "Using flow-interactive for change `<name>`."
 
 **No flags.** The only argument is empty, a first request, a Jira key, or the exact name of an open
-interactive change; report anything else rather than ignoring it. The base is the branch
-`origin/HEAD` names; from the worktree's creation on, `<base>` is what
-`flow-guard resolve-base-branch <worktree>` prints.
+interactive change; report anything else rather than ignoring it. The base is the branch the
+operator names for the session, else the one `origin/HEAD` names; from the worktree's creation on,
+`<base>` is what `flow-guard resolve-base-branch <worktree>` prints. An operator-named base is
+recorded for the session branch and for each request branch, right after its `git worktree add`:
+`git -C <project> config branch.<branch>.flowBase <base>`.
 
 **Every mark is a literal call**, carrying no session token: the CLI infers the calling agent's,
 per **Stage marks** (`skills/flow-contracts/pipeline.md`). `<n>` is the request's number in the
@@ -97,7 +99,7 @@ so does `flow-guard project-get <project> handoff --enum required none` resolvin
 project asks to test before anything lands.
 
 **Worktree.** One session worktree, `<project>-worktrees/<name>` on branch `<name>`, created from the
-main checkout, with `<base>` the branch `origin/HEAD` points at — with no `--base`:
+main checkout, with `<base>` the session's base (above):
 
 ```bash
 git fetch origin
@@ -340,12 +342,16 @@ clean, then the reinstall the project's instruction file requires after a landin
 its own call with its exit code checked; a failed one is re-run once, and a service it restarts
 must answer before anything reads it. A skipped pull is one line; on a request step 7 would
 check, the request stays open (⛔ blocked), since the live page cannot show the landed code.
+The exception is a main checkout on a branch other than an operator-named `<base>`: the pull is
+skipped, that one line, and the request goes on, step 7 reading the stack started from `<wt-n>`.
 
 **7. UI check** (under the landing grant), when `flow-guard check-visual-trigger <wt-n>` matches the request's diff (`git diff
 --name-only <base>..HEAD` on its stdin): open the live page — the link the operator gave, else the
 URL `## run` serves, by the app's own run-view route, keyed by the project key and `<name>`, never a display name —
 the executor opens it with the project's own installed Playwright through Bash — a short Node script written under `<changeRoot>` that navigates, reloads, takes the screenshot into `<changeRoot>` and exits — never an MCP browser tool, which a `flow-*` subagent does not carry —
 `location.reload()`, screenshot, and read the screenshot against the ask.
+Under step 6's operator-named-base exception, the page is that of the stack `## run` starts from
+`<wt-n>`, stopped once the check is done (`flow-guard stop-worktree-processes <wt-n>`).
 
 When the request changes a view's default (a window, a filter), the executor also reads that view against real live data on the new default and confirms it is non-empty; fixtures alone do not pass.
 
