@@ -763,9 +763,10 @@ type HeadlessCall struct {
 // set 0032_guard_runs.sql's CHECK constraint enforces.
 var GuardRunOutcomes = []string{"clear", "fired", "cannot-answer"}
 
-// RetiredGuards names guards that no longer exist: their past runs stay in guard_runs, and the
+// RetiredGuards names guards that no longer exist as flow-guard commands -- removed, or run in
+// process only and so recording no run: their past runs stay in guard_runs, and the
 // guard-health view leaves them out at read time, as it does a helper.
-var RetiredGuards = []string{"check-gated-verdicts"}
+var RetiredGuards = []string{"check-gated-verdicts", "end-stale-dispatch-rows", "sweep-dispatch-rows"}
 
 // GuardHelpers names the flow-guard commands that are helpers, not guards.
 // Their non-zero exits are recorded in guard_runs as fires, but they refuse
@@ -777,7 +778,6 @@ var RetiredGuards = []string{"check-gated-verdicts"}
 var GuardHelpers = []string{
 	"affected-specs",
 	"await-detached",
-	"capture-workers",
 	"close-task",
 	"compose-mockup-frames",
 	"end-dispatch-row",

@@ -28,7 +28,7 @@ lands on, in place of the one `origin/HEAD` points at. Kickoff records it on the
 every repository (`flow-guard kickoff-worktree <project> <name> <base>`, and
 `flow-guard kickoff-worktree --from <this change's worktree>` for every worktree added after kickoff), first creating it from that repository's default branch where its origin lacks it, and `flow-guard resolve-base-branch` reads
 it back for every later phase, so it is never passed again.
-A recorded base gone from origin — merged and deleted — is refused by name by `flow-guard resolve-base-branch` (`<agents repo>/scripts/flow-guard resolve-base-branch`): re-point every worktree of the change at the branch that absorbed it with the three commands integrate's `STOP: base-mismatch` answer names (`skills/flow/integrate.md`), then re-run.
+A recorded base gone from origin — merged and deleted — is refused by name by `flow-guard resolve-base-branch`: re-point every worktree of the change at the branch that absorbed it with the three commands integrate's `STOP: base-mismatch` answer names (`skills/flow/integrate.md`), then re-run.
 
 ## Model resolution
 

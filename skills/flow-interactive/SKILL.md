@@ -208,7 +208,7 @@ applications creates them on demand. Once the request is ended (step 8, any outc
 coordinator removes it all — the worktree's processes, its workspace, the worktree and the branch:
 
 ```bash
-<agents repo>/scripts/flow-guard workspace-remove <project> <name>-r<n>
+flow-guard workspace-remove <project> <name>-r<n>
 ```
 
 Exit 1 (a dirty or unlanded worktree, or a failed removal) leaves the request ⛔ blocked with the
@@ -253,13 +253,13 @@ flow stage end   -command '/flow-interactive' -stage flow.implement -request <n>
 ```
 
 **4. Verify** (the subagent runs it itself).
-Run `<agents repo>/scripts/flow-guard run-verify-list <wt-n> lint` — it runs every command of
+Run `flow-guard run-verify-list <wt-n> lint` — it runs every command of
 `## lint`'s fence, never the fence lines `flow-guard project-get` prints with them — and the `## test` commands scoped to what the
 request touched — the packages, modules or test files the diff names, never the whole list; the full suite,
-`<agents repo>/scripts/flow-guard run-verify-list -full <wt-n> test`, runs only when the operator asked for it, under the operator's own `FLOW_OPERATOR_FULL_SUITE=1` (**Inline verify**, `skills/flow/verify-and-handoff.md`). When the diff names nothing those commands can scope to, none of them
+`flow-guard run-verify-list -full <wt-n> test`, runs only when the operator asked for it, under the operator's own `FLOW_OPERATOR_FULL_SUITE=1` (**Inline verify**, `skills/flow/verify-and-handoff.md`). When the diff names nothing those commands can scope to, none of them
 runs — the report states that empty-scope reason explicitly, the stated reason
 being what makes the skip auditable rather than lazy, never a reflexive run of the whole list in its
-place. Then `<agents repo>/scripts/flow-guard run-verify-list <wt-n> visual` runs the `## visual verification` `verify` row when the diff touches `ui paths` — the committed baselines a `lint` list never checks — under **A request's visual list** (`skills/flow/visual-verify.md`), loaded only then. A failure is fixed, committed and re-run; the request never lands red, a failing test it did not introduce included unless its guard proves it pre-existing and unrelated (**the sweep**,
+place. Then `flow-guard run-verify-list <wt-n> visual` runs the `## visual verification` `verify` row when the diff touches `ui paths` — the committed baselines a `lint` list never checks — under **A request's visual list** (`skills/flow/visual-verify.md`), loaded only then. A failure is fixed, committed and re-run; the request never lands red, a failing test it did not introduce included unless its guard proves it pre-existing and unrelated (**the sweep**,
 `skills/flow-contracts/known-bugs.md`). The `lint` list,
 exiting 0 on a tree clean before and after it, writes `HEAD` to the worktree's `git rev-parse
 --git-path flow-lint-green`: the evidence the **Request-end guard** reads, so step 4 runs on the
@@ -426,7 +426,7 @@ as a request and the session stays open, saying so in one line. Stop:
 3. Steps 4–6 of **One request** land those commits, their stage runs with no `-request`.
 4. **Cleanup**: the tree clean and `git -C <worktree> merge-base --is-ancestor <name>
    origin/<base>` passing, then `flow change save -C <worktree> <name>` (the self-review bundle's
-   only copy; a non-zero exit stops, removing nothing), `<agents repo>/scripts/flow-guard stop-worktree-processes <project>-worktrees/<name>` (a dev stack or Gradle daemon started from the worktree), `git -C <project> worktree remove <project>-worktrees/<name>`
+   only copy; a non-zero exit stops, removing nothing), `flow-guard stop-worktree-processes <project>-worktrees/<name>` (a dev stack or Gradle daemon started from the worktree), `git -C <project> worktree remove <project>-worktrees/<name>`
    without `--force`, `git -C <project> branch -D <name>` and `git -C <project> push origin
    --delete <name>`.
 

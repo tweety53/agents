@@ -1,11 +1,6 @@
 package guard
 
-import (
-	"os"
-	"strconv"
-	"strings"
-	"testing"
-)
+import "testing"
 
 // TestCaptureWorkers pins the capture suite's worker count: half the cores,
 // never below 1, never above the cap.
@@ -15,13 +10,5 @@ func TestCaptureWorkers(t *testing.T) {
 		if got := captureWorkers(ncpu); got != want {
 			t.Errorf("captureWorkers(%d) = %d, want %d", ncpu, got, want)
 		}
-	}
-	env := Env{Getenv: os.Getenv}
-	r := runGuard("capture-workers", nil, env)
-	if n, err := strconv.Atoi(strings.TrimSpace(r.stdout)); r.rc != 0 || err != nil || n < 1 || n > captureWorkersCap {
-		t.Errorf("rc=%d stdout=%q", r.rc, r.stdout)
-	}
-	if r = runGuard("capture-workers", []string{"x"}, env); r.rc != 2 {
-		t.Errorf("an argument: rc=%d, want 2", r.rc)
 	}
 }

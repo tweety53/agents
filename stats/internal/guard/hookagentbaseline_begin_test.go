@@ -41,7 +41,7 @@ func TestEnforceAgentBaselineBeginsUnderTheDispatchersToken(t *testing.T) {
 		}
 		e := &eab{env: env, payload: payload, sessionID: "s1", cwd: repo, typ: "flow-low", session: &yes, run: &yes,
 			in: map[string]any{"model": "opus", "effort": "low"}, prompt: "Role: implementer\nKey: task-1-implementer\n"}
-		args, reason := e.beginRow()
+		args, _, reason := e.beginRow()
 		i := slices.Index(args, "-session-token")
 		if reason != "" || i < 0 || args[i+1] != want {
 			t.Errorf("agent %q: begin %q (deny %q), want -session-token %s", agent, args, reason, want)

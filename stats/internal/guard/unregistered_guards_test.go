@@ -1,6 +1,11 @@
 package guard
 
-import "testing"
+import (
+	"slices"
+	"testing"
+
+	"github.com/tweety53/agents/stats/internal/records"
+)
 
 // inProcessGuards are the guards that are no guard.Registry key: each runs only in process from
 // its one caller, and the tests reach it through runGuard by its former name.
@@ -17,6 +22,17 @@ func TestInProcessGuardsAreUnregistered(t *testing.T) {
 	for n := range inProcessGuards {
 		if _, ok := Registry[n]; ok {
 			t.Errorf("%s is a guard.Registry key; it runs in process only", n)
+		}
+	}
+}
+
+// TestInProcessSweepsAreHidden: the dispatch-row sweeps refuse nothing and no longer record a run,
+// so their past guard_runs rows are hidden from guard health and prune-candidates' never-fired.
+func TestInProcessSweepsAreHidden(t *testing.T) {
+	t.Parallel()
+	for _, n := range []string{"sweep-dispatch-rows", "end-stale-dispatch-rows"} {
+		if !slices.Contains(records.RetiredGuards, n) {
+			t.Errorf("%s is not in records.RetiredGuards", n)
 		}
 	}
 }

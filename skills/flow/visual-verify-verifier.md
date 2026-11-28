@@ -24,7 +24,7 @@ reported BLOCKED, naming it.
    spec carries a `<spec>.sources` sidecar** naming the source files its screen is made of, written
    or extended with the spec; `flow-guard affected-specs`'s header is canonical for its lines. Run
    `capture` with `<spec>` substituted for the spec's path. **One `capture` run takes the specs of the bundle's `own specs:` line** (the change's own sidecars, by the rule of `skills/flow/visual-verify.md`, step 3) **and any capture spec you author or extend this pass for a new frame — never another spec `specs` prints**, less every spec the bundle names on a `captured:` line, their paths space-joined for `<spec>`, with
-   `--workers=$(flow-guard capture-workers) --retries=1` before `--update-snapshots=all` — never one run per
+   `--workers=<n> --retries=1`, `<n>` the bundle's `workers:` line, before `--update-snapshots=all` — never one run per
    spec. With every spec on the `captured:` line, or `own specs: none` and no spec of yours, no capture runs — an empty `<spec>` is never the whole suite. A test that passes on its retry is flaky: its capture stands, the report names it as a defect fixed at its source, and the capture is never run again for it. A project's page limit for ad-hoc probes does not bind the capture suite. A capture whose
    PNG differs between that count and `--workers=1` is nondeterministic, and is fixed at its source
    (`rules/fix-determinism-at-the-source.mdc`), never tolerated. **Every capture asserts the view is on

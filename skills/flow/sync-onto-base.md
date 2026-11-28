@@ -16,7 +16,7 @@ flow-guard sync-onto-base <worktree> $BASE <recorded-merge-base>
 
 The guard sets the run's own uncommitted planning artifacts aside around the rebase, rebases onto
 the base's tip, and re-checks until the base holds still; its header
-(`<agents repo>/scripts/flow-guard sync-onto-base`) is canonical for the exit contract. On every
+(`flow-guard sync-onto-base`) is canonical for the exit contract. On every
 stop-and-ask, an aside still set aside is named in the handoff with `git stash list` as the
 recovery path.
 

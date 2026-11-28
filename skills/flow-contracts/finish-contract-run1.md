@@ -80,7 +80,7 @@ the resolved set whose own change directory (**A change's directory**,
 `skills/flow-contracts/pipeline.md`) holds `tasks.md`.
 Pass every worktree of the resolved set as `<worktree>=<merge-base>`, its merge base `git -C <worktree> merge-base HEAD origin/<base>`, on every call.
 A call passing none gets its own worktree's range derived the same way, from the base
-`flow-guard resolve-base-branch` names; the guard's header (`<agents repo>/scripts/flow-guard check-unfinished-work`)
+`flow-guard resolve-base-branch` names; the guard's header (`flow-guard check-unfinished-work`)
 is canonical for the inline-verify signal it folds in.
 
 | Verdict | Meaning |

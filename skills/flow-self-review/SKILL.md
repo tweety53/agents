@@ -175,8 +175,8 @@ on **the fixer pair** per **Model and effort** (`skills/flow-contracts/model-pol
 **Every dispatch is recorded mechanically.**
 `flow-guard hook enforce-loop-dispatch` hands each Agent call whose prompt carries a
 `Key: self-review-<name>-…` line to
-`<agents repo>/scripts/flow-guard check-loop-dispatch`, which records it in flowd. The parent closes each dispatch
-once it returns with `<agents repo>/scripts/flow-guard pipeline-fix end <key> <outcome>`: `completed`, or
+`flow-guard check-loop-dispatch`, which records it in flowd. The parent closes each dispatch
+once it returns with `flow-guard pipeline-fix end <key> <outcome>`: `completed`, or
 `aborted` for one that did not finish or never ran — a dispatch denied after it was recorded is
 closed `aborted` and may be dispatched again under the same key. A refusal or failure of any of these tools on a step this file prescribes is a
 pipeline defect, fixed in-run per **Pipeline defects found mid-run**
@@ -187,7 +187,7 @@ question to the operator.
 `self-review-<name>`, based at `origin/<agents-base>`, landed by `flow-guard pipeline-fix land`; fixes never go onto the change's own branch.
 
 1. **Fix** — this session creates the worktree with
-   `<agents repo>/scripts/flow-guard pipeline-fix start <name>` — never the main checkout — then
+   `flow-guard pipeline-fix start <name>` — never the main checkout — then
    dispatches one fixer, key `self-review-<name>-fix`, its prompt naming `<sr-dir>/findings.md` and
    the non-`big` finding ids, whose evidence and counted blast radius that file carries. It fixes
    them all in that worktree, one commit per finding with a conventional subject scoped to the
@@ -206,7 +206,7 @@ question to the operator.
 3. **Land once.** Land by `<agents repo>`'s `## default landing route`
    (`flow-guard project-get <agents repo> 'default landing route'`), without asking — merge and push as
    step 4 of **Pipeline defects found mid-run** states it, with `self-review-<name>` as the
-   branch. `<agents repo>/scripts/flow-guard pipeline-fix land <fix worktree> > <sr-dir>/verify-<v>.log 2>&1` runs the `## lint` lines and the tests on the rebased HEAD before it pushes, `<v>` counting land attempts from 1; this session reads only its exit code and its `red:` lines. A red line is fixed by a fresh fixer dispatch, key `self-review-<name>-fix-v<v>`, its prompt naming the failing command and `<sr-dir>/verify-<v>.log`, then `land` again. **One retry rule**: a red branch never lands and a red line is never waived, and three red lands in a row take **Three failed rounds** (`skills/flow-contracts/pipeline.md`): the next fixer dispatch carries every `verify-<v>.log` of those rounds. The pass is not done until every fixed finding's commit is on `origin/<agents-base>`. Each fixed
+   branch. `flow-guard pipeline-fix land <fix worktree> > <sr-dir>/verify-<v>.log 2>&1` runs the `## lint` lines and the tests on the rebased HEAD before it pushes, `<v>` counting land attempts from 1; this session reads only its exit code and its `red:` lines. A red line is fixed by a fresh fixer dispatch, key `self-review-<name>-fix-v<v>`, its prompt naming the failing command and `<sr-dir>/verify-<v>.log`, then `land` again. **One retry rule**: a red branch never lands and a red line is never waived, and three red lands in a row take **Three failed rounds** (`skills/flow-contracts/pipeline.md`): the next fixer dispatch carries every `verify-<v>.log` of those rounds. The pass is not done until every fixed finding's commit is on `origin/<agents-base>`. Each fixed
    finding's sha is read off `<agents-base>` after the landing, never from
    the branch before its rebase; on a route that opens a pull request, once that pull request
    merges.

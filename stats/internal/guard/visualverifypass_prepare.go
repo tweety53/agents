@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -769,6 +770,7 @@ func (v *vvp) bundle(key, w, stack, relay string, green []struct{ Key, DiffBase 
 	}
 	line("specs: %s", vvpOr(v.specsCommand(w)))
 	line("screenshots: %s", vvpOr(cellPath(v.captureRoot(w), cells["screenshots"])))
+	line("workers: %d", captureWorkers(runtime.NumCPU()))
 	if v.roundBase[w] != "" {
 		if c := rcCaptured(v.env, v.captureRoot(w), v.roundBase); len(c) > 0 {
 			line("captured: %s", strings.Join(c, " "))

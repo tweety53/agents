@@ -48,7 +48,7 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
 `<fix-base>`; the parent is that file's "this session".
 
 1. **Fix** — the parent creates the fix's own worktree with
-   `<agents repo>/scripts/flow-guard pipeline-fix start <name> <k>` — never the main checkout, never the
+   `flow-guard pipeline-fix start <name> <k>` — never the main checkout, never the
    change's own worktree. `pipeline-fix start`
    comes before any edit, a parent's hand fix included: `pipeline-fix land` refuses a worktree not on
    the loop branch `start` creates. It dispatches one fixer, `pipeline-fix-<k>-fix`, its prompt carrying the defect, its evidence and the counted blast
@@ -60,7 +60,7 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
 3. **Land** — it lands by
    `<agents repo>`'s `## default landing route`
    (`flow-guard project-get <agents repo> 'default landing route'`), without asking. Merge and push is
-   `<agents repo>/scripts/flow-guard pipeline-fix land <worktree> <important|minor>`, the last argument the defect's grade as **Record each one** below defines it, run with a Bash `timeout: 600000` —
+   `flow-guard pipeline-fix land <worktree> <important|minor>`, the last argument the defect's grade as **Record each one** below defines it, run with a Bash `timeout: 600000` —
    a landing that moved `<agents repo>/stats/` restarts flowd inside the call, and a kill partway leaves it down.
    Its `red:` lines feed
    `pipeline-fix-<k>-fix-v<v>` as item 3 there states; three red lands take **Three failed rounds** (`skills/flow-contracts/pipeline.md`).

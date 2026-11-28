@@ -36,7 +36,7 @@ flow record verdict false-positive -change <name> -guard check-unfinished-work \
 
 Once, and at the canonical worktree, whichever worktrees reported `OUTSTANDING`: the guard records
 every worktree's verdict under the canonical project (THE STORE CALLS ANCHOR AT THE PLAN'S PROJECT,
-`<agents repo>/scripts/flow-guard check-unfinished-work`), and the command flags that project's newest verdict for the
+`flow-guard check-unfinished-work`), and the command flags that project's newest verdict for the
 change — a satellite's `-C` names a project holding none, and the store refuses it.
 
 A write that falls back to the journal is one warning line and the run continues.

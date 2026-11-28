@@ -464,7 +464,7 @@ panel verdict is taken, and no round after pass 1 is dispatched, on a red branch
 that do not depend on one another share one message; a stage's `flow stage begin` rides its first
 command and its `flow stage end` its last. **A wait on children is one bounded call, never the end of the
 turn:** every child goes out with `run_in_background: true`, so children run in parallel, and the
-parent then waits with `<agents repo>/scripts/flow-guard await-rows <abs-worktree> <key> [<key>…]`
+parent then waits with `flow-guard await-rows <abs-worktree> <key> [<key>…]`
 — one foreground call that returns `ENDED <key> <outcome>` per key, re-issued on `WAITING` — never a
 `sleep` or `until` loop and never by ending its turn. `await-rows … -any` returns as soon as one
 named key is `ENDED`, the rest on `WAITING`: the parent waits that way when the keys' children can

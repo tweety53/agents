@@ -27,7 +27,7 @@ nothing here.
 entry whose repository already holds one, and creates nothing for it; for each remaining entry:
 
 Every other entry gets one call,
-`<agents repo>/scripts/flow-guard kickoff-worktree --from <this change's worktree> <that repo> <name>`,
+`flow-guard kickoff-worktree --from <this change's worktree> <that repo> <name>`,
 whose header is canonical for the steps: the location guard; resuming `origin/spectre/<name>`, or
 cutting from `origin/<base>` when this change's worktree records a flowBase, else
 `origin/<default-branch>`; the flowBase recorded in that repository; the merge base persisted into

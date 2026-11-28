@@ -822,9 +822,12 @@ func TestEnforceAgentBaselineHookAdmitsOnlyAPolicyRoleAndPair(t *testing.T) {
 		deny                     bool
 		reasonHas                string
 	}{
-		{"no role line", "", "sonnet", "flow-low", true, "Role: <id>"},
-		{"unknown role", "executor", "sonnet", "flow-low", true, "not a role"},
+		{"no role line", "", "sonnet", "flow-low", true, "(role-line-missing)"},
+		{"no role line names the fix", "", "sonnet", "flow-low", true, "Add this line at column 0 of `prompt`"},
+		{"unknown role", "executor", "sonnet", "flow-low", true, "(role-unknown)"},
+		{"unknown role names the fix", "executor", "sonnet", "flow-low", true, "Replace it with this line at column 0 of `prompt`"},
 		{"role with the wrong pair", "visual-verifier", "sonnet", "flow-low", true, "opus/flow-low"},
+		{"wrong pair is its own id", "visual-verifier", "sonnet", "flow-low", true, "(pair-not-admitted)"},
 		{"admitted pair", "visual-verifier", "opus", "flow-low", false, ""},
 		{"retired role", "panel-merger", "sonnet", "flow-low", true, "not a role"},
 		{"other subagent type", "executor", "sonnet", "general-purpose", true, "carries no effort"},

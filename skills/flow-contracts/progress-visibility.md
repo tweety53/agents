@@ -50,7 +50,7 @@ with its dispatch description's unit and its round (`Task 30/31 review-1 — run
 
 **The progress view is a view, never a record.** No command, guard or contract reads it back as
 evidence of what was done. `tasks.md` remains the single source of truth for a
-plan's completion state, and `<agents repo>/scripts/flow-guard check-unfinished-work` reads that file.
+plan's completion state, and `flow-guard check-unfinished-work` reads that file.
 
 **No third checkbox marker is added to `tasks.md`** to carry an in-progress state; the in-progress
 count comes from no persisted record at all — the board's rows are session state, never written

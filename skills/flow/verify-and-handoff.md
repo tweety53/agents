@@ -89,9 +89,9 @@ While a stack is up for this run, the driver starts only after `flow-guard check
 that will not start ends the turn as a failed command's environment cause does.
 
 **A command that can outrun the shell tool's foreground limit** (10 minutes) — a verify list's `test`
-entry, a full suite — is started with `<agents repo>/scripts/flow-guard run-detached <state-dir> -- <command>`,
+entry, a full suite — is started with `flow-guard run-detached <state-dir> -- <command>`,
 `<state-dir>` a fresh directory under `<abs-worktree>/.superpowers/sdd/run/` named for the command,
-then waited on by `<agents repo>/scripts/flow-guard await-detached <state-dir>`: each call one short
+then waited on by `flow-guard await-detached <state-dir>`: each call one short
 foreground call, re-issued back to back on `RUNNING` with nothing else running between them, until
 it prints `EXITED <code>` (the command's exit) or `LOST` (it died unrecorded: exit 1, a `defect`
 unless the log shows an `environment` cause). Never a `kill -0`, `pgrep` or `sleep` loop,
@@ -126,7 +126,7 @@ script's header is canonical for the rest.
 **Only the operator starts the full suite.** `-full` is refused unless `FLOW_OPERATOR_FULL_SUITE=1`
 is in its environment. The operator sets that variable; a session or a subagent never sets it, whoever
 asks. A session asked for the full suite whose environment
-lacks it hands the operator the command — `FLOW_OPERATOR_FULL_SUITE=1 <agents repo>/scripts/flow-guard
+lacks it hands the operator the command — `FLOW_OPERATOR_FULL_SUITE=1 flow-guard
 run-verify-list -full <worktree> test` — and goes on with the default list. Every `/flow`
 and `/flow-interactive` run, in every project, runs the smoke set and the change's
 targeted tests and nothing wider: a targeting that is empty or fails falls back to the smoke set,
@@ -223,7 +223,7 @@ flow-guard visual-verify-pass prepare <canonical-worktree> <name> <key> \
   [--round-base <worktree>=<sha>] [--defects <worktree>=<frame>[,<frame>…]] [--app <worktree>:<app-root>=<resolved-url>]
 ```
 
-Its header (`<agents repo>/scripts/flow-guard visual-verify-pass`) is canonical for every argument, each step it
+Its header (`flow-guard visual-verify-pass`) is canonical for every argument, each step it
 runs and its closing lines. `<key>` is the stage's first dispatch key — `visual-verify`, or the one
 the fix procedure (`skills/flow/fix.md`) gives a round's re-run — and `prepare` suffixes it per
 **The verifier dispatch** (`skills/flow/visual-verify.md`). `--worktree` names every other worktree of

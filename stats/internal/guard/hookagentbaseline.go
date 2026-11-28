@@ -72,6 +72,9 @@ import (
 // **Allowed pairs**). FLOW_HOOK_ROLE_CHECK=off skips that check and the pair-judge pick check (the
 // hooks' own harness, for cases not about them).
 //
+// Each deny's reason opens `Dispatch blocked (<id>): `, <id> naming the denial (pointer-missing,
+// fork-refused, loop-key-line-missing, effort-missing, role-line-missing, role-unknown,
+// pair-not-admitted, pick-unkeyed, pick-missing), and carries the exact fix to re-send with.
 // Each deny, once written, also records one `flow record incident` row, with the session's change
 // where the store names one; that write fails open, leaving the deny as it stands.
 //
@@ -83,7 +86,7 @@ const eabRequiredText = "Before anything else, read `~/.claude/rules/agent-basel
 	"this whole task. Include this instruction verbatim in any prompt you write for " +
 	"another agent."
 
-const eabDenyReason = "Dispatch blocked: the subagent prompt does not carry the agent-baseline pointer.\n\n" +
+const eabDenyReason = "the subagent prompt does not carry the agent-baseline pointer.\n\n" +
 	"A dispatched agent starts from an empty context. It has never read ~/.claude/CLAUDE.md, " +
 	"and neither will anything it dispatches. Without the pointer it operates under no rules " +
 	"at all — production access, lint suppression, pushes to main, dependency versions.\n\n" +
@@ -93,7 +96,7 @@ const eabDenyReason = "Dispatch blocked: the subagent prompt does not carry the 
 	"Exempt: subagent_type \"fork\" outside a flow session, which inherits this session's " +
 	"context already."
 
-const eabForkReason = "Dispatch blocked: no flow phase, and no loop a phase or the self-review runs, dispatches " +
+const eabForkReason = "no flow phase, and no loop a phase or the self-review runs, dispatches " +
 	"subagent_type \"fork\" (skills/flow/implement.md, KAN-1000).\n\n" +
 	"Re-send this call as a fresh agent on the pair its contract names, its prompt carrying " +
 	"what it needs -- paths to the run's artifacts, reports and records -- never this " +
@@ -157,7 +160,8 @@ func enforceAgentBaseline(env Env, payload map[string]any, stdout, _ io.Writer) 
 	}
 	e := &eab{env: env, payload: payload, in: in, sessionID: strOf(payload["session_id"]), cwd: strOf(payload["cwd"])}
 	e.typ = strOf(in["subagent_type"])
-	deny := func(reason string) {
+	deny := func(id, reason string) {
+		reason = "Dispatch blocked (" + id + "): " + reason
 		_, _ = io.WriteString(stdout, hookDenyJSON(reason))
 		change := ""
 		if e.sessionID != "" {
@@ -167,7 +171,7 @@ func enforceAgentBaseline(env Env, payload map[string]any, stdout, _ io.Writer) 
 	}
 	if e.typ == "fork" {
 		if strings.Contains(strOf(in["prompt"]), "skills/flow") || e.inFlowSession() {
-			deny(eabForkReason)
+			deny("fork-refused", eabForkReason)
 		}
 		return
 	}
@@ -178,19 +182,19 @@ func enforceAgentBaseline(env Env, payload map[string]any, stdout, _ io.Writer) 
 	e.prompt = prompt
 	lowered := strings.ToLower(prompt)
 	if !strings.Contains(lowered, "agent-baseline.md") || !strings.Contains(lowered, "verbatim") {
-		deny(eabDenyReason)
+		deny("pointer-missing", eabDenyReason)
 		return
 	}
-	for _, check := range []func() string{e.loopKeyLineReason, e.effortReason, e.rolePairReason} {
-		if r := check(); r != "" {
-			deny(r)
+	for _, check := range []func() (string, string){e.loopKeyLineReason, e.effortReason, e.rolePairReason} {
+		if id, r := check(); r != "" {
+			deny(id, r)
 			return
 		}
 	}
-	begin, reason := e.beginRow()
+	begin, id, reason := e.beginRow()
 	switch {
 	case reason != "":
-		deny(reason)
+		deny(id, reason)
 	case begin != nil:
 		_, _, _ = hookRun(env, hookBound(env, 10*time.Second), "", "flow", begin...)
 	}
@@ -205,12 +209,12 @@ func (e *eab) loopWord() string {
 
 func (e *eab) planning() bool { return e.typ == "Explore" || e.typ == "Plan" }
 
-func (e *eab) loopKeyLineReason() string {
+func (e *eab) loopKeyLineReason() (id, reason string) {
 	word := e.loopWord()
 	if e.planning() || word == "" || eabLoopKeyLine.MatchString(e.prompt) || !e.inFlowRun() {
-		return ""
+		return "", ""
 	}
-	return "Dispatch blocked: `" + word + "` is a loop key — its prompt carries `Key: " + word + "` as a line of " +
+	return "loop-key-line-missing", "`" + word + "` is a loop key — its prompt carries `Key: " + word + "` as a line of " +
 		"its own, and flow-guard hook enforce-loop-dispatch records its row under the loop's change off " +
 		"that line. Add the line and re-send; never `flow record dispatch begin` it under the " +
 		"run's change."
@@ -219,15 +223,15 @@ func (e *eab) loopKeyLineReason() string {
 // effortReason denies a flow-session dispatch that would run at the model's built-in effort: a
 // subagent_type that is not `flow-<effort>` / `flow-planner-<effort>`, with no `effort` on the
 // call. Every flow dispatch runs on a pair its role admits, and every pair names an effort.
-func (e *eab) effortReason() string {
+func (e *eab) effortReason() (id, reason string) {
 	agent := pyStrOr(e.in["subagent_type"], "")
 	if eabFlowEffort.MatchString(agent) || pyTruthy(e.in["effort"]) || !e.inFlowSession() {
-		return ""
+		return "", ""
 	}
 	if agent == "" {
 		agent = "<none>"
 	}
-	return "Dispatch blocked: `subagent_type: " + agent + "` carries no effort and the call " +
+	return "effort-missing", "`subagent_type: " + agent + "` carries no effort and the call " +
 		"sets none, so it would run at the model's built-in effort.\n\n" +
 		"Run `flow-guard pair-judge <role> <prompt file>` and re-send on the pair it prints " +
 		"(`skills/flow-contracts/model-policy.md`, **Model and effort**): a `flow-<effort>` type, or " +
@@ -248,13 +252,13 @@ func (e *eab) policy() map[string]any {
 	return m
 }
 
-func (e *eab) rolePairReason() string {
+func (e *eab) rolePairReason() (id, reason string) {
 	if e.env.Getenv("FLOW_HOOK_ROLE_CHECK") == "off" || !strings.HasPrefix(e.typ, "flow-") || !e.inFlowSession() {
-		return ""
+		return "", ""
 	}
 	policy := e.policy()
 	if len(policy) == 0 {
-		return ""
+		return "", ""
 	}
 	names := make([]string, 0, len(policy))
 	for k := range policy {
@@ -264,14 +268,16 @@ func (e *eab) rolePairReason() string {
 	roles := strings.Join(names, ", ")
 	line := eabRoleLine.FindStringSubmatch(e.prompt)
 	if line == nil {
-		return "Dispatch blocked: a flow-* dispatch's prompt carries a `Role: <id>` line " +
+		return "role-line-missing", "a flow-* dispatch's prompt carries a `Role: <id>` line " +
 			"(skills/flow-contracts/model-policy.md, **Allowed pairs**).\n\n" +
+			"Add this line at column 0 of `prompt`, <id> one of the roles below, and re-send:\n\nRole: <id>\n\n" +
 			"Roles: " + roles + ".\nAn unusual task no role fits takes `general`."
 	}
 	role := line[1]
 	entry, ok := policy[role].(map[string]any)
 	if !ok {
-		return "Dispatch blocked: `Role: " + role + "` is not a role of the policy; never invent one.\n\n" +
+		return "role-unknown", "`Role: " + role + "` is not a role of the policy; never invent one.\n\n" +
+			"Replace it with this line at column 0 of `prompt`, <id> one of the roles below, and re-send:\n\nRole: <id>\n\n" +
 			"Roles: " + roles + ".\nAn unusual task no role fits takes `general`."
 	}
 	var admitted []string
@@ -283,13 +289,13 @@ func (e *eab) rolePairReason() string {
 	}
 	pair := pyStrOr(e.in["model"], "<no model>") + "/" + e.typ
 	if slices.Contains(admitted, pair) {
-		return ""
+		return "", ""
 	}
 	list := strings.Join(admitted, ", ")
 	if list == "" {
 		list = "none"
 	}
-	return "Dispatch blocked: `" + role + "` does not admit `" + pair + "`.\n\n" +
+	return "pair-not-admitted", "`" + role + "` does not admit `" + pair + "`.\n\n" +
 		"Admitted pairs: " + list + ".\n" +
 		"Re-send with `model` and `subagent_type` set to one of them."
 }
@@ -334,9 +340,9 @@ func (e *eab) rowKey(roleID string) string {
 // judged role's dispatch has no saved pair-judge pick, no pair the decision names for it (dgpvPick,
 // plancheck.go) and its role more than one base pair, or
 // neither: a row already open, a dispatch with no key or no mapped role, or an unanswered store.
-func (e *eab) beginRow() (args []string, reason string) {
+func (e *eab) beginRow() (args []string, id, reason string) {
 	if eabLoopKeyLine.MatchString(e.prompt) || e.loopWord() != "" {
-		return nil, ""
+		return nil, "", ""
 	}
 	planning := e.planning()
 	roleLine := eabRoleLine.FindStringSubmatch(e.prompt)
@@ -353,39 +359,39 @@ func (e *eab) beginRow() (args []string, reason string) {
 	}
 	_, cwdOK := e.payload["cwd"].(string)
 	if key == "" || role == "" || e.sessionID == "" || !cwdOK || !e.inFlowRun() {
-		return nil, ""
+		return nil, "", ""
 	}
 	change, project, stage := eabSessionChange(e.env, e.sessionID)
 	token := caller.For(e.sessionID, strOf(e.payload["agent_id"]))
 	if change == "" {
-		return nil, ""
+		return nil, "", ""
 	}
 	main := eabMainCheckout(e.env, e.cwd)
 	if project != "" && eabProjectKey(main) != project {
-		return nil, ""
+		return nil, "", ""
 	}
 	if main == "" {
-		return nil, ""
+		return nil, "", ""
 	}
 	worktree := main + "-worktrees/" + change
 	ours := regexp.MustCompile(regexp.QuoteMeta(worktree) + `(?:/|\s|$)`).MatchString(e.prompt)
 	if (planning || roleLine == nil) && !ours && strings.Contains(e.prompt, main+"-worktrees/") {
-		return nil, ""
+		return nil, "", ""
 	}
 	if planning && roleLine != nil && stage != "flow.plan" {
-		return nil, ""
+		return nil, "", ""
 	}
 	out, rc, err := hookRun(e.env, hookBound(e.env, 5*time.Second), "", "flow", "record", "dispatches", "-change", change, "-C", e.cwd)
 	if err != nil || rc != 0 {
-		return nil, ""
+		return nil, "", ""
 	}
 	var rows []any
 	if json.Unmarshal(out, &rows) != nil || rows == nil {
-		return nil, ""
+		return nil, "", ""
 	}
 	for _, r := range rows {
 		if m, ok := r.(map[string]any); ok && !pyTruthy(m["outcome"]) && m["key"] == key {
-			return nil, ""
+			return nil, "", ""
 		}
 	}
 	effort := e.in["effort"]
@@ -399,21 +405,21 @@ func (e *eab) beginRow() (args []string, reason string) {
 	}
 	args = append(args, "-key", key, "-session-token", token, "-policy-role", roleID)
 	if pick := eabReadPick(filepath.Join(worktree, ".superpowers", "sdd", "pair-judge", key+".pick")); pick != "" {
-		return append(args, "-pair-pick", pick), ""
+		return append(args, "-pair-pick", pick), "", ""
 	}
 	if roleLine != nil && (ours || !planning) && role != "general" && e.env.Getenv("FLOW_HOOK_ROLE_CHECK") != "off" {
 		base := e.basePairs(roleID)
 		if _, pick := dgpvPick(worktree, roleID, key, base); pick != "" {
 			// The decider picked this dispatch's pair in the decision: no judge call is owed.
-			return append(args, "-pair-pick", pick), ""
+			return append(args, "-pair-pick", pick), "", ""
 		}
 		if len(base) == 1 {
 			// The text flow-guard pair-judge prints for a one-candidate role.
-			return append(args, "-pair-pick", "single: the only candidate"), ""
+			return append(args, "-pair-pick", "single: the only candidate"), "", ""
 		}
 		if strings.HasPrefix(key, "agent-") {
 			// A tool_use_id key changes on every retry: a pick saved under it is never found.
-			return nil, "Dispatch blocked: `" + roleID + "` dispatches take the pair judge's pick, and this " +
+			return nil, "pick-unkeyed", "`" + roleID + "` dispatches take the pair judge's pick, and this " +
 				"dispatch names no key to save one under.\n\n" +
 				"Name it first: an `explore-<n>` or `design-<n>` word in the description, or a " +
 				"column-0 `Key: <key>` line in the prompt.\n" +
@@ -422,14 +428,14 @@ func (e *eab) beginRow() (args []string, reason string) {
 				"(it never blocks: a judge that cannot answer prints the role's first pair), then send the " +
 				"dispatch on the pair it prints (`skills/flow-contracts/model-policy.md`, **Model and effort**)."
 		}
-		return nil, "Dispatch blocked: `" + roleID + "` dispatches take the pair judge's pick, and " +
+		return nil, "pick-missing", "`" + roleID + "` dispatches take the pair judge's pick, and " +
 			"`.superpowers/sdd/pair-judge/" + key + ".pick` is not there.\n\n" +
 			"Write the dispatch's prompt to `" + worktree + "/.superpowers/sdd/pair-judge/" + key + ".md`, run\n" +
 			"flow-guard pair-judge " + roleID + " " + worktree + "/.superpowers/sdd/pair-judge/" + key + ".md\n" +
 			"(it never blocks: a judge that cannot answer prints the role's first pair), then send the " +
 			"dispatch on the pair it prints (`skills/flow-contracts/model-policy.md`, **Model and effort**)."
 	}
-	return args, ""
+	return args, "", ""
 }
 
 // basePairs is the role's base pairs in `flow policy get`; nil when the policy cannot be read. A role

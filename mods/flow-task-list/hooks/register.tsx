@@ -252,7 +252,7 @@ const PHASE_KEYS: Record<Phase, string[]> = {
   ],
   'flow-integrate': [
     'land', 'preflight', 'unfinished-work-gate', 'landing-question', 'preserve-sessions', 'commit-two',
-    'landing-routes', 'verify-merge', 'cleanup', 'verify-cleanup',
+    'landing-routes', 'commit-archive', 'verify-merge', 'cleanup', 'verify-cleanup',
     'write-finished', 'self-review', 'refresh-main-checkout',
   ],
 }

@@ -68,7 +68,6 @@ const GUARD_INFO: Record<string, { does: string; approved: boolean }> = {
   "check-unfinished-work": { does: "Integrate gate: reports whether the change still has unfinished work", approved: true },
   "affected-specs": { does: "Prints the capture specs a diff can move, so a fix round recaptures those and no others", approved: true },
   "break-and-prove": { does: "Flips a file with a sed or patch, runs the test command and restores the file, proving the test fails without the fix", approved: true },
-  "capture-workers": { does: "Prints how many Playwright workers a capture run takes, bounded by the machine's cores", approved: true },
   "check-dev-stack-fresh": { does: "Before a handoff prints a dev stack's URL, checks it serves the worktree's own build", approved: true },
   "check-finish-preflight": { does: "Decides whether /flow should integrate, from the worktree, its base and the recorded merge base", approved: true },
   "recapture": { does: "Records a receipt for the specs a recapture run covered, on exactly the source files the round changed", approved: true },
@@ -114,7 +113,7 @@ const GUARD_INFO: Record<string, { does: string; approved: boolean }> = {
 const GROUPS: { title: string; guards: string[] }[] = [
   { title: "Checks", guards: ["check-guard-calls", "check-base-behind", "check-unfinished-work", "check-finish-preflight", "check-visual-trigger", "check-dev-stack-fresh", "check-workspace-isolation", "check-fix-revert", "check-frame-constants", "check-verify-env"] },
   { title: "Dispatch bookkeeping", guards: ["end-dispatch-row", "check-loop-dispatch", "await-rows"] },
-  { title: "Verify and test tooling", guards: ["run-verify-list", "recapture", "affected-specs", "capture-workers", "break-and-prove", "run-reproducer", "smoke-keep", "test-cost", "test-two-streams", "rebuild-full-app-suite-zip", "resolve-visual-screenshots", "visual-verify-pass", "measure-visual-properties", "unchanged", "run-detached", "await-detached"] },
+  { title: "Verify and test tooling", guards: ["run-verify-list", "recapture", "affected-specs", "break-and-prove", "run-reproducer", "smoke-keep", "test-cost", "test-two-streams", "rebuild-full-app-suite-zip", "resolve-visual-screenshots", "visual-verify-pass", "measure-visual-properties", "unchanged", "run-detached", "await-detached"] },
   { title: "Mockups and frames", guards: ["render-frames", "compose-mockup-frames", "write-panel-diff"] },
   { title: "Workspace and git", guards: ["kickoff-worktree", "prepare-workspace", "workspace", "throwaway-worktree", "remove-change-worktrees", "resolve-base-branch", "sync-onto-base", "refresh-main-checkout", "live-store-copy", "project-get", "sync-base-behind", "stop-worktree-processes"] },
   { title: "Pipeline orchestration", guards: ["integrate-change", "close-task", "plan-check", "pair-judge", "pipeline-fix", "recover-guard-incident"] },

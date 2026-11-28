@@ -83,8 +83,7 @@ mockup on the right, both at native size, and its ratio field carries this liter
 ```text
 diff=n/a
 ```
- `<agents
-repo>/scripts/flow-guard compose-mockup-frames`'s own header is canonical for its exit codes, the way this
+`flow-guard compose-mockup-frames`'s own header is canonical for its exit codes, the way this
 section already cites its validator, `stats/internal/guard/visualverification.go`, for its shape.
 
 **The full app suite.** One spec, `full-app-suite.spec.ts`, capturing every screen the app has —

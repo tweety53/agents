@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -382,6 +383,7 @@ func TestVisualVerifyPassPrepareBundle(t *testing.T) {
 		"capture: npx playwright test <spec>",
 		"specs: " + f.wt + "/specs-since " + f.mb,
 		"screenshots: " + filepath.Join(f.wt, "tests/visual"),
+		"workers: " + strconv.Itoa(captureWorkers(runtime.NumCPU())) + "\n",
 		"mockups: " + filepath.Join(f.wt, "design/mockups"),
 		"mockup frame: scale=1 status=0 border=0",
 		"app: " + f.app.URL,
