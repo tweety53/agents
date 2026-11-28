@@ -126,3 +126,32 @@ func TestBuildSlotPromptMutation(t *testing.T) {
 		t.Errorf("mutation bundled: rc %d, want 2", r.rc)
 	}
 }
+
+// TestBuildSlotPromptMutationTestsBudget: tests past the inline budget are named by path, so the
+// prompt stays readable.
+func TestBuildSlotPromptMutationTestsBudget(t *testing.T) {
+	t.Parallel()
+	skill, _ := filepath.Abs("../../../skills/flow")
+	wt := t.TempDir()
+	dir := t.TempDir()
+	big, small := filepath.Join(dir, "big_test.go"), filepath.Join(dir, "small_test.go")
+	if err := os.WriteFile(big, []byte(strings.Repeat("x", 2*150_000)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(small, []byte("func TestSmall(t *testing.T) {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation", "-diff", "/d/final-review.diff",
+		"-copies", "/w", "-tests", big + "," + small, "-panel", "primary,mutation"}, Env{})
+	if r.rc != 0 {
+		t.Fatalf("rc %d: %s", r.rc, r.out)
+	}
+	got, _ := os.ReadFile(filepath.Join(wt, ".superpowers/sdd/slot-prompt-1-mutation.md"))
+	s := string(got)
+	if len(s) >= 200000 {
+		t.Errorf("prompt is %d bytes, want < 200000", len(s))
+	}
+	if !strings.Contains(s, "### "+small+"\n\nRead by path") || strings.Contains(s, "func TestSmall") {
+		t.Errorf("small test not listed by path")
+	}
+}
