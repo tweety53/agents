@@ -27,6 +27,6 @@ Hooks run inside Claude Code itself, before or after a tool call:
 - `flow-session-activity` reports each session's working or waiting state to `flowd`.
 - `flow-skill-load` records to `flowd` each skill, rule or doc file of this repository a session loads.
 
-Each is `flow-guard hook <name>` (`stats/internal/guard/hook*.go`), run through the
-`~/.claude/hooks/flow-guard-hook` binary `setup.sh` builds. `setup.sh` prints the snippet that
+Each is `flow-guard hook <name>` (`stats/internal/guard/hook/`), run through the
+`~/.claude/hooks/flow-guard-hook` binary `setup.sh` builds from `stats/cmd/flow-guard-hook`. `setup.sh` prints the snippet that
 registers them; it never registers them for you.

@@ -314,14 +314,14 @@ PY
 }
 
 # install_hook_binary <dest>
-# Builds flow-guard from this checkout to <dest>, the binary every hook snippet below registers
+# Builds cmd/flow-guard-hook from this checkout to <dest>, the binary every hook snippet below registers
 # directly as `"<dest>" hook <name> || true`. A hook runs on every tool call; through
 # scripts/flow-guard it would pay the bash bootstrap and the source hashing that keys the
 # bootstrap's cache, where this binary pays one Go start. No per-call
 # staleness check is needed: the bootstrap's hashing exists because a guard runs from any
 # worktree with uncommitted edits, while this binary is only ever built from the main checkout
 # this installer runs in, and every landing on it is followed by this reinstall. The checkout is
-# baked in with -ldflags -X (builtRepoRoot, stats/cmd/flow-guard/main.go), standing in for the
+# baked in with -ldflags -X (builtRepoRoot, stats/cmd/flow-guard-hook/main.go), standing in for the
 # bootstrap's FLOW_GUARD_REPO_ROOT export. The build goes to a pid-named file renamed into place,
 # so a hook never execs a half-written binary; GOOS, GOARCH and GOFLAGS are removed, as the
 # bootstrap removes them. The `|| true` keeps a registration fail-open when <dest> is missing or
@@ -335,7 +335,7 @@ install_hook_binary() {
     return
   fi
   if (cd "$SCRIPT_DIR/stats" && env -u GOOS -u GOARCH -u GOFLAGS go build \
-    -ldflags "-X 'main.builtRepoRoot=$SCRIPT_DIR'" -o "$tmp" ./cmd/flow-guard) && mv -f "$tmp" "$dest"; then
+    -ldflags "-X 'main.builtRepoRoot=$SCRIPT_DIR'" -o "$tmp" ./cmd/flow-guard-hook) && mv -f "$tmp" "$dest"; then
     info "Built $dest"
   else
     rm -f "$tmp"
