@@ -59,7 +59,7 @@ func TestAgentBaselineNamesEveryAlwaysOnRule(t *testing.T) {
 	}
 }
 
-// TestRenderedCoreUnderCeiling mirrors setup.sh's render_managed_block: a rule's
+// TestRenderedCoreUnderCeiling mirrors `flow setup`'s renderManagedBlock (stats/cmd/flow/setup.go): a rule's
 // core is its body up to <!-- /core --> with the markers dropped; an unmarked
 // rule renders whole.
 func TestRenderedCoreUnderCeiling(t *testing.T) {

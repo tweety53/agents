@@ -67,6 +67,7 @@ commands:
   workspace-id <name>  print a change's workspace id, derived from its name
   stats bottlenecks    rank where the last N changes spent wall-clock time (see: flow stats)
   stats trace <change> print a change as Chrome trace JSON for Perfetto (see: flow stats)
+  setup <harness> [project-dir] [--register-hooks]  the installer ./setup.sh builds and runs
 `
 
 // handledSignals is the one list of signals this CLI treats as termination
@@ -137,6 +138,8 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdin i
 		return runWorkspaceID(ctx, args[1:], stdout, stderr)
 	case "stats":
 		return runStats(ctx, args[1:], getenv, stdout, stderr)
+	case "setup":
+		return runSetup(args[1:], getenv, stdout, stderr)
 	case "interactive":
 		return runInteractive(ctx, args[1:], getenv, stdout, stderr)
 	default:

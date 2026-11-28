@@ -62,6 +62,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -127,12 +128,13 @@ func runMain(m *testing.M) int {
 	if fi, err := os.Stat(setupSh); err != nil || fi.Mode().Perm()&0o111 == 0 {
 		return die("setup.sh not found or not executable at %s", setupSh)
 	}
-	// The delimiters are read out of setup.sh rather than restated here. A second copy would
-	// drift from the first, and every case depends on matching the installer's literals
-	// exactly — a stale copy would make the whole delimiter group pass vacuously.
-	begin, end = readLiteral(setupSh, "CLAUDE_MD_BEGIN"), readLiteral(setupSh, "CLAUDE_MD_END")
+	// The delimiters are read out of the installer, `flow setup`, rather than restated here. A
+	// second copy would drift from the first, and every case depends on matching the installer's
+	// literals exactly — a stale copy would make the whole delimiter group pass vacuously.
+	installer := filepath.Join(repoRoot, "stats/cmd/flow/setup.go")
+	begin, end = readLiteral(installer, "claudeMDBegin"), readLiteral(installer, "claudeMDEnd")
 	if begin == "" || end == "" || begin == end {
-		return die("could not read the block delimiters out of setup.sh")
+		return die("could not read the block delimiters out of %s", installer)
 	}
 	if realHome = os.Getenv("HOME"); realHome == "" {
 		return die("HOME must be set")
@@ -269,23 +271,26 @@ func cleanup() {
 	}
 }
 
-// readLiteral returns NAME's single-quoted value from the first `NAME='…'` line of setup.sh.
-func readLiteral(setupSh, name string) string {
-	f, err := os.Open(setupSh)
+// readLiteral returns NAME's double-quoted value from the first `NAME = "…"` line of the Go file src.
+func readLiteral(src, name string) string {
+	f, err := os.Open(src)
 	if err != nil {
 		return ""
 	}
 	defer f.Close()
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
-		line := sc.Text()
-		if !strings.HasPrefix(line, name+"=") {
+		line := strings.TrimSpace(sc.Text())
+		rest, ok := strings.CutPrefix(line, name)
+		if !ok {
 			continue
 		}
-		if i := strings.Index(line, "='"); i >= 0 {
-			line = line[i+2:]
+		if rest, ok = strings.CutPrefix(strings.TrimSpace(rest), "="); !ok {
+			continue
 		}
-		return strings.TrimSuffix(line, "'")
+		if v, err := strconv.Unquote(strings.TrimSpace(rest)); err == nil {
+			return v
+		}
 	}
 	return ""
 }

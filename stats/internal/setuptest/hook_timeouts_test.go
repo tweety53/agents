@@ -8,12 +8,12 @@ import (
 	"testing"
 )
 
-// TestLoopHookTimeoutsFailClosed pins that every snippet setup.sh prints for
+// TestLoopHookTimeoutsFailClosed pins that every snippet `flow setup` prints for
 // the loop dispatch hook registers an explicit timeout, and that the hook's
 // own subprocess wait stays well under it: a harness that times a hook out
 // kills it, so the hook must give up first and log what went unrecorded.
 func TestLoopHookTimeoutsFailClosed(t *testing.T) {
-	setup, err := os.ReadFile("../../../setup.sh")
+	setup, err := os.ReadFile("../../cmd/flow/setup_hooks.go")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,16 +28,16 @@ func TestLoopHookTimeoutsFailClosed(t *testing.T) {
 			}
 			m := reg.FindStringSubmatch(line)
 			if m == nil {
-				t.Errorf("setup.sh registers %s with no timeout: %s", hook, strings.TrimSpace(line))
+				t.Errorf("flow setup registers %s with no timeout: %s", hook, strings.TrimSpace(line))
 				continue
 			}
 			n, _ := strconv.Atoi(m[1])
 			regs = append(regs, n)
 		}
 		if len(regs) == 0 {
-			t.Fatalf("setup.sh prints no snippet for %s", hook)
+			t.Fatalf("flow setup prints no snippet for %s", hook)
 		}
-		src, err := os.ReadFile("../guard/" + src)
+		src, err := os.ReadFile("../guard/hook/" + src)
 		if err != nil {
 			t.Fatal(err)
 		}
