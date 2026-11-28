@@ -31,7 +31,7 @@ report is [`skills/flow/plan-triage.md`](../skills/flow/plan-triage.md).
 The same call also decides three things, so nothing in a project configures them by hand:
 
 - **Implementer groups** — which tasks one agent builds together, and which can run side by side.
-- **The review panel** — which reviewers the change needs ([Review panel](review-panel.md)).
+- **The review panel** — how every reviewer is bundled and which model each bundle runs on ([Review panel](review-panel.md)).
 - **Visual verification** — required, skipped, or not configured ([Visual verify](visual-verify.md)).
 
 The decision is printed before anything is built.

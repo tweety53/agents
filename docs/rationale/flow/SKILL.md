@@ -928,7 +928,7 @@ rule is **Work end to end — stop only to plan or to test by hand** (`rules/wor
 
 ### review-panel.md — hand-assembled briefs and no docs-only guard
 
-- *`render-slot-prompt` and `check-panel-docs-only` deleted* — a brief is a few blockquotes and a template body the parent already holds, so a rendering guard with its own placeholder and block-extraction contract cost more to keep than the copy it saved; the docs-only reduction moved into `plan-check`, which decides a documentation-only change's panel `primary` alone before any round runs, so no round re-classifies the branch.
+- *`render-slot-prompt` and `check-panel-docs-only` deleted* — a brief is a few blockquotes and a template body the parent already holds, so a rendering guard with its own placeholder and block-extraction contract cost more to keep than the copy it saved; the docs-only reduction moved into `plan-check`, which decides a documentation-only change's panel before any round runs — every reviewer but `primary` on the cheapest pair — so no round re-classifies the branch.
 
 ### implementer-brief.md — CONFIDENCE ONCE GREEN, brainstorm-planner.md — full-page captures
 

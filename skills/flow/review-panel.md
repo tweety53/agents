@@ -53,7 +53,7 @@ Every slot id a `panel` bundle names maps to one prompt:
 | `test-sanity` | **Test-sanity** — would each test the diff adds or changes fail if its behaviour broke | `test-sanity-reviewer-prompt.md` |
 | `performance` | **Performance** — call and query cost: repeats, N+1, unbounded reads, over-fetch, indexes, transactions, writes, timeouts, caching, blocking, locks, memory, payload, frontend | `performance-reviewer-prompt.md` |
 | `failure-modes` | **Failure-modes** — error return, timeout, partial write, concurrent re-entry | `failure-modes-reviewer-prompt.md` |
-| `security` | **Security** — injection, authorisation, secrets, trust boundary; added by `flow-guard plan-check` when a task's `**Files:**` matches the project's `## security paths`, never picked by the decider | `security-reviewer-prompt.md` |
+| `security` | **Security** — injection, authorisation, secrets, trust boundary; added to every panel by `flow-guard plan-check`, never picked by the decider — pairless when a task's `**Files:**` matches the project's `## security paths`, on the panel-reviewer role's cheapest base pair otherwise | `security-reviewer-prompt.md` |
 | `mutation` | **Mutation** — sabotage-proofing | **The mutation-testing brief** (`skills/flow/review-panel-optional-slots.md`), own throwaway worktree copy per repository (see **The throwaway worktree**, `skills/flow/review-panel-optional-slots.md`) |
 
 A role a bundle drops leaves the bundle dispatching the roles it still names, and a bundle left
@@ -101,8 +101,9 @@ dispatches `mutation` — it carries the mutation slot's prompt, **The mutation-
 
 **A panel runs as decided.** No slot outside the decided panel is ever added by diff
 size, touched area, or any other automatic trigger: beyond the decided panel, anything reaches the
-panel only through an explicit per-run operator instruction, for that run only. A change whose every
-task's `**Files:**` is documentation is decided `primary` alone by `plan-check`, never reduced here.
+panel only through an explicit per-run operator instruction, for that run only. Every catalog slot
+and `security` is in every decided panel; `plan-check` puts a slot the change gives nothing to
+read on the cheapest pair, and nothing here reduces the panel.
 
 Write `<abs-worktree>/.superpowers/sdd/final-review.diff` (the canonical worktree's) and its
 `[TOUCHED_FILES]` list once per round from **every** worktree in the change's resolved set

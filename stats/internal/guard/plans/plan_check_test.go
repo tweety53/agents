@@ -40,7 +40,7 @@ func dgpvRead(t *testing.T, out string) core.PlanDecision {
 }
 
 const dgpvGood = `{"groups":[{"tasks":["1","3"],"reason":"a"},{"tasks":["2"],"reason":"b"}],` +
-	`"panel":[{"slots":["primary","principles"],"reason":"c"},{"slots":["mutation"],"reason":"d"}],` +
+	`"panel":[{"slots":["primary","principles"],"reason":"c"},{"slots":["test-sanity","performance"],"reason":"f"},{"slots":["failure-modes"],"reason":"g"},{"slots":["mutation"],"reason":"d"}],` +
 	`"visual":{"verify":"skipped","reason":"e"}}`
 
 const pcReport = "**F1** [finding] tasks.md:3 — a gap\n**F2** [advisory] design.md:1 — a nit\nPLAN-CHECK-FINDINGS 1\n"
@@ -203,12 +203,13 @@ func TestPlanCheckDecisionChecks(t *testing.T) {
 		"task missing":        {pjPolicy(dgpvPolicy), swap(`["1","3"]`, `["1"]`), "task 3 is in no group"},
 		"big task shares":     {pjPolicy(dgpvPolicy), swap(`["2"]`, `["2","3"]`), "big task 2 shares group 2"},
 		"after order broken":  {pjPolicy(dgpvPolicy), pjJSON(pcAnswer("PLAN-CHECK-CLEAN\n", `{"groups":[{"tasks":["3"],"reason":"a"},{"tasks":["1"],"reason":"a"},{"tasks":["2"],"reason":"b"}],"panel":[{"slots":["primary"],"reason":"c"}],"visual":{"verify":"skipped","reason":"e"}}`), ""), "comes before its After task 1"},
-		"mutation shares":     {pjPolicy(dgpvPolicy), swap(`["mutation"]`, `["mutation","failure-modes"]`), "mutation shares a bundle"},
+		"mutation shares":     {pjPolicy(dgpvPolicy), swap(`["failure-modes"]`, `["failure-modes","mutation"]`), "mutation shares a bundle"},
+		"no performance":      {pjPolicy(dgpvPolicy), swap(`["test-sanity","performance"]`, `["test-sanity"]`), "no bundle carries performance"},
 		"no primary":          {pjPolicy(dgpvPolicy), swap(`["primary","principles"]`, `["principles"]`), "no bundle carries primary"},
 		"unknown task":        {pjPolicy(dgpvPolicy), swap(`["1","3"]`, `["1","3","9"]`), "names task 9, which the plan lacks"},
 		"task in two groups":  {pjPolicy(dgpvPolicy), swap(`["2"]`, `["3"]`), "task 3 is in two groups"},
 		"too many slots":      {pjPolicy(dgpvPolicy), swap(`["primary","principles"]`, `["primary","principles","failure-modes"]`), "bundle 1 holds 3 slots"},
-		"no slots":            {pjPolicy(dgpvPolicy), swap(`["mutation"]`, `[]`), "bundle 2 holds 0 slots"},
+		"no slots":            {pjPolicy(dgpvPolicy), swap(`["mutation"]`, `[]`), "bundle 4 holds 0 slots"},
 		"slot not in catalog": {pjPolicy(dgpvPolicy), swap(`["mutation"]`, `["bogus"]`), "bogus, which the catalog lacks"},
 		"slot in two bundles": {pjPolicy(dgpvPolicy), swap(`["mutation"]`, `["primary"]`), "slot primary is in two bundles"},
 		"visual disagrees":    {pjPolicy(dgpvPolicy), swap(`"skipped"`, `"not configured"`), "disagrees with the project"},
@@ -335,7 +336,7 @@ func TestDgpvInvalidGroupSizeLimit(t *testing.T) {
 func TestDgpvInvalidMutationNeedsNoGroupCount(t *testing.T) {
 	t.Parallel()
 	tasks := []pdbTask{{id: "1", size: "small", taskLine: 1}, {id: "2", size: "small", taskLine: 2}}
-	panel := []core.DecisionEntry{{Slots: []string{"primary"}}, {Slots: []string{"mutation"}}}
+	panel := []core.DecisionEntry{{Slots: []string{"primary", "principles"}}, {Slots: []string{"test-sanity", "performance"}}, {Slots: []string{"failure-modes"}}, {Slots: []string{"mutation"}}}
 	one := core.PlanDecision{Groups: []core.DecisionEntry{{Tasks: []string{"1", "2"}}}, Panel: panel}
 	one.Visual.Verify = "not configured"
 	two := one
@@ -348,38 +349,56 @@ func TestDgpvInvalidMutationNeedsNoGroupCount(t *testing.T) {
 	}
 }
 
-// TestPlanCheckAddsTheSecuritySlotOnAMatchingFile (kan-1125): a task file
-// matching `## security paths` adds a security bundle to the decision whatever
-// the decider answered; no match, or no section, adds none.
-func TestPlanCheckAddsTheSecuritySlotOnAMatchingFile(t *testing.T) {
+// TestPlanCheckAlwaysAddsTheSecuritySlot (kan-1125): plan-check adds a security bundle to every
+// decision whatever the decider answered — with no pair on a task file matching `## security
+// paths`, so its dispatch takes the pair judge's, and on panel-reviewer's cheapest base pair when
+// no file matches or the section is absent.
+func TestPlanCheckAlwaysAddsTheSecuritySlot(t *testing.T) {
 	t.Parallel()
 	plan := "# Tasks\n\n- [ ] 1. first\n\n**Files:** `api/auth/login.go`\n"
-	for name, c := range map[string]struct {
-		project string
-		want    bool
-	}{
-		"match":      {"## visual verification\n\n| Setting | Value |\n\n## security paths\n\napi/auth/**, api/secrets/**\n", true},
-		"no match":   {"## visual verification\n\n| Setting | Value |\n\n## security paths\n\napi/billing/**\n", false},
-		"no section": {"## visual verification\n\n| Setting | Value |\n", false},
+	for name, c := range map[string]struct{ project, pair string }{
+		"match":      {"## visual verification\n\n| Setting | Value |\n\n## security paths\n\napi/auth/**, api/secrets/**\n", ""},
+		"no match":   {"## visual verification\n\n| Setting | Value |\n\n## security paths\n\napi/billing/**\n", "opus/flow-low"},
+		"no section": {"## visual verification\n\n| Setting | Value |\n", "opus/flow-low"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			wt, root, out := dgpvFixture(t)
 			guardtest.WriteFile(t, wt+"/.flow/project.md", c.project)
 			guardtest.WriteFile(t, root+"/tasks.md", plan)
-			good := `{"groups":[{"tasks":["1"],"reason":"a"}],"panel":[{"slots":["primary"],"reason":"c"}],"visual":{"verify":"skipped","reason":"e"}}`
+			good := `{"groups":[{"tasks":["1"],"reason":"a"}],` + dgpvPaired[strings.Index(dgpvPaired, `"panel"`):]
 			stub := newPJStub(t, pjJSON(pcAnswer(pcReport, good), ""))
-			if r := runGuard("plan-check", []string{wt, root, out}, pjEnv(t, pjPolicy(dgpvPolicy), stub)); r.Rc != 0 {
+			if r := runGuard("plan-check", []string{wt, root, out}, pjEnv(t, pcPairPolicy, stub)); r.Rc != 0 {
 				t.Fatalf("rc=%d err=%q", r.Rc, r.Err)
 			}
-			has := false
+			var got []core.DecisionEntry
 			for _, b := range dgpvRead(t, out).Panel {
-				has = has || slices.Contains(b.Slots, "security")
+				if slices.Contains(b.Slots, "security") {
+					got = append(got, b)
+				}
 			}
-			if has != c.want {
-				t.Errorf("security bundle present = %v, want %v", has, c.want)
+			if len(got) != 1 || got[0].Pair != c.pair {
+				t.Errorf("security bundles %+v, want one on pair %q", got, c.pair)
 			}
 		})
+	}
+}
+
+// TestSpCheapest: the cheapest pair is the lowest effort, then the cheapest model, first listed on a tie.
+func TestSpCheapest(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		base []string
+		want string
+	}{
+		{nil, ""},
+		{[]string{"opus/flow-medium", "opus/flow-low"}, "opus/flow-low"},
+		{[]string{"opus/flow-low", "sonnet/flow-low", "sonnet/flow-high"}, "sonnet/flow-low"},
+		{[]string{"sonnet/flow-low", "haiku/flow-low"}, "haiku/flow-low"},
+	} {
+		if got := spCheapest(c.base); got != c.want {
+			t.Errorf("spCheapest(%q) = %q, want %q", c.base, got, c.want)
+		}
 	}
 }
 
@@ -620,7 +639,8 @@ var pcPairPolicy = pjPolicy(dgpvPolicy,
 
 // dgpvPaired is dgpvGood with a pair on every group and bundle; a group's is one the guard drops.
 const dgpvPaired = `{"groups":[{"tasks":["1","3"],"pair":"sonnet/flow-medium","reason":"a"},{"tasks":["2"],"pair":"opus/flow-low","reason":"b"}],` +
-	`"panel":[{"slots":["primary","principles"],"pair":"opus/flow-medium","reason":"c"},{"slots":["mutation"],"pair":"opus/flow-low","reason":"d"}],` +
+	`"panel":[{"slots":["primary","principles"],"pair":"opus/flow-medium","reason":"c"},{"slots":["test-sanity","performance"],"pair":"opus/flow-low","reason":"f"},` +
+	`{"slots":["failure-modes"],"pair":"opus/flow-low","reason":"g"},{"slots":["mutation"],"pair":"opus/flow-low","reason":"d"}],` +
 	`"visual":{"verify":"skipped","reason":"e"}}`
 
 // TestPlanCheckDecidesEachDispatchPair: the decider is shown panel-reviewer's base pairs alone and
@@ -648,7 +668,7 @@ func TestPlanCheckDecidesEachDispatchPair(t *testing.T) {
 	for name, c := range map[string]struct{ old, new, cause string }{
 		"outside":  {`"pair":"opus/flow-medium"`, `"pair":"opus/flow-high"`, "bundle 1's pair opus/flow-high is not one of panel-reviewer's allowed pairs"},
 		"missing":  {`"pair":"opus/flow-medium",`, ``, "bundle 1 names no pair"},
-		"panel no": {`"pair":"opus/flow-low","reason":"d"`, `"pair":"sonnet/flow-low","reason":"d"`, "bundle 2's pair sonnet/flow-low"},
+		"panel no": {`"pair":"opus/flow-low","reason":"d"`, `"pair":"sonnet/flow-low","reason":"d"`, "bundle 4's pair sonnet/flow-low"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

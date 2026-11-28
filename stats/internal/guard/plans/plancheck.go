@@ -42,8 +42,10 @@ import (
 // Each panel bundle carries the `pair` its dispatch runs on, one of panel-reviewer's base pairs, and
 // a pair outside them, an opt-in pair included, or a missing one makes the decision unusable; a role
 // with no base pair owes none. flow-guard hook enforce-agent-baseline records that pair's dispatch
-// with `-pair-pick decider: bundle <slots>` (DecidedPair) and asks no pair-judge pick for it; the
-// security bundle this guard adds carries no pair, so its dispatch takes the pair judge's. A group
+// with `-pair-pick decider: bundle <slots>` (DecidedPair) and asks no pair-judge pick for it. Every
+// catalog slot is in some bundle, or the decision is unusable. The security bundle this guard adds to
+// every decision carries no pair when a task file matches `## security paths`, so its dispatch takes
+// the pair judge's, and panel-reviewer's cheapest base pair otherwise (spAddSecurity). A group
 // carries no pair — its implementer takes the pair judge's — so one the answer names, or one a kept
 // decision holds, is dropped from the written decision.
 //
@@ -157,6 +159,7 @@ func planCheck(args []string, env core.Env, stdout, stderr io.Writer) int {
 
 	var report, source, spend, cause, note string
 	var d *core.PlanDecision
+	var base []string
 	repoAt := pdgRepositories(env, planPath, lines)
 	shapePath, shape := filepath.Join(wt, ".superpowers", "sdd", "plan-check-shape.json"), pcShape(tasks, repoAt)
 	if decideOnly {
@@ -172,10 +175,10 @@ func planCheck(args []string, env core.Env, stdout, stderr io.Writer) int {
 		}
 	}
 	for range pcAsks {
-		r, dd, src, sp, c, retry := pcAsk(env, wt, root, lines, tasks, repoAt, visual, decideOnly, note)
+		r, dd, src, sp, c, retry, b := pcAsk(env, wt, root, lines, tasks, repoAt, visual, decideOnly, note)
 		spend += sp
 		if dd != nil || d == nil { // a usable first answer is never traded for an unusable retry
-			report, d, source, cause = r, dd, src, c
+			report, d, source, cause, base = r, dd, src, c, b
 		}
 		if retry == "" {
 			break
@@ -193,7 +196,7 @@ func planCheck(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if cause != "" {
 		fmt.Fprintf(stderr, "plan-check: judge answer unusable, using the fallback report — %s\n", strings.TrimSpace(pjSpace.ReplaceAllString(cause, " ")))
 	}
-	spAddSecurity(d, filepath.Join(wt, ".flow", "project.md"), tasks)
+	spAddSecurity(d, filepath.Join(wt, ".flow", "project.md"), tasks, base)
 	d.Overrides = []json.RawMessage{}
 	b, _ := json.MarshalIndent(d, "", "  ")
 	write := func(path string, content []byte) error {
@@ -325,8 +328,9 @@ func pcFindingText(report, id string) string {
 
 // pcAsk runs the check once, note appended to the system prompt; a nil decision or empty report
 // is the part to fall back. retry is why the answer is owed one more model call ("" none): a
-// failed run, an unusable decision, or a report with no terminal line.
-func pcAsk(env core.Env, wt, root string, lines []string, tasks []pdbTask, repoAt []string, visual, decideOnly bool, note string) (report string, d *core.PlanDecision, source, spend, cause, retry string) {
+// failed run, an unusable decision, or a report with no terminal line. bundleBase is the
+// panel-reviewer role's base pairs the decision was checked against.
+func pcAsk(env core.Env, wt, root string, lines []string, tasks []pdbTask, repoAt []string, visual, decideOnly bool, note string) (report string, d *core.PlanDecision, source, spend, cause, retry string, bundleBase []string) {
 	source = "fallback"
 	repo := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	promptFile, tools, limit := "plan-check-prompt.md", "Read,Grep,Glob", pcLimit
@@ -335,16 +339,16 @@ func pcAsk(env core.Env, wt, root string, lines []string, tasks []pdbTask, repoA
 	}
 	prompt, err := os.ReadFile(filepath.Join(repo, "skills", "flow", promptFile))
 	if err != nil {
-		return "", nil, source, "", "plan-check prompt unreadable: " + err.Error(), ""
+		return "", nil, source, "", "plan-check prompt unreadable: " + err.Error(), "", nil
 	}
 	rules, err := os.ReadFile(filepath.Join(repo, "skills", "flow", "plan-check-decision.md"))
 	if err != nil {
-		return "", nil, source, "", "plan-check prompt unreadable: " + err.Error(), ""
+		return "", nil, source, "", "plan-check prompt unreadable: " + err.Error(), "", nil
 	}
 	prompt = append(append(prompt, '\n'), rules...)
 	rows, err := core.PolicyTable(env)
 	if err != nil {
-		return "", nil, source, "", err.Error(), ""
+		return "", nil, source, "", err.Error(), "", nil
 	}
 	read := func(p string) string {
 		if b, err := os.ReadFile(p); err == nil {
@@ -373,7 +377,7 @@ func pcAsk(env core.Env, wt, root string, lines []string, tasks []pdbTask, repoA
 	env.Dir = wt
 	result, spend, cause := pjRun(env, rows, "decider", string(prompt)+note, digest, tools, limit)
 	if cause != "" {
-		return "", nil, source, spend, cause, cause
+		return "", nil, source, spend, cause, cause, nil
 	}
 	if !decideOnly && !pcHasTerminal(result) {
 		retry = pcNoTerminal
@@ -382,7 +386,7 @@ func pcAsk(env core.Env, wt, root string, lines []string, tasks []pdbTask, repoA
 	if d == nil {
 		retry = cause
 	}
-	return report, d, source, spend, cause, retry
+	return report, d, source, spend, cause, retry, base[core.BundleRole]
 }
 
 // pcParse splits one answer into its report and its checked decision.
@@ -536,8 +540,10 @@ func dgpvInvalid(d core.PlanDecision, tasks []pdbTask, repoAt []string, visual b
 			return why
 		}
 	}
-	if !slices.Contains(seen, "primary") {
-		return "no bundle carries primary"
+	for _, s := range dgpvSlots {
+		if !slices.Contains(seen, s) {
+			return "no bundle carries " + s
+		}
 	}
 	if v := d.Visual.Verify; v != "required" && v != "skipped" && v != "not configured" {
 		return fmt.Sprintf("visual.verify %q is not required, skipped or not configured", v)

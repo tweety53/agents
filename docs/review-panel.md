@@ -1,24 +1,25 @@
 # Review panel
 
 After the code is written, the whole branch is reviewed by a panel of reviewers, each a separate
-agent with one job. The plan review picks the reviewers
-([Planning](planning.md#the-decision-how-it-is-built-and-reviewed)); a project configures nothing
-by hand.
+agent with one job. Every reviewer runs on every change; the plan review bundles them and picks
+each bundle's model ([Planning](planning.md#the-decision-how-it-is-built-and-reviewed)), the cheapest
+allowed one for a reviewer the change gives little or nothing to read. A project configures
+nothing by hand.
 
 ## Review panel setup
 
 | Reviewer | Looks for |
 |----------|-----------|
-| `primary` | Plan alignment and senior code review. **Always runs.** |
+| `primary` | Plan alignment and senior code review. |
 | `principles` | The engineering principles: small functions, clear names, no hidden coupling. |
-| `test-sanity` | Would each test the diff adds fail if its behaviour broke? Picked only when a test is added or changed. |
-| `performance` | Call and query cost: repeats, N+1, unbounded reads, over-fetch, indexes, transactions, writes, timeouts, caching, blocking, locks, memory, payload, frontend. Picked only when the change adds a call, query, write, migration, client, cache, startup or request-path work, collection processing or frontend render. |
-| `failure-modes` | Error returns, timeouts, partial writes, concurrent re-entry. Picked only with I/O, persistence or concurrency. |
+| `test-sanity` | Would each test the diff adds fail if its behaviour broke? On the cheapest model when no test is added or changed. |
+| `performance` | Call and query cost: repeats, N+1, unbounded reads, over-fetch, indexes, transactions, writes, timeouts, caching, blocking, locks, memory, payload, frontend. On the cheapest model unless the change adds a call, query, write, migration, client, cache, startup or request-path work, collection processing or frontend render. |
+| `failure-modes` | Error returns, timeouts, partial writes, concurrent re-entry. On the cheapest model without I/O, persistence or concurrency. |
 | `mutation` | Breaks the code on purpose to prove the tests notice. Always a bundle alone, in its own throwaway copy of the worktree. |
-| `security` | Injection, authorisation, secrets, trust boundary. Never picked by the model: added automatically when a task's files match the project's `## security paths`. |
+| `security` | Injection, authorisation, secrets, trust boundary. Added automatically to every panel, on the cheapest model unless a task's files match the project's `## security paths`. |
 
 Reviewers are grouped into **bundles** of one or two, and each bundle is one dispatch. A
-documentation-only change gets `primary` alone. After a fix round only the reviewers that raised a
+documentation-only change runs every reviewer but `primary` on the cheapest model. After a fix round only the reviewers that raised a
 finding run again.
 
 ## What else holds

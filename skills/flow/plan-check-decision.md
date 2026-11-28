@@ -16,29 +16,30 @@ dispatch that works its tasks in plan order, one commit per task.
   (`**After:**`) or they touch the same files.
 - List groups in an order every task's `**After:**` tasks come before it.
 
-**2. Review panel.** Pick the reviewers the change needs from this catalog and bundle them; each
-bundle is one reviewer dispatch.
+**2. Review panel.** Every reviewer of this catalog is in every panel: bundle them all, each
+bundle one reviewer dispatch; a decision leaving one out is rejected.
 
 | id | Reviews |
 |----|---------|
-| `primary` | plan alignment and senior code review — always runs |
+| `primary` | plan alignment and senior code review |
 | `principles` | the engineering principles — small functions, clear names, no hidden coupling |
 | `test-sanity` | would each test the diff adds or changes fail if its behaviour broke |
 | `performance` | call and query cost: repeats, N+1, unbounded reads, over-fetch, indexes, transactions, writes, timeouts, caching, blocking, locks, memory, payload, frontend |
 | `failure-modes` | error returns, timeouts, partial writes, concurrent re-entry |
 | `mutation` | sabotage-proofing: breaks the code on purpose to prove the tests notice |
 
-`security` is not in this catalog: `flow-guard plan-check` adds it after your answer when a task's
-`**Files:**` matches the project's `## security paths`.
+`security` is not in this catalog: `flow-guard plan-check` adds it to every panel after your
+answer — pairless when a task's `**Files:**` matches the project's `## security paths`, so the pair
+judge picks its pair, and on the panel-reviewer role's cheapest allowed pair otherwise.
 
-- Pick a reviewer only when the change gives it something to read: no `performance` for a
-  change that adds no call, query, write, migration, client, cache, startup or request-path
-  work, collection processing or frontend render; no `failure-modes` without I/O, persistence or
-  concurrency; no `test-sanity` when no test is added or changed; no `mutation` when the change
-  adds no logic a test should catch breaking.
-- When every task's `**Files:**` lists documentation alone (`.md`, `.mdc`, or `.html` under
-  `docs/`), the panel is `primary` alone.
-- `mutation`, when picked, is a bundle alone. Every other bundle holds one or two reviewers.
+- A reviewer the change gives little or nothing to read runs on the cheapest allowed pair: a
+  `performance` for a change that adds no call, query, write, migration, client, cache, startup or
+  request-path work, collection processing or frontend render; a `failure-modes` without I/O,
+  persistence or concurrency; a `test-sanity` when no test is added or changed; a `mutation` when
+  the change adds no logic a test should catch breaking; every reviewer but `primary` when every
+  task's `**Files:**` lists documentation alone (`.md`, `.mdc`, or `.html` under `docs/`).
+- `mutation` is a bundle alone. Every other bundle holds one or two reviewers; a reviewer on the
+  cheapest pair shares its bundle only with another on it, never with one the change needs.
 
 **3. Visual verification.** `not configured` when the project declares no `## visual
 verification` section. Otherwise `required` when anything a user sees can change — a page, a
