@@ -17,18 +17,11 @@ So every subagent prompt you write carries these two sentences, verbatim:
 > Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task.
 > Include this instruction verbatim in any prompt you write for another agent.
 
-`~/.claude/rules/agent-baseline.md` lists every rule in a line and points at its full text — one
-pointer instead of a copy of each, self-propagating to any depth because the second sentence makes
-every agent a carrier.
-
 Unconditionally, on every dispatch. Not only when a rule looks relevant to the sub-task: you cannot
 tell from the prompt whether the agent will end up in production, in `main`, or in a lint failure.
-Two carve-outs — a `fork` subagent inherits this file already, and an agent without file-read access
-needs the relevant rules inlined instead.
-
-**This is enforced, not just asked for.** The `PreToolUse` hook
-`flow-guard hook enforce-agent-baseline` denies any `Agent`/`Task` call whose prompt lacks the
-pointer, and returns the text to add.
+Two carve-outs — a `fork` subagent outside a flow session inherits this file already (inside one the
+hook denies every `fork`; dispatch a fresh agent), and an agent without file-read access needs the
+relevant rules inlined instead.
 
 <!-- /core -->
 
