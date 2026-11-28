@@ -23,7 +23,7 @@ flow's pipeline and its contract definitions.
 | [finish-contract-run1.md](finish-contract-run1.md) | `/flow`'s integrate run: the preflight-signal decision, run 1's procedure — the self-review pass included — base-branch resolution, and resolving a change's worktrees. **Loaded by `skills/flow/integrate.md`; `/flow-self-review` also reads single sections of it** |
 | [finish-contract-run2.md](finish-contract-run2.md) | `/flow`'s cleanup run: run 2's procedure and worktree cleanup. **Loaded by `skills/flow/cleanup.md`** |
 | [state-file.md](state-file.md) | Read or write a change's state file: its full shape, monotonic state writes, carry-forward |
-| [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — every key it defines and the single-line-literal keys. Resolution rules only — see below for authoring guidance |
+| [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — every key it defines and the single-line-literal keys. |
 | [project-configuration-standards.md](project-configuration-standards.md) | Resolve a `## standards` entry: the three entry forms and containment. **Loaded at the principles dispatch** |
 | [project-configuration-isolation.md](project-configuration-isolation.md) | The `## workspace isolation` tables: the cell forms, row validation and what is left to the agent. **Loaded only when writing or reviewing a `## workspace isolation` section** |
 | [project-configuration-visual.md](project-configuration-visual.md) | The `## visual verification` tables, the `mockups` sidecar and the full app suite. **Loaded when `flow.verify` begins** |
