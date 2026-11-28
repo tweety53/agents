@@ -152,24 +152,31 @@ func TestBuildSlotPromptMutationTestsNotInlined(t *testing.T) {
 	}
 }
 
-// bspDiffDir is a directory holding the diff-groups.md every slot prompt requires beside its diff.
+// bspDiffDir is a directory holding the <diff>.groups.md every slot prompt requires beside its diff.
 func bspDiffDir(t *testing.T) string {
 	t.Helper()
 	d := t.TempDir()
-	if err := os.WriteFile(filepath.Join(d, "diff-groups.md"), []byte("## x\n"), 0o644); err != nil {
-		t.Fatal(err)
+	for _, n := range []string{"final-review", "fix-round-2", "x"} {
+		if err := os.WriteFile(filepath.Join(d, n+".groups.md"), []byte("## x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return d
 }
 
-// TestBuildSlotPromptRefusesWithoutDiffGroups: every slot, mutation included, needs diff-groups.md
-// beside its diff; exit 2 names the guard that writes it and no prompt is written.
+// TestBuildSlotPromptRefusesWithoutDiffGroups: every slot, mutation included, needs its diff's groups file
+// beside it; exit 2 names the guard that writes it and no prompt is written.
 func TestBuildSlotPromptRefusesWithoutDiffGroups(t *testing.T) {
 	t.Parallel()
 	skill, _ := filepath.Abs("../../../skills/flow")
 	for _, id := range []string{"primary", "mutation"} {
 		wt := t.TempDir()
-		r := runGuard("build-slot-prompt", []string{skill, wt, "1", id, "-diff", t.TempDir() + "/final-review.diff",
+		d := t.TempDir()
+		// another diff's groups file beside it does not satisfy the check
+		if err := os.WriteFile(filepath.Join(d, "late-fix.groups.md"), []byte("## x\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		r := runGuard("build-slot-prompt", []string{skill, wt, "1", id, "-diff", d + "/final-review.diff",
 			"-copies", "/w", "-artifacts", "/c/p.md", "-standards", "", "-global-constraints", "none", "-panel", id}, Env{})
 		if r.rc != 2 || !strings.Contains(r.out, "flow-guard diff-groups <abs-worktree> <diff-file>") {
 			t.Errorf("%s: rc %d: %s", id, r.rc, r.out)

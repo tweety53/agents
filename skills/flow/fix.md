@@ -145,7 +145,7 @@ One fix runs steps 1 to 4 in order; a Critical or Important finding of step 4 op
    <name>`). Once step 3 is clean, `flow-guard write-panel-diff late-fix <abs-worktree> <worktree>
    <fix-start sha> [<worktree> <fix-start sha>…]` writes `<abs-worktree>/.superpowers/sdd/late-fix.diff`
    from the fix-start shas, `flow-guard diff-groups <abs-worktree> <abs-worktree>/.superpowers/sdd/late-fix.diff`
-   re-writes `diff-groups.md` for it, and one dispatch reads it: the `primary` slot, role `panel-reviewer`, key
+   writes `late-fix.groups.md` beside it, and one dispatch reads it: the `primary` slot, role `panel-reviewer`, key
    `fix-<k>-review`, its pair from `flow-guard pair-judge panel-reviewer`, its brief rendered from
    `skills/flow/review-panel.md`'s placeholder table with `[DIFF_PATH]` the `late-fix.diff` and the
    FIX-ROUND SCOPE paragraph of **Panel re-runs** (`skills/flow/review-panel-fix-round.md`). A

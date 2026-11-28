@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// diff-groups <abs-worktree> <diff-file> writes <abs-worktree>/.superpowers/sdd/diff-groups.md,
+// diff-groups <abs-worktree> <diff-file> writes <diff-file minus .diff>.groups.md beside the diff,
 // the diff's files grouped mechanically so no reviewer regroups them: one `## <dir>` group per
 // directory, a test file joining the directory of the non-test file sharing its stem, docs and
 // config files joining the group of their directory (else `## docs and config`). Each file
@@ -120,11 +120,7 @@ func diffGroups(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		b.WriteString("\n")
 	}
-	dir := filepath.Join(args[0], ".superpowers/sdd")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fail("cannot-write-groups", err.Error())
-	}
-	dst := filepath.Join(dir, "diff-groups.md")
+	dst := bspGroupsPath(args[1])
 	if err := os.WriteFile(dst, []byte(b.String()), 0o644); err != nil {
 		return fail("cannot-write-groups", err.Error())
 	}

@@ -35,8 +35,8 @@ import (
 // ENTRY CONTEXT blockquote with each -tests path listed beneath it under a
 // "Read by path." line (never inlined).
 //
-// Every prompt carries a `**Diff groups:** <path>` line, and diff-groups.md
-// (the diff-groups guard's output) must sit beside the diff: without it, exit 2.
+// Every prompt carries a `**Diff groups:** <path>` line, and the diff's groups file
+// <diff minus .diff>.groups.md (the diff-groups guard's output) must sit beside it: without it, exit 2.
 //
 // Exit 0 written; 2 usage, an id with no template, mutation bundled or
 // without -copies, -unread with -repo, or a placeholder a template carries
@@ -97,7 +97,7 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "Read %s in full first — every paragraph binds you\n\n", filepath.Join(skillDir, "slot-brief.md"))
-	groups := filepath.Join(filepath.Dir(*fill["DIFF_PATH"]), "diff-groups.md")
+	groups := bspGroupsPath(*fill["DIFF_PATH"])
 	if !isFile(groups) {
 		Reason(env, "diff-groups-missing")
 		fmt.Fprintln(stderr, "build-slot-prompt: "+groups+" is missing — run flow-guard diff-groups <abs-worktree> <diff-file> first")
@@ -215,6 +215,11 @@ func bspBlockquote(src, head string) string {
 		out.WriteString(l + "\n")
 	}
 	return out.String()
+}
+
+// bspGroupsPath is the groups file the diff-groups guard writes beside a diff.
+func bspGroupsPath(diff string) string {
+	return strings.TrimSuffix(diff, ".diff") + ".groups.md"
 }
 
 // bspMutationBody is the mutation slot's PASS body (see the header).
