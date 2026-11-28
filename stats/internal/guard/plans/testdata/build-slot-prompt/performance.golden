@@ -42,6 +42,13 @@ lenses and report only where the diff's actual code costs more than it needs:
   request or screen load?
 - **Per item of a list.** Does a list or loop cost a query or call per row where a join or
   batch read exists?
+- **Second instance.** Would it break or answer wrongly with two app instances, a Redis
+  Cluster or ten times the data — a multi-key command or Lua script whose keys do not share
+  an owner-id hash tag, a Lua key not passed in `KEYS`, a full key scan, per-instance state
+  that must be correct (a short delay only if written down), a scheduled or startup job
+  unsafe to run twice at once, a request unsafe to retry, uniqueness the database does not
+  enforce, a file outside shared storage? Sharding, read replicas, queues, a distributed
+  cache and multi-region are findings only when the requirement asks.
 - **Unstable trigger.** Is a load keyed on a value that starts unset and settles, so it
   runs, cancels and runs again?
 - **Unbounded read.** Does the row count grow with the table or a user's history rather
