@@ -2996,6 +2996,66 @@ func TestLiveStateBoardOmitsADispatchOfAnEndedStage(t *testing.T) {
 	}
 }
 
+// TestLiveStateBoardListsARequestDispatchOfAnEndedStage: a /flow-interactive
+// executor's dispatch is bound to its request, not to the stage run open when
+// it began -- a parallel executor's or the coordinator's run that ends while
+// it works -- so it stays in the Agents running list while its request is
+// open; once the request has ended, an unended row is the orphan the ended
+// stage rule leaves out.
+func TestLiveStateBoardListsARequestDispatchOfAnEndedStage(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-board-request-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	day := time.Date(2026, 8, 13, 10, 0, 0, 0, time.UTC)
+	in := baseBeginInput(projectKey, "kan-1", "/flow-interactive", "flow.implement")
+	in.StartedAt = day
+	run, err := st.BeginStage(ctx, in)
+	if err != nil {
+		t.Fatalf("BeginStage: %v", err)
+	}
+	n := 7
+	if _, err := st.BeginRequest(ctx, projectKey, "kan-1", records.RequestBegin{N: n, Title: "t"}); err != nil {
+		t.Fatalf("BeginRequest: %v", err)
+	}
+	d := baseDispatch("operator-asked", "opus")
+	d.Key = "operator-9"
+	d.Request = &n
+	if _, err := st.RecordDispatch(ctx, projectKey, "kan-1", d); err != nil {
+		t.Fatalf("RecordDispatch: %v", err)
+	}
+	if err := st.EndStage(ctx, run.ID, day.Add(time.Minute), "completed"); err != nil {
+		t.Fatalf("EndStage: %v", err)
+	}
+	subagents := func() []store.ActiveDispatch {
+		t.Helper()
+		rows, err := st.LiveStateBoard(ctx, store.Period{
+			From: time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC),
+			To:   time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC),
+		}, &projectKey, nil)
+		if err != nil {
+			t.Fatalf("LiveStateBoard: %v", err)
+		}
+		for _, r := range rows {
+			if r.Name == "kan-1" {
+				return r.Subagents
+			}
+		}
+		t.Fatalf("no kan-1 row")
+		return nil
+	}
+	if got := subagents(); len(got) != 1 || got[0].Key == nil || *got[0].Key != "operator-9" {
+		t.Errorf("Subagents = %+v, want the open request-bound dispatch operator-9", got)
+	}
+	if _, err := st.EndRequest(ctx, projectKey, "kan-1", records.RequestEnd{N: n, Outcome: "answered"}); err != nil {
+		t.Fatalf("EndRequest: %v", err)
+	}
+	if got := subagents(); len(got) != 0 {
+		t.Errorf("Subagents after the request ended = %+v, want none", got)
+	}
+}
+
 // TestDailyCostsBucketsFromTheCallersMidnight: the day is the 24 hours from
 // period.From (a client-local midnight, here UTC+3's), so a run at 23:30
 // local is in its day and one at 00:10 local the next; a day with no run is

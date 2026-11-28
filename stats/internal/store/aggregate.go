@@ -69,7 +69,9 @@ type LiveStateRow struct {
 	LastStage        *string
 	LastStageEndedAt *time.Time
 	// Subagents are the change's dispatches begun and not yet ended, oldest
-	// first; RepoRoots are where its tasks.md lives: its recorded worktrees,
+	// first -- less those of an ended stage run, which never got their end,
+	// unless bound to a /flow-interactive request still open, whose executor
+	// outlives the stage run open when it began; RepoRoots are where its tasks.md lives: its recorded worktrees,
 	// then its project's main checkout, which keeps the archived plan once
 	// cleanup removed the worktrees.
 	Subagents []ActiveDispatch
@@ -227,7 +229,8 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			       ) ORDER BY d.started_at, d.id), '[]'::jsonb) AS list
 			FROM dispatches d
 			WHERE d.change_id = c.id AND d.ended_at IS NULL AND d.started_at IS NOT NULL
-			  AND NOT EXISTS (SELECT 1 FROM stage_runs sr WHERE sr.id = d.stage_run_id AND sr.ended_at IS NOT NULL)
+			  AND (EXISTS (SELECT 1 FROM requests rq WHERE rq.change_id = d.change_id AND rq.n = d.request AND rq.outcome IS NULL)
+			       OR NOT EXISTS (SELECT 1 FROM stage_runs sr WHERE sr.id = d.stage_run_id AND sr.ended_at IS NOT NULL))
 		) subs ON true
 		LEFT JOIN LATERAL (
 			SELECT COALESCE(array_agg(cr.repo_root ORDER BY cr.repo_root), '{}')
