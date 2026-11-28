@@ -3,8 +3,9 @@
 After the code is written, the whole branch is reviewed by a panel of reviewers, each a separate
 agent with one job. Every reviewer runs on every change; the plan review bundles them and picks
 each bundle's model ([Planning](planning.md#the-decision-how-it-is-built-and-reviewed)), the cheapest
-allowed one for a reviewer the change gives little or nothing to read. A project configures
-nothing by hand.
+allowed one for a reviewer the change gives little or nothing to read. Cheapest is ranked by model
+first (haiku, sonnet, opus, fable), then by effort (low, medium, high, xhigh, max). A project
+configures nothing by hand.
 
 ## Review panel setup
 

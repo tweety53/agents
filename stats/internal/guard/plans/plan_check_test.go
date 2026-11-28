@@ -384,7 +384,7 @@ func TestPlanCheckAlwaysAddsTheSecuritySlot(t *testing.T) {
 	}
 }
 
-// TestSpCheapest: the cheapest pair is the lowest effort, then the cheapest model, first listed on a tie.
+// TestSpCheapest: the cheapest pair is the cheapest model, then the lowest effort, first listed on a tie.
 func TestSpCheapest(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
@@ -395,6 +395,10 @@ func TestSpCheapest(t *testing.T) {
 		{[]string{"opus/flow-medium", "opus/flow-low"}, "opus/flow-low"},
 		{[]string{"opus/flow-low", "sonnet/flow-low", "sonnet/flow-high"}, "sonnet/flow-low"},
 		{[]string{"sonnet/flow-low", "haiku/flow-low"}, "haiku/flow-low"},
+		{[]string{"opus/flow-low", "sonnet/flow-xhigh"}, "sonnet/flow-xhigh"},
+		{[]string{"fable/flow-low", "opus/flow-xhigh"}, "opus/flow-xhigh"},
+		{[]string{"other/flow-low", "fable/flow-max"}, "fable/flow-max"},
+		{[]string{"opus/flow-max", "opus/flow-xhigh"}, "opus/flow-xhigh"},
 	} {
 		if got := spCheapest(c.base); got != c.want {
 			t.Errorf("spCheapest(%q) = %q, want %q", c.base, got, c.want)

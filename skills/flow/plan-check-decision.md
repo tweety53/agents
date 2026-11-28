@@ -32,6 +32,8 @@ bundle one reviewer dispatch; a decision leaving one out is rejected.
 answer — pairless when a task's `**Files:**` matches the project's `## security paths`, so the pair
 judge picks its pair, and on the panel-reviewer role's cheapest allowed pair otherwise.
 
+- The cheapest pair is ranked by model first, haiku < sonnet < opus < fable, then by effort,
+  low < medium < high < xhigh < max.
 - A reviewer the change gives little or nothing to read runs on the cheapest allowed pair: a
   `performance` for a change that adds no call, query, write, migration, client, cache, startup or
   request-path work, collection processing or frontend render; a `failure-modes` without I/O,

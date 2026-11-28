@@ -57,24 +57,24 @@ func spAddSecurity(d *core.PlanDecision, projectFile string, tasks []pdbTask, ba
 	d.Panel = append(d.Panel, core.DecisionEntry{Slots: []string{"security"}, Pair: spCheapest(base), Reason: "no task file matches `## security paths`: the cheapest pair"})
 }
 
-// spCheapest is the cheapest of base: the lowest effort, then the cheapest model, the first listed
+// spCheapest is the cheapest of base: the cheapest model, then the lowest effort, the first listed
 // on a tie; "" for no pair.
-// ponytail: models ranked by name (haiku < sonnet < opus, any other last), a cost table if a model outside them is admitted.
+// ponytail: models ranked by name (haiku < sonnet < opus < fable, any other last), a cost table if a model outside them is admitted.
 func spCheapest(base []string) string {
 	efforts := []string{"low", "medium", "high", "xhigh", "max"}
-	models := []string{"haiku", "sonnet", "opus"}
+	models := []string{"haiku", "sonnet", "opus", "fable"}
 	rank := func(p string) (int, int) {
 		c, _ := pjParse(p)
 		m := slices.Index(models, c.model)
 		if m < 0 {
 			m = len(models)
 		}
-		return slices.Index(efforts, c.effort), m
+		return m, slices.Index(efforts, c.effort)
 	}
 	best := ""
 	for _, p := range base {
-		e, m := rank(p)
-		if be, bm := rank(best); best == "" || e < be || e == be && m < bm {
+		m, e := rank(p)
+		if bm, be := rank(best); best == "" || m < bm || m == bm && e < be {
 			best = p
 		}
 	}
