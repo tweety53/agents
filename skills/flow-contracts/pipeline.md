@@ -72,7 +72,7 @@ An argument that is none of those is **reported**, not silently ignored.
 | `/flow` | `IN_PROGRESS`, bare — or the change's name alone (**Change name resolution (all `/flow*` commands)**) | integrate run; ends at `IN_PROGRESS` (run 1) or `FINISHED` (run 1 chained into run 2) |
 | `/flow` | `FINISHED` | wrong-state handoff — the change is dropped |
 
-Which phase file marks each `flow.*` key is **Stage keys** (`skills/flow/stage-keys.md`).
+Which phase file marks each `flow.*` key is **Stage keys** (below).
 
 **This table is authoritative.**
 
@@ -331,7 +331,7 @@ exits 0. Never branch on its exit code; a failed mark is one line in the run's n
 
 `/flow` marks one stage per phase. Planning marks `flow.plan`, from kickoff to the plan gate
 (`skills/flow/brainstorm.md`); the other phases' keys are listed in **Stage keys**
-(`skills/flow/stage-keys.md`). A mark and a `flow-guard` call carry no `-harness`: the CLI names
+(below). A mark and a `flow-guard` call carry no `-harness`: the CLI names
 the harness actually running the mark — `$FLOW_HARNESS`, else `claude-code` on Claude Code; a
 harness that sets neither passes `-harness <its name>`. A `flow record` call given `-C` inside the
 change's worktree carries no `-change`: the CLI reads the change off that checkout's branch.
@@ -358,6 +358,23 @@ flow stage end   -command '/flow' -stage flow.plan -outcome completed <name>
 ```
 
 The dispatch hooks begin and end a dispatch's row under its dispatcher's token, the same way.
+
+### Stage keys
+
+Every stage `/flow` marks uses one of seven `flow.*` keys, one per phase. A fix round re-runs its
+phase under the same key; no sub-step has a mark of its own.
+
+| Mark | Begins | Ends | Retired keys it covers |
+|------|--------|------|------------------------|
+| `flow.plan` | `skills/flow/brainstorm.md`, at kickoff | the plan gate | `flow.kickoff`, `flow.brainstorm`, `flow.create-artifacts`, `flow.writing-plans`, `flow.decide` |
+| `flow.implement` | `skills/flow/implement.md`, at the implementing run's start (also `cross-repo-worktrees.md`, `fix.md` re-runs) | the last task closed | `flow.load-context`, `flow.isolate-workspace`, `flow.sdd-tdd` |
+| `flow.review` | `skills/flow/review-panel.md`, at the first pass (also `review-panel-fix-round.md`, `review-panel-optional-slots.md`) | the last fix round | `flow.review-panel` |
+| `flow.verify` | `skills/flow/verify-and-handoff.md`, at the lint/test list (visual verify, `visual-verify.md`, runs inside it; `fix.md` re-runs it) | `IN_PROGRESS` written | `flow.visual-verify`, `flow.stage-diff`, `flow.run-instructions`, `flow.write-in-progress` |
+| `flow.land` | `flow-guard integrate-change`, through `skills/flow/integrate.md` | the landing route done | `flow.preflight`, `flow.unfinished-work-gate`, `flow.landing-question`, `flow.preserve-sessions`, `flow.commit-two`, `flow.landing-routes` |
+| `flow.self-review` | `flow-guard integrate-change`, after land | the self-review pass closed | none |
+| `flow.cleanup` | `flow-guard integrate-change`, through `skills/flow/cleanup.md` | `FINISHED` written | `flow.verify-merge`, `flow.write-finished`, `flow.refresh-main-checkout` |
+
+`Flow-Key:` commit trailers keep their own names and are not stage marks.
 
 ## Handoff output
 

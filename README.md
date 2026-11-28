@@ -157,7 +157,7 @@ Canonical: `skills/flow-contracts/pipeline.md` (state machine), `finish-contract
 
 Every step a run marks in `flowd`, by key. `stats/internal/stages/names_test.go` parses this table and
 fails if it drifts from the code, so edit both together. Which phase
-file marks each key is **Stage keys** (`skills/flow/stage-keys.md`).
+file marks each key is **Stage keys** (`skills/flow-contracts/pipeline.md`).
 
 | Key | Name |
 |-----|------|

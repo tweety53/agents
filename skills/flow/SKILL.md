@@ -15,7 +15,7 @@ force. Nothing here duplicates that file's own content.
 **Load `skills/flow-contracts/pipeline.md` first** — canonical for the three states, the
 transition table's shape, stage-mark mechanics, the guard-presence check, guard resolution, the
 handoff shape and change-name resolution. Its **State transitions** table is `/flow`'s contract;
-**Stage keys** (`skills/flow/stage-keys.md`) names which phase file marks each key.
+**Stage keys** (`skills/flow-contracts/pipeline.md`) names which phase file marks each key.
 Load every contract file with the harness's file-read tool — Read on Claude Code — in offset
 chunks wherever one read cannot return the whole file, never with `cat`: `pipeline.md` and
 `finish-contract-run1.md` exceed the shell tool's output cap, and a `cat` load arrives truncated.

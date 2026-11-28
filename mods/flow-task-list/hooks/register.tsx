@@ -242,7 +242,7 @@ export const band = (subs: Row[], pending: Row[], change: string | null = null, 
   return [...done, ...shown, ...pending].slice(0, MAX_ROWS)
 }
 
-// Each flow.* stage key's phase, per skills/flow/stage-keys.md. `flow.decide` is left out: it marks
+// Each flow.* stage key's phase, per skills/flow-contracts/pipeline.md's Stage keys. `flow.decide` is left out: it marks
 // both the brainstorm and a fix run, so it keeps whichever phase is current.
 const PHASE_KEYS: Record<Phase, string[]> = {
   'flow-plan': ['plan', 'kickoff', 'brainstorm', 'design-approval', 'create-artifacts', 'writing-plans', 'plan-review'],
