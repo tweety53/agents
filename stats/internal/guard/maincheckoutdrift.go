@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -72,34 +74,34 @@ import (
 // git read is silenced, as the bash's 2>/dev/null silenced it: the named
 // cause on stderr is the whole of a refusal.
 // Run in process by integrate-change prepare only; no guard.Registry key.
-func checkMainCheckoutDrift(args []string, env Env, stdout, stderr io.Writer) int {
+func checkMainCheckoutDrift(args []string, env core.Env, stdout, stderr io.Writer) int {
 	const self = "check-main-checkout-drift"
 	die := func(id, format string, a ...any) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stderr, self+": "+format+"\n", a...)
 		return 2
 	}
 	if len(args) != 1 {
 		fmt.Fprintln(stderr, "usage: flow-guard check-main-checkout-drift <main-checkout>")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 
 	// THE VERDICT NAMES THE PHYSICAL PATH: `cd "$1" && pwd -P` -- `cd`
 	// cleans `..` lexically (its default -L), then every symlink resolves.
 	// `cd` also needs search permission, which a bare stat does not test.
-	root, err := filepath.EvalSymlinks(pcAbs(env, args[0]))
-	if err != nil || !isDir(root) || syscall.Access(root, 1) != nil {
+	root, err := filepath.EvalSymlinks(core.CleanAbs(env, args[0]))
+	if err != nil || !core.IsDir(root) || syscall.Access(root, 1) != nil {
 		return die("not-a-directory", "%s is not a directory", args[0])
 	}
-	git := envGit(env)
+	git := core.EnvGit(env)
 	if git("-C", root, "rev-parse", "--git-dir").Run() != nil {
 		return die("not-a-git-repository", "%s is not a git repository", root)
 	}
 
 	// THE DEFAULT BRANCH is what refs/remotes/origin/HEAD points at; with no
 	// such ref the guard cannot answer rather than guessing `main`.
-	def, ok := capture(git("-C", root, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"))
+	def, ok := core.Capture(git("-C", root, "symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"))
 	if !ok {
 		return die("origin-head-unresolved", "%s has no resolvable refs/remotes/origin/HEAD — the default branch cannot be named", root)
 	}
@@ -111,7 +113,7 @@ func checkMainCheckoutDrift(args []string, env Env, stdout, stderr io.Writer) in
 		return die("origin-head-dangles", "%s's refs/remotes/origin/HEAD dangles — %s does not resolve", root, def)
 	}
 
-	branch, ok := capture(git("-C", root, "branch", "--show-current"))
+	branch, ok := core.Capture(git("-C", root, "branch", "--show-current"))
 	if !ok {
 		return die("cannot-read-the-current-branch", "cannot read the current branch of %s", root)
 	}
@@ -121,7 +123,7 @@ func checkMainCheckoutDrift(args []string, env Env, stdout, stderr io.Writer) in
 
 	// WHY THE STATUS SHAPE IS THE CONTENT MARKER: one cheap read; untracked
 	// files count as drift, so the flag is pinned against status.showUntrackedFiles.
-	status, ok := capture(git("-C", root, "status", "--porcelain", "--untracked-files=normal"))
+	status, ok := core.Capture(git("-C", root, "status", "--porcelain", "--untracked-files=normal"))
 	if !ok {
 		return die("cannot-read-the-status", "cannot read the status of %s", root)
 	}

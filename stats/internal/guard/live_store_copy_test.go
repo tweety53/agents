@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -86,7 +87,7 @@ chmod +x "$out"
 			environ = append(environ, k+"="+v)
 		}
 		var b bytes.Buffer
-		rc := liveStoreCopy(args, Env{Dir: repo, Getenv: func(k string) string { return env[k] }, Environ: func() []string { return environ }}, &b, &b)
+		rc := liveStoreCopy(args, core.Env{Dir: repo, Getenv: func(k string) string { return env[k] }, Environ: func() []string { return environ }}, &b, &b)
 		out = b.String()
 		return rc
 	}
@@ -199,7 +200,7 @@ esac
 		if !alive(pid) {
 			t.Error("up: scratch flowd not running")
 		}
-		if !isDir(sdd) {
+		if !core.IsDir(sdd) {
 			t.Errorf("up: no scratch change directory %s", sdd)
 		}
 		if rc := lsc(nil, "up", name, port); rc != 2 {
@@ -273,7 +274,7 @@ esac
 		if !alive(s.Process.Pid) {
 			t.Error("restart: killed a process it did not start")
 		}
-		if !isDir(sdd) {
+		if !core.IsDir(sdd) {
 			t.Error("restart: scratch change directory removed")
 		}
 	})
@@ -317,7 +318,7 @@ func TestLiveStoreCopyRefusesAnotherCheckout(t *testing.T) {
 	dir := "/tmp/flow-live-" + strings.ReplaceAll(name, "-", "_")
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	vars := map[string]string{"FLOW_GUARD_REPO_ROOT": a, "PATH": stub + ":" + os.Getenv("PATH")}
-	env := Env{Dir: b, Getenv: func(k string) string { return vars[k] }}
+	env := core.Env{Dir: b, Getenv: func(k string) string { return vars[k] }}
 	for _, args := range [][]string{{"up", name, strconv.Itoa(20000 + os.Getpid()%20000)}, {"restart", name}} {
 		var out, errb bytes.Buffer
 		rc := liveStoreCopy(args, env, &out, &errb)

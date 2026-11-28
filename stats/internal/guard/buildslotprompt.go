@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard build-slot-prompt <skill-dir> <abs-worktree> <round> <id[+id]>
@@ -49,9 +51,9 @@ var bspPlaceholder = regexp.MustCompile(`\[(DIFF_PATH|ARTIFACT_PATHS|PRINCIPLES_
 // bspFragments are the placeholders filled with a fragment file's text, never a flag's list.
 var bspFragments = map[string]string{"DIFF_IS_DATA": "diff-is-data.md", "READ_ONLY_REVIEW": "read-only-review.md"}
 
-func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
+func buildSlotPrompt(args []string, env core.Env, stdout, stderr io.Writer) int {
 	usage := func(msg string) int {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "build-slot-prompt: "+msg)
 		fmt.Fprintln(stderr, "usage: flow-guard build-slot-prompt <skill-dir> <abs-worktree> <round> <id[+id]> -diff <path> [-artifacts <p,…>] [-standards <p,…>] [-global-constraints <path|none>] [-worktrees <p,…>] [-repo <name> | -unread <repo,…>] [-fix-report <p,…>] [-panel <slot,…>] [-copies <p,…> [-tests <p,…>]]")
 		return 2
@@ -101,8 +103,8 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Read %s in full first — every paragraph binds you\n\n", filepath.Join(skillDir, "slot-brief.md"))
 	groups := bspGroupsPath(*fill["DIFF_PATH"])
-	if !isFile(groups) {
-		Reason(env, "diff-groups-missing")
+	if !core.IsFile(groups) {
+		core.Reason(env, "diff-groups-missing")
 		fmt.Fprintln(stderr, "build-slot-prompt: "+groups+" is missing — run flow-guard diff-groups <abs-worktree> <diff-file> first")
 		return 2
 	}

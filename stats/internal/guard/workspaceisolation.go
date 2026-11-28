@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -97,8 +99,8 @@ import (
 // row; a row may omit its trailing `|`; a file may arrive with CRLF line
 // endings; and a row may be indented (wiParse.splitCells). The heading rule,
 // the token shape and the display escaping are shared Go values (ccHeading,
-// ccUnknownToken in stats/internal/guard/worktreecleanup.go, ccSanitize in
-// stats/internal/guard/text.go).
+// ccUnknownToken in stats/internal/guard/worktreecleanup.go, Sanitize in
+// stats/internal/guard/core/text.go).
 //
 // A FENCED EXAMPLE INSIDE THE SECTION IS PARSED AS A REAL TABLE, and that is a
 // known limitation rather than an oversight. This guard carries no fence
@@ -138,9 +140,9 @@ var (
 //     does not here.
 //   - awk -v processed backslash escapes in the configuration's path before
 //     quoting it in a violation line; the path is quoted here as given.
-func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer, rows *[]pwRow) int {
+func checkWorkspaceIsolation(args []string, env core.Env, stdout, stderr io.Writer, rows *[]pwRow) int {
 	refuse := func(id, msg string) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintln(stderr, "check-workspace-isolation: "+msg)
 		return 2
 	}
@@ -160,10 +162,10 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer, r
 		args = []string{root}
 	}
 
-	utf8Locale := smcUTF8(env)
+	utf8Locale := core.UTF8Locale(env)
 	total := 0
 	for _, root := range args {
-		if !isDir(wiAbs(env, root)) {
+		if !core.IsDir(wiAbs(env, root)) {
 			return refuse("not-a-directory", root+" is not a directory — cannot tell whether it declares a workspace isolation section")
 		}
 		cfg := root + "/.flow/project.md"
@@ -183,11 +185,11 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer, r
 		// ANSWERS ABOUT A DIRECTORY TOO: the bash's `grep` then failed with
 		// "Is a directory" while its exit status was indistinguishable from
 		// "no match", so `ln -s somedir .flow/project.md` produced
-		// ISOLATION-OK and exit 0. isFile follows symlinks, so a configuration
+		// ISOLATION-OK and exit 0. IsFile follows symlinks, so a configuration
 		// that IS a symlink to a real file is still read; what it excludes is
 		// a directory, a fifo (which a read would block on forever), a device
 		// and a dangling link.
-		if !isFile(path) {
+		if !core.IsFile(path) {
 			return refuse("not-a-regular-file", cfg+" is not a regular file — cannot validate what it declares")
 		}
 		// A file that exists but cannot be read is NOT "declares no
@@ -205,7 +207,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer, r
 			return refuse("grep-failed", "grep exited 2 while looking for the '## workspace isolation' heading in "+cfg+" — that is a failure to look rather than an absence, so nothing was validated")
 		}
 		// grep and awk alike ended a line at its first NUL.
-		recs := lines(body)
+		recs := core.Lines(body)
 		for i := range recs {
 			recs[i], _, _ = strings.Cut(recs[i], "\x00")
 		}
@@ -216,7 +218,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer, r
 		// extraction's would win silently.
 		count := 0
 		for _, l := range recs {
-			if ccHeading.MatchString(ccASCIILower(l)) {
+			if ccHeading.MatchString(core.ASCIILower(l)) {
 				count++
 			}
 		}
@@ -255,7 +257,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer, r
 			// taken from the unsanitized text because the escaping never adds
 			// or removes a line.
 			findings := strings.Join(p.viol, "\n")
-			fmt.Fprint(stdout, ccSanitize(findings+"\n"))
+			fmt.Fprint(stdout, core.Sanitize(findings+"\n"))
 			n := strings.Count(findings, "\n") + 1
 			total += n
 			fmt.Fprintf(stdout, "ISOLATION-INVALID: %s — %d violation(s) in the `## workspace isolation` section\n", cfg, n)
@@ -267,7 +269,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer, r
 		}
 	}
 	if total != 0 {
-		Reason(env, "isolation-findings")
+		core.Reason(env, "isolation-findings")
 		return 1
 	}
 	return 0
@@ -275,7 +277,7 @@ func checkWorkspaceIsolation(args []string, env Env, stdout, stderr io.Writer, r
 
 // wiAbs is p as the bash's file tests resolved it: relative to the working
 // directory. The empty path names nothing.
-func wiAbs(env Env, p string) string {
+func wiAbs(env core.Env, p string) string {
 	if p == "" || strings.HasPrefix(p, "/") {
 		return p
 	}
@@ -327,7 +329,7 @@ func wiValidate(cfg string, recs []string, space func(rune) bool, utf8Locale, pr
 		// is a human-written Markdown file of sections, not a nested document.
 		if ccAnyHeading.MatchString(line) {
 			flush()
-			inSec = ccHeading.MatchString(ccASCIILower(line))
+			inSec = ccHeading.MatchString(core.ASCIILower(line))
 			if inSec {
 				isoLine = i + 1
 			}
@@ -728,5 +730,5 @@ func (p *wiParse) commandRow(line int, cells []string) {
 // plus U+00A0 under a UTF-8 locale (measured on macOS; U+0085, U+2000–U+200A
 // and U+3000 are not matched).
 func wiSpace(utf8 bool) func(rune) bool {
-	return func(r rune) bool { return strings.ContainsRune(gdcSpace, r) || (utf8 && r == ' ') }
+	return func(r rune) bool { return strings.ContainsRune(core.Space, r) || (utf8 && r == ' ') }
 }

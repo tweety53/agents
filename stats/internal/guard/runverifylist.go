@@ -261,7 +261,7 @@
 //
 // THE HEAVY SLOT. A `test` or `visual` list first waits for one of flowd's
 // heavy-run slots, holds it until the list exits, and runs nothing when none
-// frees (heavySlot, canonical). A `lint` list never waits.
+// frees (HeavySlot, canonical). A `lint` list never waits.
 //
 // THE RUN'S COST (kan-1091: five hours of visual runs showed in no record).
 // A run that reaches its last command files one `flow record run -kind
@@ -323,7 +323,7 @@
 //      was begun
 //
 // project-get runs in this same binary
-// (runSibling, selfExe). The test
+// (RunSibling, selfExe). The test
 // list runs on rgtRun, a job pool, with one job per command so
 // every one starts at once (decision verify-list-on-rgtrun).
 
@@ -336,7 +336,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/records"
 	"io"
 	"io/fs"
 	"os"
@@ -351,6 +350,9 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // The contract below moved here from the header of the deleted
@@ -508,7 +510,7 @@ func keepResults(wt, dir string, since time.Time) string {
 // stdout: its reason is on stderr, and a reader of stdout alone, counting `— exit [1-9]`
 // lines, would otherwise read the empty report as a list with no failures.
 func init() {
-	Registry["run-verify-list"] = func(args []string, env Env, stdout, stderr io.Writer) int {
+	Registry["run-verify-list"] = func(args []string, env core.Env, stdout, stderr io.Writer) int {
 		rc := runVerifyList(args, env, stdout, stderr)
 		if rc == 2 {
 			fmt.Fprintln(stdout, "- `run-verify-list` — exit 2, no command ran (stderr says why)")
@@ -557,7 +559,7 @@ func rvlOneCommand(rest string) bool {
 // in process, from wt, and answers the guard's skip line when it exits 0 --
 // "" for a command of any other shape or any other exit, which runs as
 // before (decision skipped-suite-records-no-row).
-func rvlGuardSkip(env Env, wt, cmd string) string {
+func rvlGuardSkip(env core.Env, wt, cmd string) string {
 	m := rvlGuarded.FindStringSubmatch(cmd)
 	if m == nil || !rvlOneCommand(cmd[len(m[0]):]) {
 		return ""
@@ -566,7 +568,7 @@ func rvlGuardSkip(env Env, wt, cmd string) string {
 	for i, p := range specs {
 		specs[i] = strings.Trim(p, "'")
 	}
-	e := quietReasons(env)
+	e := core.QuietReasons(env)
 	e.Dir = wt
 	var out bytes.Buffer
 	if Registry["unchanged"](specs, e, &out, io.Discard) != 0 {
@@ -617,7 +619,7 @@ func rvlSpecFiles(tokens []string) []string {
 // so the caller fails the list and runs the smoke set, never the whole suite
 // (verify-list-runs-targeted). fallback is the `regression checkout` dir
 // fell back to when that checkout holds no worktree on wt's branch, "" otherwise.
-func rvlVisualVerify(env Env, wt string, covered bool) (cmd, specs, dir, fallback string, ok bool) {
+func rvlVisualVerify(env core.Env, wt string, covered bool) (cmd, specs, dir, fallback string, ok bool) {
 	cmd, specs, dir, fallback, _, ok = rvlVisualVerifyFor(env, wt, covered, false, "", "", func(string) string { return "" }, io.Discard)
 	return
 }
@@ -636,7 +638,7 @@ func rvlRound(key string) string {
 // ROUND'S SELECTION): "" for a first verify, or with no earlier row whose
 // diffBase resolves in root. With no key -- a narrowed run -- it answers as
 // for the newest verify row of wt.
-func rvlRoundBase(env Env, wt, change, canon, key string) func(root string) string {
+func rvlRoundBase(env core.Env, wt, change, canon, key string) func(root string) string {
 	none := func(string) string { return "" }
 	if change == "" {
 		return none
@@ -644,7 +646,7 @@ func rvlRoundBase(env Env, wt, change, canon, key string) func(root string) stri
 	if canon == "" {
 		canon = wt
 	}
-	raw, err := pfdRead(env, env.Dispatches, "dispatches", change, canon)
+	raw, err := core.RecordRead(env, env.Dispatches, "dispatches", change, canon)
 	var rows []struct{ Key, Role, DiffBase string }
 	if err != nil || json.Unmarshal(raw, &rows) != nil {
 		return none
@@ -665,7 +667,7 @@ func rvlRoundBase(env Env, wt, change, canon, key string) func(root string) stri
 	if tag == "" {
 		return none
 	}
-	git := envGit(env)
+	git := core.EnvGit(env)
 	return func(root string) string {
 		// Rows of this round -- a sibling's, begun beside this one at its
 		// own new HEAD -- are never the previous verify.
@@ -682,9 +684,9 @@ func rvlRoundBase(env Env, wt, change, canon, key string) func(root string) stri
 // <change>`: each worktree's absolute path, in record order, and the commit
 // `flow.kickoff` branched it from (decision selection-base-kickoff-commit)
 // -- none when flow is not on PATH or fails.
-func rvlKickoffBases(env Env, change, canon string) (worktrees []string, bases map[string]string) {
+func rvlKickoffBases(env core.Env, change, canon string) (worktrees []string, bases map[string]string) {
 	bases = map[string]string{}
-	flow, ok := lookPath(env, "flow")
+	flow, ok := core.LookPath(env, "flow")
 	if !ok || change == "" {
 		return nil, bases
 	}
@@ -709,7 +711,7 @@ func rvlKickoffBases(env Env, change, canon string) (worktrees []string, bases m
 // rvlSiblingStamp is `<path>=<HEAD>` of each worktree rvlKickoffBases returns
 // for change (canon defaulting to wt), less wt itself, sorted and space-joined:
 // "" when none, or when wt's project declares no visual `verify` row.
-func rvlSiblingStamp(env Env, wt, change, canon string) string {
+func rvlSiblingStamp(env core.Env, wt, change, canon string) string {
 	if b, err := os.ReadFile(filepath.Join(wt, ".flow", "project.md")); err != nil || vvCells(string(b))["verify"] == "" {
 		return ""
 	}
@@ -723,7 +725,7 @@ func rvlSiblingStamp(env Env, wt, change, canon string) string {
 		if r, _ := filepath.EvalSymlinks(p); p == wt || p == self || r == wt || r == self {
 			continue
 		}
-		head, _ := capture(envGit(env)("-C", p, "rev-parse", "HEAD"))
+		head, _ := core.Capture(core.EnvGit(env)("-C", p, "rev-parse", "HEAD"))
 		stamp = append(stamp, p+"="+head)
 	}
 	slices.Sort(stamp)
@@ -742,7 +744,7 @@ func rvlSiblingStamp(env Env, wt, change, canon string) string {
 // no `specs` row, whatever covered, decision.json and the diff say. round
 // answers a root's round base, which replaces the kickoff base in the `specs`
 // row (THE ROUND'S SELECTION). nar is set beside a substituted `specs` row.
-func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon string, round func(root string) string, stdout io.Writer) (cmd, specs, dir, fallback string, nar rvlNarrowing, ok bool) {
+func rvlVisualVerifyFor(env core.Env, wt string, covered, full bool, change, canon string, round func(root string) string, stdout io.Writer) (cmd, specs, dir, fallback string, nar rvlNarrowing, ok bool) {
 	if canon == "" {
 		canon = wt
 	}
@@ -764,9 +766,9 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 			}
 			// The cell names a main checkout; the change's worktree of it, on
 			// wt's branch, is where the change's code and captures live.
-			git := envGit(env)
+			git := core.EnvGit(env)
 			fallback = dir
-			if branch, _ := capture(git("-C", wt, "branch", "--show-current")); branch != "" {
+			if branch, _ := core.Capture(git("-C", wt, "branch", "--show-current")); branch != "" {
 				if w := rvsWorktreeOn(git("-C", dir, "worktree", "list", "--porcelain"), branch); w != "" {
 					dir, fallback = w, ""
 				}
@@ -786,7 +788,7 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 	if raw, err := os.ReadFile(filepath.Join(wt, ".superpowers", "sdd", "decision.json")); err == nil && json.Unmarshal(raw, &d) == nil && d.Visual.Verify == "skipped" {
 		return "", "", "", "", nar, false
 	}
-	git := envGit(env)
+	git := core.EnvGit(env)
 	worktrees, bases := rvlKickoffBases(env, change, canon)
 	mb := ""
 	changed := func() ([]string, error) {
@@ -800,33 +802,33 @@ func rvlVisualVerifyFor(env Env, wt string, covered, full bool, change, canon st
 		mb = bases[r]
 		if mb == "" {
 			var base bytes.Buffer
-			if Registry["resolve-base-branch"]([]string{wt}, quietReasons(env), &base, io.Discard) != 0 {
+			if Registry["resolve-base-branch"]([]string{wt}, core.QuietReasons(env), &base, io.Discard) != 0 {
 				return nil, fmt.Errorf("no base branch")
 			}
 			ref := resolveRemoteBase(git, wt, strings.TrimSpace(base.String()))
 			fmt.Fprintf(stdout, "- kickoff base: not recorded for %s — selecting from merge-base HEAD %s\n", wt, ref)
-			m, ok := capture(git("-C", wt, "merge-base", "HEAD", ref))
+			m, ok := core.Capture(git("-C", wt, "merge-base", "HEAD", ref))
 			if !ok {
 				return nil, fmt.Errorf("no merge base")
 			}
 			mb = strings.TrimSpace(m)
 		}
-		names, ok := capture(git("-C", wt, "diff", "--no-renames", "--name-only", mb+"..HEAD"))
+		names, ok := core.Capture(git("-C", wt, "diff", "--no-renames", "--name-only", mb+"..HEAD"))
 		if !ok {
 			return nil, fmt.Errorf("no diff")
 		}
 		return strings.Split(names, "\n"), nil
 	}
-	own := visualTrigger(quietReasons(env), wt, changed, io.Discard, io.Discard) != 1
+	own := visualTrigger(core.QuietReasons(env), wt, changed, io.Discard, io.Discard) != 1
 	bases[wt] = mb
 	siblings := slices.DeleteFunc(worktrees, func(w string) bool { return w == wt })
 	root, base := siblingFrontend(wt, siblings, bases, func(s string) bool {
-		names, ok := capture(git("-C", s, "diff", "--no-renames", "--name-only", bases[s]+"..HEAD"))
-		common, ok2 := capture(git("-C", s, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+		names, ok := core.Capture(git("-C", s, "diff", "--no-renames", "--name-only", bases[s]+"..HEAD"))
+		common, ok2 := core.Capture(git("-C", s, "rev-parse", "--path-format=absolute", "--git-common-dir"))
 		if !ok || !ok2 {
 			return false
 		}
-		e := quietReasons(env)
+		e := core.QuietReasons(env)
 		e.Stdin = strings.NewReader(names + "\n")
 		return Registry["check-visual-trigger"]([]string{"--repo", filepath.Base(filepath.Dir(common)), wt}, e, io.Discard, io.Discard) == 0
 	})
@@ -901,8 +903,8 @@ var rvlCountRE = regexp.MustCompile(`(?m)^\s+(\d+) (passed|failed|flaky|interrup
 // rvlRecordRun files one `flow record run` row of kind under change (THE
 // RUN'S COST): the wall seconds since start, exit, and the test counts of
 // log's Playwright summary. Its failure is dropped.
-func rvlRecordRun(env Env, dir, change, kind, label string, start time.Time, log []byte, exit int) {
-	flow, ok := lookPath(env, "flow")
+func rvlRecordRun(env core.Env, dir, change, kind, label string, start time.Time, log []byte, exit int) {
+	flow, ok := core.LookPath(env, "flow")
 	if !ok || change == "" {
 		return
 	}
@@ -1048,7 +1050,7 @@ func rvlParse(body string) (cmds, inputs, suites []string, concurrent []bool) {
 	return cmds, inputs, suites, concurrent
 }
 
-func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
+func runVerifyList(args []string, env core.Env, stdout, stderr io.Writer) int {
 	// A closed reader (`| head`) must not kill the list before its row's
 	// `end`: writes return EPIPE instead (decision f6-ignore-sigpipe, kan-1037).
 	// Notify, not Ignore: an ignored SIGPIPE is inherited by every list
@@ -1077,25 +1079,25 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		mode = "only"
 		if len(args) < 2 {
 			fmt.Fprintln(stderr, narrowUsage)
-			Reason(env, "usage")
+			core.Reason(env, "usage")
 			return 2
 		}
 		b, err := os.ReadFile(abs(args[1]))
 		if err != nil {
 			fmt.Fprintf(stderr, "run-verify-list: -only: %v\n", err)
-			Reason(env, "only-list-unreadable")
+			core.Reason(env, "only-list-unreadable")
 			return 2
 		}
 		if only = strings.Fields(string(b)); len(only) == 0 {
 			fmt.Fprintf(stderr, "run-verify-list: -only %s is empty — nothing to re-run\n", args[1])
-			Reason(env, "only-is-empty")
+			core.Reason(env, "only-is-empty")
 			return 2
 		}
 		args = args[2:]
 	}
 	if full && mode != "plain" {
 		fmt.Fprintln(stderr, "run-verify-list: -full runs the whole list — not with -only")
-		Reason(env, "full-with-only-refused")
+		core.Reason(env, "full-with-only-refused")
 		return 2
 	}
 	if full && (len(args) < 2 || (args[1] != "test" && args[1] != "visual")) {
@@ -1104,14 +1106,14 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		} else {
 			fmt.Fprintln(stderr, fullUsage)
 		}
-		Reason(env, "full-needs-test-or-visual")
+		core.Reason(env, "full-needs-test-or-visual")
 		return 2
 	}
 	// THE OPERATOR'S SWITCH: only the operator sets it, never an agent.
 	operator := env.Getenv(rvlOperatorFull) == "1"
 	if full && !operator {
 		fmt.Fprintf(stderr, "run-verify-list: -full runs the whole suite, which only the operator starts — no command ran. The operator runs it with %s=1 set; an agent never sets that variable, it hands the operator the command instead\n", rvlOperatorFull)
-		Reason(env, "full-needs-the-operator")
+		core.Reason(env, "full-needs-the-operator")
 		return 2
 	}
 	// change and canon name the state record the kickoff base is read from.
@@ -1119,7 +1121,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	if mode != "plain" {
 		if (len(args) != 2 && len(args) != 3) || args[1] != "visual" {
 			fmt.Fprintln(stderr, narrowUsage)
-			Reason(env, "usage")
+			core.Reason(env, "usage")
 			return 2
 		}
 		if len(args) == 3 {
@@ -1129,19 +1131,19 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if (len(args) != 2 && len(args) != 7 && len(args) != 8) || (args[1] != "lint" && args[1] != "test" && args[1] != "visual") {
 		fmt.Fprintln(stderr, usage)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	if fi, err := os.Stat(abs(args[0])); err != nil || !fi.IsDir() {
 		fmt.Fprintln(stderr, usage)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	// THE HEAVY SLOT: before the row's begin, so a refused run records none.
 	if args[1] != "lint" {
-		release, ok := heavySlot(env, "run-verify-list", "run-verify-list "+args[1]+" "+abs(args[0]), stderr)
+		release, ok := core.HeavySlot(env, "run-verify-list", "run-verify-list "+args[1]+" "+abs(args[0]), stderr)
 		if !ok {
-			Reason(env, "no-heavy-slot")
+			core.Reason(env, "no-heavy-slot")
 			return 5
 		}
 		defer release()
@@ -1153,10 +1155,10 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	blockedMark := ""
 	runKey := "" // the recording key, "" on an unrecorded run
 	if len(args) >= 7 {
-		flow, ok := lookPath(env, "flow")
+		flow, ok := core.LookPath(env, "flow")
 		if !ok {
 			fmt.Fprintln(stderr, "run-verify-list: no flow binary on PATH")
-			Reason(env, "no-flow-binary-on-path")
+			core.Reason(env, "no-flow-binary-on-path")
 			return 2
 		}
 		wt, verified := args[0], args[0]
@@ -1169,7 +1171,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		runKey = key
 		if !verifyKeyOK(env, abs(args[0]), key, change, abs(wt)) {
 			fmt.Fprintf(stderr, "run-verify-list: key %q does not fold to verify-<repository name>, or to bare verify when the change has one worktree (skills/flow/verify-and-handoff.md, **Recording.**): a change spanning several worktrees requires the -<repository name> suffix — no command ran\n", key)
-			Reason(env, "key-does-not-fold")
+			core.Reason(env, "key-does-not-fold")
 			return 2
 		}
 		blockedMark = "flow-verify-blocked-" + key + "-" + token
@@ -1180,7 +1182,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				// The verified worktree's HEAD, which check-verify-green judges
 				// the row by (decision verify-row-records-head); a worktree git
 				// cannot resolve records none, and that row is never green.
-				if head, ok := capture(envGit(env)("-C", abs(verified), "rev-parse", "HEAD")); ok && head != "" {
+				if head, ok := core.Capture(core.EnvGit(env)("-C", abs(verified), "rev-parse", "HEAD")); ok && head != "" {
 					flags = append(flags, "-diff-base", head)
 				}
 			}
@@ -1200,7 +1202,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		// The open inline row of this token and group a killed run left
 		// is ended aborted before this begin (f11-abort-superseded-row).
 		abortSuperseded = func() {
-			raw, err := pfdRead(env, env.Dispatches, "dispatches", change, wt)
+			raw, err := core.RecordRead(env, env.Dispatches, "dispatches", change, wt)
 			var rows []struct {
 				Key          string `json:"key"`
 				Role         string `json:"role"`
@@ -1230,14 +1232,14 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// (f16-run-prepares-workspace). A worktree on a branch that names no
 	// change -- /flow-fast's and /flow-interactive's `<name>` -- carries no
 	// workspace, and prepare-workspace would refuse it.
-	branch, _ := capture(envGit(env)("-C", abs(wt), "symbolic-ref", "--quiet", "--short", "HEAD"))
+	branch, _ := core.Capture(core.EnvGit(env)("-C", abs(wt), "symbolic-ref", "--quiet", "--short", "HEAD"))
 	if _, change := pwChangeName(strings.TrimSpace(branch)); change || strings.TrimSpace(branch) == "" {
-		prep := runSibling(env, "prepare-workspace", abs(wt))
+		prep := core.RunSibling(env, "prepare-workspace", abs(wt))
 		prep.Env, prep.Stderr = childEnv, stderr
 		prepOut, prepErr := prep.Output()
 		if prepErr != nil {
 			fmt.Fprintf(stderr, "run-verify-list: flow-guard prepare-workspace failed on %s — no command ran:\n%s", wt, prepOut)
-			Reason(env, "prepare-workspace-failed")
+			core.Reason(env, "prepare-workspace-failed")
 			return 2
 		}
 		for _, kv := range icLines(string(prepOut)) {
@@ -1254,7 +1256,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if mode != "plain" && rawVerify != "" && !strings.Contains(rawVerify, "<specs>") {
 		fmt.Fprintf(stderr, "run-verify-list: the `verify` cell has no <specs> placeholder to narrow — no command ran: %s\n", rawVerify)
-		Reason(env, "verify-cell-unnarrowable")
+		core.Reason(env, "verify-cell-unnarrowable")
 		return 2
 	}
 	fill := func(tokens []string) string {
@@ -1264,17 +1266,17 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	// A visual list runs the `verify` row alone: no list to read.
 	var body []byte
 	if list != "visual" {
-		get := runSibling(env, "project-get", wt, list)
+		get := core.RunSibling(env, "project-get", wt, list)
 		get.Env, get.Stderr = childEnv, stderr
 		var err error
 		body, err = get.Output()
-		switch exitCode(err) {
+		switch core.ExitCode(err) {
 		case 0:
 		case 1:
-			Reason(env, "no-list")
+			core.Reason(env, "no-list")
 			return 3
 		default:
-			Reason(env, "project-get-failed")
+			core.Reason(env, "project-get-failed")
 			return 2
 		}
 	}
@@ -1283,14 +1285,14 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, c := range cmds {
 		if rvlTemplate.MatchString(c) {
 			fmt.Fprintf(stderr, "run-verify-list: %s line is a template, not a command — move it out of the fence: %s\n", list, c)
-			Reason(env, "line-is-a-template")
+			core.Reason(env, "line-is-a-template")
 			return 2
 		}
 	}
 
-	git := envGit(env)
+	git := core.EnvGit(env)
 	gitOut := func(args ...string) (string, bool) {
-		return capture(git(append([]string{"-C", wt}, args...)...))
+		return core.Capture(git(append([]string{"-C", wt}, args...)...))
 	}
 	clean := func() bool {
 		st, ok := gitOut("status", "--porcelain", "--untracked-files=all")
@@ -1350,7 +1352,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	outDir, err := os.MkdirTemp(tmp, "run-verify-list.")
 	if err != nil {
 		fmt.Fprintf(stderr, "run-verify-list: cannot create a temporary directory: %v\n", err)
-		Reason(env, "cannot-create-a-temporary-directory")
+		core.Reason(env, "cannot-create-a-temporary-directory")
 		return 2
 	}
 	defer os.RemoveAll(outDir)
@@ -1440,7 +1442,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 	abortSuperseded()
 	beganAt := time.Now()
 	if !record("begin") {
-		Reason(env, "record-failed")
+		core.Reason(env, "record-failed")
 		return 4
 	}
 	// This group's running mark, written once its begin is accepted and
@@ -1482,7 +1484,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 		case list == "test" && !full && func() bool { guardSkip[i] = rvlGuardSkip(env, abs(wt), c); return guardSkip[i] != "" }():
 			skip[i] = true
 		case list == "test":
-			if flow, ok := lookPath(env, "flow"); ok && suites[i] != "" {
+			if flow, ok := core.LookPath(env, "flow"); ok && suites[i] != "" {
 				argvs = append(argvs, append([]string{flow, "suite", "record", "-C", abs(wt), "-suite", suites[i] + suffixFull, "--"}, append(bashC[:len(bashC):len(bashC)], c)...))
 			} else {
 				argvs = append(argvs, append(bashC[:len(bashC):len(bashC)], c))
@@ -1647,7 +1649,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 						// A WIDE SELECTION: the specs the change edits, then
 						// the `specs` row's tail.
 						var kept []string
-						if names, ok := capture(envGit(env)("-C", dir, "diff", "--no-renames", "--relative", "--name-only", nar.ownBase+"..HEAD")); ok && nar.ownBase != "" {
+						if names, ok := core.Capture(core.EnvGit(env)("-C", dir, "diff", "--no-renames", "--relative", "--name-only", nar.ownBase+"..HEAD")); ok && nar.ownBase != "" {
 							edited := strings.Split(names, "\n")
 							for _, tok := range paths {
 								if p, _, _ := strings.Cut(tok, ":"); slices.Contains(edited, p) {
@@ -1701,7 +1703,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 				// A plain run's runtime reaches the store as suite `visual`; a
 				// narrowed one is not that suite (decision suite-records-scope).
 				argv := []string{"bash", "-c", cmd}
-				if flow, ok := lookPath(env, "flow"); ok && mode == "plain" {
+				if flow, ok := core.LookPath(env, "flow"); ok && mode == "plain" {
 					argv = append([]string{flow, "suite", "record", "-C", abs(wt), "-suite", "visual" + suffixFull, "--"}, argv...)
 				}
 				results := rgtRun(context.Background(), [][]string{argv}, 1, outDir, dir, cmdEnv)
@@ -1843,7 +1845,7 @@ func runVerifyList(args []string, env Env, stdout, stderr io.Writer) int {
 // holding its git common dir); a git failure admits only the basename. Bare
 // `verify` is refused when change's state record, read from canon, holds
 // more than one worktree (f5-verify-key-suffix); change "" skips that read.
-func verifyKeyOK(env Env, wt, key, change, canon string) bool {
+func verifyKeyOK(env core.Env, wt, key, change, canon string) bool {
 	g := vgFixSuffix.ReplaceAllString(key, "verify$2")
 	if g == "verify" {
 		worktrees, _ := rvlKickoffBases(env, change, canon)
@@ -1852,7 +1854,7 @@ func verifyKeyOK(env Env, wt, key, change, canon string) bool {
 	if g == "verify-"+filepath.Base(wt) {
 		return true
 	}
-	out, ok := capture(envGit(env)("-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+	out, ok := core.Capture(core.EnvGit(env)("-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir"))
 	return ok && g == "verify-"+filepath.Base(filepath.Dir(out))
 }
 
@@ -1913,7 +1915,7 @@ func rgtRun(ctx context.Context, argvs [][]string, jobs int, tmpDir, dir string,
 			// a truncated time.Since, which differs whenever a run
 			// straddles a second boundary.
 			s := time.Now().Unix()
-			r.rc = exitCode(cmd.Run())
+			r.rc = core.ExitCode(cmd.Run())
 			r.elapsed = int(time.Now().Unix() - s)
 		}()
 	}

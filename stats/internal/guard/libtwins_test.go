@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -111,7 +112,7 @@ func symlink(t *testing.T, target, link string) {
 	}
 }
 
-// TestResolveFileParity pins resolveFile against the retired
+// TestResolveFileParity pins ResolveFile against the retired
 // lib/resolve-file.sh's resolve_file, as it stood at 8c54d6d3 (KAN-1020
 // deleted it once no script sourced it).
 func TestResolveFileParity(t *testing.T) {
@@ -181,7 +182,7 @@ func TestResolveFileParity(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var got libRes
-			if p, ok := resolveFile(tc.in); ok {
+			if p, ok := core.ResolveFile(tc.in); ok {
 				got.stdout = p + "\n"
 			} else {
 				got.status = 1
@@ -191,7 +192,7 @@ func TestResolveFileParity(t *testing.T) {
 	}
 }
 
-// TestProjectSectionParity pins projectSection against the deleted bash
+// TestProjectSectionParity pins ProjectSection against the deleted bash
 // project_section, at libTwinBase.
 func TestProjectSectionParity(t *testing.T) {
 	smoke.Heavy(t)
@@ -220,7 +221,7 @@ func TestProjectSectionParity(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var got libRes
-			if s := projectSection(file, tc.key); s != "" {
+			if s := core.ProjectSection(file, tc.key); s != "" {
 				got.stdout = s + "\n"
 			}
 			assertParity(t, got, bashLibAt(t, nil, []string{"project-section.sh", "strip-bom.sh"}, "project_section", file, tc.key))
@@ -243,7 +244,7 @@ func TestGitExecSignalStatus(t *testing.T) {
 // envWith is an Env over the test process's own environment and working
 // directory with over's NAME=value pairs laid on top, the same pairs
 // bashLibEnv hands the bash side.
-func envWith(t *testing.T, over []string) Env {
+func envWith(t *testing.T, over []string) core.Env {
 	t.Helper()
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -260,10 +261,10 @@ func envWith(t *testing.T, over []string) Env {
 		}
 		return os.LookupEnv(k)
 	}
-	return Env{Dir: cwd, LookupEnv: look, Getenv: func(k string) string { v, _ := look(k); return v }}
+	return core.Env{Dir: cwd, LookupEnv: look, Getenv: func(k string) string { v, _ := look(k); return v }}
 }
 
-// TestPanelTouchedPathsParity pins panelResolveGit, panelValidateWorktree and
+// TestPanelTouchedPathsParity pins ResolveGit, panelValidateWorktree and
 // panelTouchedPaths against the deleted bash library's three functions, at
 // libTwinBase.
 func TestPanelTouchedPathsParity(t *testing.T) {
@@ -335,7 +336,7 @@ func TestPanelTouchedPathsParity(t *testing.T) {
 			over := []string{"PATH=" + tc.path}
 			var got libRes
 			var errb strings.Builder
-			if p, ok := panelResolveGit(envWith(t, over), "prog", &errb); ok {
+			if p, ok := core.ResolveGit(envWith(t, over), "prog", &errb); ok {
 				got.stdout = p + "\n"
 			} else {
 				got.status = 2

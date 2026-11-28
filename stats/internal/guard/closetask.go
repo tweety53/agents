@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard close-task — the task-close step of skills/flow/implement.md: tick
@@ -45,26 +47,26 @@ import (
 // never re-running the guard on top of it.
 func init() { Registry["close-task"] = closeTask }
 
-func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
+func closeTask(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) < 4 {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard close-task <canonical-worktree> <name> <merge-base> <task-id>[:<sha|worktree=sha[,worktree=sha…]>]…")
 		return 2
 	}
 	canonical, name, mergeBase := args[0], args[1], args[2]
-	git := envGit(env)
+	git := core.EnvGit(env)
 	var ids []string
 	refused, unmeasured := false, false
 	for _, a := range args[3:] {
 		id, commit, given := strings.Cut(a, ":")
 		if id == "" || given && commit == "" {
-			Reason(env, "bad-task-argument")
+			core.Reason(env, "bad-task-argument")
 			fmt.Fprintln(stderr, "close-task: task argument is not <task-id>[:<sha|map>]: "+a)
 			return 2
 		}
 		if !given {
 			if commit = ctTrailerCommit(git, canonical, mergeBase, id); commit == "" {
-				Reason(env, "no-task-commit")
+				core.Reason(env, "no-task-commit")
 				fmt.Fprintf(stderr, "close-task: task %s: no commit since %s carries Task-Id: %s\n", id, mergeBase, id)
 				return 2
 			}
@@ -74,13 +76,13 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 		if strings.Contains(commit, "=") {
 			pairs = strings.Split(commit, ",")
 		}
-		measured := []string{pcAbs(env, canonical)} // the canonical worktree, then the task's others
+		measured := []string{core.CleanAbs(env, canonical)} // the canonical worktree, then the task's others
 		for _, p := range pairs {
 			wt, sha, _ := strings.Cut(strings.TrimSpace(p), "=")
-			if abs := pcAbs(env, wt); !slices.Contains(measured, abs) {
+			if abs := core.CleanAbs(env, wt); !slices.Contains(measured, abs) {
 				measured = append(measured, abs)
 			}
-			if _, ok := capture(git("-C", wt, "merge-base", "--is-ancestor", sha, "HEAD")); !ok {
+			if _, ok := core.Capture(git("-C", wt, "merge-base", "--is-ancestor", sha, "HEAD")); !ok {
 				fmt.Fprintf(stderr, "close-task: task %s: %s is not a commit on %s's HEAD — commit the task there, then re-run\n", id, sha, wt)
 				refused = true
 			}
@@ -91,24 +93,24 @@ func closeTask(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	if unmeasured {
-		Reason(env, "ui-task-not-measured")
+		core.Reason(env, "ui-task-not-measured")
 		fmt.Fprintln(stderr, "close-task: MEASURE — nothing was ticked")
 		return 1
 	}
 	if refused {
-		Reason(env, "commit-not-on-branch")
+		core.Reason(env, "commit-not-on-branch")
 		fmt.Fprintln(stderr, "close-task: RE-COMMIT — nothing was ticked")
 		return 1
 	}
 
 	rc := 0
 	for _, id := range ids {
-		out, errb, code := pcFlow(env, false, "tasks", "tick", "-C", canonical, name, id)
+		out, errb, code := core.Flow(env, false, "tasks", "tick", "-C", canonical, name, id)
 		_, _ = stdout.Write(out)
 		_, _ = stderr.Write(errb)
 		if code != 0 {
 			fmt.Fprintf(stderr, "close-task: STOP — flow tasks tick failed for task %s\n", id)
-			Reason(env, "tick-failed")
+			core.Reason(env, "tick-failed")
 			rc = 2
 		}
 	}
@@ -121,7 +123,7 @@ var ctTaskNumberRE = regexp.MustCompile(`[0-9]+`)
 // ctTrailerCommit is the newest commit in wt's base..HEAD whose Task-Id:
 // trailer names id, "" when none does or git cannot read the range.
 func ctTrailerCommit(git func(...string) *exec.Cmd, wt, base, id string) string {
-	out, ok := capture(git("-C", wt, "log", "--no-merges", "--format=%H %(trailers:key=Task-Id,valueonly,separator=%x2C)", base+"..HEAD"))
+	out, ok := core.Capture(git("-C", wt, "log", "--no-merges", "--format=%H %(trailers:key=Task-Id,valueonly,separator=%x2C)", base+"..HEAD"))
 	if !ok {
 		return ""
 	}

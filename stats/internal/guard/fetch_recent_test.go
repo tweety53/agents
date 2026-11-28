@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // setFetchHead writes path as a full fetch of origin of the repository it
@@ -18,8 +20,8 @@ func setFetchHead(t *testing.T, path string, ok bool, age time.Duration) {
 	body := ""
 	if ok {
 		repo, _, _ := strings.Cut(path, "/.git/")
-		url, _ := capture(exec.Command("git", "-C", repo, "remote", "get-url", "origin"))
-		refs, _ := capture(exec.Command("git", "-C", repo, "for-each-ref", "--format=%(refname:lstrip=3)", "refs/remotes/origin"))
+		url, _ := core.Capture(exec.Command("git", "-C", repo, "remote", "get-url", "origin"))
+		refs, _ := core.Capture(exec.Command("git", "-C", repo, "for-each-ref", "--format=%(refname:lstrip=3)", "refs/remotes/origin"))
 		for _, b := range strings.Fields(refs) {
 			body += "0000000000000000000000000000000000000000\tnot-for-merge\tbranch '" + b + "' of " + fetchURL(strings.TrimSpace(url)) + "\n"
 		}
@@ -78,7 +80,7 @@ func TestResolveBaseBranchSkipsAFetchUnder60s(t *testing.T) {
 		}
 		before := time.Now().Add(-time.Second)
 		var out, errb bytes.Buffer
-		if code := Registry["resolve-base-branch"](c.args, Env{Dir: t.TempDir(), Getenv: os.Getenv}, &out, &errb); code != 0 || out.String() != "main\n" {
+		if code := Registry["resolve-base-branch"](c.args, core.Env{Dir: t.TempDir(), Getenv: os.Getenv}, &out, &errb); code != 0 || out.String() != "main\n" {
 			t.Fatalf("%s: exit %d stdout %q stderr %q", c.name, code, out.String(), errb.String())
 		}
 		if got := fetchedSince(t, head, before); got != c.wantFetch {
@@ -101,7 +103,7 @@ func TestCheckBaseBehindSkipsAFetchUnder60s(t *testing.T) {
 	wt := rbbCopy(t, fx.wt)
 	rbbGit(t, wt, "config", "branch.spectre/fixture.flowBase", "feature/offline-mode")
 	head := wt + "/.git/FETCH_HEAD"
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	for _, force := range []bool{false, true} {
 		setFetchHead(t, head, true, 10*time.Second)
 		before := time.Now().Add(-time.Second)
@@ -128,7 +130,7 @@ func TestFetchedRecentlyNeedsAFullOriginFetch(t *testing.T) {
 	rbbGit(t, dir, "clone", "-q", "--bare", dir+"/seed", up)
 	rbbGit(t, dir, "clone", "-q", up, down)
 	rbbGit(t, down, "remote", "add", "other", dir+"/seed")
-	git := envGit(Env{Getenv: os.Getenv})
+	git := core.EnvGit(core.Env{Getenv: os.Getenv})
 	for _, c := range []struct {
 		name  string
 		fetch []string

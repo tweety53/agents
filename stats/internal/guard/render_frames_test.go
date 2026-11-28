@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -87,7 +88,7 @@ func rfFixture(t *testing.T, checkout string) (design, root string) {
 	return design, root
 }
 
-func rfRun(t *testing.T, env Env, args ...string) (string, int) {
+func rfRun(t *testing.T, env core.Env, args ...string) (string, int) {
 	t.Helper()
 	var out bytes.Buffer
 	rc := Registry["render-frames"](args, env, &out, &out)
@@ -158,13 +159,13 @@ func TestRenderFramesCannotAnswer(t *testing.T) {
 		_, root := rfFixture(t, "/nowhere")
 		f := rfCite(t, root, "docs/design/mockups/t1/F1.png")
 		gitDir := filepath.Dir(must(exec.LookPath("git")))
-		noNode := Env{Getenv: func(k string) string {
+		noNode := core.Env{Getenv: func(k string) string {
 			if k == "PATH" {
 				return gitDir
 			}
 			return os.Getenv(k)
 		}, Dir: "/"}
-		if _, ok := lookPath(noNode, "node"); ok {
+		if _, ok := core.LookPath(noNode, "node"); ok {
 			t.Skip("node sits beside git on PATH, so PATH cannot drop it")
 		}
 		if out, rc := rfRun(t, noNode, root, f); rc != 2 || !strings.Contains(out, "node is not on PATH") {
@@ -269,13 +270,13 @@ func TestRenderFramesRenders(t *testing.T) {
 			t.Errorf("%s centre red=%#x, want light=%v", name, r, wantLight)
 		}
 	}
-	if isFile(filepath.Join(dir, "dk-L1.png")) {
+	if core.IsFile(filepath.Join(dir, "dk-L1.png")) {
 		t.Error("a light-only frame got a dk- render")
 	}
 	if b, _ := os.ReadFile(filepath.Join(dir, ".gitignore")); string(b) != "*\n" {
 		t.Errorf(".gitignore = %q, want \"*\\n\"", b)
 	}
-	if st, _ := capture(exec.Command("git", "-C", root, "status", "--porcelain", "--", "docs")); st != "" {
+	if st, _ := core.Capture(exec.Command("git", "-C", root, "status", "--porcelain", "--", "docs")); st != "" {
 		t.Errorf("rendered frames show in git status: %q", st)
 	}
 }
@@ -358,7 +359,7 @@ func TestRenderFramesBlank(t *testing.T) {
 	if rfBlank(filepath.Join(dir, "F1.png")) {
 		t.Error("the blank F1.png was not re-rendered")
 	}
-	if isFile(filepath.Join(dir, "B1.png")) {
+	if core.IsFile(filepath.Join(dir, "B1.png")) {
 		t.Error("a blank render was left behind")
 	}
 }

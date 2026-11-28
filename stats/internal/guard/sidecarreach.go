@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -95,11 +97,11 @@ func srReached(name string, spec []byte) bool {
 	return false
 }
 
-func checkSidecarReach(args []string, env Env, stdout, stderr io.Writer) int {
+func checkSidecarReach(args []string, env core.Env, stdout, stderr io.Writer) int {
 	const prog = "check-sidecar-reach"
 	if len(args) != 1 && len(args) != 2 {
 		fmt.Fprintf(stderr, "%s: usage (in-process, run by visual-verify-pass): <capture root | sidecar> [<mockups root>]\n", prog)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	base := args[0]
@@ -111,7 +113,7 @@ func checkSidecarReach(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if err != nil || !st.IsDir() {
 			fmt.Fprintf(stderr, "%s: not a directory: %s\n", prog, dir)
-			Reason(env, "not-a-directory")
+			core.Reason(env, "not-a-directory")
 			return 2
 		}
 	}
@@ -170,12 +172,12 @@ func checkSidecarReach(args []string, env Env, stdout, stderr io.Writer) int {
 	})
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", prog, err)
-		Reason(env, "scan-failed")
+		core.Reason(env, "scan-failed")
 		return 2
 	}
 	if len(misses) > 0 {
 		fmt.Fprintln(stdout, strings.Join(misses, "\n"))
-		Reason(env, "sidecar-misses")
+		core.Reason(env, "sidecar-misses")
 		return 1
 	}
 	fmt.Fprintf(stdout, "SIDECAR-REACH-OK: %d lines in %d sidecars\n", lines, sidecars)

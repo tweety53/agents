@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tweety53/agents/stats/internal/guard"
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 func TestOutcomeForUsesTheGuardsOwnCannotAnswerCode(t *testing.T) {
@@ -168,7 +168,7 @@ func TestRunAndRecordSpawnsNothingOnExit(t *testing.T) {
 	defer srv.Close()
 	const name = "check-references"
 	orig := registry[name]
-	registry[name] = func(_ []string, _ guard.Env, stdout, _ io.Writer) int {
+	registry[name] = func(_ []string, _ core.Env, stdout, _ io.Writer) int {
 		fmt.Fprintln(stdout, "VIOLATION: x")
 		return 1
 	}
@@ -213,7 +213,7 @@ func TestRunAndRecordPassesTheFirstLine(t *testing.T) {
 	dir := gitRepo(t)
 	const name = "check-unfinished-work"
 	orig := registry[name]
-	registry[name] = func(_ []string, _ guard.Env, stdout, _ io.Writer) int {
+	registry[name] = func(_ []string, _ core.Env, stdout, _ io.Writer) int {
 		fmt.Fprintln(stdout, "OUTSTANDING: task 3 has no implementer row")
 		return 0
 	}
@@ -236,10 +236,10 @@ func TestRunAndRecordRecordsTheReasons(t *testing.T) {
 	defer func() { registry[name] = orig }()
 	getenv, path := stateEnv(t, nil)
 
-	registry[name] = func(_ []string, e guard.Env, _, _ io.Writer) int {
-		guard.Reason(e, "F6")
-		guard.Reason(e, "F2")
-		guard.Reason(e, "F6")
+	registry[name] = func(_ []string, e core.Env, _, _ io.Writer) int {
+		core.Reason(e, "F6")
+		core.Reason(e, "F2")
+		core.Reason(e, "F6")
 		return 1
 	}
 	runAndRecord([]string{name}, io.Discard, io.Discard, getenv, func() string { return dir })
@@ -247,8 +247,8 @@ func TestRunAndRecordRecordsTheReasons(t *testing.T) {
 		t.Errorf("fired run recorded %+v; want outcome fired, reasons [F6 F2]", fired)
 	}
 
-	registry[name] = func(_ []string, e guard.Env, _, _ io.Writer) int {
-		guard.Reason(e, "x")
+	registry[name] = func(_ []string, e core.Env, _, _ io.Writer) int {
+		core.Reason(e, "x")
 		return 0
 	}
 	runAndRecord([]string{name}, io.Discard, io.Discard, getenv, func() string { return dir })
@@ -308,7 +308,7 @@ func TestRunAndRecordRecordsTheTargetWorktree(t *testing.T) {
 	}
 	const name = "check-references"
 	orig := registry[name]
-	registry[name] = func(_ []string, _ guard.Env, _, _ io.Writer) int { return 0 }
+	registry[name] = func(_ []string, _ core.Env, _, _ io.Writer) int { return 0 }
 	defer func() { registry[name] = orig }()
 	getenv, path := stateEnv(t, nil)
 	runAndRecord([]string{name, wt}, io.Discard, io.Discard, getenv, func() string { return main })
@@ -328,7 +328,7 @@ func TestRunAndRecordFallsBackToTheCwd(t *testing.T) {
 	}
 	const name = "check-references"
 	orig := registry[name]
-	registry[name] = func(_ []string, _ guard.Env, _, _ io.Writer) int { return 0 }
+	registry[name] = func(_ []string, _ core.Env, _, _ io.Writer) int { return 0 }
 	defer func() { registry[name] = orig }()
 	getenv, path := stateEnv(t, nil)
 	runAndRecord([]string{name, stale}, io.Discard, io.Discard, getenv, func() string { return main })
@@ -376,7 +376,7 @@ func TestRecordRunRecordsTheHeadlessCall(t *testing.T) {
 	t.Parallel()
 	getenv, path := stateEnv(t, nil)
 	usd := 0.05
-	h := &guard.Headless{Role: "decider", Model: "opus", Effort: "low", CostUSD: &usd, DurationMS: 4200}
+	h := &core.Headless{Role: "decider", Model: "opus", Effort: "low", CostUSD: &usd, DurationMS: 4200}
 	recordRun(getenv, gitRepo(t), "plan-check", 0, "", nil, h, 0, time.Second)
 	if got := lastRun(t, path); got.Headless == nil || *got.Headless.CostUSD != usd || got.Headless.Role != "decider" || got.Headless.DurationMS != 4200 {
 		t.Errorf("headless = %+v, want the decider call", got.Headless)

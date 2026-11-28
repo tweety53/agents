@@ -3,6 +3,8 @@ package guard
 import (
 	"path/filepath"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The security slot (kan-1125): a project declares `## security paths` in
@@ -15,7 +17,7 @@ import (
 // `## security paths` glob, or "" when none does, or the section is absent.
 func spMatchingFile(projectFile string, tasks []pdbTask) string {
 	var globs []string
-	for _, l := range strings.Split(projectSection(projectFile, "security paths"), "\n") {
+	for _, l := range strings.Split(core.ProjectSection(projectFile, "security paths"), "\n") {
 		if l = strings.TrimSpace(l); l != "" {
 			for _, g := range strings.Split(l, ",") {
 				if g = trimGlobElement(g); g != "" {

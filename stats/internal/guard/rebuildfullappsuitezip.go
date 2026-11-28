@@ -22,7 +22,7 @@
 // root> (another checkout's root), the resolver's own exit 2, or a failing zip.
 //
 // The resolver, resolve-visual-screenshots, runs in this same binary
-// (runSibling). The archive is still Info-ZIP's `zip -q -X -j -@`, never
+// (RunSibling). The archive is still Info-ZIP's `zip -q -X -j -@`, never
 // archive/zip, whose headers differ: the first rebuild after the port would
 // otherwise commit a different zip over unchanged images (decision zip-via-exec).
 
@@ -36,6 +36,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -57,15 +59,15 @@ import (
 
 func init() { Registry["rebuild-full-app-suite-zip"] = rebuildFullAppSuiteZip }
 
-func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) int {
+func rebuildFullAppSuiteZip(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) != 2 {
 		fmt.Fprintln(stderr, "usage: flow-guard rebuild-full-app-suite-zip <worktree> <screenshots root>")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	if !filepath.IsAbs(args[1]) {
 		fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: <screenshots root> %q is relative — pass it resolved the way flow-guard resolve-visual-screenshots resolves it\n", args[1])
-		Reason(env, "screenshots-root-is-relative")
+		core.Reason(env, "screenshots-root-is-relative")
 		return 2
 	}
 	abs := func(p string) string {
@@ -76,14 +78,14 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 	}
 	zipPath := args[1] + "/full-app-suite.zip"
 
-	resolve := runSibling(env, "resolve-visual-screenshots", args[0], "full-app-suite.spec.ts")
+	resolve := core.RunSibling(env, "resolve-visual-screenshots", args[0], "full-app-suite.spec.ts")
 	resolve.Env = icChildEnv(env)
 	resolve.Stderr = stderr
 	out, err := resolve.Output()
-	list, rc := strings.TrimRight(string(out), "\n"), exitCode(err)
+	list, rc := strings.TrimRight(string(out), "\n"), core.ExitCode(err)
 	// A resolver that cannot answer (exit 2) leaves the old zip alone: only a resolved list replaces it.
 	if rc == 2 {
-		Reason(env, "resolver-cannot-answer")
+		core.Reason(env, "resolver-cannot-answer")
 		return 2
 	}
 	// A root no resolved PNG lies under is the wrong root: zipping there
@@ -93,14 +95,14 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 		for _, png := range strings.Split(list, "\n") {
 			if !strings.HasPrefix(abs(png), filepath.Clean(args[1])+"/") {
 				fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: %s lies outside <screenshots root> %s — pass `screenshots` resolved the way flow-guard resolve-visual-screenshots resolves it\n", png, args[1])
-				Reason(env, "lies-outside-screenshots-root")
+				core.Reason(env, "lies-outside-screenshots-root")
 				return 2
 			}
 		}
 	}
 	os.Remove(abs(zipPath))
 	if rc != 0 {
-		Reason(env, "resolver-failed")
+		core.Reason(env, "resolver-failed")
 		return rc
 	}
 	epoch := time.Date(1980, 1, 1, 0, 0, 0, 0, time.Local)
@@ -113,12 +115,12 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 		}
 		if err != nil {
 			fmt.Fprintf(stderr, "rebuild-full-app-suite-zip: cannot pin the mtime of %s: %v\n", png, err)
-			Reason(env, "cannot-pin-the-mtime")
+			core.Reason(env, "cannot-pin-the-mtime")
 			return 123
 		}
 	}
 	zipBin := "zip"
-	if p, ok := lookPath(env, "zip"); ok {
+	if p, ok := core.LookPath(env, "zip"); ok {
 		zipBin = p
 	}
 	zip := exec.Command(zipBin, "-q", "-X", "-j", "-@", zipPath)
@@ -126,7 +128,7 @@ func rebuildFullAppSuiteZip(args []string, env Env, stdout, stderr io.Writer) in
 	zip.Stdin = strings.NewReader(list + "\n")
 	zip.Stdout, zip.Stderr = stdout, stderr
 	if zip.Run() != nil {
-		Reason(env, "zip-failed")
+		core.Reason(env, "zip-failed")
 		return 2
 	}
 	return 0

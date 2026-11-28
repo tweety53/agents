@@ -17,6 +17,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -125,20 +127,20 @@ type vpTarget struct{ root, url, origin, port, base, dir string }
 // prepare-workspace.sh exported for it.
 type vpRow struct{ res, variable, def, value string }
 
-func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int {
+func checkVisualPreflight(args []string, env core.Env, stdout, stderr io.Writer) int {
 	refuse := func(id, format string, a ...any) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stderr, "check-visual-preflight: "+format+"\n", a...)
 		return 2
 	}
 	if len(args) < 2 {
 		fmt.Fprint(stderr, vpUsage)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	wt := args[0]
 	wtAbs := wiAbs(env, wt)
-	if !isDir(wtAbs) {
+	if !core.IsDir(wtAbs) {
 		return refuse("not-a-directory", "%s is not a directory — cannot check the workspace", wt)
 	}
 
@@ -150,7 +152,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 			return refuse("argument-is-not-app-root", "argument %q is not <app-root>=<http(s) URL>", a)
 		}
 		dir := filepath.Join(wtAbs, root)
-		if !isDir(dir) {
+		if !core.IsDir(dir) {
 			return refuse("app-root-not-a-directory", "app root %s is not a directory under %s", root, wt)
 		}
 		base := wtAbs
@@ -226,7 +228,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	var fails, infos []string
 
 	// Check 1 — ports held only by their own app.
-	lsof, ok := lookPath(env, "lsof")
+	lsof, ok := core.LookPath(env, "lsof")
 	if !ok {
 		return refuse("lsof-is-not-on-path", "lsof is not on PATH — cannot tell which ports are held")
 	}
@@ -289,7 +291,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 		fails = append(fails, fmt.Sprintf("FAIL: port %s — held by %s; probe %s went unanswered", p.port, strings.Join(holder, " | "), pr))
 	}
 
-	node, haveNode := lookPath(env, "node")
+	node, haveNode := core.LookPath(env, "node")
 	for _, b := range bases {
 		// Check 2 — the app's base-URL configuration resolves to the workspace's
 		// value: a literal naming a moved row's default, on a line that does not
@@ -391,7 +393,7 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	}
 	if len(fails) > 0 {
 		fmt.Fprintf(stdout, "PREFLIGHT-FAILED: %s — %d failing check line(s)\n", wt, len(fails))
-		Reason(env, "preflight-failed")
+		core.Reason(env, "preflight-failed")
 		return 1
 	}
 	fmt.Fprintf(stdout, "PREFLIGHT-OK: %s — ports, base URL, origins and Playwright all pass\n", wt)
@@ -402,11 +404,11 @@ func checkVisualPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 // exported value, parsed by wiValidate. A
 // non-empty message is a reason this guard cannot answer.
 func vpRows(cfg string, body []byte, exported map[string]string) ([]vpRow, string) {
-	recs := lines(body)
+	recs := core.Lines(body)
 	count := 0
 	for i := range recs {
 		recs[i], _, _ = strings.Cut(recs[i], "\x00")
-		if ccHeading.MatchString(ccASCIILower(recs[i])) {
+		if ccHeading.MatchString(core.ASCIILower(recs[i])) {
 			count++
 		}
 	}
@@ -637,7 +639,7 @@ func vpWalk(wt, dir string, want func(string) bool, visit func(rel string, n int
 		if err != nil || bytes.IndexByte(b, 0) >= 0 {
 			return nil
 		}
-		ls := lines(b)
+		ls := core.Lines(b)
 		for i, l := range ls {
 			visit(rel, i+1, l, ls[i+1:])
 		}
@@ -666,11 +668,11 @@ func vpFlowBaseSiblings(wt string) []string {
 	}
 	own := filepath.Dir(real(git("rev-parse", "--path-format=absolute", "--git-common-dir")))
 	var fails []string
-	for _, root := range tcfAppRoots(projectSection(filepath.Join(wt, ".flow/project.md"), "apps")) {
-		if !isDir(root) || real(root) == own {
+	for _, root := range tcfAppRoots(core.ProjectSection(filepath.Join(wt, ".flow/project.md"), "apps")) {
+		if !core.IsDir(root) || real(root) == own {
 			continue
 		}
-		if sib := root + "-worktrees/" + name; !isDir(sib) {
+		if sib := root + "-worktrees/" + name; !core.IsDir(sib) {
 			fails = append(fails, fmt.Sprintf("FAIL: siblings — %s is missing: %s records flowBase, so every `## apps` repository needs its own worktree of the change", sib, branch))
 		}
 	}

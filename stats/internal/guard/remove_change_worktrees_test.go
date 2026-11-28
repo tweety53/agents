@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -56,12 +57,12 @@ func (fx *rcwFx) copy() string {
 }
 
 // run runs remove-change-worktrees in-process.
-func (fx *rcwFx) run(t *testing.T, tweak func(*Env), args ...string) (int, string, string) {
+func (fx *rcwFx) run(t *testing.T, tweak func(*core.Env), args ...string) (int, string, string) {
 	t.Helper()
 	if fx.g.err != nil {
 		t.Fatal(fx.g.err)
 	}
-	env := Env{Dir: fx.dir, Getenv: os.Getenv}
+	env := core.Env{Dir: fx.dir, Getenv: os.Getenv}
 	if tweak != nil {
 		tweak(&env)
 	}
@@ -211,7 +212,7 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 			if l := rcwLines(out, "REFUSED: spectre/demo — git branch -d"); len(l) != 1 {
 				t.Errorf("REFUSED lines %q, want the branch delete refused", l)
 			}
-			merge, _ := capture(exec.Command(fixtureGit, "-C", fx.repo, "config", "--get", "branch.spectre/demo.merge"))
+			merge, _ := core.Capture(exec.Command(fixtureGit, "-C", fx.repo, "config", "--get", "branch.spectre/demo.merge"))
 			if merge != tc.wantMerge {
 				t.Errorf("branch.spectre/demo.merge = %q, want %q", merge, tc.wantMerge)
 			}
@@ -269,7 +270,7 @@ func TestRemoveChangeWorktrees(t *testing.T) {
 		fx := rcwNewFx(t)
 		for _, args := range [][]string{{fx.repo}, {fx.repo, "../demo"}, {fx.dir, "demo"}, {fx.repo, "demo", "--force"}} {
 			var out, errb bytes.Buffer
-			env := Env{Dir: fx.dir, Getenv: os.Getenv}
+			env := core.Env{Dir: fx.dir, Getenv: os.Getenv}
 			if code := removeChangeWorktrees(args, env, &out, &errb); code != 2 || out.String() != "" {
 				t.Errorf("%q: exit %d, stdout %q; want 2 and nothing on stdout", args, code, out.String())
 			}
@@ -302,7 +303,7 @@ func TestRemoveChangeWorktreesDeletesACopyBranch(t *testing.T) {
 	fx := rcwNewFx(t)
 	c := fx.wt + "-mutation-2"
 	var o, e bytes.Buffer
-	if rc := throwawayWorktree([]string{"create", fx.wt, c}, Env{Getenv: os.Getenv}, &o, &e); rc != 0 {
+	if rc := throwawayWorktree([]string{"create", fx.wt, c}, core.Env{Getenv: os.Getenv}, &o, &e); rc != 0 {
 		t.Fatalf("create: exit %d: %s", rc, e.String())
 	}
 	code, out, errb := fx.run(t, nil)

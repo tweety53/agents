@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard smoke-keep — the heavy tests the files a branch touched keep in a default test run.
@@ -41,32 +43,32 @@ func init() { Registry["smoke-keep"] = smokeKeep }
 // smokeKeep is `flow-guard smoke-keep`: the comment above is the contract.
 // ponytail: the list is space-separated, so a path holding a space splits in
 // FLOW_SMOKE_KEEP; no tracked path has one -- quote the list if one appears.
-func smokeKeep(args []string, env Env, stdout, stderr io.Writer) int {
+func smokeKeep(args []string, env core.Env, stdout, stderr io.Writer) int {
 	type row struct{ prefix, kept string }
 	var rows []row
 	for _, a := range args {
 		prefix, kept, found := strings.Cut(a, "=")
 		if !found || prefix == "" || kept == "" {
 			fmt.Fprintln(stderr, "usage: flow-guard smoke-keep [<path prefix>=<kept path>]...")
-			Reason(env, "usage")
+			core.Reason(env, "usage")
 			return 2
 		}
 		rows = append(rows, row{prefix, kept})
 	}
 	_, paths, ok := changedSinceBase(env, "smoke-keep", stderr)
 	if !ok {
-		Reason(env, "changes-unresolved")
+		core.Reason(env, "changes-unresolved")
 		return 2
 	}
 	top := ""
 	if len(paths) > 0 {
-		gitBin, _ := panelResolveGit(env, "smoke-keep", stderr)
+		gitBin, _ := core.ResolveGit(env, "smoke-keep", stderr)
 		cmd := exec.Command(gitBin, "rev-parse", "--show-toplevel")
 		cmd.Dir = env.Dir
 		out, err := cmd.Output()
 		if err != nil {
 			fmt.Fprintf(stderr, "smoke-keep: git rev-parse --show-toplevel failed: %v\n", err)
-			Reason(env, "toplevel-unresolved")
+			core.Reason(env, "toplevel-unresolved")
 			return 2
 		}
 		top = strings.TrimSpace(string(out))

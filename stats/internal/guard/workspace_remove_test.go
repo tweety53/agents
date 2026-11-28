@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // wrFx is a main checkout whose project declares a `remove` workspace row
@@ -48,7 +50,7 @@ func (fx *wrFx) run(t *testing.T) (int, string, string) {
 		t.Fatal(fx.g.err)
 	}
 	var out, errb bytes.Buffer
-	code := workspaceRemove([]string{fx.repo, "demo-r2"}, Env{Dir: fx.dir, Getenv: os.Getenv}, &out, &errb)
+	code := workspaceRemove([]string{fx.repo, "demo-r2"}, core.Env{Dir: fx.dir, Getenv: os.Getenv}, &out, &errb)
 	return code, out.String(), errb.String()
 }
 

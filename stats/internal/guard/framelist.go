@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -127,13 +129,13 @@ func flToken(id string) *regexp.Regexp {
 	return regexp.MustCompile(`(^|[^A-Za-z0-9_-])` + regexp.QuoteMeta(id) + `($|[^A-Za-z0-9_-])`)
 }
 
-func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
+func checkFrameList(args []string, env core.Env, stdout, stderr io.Writer) int {
 	const prog = "check-frame-list"
 	var slice []string // --frames: a remainder's own frames, nil for every frame
 	if i := slices.Index(args, "--frames"); i >= 0 {
 		if i+1 == len(args) || args[i+1] == "" {
 			fmt.Fprintf(stderr, frameListUsage, prog)
-			Reason(env, "usage")
+			core.Reason(env, "usage")
 			return 2
 		}
 		slice = strings.Split(args[i+1], ",")
@@ -141,25 +143,25 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if len(args) != 3 {
 		fmt.Fprintf(stderr, frameListUsage, prog)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	design, err := os.ReadFile(args[0])
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, args[0], err)
-		Reason(env, "cannot-read")
+		core.Reason(env, "cannot-read")
 		return 2
 	}
 	entries, err := os.ReadDir(args[1])
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read mockups dir %s: %v\n", prog, args[1], err)
-		Reason(env, "cannot-read-mockups-dir")
+		core.Reason(env, "cannot-read-mockups-dir")
 		return 2
 	}
 	report, err := os.ReadFile(args[2])
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, args[2], err)
-		Reason(env, "cannot-read")
+		core.Reason(env, "cannot-read")
 		return 2
 	}
 
@@ -208,7 +210,7 @@ func checkFrameList(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if len(gaps) > 0 {
 		fmt.Fprintf(stdout, "FRAME-LIST-GAP: %s — %s\n", args[2], strings.Join(gaps, "; "))
-		Reason(env, "frame-list-gap")
+		core.Reason(env, "frame-list-gap")
 		return 1
 	}
 	fmt.Fprintf(stdout, "FRAME-LIST-COMPLETE: %s — %d declared\n", args[2], len(declared))

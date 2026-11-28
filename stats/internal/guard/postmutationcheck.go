@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // snapshotTreeState and checkTreeRestored are the post-guard sanity check
@@ -81,7 +83,7 @@ func checkTreeRestored(worktree, snapshot string, stderr io.Writer) ([]string, i
 
 // gitExec runs git args from dir: stdout returned (and copied to out when it
 // is non-nil), stderr to errw, and the `$?` bash would see — git's exit
-// status, 128+n when signal n killed it (rrExitCode, the package's one
+// status, 128+n when signal n killed it (WaitExitCode, the package's one
 // mapping), 127 when git could not run.
 func gitExec(dir string, out, errw io.Writer, args ...string) (string, int) {
 	cmd := exec.Command("git", args...)
@@ -97,7 +99,7 @@ func gitExec(dir string, out, errw io.Writer, args ...string) (string, int) {
 	case err == nil:
 		return buf.String(), 0
 	case errors.As(err, &ee):
-		return buf.String(), rrExitCode(ee.ProcessState)
+		return buf.String(), core.WaitExitCode(ee.ProcessState)
 	default:
 		return buf.String(), 127
 	}

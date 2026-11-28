@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The block-unsafe-commands golden corpus: every payload below was fed to hooks/block-unsafe-commands.py
@@ -686,7 +688,7 @@ func bucRunGo(stdin, root string, env []string) bucOut {
 		m[k] = v
 	}
 	var out, errb bytes.Buffer
-	e := Env{
+	e := core.Env{
 		Getenv:    func(k string) string { return m[k] },
 		LookupEnv: func(k string) (string, bool) { v, ok := m[k]; return v, ok },
 		Environ:   func() []string { return env },

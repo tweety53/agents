@@ -12,9 +12,11 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
-// fakeSlots is flowd's heavy-slot API as heavySlot calls it: acquire grants
+// fakeSlots is flowd's heavy-slot API as HeavySlot calls it: acquire grants
 // once grantAfter refusals are spent, release and renewals are counted.
 type fakeSlots struct {
 	mu                         sync.Mutex
@@ -63,8 +65,8 @@ func (f *fakeSlots) serve(t *testing.T) string {
 	return srv.URL
 }
 
-func slotEnv(addr, wait string) Env {
-	return Env{SlotGate: true, SlotPoll: time.Millisecond, SlotRenew: time.Millisecond, Getenv: func(k string) string {
+func slotEnv(addr, wait string) core.Env {
+	return core.Env{SlotGate: true, SlotPoll: time.Millisecond, SlotRenew: time.Millisecond, Getenv: func(k string) string {
 		switch k {
 		case "FLOW_ADDR":
 			return addr
@@ -82,14 +84,14 @@ func slotEnv(addr, wait string) Env {
 func TestHeavySlot(t *testing.T) {
 	t.Parallel()
 	var errb bytes.Buffer
-	if release, ok := heavySlot(Env{Getenv: func(string) string { return "" }}, "x", "o", &errb); !ok || errb.Len() != 0 {
+	if release, ok := core.HeavySlot(core.Env{Getenv: func(string) string { return "" }}, "x", "o", &errb); !ok || errb.Len() != 0 {
 		t.Errorf("off: %v %q", ok, errb.String())
 	} else {
 		release()
 	}
 
 	f := &fakeSlots{}
-	release, ok := heavySlot(slotEnv(f.serve(t), "0"), "x", "o", &errb)
+	release, ok := core.HeavySlot(slotEnv(f.serve(t), "0"), "x", "o", &errb)
 	if !ok || errb.Len() != 0 {
 		t.Fatalf("free slot: %v %q", ok, errb.String())
 	}
@@ -102,7 +104,7 @@ func TestHeavySlot(t *testing.T) {
 	f.mu.Unlock()
 
 	f = &fakeSlots{grantAfter: 2}
-	if release, ok := heavySlot(slotEnv(f.serve(t), "60"), "x", "o", &errb); !ok || !strings.Contains(errb.String(), "waiting up to 1m0s") {
+	if release, ok := core.HeavySlot(slotEnv(f.serve(t), "60"), "x", "o", &errb); !ok || !strings.Contains(errb.String(), "waiting up to 1m0s") {
 		t.Errorf("frees while waiting: %v %q", ok, errb.String())
 	} else {
 		release()
@@ -110,12 +112,12 @@ func TestHeavySlot(t *testing.T) {
 
 	errb.Reset()
 	f = &fakeSlots{grantAfter: -1}
-	if _, ok := heavySlot(slotEnv(f.serve(t), "0"), "x", "o", &errb); ok || !strings.Contains(errb.String(), "no command ran") {
+	if _, ok := core.HeavySlot(slotEnv(f.serve(t), "0"), "x", "o", &errb); ok || !strings.Contains(errb.String(), "no command ran") {
 		t.Errorf("never frees: %v %q", ok, errb.String())
 	}
 
 	errb.Reset()
-	if release, ok := heavySlot(slotEnv("http://127.0.0.1:1", "0"), "x", "o", &errb); !ok || !strings.Contains(errb.String(), "unreachable") {
+	if release, ok := core.HeavySlot(slotEnv("http://127.0.0.1:1", "0"), "x", "o", &errb); !ok || !strings.Contains(errb.String(), "unreachable") {
 		t.Errorf("unreachable: %v %q", ok, errb.String())
 	} else {
 		release()
@@ -151,12 +153,12 @@ func TestHeavyRunsWaitForASlot(t *testing.T) {
 	writeFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 1 }\n")
 	ran := filepath.Join(t.TempDir(), "ran")
 	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, env)
-	if r.rc != 3 || isFile(ran) || isFile(filepath.Join(root, ".git/flow-recapture.jsonl")) {
+	if r.rc != 3 || core.IsFile(ran) || core.IsFile(filepath.Join(root, ".git/flow-recapture.jsonl")) {
 		t.Errorf("recapture with no slot: rc=%d out=%q, want 3 with nothing run and no receipt", r.rc, r.out)
 	}
 }
 
-// TestHeavySlotRecordsItsWait: the time heavySlot spent waiting for a grant
+// TestHeavySlotRecordsItsWait: the time HeavySlot spent waiting for a grant
 // lands in the run's collector as wait, so flow-guard posts it as wait_ms;
 // a slot granted at once records next to none.
 func TestHeavySlotRecordsItsWait(t *testing.T) {
@@ -164,9 +166,9 @@ func TestHeavySlotRecordsItsWait(t *testing.T) {
 	f := &fakeSlots{grantAfter: 3}
 	env := slotEnv(f.serve(t), "60")
 	env.SlotPoll = 20 * time.Millisecond
-	env.Reasons = &Reasons{}
+	env.Reasons = &core.Reasons{}
 	var errb bytes.Buffer
-	release, ok := heavySlot(env, "x", "o", &errb)
+	release, ok := core.HeavySlot(env, "x", "o", &errb)
 	if !ok {
 		t.Fatalf("not granted: %q", errb.String())
 	}

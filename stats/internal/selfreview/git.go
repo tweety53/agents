@@ -32,7 +32,7 @@ const changeBranchPrefix = "spectre/"
 // liveDir is the change directories' parent under the repository's spectre
 // tree — the label root of every file the bundle serves from the change. The Bash gather
 // resolved the spec root leaf per repository (the since-retired
-// scripts/lib/spec-root.sh, twinned in stats/internal/guard/specroot.go);
+// scripts/lib/spec-root.sh, twinned in stats/internal/guard/core/specroot.go);
 // the app pins `spectre`, this repository's leaf — a second spec root would
 // be a store schema question first, not a string to probe for.
 const liveDir = "spectre/changes"

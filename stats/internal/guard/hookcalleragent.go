@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/tweety53/agents/stats/internal/caller"
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The block-unsafe-commands hook's second job: name the subagent making a `flow` call.
@@ -171,8 +172,8 @@ func callerAgentCommand(command, agent string) string {
 }
 
 // withCallerAgent runs hook and, when it wrote nothing, answers a subagent's flow call.
-func withCallerAgent(hook func(Env, map[string]any, io.Writer, io.Writer)) func(Env, map[string]any, io.Writer, io.Writer) {
-	return func(env Env, payload map[string]any, stdout, stderr io.Writer) {
+func withCallerAgent(hook func(core.Env, map[string]any, io.Writer, io.Writer)) func(core.Env, map[string]any, io.Writer, io.Writer) {
+	return func(env core.Env, payload map[string]any, stdout, stderr io.Writer) {
 		var out bytes.Buffer
 		hook(env, payload, &out, stderr)
 		if out.Len() > 0 {

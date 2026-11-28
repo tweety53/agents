@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -47,12 +48,12 @@ var execFixtures struct {
 }
 
 func TestMain(m *testing.M) {
-	// runSibling execs this very executable with a guard's name first: in a
+	// RunSibling execs this very executable with a guard's name first: in a
 	// test binary that is the test binary, so it dispatches like flow-guard.
 	if len(os.Args) > 1 {
 		if fn, ok := Registry[os.Args[1]]; ok {
 			cwd, _ := os.Getwd()
-			os.Exit(fn(os.Args[2:], Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd, Stdin: os.Stdin}, os.Stdout, os.Stderr))
+			os.Exit(fn(os.Args[2:], core.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd, Stdin: os.Stdin}, os.Stdout, os.Stderr))
 		}
 	}
 	os.Setenv("FLOW_GUARD_TELEMETRY", "off")
@@ -77,7 +78,7 @@ func TestMain(m *testing.M) {
 		os.Exit(2)
 	}
 	execFixtures.dir, execFixtures.masters = dir, map[string]string{}
-	// Every allowed-pairs reader runs `flow policy get` (policyTable). A
+	// Every allowed-pairs reader runs `flow policy get` (PolicyTable). A
 	// real `flow` would answer from the dev store, or its cache; a `flow`
 	// first on PATH answering testPolicy -- the seeded pairs -- and handing
 	// every other call to the next `flow` on PATH keeps every test on one
@@ -99,7 +100,7 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
-	siblingExe = bin
+	core.SiblingExe = bin
 	// Every guard a test runs through scripts/flow-guard builds into, and
 	// finds in, the cache above — never the operator's.
 	os.Setenv("FLOW_GUARD_CACHE_DIR", filepath.Dir(filepath.Dir(bin)))
@@ -149,7 +150,7 @@ func TestSHA256Hex(t *testing.T) {
 		{"", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
 		{"abc", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"},
 	} {
-		if got := sha256Hex(tc.in); got != tc.want {
+		if got := core.Sha256Hex(tc.in); got != tc.want {
 			t.Errorf("sha256Hex(%q) = %s, want %s", tc.in, got, tc.want)
 		}
 	}
@@ -164,7 +165,7 @@ func TestSHA256Hex(t *testing.T) {
 		// A NUL byte survives: the file's bytes are hashed, never a string copy.
 		{nul, shasum(t, nul)},
 	} {
-		got, err := sha256HexFile(tc.path)
+		got, err := core.Sha256HexFile(tc.path)
 		if err != nil {
 			t.Fatalf("sha256HexFile(%s): %v", tc.path, err)
 		}
@@ -172,7 +173,7 @@ func TestSHA256Hex(t *testing.T) {
 			t.Errorf("sha256HexFile(%s) = %s, want %s", tc.path, got, tc.want)
 		}
 	}
-	if _, err := sha256HexFile(filepath.Join(dir, "absent")); err == nil {
+	if _, err := core.Sha256HexFile(filepath.Join(dir, "absent")); err == nil {
 		t.Error("sha256HexFile on an absent file: want an error")
 	}
 }
@@ -212,7 +213,7 @@ func TestSpecRoot(t *testing.T) {
 				mkdir(t, dir+"/"+tree)
 			}
 			var stderr bytes.Buffer
-			if got := specRootLeaf(dir, &stderr); got != tc.want {
+			if got := core.SpecRootLeaf(dir, &stderr); got != tc.want {
 				t.Errorf("specRootLeaf = %q, want %q", got, tc.want)
 			}
 			if want := strings.ReplaceAll(tc.stderr, "DIR", dir); stderr.String() != want {
@@ -230,7 +231,7 @@ func TestChangePlan(t *testing.T) {
 	// fails like an unreachable store, as the bash harness's DEFAULT_BIN does.
 	defaultBin := work + "/default-bin"
 	writeExec(t, defaultBin+"/flow", "#!/usr/bin/env bash\nexit 1\n")
-	env := Env{Getenv: pathEnv(defaultBin)}
+	env := core.Env{Getenv: pathEnv(defaultBin)}
 
 	satellite := func(dir, ref string) {
 		mkdir(t, dir+"/spectre/changes/sat-change")
@@ -337,7 +338,7 @@ func TestChangePlan(t *testing.T) {
 		worktree, change, canonical string
 		want                        string
 		rc                          int
-		env                         Env
+		env                         core.Env
 		wantErr                     *string
 	}
 	none := ""
@@ -380,7 +381,7 @@ func TestChangePlan(t *testing.T) {
 
 	// The store cases: a stub `flow` answering `state find` from a fixture,
 	// logging every call. Each case gets its own stub directory.
-	store := func(name, fixture string) (Env, string) {
+	store := func(name, fixture string) (core.Env, string) {
 		bin := work + "/store-" + name
 		calls := bin + "/calls"
 		// Paths named from the stub's own, so every store stub shares one of
@@ -393,7 +394,7 @@ func TestChangePlan(t *testing.T) {
 			body += "cat \"${0%/*}/fixture.json\"\n"
 		}
 		writeExec(t, bin+"/flow", body)
-		return Env{Getenv: pathEnv(bin)}, calls
+		return core.Env{Getenv: pathEnv(bin)}, calls
 	}
 	record := func(project, tree string) string {
 		return `{"projectKey":"` + project + `","name":"x","worktrees":{"` + tree + `":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}`
@@ -405,7 +406,7 @@ func TestChangePlan(t *testing.T) {
 	// The same record with PATH holding the stub alone: no jq on it.
 	_, calls11n := store("11n", `{"source":"store","complete":true,"records":[{"projectKey":"proj-a","name":"x-repo-plan","worktrees":{"`+case11s+`":null,"`+canon11s+`":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}}]}`)
 	bin11n := filepath.Dir(calls11n)
-	env11n := Env{Getenv: func(k string) string {
+	env11n := core.Env{Getenv: func(k string) string {
 		if k == "PATH" {
 			return bin11n
 		}
@@ -906,13 +907,13 @@ func copyTree(src, dst string) error {
 	return nil
 }
 
-// TestPlainNameRefusesEmpty pins the empty-name refusal plainChangeName took over
+// TestPlainNameRefusesEmpty pins the empty-name refusal PlainChangeName took over
 // from the bash change-plan library's name check when the package's two copies of
 // the allowlist became one: a satellite ref such as `:change` hands it an
 // empty peer name, which must be refused rather than indexed.
 func TestPlainNameRefusesEmpty(t *testing.T) {
 	t.Parallel()
-	if plainChangeName("") {
+	if core.PlainChangeName("") {
 		t.Fatal(`plainChangeName("") = true, want false`)
 	}
 }
@@ -1040,7 +1041,7 @@ func TestSpecRootFrozenOpenspecIsSpectre(t *testing.T) {
 				mkdir(t, dir+"/"+tree)
 			}
 			var stderr bytes.Buffer
-			if got := specRootLeaf(dir, &stderr); got != tc.want || stderr.Len() != 0 {
+			if got := core.SpecRootLeaf(dir, &stderr); got != tc.want || stderr.Len() != 0 {
 				t.Errorf("specRootLeaf = %q stderr %q, want %q and no stderr", got, stderr.String(), tc.want)
 			}
 		})
@@ -1131,7 +1132,7 @@ func TestFixtureRepoCopiesTheShape(t *testing.T) {
 // Allowed pairs table as it stood when the pairs moved into flowd
 // (testdata/policy.json, which internal/repotest's hook tests read too).
 // Embedded, not read off the working directory: a test binary self-exec'd
-// as a guard (runSibling) runs from wherever its caller is, and -trimpath
+// as a guard (RunSibling) runs from wherever its caller is, and -trimpath
 // makes a runtime.Caller path module-relative, so neither locates the file
 // (kan-1090 self-review planning).
 //
@@ -1146,27 +1147,27 @@ var policyStub = "[ \"$1 $2\" = \"policy get\" ] && { printf '%s\\n' '" + testPo
 
 // noFlowEnv is an env whose only `flow` answers `policy get` with
 // testPolicy and fails everything else: the seeded pairs alone.
-func noFlowEnv(t *testing.T) Env {
+func noFlowEnv(t *testing.T) core.Env {
 	t.Helper()
 	return fakeFlowEnv(t, "exit 1\n")
 }
 
 // fakeFlowEnv is an env whose PATH holds only a `flow` answering `policy
 // get` with testPolicy and running script for everything else.
-func fakeFlowEnv(t *testing.T, script string, over ...string) Env {
+func fakeFlowEnv(t *testing.T, script string, over ...string) core.Env {
 	t.Helper()
 	return fakeFlowEnvBare(t, policyStub+script, over...)
 }
 
 // policyFlowEnv is an env whose only `flow` answers `policy get` with
 // policy and fails everything else.
-func policyFlowEnv(t *testing.T, policy string, over ...string) Env {
+func policyFlowEnv(t *testing.T, policy string, over ...string) core.Env {
 	t.Helper()
 	return fakeFlowEnvBare(t, "[ \"$1 $2\" = \"policy get\" ] && { printf '%s\\n' '"+policy+"'; exit 0; }\nexit 1\n", over...)
 }
 
 // fakeFlowEnvBare is an env whose PATH holds only a `flow` running script.
-func fakeFlowEnvBare(t *testing.T, script string, over ...string) Env {
+func fakeFlowEnvBare(t *testing.T, script string, over ...string) core.Env {
 	t.Helper()
 	bin := t.TempDir()
 	writeExec(t, bin+"/flow", "#!/bin/sh\n"+script)
@@ -1345,7 +1346,7 @@ func pjRepoRoot(t *testing.T) string {
 
 // pjEnv is an env whose `flow` answers policy with policy, whose judge
 // command is stub, and whose repository root is this checkout.
-func pjEnv(t *testing.T, policy string, stub pjStub) Env {
+func pjEnv(t *testing.T, policy string, stub pjStub) core.Env {
 	t.Helper()
 	return policyFlowEnv(t, policy, "FLOW_GUARD_REPO_ROOT="+pjRepoRoot(t), "FLOW_PAIR_JUDGE_CMD="+stub.cmd())
 }
@@ -1394,7 +1395,7 @@ func gdcCopyTree(t *testing.T, src, dst string) {
 
 // crEnv is an Env whose variables are vars alone, plus the process's PATH
 // and locale for the `sort` the guard runs; a name absent from vars is unset.
-func crEnv(dir string, vars map[string]string) Env {
+func crEnv(dir string, vars map[string]string) core.Env {
 	lookup := func(k string) (string, bool) {
 		if v, ok := vars[k]; ok {
 			return v, true
@@ -1405,5 +1406,5 @@ func crEnv(dir string, vars map[string]string) Env {
 		}
 		return "", false
 	}
-	return Env{Dir: dir, LookupEnv: lookup, Getenv: func(k string) string { v, _ := lookup(k); return v }}
+	return core.Env{Dir: dir, LookupEnv: lookup, Getenv: func(k string) string { v, _ := lookup(k); return v }}
 }

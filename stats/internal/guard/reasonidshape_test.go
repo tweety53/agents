@@ -104,7 +104,9 @@ func reasonIDLiterals(t *testing.T, fset *token.FileSet, name, src string) map[s
 				arg = c.Args[0]
 			}
 		case *ast.SelectorExpr:
-			if reasonIDCallees[fn.Sel.Name] && len(c.Args) > 0 {
+			if pinName(fn, "Reason") && len(c.Args) == 2 {
+				arg = c.Args[1]
+			} else if reasonIDCallees[fn.Sel.Name] && len(c.Args) > 0 {
 				arg = c.Args[0]
 			}
 		}

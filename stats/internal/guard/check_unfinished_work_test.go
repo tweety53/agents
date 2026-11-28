@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -40,7 +41,7 @@ exit 0
 // <wt>/bin.
 type uwFix struct {
 	wt, bin  string
-	env      Env
+	env      core.Env
 	findings []byte
 	fErr     error
 	ranges   []string // <worktree>=<merge-base> arguments, after an empty canonical
@@ -77,7 +78,7 @@ func newUWBare(t *testing.T, wt string) *uwFix {
 	f.setFile(t, "bundle.json", "# Self-review context bundle for demo\n\nfound: 1 of 1 sources; skipped: 0 of 1 sources\n\n## change summary\n\nwhat changed\n")
 	f.setFindings(t)
 	get := pathEnv(f.bin)
-	f.env = Env{Getenv: get, Dir: wt,
+	f.env = core.Env{Getenv: get, Dir: wt,
 		Findings: func(string) ([]byte, error) { return f.findings, f.fErr }}
 	return f
 }
@@ -865,7 +866,7 @@ func TestCheckUnfinishedWorkOutstandingRecordsItsReason(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newUW(t)
-			r := &Reasons{}
+			r := &core.Reasons{}
 			f.env.Reasons = r
 			writeFile(t, f.wt+"/spectre/changes/demo/design.md", tc.design)
 			res := f.run(t, f.wt, "demo")

@@ -21,6 +21,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -73,7 +74,7 @@ func pwLoopRun(t *testing.T, branch string) pwResult {
 func pwRun(t *testing.T, args ...string) pwResult {
 	t.Helper()
 	var out, errb bytes.Buffer
-	env := Env{Dir: t.TempDir(), Getenv: os.Getenv}
+	env := core.Env{Dir: t.TempDir(), Getenv: os.Getenv}
 	rc := prepareWorkspace(args, env, &out, &errb)
 	return pwResult{rc, out.String(), errb.String()}
 }

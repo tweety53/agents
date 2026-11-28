@@ -1,4 +1,4 @@
-package guard
+package core
 
 import (
 	"os"
@@ -11,7 +11,7 @@ import (
 // TestPhaseLoadTableMatchesTheTree: skills/README.md's **Phase load table** names only files that
 // exist, and names every file a conditional load set lists.
 func TestPhaseLoadTableMatchesTheTree(t *testing.T) {
-	root, err := filepath.Abs("../../..")
+	root, err := filepath.Abs("../../../..")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,11 +33,11 @@ func TestPhaseLoadTableMatchesTheTree(t *testing.T) {
 			t.Errorf("Phase load table names %s, which does not exist", m[1])
 		}
 	}
-	for _, set := range conditionalLoadSets(root) {
-		for _, f := range set.files {
+	for _, set := range ConditionalLoadSets(root) {
+		for _, f := range set.Files {
 			rel := strings.TrimPrefix(f, root+"/")
 			if !named[rel] {
-				t.Errorf("Phase load table omits %s (load set %q)", rel, set.condition)
+				t.Errorf("Phase load table omits %s (load set %q)", rel, set.Condition)
 			}
 		}
 	}

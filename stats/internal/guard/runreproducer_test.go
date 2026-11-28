@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // rrRepo is a committed repository with an uncommitted edit to a.txt: the
@@ -28,7 +30,7 @@ func TestRunReproducer(t *testing.T) {
 		t.Parallel()
 		wt := rrRepo(t)
 		for _, args := range [][]string{{wt}, {wt, "sh"}, {wt, "-t", "0", "--", "true"}, {wt, "x", "--", "true"}} {
-			if r := runGuard("run-reproducer", args, Env{Getenv: os.Getenv}); r.rc != 2 {
+			if r := runGuard("run-reproducer", args, core.Env{Getenv: os.Getenv}); r.rc != 2 {
 				t.Errorf("%q: exit %d, want 2\n%s", args, r.rc, r.out)
 			}
 		}
@@ -37,14 +39,14 @@ func TestRunReproducer(t *testing.T) {
 		t.Parallel()
 		wt := rrRepo(t)
 		script := `grep -q edited a.txt || exit 9; git checkout -q -- a.txt; rm -f a.txt; echo x > new.txt; exit 3`
-		r := runGuard("run-reproducer", []string{wt, "--", "sh", "-c", script}, Env{Getenv: os.Getenv})
+		r := runGuard("run-reproducer", []string{wt, "--", "sh", "-c", script}, core.Env{Getenv: os.Getenv})
 		if r.rc != 3 {
 			t.Fatalf("exit %d, want the command's 3\n%s", r.rc, r.out)
 		}
 		if b, err := os.ReadFile(wt + "/a.txt"); err != nil || string(b) != "a edited\n" {
 			t.Errorf("a.txt = %q, %v; want the uncommitted edit kept", b, err)
 		}
-		if isFile(wt + "/new.txt") {
+		if core.IsFile(wt + "/new.txt") {
 			t.Error("the command's new.txt reached the worktree")
 		}
 		if out := tcfGit(t, wt, "worktree", "list", "--porcelain"); strings.Count(out, "worktree ") != 1 {
@@ -55,7 +57,7 @@ func TestRunReproducer(t *testing.T) {
 		t.Parallel()
 		wt := rrRepo(t)
 		start := time.Now()
-		r := runGuard("run-reproducer", []string{wt, "-t", "1", "--", "sh", "-c", "sleep 30; true"}, Env{Getenv: os.Getenv})
+		r := runGuard("run-reproducer", []string{wt, "-t", "1", "--", "sh", "-c", "sleep 30; true"}, core.Env{Getenv: os.Getenv})
 		if r.rc != 124 || !strings.Contains(r.err, "TIMED OUT after 1s") {
 			t.Fatalf("exit %d, want 124 and the TIMED OUT line\n%s", r.rc, r.out)
 		}

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 func TestCallerAgentCommand(t *testing.T) {
@@ -35,7 +37,7 @@ func TestHookBlockUnsafeCommandsTagsCallerAgent(t *testing.T) {
 	t.Parallel()
 	run := func(stdin string) string {
 		var out, errb bytes.Buffer
-		Registry["hook"]([]string{"block-unsafe-commands"}, Env{Getenv: func(string) string { return "" }, Dir: t.TempDir(), Stdin: strings.NewReader(stdin)}, &out, &errb)
+		Registry["hook"]([]string{"block-unsafe-commands"}, core.Env{Getenv: func(string) string { return "" }, Dir: t.TempDir(), Stdin: strings.NewReader(stdin)}, &out, &errb)
 		return out.String()
 	}
 	got := run(`{"agent_id":"a7","tool_name":"Bash","tool_input":{"command":"flow stage end x","description":"d"}}`)

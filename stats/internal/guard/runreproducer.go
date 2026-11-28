@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard run-reproducer — run a reviewer's command against a worktree
@@ -33,10 +35,10 @@ func init() { Registry["run-reproducer"] = runReproducer }
 
 const rrUsage = "usage: flow-guard run-reproducer <worktree> [-t <seconds>] -- <cmd...>"
 
-func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
+func runReproducer(args []string, env core.Env, stdout, stderr io.Writer) int {
 	fail := func(id, msg string) int {
 		fmt.Fprintln(stderr, "run-reproducer: "+msg)
-		Reason(env, id)
+		core.Reason(env, id)
 		return 2
 	}
 	if len(args) < 3 {
@@ -57,7 +59,7 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	if !filepath.IsAbs(wt) {
 		wt = filepath.Join(env.Dir, wt)
 	}
-	if !isDir(wt) {
+	if !core.IsDir(wt) {
 		return fail("not-a-directory", "not a directory: "+wt)
 	}
 	tmp, err := os.MkdirTemp("", "run-reproducer-")
@@ -91,8 +93,8 @@ func runReproducer(args []string, env Env, stdout, stderr io.Writer) int {
 	timer.Stop()
 	if timedOut.Load() {
 		fmt.Fprintf(stderr, "run-reproducer: TIMED OUT after %ds — the command was killed\n", int(bound/time.Second))
-		Reason(env, "timed-out")
+		core.Reason(env, "timed-out")
 		return 124
 	}
-	return exitCode(err)
+	return core.ExitCode(err)
 }

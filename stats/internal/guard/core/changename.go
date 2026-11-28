@@ -1,10 +1,10 @@
 // changename.go holds the change-name helper several guards share.
 
-package guard
+package core
 
 import "strings"
 
-// plainChangeName is the allowlist: records.Destination's Protection 1
+// PlainChangeName is the allowlist: records.Destination's Protection 1
 // (stats/internal/records/render.go), character for character, and that
 // function's comment is canonical for why each hazard is in it — the `/` that
 // was blocked only by an accident of string concatenation, and the glob
@@ -49,7 +49,7 @@ import "strings"
 // gather-dispatch-context and
 // check-panel-reproducer-exit-contract call: one allowlist in this package,
 // so an empty name is refused here rather than indexed.
-func plainChangeName(name string) bool {
+func PlainChangeName(name string) bool {
 	if name == "" || strings.IndexByte(ccAllowFirst, name[0]) < 0 {
 		return false
 	}

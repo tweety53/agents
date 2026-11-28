@@ -10,6 +10,8 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -110,21 +112,21 @@ func init() {
 
 const rvsPrefix = "resolve-visual-screenshots: "
 
-func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) int {
+func resolveVisualScreenshots(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) != 2 {
 		fmt.Fprint(stderr, rvsPrefix+"usage: flow-guard resolve-visual-screenshots <project root> <capture spec basename>\n")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	root, spec := args[0], args[1]
 	if spec == "" {
 		fmt.Fprint(stderr, rvsPrefix+"the capture spec basename argument is empty\n")
-		Reason(env, "spec-argument-empty")
+		core.Reason(env, "spec-argument-empty")
 		return 2
 	}
-	if !isDir(rvsAt(env, root)) {
+	if !core.IsDir(rvsAt(env, root)) {
 		fmt.Fprintf(stderr, rvsPrefix+"%s is not a directory — cannot resolve what it declares\n", root)
-		Reason(env, "not-a-directory")
+		core.Reason(env, "not-a-directory")
 		return 2
 	}
 	rootAbs := rvsLogical(env, root)
@@ -133,24 +135,24 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 	fi, err := os.Stat(cfg)
 	if _, lerr := os.Lstat(cfg); err != nil && lerr != nil {
 		fmt.Fprintf(stderr, rvsPrefix+"%s has no .flow/project.md — cannot resolve where screenshots live\n", rootAbs)
-		Reason(env, "has-no-flow-project-md")
+		core.Reason(env, "has-no-flow-project-md")
 		return 2
 	}
 	if err != nil || !fi.Mode().IsRegular() {
 		fmt.Fprintf(stderr, rvsPrefix+"%s is not a regular file — cannot resolve what it declares\n", cfg)
-		Reason(env, "not-a-regular-file")
+		core.Reason(env, "not-a-regular-file")
 		return 2
 	}
 	if syscall.Access(cfg, 4) != nil {
 		fmt.Fprintf(stderr, rvsPrefix+"%s exists but is not readable — cannot resolve what it declares\n", cfg)
-		Reason(env, "exists-but-is-not-readable")
+		core.Reason(env, "exists-but-is-not-readable")
 		return 2
 	}
 	data, err := os.ReadFile(cfg)
 	if err != nil {
 		// The bash's grep exiting 2 here: a failure to look, not an absence.
 		fmt.Fprintf(stderr, rvsPrefix+"grep exited 2 while looking for the '## visual verification' heading in %s — that is a failure to look, not an absence\n", cfg)
-		Reason(env, "grep-failed")
+		core.Reason(env, "grep-failed")
 		return 2
 	}
 	// A leading UTF-8 BOM is stripped before either heading read or the table
@@ -161,11 +163,11 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 	switch n := vvHeadingCount(text); {
 	case n == 0:
 		fmt.Fprintf(stderr, rvsPrefix+"%s declares no '## visual verification' section — cannot resolve where screenshots live\n", cfg)
-		Reason(env, "visual-verification-section-missing")
+		core.Reason(env, "visual-verification-section-missing")
 		return 2
 	case n > 1:
 		fmt.Fprintf(stderr, rvsPrefix+"%s declares %d '## visual verification' sections — a second declaration is ambiguous, so neither was read\n", cfg, n)
-		Reason(env, "visual-section-declared-twice")
+		core.Reason(env, "visual-section-declared-twice")
 		return 2
 	}
 
@@ -195,16 +197,16 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 	// holding an escape sequence would otherwise write it to the terminal.
 	if screenshots == "" {
 		fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf(rvsPrefix+"`screenshots` is absent or empty in %s — cannot resolve where captures land\n", cfg)))
-		Reason(env, "screenshots-unset")
+		core.Reason(env, "screenshots-unset")
 		return 2
 	}
 
 	base := rootAbs
 	if haveCheckout {
 		// Relative to the caller's cwd, as the bash's `[ -d ]` and `cd` read it.
-		if !isDir(rvsAt(env, checkout)) {
+		if !core.IsDir(rvsAt(env, checkout)) {
 			fmt.Fprint(stderr, sanitizeDisplay(fmt.Sprintf(rvsPrefix+"`regression checkout` names `%s`, which is not an existing directory — cannot resolve `screenshots` relative to it\n", checkout)))
-			Reason(env, "regression-checkout-missing")
+			core.Reason(env, "regression-checkout-missing")
 			return 2
 		}
 		base = rvsLogical(env, checkout)
@@ -212,7 +214,7 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 		// "Roots in `## apps` are main checkouts"): while a worktree of it sits
 		// on the project root's own branch, that worktree holds the change's
 		// captures, and the main checkout holds only what already landed.
-		git := envGit(env)
+		git := core.EnvGit(env)
 		// Mid-rebase HEAD is detached: the branch is the one being rebased.
 		if branch := rvsBranch(git, rootAbs); branch != "" {
 			if wt := rvsWorktreeOnGit(git, git("-C", base, "worktree", "list", "--porcelain"), branch); wt != "" {
@@ -225,7 +227,7 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 	var matches []string
 	// A `screenshots` directory that does not exist yet is zero matches:
 	// `capture` creates it on its first run.
-	if isDir(searchRoot) {
+	if core.IsDir(searchRoot) {
 		matches = rvsWalk(rvsLogical(env, searchRoot), spec, stderr)
 	}
 	// Bytewise (bytewise-screenshot-sort): the bash `sort` used the caller's
@@ -233,7 +235,7 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 	sort.Strings(matches)
 	if len(matches) == 0 {
 		fmt.Fprintf(stderr, rvsPrefix+"zero PNGs under %s matched `%s`\n", searchRoot, spec)
-		Reason(env, "no-matching-pngs")
+		core.Reason(env, "no-matching-pngs")
 		return 1
 	}
 	for _, m := range matches {
@@ -244,7 +246,7 @@ func resolveVisualScreenshots(args []string, env Env, stdout, stderr io.Writer) 
 
 // rvsAt is p as a bash `[ -d "$p" ]` run in env.Dir reads it. An empty p
 // stays empty — `[ -d "" ]` is false — rather than naming env.Dir itself.
-func rvsAt(env Env, p string) string {
+func rvsAt(env core.Env, p string) string {
 	if p == "" || filepath.IsAbs(p) {
 		return p
 	}
@@ -253,7 +255,7 @@ func rvsAt(env Env, p string) string {
 
 // rvsLogical is `cd "$p" && pwd`'s spelling: the logical path, joined onto
 // the caller's $PWD (env.Dir) when relative, `..` taken lexically.
-func rvsLogical(env Env, p string) string {
+func rvsLogical(env core.Env, p string) string {
 	return filepath.Clean(rvsAt(env, p))
 }
 
@@ -286,11 +288,11 @@ func rvsWorktreeOnGit(git func(...string) *exec.Cmd, cmd *exec.Cmd, branch strin
 // rvsBranch is the branch dir is on, or the one it is rebasing when HEAD is
 // detached by a rebase; "" otherwise.
 func rvsBranch(git func(...string) *exec.Cmd, dir string) string {
-	if b, _ := capture(git("-C", dir, "branch", "--show-current")); b != "" {
+	if b, _ := core.Capture(git("-C", dir, "branch", "--show-current")); b != "" {
 		return b
 	}
 	for _, d := range []string{"rebase-merge", "rebase-apply"} {
-		p, _ := capture(git("-C", dir, "rev-parse", "--path-format=absolute", "--git-path", d+"/head-name"))
+		p, _ := core.Capture(git("-C", dir, "rev-parse", "--path-format=absolute", "--git-path", d+"/head-name"))
 		if b, err := os.ReadFile(strings.TrimSpace(p)); err == nil {
 			return strings.TrimPrefix(strings.TrimSpace(string(b)), "refs/heads/")
 		}

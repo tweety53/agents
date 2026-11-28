@@ -19,6 +19,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 func init() { Registry["design-repo"] = designRepo }
@@ -32,9 +34,9 @@ func designRepoRow(root string, cells map[string]string) (clone, remote string, 
 	return cellPath(root, f[0]), f[1], true
 }
 
-func designRepo(args []string, env Env, stdout, stderr io.Writer) int {
+func designRepo(args []string, env core.Env, stdout, stderr io.Writer) int {
 	exit := func(code int, id, format string, a ...any) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stderr, "design-repo: "+format+"\n", a...)
 		return code
 	}

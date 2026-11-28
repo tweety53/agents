@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -34,7 +35,7 @@ func pgGo(args ...string) pgRes {
 	if !ok {
 		return pgRes{-1, "", "no project-get guard registered"}
 	}
-	rc := run(args, Env{Getenv: os.Getenv}, &out, &errb)
+	rc := run(args, core.Env{Getenv: os.Getenv}, &out, &errb)
 	return pgRes{rc, out.String(), errb.String()}
 }
 

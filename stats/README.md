@@ -96,7 +96,7 @@ every worktree. The slots live in flowd's memory (`internal/api/slots.go`):
 `POST /api/v1/slots/acquire`, `POST /api/v1/slots/release`, and
 `GET /api/v1/slots`, which lists the holders. A holder whose pid is gone, or
 that went 60 seconds without renewing, is dropped. A guard that cannot reach
-flowd runs without a slot (`internal/guard/heavyslot.go`).
+flowd runs without a slot (`internal/guard/core/heavyslot.go`).
 
 ## The UI-test stack
 

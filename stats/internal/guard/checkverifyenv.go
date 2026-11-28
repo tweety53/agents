@@ -22,15 +22,17 @@ import (
 	"net"
 	"net/url"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 func init() {
 	Registry["check-verify-env"] = checkVerifyEnv
 }
 
-func checkVerifyEnv(args []string, env Env, stdout, stderr io.Writer) int {
+func checkVerifyEnv(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard check-verify-env <url>...")
 		return 2
 	}
@@ -38,7 +40,7 @@ func checkVerifyEnv(args []string, env Env, stdout, stderr io.Writer) int {
 	for _, a := range args {
 		u, err := url.Parse(a)
 		if err != nil || u.Hostname() == "" {
-			Reason(env, "usage")
+			core.Reason(env, "usage")
 			fmt.Fprintf(stderr, "check-verify-env: %s is not a URL with a host\n", a)
 			return 2
 		}
@@ -58,7 +60,7 @@ func checkVerifyEnv(args []string, env Env, stdout, stderr io.Writer) int {
 		c.Close()
 	}
 	if down > 0 {
-		Reason(env, "backend-unreachable")
+		core.Reason(env, "backend-unreachable")
 		return 1
 	}
 	fmt.Fprintf(stdout, "VERIFY-ENV-OK: %d reachable\n", len(args))

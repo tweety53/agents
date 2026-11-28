@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/tweety53/agents/stats/internal/caller"
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -56,7 +57,7 @@ func guardCode(err error) int {
 // ic is the bash's global state: its flags, the worktree set load_set
 // reads, and run's OUT/RC.
 type ic struct {
-	env            Env
+	env            core.Env
 	prog           string // the guard name its own stderr lines open with
 	stdout, stderr io.Writer
 	childEnv       []string
@@ -172,11 +173,11 @@ type ic struct {
 // sequences missing beside it (named on stderr, nothing run), or the state
 // record cannot be read.
 //
-// Every sibling guard below runs in this same binary (runSibling). The
+// Every sibling guard below runs in this same binary (RunSibling). The
 // process moves to `/` once its arguments are resolved, so it never holds a
 // worktree it removes; every child runs in `/` too, save the calls the bash
 // ran in a subshell `cd`, which keep their own directory.
-func integrateChange(args []string, env Env, stdout, stderr io.Writer) int {
+func integrateChange(args []string, env core.Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "integrate-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
 	c.childEnv = icChildEnv(env)
@@ -208,7 +209,7 @@ func (c *ic) integrate(args []string) error {
 
 // icChildEnv is what every child runs under: the environment the caller
 // handed over, the process's own in production.
-func icChildEnv(env Env) []string {
+func icChildEnv(env core.Env) []string {
 	if env.Environ != nil {
 		return env.Environ()
 	}
@@ -216,7 +217,7 @@ func icChildEnv(env Env) []string {
 }
 
 func (c *ic) die(id, format string, a ...any) error {
-	Reason(c.env, id)
+	core.Reason(c.env, id)
 	fmt.Fprintf(c.stderr, c.prog+": "+format+"\n", a...)
 	return guardExit(2)
 }
@@ -319,7 +320,7 @@ func icPhys(dir, p string) (string, bool) {
 		p = filepath.Join(dir, p)
 	}
 	r, err := filepath.EvalSymlinks(filepath.Clean(p))
-	if err != nil || !isDir(r) {
+	if err != nil || !core.IsDir(r) {
 		return "", false
 	}
 	return r, true
@@ -331,7 +332,7 @@ func (c *ic) cmd(dir, name string, args ...string) *exec.Cmd {
 	path := name
 	found := true
 	if !strings.Contains(name, "/") {
-		path, found = lookPath(c.env, name)
+		path, found = core.LookPath(c.env, name)
 	}
 	cmd := exec.Command(path, args...)
 	if !found {
@@ -349,7 +350,7 @@ func rcOf(err error) int {
 	if errors.Is(err, exec.ErrNotFound) || errors.Is(err, fs.ErrNotExist) {
 		return 127
 	}
-	return exitCode(err)
+	return core.ExitCode(err)
 }
 
 // capture is `"$(cmd)"`: stdout, trailing newlines stripped, and `$?`.
@@ -383,7 +384,7 @@ func (c *ic) gitPass(args ...string) bool {
 
 // sibling is sibling guard name's child process, run like c.cmd's.
 func (c *ic) sibling(name string, args ...string) *exec.Cmd {
-	cmd := runSibling(c.env, name, args...)
+	cmd := core.RunSibling(c.env, name, args...)
 	cmd.Dir = "/"
 	cmd.Env = c.childEnv
 	cmd.Stderr = c.stderr
@@ -401,7 +402,7 @@ func (c *ic) run(guard string, args ...string) {
 
 // runIn is run for a guard called in process: its stdout captured and relayed, its stderr
 // straight through, in `/` as a sibling runs.
-func (c *ic) runIn(fn Func, args ...string) {
+func (c *ic) runIn(fn core.Func, args ...string) {
 	env := c.env
 	env.Dir = "/"
 	var b bytes.Buffer
@@ -452,7 +453,7 @@ func (c *ic) landStoppedFile() string { return c.canon + "/.superpowers/sdd/land
 // reopenLand begins flow.land again when a stop ended it, so a retried commit
 // or land can end it completed; otherwise prepare's run is still open.
 func (c *ic) reopenLand() {
-	if f := c.landStoppedFile(); isFile(f) {
+	if f := c.landStoppedFile(); core.IsFile(f) {
 		_ = os.Remove(f)
 		c.markBegin("flow.land")
 	}
@@ -472,7 +473,7 @@ func (c *ic) stopAs(id, kind, text string) error {
 		c.markEnd(c.openStage, c.stopOutcome, "STOP: "+kind)
 	}
 	c.say("STOP: " + kind + " — " + text)
-	Reason(c.env, id)
+	core.Reason(c.env, id)
 	return guardExit(1)
 }
 
@@ -491,7 +492,7 @@ func (c *ic) mainOf(w string) (string, bool) {
 // git-boundaries.md) — accepted only when it is the top of a git
 // repository that is not itself a linked worktree.
 func (c *ic) mainOfGone(w string) (string, bool) {
-	p := gdcDirname(w)
+	p := core.Dirname(w)
 	if !strings.HasSuffix(p, "-worktrees") || len(p) == len("-worktrees") {
 		return "", false
 	}
@@ -622,11 +623,11 @@ func icHas(list []string, s string) bool {
 func (c *ic) findCanonical() bool {
 	c.canon, c.spec = "", ""
 	for _, w := range c.wt {
-		if !isDir(w) {
+		if !core.IsDir(w) {
 			continue
 		}
-		s := specRootLeaf(w, io.Discard)
-		if isFile(w + "/" + s + "/changes/" + c.name + "/tasks.md") {
+		s := core.SpecRootLeaf(w, io.Discard)
+		if core.IsFile(w + "/" + s + "/changes/" + c.name + "/tasks.md") {
 			c.canon, c.spec = w, s
 			return true
 		}
@@ -763,7 +764,7 @@ var icExportable = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
 // (kan-1072 self-review, F1). Empty means that commit is skipped, so the
 // worktree needs no implementation subject.
 func (c *ic) implPaths(w, rev string) []string {
-	p := specRootLeaf(w, c.stderr) + "/changes/"
+	p := core.SpecRootLeaf(w, c.stderr) + "/changes/"
 	diff, _ := c.capture(c.cmd("/", "git", "-C", w, "diff", "--no-renames", "--name-only", rev))
 	others, _ := c.capture(c.cmd("/", "git", "-C", w, "ls-files", "--others", "--exclude-standard"))
 	var out []string
@@ -771,7 +772,7 @@ func (c *ic) implPaths(w, rev string) []string {
 		dir, _, _ := strings.Cut(strings.TrimPrefix(l, p), "/")
 		// A fix folder counts only while the worktree holds it, as in
 		// commitTwo, which lists it from disk.
-		planning := strings.HasPrefix(l, p) && (dir == c.name || isFixOf(dir, c.name) && isDir(w+"/"+p+dir))
+		planning := strings.HasPrefix(l, p) && (dir == c.name || isFixOf(dir, c.name) && core.IsDir(w+"/"+p+dir))
 		if !planning || l == p+c.name+"/link.md" {
 			out = append(out, l)
 		}
@@ -903,14 +904,14 @@ func isFixOf(dir, name string) bool {
 // CLAUDECODE=1, else "" -- the `flow` CLI's resolveHarness, less its
 // "unknown" floor, so a guard still refuses a mark it cannot attribute.
 // envToken is $FLOW_SESSION_TOKEN, else the calling agent's token (internal/caller), else "".
-func envToken(env Env) string {
+func envToken(env core.Env) string {
 	if t := env.Getenv("FLOW_SESSION_TOKEN"); t != "" {
 		return t
 	}
 	return caller.Token(env.Getenv)
 }
 
-func envHarness(env Env) string {
+func envHarness(env core.Env) string {
 	if h := env.Getenv("FLOW_HARNESS"); h != "" {
 		return h
 	}

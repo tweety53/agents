@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -293,7 +294,7 @@ func icServe(t *testing.T, tmp string) {
 	}
 	argv, _ := os.ReadFile(tmp + "/sut.args")
 	args := strings.Split(strings.TrimSuffix(string(argv), "\x00"), "\x00")
-	env := Env{
+	env := core.Env{
 		Getenv:    func(k string) string { return vars[k] },
 		LookupEnv: func(k string) (string, bool) { v, ok := vars[k]; return v, ok },
 		Environ:   func() []string { return environ },

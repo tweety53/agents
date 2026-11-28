@@ -3,6 +3,8 @@ package guard
 import (
 	"fmt"
 	"io"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // checkChangeWorktreeLocation refuses a worktree a change's branch is
@@ -12,9 +14,9 @@ import (
 // when it cannot answer. integrate-change's commit calls it in-process
 // before it commits: a rewrite in the main checkout, or on another
 // change's branch, lands where no step of this change ever sees it.
-func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Writer) int {
+func checkChangeWorktreeLocation(args []string, env core.Env, stdout, stderr io.Writer) int {
 	die := func(id, format string, a ...any) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stderr, "change-worktree-location: "+format+"\n", a...)
 		return 2
 	}
@@ -22,11 +24,11 @@ func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Write
 		return die("usage", "usage: <worktree> <name>")
 	}
 	wt, name := args[0], args[1]
-	if !isDir(smcAbs(env, wt)) {
+	if !core.IsDir(core.Abs(env, wt)) {
 		return die("not-a-readable-directory", "not a readable directory: %s", wt)
 	}
-	git := envGit(env)
-	if inside, _ := capture(git("-C", wt, "rev-parse", "--is-inside-work-tree")); inside != "true" {
+	git := core.EnvGit(env)
+	if inside, _ := core.Capture(git("-C", wt, "rev-parse", "--is-inside-work-tree")); inside != "true" {
 		return die("not-a-git-work-tree", "not a git work tree: %s", wt)
 	}
 	// "MAIN CHECKOUT" IS THE WORKTREE WHOSE GIT DIR IS THE COMMON DIR — the
@@ -35,11 +37,11 @@ func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Write
 	// `--git-common-dir`; both are asked for with `--path-format=absolute` so
 	// a relative `.git` from a main checkout never compares unequal to its own
 	// absolute form.
-	gitDir, ok := capture(git("-C", wt, "rev-parse", "--path-format=absolute", "--git-dir"))
+	gitDir, ok := core.Capture(git("-C", wt, "rev-parse", "--path-format=absolute", "--git-dir"))
 	if !ok {
 		return die("cannot-resolve-the-git-dir", "cannot resolve the git dir of: %s", wt)
 	}
-	common, ok := capture(git("-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+	common, ok := core.Capture(git("-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir"))
 	if !ok {
 		return die("cannot-resolve-common-git-dir", "cannot resolve the common git dir of: %s", wt)
 	}
@@ -48,7 +50,7 @@ func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Write
 	// inability. Its stderr is not silenced, as the bash's was not.
 	sym := git("-C", wt, "symbolic-ref", "--short", "-q", "HEAD")
 	sym.Stderr = stderr
-	branch, ok := capture(sym)
+	branch, ok := core.Capture(sym)
 	if !ok {
 		branch = "detached"
 	}
@@ -63,7 +65,7 @@ func checkChangeWorktreeLocation(args []string, env Env, stdout, stderr io.Write
 		violation = true
 	}
 	if violation {
-		Reason(env, "worktree-location-wrong")
+		core.Reason(env, "worktree-location-wrong")
 		return 1
 	}
 	fmt.Fprintf(stdout, "WORKTREE-LOCATION-OK: %s on spectre/%s\n", wt, name)

@@ -16,6 +16,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard render-frames — render the design repository's tagged frames a
@@ -91,9 +93,9 @@ var (
 // rfRef is one `<tag>/<frame id>` reference.
 type rfRef struct{ tag, id string }
 
-func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
+func renderFrames(args []string, env core.Env, stdout, stderr io.Writer) int {
 	refuse := func(id, format string, a ...any) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stderr, "render-frames: "+format+"\n", a...)
 		return 2
 	}
@@ -157,7 +159,7 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 			return refuse("not-a-tag-name", "`%s` is not a tag name", tag)
 		}
 		rel := mockups + "/" + tag
-		tracked, ok := capture(vvGitClean(env, "-C", root, "ls-files", "--", rel))
+		tracked, ok := core.Capture(vvGitClean(env, "-C", root, "ls-files", "--", rel))
 		if !ok {
 			return refuse("commit-state-unknown", "cannot tell whether %s is committed in %s", rel, args[0])
 		}
@@ -170,7 +172,7 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 				return refuse("tag-names-committed-dir", "tag `%s` names a committed sub-directory %s — its frames would be the committed ones, not the tag's", tag, rel)
 			}
 			for _, id := range byTag[tag] {
-				if !isFile(filepath.Join(root, rel, id+".png")) {
+				if !core.IsFile(filepath.Join(root, rel, id+".png")) {
 					return refuse("frame-missing-from-tag", "tag `%s` is committed in %s and not in the design repo, and frame %s is missing from it", tag, rel, id)
 				}
 				present++
@@ -180,7 +182,7 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 		out := filepath.Join(root, rel)
 		var pending []string
 		for _, id := range byTag[tag] {
-			if p := filepath.Join(out, id+".png"); isFile(p) && !rfBlank(p) {
+			if p := filepath.Join(out, id+".png"); core.IsFile(p) && !rfBlank(p) {
 				present++
 			} else {
 				pending = append(pending, id)
@@ -201,7 +203,7 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if len(findings) > 0 {
 		fmt.Fprintf(stdout, "FRAMES-MISSING: %d reference(s) not rendered\n", len(findings))
-		Reason(env, "frames-missing")
+		core.Reason(env, "frames-missing")
 		return 1
 	}
 	fmt.Fprintf(stdout, "FRAMES-RENDERED: %d rendered, %d already present\n", rendered, present)
@@ -212,9 +214,9 @@ func renderFrames(args []string, env Env, stdout, stderr io.Writer) int {
 // absent, its tree exported, each id's page found, then one renderer run.
 // It returns the references rendered, the findings, and a non-zero exit when
 // it cannot answer (the reason already on stderr).
-func rfRenderTag(env Env, stderr io.Writer, clone, remote, checkout, tag, out string, pending []string) (int, []string, int) {
+func rfRenderTag(env core.Env, stderr io.Writer, clone, remote, checkout, tag, out string, pending []string) (int, []string, int) {
 	refuse := func(id, format string, a ...any) (int, []string, int) {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stderr, "render-frames: "+format+"\n", a...)
 		return 0, nil, 2
 	}
@@ -282,7 +284,7 @@ func rfRenderTag(env Env, stderr io.Writer, clone, remote, checkout, tag, out st
 		return 0, findings, 0
 	}
 
-	node, ok := lookPath(env, "node")
+	node, ok := core.LookPath(env, "node")
 	if !ok {
 		return refuse("node-is-not-on-path", "node is not on PATH — cannot render")
 	}
@@ -297,7 +299,7 @@ func rfRenderTag(env Env, stderr io.Writer, clone, remote, checkout, tag, out st
 	var errb bytes.Buffer
 	cmd.Stderr = &errb
 	stdout, err := cmd.Output()
-	switch rc := exitCode(err); rc {
+	switch rc := core.ExitCode(err); rc {
 	case 0:
 	case 3:
 		return refuse("playwright-test-does-not-resolve", "@playwright/test does not resolve from the regression checkout %s: %s", checkout, strings.TrimSpace(errb.String()))
@@ -337,7 +339,7 @@ func rfRenderTag(env Env, stderr io.Writer, clone, remote, checkout, tag, out st
 
 // rfExport writes `git archive <ref>`'s regular files and directories under
 // dir; any other entry, and any name leaving dir, is skipped.
-func rfExport(env Env, clone, ref, dir string) error {
+func rfExport(env core.Env, clone, ref, dir string) error {
 	cmd := vvGitClean(env, "-C", clone, "archive", "--format=tar", ref)
 	var errb bytes.Buffer
 	cmd.Stderr = &errb

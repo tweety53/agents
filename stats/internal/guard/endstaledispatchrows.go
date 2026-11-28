@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard end-stale-dispatch-rows <worktree> — end the open dispatch rows of <worktree>'s change
@@ -26,9 +28,9 @@ import (
 // Run in process by the await-own-agents hook and await-rows only; no guard.Registry key.
 const staleFinishedAge = 10 * time.Minute
 
-func endStaleDispatchRows(args []string, env Env, stdout, stderr io.Writer) int {
+func endStaleDispatchRows(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard end-stale-dispatch-rows <worktree>")
 		return 2
 	}
@@ -50,7 +52,7 @@ func endStaleDispatchRows(args []string, env Env, stdout, stderr io.Writer) int 
 		end := append([]string{"record", "dispatch", "end", "-C", worktree, "-change", change,
 			"-key", r.Key, "-session-token", r.SessionToken, "-outcome", handbackOutcome(transcript),
 			"-agent-id", r.AgentID, "-ended-at", last.UTC().Format(time.RFC3339Nano)}, handbackCommit(transcript)...)
-		_, e, rc := pcFlow(env, false, end...)
+		_, e, rc := core.Flow(env, false, end...)
 		if rc != 0 {
 			fmt.Fprintf(stderr, "end-stale-dispatch-rows: %s: flow record dispatch end exit %d: %s\n", r.Key, rc, strings.TrimSpace(string(e)))
 			continue

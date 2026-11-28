@@ -9,6 +9,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The helpers run 2's worktree cleanup (remove-change-worktrees), the
@@ -54,7 +56,7 @@ var (
 // segment rather than the segment boundaries they are: `KAN-99-Fix.Thing`
 // keeps `kan-99-fix` under this order and `kan-99` under the other.
 //
-// THE CASE FOLD IS A-Z ONLY (ccASCIILower), which is the whole of that step's
+// THE CASE FOLD IS A-Z ONLY (ASCIILower), which is the whole of that step's
 // locale independence. The bash needed `LC_ALL=C` on both `tr` calls, since
 // without it `tr` consults the ambient locale's case table and does — the
 // canonical file records `İstanbul-test` yielding two different prefixes from
@@ -70,7 +72,7 @@ var (
 // `Trailing.__` deriving `trailing---…` instead of `trailing-…`. The digest
 // comes from the repository's one sha256 helper (sha256.go).
 func ccWorkspaceID(name string) string {
-	b := []byte(ccASCIILower(name))
+	b := []byte(core.ASCIILower(name))
 	for i, c := range b {
 		if (c < 'a' || c > 'z') && (c < '0' || c > '9') {
 			b[i] = '-'
@@ -81,7 +83,7 @@ func ccWorkspaceID(name string) string {
 		prefix = prefix[:strings.LastIndex(prefix, "-")]
 	}
 	prefix = strings.TrimRight(prefix[:min(12, len(prefix))], "-")
-	return prefix + "-" + sha256Hex(name)[:4]
+	return prefix + "-" + core.Sha256Hex(name)[:4]
 }
 
 // ccRunSurvivors runs a project-supplied command: `bash -o pipefail -c <cmd>`
@@ -96,7 +98,7 @@ func ccWorkspaceID(name string) string {
 // but this function still returns, because Wait names the direct child alone
 // and WaitDelay stops it waiting on a stderr pipe an escaped descendant holds.
 // `-o pipefail` makes a failing earlier stage of a pipeline visible.
-func ccRunSurvivors(env Env, repo, cmdText string, timeout, grace time.Duration, stderr io.Writer) (out []byte, rc int, timedOut, started bool) {
+func ccRunSurvivors(env core.Env, repo, cmdText string, timeout, grace time.Duration, stderr io.Writer) (out []byte, rc int, timedOut, started bool) {
 	tmpdir := env.Getenv("TMPDIR")
 	if tmpdir == "" {
 		tmpdir = "/tmp"
@@ -114,7 +116,7 @@ func ccRunSurvivors(env Env, repo, cmdText string, timeout, grace time.Duration,
 	defer scratch.Close()
 
 	bash := "bash"
-	if p, ok := lookPath(env, "bash"); ok {
+	if p, ok := core.LookPath(env, "bash"); ok {
 		bash = p
 	}
 	cmd := exec.Command(bash, "-o", "pipefail", "-c", cmdText)
@@ -163,7 +165,7 @@ func ccRunSurvivors(env Env, repo, cmdText string, timeout, grace time.Duration,
 		<-done
 	}
 	out, _ = os.ReadFile(scratch.Name())
-	return out, rrExitCode(cmd.ProcessState), timedOut, true
+	return out, core.WaitExitCode(cmd.ProcessState), timedOut, true
 }
 
 // changeWorktrees reads `git worktree list --porcelain` output: the

@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -42,11 +44,11 @@ import (
 // checkIdenticalBaselines is `flow-guard check-identical-baselines`: the comment above is the contract. PNGs of one directory with the
 // same bytes are named, one group per line.
 // Run in process by visual-verify-pass measure only; no guard.Registry key.
-func checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) int {
+func checkIdenticalBaselines(args []string, env core.Env, stdout, stderr io.Writer) int {
 	const prog = "check-identical-baselines"
 	if len(args) != 0 {
 		fmt.Fprintf(stderr, "%s: usage: flow-guard resolve-visual-screenshots … | flow-guard check-identical-baselines\n", prog)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	in := env.Stdin
@@ -65,7 +67,7 @@ func checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) i
 		data, err := os.ReadFile(path)
 		if err != nil {
 			fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, path, err)
-			Reason(env, "cannot-read")
+			core.Reason(env, "cannot-read")
 			return 2
 		}
 		dir := filepath.Dir(path)
@@ -78,12 +80,12 @@ func checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) i
 	}
 	if err := sc.Err(); err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", prog, err)
-		Reason(env, "cannot-read-input")
+		core.Reason(env, "cannot-read-input")
 		return 2
 	}
 	if n == 0 {
 		fmt.Fprintf(stderr, "%s: no PNG paths on stdin\n", prog)
-		Reason(env, "no-png-paths-on-stdin")
+		core.Reason(env, "no-png-paths-on-stdin")
 		return 2
 	}
 	var lines []string
@@ -102,6 +104,6 @@ func checkIdenticalBaselines(args []string, env Env, stdout, stderr io.Writer) i
 	// "identical: <dir>: <first name> …" sorts by directory, then first name.
 	sort.Strings(lines)
 	fmt.Fprintln(stdout, strings.Join(lines, "\n"))
-	Reason(env, "baselines-duplicate")
+	core.Reason(env, "baselines-duplicate")
 	return 1
 }

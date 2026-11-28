@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // diff-groups <abs-worktree> <diff-file> writes <diff-file minus .diff>.groups.md beside the diff,
@@ -33,9 +35,9 @@ var (
 	dgDocExt     = map[string]bool{".md": true, ".mdc": true, ".yml": true, ".yaml": true, ".json": true, ".toml": true, ".txt": true, ".ini": true, ".conf": true}
 )
 
-func diffGroups(args []string, env Env, stdout, stderr io.Writer) int {
+func diffGroups(args []string, env core.Env, stdout, stderr io.Writer) int {
 	fail := func(id, msg string) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintln(stderr, "diff-groups: "+msg)
 		return 2
 	}

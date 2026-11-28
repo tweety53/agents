@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // close is `visual-verify-pass.sh close`: the report guards, the row's end,
@@ -44,7 +46,7 @@ func (v *vvp) close() error {
 	if err != nil {
 		return v.die("cannot-read", "cannot read %s: %v", report, err)
 	}
-	changeRoot := filepath.Join(v.canon, specRootLeaf(v.canon, io.Discard), "changes", v.name)
+	changeRoot := filepath.Join(v.canon, core.SpecRootLeaf(v.canon, io.Discard), "changes", v.name)
 	design := filepath.Join(changeRoot, "design.md")
 
 	// The report guards: an incomplete report is never accepted.
@@ -233,7 +235,7 @@ func (v *vvp) checkOnly(args []string) error {
 		v.say("%s", l)
 	}
 	if len(verdicts) > 0 {
-		Reason(v.env, "report-incomplete")
+		core.Reason(v.env, "report-incomplete")
 		return guardExit(1)
 	}
 	return nil
@@ -526,7 +528,7 @@ func (v *vvp) commit(w string, report []byte) error {
 			// them as rebuild-full-app-suite-zip does.
 			if strings.HasSuffix(p, "/full-app-suite.spec.ts") {
 				var out, serr bytes.Buffer
-				if rc := Registry["resolve-visual-screenshots"]([]string{w, "full-app-suite.spec.ts"}, quietReasons(v.env), &out, &serr); rc == 2 {
+				if rc := Registry["resolve-visual-screenshots"]([]string{w, "full-app-suite.spec.ts"}, core.QuietReasons(v.env), &out, &serr); rc == 2 {
 					fmt.Fprintf(v.stderr, "visual-verify-pass: warning: the full app suite's PNGs could not be resolved, so none is committed: %s", serr.String())
 				}
 				for _, png := range strings.Fields(out.String()) {
@@ -563,7 +565,7 @@ func (v *vvp) commit(w string, report []byte) error {
 // its combined output and whether it exited 0.
 func (v *vvp) gitChild(dir string, args ...string) (string, bool) {
 	git := "git"
-	if p, ok := lookPath(v.env, "git"); ok {
+	if p, ok := core.LookPath(v.env, "git"); ok {
 		git = p
 	}
 	cmd := exec.Command(git, append([]string{"-C", dir}, args...)...)

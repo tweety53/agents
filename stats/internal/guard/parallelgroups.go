@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard parallel-groups — which implementer groups of skills/flow/implement.md's **4. Execute**
@@ -57,31 +59,31 @@ var pgJVMBuild = []string{"gradlew", "build.gradle", "build.gradle.kts", "settin
 const pgUsage = "usage: flow-guard parallel-groups next <canonical-worktree>\n" +
 	"       flow-guard parallel-groups merge <canonical-worktree> <copy>…\n"
 
-func parallelGroups(args []string, env Env, stdout, stderr io.Writer) int {
+func parallelGroups(args []string, env core.Env, stdout, stderr io.Writer) int {
 	switch {
 	case len(args) == 2 && args[0] == "next":
-		return pgNext(env, pcAbs(env, args[1]), stdout, stderr)
+		return pgNext(env, core.CleanAbs(env, args[1]), stdout, stderr)
 	case len(args) >= 3 && args[0] == "merge":
-		return pgMerge(env, pcAbs(env, args[1]), args[2:], stdout, stderr)
+		return pgMerge(env, core.CleanAbs(env, args[1]), args[2:], stdout, stderr)
 	}
 	fmt.Fprint(stderr, pgUsage)
-	Reason(env, "usage")
+	core.Reason(env, "usage")
 	return 2
 }
 
-func pgFail(env Env, stderr io.Writer, id, format string, a ...any) int {
+func pgFail(env core.Env, stderr io.Writer, id, format string, a ...any) int {
 	fmt.Fprintf(stderr, "parallel-groups: "+format+"\n", a...)
-	Reason(env, id)
+	core.Reason(env, id)
 	return 2
 }
 
-func pgNext(env Env, wt string, stdout, stderr io.Writer) int {
-	branch, _ := capture(envGit(env)("-C", wt, "rev-parse", "--abbrev-ref", "HEAD"))
+func pgNext(env core.Env, wt string, stdout, stderr io.Writer) int {
+	branch, _ := core.Capture(core.EnvGit(env)("-C", wt, "rev-parse", "--abbrev-ref", "HEAD"))
 	name, ok := strings.CutPrefix(strings.TrimSpace(branch), "spectre/")
 	if !ok {
 		return pgFail(env, stderr, "not-a-change-worktree", "%s is not on a spectre/<name> branch", wt)
 	}
-	plan := filepath.Join(wt, specRootLeaf(wt, stderr), "changes", name, "tasks.md")
+	plan := filepath.Join(wt, core.SpecRootLeaf(wt, stderr), "changes", name, "tasks.md")
 	lines, err := tcfReadPlan(env, plan)
 	if err != nil {
 		return pgFail(env, stderr, "plan-unreadable", "%v", err)
@@ -114,7 +116,7 @@ func pgNext(env Env, wt string, stdout, stderr io.Writer) int {
 			break
 		}
 	}
-	if limit > 1 && slices.ContainsFunc(pgJVMBuild, func(f string) bool { return isFile(filepath.Join(wt, f)) }) {
+	if limit > 1 && slices.ContainsFunc(pgJVMBuild, func(f string) bool { return core.IsFile(filepath.Join(wt, f)) }) {
 		fmt.Fprintln(stdout, "SERIAL: JVM build — one build at a time")
 		limit = 1
 	}
@@ -201,22 +203,22 @@ func pgOverlap(a, b []string) bool {
 	return false
 }
 
-func pgMerge(env Env, wt string, copies []string, stdout, stderr io.Writer) int {
-	git := envGit(env)
-	if st, ok := capture(git("-C", wt, "status", "--porcelain", "--untracked-files=no")); !ok || strings.TrimSpace(st) != "" {
+func pgMerge(env core.Env, wt string, copies []string, stdout, stderr io.Writer) int {
+	git := core.EnvGit(env)
+	if st, ok := core.Capture(git("-C", wt, "status", "--porcelain", "--untracked-files=no")); !ok || strings.TrimSpace(st) != "" {
 		return pgFail(env, stderr, "dirty-worktree", "%s has uncommitted tracked changes (or git status failed) — commit them first", wt)
 	}
 	for _, cp := range copies {
-		cp = pcAbs(env, cp)
-		if st, ok := capture(git("-C", cp, "status", "--porcelain", "--untracked-files=normal")); !ok || strings.TrimSpace(st) != "" {
+		cp = core.CleanAbs(env, cp)
+		if st, ok := core.Capture(git("-C", cp, "status", "--porcelain", "--untracked-files=normal")); !ok || strings.TrimSpace(st) != "" {
 			fmt.Fprintf(stdout, "BLOCKED: %s — uncommitted changes (or git status failed); it and every later copy are kept\n", cp)
-			Reason(env, "copy-uncommitted")
+			core.Reason(env, "copy-uncommitted")
 			return 1
 		}
 		branch := "flow-copy/" + filepath.Base(cp)
-		fork, ok1 := capture(git("-C", wt, "merge-base", "HEAD", branch))
-		list, ok2 := capture(git("-C", wt, "rev-list", "--reverse", strings.TrimSpace(fork)+".."+branch))
-		before, ok3 := capture(git("-C", wt, "rev-parse", "HEAD"))
+		fork, ok1 := core.Capture(git("-C", wt, "merge-base", "HEAD", branch))
+		list, ok2 := core.Capture(git("-C", wt, "rev-list", "--reverse", strings.TrimSpace(fork)+".."+branch))
+		before, ok3 := core.Capture(git("-C", wt, "rev-parse", "HEAD"))
 		if !ok1 || !ok2 || !ok3 {
 			return pgFail(env, stderr, "git-failed", "cannot read %s's commits from %s", branch, wt)
 		}
@@ -225,10 +227,10 @@ func pgMerge(env Env, wt string, copies []string, stdout, stderr io.Writer) int 
 			if out, err := git(append([]string{"-C", wt, "cherry-pick"}, picks...)...).CombinedOutput(); err != nil {
 				_ = git("-C", wt, "cherry-pick", "--abort").Run()
 				fmt.Fprintf(stdout, "BLOCKED: %s — its commits do not apply on %s: %s; it and every later copy are kept\n", cp, wt, strings.TrimSpace(string(out)))
-				Reason(env, "cherry-pick-conflict")
+				core.Reason(env, "cherry-pick-conflict")
 				return 1
 			}
-			after, _ := capture(git("-C", wt, "rev-list", "--reverse", strings.TrimSpace(before)+"..HEAD"))
+			after, _ := core.Capture(git("-C", wt, "rev-list", "--reverse", strings.TrimSpace(before)+"..HEAD"))
 			for i, n := range strings.Fields(after) {
 				fmt.Fprintf(stdout, "PICKED: %s %s\n", picks[i], n)
 			}

@@ -5,6 +5,8 @@ import (
 	"io"
 	"sort"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -71,7 +73,7 @@ import (
 // whenever a verdict was reached, exit 2 when the tree cannot be read. The
 // reasoning for each step, moved here from the bash body it replaced
 // (d71a2327), sits beside the code it explains.
-func checkBaseMoved(args []string, env Env, stdout, stderr io.Writer) int {
+func checkBaseMoved(args []string, env core.Env, stdout, stderr io.Writer) int {
 	arg := func(i int) string {
 		if i < len(args) {
 			return args[i]
@@ -81,7 +83,7 @@ func checkBaseMoved(args []string, env Env, stdout, stderr io.Writer) int {
 	worktree, baseRef, recorded := arg(0), arg(1), arg(2)
 	if worktree == "" || baseRef == "" || recorded == "" {
 		fmt.Fprint(stderr, baseRefUsage("flow-guard check-base-moved"))
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	v := baseMoved(env, worktree, baseRef, recorded, stderr)
@@ -105,17 +107,17 @@ type bmVerdict struct {
 }
 
 // baseMoved is check-base-moved's whole answer for an in-process caller.
-func baseMoved(env Env, worktree, baseRef, recorded string, stderr io.Writer) bmVerdict {
+func baseMoved(env core.Env, worktree, baseRef, recorded string, stderr io.Writer) bmVerdict {
 	cannot := bmVerdict{code: 2}
 	verdict := func(kind, ref string, overlap []string, format string, a ...any) bmVerdict {
 		return bmVerdict{line: kind + ": " + fmt.Sprintf(format, a...), kind: kind, ref: ref, overlap: overlap}
 	}
-	if !isDir(smcAbs(env, worktree)) {
+	if !core.IsDir(core.Abs(env, worktree)) {
 		fmt.Fprintf(stderr, "check-base-moved: %s is not a directory — cannot determine anything\n", worktree)
 		return cannot
 	}
 	// The bash exported LC_ALL=C for its whole run; git inherits it here too.
-	git := envGit(env, "LC_ALL=C")
+	git := core.EnvGit(env, "LC_ALL=C")
 	if git("-C", worktree, "rev-parse", "--git-dir").Run() != nil {
 		fmt.Fprintf(stderr, "check-base-moved: %s is not a git worktree — cannot determine anything\n", worktree)
 		return cannot
@@ -129,7 +131,7 @@ func baseMoved(env Env, worktree, baseRef, recorded string, stderr io.Writer) bm
 	// Every ref this guard did not choose itself is passed after
 	// --end-of-options, so a value beginning with `-` is read as a ref and
 	// rejected rather than parsed as a git option.
-	recordedSHA, ok := capture(git("-C", worktree, "rev-parse", "--verify", "--end-of-options", recorded+"^{commit}"))
+	recordedSHA, ok := core.Capture(git("-C", worktree, "rev-parse", "--verify", "--end-of-options", recorded+"^{commit}"))
 	if !ok {
 		return verdict("REFUSE", "", nil, "recorded merge base '%s' does not resolve in %s", recorded, worktree)
 	}
@@ -146,7 +148,7 @@ func baseMoved(env Env, worktree, baseRef, recorded string, stderr io.Writer) bm
 	// never a CLEAR. The argv shapes are the bash's exactly: a test stub
 	// picks each call out by position.
 	rng := recordedSHA + ".." + ref
-	count, ok := capture(git("-C", worktree, "rev-list", "--count", "--end-of-options", rng))
+	count, ok := core.Capture(git("-C", worktree, "rev-list", "--count", "--end-of-options", rng))
 	if !ok {
 		fmt.Fprintf(stderr, "check-base-moved: cannot count commits between %s and %s in %s\n", recordedSHA, ref, worktree)
 		return cannot
@@ -161,7 +163,7 @@ func baseMoved(env Env, worktree, baseRef, recorded string, stderr io.Writer) bm
 	// replays nothing, so it reads as CLEAR even though the base moved.
 	// `^HEAD` rides after --end-of-options as rev syntax (`^rev` is a rev,
 	// not an option).
-	uncarried, ok := capture(git("-C", worktree, "rev-list", "--count", "--end-of-options", rng, "^HEAD"))
+	uncarried, ok := core.Capture(git("-C", worktree, "rev-list", "--count", "--end-of-options", rng, "^HEAD"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-base-moved: cannot count uncarried commits between %s and %s in %s\n", recordedSHA, ref, worktree)
 		return cannot
@@ -172,7 +174,7 @@ func baseMoved(env Env, worktree, baseRef, recorded string, stderr io.Writer) bm
 		// branch's actual fork point, which the run carries forward as this
 		// worktree's <rebased-merge-base> (skills/flow/sync-onto-base.md). A
 		// reshape from the stale one would fold base commits into the change.
-		fork, ok := capture(git("-C", worktree, "merge-base", "--end-of-options", "HEAD", ref))
+		fork, ok := core.Capture(git("-C", worktree, "merge-base", "--end-of-options", "HEAD", ref))
 		if !ok {
 			fmt.Fprintf(stderr, "check-base-moved: cannot find the merge base of HEAD and %s in %s\n", ref, worktree)
 			return cannot
@@ -180,7 +182,7 @@ func baseMoved(env Env, worktree, baseRef, recorded string, stderr io.Writer) bm
 		return verdict("CLEAR", ref, nil, "%s — the %s commits %s gained since the recorded merge base are all already carried by this branch — nothing to rebase; merge base now %s", worktree, count, ref, fork)
 	}
 
-	moved, ok := capture(git("-C", worktree, "diff", "--no-renames", "--name-only", "--end-of-options", rng))
+	moved, ok := core.Capture(git("-C", worktree, "diff", "--no-renames", "--name-only", "--end-of-options", rng))
 	if !ok {
 		fmt.Fprintf(stderr, "check-base-moved: cannot list paths changed on %s in %s\n", ref, worktree)
 		return cannot
@@ -193,17 +195,17 @@ func baseMoved(env Env, worktree, baseRef, recorded string, stderr io.Writer) bm
 	// history alone would report "no overlap" for a change that conflicts.
 	// Three captures, each checked before any is used, so a partial failure
 	// can never read as an empty — and therefore clean — set.
-	committed, ok := capture(git("-C", worktree, "diff", "--no-renames", "--name-only", "--end-of-options", recordedSHA+"..HEAD"))
+	committed, ok := core.Capture(git("-C", worktree, "diff", "--no-renames", "--name-only", "--end-of-options", recordedSHA+"..HEAD"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-base-moved: cannot list this change's committed paths in %s\n", worktree)
 		return cannot
 	}
-	staged, ok := capture(git("-C", worktree, "diff", "--no-renames", "--name-only", "--cached"))
+	staged, ok := core.Capture(git("-C", worktree, "diff", "--no-renames", "--name-only", "--cached"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-base-moved: cannot list this change's staged paths in %s\n", worktree)
 		return cannot
 	}
-	unstaged, ok := capture(git("-C", worktree, "diff", "--no-renames", "--name-only"))
+	unstaged, ok := core.Capture(git("-C", worktree, "diff", "--no-renames", "--name-only"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-base-moved: cannot list this change's unstaged paths in %s\n", worktree)
 		return cannot

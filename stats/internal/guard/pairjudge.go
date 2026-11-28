@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/modelpolicy"
 )
 
@@ -34,7 +35,7 @@ import (
 // A role with no base pair is refused as candidates-empty.
 //
 // The candidates (decision judge-candidates-capped) are the role's base
-// pairs, read with `flow policy get` (policyTable), in row order, each parsed into model and effort --
+// pairs, read with `flow policy get` (PolicyTable), in row order, each parsed into model and effort --
 // `opus/flow-low`, `opus/flow-planner-medium`, `sonnet/Explore@low` -- an
 // unparseable pair dropped. Which pairs a role admits is its row's alone: no
 // model or effort is filtered here. Marked and opt-in pairs are never
@@ -179,10 +180,10 @@ func pjParse(pair string) (pjCandidate, bool) {
 	return pjCandidate{pair, m[1], m[2]}, true
 }
 
-func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
+func pairJudge(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) != 2 {
 		fmt.Fprintln(stderr, "usage: flow-guard pair-judge <role> <digest-file>")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	role := args[0]
@@ -192,13 +193,13 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if role == "pair-judge" { // the judge's own pair is never judged: it would pick itself
 		fmt.Fprintln(stderr, "pair-judge: the pair-judge role is not judged")
-		Reason(env, "role-not-judged")
+		core.Reason(env, "role-not-judged")
 		return 2
 	}
 	digest, err := os.ReadFile(args[1])
 	if err != nil {
 		fmt.Fprintf(stderr, "pair-judge: %v\n", err)
-		Reason(env, "digest-unreadable")
+		core.Reason(env, "digest-unreadable")
 		return 2
 	}
 	if strings.HasPrefix(filepath.Base(args[1]), "decide-group-") {
@@ -209,16 +210,16 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 	} else {
 		digest = pjAppendNamed(env, args[1], digest)
 	}
-	rows, err := policyTable(env)
+	rows, err := core.PolicyTable(env)
 	if err != nil {
 		fmt.Fprintf(stderr, "pair-judge: %v\n", err)
-		Reason(env, "policy-unreadable")
+		core.Reason(env, "policy-unreadable")
 		return 2
 	}
 	cands := pjCandidates(rows, role)
 	if len(cands) == 0 {
 		fmt.Fprintf(stderr, "pair-judge: %s has no base pair to pick from\n", role)
-		Reason(env, "candidates-empty")
+		core.Reason(env, "candidates-empty")
 		return 2
 	}
 	var line string
@@ -242,7 +243,7 @@ func pairJudge(args []string, env Env, stdout, stderr io.Writer) int {
 // pjSplitImplementer turns half of the implementer's opus/flow-low picks, the
 // judge's or the only candidate's, into sonnet/flow-low when the row admits
 // it; any other pick is returned as it was. The reason names the swap.
-func pjSplitImplementer(env Env, role string, cands []pjCandidate, line string) string {
+func pjSplitImplementer(env core.Env, role string, cands []pjCandidate, line string) string {
 	const from = "opus low judge "
 	if role != "implementer" || !strings.HasPrefix(line, from) {
 		return line
@@ -262,7 +263,7 @@ func pjSplitImplementer(env Env, role string, cands []pjCandidate, line string) 
 }
 
 // pjCandidates is role's base row, parsed.
-func pjCandidates(rows map[string][]policyRow, role string) []pjCandidate {
+func pjCandidates(rows map[string][]core.PolicyRow, role string) []pjCandidate {
 	var cands []pjCandidate
 	if rs := rows[role]; len(rs) > 0 {
 		for _, p := range rs[0].Pairs {
@@ -275,7 +276,7 @@ func pjCandidates(rows map[string][]policyRow, role string) []pjCandidate {
 }
 
 // pjAsk runs the judge; a non-empty cause is why its answer cannot be used.
-func pjAsk(env Env, rows map[string][]policyRow, role string, cands []pjCandidate, digest []byte) (pjCandidate, string, string) {
+func pjAsk(env core.Env, rows map[string][]core.PolicyRow, role string, cands []pjCandidate, digest []byte) (pjCandidate, string, string) {
 	result, spend, cause := pjRun(env, rows, "pair-judge", pjSystemPrompt(env, role, cands), digest, "", pjDefaultLimit)
 	if cause != "" {
 		return pjCandidate{}, "", cause
@@ -299,7 +300,7 @@ func pjAsk(env Env, rows map[string][]policyRow, role string, cands []pjCandidat
 // the answer JSON's `result` text; spend the ` (judge <s>s[, $<cost>])`
 // suffix; cause, when non-empty, why there is no usable answer, already
 // carrying spend whenever the command ran.
-func pjRun(env Env, rows map[string][]policyRow, judgeRole, system string, digest []byte, tools string, limit time.Duration) (result, spend, cause string) {
+func pjRun(env core.Env, rows map[string][]core.PolicyRow, judgeRole, system string, digest []byte, tools string, limit time.Duration) (result, spend, cause string) {
 	var judge pjCandidate
 	if rs := rows[judgeRole]; len(rs) > 0 && len(rs[0].Pairs) > 0 {
 		judge, _ = pjParse(rs[0].Pairs[0])
@@ -310,7 +311,7 @@ func pjRun(env Env, rows map[string][]policyRow, judgeRole, system string, diges
 	bin := env.Getenv("FLOW_PAIR_JUDGE_CMD")
 	if bin == "" {
 		var ok bool
-		if bin, ok = lookPath(env, "claude"); !ok {
+		if bin, ok = core.LookPath(env, "claude"); !ok {
 			return "", "", "claude not on PATH"
 		}
 	}
@@ -353,11 +354,11 @@ func pjRun(env Env, rows map[string][]policyRow, judgeRole, system string, diges
 	}
 	jerr := json.Unmarshal(out.Bytes(), &ans)
 	elapsed := time.Since(start)
-	h := Headless{Role: judgeRole, Model: judge.model, Effort: judge.effort, DurationMS: int(elapsed.Milliseconds())}
+	h := core.Headless{Role: judgeRole, Model: judge.model, Effort: judge.effort, DurationMS: int(elapsed.Milliseconds())}
 	if jerr == nil {
 		h.CostUSD = ans.Cost
 	}
-	recordHeadless(env, h)
+	core.RecordHeadless(env, h)
 	spend = fmt.Sprintf(" (judge %.1fs", elapsed.Seconds())
 	if jerr == nil && ans.Cost != nil {
 		spend += fmt.Sprintf(", $%.4f", *ans.Cost)
@@ -378,7 +379,7 @@ func pjRun(env Env, rows map[string][]policyRow, judgeRole, system string, diges
 }
 
 // pjSystemPrompt fills pjPrompt for role.
-func pjSystemPrompt(env Env, role string, cands []pjCandidate) string {
+func pjSystemPrompt(env core.Env, role string, cands []pjCandidate) string {
 	does := ""
 	if d := pjDoes(env, role); d != "" {
 		does = " It: " + d
@@ -392,7 +393,7 @@ func pjSystemPrompt(env Env, role string, cands []pjCandidate) string {
 
 // pjDoes is role's Does line from the roles table under FLOW_GUARD_REPO_ROOT;
 // "" when the root is unset or the table or the role's row cannot be read.
-func pjDoes(env Env, role string) string {
+func pjDoes(env core.Env, role string) string {
 	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	if root == "" {
 		return ""

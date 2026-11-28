@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -45,7 +46,7 @@ func TestRebaseOntoTip(t *testing.T) {
 			t.Fatal(fx.g.err)
 		}
 		var errb bytes.Buffer
-		o, err := rebaseOntoTip(Env{Dir: fx.dir, Getenv: os.Getenv}, fx.repo, "main", &errb)
+		o, err := rebaseOntoTip(core.Env{Dir: fx.dir, Getenv: os.Getenv}, fx.repo, "main", &errb)
 		if err != nil || o.kind != "rebased" || o.sha != tip || len(o.unmerged) != 0 {
 			t.Fatalf("got %+v, %v; want rebased onto %s\nstderr %s", o, err, tip, errb.String())
 		}
@@ -65,7 +66,7 @@ func TestRebaseOntoTip(t *testing.T) {
 			t.Fatal(fx.g.err)
 		}
 		var errb bytes.Buffer
-		o, err := rebaseOntoTip(Env{Dir: fx.dir, Getenv: os.Getenv}, fx.repo, "main", &errb)
+		o, err := rebaseOntoTip(core.Env{Dir: fx.dir, Getenv: os.Getenv}, fx.repo, "main", &errb)
 		if err != nil || o.kind != "conflict" || o.sha != tip || strings.Join(o.unmerged, ",") != "shared.txt" {
 			t.Fatalf("got %+v, %v; want a conflict on shared.txt onto %s\nstderr %s", o, err, tip, errb.String())
 		}
@@ -83,7 +84,7 @@ func TestRebaseOntoTip(t *testing.T) {
 			t.Fatal(fx.g.err)
 		}
 		var errb bytes.Buffer
-		o, err := rebaseOntoTip(Env{Dir: fx.dir, Getenv: os.Getenv}, fx.repo, "main", &errb)
+		o, err := rebaseOntoTip(core.Env{Dir: fx.dir, Getenv: os.Getenv}, fx.repo, "main", &errb)
 		if err != nil || o.kind != "refused" {
 			t.Fatalf("got %+v, %v; want refused\nstderr %s", o, err, errb.String())
 		}
@@ -113,7 +114,7 @@ done
 exec %[1]q "$@"
 `, fixtureGit))
 		var errb bytes.Buffer
-		o, err := rebaseOntoTip(Env{Dir: fx.dir, Getenv: pathEnv(stub)}, fx.repo, "main", &errb)
+		o, err := rebaseOntoTip(core.Env{Dir: fx.dir, Getenv: pathEnv(stub)}, fx.repo, "main", &errb)
 		if err != nil || o.kind != "rebased" || o.sha != pinned {
 			t.Fatalf("got %+v, %v; want rebased onto %s\nstderr %s", o, err, pinned, errb.String())
 		}
@@ -129,7 +130,7 @@ exec %[1]q "$@"
 		t.Parallel()
 		fx := rbNewFx(t)
 		var errb bytes.Buffer
-		if o, err := rebaseOntoTip(Env{Dir: fx.dir, Getenv: os.Getenv}, fx.repo, "no-such-base", &errb); err == nil {
+		if o, err := rebaseOntoTip(core.Env{Dir: fx.dir, Getenv: os.Getenv}, fx.repo, "no-such-base", &errb); err == nil {
 			t.Fatalf("got %+v, want an error", o)
 		}
 	})

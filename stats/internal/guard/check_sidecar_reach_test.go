@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // Every case of the check-sidecar-reach contract (scripts/check-sidecar-reach.sh).
@@ -94,7 +96,7 @@ func TestCheckSidecarReach(t *testing.T) {
 				args = append(args, mockups)
 				want = strings.ReplaceAll(want, "MOCKUPS", mockups)
 			}
-			r := runGuard("check-sidecar-reach", args, Env{})
+			r := runGuard("check-sidecar-reach", args, core.Env{})
 			if r.rc != c.rc || (want != "" && r.stdout != want) {
 				t.Fatalf("rc=%d stdout=%q, want rc=%d stdout=%q", r.rc, r.stdout, c.rc, want)
 			}
@@ -112,7 +114,7 @@ func TestCheckSidecarReach(t *testing.T) {
 		"mockups root not a directory": {t.TempDir(), file},
 	} {
 		t.Run("exit 2: "+name, func(t *testing.T) {
-			r := runGuard("check-sidecar-reach", args, Env{})
+			r := runGuard("check-sidecar-reach", args, core.Env{})
 			if r.rc != 2 || r.stdout != "" {
 				t.Fatalf("rc=%d stdout=%q, want 2 and empty stdout", r.rc, r.stdout)
 			}
@@ -138,11 +140,11 @@ func TestCheckSidecarReachSingleFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(mockups, "A-1.png"), nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	r := runGuard("check-sidecar-reach", []string{filepath.Join(root, "a.spec.ts.mockups"), mockups}, Env{})
+	r := runGuard("check-sidecar-reach", []string{filepath.Join(root, "a.spec.ts.mockups"), mockups}, core.Env{})
 	if want := "SIDECAR-REACH-OK: 1 lines in 1 sidecars\n"; r.rc != 0 || r.stdout != want {
 		t.Fatalf("sidecar alone: rc=%d stdout=%q, want rc=0 stdout=%q", r.rc, r.stdout, want)
 	}
-	if r := runGuard("check-sidecar-reach", []string{root, mockups}, Env{}); r.rc != 1 {
+	if r := runGuard("check-sidecar-reach", []string{root, mockups}, core.Env{}); r.rc != 1 {
 		t.Fatalf("capture root: rc=%d stdout=%q, want rc=1", r.rc, r.stdout)
 	}
 }

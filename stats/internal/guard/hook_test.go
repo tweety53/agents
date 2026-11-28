@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -34,7 +35,7 @@ func runHookStreams(t *testing.T, name, stdin string, vars ...string) (string, s
 		m[k] = v
 	}
 	var out, errb bytes.Buffer
-	env := Env{Getenv: func(k string) string { return m[k] }, Dir: t.TempDir(), Stdin: strings.NewReader(stdin)}
+	env := core.Env{Getenv: func(k string) string { return m[k] }, Dir: t.TempDir(), Stdin: strings.NewReader(stdin)}
 	rc := Registry["hook"]([]string{name}, env, &out, &errb)
 	return out.String(), errb.String(), rc
 }
@@ -210,7 +211,7 @@ func TestHookFlowActiveChangeBytes(t *testing.T) {
 func TestHookRecordsItsWallTime(t *testing.T) {
 	t.Parallel()
 	log := filepath.Join(t.TempDir(), "hook-runs.jsonl")
-	env := Env{Getenv: func(string) string { return "" }, Dir: t.TempDir(), HookRuns: log}
+	env := core.Env{Getenv: func(string) string { return "" }, Dir: t.TempDir(), HookRuns: log}
 	before := time.Now()
 	for _, stdin := range []string{`{"tool_name":"Read"}`, `not json`} {
 		env.Stdin = strings.NewReader(stdin)

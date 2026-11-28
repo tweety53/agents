@@ -5,6 +5,8 @@ import (
 	"os"
 	"slices"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 func (c *ic) commit() error {
@@ -19,12 +21,12 @@ func (c *ic) commit() error {
 	c.mergeOrder()
 	reshape := false
 	for i := range c.wt {
-		reshape = reshape || isFile(c.reshapeFile(c.wt[i]))
+		reshape = reshape || core.IsFile(c.reshapeFile(c.wt[i]))
 	}
 	if reshape {
 		for _, o := range c.order {
 			f := c.reshapeFile(c.wt[o])
-			if !isFile(f) {
+			if !core.IsFile(f) {
 				continue
 			}
 			rb := icReadTrimmed(f)
@@ -47,7 +49,7 @@ func (c *ic) commit() error {
 		}
 		for _, o := range c.order {
 			f := c.reshapeFile(c.wt[o])
-			if !isFile(f) {
+			if !core.IsFile(f) {
 				continue
 			}
 			rb := icReadTrimmed(f)
@@ -101,7 +103,7 @@ func (c *ic) commitTwo(wt, subj string, trailers []string) bool {
 	if checkChangeWorktreeLocation([]string{wt, c.name}, c.env, c.stdout, c.stderr) != 0 {
 		return false
 	}
-	changes := specRootLeaf(wt, c.stderr) + "/changes/"
+	changes := core.SpecRootLeaf(wt, c.stderr) + "/changes/"
 	// A worktree with nothing to commit and no change file tracked needs no
 	// ignore: neither commit can take the change directory.
 	dirty, okStatus := c.gitQuiet("-C", wt, "status", "--porcelain", "--untracked-files=normal")

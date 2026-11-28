@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -95,7 +96,7 @@ func vvGitCheckout(t *testing.T, dir, origin string) {
 }
 
 // vvGuard runs the registered guard in-process.
-func vvGuard(t *testing.T, env Env, args ...string) (string, int) {
+func vvGuard(t *testing.T, env core.Env, args ...string) (string, int) {
 	t.Helper()
 	fn, ok := foldedGuards["check-visual-verification"]
 	if !ok {
@@ -106,8 +107,8 @@ func vvGuard(t *testing.T, env Env, args ...string) (string, int) {
 	return out.String(), rc
 }
 
-func vvEnv(dir string) Env {
-	return Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: dir}
+func vvEnv(dir string) core.Env {
+	return core.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: dir}
 }
 
 // vvCfg is a case whose whole fixture is the configuration: cfg gets the
@@ -495,7 +496,7 @@ func TestVVAmbientGitDirHelper(t *testing.T) {
 	if root == "" {
 		t.Skip("helper for case 22")
 	}
-	out, rc := vvGuard(t, Env{Getenv: os.Getenv}, root)
+	out, rc := vvGuard(t, core.Env{Getenv: os.Getenv}, root)
 	fmt.Print(out)
 	os.Exit(rc)
 }

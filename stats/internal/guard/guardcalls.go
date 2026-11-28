@@ -14,6 +14,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // checkGuardCalls is `flow-guard check-guard-calls`: it keeps every guard
@@ -68,20 +70,20 @@ var (
 	gcBare  = regexp.MustCompile(`flow-guard ([A-Za-z0-9_]+)\b(?:[^-]|$)`)
 )
 
-func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
+func checkGuardCalls(_ []string, env core.Env, stdout, stderr io.Writer) int {
 	root, set := env.LookupEnv("CHECK_GUARD_CALLS_ROOT")
 	if !set {
 		root = env.Getenv("FLOW_GUARD_REPO_ROOT")
 	}
 	if root == "" {
 		fmt.Fprint(stderr, "check-guard-calls: no repository root — run flow-guard check-guard-calls, which sets FLOW_GUARD_REPO_ROOT\n")
-		Reason(env, "no-repository-root")
+		core.Reason(env, "no-repository-root")
 		return 2
 	}
 	files, err := gcFiles(root)
 	if err != nil {
 		fmt.Fprintf(stderr, "check-guard-calls: %v\n", err)
-		Reason(env, "cannot-list-files")
+		core.Reason(env, "cannot-list-files")
 		return 2
 	}
 	// The files are scanned concurrently and their findings written in
@@ -98,7 +100,7 @@ func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
 	for i, rel := range files {
 		if errs[i] != nil {
 			fmt.Fprintf(stderr, "check-guard-calls: cannot read %s: %v\n", rel, errs[i])
-			Reason(env, "cannot-read")
+			core.Reason(env, "cannot-read")
 			return 2
 		}
 		out.WriteString(finds[i].String())
@@ -107,17 +109,17 @@ func checkGuardCalls(_ []string, env Env, stdout, stderr io.Writer) int {
 	gn, err := gcGoLiterals(&out, root)
 	if err != nil {
 		fmt.Fprintf(stderr, "check-guard-calls: %v\n", err)
-		Reason(env, "cannot-read-go-literals")
+		core.Reason(env, "cannot-read-go-literals")
 		return 2
 	}
 	n += gn
-	if isDir(filepath.Join(root, "stats", "internal", "guard")) {
+	if core.IsDir(filepath.Join(root, "stats", "internal", "guard")) {
 		n += gcCompanions(&out, root, slices.Collect(maps.Keys(Registry)))
 	}
 	fmt.Fprint(stdout, out.String())
 	if n > 0 {
 		fmt.Fprintf(stdout, "GUARD-CALLS-INVALID: %s — %d violation(s)\n", root, n)
-		Reason(env, "guard-calls-invalid")
+		core.Reason(env, "guard-calls-invalid")
 		return 1
 	}
 	fmt.Fprintf(stdout, "GUARD-CALLS-OK: %s — %d file(s) scanned\n", root, len(files))
@@ -164,7 +166,7 @@ func gcTextFile(out io.Writer, root, rel string) (int, error) {
 // of a sequential scan.
 func gcGoLiterals(out io.Writer, root string) (int, error) {
 	stats := filepath.Join(root, "stats")
-	if !isDir(stats) {
+	if !core.IsDir(stats) {
 		return 0, nil
 	}
 	var paths []string
@@ -241,7 +243,7 @@ func gcCompanions(out io.Writer, root string, names []string) int {
 			continue
 		}
 		test := "stats/internal/guard/" + strings.ReplaceAll(name, "-", "_") + "_test.go"
-		if !isFile(filepath.Join(root, test)) {
+		if !core.IsFile(filepath.Join(root, test)) {
 			fmt.Fprintf(out, "%s:0: guard %s has no Go test — add it beside the guard (rule C)\n", test, name)
 			n++
 		}
@@ -254,7 +256,7 @@ func gcCompanions(out io.Writer, root string, names []string) int {
 func gcFiles(root string) ([]string, error) {
 	var files []string
 	skills := filepath.Join(root, "skills")
-	if isDir(skills) {
+	if core.IsDir(skills) {
 		err := filepath.WalkDir(skills, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -275,7 +277,7 @@ func gcFiles(root string) ([]string, error) {
 			return nil, err
 		}
 		for _, p := range m {
-			if isFile(p) {
+			if core.IsFile(p) {
 				rel, _ := filepath.Rel(root, p)
 				files = append(files, rel)
 			}

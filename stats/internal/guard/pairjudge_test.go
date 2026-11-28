@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 var pjCandidateLine = regexp.MustCompile(`(?m)^- (\S+)$`)
@@ -307,7 +309,7 @@ func TestPairJudgeRefuses(t *testing.T) {
 	digest := pjDigest(t, "a plan")
 	cases := map[string]struct {
 		args []string
-		env  Env
+		env  core.Env
 	}{
 		"no arguments":      {nil, env},
 		"one argument":      {[]string{"implementer"}, env},
@@ -320,7 +322,7 @@ func TestPairJudgeRefuses(t *testing.T) {
 	for _, role := range []string{"pair-judge", "no-such-role"} {
 		cases["role "+role] = struct {
 			args []string
-			env  Env
+			env  core.Env
 		}{[]string{role, digest}, env}
 	}
 	for name, c := range cases {
@@ -418,7 +420,7 @@ func TestPairJudgeRunsWithoutAutoMemory(t *testing.T) {
 func TestPairJudgeRunsWithoutTools(t *testing.T) {
 	t.Parallel()
 	stub := newPJStub(t, pjJSON("x", ""))
-	rows := map[string][]policyRow{"pair-judge": {{Pairs: []string{"sonnet/flow-low"}}}}
+	rows := map[string][]core.PolicyRow{"pair-judge": {{Pairs: []string{"sonnet/flow-low"}}}}
 	pjAsk(pjEnv(t, "{}", stub), rows, "implementer", []pjCandidate{{pair: "opus/flow-low"}}, []byte("d"))
 	a := stub.argv(t)
 	if i := slices.Index(a, "--tools"); i < 0 || a[i+1] != "" {
@@ -433,7 +435,7 @@ func TestPairJudgeRecordsItsHeadlessCall(t *testing.T) {
 	t.Parallel()
 	stub := newPJStub(t, pjJSON("PAIR: sonnet/flow-low\nREASON: renames only", `,"total_cost_usd":0.0123`))
 	env := pjEnv(t, pjPolicy(`"implementer":{"base":["opus/flow-low","sonnet/flow-low"],"optin":[],"marked":[]}`), stub)
-	env.Reasons = &Reasons{}
+	env.Reasons = &core.Reasons{}
 	if r := runGuard("pair-judge", []string{"implementer", pjDigest(t, "a plan")}, env); r.rc != 0 {
 		t.Fatalf("rc=%d stdout=%q", r.rc, r.stdout)
 	}
@@ -607,7 +609,7 @@ func TestPairJudgeSecretNames(t *testing.T) {
 		if err := os.WriteFile(p, []byte("x\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		if _, ok := pjSendable(Env{Getenv: func(string) string { return "" }}, p); ok != sent {
+		if _, ok := pjSendable(core.Env{Getenv: func(string) string { return "" }}, p); ok != sent {
 			t.Errorf("%s: sent %v, want %v", name, ok, sent)
 		}
 		if err := os.Remove(p); err != nil {

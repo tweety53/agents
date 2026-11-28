@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -43,7 +44,7 @@ func TestIgnoreScratch(t *testing.T) {
 	run := func(t *testing.T, args ...string) guardResult {
 		t.Helper()
 		var o, e bytes.Buffer
-		rc := ignoreScratch(args, Env{Getenv: os.Getenv}, &o, &e)
+		rc := ignoreScratch(args, core.Env{Getenv: os.Getenv}, &o, &e)
 		return guardResult{rc: rc, stdout: o.String(), err: e.String(), out: o.String() + e.String()}
 	}
 

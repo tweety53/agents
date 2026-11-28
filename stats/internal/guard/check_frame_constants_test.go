@@ -3,6 +3,8 @@ package guard
 import (
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // Two frames drawing one listed constant two ways is a conflict, whether a
@@ -15,7 +17,7 @@ func TestCheckFrameConstants(t *testing.T) {
 	writeFile(t, root+"/frames/WU1.png", "png")
 	writeFile(t, root+"/frames/WU1.constants", "# measured on the frame\nbar-height: 56px\nrail-grey: #8a8a8a\nnot-a-constant: 1\n")
 	writeFile(t, root+"/frames/tag/WU2.html", `<header data-const-bar-height="56px" data-const-rail-grey="n/a" data-const-not-a-constant="2"></header>`)
-	env := Env{Dir: root}
+	env := core.Env{Dir: root}
 	if r := runGuard("check-frame-constants", []string{"design.md", "frames"}, env); r.rc != 0 || !strings.Contains(r.out, "FRAME-CONSTANTS-OK: 2 listed constants, 2 frames, 3 frame values compared") {
 		t.Fatalf("agreeing frames: exit %d\n%s", r.rc, r.out+r.err)
 	}
@@ -41,7 +43,7 @@ func TestCheckFrameConstantsRefusesAnUnstatedFrame(t *testing.T) {
 	writeFile(t, root+"/frames/WU1.png", "png")
 	writeFile(t, root+"/frames/WU2.png", "png")
 	writeFile(t, root+"/frames/WU2.constants", "bar-height: 56px\n")
-	env := Env{Dir: root}
+	env := core.Env{Dir: root}
 	r := runGuard("check-frame-constants", []string{"design.md", "frames"}, env)
 	if r.rc != 1 || !strings.Contains(r.err, "FRAME-CONSTANT-UNSTATED: WU1 — bar-height, rail-grey\n") || !strings.Contains(r.err, "FRAME-CONSTANT-UNSTATED: WU2 — rail-grey\n") {
 		t.Fatalf("unstated frames: exit %d, want 1 naming WU1 and WU2\n%s", r.rc, r.out+r.err)
@@ -62,7 +64,7 @@ func TestCheckFrameConstantsPrintsTheSidecarLineToAdd(t *testing.T) {
 	writeFile(t, root+"/design.md", "## Shared constants\n\n- `bar-height`: 56px\n- `rail-grey`: #8a8a8a\n")
 	writeFile(t, root+"/frames/WU2.png", "png")
 	writeFile(t, root+"/frames/WU2.constants", "bar-height: 56px\n")
-	r := runGuard("check-frame-constants", []string{"design.md", "frames"}, Env{Dir: root})
+	r := runGuard("check-frame-constants", []string{"design.md", "frames"}, core.Env{Dir: root})
 	want := "FRAME-CONSTANT-ADD: " + root + "/frames/WU2.constants — rail-grey: <value|n/a>\n"
 	if r.rc != 1 || !strings.Contains(r.err, want) || strings.Contains(r.err, "— bar-height: <value") {
 		t.Fatalf("exit %d, want 1 with %q alone\n%s", r.rc, want, r.out+r.err)

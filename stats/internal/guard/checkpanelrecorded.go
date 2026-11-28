@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard check-panel-recorded <worktree> <round> — a round's panel reports
@@ -20,13 +22,13 @@ func init() { Registry["check-panel-recorded"] = checkPanelRecorded }
 
 var cprCount = regexp.MustCompile(`(?m)^(?:Critical|Important|Minor): (\d+)`)
 
-func checkPanelRecorded(args []string, env Env, stdout, stderr io.Writer) int {
+func checkPanelRecorded(args []string, env core.Env, stdout, stderr io.Writer) int {
 	round, err := 0, error(nil)
 	if len(args) == 2 {
 		round, err = strconv.Atoi(args[1])
 	}
 	if len(args) != 2 || err != nil {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard check-panel-recorded <worktree> <round>")
 		return 2
 	}
@@ -49,12 +51,12 @@ func checkPanelRecorded(args []string, env Env, stdout, stderr io.Writer) int {
 	if want == 0 {
 		return 0
 	}
-	out, _, rc := pcFlow(env, false, "record", "findings", "-change", filepath.Base(worktree), "-C", worktree)
+	out, _, rc := core.Flow(env, false, "record", "findings", "-change", filepath.Base(worktree), "-C", worktree)
 	var rows []struct {
 		Round int `json:"round"`
 	}
 	if rc != 0 || json.Unmarshal(out, &rows) != nil {
-		Reason(env, "store-unreadable")
+		core.Reason(env, "store-unreadable")
 		fmt.Fprintf(stderr, "check-panel-recorded: flow record findings exit %d\n", rc)
 		return 1
 	}
@@ -67,7 +69,7 @@ func checkPanelRecorded(args []string, env Env, stdout, stderr io.Writer) int {
 	if got >= want {
 		return 0
 	}
-	Reason(env, "panel-unrecorded")
+	core.Reason(env, "panel-unrecorded")
 	fmt.Fprintf(stderr, "check-panel-recorded: round %d reports raise %d findings but the store holds %d panel rows for it — record them (flow record finding -from findings-%d.jsonl): %v\n", round, want, got, round, raised)
 	return 1
 }

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // switchBack: a clean checkout on another branch goes back to its default
@@ -84,7 +86,7 @@ func (c *ic) prepare() error {
 	run1 := false
 	bm := make([]string, len(c.wt)) // each RUN1 worktree's base-moved line, the preflight's second line
 	for i := range c.wt {
-		if !isDir(c.wt[i]) {
+		if !core.IsDir(c.wt[i]) {
 			return c.stopAs("worktree-missing", "preflight", c.wt[i]+" is not on disk — report it and ask the operator")
 		}
 		if err := c.baseOf(i); err != nil {
@@ -228,7 +230,7 @@ func (c *ic) prepare() error {
 			fmt.Fprintf(c.stderr, "integrate-change: %v\n", err)
 		}
 		c.say("WORKTREE: " + c.wt[i] + " — base " + c.bases[i] + ", reshape base " + rb)
-		sp := specRootLeaf(c.wt[i], c.stderr)
+		sp := core.SpecRootLeaf(c.wt[i], c.stderr)
 		c.gitPass("-C", c.wt[i], "diff", "--no-renames", "--stat", rb, "--", ".", ":(exclude)"+sp+"/changes/")
 		others, _ := c.git("-C", c.wt[i], "ls-files", "--others", "--exclude-standard", "--", ".", ":(exclude)"+sp+"/changes/")
 		for _, l := range icLines(others) {

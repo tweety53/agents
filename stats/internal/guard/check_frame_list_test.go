@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // Every case of the check-frame-list contract (scripts/check-frame-list.sh):
@@ -84,7 +86,7 @@ func TestCheckFrameList(t *testing.T) {
 				t.Fatal(err)
 			}
 			flManifest(t, report, spec)
-			r := runGuard("check-frame-list", []string{designPath, mockups, report}, Env{Getenv: os.Getenv})
+			r := runGuard("check-frame-list", []string{designPath, mockups, report}, core.Env{Getenv: os.Getenv})
 			if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
 				t.Fatalf("rc=%d out=%q; want rc=%d containing %q", r.rc, r.out, tc.rc, tc.want)
 			}
@@ -96,7 +98,7 @@ func TestCheckFrameList(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{nil, {empty, dir}, {filepath.Join(dir, "absent.md"), dir, empty}, {empty, empty, empty}, {empty, dir, filepath.Join(dir, "absent.md")}} {
-		if r := runGuard("check-frame-list", args, Env{Getenv: os.Getenv}); r.rc != 2 {
+		if r := runGuard("check-frame-list", args, core.Env{Getenv: os.Getenv}); r.rc != 2 {
 			t.Fatalf("args %q: rc=%d out=%q; want exit 2", args, r.rc, r.out)
 		}
 	}
@@ -138,7 +140,7 @@ func TestCheckFrameListExpandsRangesAndSkipsConsidered(t *testing.T) {
 			t.Fatal(err)
 		}
 		flManifest(t, r, spec)
-		return runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
+		return runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
 	}
 	const design = "Frames `docs/design/mockups/LM-R1.png` … `docs/design/mockups/LM-R4.png`.\n" +
 		"  **Considered:** bare `R<n>.png` — `R1.png`/`R2.png` already exist.\n"
@@ -190,7 +192,7 @@ func TestCheckFrameListSkipsAnsweredQuestionLabels(t *testing.T) {
 	if err := os.WriteFile(r, []byte("## Report\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	res := runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
+	res := runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
 	if res.rc != 1 || !strings.Contains(res.out, "no sidecar line: AX1") || !strings.Contains(res.out, "no sidecar line: AXF1") {
 		t.Errorf("rc=%d out=%q; want 1 with 2 declared, AX1 and AXF1 named", res.rc, res.out)
 	}
@@ -229,7 +231,7 @@ func TestCheckFrameListReadsReportAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 	flManifest(t, report, spec)
-	r := runGuard("check-frame-list", []string{design, mockups, report}, Env{Getenv: os.Getenv})
+	r := runGuard("check-frame-list", []string{design, mockups, report}, core.Env{Getenv: os.Getenv})
 	if r.rc != 1 || !strings.Contains(r.out, "no report line: Q2") {
 		t.Fatalf("rc=%d out=%q; want exit 1 naming no report line: Q2", r.rc, r.out)
 	}
@@ -265,7 +267,7 @@ func TestCheckFrameListSkipsCitedQuestionLabels(t *testing.T) {
 		if err := os.WriteFile(d, []byte(design), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		return runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
+		return runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
 	}
 	if res := check("- Chosen: x — round 1, Q1.\nsee question Q4\nthe hero frame\n"); res.rc != 0 || !strings.Contains(res.out, "FRAME-LIST-COMPLETE") || !strings.Contains(res.out, "1 declared") {
 		t.Errorf("cited: rc=%d out=%q; want 0, FRAME-LIST-COMPLETE with 1 declared", res.rc, res.out)
@@ -314,7 +316,7 @@ func TestCheckFrameListDeclaresCitedSubDirectoryFrames(t *testing.T) {
 			}
 		}
 		flManifest(t, r, spec)
-		return runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
+		return runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
 	}
 	a := "Frames: `docs/design/mockups/kan-1084/` (FV1, P3), SL1 from `docs/design/mockups/kan-1083/`.\nPushed header (P3).\n"
 	if res := check(a, "kan-1084/P3", "kan-1084/FV1", "kan-1083/SL1"); res.rc != 0 || !strings.Contains(res.out, "3 declared") {
@@ -363,7 +365,7 @@ func TestCheckFrameListRootNeedsAnExplicitCitationBesideASubDirectory(t *testing
 			}
 		}
 		flManifest(t, r, spec)
-		return runGuard("check-frame-list", []string{d, mockups, r}, Env{Getenv: os.Getenv})
+		return runGuard("check-frame-list", []string{d, mockups, r}, core.Env{Getenv: os.Getenv})
 	}
 	a := "Frames: `docs/design/mockups/v2-plan/` (A1). The kernel keeps rules R1–R49 (R1, R6, R2).\n"
 	if res := check(a, "v2-plan/A1"); res.rc != 0 || !strings.Contains(res.out, "1 declared") {
@@ -407,12 +409,12 @@ func TestCheckFrameListFrames(t *testing.T) {
 	} {
 		writeFile(t, report, "## Report\n"+tc.body)
 		flManifest(t, report, spec)
-		r := runGuard("check-frame-list", append([]string{design, mockups, report}, tc.args...), Env{Getenv: os.Getenv})
+		r := runGuard("check-frame-list", append([]string{design, mockups, report}, tc.args...), core.Env{Getenv: os.Getenv})
 		if r.rc != tc.rc || !strings.Contains(r.out, tc.want) {
 			t.Errorf("%s: rc=%d out=%q; want rc=%d containing %q", tc.name, r.rc, r.out, tc.rc, tc.want)
 		}
 	}
-	if r := runGuard("check-frame-list", []string{design, mockups, report, "--frames"}, Env{Getenv: os.Getenv}); r.rc != 2 {
+	if r := runGuard("check-frame-list", []string{design, mockups, report, "--frames"}, core.Env{Getenv: os.Getenv}); r.rc != 2 {
 		t.Errorf("--frames with no value: rc=%d out=%q; want exit 2", r.rc, r.out)
 	}
 }

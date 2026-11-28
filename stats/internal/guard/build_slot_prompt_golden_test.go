@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // TestBuildSlotPromptGolden pins every slot's built prompt byte for byte — each reviewer template on
@@ -23,7 +25,7 @@ func TestBuildSlotPromptGolden(t *testing.T) {
 			args = append(args, "-artifacts", "/c/proposal.md,/c/design.md", "-standards", "/s/std.md",
 				"-global-constraints", "/g/gc.md", "-worktrees", "/w,/f", "-repo", "gymie", "-fix-report", "/r/panel-fix-report-2.md")
 		}
-		r := runGuard("build-slot-prompt", args, Env{})
+		r := runGuard("build-slot-prompt", args, core.Env{})
 		if r.rc != 0 {
 			t.Fatalf("%s: rc %d: %s", id, r.rc, r.out)
 		}

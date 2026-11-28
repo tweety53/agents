@@ -6,6 +6,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 var (
@@ -114,7 +116,7 @@ func (c *ic) cleanup() error {
 		}
 	}
 	for i := range c.wt {
-		if !isDir(c.wt[i]) {
+		if !core.IsDir(c.wt[i]) {
 			continue
 		}
 		if err := c.baseOf(i); err != nil {
@@ -163,7 +165,7 @@ func (c *ic) cleanup() error {
 		}
 	}
 	sd, _ := c.capture(c.cmd("/", "flow", "state", "dir", "-C", c.main))
-	if art := sd + "/" + c.name + "-proposal-artifact.html"; isFile(art) {
+	if art := sd + "/" + c.name + "-proposal-artifact.html"; core.IsFile(art) {
 		os.Remove(art)
 		c.say("PROPOSAL-ARTIFACT: removed")
 	} else {
@@ -171,7 +173,7 @@ func (c *ic) cleanup() error {
 	}
 	keep := []string{}
 	for _, w := range c.wt {
-		if isDir(w) {
+		if core.IsDir(w) {
 			keep = append(keep, w)
 		}
 	}

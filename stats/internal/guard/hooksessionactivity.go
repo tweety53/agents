@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard hook flow-session-activity — tell flowd what this session is doing now.
@@ -29,7 +31,7 @@ import (
 // the reason a tool call or a prompt is held up.
 func init() { hooks["flow-session-activity"] = flowSessionActivity }
 
-func flowSessionActivity(env Env, payload map[string]any, _, _ io.Writer) {
+func flowSessionActivity(env core.Env, payload map[string]any, _, _ io.Writer) {
 	sessionID := strOf(payload["session_id"])
 	if sessionID == "" {
 		return
@@ -52,7 +54,7 @@ func flowSessionActivity(env Env, payload map[string]any, _, _ io.Writer) {
 		Detail   string `json:"detail"`
 		Subagent bool   `json:"subagent,omitempty"`
 	}{state, detail, (event == "PreToolUse" || event == "PostToolUse") && pyTruthy(payload["agent_id"])})
-	req, err := http.NewRequest(http.MethodPut, hookFlowAddr(env)+"/api/v1/sessions/"+pyQuoteURL(sessionID, "")+"/activity", strings.NewReader(body))
+	req, err := http.NewRequest(http.MethodPut, core.FlowAddr(env)+"/api/v1/sessions/"+pyQuoteURL(sessionID, "")+"/activity", strings.NewReader(body))
 	if err != nil {
 		return
 	}

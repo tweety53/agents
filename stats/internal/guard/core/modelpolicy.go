@@ -1,4 +1,4 @@
-package guard
+package core
 
 import (
 	"encoding/json"
@@ -9,20 +9,20 @@ import (
 	"github.com/tweety53/agents/stats/internal/modelpolicy"
 )
 
-// The allowed pairs as mechanics: policyTable reads them, for pair-judge and
+// The allowed pairs as mechanics: PolicyTable reads them, for pair-judge and
 // visual-verify-pass;
 // policyAllows judges one pair against them.
 
-// mpFile names the roles and their prose; the pairs are flowd's.
-const mpFile = modelpolicy.File
+// PolicyFile names the roles and their prose; the pairs are flowd's.
+const PolicyFile = modelpolicy.File
 
 // mpOperatorMarker is the line an opt-in dispatch of role carries.
 func mpOperatorMarker(role string) string { return "Operator pair: " + role }
 
-// policyRow is one admission rule of a role: Pairs admitted when Marker is
+// PolicyRow is one admission rule of a role: Pairs admitted when Marker is
 // "" or a whole prompt line, and -- Grant set -- the dispatch's change holds
 // an operator grant for the role.
-type policyRow struct {
+type PolicyRow struct {
 	Pairs  []string
 	Marker string
 	Grant  bool
@@ -34,21 +34,21 @@ type policyWire struct {
 	Optin []string `json:"optin"`
 }
 
-// policyTable reads every role's pairs through `flow policy get` -- flowd's
+// PolicyTable reads every role's pairs through `flow policy get` -- flowd's
 // store, or the CLI's last-good cache when flowd is down (decision
 // policy-cache) -- as rows: the base row first (unmarked), then the opt-in row (marker `Operator pair: <role>`, needing a
 // grant). No answer at all is an error naming flowd and the cache.
-func policyTable(env Env) (map[string][]policyRow, error) {
-	out, errb, rc := pcFlow(env, false, "policy", "get")
+func PolicyTable(env Env) (map[string][]PolicyRow, error) {
+	out, errb, rc := Flow(env, false, "policy", "get")
 	var wire map[string]policyWire
 	if rc != 0 || json.Unmarshal(out, &wire) != nil {
 		return nil, fmt.Errorf("no allowed pairs: `flow policy get` exit %d — flowd unreachable and no policy cache: %s", rc, strings.TrimSpace(string(errb)))
 	}
-	rows := map[string][]policyRow{}
+	rows := map[string][]PolicyRow{}
 	for role, w := range wire {
-		rs := []policyRow{{Pairs: w.Base}}
+		rs := []PolicyRow{{Pairs: w.Base}}
 		if len(w.Optin) > 0 {
-			rs = append(rs, policyRow{Pairs: w.Optin, Marker: mpOperatorMarker(role), Grant: true})
+			rs = append(rs, PolicyRow{Pairs: w.Optin, Marker: mpOperatorMarker(role), Grant: true})
 		}
 		rows[role] = rs
 	}
@@ -67,7 +67,7 @@ func policyPair(typ, model, effort string) string {
 // policyAllows is nil when the base row of role lists the pair, or the
 // opt-in row lists it and its marker is a whole line of prompt -- only when granted, the dispatch's change holding an operator grant
 // for role; otherwise an error naming the role's allowed pairs.
-func policyAllows(rows map[string][]policyRow, role, typ, model, effort, prompt string, granted bool) error {
+func policyAllows(rows map[string][]PolicyRow, role, typ, model, effort, prompt string, granted bool) error {
 	rs, ok := rows[role]
 	if !ok {
 		return fmt.Errorf("unknown role %q — no allowed pairs in flowd (`flow policy get`)", role)

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // TestAffectedSpecs pins the mapping flow-guard affected-specs prints: a
@@ -13,7 +15,7 @@ import (
 // them all.
 func TestAffectedSpecs(t *testing.T) {
 	t.Parallel()
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	root := t.TempDir()
 	files := map[string]string{
 		".flow/project.md":            "# p\n\n## visual verification\n\n| Setting | Value |\n|---------|-------|\n| `ui paths` | `web/src/**` |\n",
@@ -131,7 +133,7 @@ func TestAffectedSpecs(t *testing.T) {
 // so a spec edit selects itself, not every unmapped spec.
 func TestAffectedSpecsSpecRootEditIsNoUIChange(t *testing.T) {
 	t.Parallel()
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	root := t.TempDir()
 	files := map[string]string{
 		".flow/project.md":           "# p\n",
@@ -164,7 +166,7 @@ func TestAffectedSpecsSpecRootEditIsNoUIChange(t *testing.T) {
 // tests, never the spec file they sit in, and any whole-spec reach wins.
 func TestAffectedSpecsSelectsByTest(t *testing.T) {
 	t.Parallel()
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	root := t.TempDir()
 	files := map[string]string{
 		"package.json":              "{}\n",

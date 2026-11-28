@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // Every case of scripts/test-resolve-visual-screenshots.sh at 3915fbc0, one
@@ -407,7 +409,7 @@ func TestResolveVisualScreenshots(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 			rc := 2
 			if fn := Registry["resolve-visual-screenshots"]; fn != nil {
-				rc = fn(f.args, Env{Getenv: os.Getenv, Dir: f.dir}, &stdout, &stderr)
+				rc = fn(f.args, core.Env{Getenv: os.Getenv, Dir: f.dir}, &stdout, &stderr)
 			} else {
 				stderr.WriteString("resolve-visual-screenshots is not registered\n")
 			}

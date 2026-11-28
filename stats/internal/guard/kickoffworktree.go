@@ -13,6 +13,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -112,7 +114,7 @@ func init() {
 
 // kwRun runs name args from dir (or env's directory), returning its exit
 // code and combined output.
-func kwRun(env Env, dir, name string, args ...string) (int, string) {
+func kwRun(env core.Env, dir, name string, args ...string) (int, string) {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = env.Dir
 	if dir != "" {
@@ -125,13 +127,13 @@ func kwRun(env Env, dir, name string, args ...string) (int, string) {
 func kwCombined(cmd *exec.Cmd) (int, string) {
 	var out bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &out
-	return exitCode(cmd.Run()), out.String()
+	return core.ExitCode(cmd.Run()), out.String()
 }
 
 // kwStdout runs name args like kwRun but returns stdout alone on exit 0, so
 // a list a command prints is never mixed with its stderr diagnostics; on a
 // failure the output is both streams, for the message.
-func kwStdout(env Env, dir, name string, args ...string) (int, string) {
+func kwStdout(env core.Env, dir, name string, args ...string) (int, string) {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = env.Dir
 	if dir != "" {
@@ -139,7 +141,7 @@ func kwStdout(env Env, dir, name string, args ...string) (int, string) {
 	}
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
-	rc := exitCode(cmd.Run())
+	rc := core.ExitCode(cmd.Run())
 	if rc != 0 {
 		return rc, out.String() + errb.String()
 	}
@@ -163,7 +165,7 @@ func kwFenced(body string) []string {
 	return cmds
 }
 
-func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
+func kickoffWorktree(args []string, env core.Env, stdout, stderr io.Writer) int {
 	const self = "kickoff-worktree"
 	const usage = "usage: flow-guard kickoff-worktree [--from <worktree>] <project> <name> [<base>]\n"
 	// --from names this change's existing worktree: the base defaults to the
@@ -172,17 +174,17 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) > 0 && args[0] == "--from" {
 		if len(args) < 2 || args[1] == "" {
 			fmt.Fprint(stderr, usage)
-			Reason(env, "usage")
+			core.Reason(env, "usage")
 			return 2
 		}
-		from, args = smcAbs(env, args[1]), args[2:]
+		from, args = core.Abs(env, args[1]), args[2:]
 	}
 	if len(args) < 2 || len(args) > 3 || args[0] == "" || args[1] == "" || (len(args) == 3 && args[2] == "") {
 		fmt.Fprint(stderr, usage)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
-	project, name := smcAbs(env, args[0]), args[1]
+	project, name := core.Abs(env, args[0]), args[1]
 	// An optional base names the branch the change is cut from and lands
 	// on; it flows into refs and a git config value, so it passes the
 	// name validation resolve-base-branch applies.
@@ -190,9 +192,9 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(args) == 3 {
 		base = args[2]
 	}
-	git, ok := panelResolveGit(env, self, stderr)
+	git, ok := core.ResolveGit(env, self, stderr)
 	if !ok {
-		Reason(env, "git-unresolved")
+		core.Reason(env, "git-unresolved")
 		return 2
 	}
 	if base == "" && from != "" {
@@ -200,7 +202,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		// and exits 1, so the worktree is checked first.
 		if rc, _ := kwRun(env, "", git, "-C", from, "rev-parse", "--git-dir"); rc != 0 {
 			fmt.Fprintf(stderr, "%s: --from %s is not a git worktree — cannot read its base, so none is added\n", self, from)
-			Reason(env, "from-not-a-worktree")
+			core.Reason(env, "from-not-a-worktree")
 			return 2
 		}
 		// Exit 1 is no flowBase: the default branch, as without --from; any
@@ -211,7 +213,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		case 1:
 		default:
 			fmt.Fprint(stderr, out)
-			Reason(env, "base-branch-unresolved")
+			core.Reason(env, "base-branch-unresolved")
 			return 2
 		}
 	}
@@ -219,7 +221,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		for i := 0; i < len(base); i++ {
 			if !rbbNameByte(base[i], i > 0) {
 				fmt.Fprintf(stderr, "%s: the base branch name is invalid\n", self)
-				Reason(env, "base-branch-name-is-invalid")
+				core.Reason(env, "base-branch-name-is-invalid")
 				return 2
 			}
 		}
@@ -229,24 +231,24 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	// before anything is cut — a repository the file does not declare stops
 	// here, nothing added or recorded.
 	link, peerName := "", ""
-	if from != "" && isDir(filepath.Join(from, "spectre/changes", name)) {
+	if from != "" && core.IsDir(filepath.Join(from, "spectre/changes", name)) {
 		link = filepath.Join(from, "spectre/changes", name, "link.md")
 		var msg string
 		if peerName, msg = kwPeerName(env, git, from, project); msg != "" {
 			fmt.Fprintf(stderr, "%s: %s — cannot write %s's merge order, so no worktree is added\n", self, msg, link)
-			Reason(env, "peer-name-unresolved")
+			core.Reason(env, "peer-name-unresolved")
 			return 2
 		}
 	}
 	// Before step 1: a worktree step 2 could not persist is never created.
-	flow, ok := lookPath(env, "flow")
+	flow, ok := core.LookPath(env, "flow")
 	if !ok {
 		fmt.Fprintf(stderr, "%s: no flow binary on PATH — step 2 could not persist the worktree, so none is created\n", self)
-		Reason(env, "no-flow-binary-on-path")
+		core.Reason(env, "no-flow-binary-on-path")
 		return 2
 	}
 	relay := func(id string, rc int, out string) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprint(stderr, out)
 		return rc
 	}
@@ -257,11 +259,11 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	physical, err := filepath.EvalSymlinks(project)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot resolve %s: %v\n", self, project, err)
-		Reason(env, "cannot-resolve")
+		core.Reason(env, "cannot-resolve")
 		return 2
 	}
 	branch := "spectre/" + name
-	wt := filepath.Join(siblingRoot(physical), name)
+	wt := filepath.Join(core.SiblingRoot(physical), name)
 	if rc, out := kwRun(env, "", git, "-C", project, "fetch", "origin"); rc != 0 {
 		return relay("fetch-failed", 1, out)
 	}
@@ -281,7 +283,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		if rc, _ := kwRun(env, "", git, "-C", project, "rev-parse", "-q", "--verify", "refs/remotes/origin/"+base); rc != 0 {
 			def, ok := defaultBranch()
 			if !ok {
-				Reason(env, "default-branch-unresolved")
+				core.Reason(env, "default-branch-unresolved")
 				return 2
 			}
 			if rc, out := kwRun(env, "", git, "-C", project, "push", "origin", "refs/remotes/"+def+":refs/heads/"+base); rc != 0 {
@@ -299,7 +301,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		if base == "" {
 			def, ok := defaultBranch()
 			if !ok {
-				Reason(env, "default-branch-unresolved")
+				core.Reason(env, "default-branch-unresolved")
 				return 2
 			}
 			start = def
@@ -310,7 +312,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		// flowBase would record a base the branch was never cut from.
 		if rc, _ := kwRun(env, "", git, "-C", project, "merge-base", "--is-ancestor", "origin/"+base, "origin/"+branch); rc != 0 {
 			fmt.Fprintf(stderr, "%s: origin/%s does not descend from origin/%s in %s — stop and ask the operator: rebase it with git rebase --onto origin/%s <its merge base> %s and push, then re-run\n", self, branch, base, project, base, branch)
-			Reason(env, "branch-not-cut-from-base")
+			core.Reason(env, "branch-not-cut-from-base")
 			return 1
 		}
 	}
@@ -339,7 +341,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 	// The session's scratch never rides along in a commit (kan-1081
 	// self-review, F2); its line goes to stderr, so stdout keeps its two.
 	if ignoreScratch([]string{wt}, env, stderr, stderr) != 0 {
-		Reason(env, "ignore-scratch-failed")
+		core.Reason(env, "ignore-scratch-failed")
 		return 1
 	}
 
@@ -366,7 +368,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 			wrote, err := kwMergeOrder(link, n)
 			if err != nil {
 				fmt.Fprintf(stderr, "%s: cannot write %s: %v\n", self, link, err)
-				Reason(env, "cannot-write")
+				core.Reason(env, "cannot-write")
 				return 1
 			}
 			changed = changed || wrote
@@ -382,7 +384,7 @@ func kickoffWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 // record holds for name, in spectre/peers order; from's own repository and a
 // worktree no peer names are skipped. A record that cannot be read yields
 // none.
-func kwRecordedPeers(env Env, git, flow, from, name string) []string {
+func kwRecordedPeers(env core.Env, git, flow, from, name string) []string {
 	// stdout alone: a fallback warning on stderr is not part of the record.
 	get := exec.Command(flow, "state", "get", "-C", from, name)
 	get.Dir = env.Dir
@@ -430,7 +432,7 @@ func kwReal(p string) string {
 // kwPeers is from's spectre/peers as {name, resolved path} pairs in file
 // order, and from's own main checkout, resolved. A non-empty message is why
 // they cannot be read.
-func kwPeers(env Env, git, from string) ([][2]string, string, string) {
+func kwPeers(env core.Env, git, from string) ([][2]string, string, string) {
 	body, err := os.ReadFile(filepath.Join(from, "spectre/peers"))
 	if err != nil {
 		return nil, "", "cannot read " + filepath.Join(from, "spectre/peers")
@@ -458,7 +460,7 @@ func kwPeers(env Env, git, from string) ([][2]string, string, string) {
 // kwPeerName is project's name in from's spectre/peers: one `<name> <path>`
 // line per peer, the path relative to from's main checkout. A non-empty
 // message is why it cannot be named.
-func kwPeerName(env Env, git, from, project string) (string, string) {
+func kwPeerName(env core.Env, git, from, project string) (string, string) {
 	peers, _, msg := kwPeers(env, git, from)
 	if msg != "" {
 		return "", msg
@@ -515,18 +517,18 @@ func kwMergeOrder(link, peer string) (bool, error) {
 // 0 done or none declared, 1 a command failed (named, its output relayed),
 // 2 project-get cannot answer. stdout alone is the section body; a warning
 // project-get prints on stderr is relayed, never parsed as a command.
-func kwSetup(env Env, wt, self string, stderr io.Writer) int {
-	get := siblingCmd(env, "FLOW_GUARD_PROJECT_GET", "project-get", wt, "worktree setup")
+func kwSetup(env core.Env, wt, self string, stderr io.Writer) int {
+	get := core.SiblingCmd(env, "FLOW_GUARD_PROJECT_GET", "project-get", wt, "worktree setup")
 	var body, getErr bytes.Buffer
 	get.Stdout, get.Stderr = &body, &getErr
-	switch rc := exitCode(get.Run()); rc {
+	switch rc := core.ExitCode(get.Run()); rc {
 	case 0:
 		fmt.Fprint(stderr, getErr.String())
 		for _, c := range kwFenced(body.String()) {
 			if rc, cout := kwRun(env, wt, "bash", "-c", c); rc != 0 {
 				fmt.Fprintf(stderr, "%s: worktree setup command failed (exit %d): %s\n", self, rc, c)
 				fmt.Fprint(stderr, cout)
-				Reason(env, "worktree-setup-command-failed")
+				core.Reason(env, "worktree-setup-command-failed")
 				return 1
 			}
 		}
@@ -534,7 +536,7 @@ func kwSetup(env Env, wt, self string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "%s: no ## worktree setup declared — skipped\n", self)
 	default:
 		fmt.Fprint(stderr, getErr.String())
-		Reason(env, "project-get-failed")
+		core.Reason(env, "project-get-failed")
 		return 2
 	}
 	return 0

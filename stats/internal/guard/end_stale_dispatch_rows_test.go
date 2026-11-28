@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // TestEndStaleDispatchRows: an open row whose agent finished and went quiet 10+ minutes ago is
@@ -46,7 +48,7 @@ func TestEndStaleDispatchRows(t *testing.T) {
 	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\n"+
 		"printf '%s\\n' \"$*\" >>"+log+"\n"+
 		"case \"$*\" in *-key\\ boom*) echo nope >&2; exit 1;; esac\n")
-	env := Env{Getenv: func(k string) string {
+	env := core.Env{Getenv: func(k string) string {
 		switch k {
 		case "HOME":
 			return home
@@ -86,7 +88,7 @@ func TestEndStaleDispatchRowsIdempotent(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
 	srv := fakeFlowdRows(t, func() string { return `[{"key":"k","agentId":"aaa","endedAt":"2026-01-01T00:00:00Z"}]` }, nil)
-	env := Env{Getenv: func(k string) string {
+	env := core.Env{Getenv: func(k string) string {
 		if k == "FLOW_ADDR" || k == "FLOW_RECORDS_ADDR" {
 			return srv.URL
 		}
@@ -126,7 +128,7 @@ func TestEndStaleDispatchRowsReadsTheHandbackReport(t *testing.T) {
 	log := filepath.Join(tmp, "flow.log")
 	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\n"+
 		"printf '%s\\n' \"$*\" >>"+log+"\n")
-	env := Env{Getenv: func(k string) string {
+	env := core.Env{Getenv: func(k string) string {
 		switch k {
 		case "HOME":
 			return home

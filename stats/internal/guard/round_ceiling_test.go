@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 func TestRoundCeiling(t *testing.T) {
@@ -42,13 +44,13 @@ func TestRoundCeiling(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			r := runGuard("round-ceiling", []string{project(t, c.body), c.failed}, Env{})
+			r := runGuard("round-ceiling", []string{project(t, c.body), c.failed}, core.Env{})
 			if r.rc != c.rc || !strings.Contains(r.out, c.want) {
 				t.Fatalf("rc=%d out=%q, want rc=%d containing %q", r.rc, r.out, c.rc, c.want)
 			}
 		})
 	}
-	if r := runGuard("round-ceiling", nil, Env{}); r.rc != 2 {
+	if r := runGuard("round-ceiling", nil, core.Env{}); r.rc != 2 {
 		t.Fatalf("no args: rc=%d, want 2", r.rc)
 	}
 }

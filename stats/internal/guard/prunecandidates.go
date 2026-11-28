@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -35,7 +36,7 @@ import (
 // A load is what the flow-skill-load hook records (stats/internal/guard/hookskillload.go): a Read
 // of the file or a Skill call of its SKILL.md, counted per file — the hook cannot name the section
 // a Read took, so nothing is reported per section. A file a conditional load set names
-// (conditionalLoadSets) carries that set's condition, so the pass can judge whether the
+// (ConditionalLoadSets) carries that set's condition, so the pass can judge whether the
 // condition could have held in the window. A window holding no load at all — the hook unregistered,
 // or newly so — prints `never-loaded: no load recorded in the window` instead of every file.
 // <repo> is FLOW_GUARD_REPO_ROOT, the checkout scripts/flow-guard exports; unset, no never-loaded
@@ -47,13 +48,13 @@ import (
 // Exit 0 with the report; 2 when flowd cannot be read or the flags are wrong.
 func init() { Registry["prune-candidates"] = pruneCandidates }
 
-func pruneCandidates(args []string, env Env, stdout, stderr io.Writer) int {
+func pruneCandidates(args []string, env core.Env, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("prune-candidates", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	days := fs.Int("days", 30, "window length in days")
 	if fs.Parse(args) != nil || *days < 1 {
 		fmt.Fprintln(stderr, "usage: flow-guard prune-candidates [-days N]  (N >= 1)")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	addr := "http://127.0.0.1:4173"
@@ -116,7 +117,7 @@ func pruneCandidates(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "prune-candidates: cannot read flowd at %s: %v\n", addr, err)
-		Reason(env, "flowd-unreadable")
+		core.Reason(env, "flowd-unreadable")
 		return 2
 	}
 
@@ -203,9 +204,9 @@ func neverLoaded(root string, rows []skillLoadRow) []string {
 		loaded[r.Path] = r.Loads > 0
 	}
 	cond := map[string][]string{}
-	for _, set := range conditionalLoadSets(root) {
-		for _, f := range set.files {
-			cond[f] = append(cond[f], set.condition)
+	for _, set := range core.ConditionalLoadSets(root) {
+		for _, f := range set.Files {
+			cond[f] = append(cond[f], set.Condition)
 		}
 	}
 	var out []string

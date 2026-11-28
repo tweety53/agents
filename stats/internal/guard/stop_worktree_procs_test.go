@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // A process whose cwd is inside the worktree is stopped; one outside it, and this test's own process, are not.
@@ -37,7 +39,7 @@ func TestStopWorktreeProcesses(t *testing.T) {
 	go func() { _ = inside.Wait(); close(reaped) }()
 	time.Sleep(200 * time.Millisecond)
 	var out, errb bytes.Buffer
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	if code := stopWorktreeProcesses([]string{wt}, env, &out, &errb); code != 0 {
 		t.Fatalf("exit %d: %s", code, errb.String())
 	}

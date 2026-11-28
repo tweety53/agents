@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -289,7 +290,7 @@ func cmfRun(base, name string, inv cmfInv) cmfResult {
 	for i, a := range args {
 		args[i] = strings.ReplaceAll(a, "<out>", outArg)
 	}
-	env := Env{Getenv: os.Getenv, Dir: dir}
+	env := core.Env{Getenv: os.Getenv, Dir: dir}
 	if inv.stdin != "" {
 		env.Stdin = strings.NewReader(inv.stdin)
 	}
@@ -459,7 +460,7 @@ func TestComposeMockupFramesSidecarFrameLine(t *testing.T) {
 		}
 		var stdout, stderr bytes.Buffer
 		rc := Registry["compose-mockup-frames"]([]string{"map.mockups", "root", "out", geom},
-			Env{Getenv: os.Getenv, Dir: dir, Stdin: strings.NewReader("caps/g1-dash.png\n")}, &stdout, &stderr)
+			core.Env{Getenv: os.Getenv, Dir: dir, Stdin: strings.NewReader("caps/g1-dash.png\n")}, &stdout, &stderr)
 		return cmfResult{rc: rc, stdout: stdout.String(), stderr: stderr.String(), out: dir + "/out"}
 	}
 	check := func(t *testing.T, r cmfResult, checks ...cmfCheck) {
@@ -528,7 +529,7 @@ func TestComposeMockupFramesCropsABareRender(t *testing.T) {
 		}
 		var stdout, stderr bytes.Buffer
 		rc := Registry["compose-mockup-frames"]([]string{"map.mockups", "root", "out"},
-			Env{Getenv: os.Getenv, Dir: dir, Stdin: strings.NewReader("caps/phone.png\ncaps/wide.png\n")}, &stdout, &stderr)
+			core.Env{Getenv: os.Getenv, Dir: dir, Stdin: strings.NewReader("caps/phone.png\ncaps/wide.png\n")}, &stdout, &stderr)
 		return cmfResult{rc: rc, stdout: stdout.String(), stderr: stderr.String(), out: dir + "/out"}
 	}
 	for _, c := range []struct {
@@ -587,7 +588,7 @@ func TestComposeMockupFramesParallelMatchesSerial(t *testing.T) {
 			t.Fatal(err)
 		}
 		var stdout, stderr bytes.Buffer
-		rc := composeMockupFrames([]string{"map.mockups", "root", "out"}, Env{Getenv: os.Getenv, Dir: dir, Stdin: strings.NewReader(stdin)}, &stdout, &stderr)
+		rc := composeMockupFrames([]string{"map.mockups", "root", "out"}, core.Env{Getenv: os.Getenv, Dir: dir, Stdin: strings.NewReader(stdin)}, &stdout, &stderr)
 		if rc != 1 {
 			t.Fatalf("rc=%d, want 1 (the gone*.png findings)\n%s", rc, stderr.String())
 		}

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/tweety53/agents/stats/internal/caller"
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard end-dispatch-row <agent-transcript> <session-id> <cwd> [<final-message>] — close a
@@ -55,9 +56,9 @@ var (
 	edrCommit = regexp.MustCompile(`(?m)^commit:[ \t]*\S+[ \t]+(?:[^=\s]+=)?([0-9a-f]{40})\b`)
 )
 
-func endDispatchRow(args []string, env Env, stdout, stderr io.Writer) int {
+func endDispatchRow(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) < 3 || len(args) > 4 {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard end-dispatch-row <agent-transcript> <session-id> <cwd> [<final-message>]")
 		return 2
 	}
@@ -93,7 +94,7 @@ func endDispatchRow(args []string, env Env, stdout, stderr io.Writer) int {
 	if c := edrCommit.FindAllStringSubmatch(final, -1); len(c) > 0 {
 		end = append(end, "-commit", c[len(c)-1][1])
 	}
-	if out, _, rc := pcFlow(env, true, end...); rc != 0 {
+	if out, _, rc := core.Flow(env, true, end...); rc != 0 {
 		return na(fmt.Sprintf("flow record dispatch end exit %d: %s", rc, strings.TrimSpace(string(out))))
 	}
 	fmt.Fprintf(stdout, "END-DISPATCH-ROW-OK %s %s\n", key, outcome)
@@ -219,7 +220,7 @@ func edrText(raw json.RawMessage) string {
 
 // edrSessionChange is the session's change from flowd's stage
 // runs, as flow-guard hook enforce-agent-baseline's session_change reads them.
-func edrSessionChange(env Env, sessionID string) string {
+func edrSessionChange(env core.Env, sessionID string) string {
 	addr := env.Getenv("FLOW_ADDR")
 	if addr == "" {
 		addr = "http://127.0.0.1:4173"
@@ -273,9 +274,9 @@ func edrSessionChange(env Env, sessionID string) string {
 // runs it after each stop. An agent with no report is never swept: a quiet long build looks the same.
 // Exit 0 always. Go, in flow-guard (stats/internal/guard/enddispatchrow.go).
 // Run in process by the await-own-agents hook only; no guard.Registry key.
-func sweepDispatchRows(args []string, env Env, stdout, stderr io.Writer) int {
+func sweepDispatchRows(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) != 3 {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard sweep-dispatch-rows <subagents-dir> <session-id> <cwd>")
 		return 2
 	}
@@ -313,7 +314,7 @@ func sweepDispatchRows(args []string, env Env, stdout, stderr io.Writer) int {
 // their begin, aborted, each under its own token. visual-verify-pass close ends these rows and
 // end-dispatch-row leaves them to it, so a round that was interrupted, superseded or never
 // launched an agent would otherwise leave its rows open for good.
-func sweepVisualVerifyRows(args []string, env Env) {
+func sweepVisualVerifyRows(args []string, env core.Env) {
 	change := edrSessionChange(env, args[1])
 	if change == "" {
 		return
@@ -324,7 +325,7 @@ func sweepVisualVerifyRows(args []string, env Env) {
 	}
 	for _, r := range rows {
 		if strings.HasPrefix(r.Key, "visual-verify") && r.EndedAt == nil && r.SessionToken != "" && time.Since(r.StartedAt) > 30*time.Minute {
-			pcFlow(env, true, "record", "dispatch", "end", "-C", args[2], "-change", change, "-key", r.Key, "-session-token", r.SessionToken, "-outcome", "aborted")
+			core.Flow(env, true, "record", "dispatch", "end", "-C", args[2], "-change", change, "-key", r.Key, "-session-token", r.SessionToken, "-outcome", "aborted")
 		}
 	}
 }

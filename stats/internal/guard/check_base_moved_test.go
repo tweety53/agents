@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -117,7 +118,7 @@ func (l lockedWriter) Write(p []byte) (int, error) {
 	return l.w.Write(p)
 }
 
-func runGuard(name string, args []string, env Env) guardResult {
+func runGuard(name string, args []string, env core.Env) guardResult {
 	fn := foldedGuards[name]
 	if fn == nil {
 		fn = inProcessGuards[name]
@@ -507,7 +508,7 @@ func TestCheckBaseMoved(t *testing.T) {
 			if c.args != nil {
 				args = c.args(fx)
 			}
-			env := Env{Dir: fx.dir, Getenv: os.Getenv, LookupEnv: os.LookupEnv}
+			env := core.Env{Dir: fx.dir, Getenv: os.Getenv, LookupEnv: os.LookupEnv}
 			if fx.stub != "" {
 				env.Getenv = pathEnv(fx.stub)
 			}
@@ -609,7 +610,7 @@ func TestBaseMovedFullOverlap(t *testing.T) {
 				args = c.args(fx)
 			}
 			subst := strings.NewReplacer("$REPO", fx.repo, "$DIR", fx.dir, "$REC", fx.recorded, "$MAIN", fx.g.git(fx.repo, "rev-parse", "main"))
-			env := Env{Dir: fx.dir, Getenv: os.Getenv, LookupEnv: os.LookupEnv}
+			env := core.Env{Dir: fx.dir, Getenv: os.Getenv, LookupEnv: os.LookupEnv}
 			r := runGuard("check-base-moved", args, env)
 			if r.rc != c.code || r.stdout != subst.Replace(c.out) || r.err != subst.Replace(c.err) {
 				t.Fatalf("got exit %d stdout %q stderr %q\nwant exit %d stdout %q stderr %q", r.rc, r.stdout, r.err, c.code, subst.Replace(c.out), subst.Replace(c.err))
@@ -627,7 +628,7 @@ func TestBaseMovedFullOverlap(t *testing.T) {
 // buffer: a child process given both writers copies each on its own
 // goroutine, which the race detector reports without the lock.
 func TestRunGuardMergesAChildsTwoStreams(t *testing.T) {
-	Registry["test-two-streams"] = func(_ []string, _ Env, stdout, stderr io.Writer) int {
+	Registry["test-two-streams"] = func(_ []string, _ core.Env, stdout, stderr io.Writer) int {
 		c := exec.Command("sh", "-c", "i=0; while [ $i -lt 200 ]; do echo out; echo err >&2; i=$((i+1)); done")
 		c.Stdout, c.Stderr = stdout, stderr
 		if c.Run() != nil {
@@ -636,7 +637,7 @@ func TestRunGuardMergesAChildsTwoStreams(t *testing.T) {
 		return 0
 	}
 	t.Cleanup(func() { delete(Registry, "test-two-streams") })
-	r := runGuard("test-two-streams", nil, Env{})
+	r := runGuard("test-two-streams", nil, core.Env{})
 	if r.rc != 0 || strings.Count(r.out, "out")+strings.Count(r.out, "err") != 400 {
 		t.Fatalf("runGuard = rc %d, %d lines merged; want rc 0 and 400", r.rc, strings.Count(r.out, "out")+strings.Count(r.out, "err"))
 	}

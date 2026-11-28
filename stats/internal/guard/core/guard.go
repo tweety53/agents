@@ -1,6 +1,7 @@
-// Package guard holds the Go ports of the flow guard scripts. Each guard
-// keeps its bash script's CLI contract; scripts/<name>.sh execs flow-guard.
-package guard
+// Package core is what every guard package shares: the Env a guard runs in,
+// its reason collector, the Registry each guard registers into, and the
+// helpers more than one guard package uses. It registers no guard.
+package core
 
 import (
 	"io"
@@ -25,7 +26,7 @@ type Env struct {
 	PairJudgeTimeout time.Duration
 	// PairJudgeCoin is the 50/50 draw of the implementer's opus/flow-low pick; nil is a fair coin.
 	PairJudgeCoin func() bool
-	// SlotGate turns heavySlot on: flow-guard's main sets it, so a test's
+	// SlotGate turns HeavySlot on: flow-guard's main sets it, so a test's
 	// zero Env never waits on flowd. SlotPoll is the gate's re-ask interval,
 	// zero 2 s; SlotRenew a held slot's renewal interval, zero 20 s.
 	SlotGate  bool
@@ -67,9 +68,9 @@ func (r *Reasons) Wait() time.Duration {
 	return r.wait
 }
 
-// recordWait adds d to the run's wait; a nil collector makes it a no-op,
+// RecordWait adds d to the run's wait; a nil collector makes it a no-op,
 // as Reason.
-func recordWait(env Env, d time.Duration) {
+func RecordWait(env Env, d time.Duration) {
 	if r := env.Reasons; r != nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -96,9 +97,9 @@ func (r *Reasons) Headless() *Headless {
 	return r.headless
 }
 
-// recordHeadless keeps h as the run's headless call; a nil collector makes
+// RecordHeadless keeps h as the run's headless call; a nil collector makes
 // it a no-op, as Reason.
-func recordHeadless(env Env, h Headless) {
+func RecordHeadless(env Env, h Headless) {
 	if r := env.Reasons; r != nil {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -130,10 +131,10 @@ func Reason(env Env, id string) {
 	}
 }
 
-// quietReasons is env with no collector, for a guard run in process as a
+// QuietReasons is env with no collector, for a guard run in process as a
 // probe: its non-zero exit is an answer to the caller, not the caller's
 // refusal, so it records nothing; the caller tags its own exit.
-func quietReasons(env Env) Env {
+func QuietReasons(env Env) Env {
 	env.Reasons = nil
 	return env
 }

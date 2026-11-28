@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -459,7 +460,7 @@ func TestVvpBaseInReadsEachCheckoutsRoundBase(t *testing.T) {
 	gitRun(t, other, "-c", "user.email=a@b", "-c", "user.name=a", "commit", "-qm", "capture")
 	otherBase := vgHead(t, other)
 	foreign := strings.Repeat("0", 40)
-	v := &vvp{env: Env{Getenv: os.Getenv}, bases: map[string]string{other: otherBase}}
+	v := &vvp{env: core.Env{Getenv: os.Getenv}, bases: map[string]string{other: otherBase}}
 	if got := v.baseIn(filepath.Join(other, "fidelity"), foreign); got != otherBase {
 		t.Errorf("baseIn with the checkout's base recorded = %q, want %q", got, otherBase)
 	}

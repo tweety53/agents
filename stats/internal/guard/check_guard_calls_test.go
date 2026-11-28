@@ -14,6 +14,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // gcTree writes files (path relative to a fresh root → content) and runs
@@ -30,7 +32,7 @@ func gcTree(t *testing.T, files map[string]string) (string, int) {
 			t.Fatal(err)
 		}
 	}
-	env := Env{
+	env := core.Env{
 		Getenv:    func(string) string { return "" },
 		LookupEnv: func(k string) (string, bool) { return root, k == "CHECK_GUARD_CALLS_ROOT" },
 		Dir:       root,
@@ -172,7 +174,7 @@ func TestCheckGuardCallsMatchesSequential(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, root := range map[string]string{"fixture": fixture, "repository": repo} {
-		env := Env{
+		env := core.Env{
 			Getenv:    func(string) string { return "" },
 			LookupEnv: func(k string) (string, bool) { return root, k == "CHECK_GUARD_CALLS_ROOT" },
 			Dir:       root,
@@ -232,7 +234,7 @@ func gcSequential(t *testing.T, root string) (string, int) {
 		t.Fatal(err)
 	}
 	n += gn
-	if isDir(filepath.Join(root, "stats", "internal", "guard")) {
+	if core.IsDir(filepath.Join(root, "stats", "internal", "guard")) {
 		n += gcCompanions(&out, root, slices.Collect(maps.Keys(Registry)))
 	}
 	if n > 0 {
@@ -245,7 +247,7 @@ func gcSequential(t *testing.T, root string) (string, int) {
 
 func gcGoLiteralsSequential(out io.Writer, root string) (int, error) {
 	stats := filepath.Join(root, "stats")
-	if !isDir(stats) {
+	if !core.IsDir(stats) {
 		return 0, nil
 	}
 	n := 0

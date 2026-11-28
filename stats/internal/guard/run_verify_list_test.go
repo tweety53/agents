@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -98,7 +99,7 @@ func TestRunVerifyList(t *testing.T) {
 			gargs[i] = strings.ReplaceAll(a, "<ROOT>", gr)
 		}
 		var o, e bytes.Buffer
-		grc := Registry["run-verify-list"](gargs, Env{Getenv: getenv, Environ: func() []string { return goEnviron },
+		grc := Registry["run-verify-list"](gargs, core.Env{Getenv: getenv, Environ: func() []string { return goEnviron },
 			Dir: gr, Stdin: strings.NewReader("LEAKED-STDIN\n")}, &o, &e)
 		// The recording arguments (kan-1033) and the visual list (kan-1052
 		// self-review, F2) postdate the bash: its usage line lacks them.
@@ -345,7 +346,7 @@ func TestRunVerifyListRecordsTheVerifyRow(t *testing.T) {
 	run := func(args ...string) (int, string) {
 		os.Remove(log)
 		var o, e bytes.Buffer
-		rc := runVerifyList(args, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		rc := runVerifyList(args, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 		calls, _ := os.ReadFile(log)
 		if strings.Contains(string(calls), "-tokens") {
 			t.Errorf("an end carries -tokens:\n%s", calls)
@@ -405,7 +406,7 @@ func TestRunVerifyListRecordsSuiteRuntimes(t *testing.T) {
 			return ""
 		}
 		var o, e bytes.Buffer
-		rc := runVerifyList([]string{wt, "test"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		rc := runVerifyList([]string{wt, "test"}, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 		return rc, o.String()
 	}
 	rc, out := run(dir + ":" + os.Getenv("PATH"))
@@ -447,7 +448,7 @@ func TestRunVerifyListStopsOnARefusedBegin(t *testing.T) {
 		writeExec(t, filepath.Join(dir, "flow"), flow)
 		var o, e bytes.Buffer
 		rc := runVerifyList([]string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low"},
-			Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+			core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 		calls, _ := os.ReadFile(log)
 		return rc, string(calls), e.String()
 	}
@@ -494,7 +495,7 @@ func TestRunVerifyListRecordsAgainstTheCanonicalWorktree(t *testing.T) {
 	run := func(args ...string) (int, string) {
 		os.Remove(log)
 		var o, e bytes.Buffer
-		rc := runVerifyList(args, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		rc := runVerifyList(args, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 		calls, _ := os.ReadFile(log)
 		return rc, string(calls)
 	}
@@ -550,7 +551,7 @@ func TestRunVerifyListEndsEveryRun(t *testing.T) {
 	run := func() (int, string) {
 		os.Remove(log)
 		var o, e bytes.Buffer
-		rc := runVerifyList(append([]string{wt, list}, rec...), Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		rc := runVerifyList(append([]string{wt, list}, rec...), core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 		calls, _ := os.ReadFile(log)
 		return rc, string(calls)
 	}
@@ -685,7 +686,7 @@ func TestRunVerifyListLeavesTheRowOpenWhileASiblingRuns(t *testing.T) {
 	run := func(list string) int {
 		var o, e bytes.Buffer
 		return runVerifyList([]string{wt, list, "kan-1", "verify", "mf-k1", "opus", "low"},
-			Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+			core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 	}
 	calls := func() string { b, _ := os.ReadFile(log); return string(b) }
 	fixtureRepo(t, wt, repoShape{})
@@ -753,7 +754,7 @@ func TestRunVerifyListKeepsResultFiles(t *testing.T) {
 	var dirs []string
 	for range 2 {
 		var o, e bytes.Buffer
-		if rc := runVerifyList([]string{wt, "test"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e); rc != 1 {
+		if rc := runVerifyList([]string{wt, "test"}, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e); rc != 1 {
 			t.Fatalf("exit %d: %s %s", rc, o.String(), e.String())
 		}
 		_, dir, ok := strings.Cut(o.String(), "  result files: ")
@@ -781,7 +782,7 @@ func TestRunVerifyListSurvivesAClosedStdout(t *testing.T) {
 	t.Parallel()
 	if wt := os.Getenv("RVL_SIGPIPE_WT"); wt != "" {
 		os.Exit(runVerifyList([]string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low"},
-			Env{Getenv: os.Getenv, Environ: os.Environ, Dir: wt}, os.Stdout, os.Stderr))
+			core.Env{Getenv: os.Getenv, Environ: os.Environ, Dir: wt}, os.Stdout, os.Stderr))
 	}
 	dir := t.TempDir()
 	log := filepath.Join(dir, "calls")
@@ -832,7 +833,7 @@ func TestRunVerifyListKeepsSIGPIPEForCommands(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\nbash -c 'yes | head -1 >/dev/null; test ${PIPESTATUS[0]} = 141'\n```\n")
 	var out, errb bytes.Buffer
-	if rc := runVerifyList([]string{wt, "test"}, Env{Getenv: os.Getenv, Environ: os.Environ, Dir: wt}, &out, &errb); rc != 0 {
+	if rc := runVerifyList([]string{wt, "test"}, core.Env{Getenv: os.Getenv, Environ: os.Environ, Dir: wt}, &out, &errb); rc != 0 {
 		t.Fatalf("rc %d, want 0: the producer did not die of SIGPIPE\nstdout:\n%s\nstderr:\n%s", rc, out.String(), errb.String())
 	}
 }
@@ -898,7 +899,7 @@ func rvlRunRows(t *testing.T, dir, path string, extra []string, dispatches func(
 		return ""
 	}
 	var o, e bytes.Buffer
-	rc := runVerifyList(args, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: dir, Dispatches: dispatches}, &o, &e)
+	rc := runVerifyList(args, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: dir, Dispatches: dispatches}, &o, &e)
 	return rc, o.String() + e.String()
 }
 
@@ -1097,7 +1098,7 @@ func TestRunVerifyListRefusesAnOffContractKey(t *testing.T) {
 	run := func(on, key string) (int, string, string) {
 		os.Remove(log)
 		var o, e bytes.Buffer
-		rc := runVerifyList([]string{on, "lint", "kan-1", key, "mf-k1", "opus", "low"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: on}, &o, &e)
+		rc := runVerifyList([]string{on, "lint", "kan-1", key, "mf-k1", "opus", "low"}, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: on}, &o, &e)
 		calls, _ := os.ReadFile(log)
 		return rc, string(calls), e.String()
 	}
@@ -1166,7 +1167,7 @@ func TestRunVerifyListRecordsHead(t *testing.T) {
 		return ""
 	}
 	var o, e bytes.Buffer
-	rc := runVerifyList([]string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low", canon}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+	rc := runVerifyList([]string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low", canon}, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 	calls, _ := os.ReadFile(log)
 	first := strings.SplitN(string(calls), "\n", 2)[0]
 	if rc != 0 || !strings.HasPrefix(first, "flow record dispatch begin ") || !strings.HasSuffix(first, " -diff-base "+head(wt)) {
@@ -1247,7 +1248,7 @@ func TestRunVerifyListStampsLintGreen(t *testing.T) {
 	}
 	lint := func(wt string) (int, string) {
 		var o, e bytes.Buffer
-		rc := runVerifyList([]string{wt, "lint"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		rc := runVerifyList([]string{wt, "lint"}, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 		return rc, o.String() + e.String()
 	}
 	stamp := func(f string) (string, bool) {
@@ -1353,7 +1354,7 @@ func TestRunVerifyListSkipsACommandGreenAtHead(t *testing.T) {
 	}
 	test := func() (int, string) {
 		var o, e bytes.Buffer
-		rc := runVerifyList([]string{wt, "test"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		rc := runVerifyList([]string{wt, "test"}, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 		return rc, o.String() + e.String()
 	}
 	runs := func() int {
@@ -1409,7 +1410,7 @@ func TestRunVerifyListClassifiesAFailingTestCommand(t *testing.T) {
 	test := func(cmds ...string) (int, string) {
 		writeFile(t, filepath.Join(wt, ".flow/project.md"), "## test\n\n```bash\n"+strings.Join(cmds, "\n")+"\n```\n")
 		var o, e bytes.Buffer
-		rc := runVerifyList([]string{wt, "test"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		rc := runVerifyList([]string{wt, "test"}, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 		return rc, o.String()
 	}
 	fixtureRepo(t, wt, repoShape{})
@@ -2072,7 +2073,7 @@ func TestRunVerifyListFullUsage(t *testing.T) {
 		{"-full"},
 	} {
 		var out, errb bytes.Buffer
-		rc := runVerifyList(args, Env{Getenv: func(k string) string { return map[string]string{rvlOperatorFull: "1"}[k] }, Environ: os.Environ, Dir: repo}, &out, &errb)
+		rc := runVerifyList(args, core.Env{Getenv: func(k string) string { return map[string]string{rvlOperatorFull: "1"}[k] }, Environ: os.Environ, Dir: repo}, &out, &errb)
 		if _, err := os.Stat(filepath.Join(repo, "ran")); rc != 2 || errb.Len() == 0 || err == nil {
 			t.Errorf("%q: rc=%d stderr=%q, want 2, a stderr line and no command run", args, rc, errb.String())
 		}
@@ -2327,7 +2328,7 @@ func TestRunVerifyListRefusesAnUnsuffixedKeyInAMultiWorktreeChange(t *testing.T)
 			return ""
 		}
 		var o, e bytes.Buffer
-		rc := runVerifyList([]string{wt, "lint", "kan-1", key, "mf-k1", "sonnet", "medium", wt}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		rc := runVerifyList([]string{wt, "lint", "kan-1", key, "mf-k1", "sonnet", "medium", wt}, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 		calls, _ := os.ReadFile(log)
 		return rc, string(calls), e.String()
 	}
@@ -2366,7 +2367,7 @@ func TestRunVerifyListAppliesPrepareWorkspace(t *testing.T) {
 			return ""
 		}
 		var o, e bytes.Buffer
-		rc := runVerifyList([]string{wt, "lint"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
+		rc := runVerifyList([]string{wt, "lint"}, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e)
 		b, _ := os.ReadFile(filepath.Join(wt, "out.txt"))
 		return rc, strings.TrimSpace(string(b)) + "\n" + o.String() + e.String()
 	}
@@ -2425,7 +2426,7 @@ func TestRunVerifyListAbortsTheSupersededOpenRow(t *testing.T) {
 			"[ \"$3\" = end ] && echo nope && exit %d\nexit 0\n", rows, log, endRC))
 		var o, e bytes.Buffer
 		rc := runVerifyList([]string{a, "lint", "kan-1", "verify-fix-1-a", "mf-k1", "opus", "low"},
-			Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: a}, &o, &e)
+			core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: a}, &o, &e)
 		calls, _ := os.ReadFile(log)
 		return rc, string(calls), e.String()
 	}
@@ -2507,7 +2508,7 @@ func TestRunVerifyListPadsAFastCompletedRow(t *testing.T) {
 		return ""
 	}
 	var o, e bytes.Buffer
-	if rc := runVerifyList([]string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low"}, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e); rc != 0 {
+	if rc := runVerifyList([]string{wt, "test", "kan-1", "verify", "mf-k1", "opus", "low"}, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: wt}, &o, &e); rc != 0 {
 		t.Fatalf("exit %d:\n%s%s", rc, o.String(), e.String())
 	}
 	b, err1 := os.Stat(filepath.Join(dir, "begin"))
@@ -2525,7 +2526,7 @@ func TestRunVerifyListPadsAFastCompletedRow(t *testing.T) {
 func TestRunVerifyListUsageNamesAnExitOnStdout(t *testing.T) {
 	t.Parallel()
 	var out, errb bytes.Buffer
-	rc := Registry["run-verify-list"]([]string{t.TempDir(), "lint", "-caller-agent", "x"}, Env{Getenv: func(string) string { return "" }, Environ: os.Environ, Dir: t.TempDir()}, &out, &errb)
+	rc := Registry["run-verify-list"]([]string{t.TempDir(), "lint", "-caller-agent", "x"}, core.Env{Getenv: func(string) string { return "" }, Environ: os.Environ, Dir: t.TempDir()}, &out, &errb)
 	if rc != 2 || !strings.Contains(out.String(), "— exit 2") {
 		t.Errorf("rc=%d stdout=%q, want 2 and a `— exit 2` line", rc, out.String())
 	}

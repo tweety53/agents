@@ -19,21 +19,22 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 func init() { Registry["check-open-requests"] = checkOpenRequests }
 
-func checkOpenRequests(args []string, env Env, stdout, stderr io.Writer) int {
+func checkOpenRequests(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard check-open-requests <worktree>")
 		return 2
 	}
 	worktree := args[0]
 	change := filepath.Base(worktree)
-	project, _, err := fallback.ProjectKey(smcAbs(env, worktree))
+	project, _, err := fallback.ProjectKey(core.Abs(env, worktree))
 	if err != nil {
-		Reason(env, "store-unreadable")
+		core.Reason(env, "store-unreadable")
 		fmt.Fprintf(stderr, "check-open-requests: %v\n", err)
 		return 2
 	}
@@ -42,7 +43,7 @@ func checkOpenRequests(args []string, env Env, stdout, stderr io.Writer) int {
 	defer cancel()
 	reqs, err := client.New(recordsAddr(env), &http.Client{Timeout: timeout}).ListRequests(ctx, project, change)
 	if err != nil && !errors.Is(err, client.ErrNotFound) {
-		Reason(env, "store-unreadable")
+		core.Reason(env, "store-unreadable")
 		fmt.Fprintf(stderr, "check-open-requests: read %s's requests: %v\n", change, err)
 		return 2
 	}
@@ -54,7 +55,7 @@ func checkOpenRequests(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	if open > 0 {
-		Reason(env, "requests-open")
+		core.Reason(env, "requests-open")
 		return 1
 	}
 	return 0

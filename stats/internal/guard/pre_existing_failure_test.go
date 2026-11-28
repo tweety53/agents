@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // TestPreExistingFailure pins the sweep's classifier: a failure is
@@ -31,7 +33,7 @@ func TestPreExistingFailure(t *testing.T) {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	run := func(args ...string) guardResult { return runGuard("pre-existing-failure", args, env) }
 
 	if r := run(wt, "main", "true"); r.rc != 2 || r.stdout != "" {

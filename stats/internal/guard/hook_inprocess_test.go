@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // TestHookInProcessBoundsAHungGuard: a guard the hook calls in process that
@@ -15,8 +17,8 @@ import (
 // bound -- while one that returns hands back its output and exit code.
 func TestHookInProcessBoundsAHungGuard(t *testing.T) {
 	t.Parallel()
-	env := Env{Getenv: os.Getenv}
-	hung := func([]string, Env, io.Writer, io.Writer) int { select {} }
+	env := core.Env{Getenv: os.Getenv}
+	hung := func([]string, core.Env, io.Writer, io.Writer) int { select {} }
 	start := time.Now()
 	if _, _, _, err := hookInProcess(env, 50*time.Millisecond, t.TempDir(), hung); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("err %v, want a deadline", err)
@@ -25,7 +27,7 @@ func TestHookInProcessBoundsAHungGuard(t *testing.T) {
 		t.Fatalf("returned after %v", d)
 	}
 	dir := t.TempDir()
-	done := func(args []string, env Env, stdout, stderr io.Writer) int {
+	done := func(args []string, env core.Env, stdout, stderr io.Writer) int {
 		_, _ = io.WriteString(stdout, env.Dir+" "+args[0])
 		_, _ = io.WriteString(stderr, "e")
 		return 3

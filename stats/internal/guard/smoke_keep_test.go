@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // smokeKeepRepo builds a repository whose base commit holds files and is origin/main.
@@ -42,7 +44,7 @@ func TestSmokeKeep(t *testing.T) {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
-	env := Env{Getenv: os.Getenv, Dir: repo}
+	env := core.Env{Getenv: os.Getenv, Dir: repo}
 	// A rename keeps its old name's tests; a path holding a space stays one path.
 	const tests = "pkg/ pkg/a b_test.go pkg/check_plan_shape_test.go pkg/integrate_change_test.go pkg/new_test.go pkg/old_test.go pkg/run_verify_list_test.go"
 	// pkg/_.go has an empty normal form, so it pairs with nothing and keeps pkg/.
@@ -58,7 +60,7 @@ func TestSmokeKeep(t *testing.T) {
 	if want := tests + "\n"; r.rc != 0 || r.stdout != want || r.err != unpaired {
 		t.Errorf("no argument: rc=%d stdout=%q stderr=%q, want 0, %q and %q", r.rc, r.stdout, r.err, want, unpaired)
 	}
-	r = runGuard("smoke-keep", nil, Env{Getenv: os.Getenv, Dir: repo + "/pkg"})
+	r = runGuard("smoke-keep", nil, core.Env{Getenv: os.Getenv, Dir: repo + "/pkg"})
 	if want := tests + "\n"; r.rc != 0 || r.stdout != want || r.err != unpaired {
 		t.Errorf("from a subdirectory: rc=%d stdout=%q stderr=%q, want 0, %q and %q", r.rc, r.stdout, r.err, want, unpaired)
 	}
@@ -68,7 +70,7 @@ func TestSmokeKeep(t *testing.T) {
 	if g2.err != nil {
 		t.Fatal(g2.err)
 	}
-	r = runGuard("smoke-keep", []string{"pkg/=t/x/"}, Env{Getenv: os.Getenv, Dir: clean})
+	r = runGuard("smoke-keep", []string{"pkg/=t/x/"}, core.Env{Getenv: os.Getenv, Dir: clean})
 	if r.rc != 0 || r.stdout != "\n" || r.err != "" {
 		t.Errorf("nothing changed: rc=%d stdout=%q stderr=%q, want 0 and one empty line", r.rc, r.stdout, r.err)
 	}
@@ -83,7 +85,7 @@ func TestSmokeKeepUnpairedKeepsItsDirectory(t *testing.T) {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
-	r := runGuard("smoke-keep", nil, Env{Getenv: os.Getenv, Dir: repo})
+	r := runGuard("smoke-keep", nil, core.Env{Getenv: os.Getenv, Dir: repo})
 	const wantErr = "smoke-keep: a/b/x.go pairs with no test file — keeping its directory a/b/\n"
 	if r.rc != 0 || r.stdout != "a/b/\n" || r.err != wantErr {
 		t.Errorf("rc=%d stdout=%q stderr=%q, want 0, %q and %q", r.rc, r.stdout, r.err, "a/b/\n", wantErr)
@@ -102,7 +104,7 @@ func TestSmokeKeepUnreadableDirectory(t *testing.T) {
 		t.Fatal(g.err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(repo+"/pkg", 0o755) })
-	r := runGuard("smoke-keep", nil, Env{Getenv: os.Getenv, Dir: repo})
+	r := runGuard("smoke-keep", nil, core.Env{Getenv: os.Getenv, Dir: repo})
 	if r.rc != 0 || r.stdout != "\n" || !strings.HasPrefix(r.err, "smoke-keep: pkg/run.go: open ") || !strings.Contains(r.err, "permission denied") {
 		t.Errorf("unreadable directory: rc=%d stdout=%q stderr=%q, want 0, an empty line and the read error", r.rc, r.stdout, r.err)
 	}
@@ -118,13 +120,13 @@ func TestSmokeKeepRefusals(t *testing.T) {
 		t.Fatal(g.err)
 	}
 	for _, arg := range []string{"hooks/", "=t/x/", "hooks/="} {
-		r := runGuard("smoke-keep", []string{arg}, Env{Getenv: os.Getenv, Dir: repo})
+		r := runGuard("smoke-keep", []string{arg}, core.Env{Getenv: os.Getenv, Dir: repo})
 		if r.rc != 2 || r.err != "usage: flow-guard smoke-keep [<path prefix>=<kept path>]...\n" || r.stdout != "" {
 			t.Errorf("%q: rc=%d stderr=%q stdout=%q, want 2 and the usage line", arg, r.rc, r.err, r.stdout)
 		}
 	}
 	for name, dir := range map[string]string{"no repository": t.TempDir(), "no origin/main": noOrigin} {
-		r := runGuard("smoke-keep", nil, Env{Getenv: os.Getenv, Dir: dir})
+		r := runGuard("smoke-keep", nil, core.Env{Getenv: os.Getenv, Dir: dir})
 		if r.rc != 2 || !strings.HasPrefix(r.err, "smoke-keep: ") || r.stdout != "" {
 			t.Errorf("%s: rc=%d stderr=%q stdout=%q, want 2 and a smoke-keep: line", name, r.rc, r.err, r.stdout)
 		}

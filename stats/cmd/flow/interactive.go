@@ -41,6 +41,7 @@ import (
 	"strings"
 
 	"github.com/tweety53/agents/stats/internal/guard"
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 const interactiveUsage = `usage: flow interactive land [-addr url] [-timeout dur] [-C worktree]
@@ -112,7 +113,7 @@ func runInteractiveLand(ctx context.Context, args []string, getenv func(string) 
 		return refuse("%s is not clean — commit or remove: %s", *wt, strings.SplitN(st, "\n", 2)[0])
 	}
 	var out, errBuf strings.Builder
-	if code := guard.Registry["resolve-base-branch"]([]string{*wt}, guard.Env{Getenv: getenv, Dir: *wt}, &out, &errBuf); code != 0 {
+	if code := guard.Registry["resolve-base-branch"]([]string{*wt}, core.Env{Getenv: getenv, Dir: *wt}, &out, &errBuf); code != 0 {
 		return refuse("resolve-base-branch exited %d on %s: %s", code, *wt, strings.TrimSpace(errBuf.String()))
 	}
 	baseBranch := strings.TrimSpace(out.String())

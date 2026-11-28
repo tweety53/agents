@@ -1,15 +1,15 @@
-package guard
+package core
 
 // loadSet is a conditional load set: the files a session loads only when condition holds.
 type loadSet struct {
-	condition string
-	files     []string
+	Condition string
+	Files     []string
 }
 
-// conditionalLoadSets are the planning, implementation and finish sessions' conditional load sets
+// ConditionalLoadSets are the planning, implementation and finish sessions' conditional load sets
 // under repo root r, in that order — prune-candidates annotates a
 // never-loaded file with its condition.
-func conditionalLoadSets(r string) []loadSet {
+func ConditionalLoadSets(r string) []loadSet {
 	f, c := r+"/skills/flow/", r+"/skills/flow-contracts/"
 	return []loadSet{
 		{"flow-fix, resume", inDir(f, "resume.md")},

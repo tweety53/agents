@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -69,7 +70,7 @@ func vpRun(t *testing.T, wt string, apps []string, stdin, path string) (int, str
 		t.Fatal("no check-visual-preflight guard in Registry")
 	}
 	var out, errb bytes.Buffer
-	code := g(append([]string{wt}, apps...), Env{Getenv: onlyPath(path), Stdin: strings.NewReader(stdin)}, &out, &errb)
+	code := g(append([]string{wt}, apps...), core.Env{Getenv: onlyPath(path), Stdin: strings.NewReader(stdin)}, &out, &errb)
 	return code, out.String(), errb.String()
 }
 

@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard verify-change — the mechanical half of /flow's **Verify** stage
@@ -74,7 +76,7 @@ import (
 // Go, in flow-guard (stats/internal/guard/verifychange.go).
 func init() { Registry["verify-change"] = verifyChange }
 
-func verifyChange(args []string, env Env, stdout, stderr io.Writer) int {
+func verifyChange(args []string, env core.Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "verify-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
 	c.childEnv = icChildEnv(env)
@@ -99,7 +101,7 @@ func (c *ic) verify(args []string) error {
 	}
 	var wts, mbs, repos []string
 	for i, w := range c.wt {
-		if isDir(w) {
+		if core.IsDir(w) {
 			wts, mbs, repos = append(wts, w), append(mbs, c.mb[i]), append(repos, c.repo[i])
 		}
 	}
@@ -139,7 +141,7 @@ func (c *ic) verify(args []string) error {
 	failed := false
 	multi := len(wts) > 1
 	for i, w := range wts {
-		spec := specRootLeaf(w, io.Discard)
+		spec := core.SpecRootLeaf(w, io.Discard)
 		if multi && mbs[i] != "-" {
 			if d, _ := c.git("-C", w, "diff", "--no-renames", "--name-only", mbs[i]+"..HEAD", "--", ".", ":(exclude)"+spec+"/changes/"+c.name); d == "" {
 				c.say("SKIPPED: " + w + " — nothing outside its change directory")
@@ -163,7 +165,7 @@ func (c *ic) verify(args []string) error {
 		rcs := make([]int, len(lists))
 		var wg sync.WaitGroup
 		for j, l := range lists {
-			cmd := siblingCmd(c.env, "FLOW_GUARD_RUN_VERIFY_LIST", "run-verify-list", append([]string{w, l}, rec...)...)
+			cmd := core.SiblingCmd(c.env, "FLOW_GUARD_RUN_VERIFY_LIST", "run-verify-list", append([]string{w, l}, rec...)...)
 			cmd.Dir, cmd.Env = "/", c.childEnv
 			cmd.Stdout, cmd.Stderr = &outs[j], &outs[j]
 			wg.Add(1)

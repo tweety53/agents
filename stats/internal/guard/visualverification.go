@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -129,9 +131,9 @@ import (
 // interpolates a cell into a shell. Every violation line, and every cell
 // interpolated into a message afterwards, passes through sanitizeDisplay
 // before it reaches the terminal.
-func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) int {
+func checkVisualVerification(args []string, env core.Env, stdout, stderr io.Writer) int {
 	refuse := func(id, msg string) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintln(stderr, "check-visual-verification: "+msg)
 		return 2
 	}
@@ -139,7 +141,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 		return refuse("usage", "usage: visual-verification check, run in-process: <project root>")
 	}
 	root := args[0]
-	if !isDir(wiAbs(env, root)) {
+	if !core.IsDir(wiAbs(env, root)) {
 		return refuse("not-a-directory", root+" is not a directory — cannot tell whether it declares a visual verification section")
 	}
 	cfg := root + "/.flow/project.md"
@@ -156,7 +158,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 	// A REGULAR FILE, TESTED BEFORE READABILITY, because readability answers
 	// about a DIRECTORY too, and the bash's `grep` then failed with "Is a
 	// directory" while its exit status was indistinguishable from "no match".
-	if !isFile(path) {
+	if !core.IsFile(path) {
 		return refuse("not-a-regular-file", cfg+" is not a regular file — cannot validate what it declares")
 	}
 	if syscall.Access(path, 4) != nil {
@@ -186,7 +188,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 	if count > 1 {
 		fmt.Fprint(stdout, sanitizeDisplay(fmt.Sprintf("%s:0: the file declares %d `## visual verification` sections — a second declaration is an ambiguous declaration rather than a merge, so neither was validated\n", cfg, count)))
 		fmt.Fprintf(stdout, "VISUAL-INVALID: %s — 1 violation(s) in the `## visual verification` section\n", cfg)
-		Reason(env, "visual-invalid")
+		core.Reason(env, "visual-invalid")
 		return 1
 	}
 
@@ -196,7 +198,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 	v := &vvValidation{cfg: cfg, set: map[string]vvField{}, cmd: map[string]vvField{}}
 	heading := 0
 	for i, l := range vvLines(text) {
-		if vvHeading.MatchString(gsASCIILower(l)) {
+		if vvHeading.MatchString(core.AwkLower(l)) {
 			heading = i + 1
 			break
 		}
@@ -255,7 +257,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 
 	valid := false
 	if hasCheckout {
-		if !isDir(wiAbs(env, checkout.val)) {
+		if !core.IsDir(wiAbs(env, checkout.val)) {
 			v.addv(checkout.line, "`regression checkout` names `"+checkout.val+"`, which is not an existing directory")
 		} else if vvGitClean(env, "-C", checkout.val, "rev-parse", "--git-dir").Run() != nil {
 			v.addv(checkout.line, "`regression checkout` names `"+checkout.val+"`, which is not a git checkout")
@@ -275,7 +277,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 	// Every other combination already has its own finding above, so running
 	// this too would report the same misconfiguration twice.
 	if valid && hasRepo && !v.originIs(env, stderr, checkout.line, checkout.val, repo.val, "regression repo") {
-		Reason(env, "origin-check-failed")
+		core.Reason(env, "origin-check-failed")
 		return 2
 	}
 
@@ -288,12 +290,12 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 		switch {
 		case len(f) != 2:
 			v.addv(d.line, "`design repo` is `"+d.val+"` — it must be `<clone path> <remote>`, two fields")
-		case !isDir(wiAbs(env, f[0])):
+		case !core.IsDir(wiAbs(env, f[0])):
 			v.addv(d.line, "`design repo` names `"+f[0]+"`, which is not an existing directory")
 		case vvGitClean(env, "-C", f[0], "rev-parse", "--git-dir").Run() != nil:
 			v.addv(d.line, "`design repo` names `"+f[0]+"`, which is not a git checkout")
 		case !v.originIs(env, stderr, d.line, f[0], f[1], "design repo"):
-			Reason(env, "origin-check-failed")
+			core.Reason(env, "origin-check-failed")
 			return 2
 		}
 	}
@@ -301,7 +303,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 	if len(v.viol) != 0 {
 		fmt.Fprint(stdout, sanitizeDisplay(strings.Join(v.viol, "")))
 		fmt.Fprintf(stdout, "VISUAL-INVALID: %s — %d violation(s) in the `## visual verification` section\n", cfg, len(v.viol))
-		Reason(env, "visual-invalid")
+		core.Reason(env, "visual-invalid")
 		return 1
 	}
 	fmt.Fprintf(stdout, "VISUAL-OK: %s — the `## visual verification` section validated\n", cfg)
@@ -321,7 +323,7 @@ func checkVisualVerification(args []string, env Env, stdout, stderr io.Writer) i
 // it through a stub git) is this guard failing to look. The checkout is a
 // cell out of `.flow/project.md` and gitErr is git's own stderr against it,
 // so both go through sanitizeDisplay as every other interpolated cell does.
-func (v *vvValidation) originIs(env Env, stderr io.Writer, line int, dir, want, row string) bool {
+func (v *vvValidation) originIs(env core.Env, stderr io.Writer, line int, dir, want, row string) bool {
 	cmd := vvGitClean(env, "-C", dir, "remote", "get-url", "origin")
 	var out, errOut bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errOut
@@ -367,10 +369,10 @@ func (v *vvValidation) originIs(env Env, stderr io.Writer, line int, dir, want, 
 // `GIT_CEILING_DIRECTORIES` and every `GIT_CONFIG*` variable redirect repo
 // or config resolution the same way, so EVERY `GIT_`-prefixed variable
 // present is dropped — read from the environment rather than a fixed list
-// the next git release could add to. envGit keeps the whole environment,
+// the next git release could add to. EnvGit keeps the whole environment,
 // which is why this guard does not run git through it bare.
-func vvGitClean(env Env, args ...string) *exec.Cmd {
-	cmd := envGit(env)(args...)
+func vvGitClean(env core.Env, args ...string) *exec.Cmd {
+	cmd := core.EnvGit(env)(args...)
 	cmd.Env = []string{} // never nil: nil inherits every variable
 	for _, kv := range os.Environ() {
 		if !strings.HasPrefix(kv, "GIT_") {

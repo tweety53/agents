@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard check-fix-revert — after a fix commit, refuse one that undoes an earlier fix of
@@ -34,41 +36,41 @@ func init() { Registry["check-fix-revert"] = checkFixRevert }
 // `panel-fix-<round>`, `full-suite-fix-<n>`, `task-<n>-implementer-fix-<k>`, `minor-fix`.
 var fixKey = regexp.MustCompile(`(^|-)fix(-|$)`)
 
-func checkFixRevert(args []string, env Env, stdout, stderr io.Writer) int {
+func checkFixRevert(args []string, env core.Env, stdout, stderr io.Writer) int {
 	const prog = "check-fix-revert"
 	if len(args) < 1 || len(args) > 2 {
 		fmt.Fprintf(stderr, "%s: usage: flow-guard check-fix-revert <worktree> [<base>]\n", prog)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	wt := args[0]
-	git := envGit(env)
+	git := core.EnvGit(env)
 	base := ""
 	if len(args) == 2 {
 		base = args[1]
-	} else if br, ok := capture(git("-C", wt, "symbolic-ref", "--short", "HEAD")); ok {
+	} else if br, ok := core.Capture(git("-C", wt, "symbolic-ref", "--short", "HEAD")); ok {
 		// The branch's flow base, as taskrecords.go resolves it: `branch.<current>.flowBase`, else origin/HEAD.
-		base, _ = capture(git("-C", wt, "config", "--get", "branch."+br+".flowBase"))
+		base, _ = core.Capture(git("-C", wt, "config", "--get", "branch."+br+".flowBase"))
 	}
 	if base == "" {
 		base = "refs/remotes/origin/HEAD"
 	}
-	head, ok := capture(git("-C", wt, "rev-parse", "HEAD"))
+	head, ok := core.Capture(git("-C", wt, "rev-parse", "HEAD"))
 	if !ok {
 		fmt.Fprintf(stderr, "%s: not a git worktree: %s\n", prog, wt)
-		Reason(env, "not-a-worktree")
+		core.Reason(env, "not-a-worktree")
 		return 2
 	}
-	log, ok := capture(git("-C", wt, "log", "--format=%H %(trailers:key=Flow-Key,valueonly,separator=%x2C)", base+"..HEAD^"))
+	log, ok := core.Capture(git("-C", wt, "log", "--format=%H %(trailers:key=Flow-Key,valueonly,separator=%x2C)", base+"..HEAD^"))
 	if !ok {
 		fmt.Fprintf(stderr, "%s: git log %s..HEAD^ failed in %s\n", prog, base, wt)
-		Reason(env, "git-failed")
+		core.Reason(env, "git-failed")
 		return 2
 	}
 	headAdd, headDel, ok := commitLines(git, wt, head)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: git show %s failed\n", prog, head)
-		Reason(env, "git-failed")
+		core.Reason(env, "git-failed")
 		return 2
 	}
 	rc := 0
@@ -80,7 +82,7 @@ func checkFixRevert(args []string, env Env, stdout, stderr io.Writer) int {
 		add, del, ok := commitLines(git, wt, sha)
 		if !ok {
 			fmt.Fprintf(stderr, "%s: git show %s failed\n", prog, sha)
-			Reason(env, "git-failed")
+			core.Reason(env, "git-failed")
 			return 2
 		}
 		n := overlap(headDel, add) + overlap(headAdd, del)
@@ -90,7 +92,7 @@ func checkFixRevert(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	if rc != 0 {
-		Reason(env, "fix-conflict")
+		core.Reason(env, "fix-conflict")
 	}
 	return rc
 }
@@ -98,7 +100,7 @@ func checkFixRevert(args []string, env Env, stdout, stderr io.Writer) int {
 // commitLines is a commit's added and removed lines, each keyed `<file>\x00<trimmed line>`
 // and counted, blank lines left out.
 func commitLines(git func(...string) *exec.Cmd, wt, sha string) (add, del map[string]int, ok bool) {
-	out, ok := capture(git("-C", wt, "show", "--format=", "-U0", "--no-color", sha))
+	out, ok := core.Capture(git("-C", wt, "show", "--format=", "-U0", "--no-color", sha))
 	if !ok {
 		return nil, nil, false
 	}

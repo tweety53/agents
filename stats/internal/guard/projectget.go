@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -68,41 +70,41 @@ func init() {
 	Registry["project-get"] = projectGet
 }
 
-func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
+func projectGet(args []string, env core.Env, stdout, stderr io.Writer) int {
 	// --enum <literal>... resolves a single-line-literal key: the body's
 	// head is matched against the literals — on equality or on a leading,
 	// word-bounded literal (pgEnum), the longest match winning.
 	enum := len(args) > 3 && args[2] == "--enum"
 	if len(args) != 2 && !enum {
 		fmt.Fprintln(stderr, "usage: flow-guard project-get <project-root> <key>")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	root, key := args[0], args[1]
-	if !isDir(smcAbs(env, root)) {
+	if !core.IsDir(core.Abs(env, root)) {
 		fmt.Fprintf(stderr, "project-get: %s is not a directory\n", root)
-		Reason(env, "not-a-directory")
+		core.Reason(env, "not-a-directory")
 		return 2
 	}
 	cfg := root + "/.flow/project.md"
-	src := smcAbs(env, cfg)
+	src := core.Abs(env, cfg)
 
 	// HEAD's copy wins over the working tree's (KAN-520, the script's
 	// header), read through a temporary file as the bash did. A caller's
 	// ambient GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE would hijack which
 	// repository git reads, so none reaches it.
 	git := pgGit(env)
-	if rel, ok := capture(git("-C", root, "rev-parse", "--show-prefix")); ok {
+	if rel, ok := core.Capture(git("-C", root, "rev-parse", "--show-prefix")); ok {
 		obj := "HEAD:" + rel + ".flow/project.md"
 		if git("-C", root, "cat-file", "-e", obj).Run() == nil {
 			tmp, err := pgHead(git("-C", root, "show", obj))
 			if err != nil {
 				fmt.Fprintf(stderr, "project-get: cannot read %s in %s: %v\n", obj, root, err)
-				Reason(env, "cannot-read-config")
+				core.Reason(env, "cannot-read-config")
 				return 2
 			}
 			defer os.Remove(tmp)
-			if isRegular(src) && projectSection(tmp, key) != projectSection(src, key) {
+			if isRegular(src) && core.ProjectSection(tmp, key) != core.ProjectSection(src, key) {
 				fmt.Fprintf(stderr, "project-get: WARNING: %s diverges from HEAD on '## %s' — resolving from HEAD; commit or restore the working tree to silence this\n", cfg, key)
 			}
 			src = tmp
@@ -113,11 +115,11 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 	found := err == nil
 	if !found {
 		fmt.Fprintf(stderr, "project-get: %s does not exist\n", cfg)
-		Reason(env, "does-not-exist")
+		core.Reason(env, "does-not-exist")
 		return 1
 	}
 	count := 0
-	for _, line := range lines(bytes.TrimPrefix(content, []byte("\xef\xbb\xbf"))) {
+	for _, line := range core.Lines(bytes.TrimPrefix(content, []byte("\xef\xbb\xbf"))) {
 		if line == "## "+key {
 			count++
 		}
@@ -125,10 +127,10 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 	switch count {
 	case 0:
 		fmt.Fprintf(stderr, "project-get: %s declares no '## %s' section\n", cfg, key)
-		Reason(env, "section-missing")
+		core.Reason(env, "section-missing")
 		return 1
 	case 1:
-		body := projectSection(src, key)
+		body := core.ProjectSection(src, key)
 		if enum {
 			return pgEnum(env, body, key, args[3:], stdout, stderr)
 		}
@@ -138,7 +140,7 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 		return 0
 	}
 	fmt.Fprintf(stderr, "project-get: %s declares %d '## %s' sections — a second declaration is ambiguous, so neither was read\n", cfg, count, key)
-	Reason(env, "section-declared-twice")
+	core.Reason(env, "section-declared-twice")
 	return 2
 }
 
@@ -151,7 +153,7 @@ func projectGet(args []string, env Env, stdout, stderr io.Writer) int {
 // literal on the head line is for the reader, never read (kan-716). When
 // several literals match, the longest wins, so a literal that word-boundedly
 // opens a longer one never shadows it.
-func pgEnum(env Env, body, key string, literals []string, stdout, stderr io.Writer) int {
+func pgEnum(env core.Env, body, key string, literals []string, stdout, stderr io.Writer) int {
 	head, _, _ := strings.Cut(body, "\n")
 	head = strings.TrimSpace(strings.Trim(strings.TrimSpace(head), "`"))
 	best, found := "", false
@@ -162,7 +164,7 @@ func pgEnum(env Env, body, key string, literals []string, stdout, stderr io.Writ
 	}
 	if !found {
 		fmt.Fprintf(stderr, "project-get: '## %s' head '%s' matches none of: '%s'\n", key, head, strings.Join(literals, "' '"))
-		Reason(env, "no-literal-matches")
+		core.Reason(env, "no-literal-matches")
 		return 3
 	}
 	fmt.Fprintln(stdout, best)
@@ -175,16 +177,16 @@ func pgWordByte(b byte) bool {
 	return b == '_' || ('a' <= b && b <= 'z') || ('A' <= b && b <= 'Z') || ('0' <= b && b <= '9')
 }
 
-// pgGit is envGit with GIT_DIR, GIT_WORK_TREE and GIT_INDEX_FILE removed
+// pgGit is EnvGit with GIT_DIR, GIT_WORK_TREE and GIT_INDEX_FILE removed
 // from the environment, as the bash `unset` them.
-func pgGit(env Env) func(args ...string) *exec.Cmd {
+func pgGit(env core.Env) func(args ...string) *exec.Cmd {
 	var keep []string
 	for _, kv := range os.Environ() {
 		if !strings.HasPrefix(kv, "GIT_DIR=") && !strings.HasPrefix(kv, "GIT_WORK_TREE=") && !strings.HasPrefix(kv, "GIT_INDEX_FILE=") {
 			keep = append(keep, kv)
 		}
 	}
-	base := envGit(env)
+	base := core.EnvGit(env)
 	return func(args ...string) *exec.Cmd {
 		cmd := base(args...)
 		cmd.Env = keep

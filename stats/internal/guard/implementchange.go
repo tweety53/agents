@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard implement-change — the mechanical opening of /flow's implement
@@ -50,7 +52,7 @@ import (
 // Go, in flow-guard (stats/internal/guard/implementchange.go).
 func init() { Registry["implement-change"] = implementChange }
 
-func implementChange(args []string, env Env, stdout, stderr io.Writer) int {
+func implementChange(args []string, env core.Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "implement-change", stopOutcome: "stopped",
 		bases: map[int]string{}, rb: map[int]string{}, squashed: map[int][]string{}}
 	c.childEnv = icChildEnv(env)
@@ -79,7 +81,7 @@ func (c *ic) implementPrepare(args []string) error {
 	}
 	var wts []string
 	for _, w := range c.wt {
-		if isDir(w) {
+		if core.IsDir(w) {
 			wts = append(wts, w)
 		}
 	}

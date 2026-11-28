@@ -15,6 +15,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -351,13 +353,13 @@ type mvpArgs struct {
 	decoded                      map[string]*rgbImage // each image file decoded once per call; regions only read it
 }
 
-func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) int {
+func measureVisualProperties(args []string, env core.Env, stdout, stderr io.Writer) int {
 	a, code := mvpParse(args, env, stdout, stderr)
 	if code >= 0 {
 		return code
 	}
 	refuse := func(id, msg string) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintln(stderr, mvpPrefix+msg)
 		return 2
 	}
@@ -480,7 +482,7 @@ func roundTo(x float64, n int) float64 {
 
 // mvpPage measures every prop but matrix on the two images, or the one; code
 // is -1 when it measured.
-func mvpPage(env Env, a mvpArgs, props []string, imageB string, scale float64, refuse func(id, msg string) int, stderr io.Writer) (mvpObj, int) {
+func mvpPage(env core.Env, a mvpArgs, props []string, imageB string, scale float64, refuse func(id, msg string) int, stderr io.Writer) (mvpObj, int) {
 	page := true
 	for _, p := range props {
 		page = page && slices.Contains(mvpPageProps, p)
@@ -511,7 +513,7 @@ func mvpPage(env Env, a mvpArgs, props []string, imageB string, scale float64, r
 	var unresolved mvpUnresolved
 	if errors.As(err, &unresolved) {
 		fmt.Fprintf(stderr, "%simage %s: %s\n", mvpPrefix, which, unresolved)
-		Reason(env, "image-unresolved")
+		core.Reason(env, "image-unresolved")
 		return nil, 1
 	}
 	if err != nil {
@@ -528,11 +530,11 @@ func mvpPage(env Env, a mvpArgs, props []string, imageB string, scale float64, r
 // order: an option's missing or bad value and -h act where they stand; a
 // missing image and an unrecognized argument are reported after the scan.
 // code is -1 when the arguments parsed.
-func mvpParse(args []string, env Env, stdout, stderr io.Writer) (a mvpArgs, code int) {
+func mvpParse(args []string, env core.Env, stdout, stderr io.Writer) (a mvpArgs, code int) {
 	a = mvpArgs{props: strings.Join(mvpAllProps, ","), edge: 24, noise: 8, tolerance: mvpOverLength, decoded: map[string]*rgbImage{}}
 	usage := func(msg string) (mvpArgs, int) {
 		fmt.Fprintln(stderr, mvpPrefix+msg)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return a, 2
 	}
 	var extras []string
@@ -737,7 +739,7 @@ func (r *mvpRegion) checkCorners() error {
 // colour of its outermost rows and columns in page mode, else its top-left pixel, every other corner required
 // to match it within the noise — save a corner on a clipped side, and with
 // each other corner colour tried when the top-left pixel fails.
-func mvpOpen(env Env, path string, box *[4]int, a mvpArgs, page bool) (*mvpRegion, error) {
+func mvpOpen(env core.Env, path string, box *[4]int, a mvpArgs, page bool) (*mvpRegion, error) {
 	file := path
 	if file != "" && !filepath.IsAbs(file) {
 		file = env.Dir + "/" + file // unjoined: the OS resolves "..", as Python's open() did
@@ -1787,7 +1789,7 @@ var mvpKindProps = map[string][]string{
 // mvpMatrix is `--props matrix`: both whole images' elements, paired in
 // order, each pair measured on its own region — the element's box with a
 // 4px margin, clipped to the image — with its kind's columns.
-func mvpMatrix(env Env, a mvpArgs, scale float64) (mvpObj, error) {
+func mvpMatrix(env core.Env, a mvpArgs, scale float64) (mvpObj, error) {
 	var sides [2]mvpMeasured
 	for i, path := range a.images {
 		r, err := mvpOpen(env, path, nil, a, true)

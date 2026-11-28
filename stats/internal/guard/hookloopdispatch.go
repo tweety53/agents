@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard hook enforce-loop-dispatch — PreToolUse: record a pipeline-fix or self-review
@@ -44,7 +46,7 @@ var (
 // Under setup.sh's registered 300s.
 const eldCheckTimeout = 240 * time.Second
 
-func enforceLoopDispatch(env Env, payload map[string]any, _, stderr io.Writer) {
+func enforceLoopDispatch(env core.Env, payload map[string]any, _, stderr io.Writer) {
 	if tool := payload["tool_name"]; tool != "Agent" && tool != "Task" {
 		return
 	}
@@ -84,7 +86,7 @@ func enforceLoopDispatch(env Env, payload map[string]any, _, stderr io.Writer) {
 
 // eldRunCheck runs the harness's checker process check with args in cwd, logging as the
 // in-process call does.
-func eldRunCheck(env Env, check, cwd, key string, args []string, stderr io.Writer) {
+func eldRunCheck(env core.Env, check, cwd, key string, args []string, stderr io.Writer) {
 	ctx := context.Background()
 	if b := hookBound(env, eldCheckTimeout); b > 0 {
 		var cancel context.CancelFunc

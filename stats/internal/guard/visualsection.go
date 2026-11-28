@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"regexp"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The visual-verify guards' shared parsing: the Go twins of the bash
@@ -42,9 +44,9 @@ func stripBOM(b []byte) []byte {
 // and refusing hands whoever edited the file a way to suppress a real
 // finding.
 //
-// Not ccSanitize: the bash's awk ends a line at a NUL byte (its escape table
+// Not Sanitize: the bash's awk ends a line at a NUL byte (its escape table
 // starts at 1, and the one-true-awk's strings are NUL-terminated), where
-// ccSanitize escapes the NUL and keeps the rest — TestSanitizeDisplayParity
+// Sanitize escapes the NUL and keeps the rest — TestSanitizeDisplayParity
 // measured the difference.
 func sanitizeDisplay(text string) string {
 	var b strings.Builder
@@ -52,7 +54,7 @@ func sanitizeDisplay(text string) string {
 		if i := strings.IndexByte(line, 0); i >= 0 {
 			line = line[:i]
 		}
-		b.WriteString(ccSanitize(line))
+		b.WriteString(core.Sanitize(line))
 		b.WriteByte('\n')
 	}
 	return b.String()
@@ -113,7 +115,7 @@ func vtTrimCell(c string) string {
 // runs collapsed to one space — the shape a header or a `Setting`/`Command`
 // name is compared in.
 func vtFoldCell(c string) string {
-	return strings.Join(strings.FieldsFunc(gsASCIILower(vtTrimCell(c)), func(r rune) bool {
+	return strings.Join(strings.FieldsFunc(core.AwkLower(vtTrimCell(c)), func(r rune) bool {
 		return r < 0x80 && strings.ContainsRune(cSpace, r)
 	}), " ")
 }
@@ -160,7 +162,7 @@ func vvLines(text string) []string {
 func vvHeadingCount(text string) int {
 	n := 0
 	for _, l := range vvLines(text) {
-		if vvHeading.MatchString(gsASCIILower(l)) {
+		if vvHeading.MatchString(core.AwkLower(l)) {
 			n++
 		}
 	}
@@ -179,7 +181,7 @@ func vvSectionLines(text string) []vvLine {
 	in := false
 	for i, l := range vvLines(text) {
 		if vvHeadingLine.MatchString(l) {
-			own := vvHeading.MatchString(gsASCIILower(l))
+			own := vvHeading.MatchString(core.AwkLower(l))
 			level := len(l) - len(strings.TrimLeft(l, "#"))
 			if !(in && !own && level > 2) {
 				in = own

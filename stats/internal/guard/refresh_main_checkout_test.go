@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -49,7 +50,7 @@ func rmcExists(p string) bool { _, err := os.Stat(p); return err == nil }
 func TestRefreshMainCheckout(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	run := func(args ...string) guardResult { return runGuard("refresh-main-checkout", args, env) }
 	refused := func(t *testing.T, r guardResult, repo, reason string) {
 		t.Helper()
@@ -216,7 +217,7 @@ func TestRefreshMainCheckoutRestartsFlowdWhenStatsMoved(t *testing.T) {
 			gitRun(t, other, "push", "-q", origin, "main")
 			log := dir + "/make.log"
 			writeExec(t, dir+"/bin/make", "#!/usr/bin/env bash\nprintf 'make %s\\n' \"$*\" >>"+log+"\nexit "+tc.exit+"\n")
-			r := runGuard("refresh-main-checkout", []string{repo, "main"}, Env{Getenv: pathEnv(dir + "/bin")})
+			r := runGuard("refresh-main-checkout", []string{repo, "main"}, core.Env{Getenv: pathEnv(dir + "/bin")})
 			calls, _ := os.ReadFile(log)
 			if r.rc != tc.rc || !strings.Contains(r.stdout, "REFRESH-DONE: ") || !strings.Contains(r.stdout, tc.line) ||
 				!strings.Contains(string(calls), "make -C "+repo+"/stats restart") {
@@ -232,7 +233,7 @@ func TestRefreshMainCheckoutRestartsFlowdWhenStatsMoved(t *testing.T) {
 func TestRefreshMainCheckoutDiscardsLandedCopies(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 
 	t.Run("copies identical to origin are discarded, then fast-forwarded", func(t *testing.T) {
 		t.Parallel()

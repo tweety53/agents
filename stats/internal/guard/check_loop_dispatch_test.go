@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -16,7 +17,7 @@ import (
 // dispatches` from rows and logs every call, and the guard's Env.
 type lpFx struct {
 	repo, log, rows string
-	env             Env
+	env             core.Env
 }
 
 // lpNew builds the fixture with the given branches; rows is the JSON
@@ -28,11 +29,11 @@ func lpNew(t *testing.T, rows string, branches ...string) lpFx {
 		t.Fatal(err)
 	}
 	fx := lpFx{repo: tmp + "/agents", log: tmp + "/flow.log", rows: tmp + "/rows.json"}
-	table, err := os.ReadFile("../../../" + mpFile)
+	table, err := os.ReadFile("../../../" + core.PolicyFile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, fx.repo+"/"+mpFile, string(table))
+	writeFile(t, fx.repo+"/"+core.PolicyFile, string(table))
 	fixtureRepo(t, fx.repo, repoShape{Branch: "main"})
 	gitRun(t, fx.repo, "add", "-A")
 	gitRun(t, fx.repo, "commit", "-q", "-m", "init")
@@ -49,7 +50,7 @@ case "$1 $2" in
   "record dispatch") echo "recorded: dispatch 1" ;;
 esac
 `)
-	fx.env = Env{Getenv: pathEnv(bin), Dir: tmp}
+	fx.env = core.Env{Getenv: pathEnv(bin), Dir: tmp}
 	return fx
 }
 
@@ -92,7 +93,7 @@ func lpRowsJSON(prefix, token string, rows ...string) string {
 // every suffix lands on a role the allowed-pairs table carries.
 func TestLoopSuffixRoles(t *testing.T) {
 	t.Parallel()
-	rows, err := policyTable(noFlowEnv(t))
+	rows, err := core.PolicyTable(noFlowEnv(t))
 	if err != nil {
 		t.Fatal(err)
 	}

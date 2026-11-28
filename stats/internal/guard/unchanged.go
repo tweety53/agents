@@ -5,6 +5,8 @@ import (
 	"io"
 	"os/exec"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -33,24 +35,24 @@ import (
 // that failed.
 func init() { Registry["unchanged"] = unchanged }
 
-func unchanged(args []string, env Env, stdout, stderr io.Writer) int {
+func unchanged(args []string, env core.Env, stdout, stderr io.Writer) int {
 	const prog = "unchanged"
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, "usage: flow-guard unchanged <pathspec>...")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	if env.Getenv("FLOW_VERIFY_FULL") != "" {
-		Reason(env, "full-run-forced")
+		core.Reason(env, "full-run-forced")
 		return 1
 	}
 	base, paths, ok := changedSinceBase(env, prog, stderr, args...)
 	if !ok {
-		Reason(env, "changes-unresolved")
+		core.Reason(env, "changes-unresolved")
 		return 2
 	}
 	if len(paths) > 0 {
-		Reason(env, "changed")
+		core.Reason(env, "changed")
 		return 1
 	}
 	fmt.Fprintf(stdout, "unchanged: nothing under %s changed since %s — suite skipped\n", strings.Join(args, " "), base)
@@ -62,8 +64,8 @@ func unchanged(args []string, env Env, stdout, stderr io.Writer) int {
 // committed, staged, unstaged or untracked -- each repository-relative. A
 // failed git call prints one `<prog>: git … failed: …` line and answers ok
 // false.
-func changedSinceBase(env Env, prog string, stderr io.Writer, pathspecs ...string) (base string, paths []string, ok bool) {
-	gitBin, ok := panelResolveGit(env, prog, stderr)
+func changedSinceBase(env core.Env, prog string, stderr io.Writer, pathspecs ...string) (base string, paths []string, ok bool) {
+	gitBin, ok := core.ResolveGit(env, prog, stderr)
 	if !ok {
 		return "", nil, false
 	}

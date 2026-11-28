@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // TestRecapture pins flow-guard recapture: one run of the task's specs
@@ -13,7 +15,7 @@ import (
 // command's failure passed on.
 func TestRecapture(t *testing.T) {
 	t.Parallel()
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	root := t.TempDir()
 	for p, body := range map[string]string{
 		"package.json":                "{}\n",
@@ -42,7 +44,7 @@ func TestRecapture(t *testing.T) {
 	}
 
 	writeFile(t, filepath.Join(root, "docs/notes.md"), "edited\n")
-	if r := run("echo <spec> >> " + ran); r.rc != 0 || !strings.Contains(r.stdout, "nothing to capture") || isFile(ran) {
+	if r := run("echo <spec> >> " + ran); r.rc != 0 || !strings.Contains(r.stdout, "nothing to capture") || core.IsFile(ran) {
 		t.Errorf("no affected spec: rc=%d out=%q", r.rc, r.out)
 	}
 	writeFile(t, filepath.Join(root, "src/Day.tsx"), "export function Day() { return 1 }\n")
@@ -72,7 +74,7 @@ func TestRecapture(t *testing.T) {
 // failing test alone, after which nothing is left to run.
 func TestRecaptureTakesTheTaskSetAndRerunsOnlyWhatFailed(t *testing.T) {
 	t.Parallel()
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	root := t.TempDir()
 	for p, body := range map[string]string{
 		"package.json":        "{}\n",
@@ -159,7 +161,7 @@ func TestRecaptureLeftIsPerTest(t *testing.T) {
 func TestRecaptureRecordsItsCost(t *testing.T) {
 	t.Parallel()
 	stub, log := rvlFlowStub(t, "{}", 0)
-	env := Env{Getenv: func(k string) string {
+	env := core.Env{Getenv: func(k string) string {
 		if k == "PATH" {
 			return stub + ":" + os.Getenv("PATH")
 		}
@@ -192,7 +194,7 @@ func TestRecaptureRecordsItsCost(t *testing.T) {
 // shared file its screen imports included -- or when no task captured it.
 func TestRecaptureTaskCapturedStandsUntilASourceMoves(t *testing.T) {
 	t.Parallel()
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	root := t.TempDir()
 	for p, body := range map[string]string{
 		"package.json":                "{}\n",
@@ -279,7 +281,7 @@ func TestRecaptureSelectsSpecsByTitle(t *testing.T) {
 	t.Parallel()
 	root := recaptureTitleFixture(t, "`goal sheet at rest`")
 	ran := filepath.Join(t.TempDir(), "ran")
-	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, Env{Getenv: os.Getenv})
+	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, core.Env{Getenv: os.Getenv})
 	if r.rc != 0 {
 		t.Fatalf("rc=%d out=%q", r.rc, r.out)
 	}
@@ -295,16 +297,16 @@ func TestRecaptureFailsWhenNoSpecHoldsATitle(t *testing.T) {
 	t.Parallel()
 	root := recaptureTitleFixture(t, "`no such title`")
 	ran := filepath.Join(t.TempDir(), "ran")
-	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, Env{Getenv: os.Getenv})
+	r := runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, core.Env{Getenv: os.Getenv})
 	want := "recapture: task 4 names tests no spec under " + root + " holds: no such title\n"
-	if r.rc != 1 || r.stdout != want || isFile(ran) || isFile(filepath.Join(root, ".git/flow-recapture.jsonl")) {
-		t.Errorf("rc=%d stdout=%q ran=%v, want rc 1, %q, nothing run, no receipt", r.rc, r.stdout, isFile(ran), want)
+	if r.rc != 1 || r.stdout != want || core.IsFile(ran) || core.IsFile(filepath.Join(root, ".git/flow-recapture.jsonl")) {
+		t.Errorf("rc=%d stdout=%q ran=%v, want rc 1, %q, nothing run, no receipt", r.rc, r.stdout, core.IsFile(ran), want)
 	}
 
 	for _, named := range []string{"none", "`TestGoalSheet`, `a.spec.ts:12`, `x := f()`"} {
 		root = recaptureTitleFixture(t, named)
-		r = runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, Env{Getenv: os.Getenv})
-		if r.rc != 0 || r.stdout != "recapture: no affected spec — nothing to capture\n" || isFile(ran) {
+		r = runGuard("recapture", []string{root + "/plan/tasks.md:4", root, root + "=HEAD", "echo <spec> >> " + ran}, core.Env{Getenv: os.Getenv})
+		if r.rc != 0 || r.stdout != "recapture: no affected spec — nothing to capture\n" || core.IsFile(ran) {
 			t.Errorf("no title named in %q: rc=%d stdout=%q", named, r.rc, r.stdout)
 		}
 	}
@@ -324,10 +326,10 @@ func TestRcBlobsMatchesRevParse(t *testing.T) {
 	}
 	gitRun(t, wt, "add", "-A")
 	gitRun(t, wt, "commit", "-qm", "x")
-	git := envGit(Env{Getenv: os.Getenv, Dir: wt})
+	git := core.EnvGit(core.Env{Getenv: os.Getenv, Dir: wt})
 	got := rcBlobs(git, wt, "HEAD", paths)
 	for _, p := range paths {
-		want, _ := capture(git("-C", wt, "rev-parse", "--verify", "--quiet", "HEAD:"+p))
+		want, _ := core.Capture(git("-C", wt, "rev-parse", "--verify", "--quiet", "HEAD:"+p))
 		if got[p] != want {
 			t.Errorf("%q: rcBlobs %q, rev-parse %q", p, got[p], want)
 		}

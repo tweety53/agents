@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -97,7 +98,7 @@ func vvmFixture(t *testing.T, sidecar string) vvmFix {
 func (f vvmFix) run(t *testing.T, args ...string) (int, string, string) {
 	t.Helper()
 	var out, errb bytes.Buffer
-	rc := visualVerifyPass(append([]string{"measure"}, args...), Env{Getenv: os.Getenv, Dir: f.wt}, &out, &errb)
+	rc := visualVerifyPass(append([]string{"measure"}, args...), core.Env{Getenv: os.Getenv, Dir: f.wt}, &out, &errb)
 	return rc, out.String(), errb.String()
 }
 

@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -66,10 +68,10 @@ func init() {
 const twUsage = "usage: flow-guard throwaway-worktree create <worktree> <copy> [--sdd]\n" +
 	"       flow-guard throwaway-worktree remove <worktree> <copy> [--fold-back]\n"
 
-func throwawayWorktree(args []string, env Env, stdout, stderr io.Writer) int {
+func throwawayWorktree(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) < 3 || len(args) > 4 {
 		fmt.Fprint(stderr, twUsage)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	verb, wt, cp := args[0], args[1], args[2]
@@ -84,14 +86,14 @@ func throwawayWorktree(args []string, env Env, stdout, stderr io.Writer) int {
 		return twStep(env, stderr, twRemove(env, wt, cp, flag == "--fold-back"))
 	}
 	fmt.Fprint(stderr, twUsage)
-	Reason(env, "usage")
+	core.Reason(env, "usage")
 	return 2
 }
 
-func twStep(env Env, stderr io.Writer, err error) int {
+func twStep(env core.Env, stderr io.Writer, err error) int {
 	if err != nil {
 		fmt.Fprintf(stderr, "throwaway-worktree: %v\n", err)
-		Reason(env, "step-failed")
+		core.Reason(env, "step-failed")
 		return 2
 	}
 	return 0
@@ -99,8 +101,8 @@ func twStep(env Env, stderr io.Writer, err error) int {
 
 // twRun runs name args in env.Dir, as the fence's shell ran it, with stdin
 // piped in; a failure carries the command's stderr.
-func twRun(env Env, stdin []byte, name string, args ...string) ([]byte, error) {
-	if p, ok := lookPath(env, name); ok {
+func twRun(env core.Env, stdin []byte, name string, args ...string) ([]byte, error) {
+	if p, ok := core.LookPath(env, name); ok {
 		name = p
 	}
 	cmd := exec.Command(name, args...)
@@ -121,7 +123,7 @@ func twDirname(p string) string {
 	return filepath.Dir(strings.TrimRight(p, "/"))
 }
 
-func twCreate(env Env, wt, cp string, sdd bool) error {
+func twCreate(env core.Env, wt, cp string, sdd bool) error {
 	br := "flow-copy/" + filepath.Base(cp)
 	if _, err := twRun(env, nil, "git", "-C", wt, "worktree", "add", "-B", br, cp, "HEAD"); err != nil {
 		return err
@@ -152,16 +154,16 @@ func twCreate(env Env, wt, cp string, sdd bool) error {
 			continue
 		}
 		f := entry[3:]
-		if err := os.MkdirAll(smcAbs(env, cp+"/"+twDirname(f)), 0o755); err != nil {
+		if err := os.MkdirAll(core.Abs(env, cp+"/"+twDirname(f)), 0o755); err != nil {
 			return err
 		}
 		if _, err := twRun(env, nil, "cp", "-a", wt+"/"+f, cp+"/"+f); err != nil {
 			return err
 		}
 	}
-	leaf := specRootLeaf(smcAbs(env, wt), io.Discard)
-	if isDir(smcAbs(env, wt+"/"+leaf+"/changes")) {
-		if err := os.MkdirAll(smcAbs(env, cp+"/"+leaf+"/changes"), 0o755); err != nil {
+	leaf := core.SpecRootLeaf(core.Abs(env, wt), io.Discard)
+	if core.IsDir(core.Abs(env, wt+"/"+leaf+"/changes")) {
+		if err := os.MkdirAll(core.Abs(env, cp+"/"+leaf+"/changes"), 0o755); err != nil {
 			return err
 		}
 		if _, err := twRun(env, nil, "cp", "-a", wt+"/"+leaf+"/changes/.", cp+"/"+leaf+"/changes"); err != nil {
@@ -171,10 +173,10 @@ func twCreate(env Env, wt, cp string, sdd bool) error {
 	if !sdd {
 		return nil
 	}
-	if err := os.MkdirAll(smcAbs(env, cp+"/.superpowers"), 0o755); err != nil {
+	if err := os.MkdirAll(core.Abs(env, cp+"/.superpowers"), 0o755); err != nil {
 		return err
 	}
-	if isDir(smcAbs(env, wt+"/.superpowers/sdd")) {
+	if core.IsDir(core.Abs(env, wt+"/.superpowers/sdd")) {
 		if _, err := twRun(env, nil, "cp", "-a", wt+"/.superpowers/sdd", cp+"/.superpowers/sdd"); err != nil {
 			return err
 		}
@@ -190,7 +192,7 @@ func twNonEmpty(p string) bool {
 
 // twRemove always removes the copy, as the fence did: a failed fold-back is
 // still reported (exit 2), but never leaves the copy registered behind it.
-func twRemove(env Env, wt, cp string, foldBack bool) error {
+func twRemove(env core.Env, wt, cp string, foldBack bool) error {
 	var foldErr error
 	if foldBack {
 		foldErr = twFoldBack(env, wt, cp)
@@ -204,7 +206,7 @@ func twRemove(env Env, wt, cp string, foldBack bool) error {
 
 // twDropCopyBranch deletes the copy's flow-copy/<basename> branch when it
 // exists; a copy made detached, before F14, has none.
-func twDropCopyBranch(env Env, wt, cp string) error {
+func twDropCopyBranch(env core.Env, wt, cp string) error {
 	ref := "refs/heads/flow-copy/" + filepath.Base(cp)
 	if _, err := twRun(env, nil, "git", "-C", wt, "rev-parse", "--verify", "-q", ref); err != nil {
 		return nil
@@ -226,16 +228,16 @@ func twHeld(f, c string) bool {
 // twFoldBack copies a slot's report or reproducer back into the worktree
 // unless the worktree already holds a non-empty file the copy's is not newer
 // than.
-func twFoldBack(env Env, wt, cp string) error {
+func twFoldBack(env core.Env, wt, cp string) error {
 	var found []string
 	for _, pat := range []string{"/.superpowers/sdd/panel-report-*.md", "/.superpowers/sdd/reproducers/*.sh",
 		"/.superpowers/sdd/dispatch-context-group-*.md", "/.superpowers/sdd/implementer-report-*.md"} {
-		m, _ := filepath.Glob(smcAbs(env, cp) + pat)
+		m, _ := filepath.Glob(core.Abs(env, cp) + pat)
 		found = append(found, m...)
 	}
 	// A plan's frames directory carries a render script and its frames at any
 	// depth (kan-1132 self-review, F5).
-	dirs, _ := filepath.Glob(smcAbs(env, cp) + "/.superpowers/sdd/*-frames")
+	dirs, _ := filepath.Glob(core.Abs(env, cp) + "/.superpowers/sdd/*-frames")
 	for _, d := range dirs {
 		_ = filepath.WalkDir(d, func(p string, e fs.DirEntry, err error) error {
 			if err == nil && e.Type().IsRegular() {
@@ -244,16 +246,16 @@ func twFoldBack(env Env, wt, cp string) error {
 			return nil
 		})
 	}
-	prefix := smcAbs(env, cp) + "/.superpowers/sdd/"
+	prefix := core.Abs(env, cp) + "/.superpowers/sdd/"
 	for _, f := range found {
 		if !twNonEmpty(f) {
 			continue
 		}
 		b := strings.TrimPrefix(f, prefix)
-		if err := os.MkdirAll(smcAbs(env, wt+"/.superpowers/sdd/"+twDirname(b)), 0o755); err != nil {
+		if err := os.MkdirAll(core.Abs(env, wt+"/.superpowers/sdd/"+twDirname(b)), 0o755); err != nil {
 			return err
 		}
-		c := smcAbs(env, wt+"/.superpowers/sdd/"+b)
+		c := core.Abs(env, wt+"/.superpowers/sdd/"+b)
 		if twHeld(f, c) {
 			continue
 		}
@@ -262,12 +264,12 @@ func twFoldBack(env Env, wt, cp string) error {
 		}
 	}
 	for _, root := range []string{cp, wt} {
-		m, _ := filepath.Glob(smcAbs(env, root) + "/panel-report-*.md")
+		m, _ := filepath.Glob(core.Abs(env, root) + "/panel-report-*.md")
 		for _, f := range m {
 			if !twNonEmpty(f) {
 				continue
 			}
-			sdd := smcAbs(env, wt+"/.superpowers/sdd")
+			sdd := core.Abs(env, wt+"/.superpowers/sdd")
 			if err := os.MkdirAll(sdd, 0o755); err != nil {
 				return err
 			}

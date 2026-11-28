@@ -13,6 +13,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -30,11 +31,11 @@ func init() { Registry["hook"] = hook }
 
 // hooks maps a hook's name to its body: the decoded payload (nil when stdin is no JSON object)
 // and the raw stdin.
-var hooks = map[string]func(env Env, payload map[string]any, stdout, stderr io.Writer){}
+var hooks = map[string]func(env core.Env, payload map[string]any, stdout, stderr io.Writer){}
 
-func hook(args []string, env Env, stdout, stderr io.Writer) int {
+func hook(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 || hooks[args[0]] == nil {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard hook <name>")
 		return 2
 	}
@@ -176,7 +177,7 @@ func pySplitFirst(s string) string {
 // hookBound is a hook's wall-clock bound on a store or subprocess call: d, or 0 (none) under
 // FLOW_HOOK_UNBOUNDED=1, which the hooks' tests set so a deny case never fails open because a
 // starved stub outran the bound — the bound is production's fail-open, not under test.
-func hookBound(env Env, d time.Duration) time.Duration {
+func hookBound(env core.Env, d time.Duration) time.Duration {
 	if env.Getenv("FLOW_HOOK_UNBOUNDED") == "1" {
 		return 0
 	}
@@ -185,11 +186,11 @@ func hookBound(env Env, d time.Duration) time.Duration {
 
 // hookRun runs name (a path, else looked up on env's PATH) with args in dir ("" is the hook's
 // own), returning its stdout and exit code; err when it could not start or outran bound.
-func hookRun(env Env, bound time.Duration, dir, name string, args ...string) ([]byte, int, error) {
+func hookRun(env core.Env, bound time.Duration, dir, name string, args ...string) ([]byte, int, error) {
 	path := name
 	if !strings.Contains(name, "/") {
 		var ok bool
-		if path, ok = lookPath(env, name); !ok {
+		if path, ok = core.LookPath(env, name); !ok {
 			return nil, 0, errors.New(name + ": not found")
 		}
 	}
@@ -220,7 +221,7 @@ func hookRun(env Env, bound time.Duration, dir, name string, args ...string) ([]
 
 // hookGetJSON GETs url and decodes its JSON body; err on a transport failure, a non-2xx status or
 // a body that is no JSON.
-func hookGetJSON(env Env, url string, bound time.Duration) (any, error) {
+func hookGetJSON(env core.Env, url string, bound time.Duration) (any, error) {
 	resp, err := (&http.Client{Timeout: bound, Transport: &http.Transport{}}).Get(url)
 	if err != nil {
 		return nil, err
@@ -235,18 +236,10 @@ func hookGetJSON(env Env, url string, bound time.Duration) (any, error) {
 	return v, dec.Decode(&v)
 }
 
-// hookFlowAddr is flowd's address: FLOW_ADDR, else the dev workspace's.
-func hookFlowAddr(env Env) string {
-	if a := env.Getenv("FLOW_ADDR"); a != "" {
-		return a
-	}
-	return "http://127.0.0.1:4173"
-}
-
 // hookRecordIncident writes one `flow record incident` row for a deny, so a self-review pass can
 // count the denials; FLOW_HOOK_INCIDENT_CMD overrides `flow` for the hooks' own harness only.
 // Every failure is swallowed: the deny already written stands either way.
-func hookRecordIncident(env Env, guardName, reason, cwd, change string) {
+func hookRecordIncident(env core.Env, guardName, reason, cwd, change string) {
 	cmd := env.Getenv("FLOW_HOOK_INCIDENT_CMD")
 	if cmd == "" {
 		cmd = "flow"
@@ -275,7 +268,7 @@ func hookDenyJSON(reason string) string {
 // stdout, stderr and exit code returned -- bounded: past bound (0 is none) it returns
 // context.DeadlineExceeded and leaves fn running, so a hung call never hangs the hook; the hook's
 // process exiting ends it.
-func hookInProcess(env Env, bound time.Duration, dir string, fn Func, args ...string) (stdout, stderr string, code int, err error) {
+func hookInProcess(env core.Env, bound time.Duration, dir string, fn core.Func, args ...string) (stdout, stderr string, code int, err error) {
 	type result struct {
 		out, errb string
 		code      int

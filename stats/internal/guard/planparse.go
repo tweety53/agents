@@ -20,6 +20,8 @@ import (
 	"syscall"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // tcfPlanLines is open(encoding="utf-8").read().splitlines(): strict UTF-8
@@ -119,21 +121,21 @@ func tcfBodyFields(body []string) map[string][]string {
 // names the calling guard in that relayed reason. Once every spectre shape
 // failed, a /flow-fast run's <worktree>/.superpowers/sdd/<plan>/tasks.md is
 // tried (tcfFastPlan) -- never before, so a /flow plan is never shadowed.
-func tcfResolveTasksMD(env Env, stderr io.Writer, label, worktree, name, canonical string) (string, string) {
-	changes := worktree + "/" + specRootLeaf(worktree, stderr) + "/changes"
+func tcfResolveTasksMD(env core.Env, stderr io.Writer, label, worktree, name, canonical string) (string, string) {
+	changes := worktree + "/" + core.SpecRootLeaf(worktree, stderr) + "/changes"
 
 	if name != "" {
 		if name == "." || name == ".." || strings.Trim(name, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-") != "" {
 			return "", "invalid change name: " + name
 		}
 		tasksMD := ""
-		if isFile(changes + "/" + name + "/tasks.md") {
+		if core.IsFile(changes + "/" + name + "/tasks.md") {
 			// Scoped version of the highest-numbered-fix-sibling rule (see the
 			// glob path below): look only at name's own -fix-N family, never at
 			// any other directory under changes.
 			var fixes []string
 			for _, e := range tcfEntries(changes) {
-				if strings.HasPrefix(e, name+"-fix-") && isDir(changes+"/"+e) {
+				if strings.HasPrefix(e, name+"-fix-") && core.IsDir(changes+"/"+e) {
 					fixes = append(fixes, e)
 				}
 			}
@@ -153,7 +155,7 @@ func tcfResolveTasksMD(env Env, stderr io.Writer, label, worktree, name, canonic
 			}
 			tasksMD = p
 		}
-		if tasksMD == "" || !isFile(tasksMD) {
+		if tasksMD == "" || !core.IsFile(tasksMD) {
 			if fast := tcfFastPlan(worktree, name); fast != "" {
 				return fast, ""
 			}
@@ -179,7 +181,7 @@ func tcfResolveTasksMD(env Env, stderr io.Writer, label, worktree, name, canonic
 		var satellites []string
 		for _, e := range tcfEntries(changes) {
 			d := changes + "/" + e
-			if isDir(d) && isFile(d+"/link.md") && !isFile(d+"/tasks.md") {
+			if core.IsDir(d) && core.IsFile(d+"/link.md") && !core.IsFile(d+"/tasks.md") {
 				satellites = append(satellites, e)
 			}
 		}
@@ -191,7 +193,7 @@ func tcfResolveTasksMD(env Env, stderr io.Writer, label, worktree, name, canonic
 			}
 			tasksMD = p
 		}
-		if tasksMD == "" || !isFile(tasksMD) {
+		if tasksMD == "" || !core.IsFile(tasksMD) {
 			if fast := tcfFastPlan(worktree, ""); fast != "" {
 				return fast, ""
 			}
@@ -416,7 +418,7 @@ func tcfHighestFix(changes, root string, candidates []string) string {
 			continue
 		}
 		_, suffix, ok := tcfFixSuffix(c)
-		if !ok || !isFile(changes+"/"+c+"/tasks.md") {
+		if !ok || !core.IsFile(changes+"/"+c+"/tasks.md") {
 			continue
 		}
 		if n, _ := strconv.ParseInt(suffix, 10, 64); n > chosenN {
@@ -473,7 +475,7 @@ func tcfUnclosedFence(body []string) int {
 // into this guard's outright exit-2 refusal (KAN-267). Checking one task's
 // fields against a plan the record names twice would make the verdict a coin
 // flip, which is the one thing a commit-fields guard must never be.
-func tcfResolvePlan(env Env, stderr io.Writer, label, worktree, name, canonical string) (string, int) {
+func tcfResolvePlan(env core.Env, stderr io.Writer, label, worktree, name, canonical string) (string, int) {
 	var captured bytes.Buffer
 	p, rc := changePlanPath(env, &captured, worktree, name, canonical)
 	if rc == 3 {
@@ -600,9 +602,9 @@ func tcfPythonFiles(lines []string, t tcfTask) []string {
 // did and kept only while it exists. Empty with true when root has no
 // changes directory. The bool stays for the callers' error path; nothing
 // here fails today.
-func tcfScanPlans(env Env, root string, stderr io.Writer) ([]string, bool) {
-	changes := root + "/" + specRootLeaf(psAbs(env, root), stderr) + "/changes"
-	if !isDir(psAbs(env, changes)) {
+func tcfScanPlans(env core.Env, root string, stderr io.Writer) ([]string, bool) {
+	changes := root + "/" + core.SpecRootLeaf(psAbs(env, root), stderr) + "/changes"
+	if !core.IsDir(psAbs(env, changes)) {
 		return nil, true
 	}
 	var files []string
@@ -734,7 +736,7 @@ func pdbExtractPaths(entry string) []string {
 // tcfReadPlan reads a tasks.md as the Python importers' open(path,
 // encoding="utf-8") did, rendering a failure as str(OSError) naming the path
 // as given, or as the UnicodeDecodeError's own message.
-func tcfReadPlan(env Env, path string) ([]string, error) {
+func tcfReadPlan(env core.Env, path string) ([]string, error) {
 	lines, err := tcfReadPlanTyped(env, path)
 	if err != nil {
 		return nil, errors.New(strings.TrimPrefix(err.Error(), "UnicodeDecodeError: "))
@@ -744,7 +746,7 @@ func tcfReadPlan(env Env, path string) ([]string, error) {
 
 // tcfReadPlanTyped is tcfReadPlan keeping a decode failure's
 // "UnicodeDecodeError: " prefix.
-func tcfReadPlanTyped(env Env, path string) ([]string, error) {
+func tcfReadPlanTyped(env core.Env, path string) ([]string, error) {
 	b, err := os.ReadFile(psAbs(env, path))
 	if pe := (*fs.PathError)(nil); errors.As(err, &pe) {
 		pe.Path = path
@@ -772,7 +774,7 @@ func tcfFastPlan(worktree, name string) string {
 	if plan == "" || plan == "." || plan == ".." || strings.Contains(plan, "/") {
 		return ""
 	}
-	if p := filepath.Join(worktree, ".superpowers/sdd", plan, "tasks.md"); isFile(p) {
+	if p := filepath.Join(worktree, ".superpowers/sdd", plan, "tasks.md"); core.IsFile(p) {
 		return p
 	}
 	return ""
@@ -790,7 +792,7 @@ func psWorse(a, b int) int {
 	return 0
 }
 
-func psAbs(env Env, p string) string {
+func psAbs(env core.Env, p string) string {
 	if p == "" || filepath.IsAbs(p) {
 		return p
 	}
@@ -1400,7 +1402,7 @@ func tcfTextOutput(stdout, stderr []byte) (string, string, error) {
 }
 
 // tcfRunGit is run_git.
-func tcfRunGit(env Env, worktree string, args ...string) (string, error) {
+func tcfRunGit(env core.Env, worktree string, args ...string) (string, error) {
 	out, errOut, code, err := tcfExec(env.Dir, nil, "git", append([]string{"-C", worktree}, args...)...)
 	if err != nil {
 		return "", err

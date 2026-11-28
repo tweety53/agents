@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -37,11 +38,11 @@ func TestPipelineFixHighestKReadsFlowdChanges(t *testing.T) {
 
 // rcwFlowStub puts a `flow` on PATH whose `change file` exits rc, so the save
 // gate reads flowd's answer from it.
-func rcwFlowStub(t *testing.T, fx *rcwFx, rc string) func(*Env) {
+func rcwFlowStub(t *testing.T, fx *rcwFx, rc string) func(*core.Env) {
 	t.Helper()
 	bin := fx.dir + "/bin"
 	writeExec(t, bin+"/flow", "#!/usr/bin/env bash\n[ \"$1 $2\" = \"change file\" ] && exit "+rc+"\nexit 0\n")
-	return func(env *Env) {
+	return func(env *core.Env) {
 		inner := env.Getenv
 		env.Getenv = func(k string) string {
 			if k == "PATH" {
@@ -97,7 +98,7 @@ func TestRemoveChangeWorktreesRefusesAnUnsavedBundle(t *testing.T) {
 	writeFile(t, fx.wt+"/.superpowers/sdd/demo/self-review-context.md", "bundle\n")
 	bin := fx.dir + "/bin"
 	writeExec(t, bin+"/flow", "#!/usr/bin/env bash\n[ \"$1 $2 $6\" = \"change file tasks.md\" ] && exit 0\n[ \"$1 $2\" = \"change file\" ] && exit 1\nexit 0\n")
-	code, _, errb := fx.run(t, func(env *Env) {
+	code, _, errb := fx.run(t, func(env *core.Env) {
 		inner := env.Getenv
 		env.Getenv = func(k string) string {
 			if k == "PATH" {

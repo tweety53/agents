@@ -1,6 +1,6 @@
 // text.go holds the text helpers several guards share.
 
-package guard
+package core
 
 import (
 	"fmt"
@@ -8,27 +8,27 @@ import (
 	"strings"
 )
 
-// lines splits a file's content the way `while IFS= read -r line || [ -n
+// Lines splits a file's content the way `while IFS= read -r line || [ -n
 // "$line" ]` reads it: a trailing newline does not add an empty last line.
-func lines(b []byte) []string {
+func Lines(b []byte) []string {
 	if len(b) == 0 {
 		return nil
 	}
 	return strings.Split(strings.TrimSuffix(string(b), "\n"), "\n")
 }
 
-// crSort is `sort` (or `sort -u`) over lines, exec'd rather than
+// LocaleSort is `sort` (or `sort -u`) over lines, exec'd rather than
 // reimplemented: its order is the locale's collation (en_US.UTF-8 on macOS
 // sorts "SKILL-rationale.md" after "session-records-rationale.md"), which
 // no byte comparison reproduces, and the guard's output order is its.
-func crSort(env Env, lines []string, unique bool) ([]string, error) {
+func LocaleSort(env Env, lines []string, unique bool) ([]string, error) {
 	if unique {
 		return crSortSep(env, lines, "\n", "-u")
 	}
 	return crSortSep(env, lines, "\n")
 }
 
-// ccSanitize is sanitize_display: every C0 byte but the newline that ends a
+// Sanitize is sanitize_display: every C0 byte but the newline that ends a
 // line, DEL and backslash rendered visibly; bytes 0x80-0xFF pass through.
 //
 // A line an operator reads and acts on can carry text from outside the
@@ -47,7 +47,7 @@ func crSort(env Env, lines []string, unique bool) ([]string, error) {
 // escaping them would mangle every non-ASCII report and buy nothing. The bash
 // guard needed a non-exported `LC_ALL=C` prefix to make that byte test hold;
 // a byte loop has no locale to pin.
-func ccSanitize(s string) string {
+func Sanitize(s string) string {
 	var b strings.Builder
 	for i := 0; i < len(s); i++ {
 		c := s[i]
@@ -65,8 +65,8 @@ func ccSanitize(s string) string {
 	return b.String()
 }
 
-// ccASCIILower is grep -i / awk tolower over an ASCII pattern: only A-Z fold.
-func ccASCIILower(s string) string {
+// ASCIILower is grep -i / awk tolower over an ASCII pattern: only A-Z fold.
+func ASCIILower(s string) string {
 	return strings.Map(func(r rune) rune {
 		if r >= 'A' && r <= 'Z' {
 			return r + 'a' - 'A'
@@ -75,9 +75,9 @@ func ccASCIILower(s string) string {
 	}, s)
 }
 
-// smcUTF8 is whether bash's printf %q runs under a UTF-8 character type:
+// UTF8Locale is whether bash's printf %q runs under a UTF-8 character type:
 // LC_ALL, else LC_CTYPE, else LANG, the first one set and non-empty.
-func smcUTF8(env Env) bool {
+func UTF8Locale(env Env) bool {
 	for _, k := range []string{"LC_ALL", "LC_CTYPE", "LANG"} {
 		if v := env.Getenv(k); v != "" {
 			v = strings.ToLower(v)
@@ -87,14 +87,14 @@ func smcUTF8(env Env) bool {
 	return false
 }
 
-// crSortSep is crSort over lines joined and terminated by sep, sort run with
+// crSortSep is LocaleSort over lines joined and terminated by sep, sort run with
 // args (`-z` for a NUL separator); the caller's collation variables are the
 // only environment sort sees.
 func crSortSep(env Env, lines []string, sep string, args ...string) ([]string, error) {
 	if len(lines) < 2 {
 		return lines, nil
 	}
-	bin, ok := lookPath(env, "sort")
+	bin, ok := LookPath(env, "sort")
 	if !ok {
 		return nil, fmt.Errorf("no sort on PATH")
 	}

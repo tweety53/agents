@@ -5,11 +5,13 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // pdgRepositories maps each line number (1-based) to the repository heading
 // in force there: a `## <name>` heading whose name pdgDeclaredRepos holds.
-func pdgRepositories(env Env, path string, lines []string) []string {
+func pdgRepositories(env core.Env, path string, lines []string) []string {
 	repos := pdgDeclaredRepos(psAbs(env, path))
 	repo := make([]string, len(lines)+1)
 	cur := ""
@@ -38,7 +40,7 @@ func pdgDeclaredRepos(plan string) map[string]bool {
 	for d := filepath.Dir(plan); ; d = filepath.Dir(d) {
 		cfg := filepath.Join(d, ".flow", "project.md")
 		if _, err := os.Stat(cfg); err == nil {
-			roots := tcfAppRoots(projectSection(cfg, "apps"))
+			roots := tcfAppRoots(core.ProjectSection(cfg, "apps"))
 			repos := map[string]bool{}
 			for _, r := range roots {
 				if !slices.ContainsFunc(roots, func(o string) bool { return strings.HasPrefix(r, o+"/") }) {

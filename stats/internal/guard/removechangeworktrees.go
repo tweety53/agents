@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -77,23 +79,23 @@ import (
 // removed; then the removals, the local branch and the remote branch.
 func init() { Registry["remove-change-worktrees"] = removeChangeWorktrees }
 
-func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int {
+func removeChangeWorktrees(args []string, env core.Env, stdout, stderr io.Writer) int {
 	refuse := func(id, format string, a ...any) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stderr, "remove-change-worktrees: "+format+"\n", a...)
 		return 2
 	}
 	if len(args) != 2 {
 		return refuse("usage", "usage: flow-guard remove-change-worktrees <repo> <name>")
 	}
-	repo, name := pcAbs(env, args[0]), args[1]
-	if !plainChangeName(name) {
+	repo, name := core.CleanAbs(env, args[0]), args[1]
+	if !core.PlainChangeName(name) {
 		return refuse("bad-change-name", "change name %q is not a plain change name", name)
 	}
 	// LC_ALL=C keeps the remote delete's "remote ref does not exist" in
 	// English, the one git message this guard reads.
-	git := envGit(env, "LC_ALL=C")
-	if !isDir(repo) || git("-C", repo, "rev-parse", "--git-dir").Run() != nil {
+	git := core.EnvGit(env, "LC_ALL=C")
+	if !core.IsDir(repo) || git("-C", repo, "rev-parse", "--git-dir").Run() != nil {
 		return refuse("not-a-git-repository", "%s is not a git repository", repo)
 	}
 	porcelain, err := git("-C", repo, "worktree", "list", "--porcelain").Output()
@@ -105,7 +107,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 	// which the prune below clears.
 	var wts, gone []string
 	for _, wt := range listed {
-		if isDir(wt) {
+		if core.IsDir(wt) {
 			wts = append(wts, wt)
 		} else {
 			gone = append(gone, wt)
@@ -125,14 +127,14 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 	}
 	for _, wt := range wts {
 		for _, f := range saved {
-			if !isFile(wt + "/" + f.on) {
+			if !core.IsFile(wt + "/" + f.on) {
 				continue
 			}
-			switch _, errOut, rc := pcFlow(env, false, "change", "file", "-C", wt, name, f.as); rc {
+			switch _, errOut, rc := core.Flow(env, false, "change", "file", "-C", wt, name, f.as); rc {
 			case 0:
 			case 1:
 				fmt.Fprintf(stderr, "remove-change-worktrees: flow change save %s has not run — %s holds the only copy of its %s\n", name, wt, f.on)
-				Reason(env, "change-not-saved")
+				core.Reason(env, "change-not-saved")
 				return 1
 			default:
 				return refuse("change-save-unknown", "cannot tell whether flow change save %s has run: %s", name, rcwFlat(string(errOut)))
@@ -148,13 +150,13 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 	upstream := "" // origin/<base>, as check 3 resolved it for the first live worktree
 	for _, wt := range wts {
 		// 1. no uncommitted tracked changes.
-		if s, ok := capture(git("-C", wt, "status", "--porcelain", "--untracked-files=no")); !ok {
+		if s, ok := core.Capture(git("-C", wt, "status", "--porcelain", "--untracked-files=no")); !ok {
 			fail(wt, 1, "git status failed")
 		} else if s != "" {
 			fail(wt, 1, "uncommitted tracked changes: %s", s)
 		}
 		// 2. no untracked files git does not already ignore.
-		if s, ok := capture(git("-C", wt, "ls-files", "--others", "--exclude-standard")); !ok {
+		if s, ok := core.Capture(git("-C", wt, "ls-files", "--others", "--exclude-standard")); !ok {
 			fail(wt, 2, "git ls-files failed")
 		} else if s != "" {
 			fail(wt, 2, "untracked files: %s", s)
@@ -169,7 +171,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		}
 	}
 	if failed {
-		Reason(env, "removal-failed")
+		core.Reason(env, "removal-failed")
 		return 1
 	}
 
@@ -205,13 +207,13 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		// for resolve-base-branch to read: the base recorded on the branch,
 		// else origin/HEAD's, stands in.
 		if upstream == "" {
-			upstream, _ = capture(git("-C", repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
+			upstream, _ = core.Capture(git("-C", repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
 			if base := recordedBase(git, repo, branch); base != "" {
 				upstream = "origin/" + base
 			}
 		}
-		remote, _ := capture(git("-C", repo, "config", "--get", "branch."+branch+".remote"))
-		merge, _ := capture(git("-C", repo, "config", "--get", "branch."+branch+".merge"))
+		remote, _ := core.Capture(git("-C", repo, "config", "--get", "branch."+branch+".remote"))
+		merge, _ := core.Capture(git("-C", repo, "config", "--get", "branch."+branch+".merge"))
 		if upstream != "" {
 			_ = git("-C", repo, "branch", "-q", "--set-upstream-to="+upstream, branch).Run()
 		}
@@ -241,7 +243,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 		fmt.Fprintf(stdout, "REMOTE-REFUSED: origin/%s — %s\n", branch, rcwFlat(string(out)))
 	}
 	if failed {
-		Reason(env, "remote-removal-failed")
+		core.Reason(env, "remote-removal-failed")
 		return 1
 	}
 	return 0
@@ -250,7 +252,7 @@ func removeChangeWorktrees(args []string, env Env, stdout, stderr io.Writer) int
 // rcwOnlyHere is check 3: "" when HEAD is merged into origin/<base> or has
 // nothing its upstream lacks, else why not, with the base it resolved. A
 // failed lookup never passes.
-func rcwOnlyHere(env Env, git func(...string) *exec.Cmd, wt string, stderr io.Writer) (string, string) {
+func rcwOnlyHere(env core.Env, git func(...string) *exec.Cmd, wt string, stderr io.Writer) (string, string) {
 	var buf bytes.Buffer
 	if rc := resolveBaseBranch([]string{wt}, env, &buf, stderr); rc != 0 {
 		return "", fmt.Sprintf("cannot resolve the base branch (resolve-base-branch exit %d) — stop and ask", rc)
@@ -259,11 +261,11 @@ func rcwOnlyHere(env Env, git func(...string) *exec.Cmd, wt string, stderr io.Wr
 	if git("-C", wt, "merge-base", "--is-ancestor", "HEAD", "origin/"+base).Run() == nil {
 		return base, ""
 	}
-	up, ok := capture(git("-C", wt, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"))
+	up, ok := core.Capture(git("-C", wt, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"))
 	if !ok || up == "" {
 		return base, "not merged, and no upstream — cannot prove these commits exist anywhere else"
 	}
-	log, ok := capture(git("-C", wt, "log", "--oneline", up+"..HEAD"))
+	log, ok := core.Capture(git("-C", wt, "log", "--oneline", up+"..HEAD"))
 	if !ok {
 		return base, "cannot read " + up + "..HEAD"
 	}
@@ -286,7 +288,7 @@ func rcwRestoreUpstream(git func(...string) *exec.Cmd, repo, branch, remote, mer
 }
 
 // rcwFlat keeps a multi-line message on its verdict line, its control bytes
-// escaped (ccSanitize): git output and paths are not this guard's to trust.
+// escaped (Sanitize): git output and paths are not this guard's to trust.
 func rcwFlat(s string) string {
-	return strings.ReplaceAll(strings.TrimRight(ccSanitize(s), "\n"), "\n", "; ")
+	return strings.ReplaceAll(strings.TrimRight(core.Sanitize(s), "\n"), "\n", "; ")
 }

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 func TestDiffGroups(t *testing.T) {
@@ -19,7 +21,7 @@ func TestDiffGroups(t *testing.T) {
 	if err := os.WriteFile(diff, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	r := runGuard("diff-groups", []string{wt, diff}, Env{})
+	r := runGuard("diff-groups", []string{wt, diff}, core.Env{})
 	if r.rc != 0 {
 		t.Fatalf("rc %d: %s", r.rc, r.out)
 	}
@@ -29,7 +31,7 @@ func TestDiffGroups(t *testing.T) {
 	if string(got) != want {
 		t.Errorf("groups:\n%s\nwant:\n%s", got, want)
 	}
-	if r := runGuard("diff-groups", []string{wt, "/nope"}, Env{}); r.rc != 2 || !strings.Contains(r.out, "diff-groups:") {
+	if r := runGuard("diff-groups", []string{wt, "/nope"}, core.Env{}); r.rc != 2 || !strings.Contains(r.out, "diff-groups:") {
 		t.Errorf("missing diff: rc %d", r.rc)
 	}
 }
@@ -42,7 +44,7 @@ func TestBuildSlotPromptNamesDiffGroups(t *testing.T) {
 	_ = os.MkdirAll(sdd, 0o755)
 	_ = os.WriteFile(filepath.Join(sdd, "final-review.groups.md"), []byte("## x\n"), 0o644)
 	diff := filepath.Join(sdd, "final-review.diff")
-	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation", "-diff", diff, "-copies", "/w", "-panel", "mutation"}, Env{})
+	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation", "-diff", diff, "-copies", "/w", "-panel", "mutation"}, core.Env{})
 	if r.rc != 0 {
 		t.Fatalf("rc %d: %s", r.rc, r.out)
 	}

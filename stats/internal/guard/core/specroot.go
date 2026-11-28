@@ -1,4 +1,4 @@
-package guard
+package core
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-// specRootLeaf is the Go twin of spec_root_leaf from scripts/lib/spec-root.sh,
+// SpecRootLeaf is the Go twin of spec_root_leaf from scripts/lib/spec-root.sh,
 // retired by KAN-1020 once no script sourced it; its header as it stood at
 // 8c54d6d3 carries the why: `spectre` when dir/spectre/changes/ exists, `openspec`
 // when only dir/openspec/changes/ does, `spectre` when neither does; both
@@ -16,8 +16,8 @@ import (
 // history alone, a dir/spectre/ directory -- a project cut over to spectre
 // whose first change has not landed yet -- answers `spectre` (kan-1086
 // self-review, F5).
-func specRootLeaf(dir string, stderr io.Writer) string {
-	hasSpectre, hasOpenspec := isDir(dir+"/spectre/changes"), isDir(dir+"/openspec/changes")
+func SpecRootLeaf(dir string, stderr io.Writer) string {
+	hasSpectre, hasOpenspec := IsDir(dir+"/spectre/changes"), IsDir(dir+"/openspec/changes")
 	if hasSpectre && hasOpenspec {
 		if !holdsOpenChange(dir + "/openspec/changes") {
 			return "spectre"
@@ -25,7 +25,7 @@ func specRootLeaf(dir string, stderr io.Writer) string {
 		fmt.Fprintf(stderr, "spec-root: %s carries both spectre/changes/ and openspec/changes/ — using spectre/; every change under openspec/changes/ is invisible to this guard until that tree is moved\n", dir)
 		return "spectre"
 	}
-	if hasOpenspec && (holdsOpenChange(dir+"/openspec/changes") || !isDir(dir+"/spectre")) {
+	if hasOpenspec && (holdsOpenChange(dir+"/openspec/changes") || !IsDir(dir+"/spectre")) {
 		return "openspec"
 	}
 	return "spectre"

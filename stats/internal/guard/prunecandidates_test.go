@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // pcServer is a flowd answering prune-candidates' four reads from fixtures:
@@ -35,11 +37,11 @@ func pcServer(t *testing.T, health, incidents, loads string, query *string) *htt
 	return srv
 }
 
-func pcEnv(addr string) Env { return pcEnvAt(addr, "") }
+func pcEnv(addr string) core.Env { return pcEnvAt(addr, "") }
 
 // pcEnvAt is pcEnv with FLOW_GUARD_REPO_ROOT, the checkout whose skills/ are listed, set to root.
-func pcEnvAt(addr, root string) Env {
-	return Env{Getenv: func(k string) string {
+func pcEnvAt(addr, root string) core.Env {
+	return core.Env{Getenv: func(k string) string {
 		switch k {
 		case "FLOW_ADDR":
 			return addr

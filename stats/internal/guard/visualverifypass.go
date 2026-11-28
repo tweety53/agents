@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -359,7 +361,7 @@ const vvpUsage = "usage: flow-guard visual-verify-pass prepare <canonical-worktr
 
 // vvp is one call's state: its arguments and whether it began the stage.
 type vvp struct {
-	env            Env
+	env            core.Env
 	stdout, stderr io.Writer
 
 	canon, name, key, harness, token string
@@ -375,7 +377,7 @@ type vvp struct {
 	sidecars                         []string // the change's own reach-checked sidecars, set by preflight
 }
 
-func visualVerifyPass(args []string, env Env, stdout, stderr io.Writer) int {
+func visualVerifyPass(args []string, env core.Env, stdout, stderr io.Writer) int {
 	v := &vvp{env: env, stdout: stdout, stderr: stderr,
 		mergeBase: map[string]string{}, since: map[string]string{}, roundBase: map[string]string{}, defects: map[string][]string{}, apps: map[string][]string{}}
 	return guardCode(v.run(args))
@@ -407,14 +409,14 @@ func (v *vvp) run(args []string) error {
 
 func (v *vvp) usage(why string) error {
 	fmt.Fprintf(v.stderr, "visual-verify-pass: %s\n%s\n", why, vvpUsage)
-	Reason(v.env, "usage")
+	core.Reason(v.env, "usage")
 	return guardExit(2)
 }
 
 // die prints the error and exits 2.
 func (v *vvp) die(id, format string, a ...any) error {
 	fmt.Fprintf(v.stderr, "visual-verify-pass: "+format+"\n", a...)
-	Reason(v.env, id)
+	core.Reason(v.env, id)
 	return guardExit(2)
 }
 
@@ -430,12 +432,12 @@ func (v *vvp) next(line string) error {
 // stop prints the closing `STOP:` line and exits 1.
 func (v *vvp) stop(id, outcome, line string) error {
 	v.say("STOP: %s", line)
-	Reason(v.env, id)
+	core.Reason(v.env, id)
 	return guardExit(1)
 }
 
 // abs resolves p against env.Dir, as every guard here does.
-func (v *vvp) abs(p string) string { return pcAbs(v.env, p) }
+func (v *vvp) abs(p string) string { return core.CleanAbs(v.env, p) }
 
 func (v *vvp) parse(args []string, prepare bool) error {
 	pos := 3
@@ -452,7 +454,7 @@ func (v *vvp) parse(args []string, prepare bool) error {
 			return v.usage("<motions named> '" + args[3] + "' is not a count")
 		}
 	}
-	if !plainChangeName(v.name) || v.key == "" {
+	if !core.PlainChangeName(v.name) || v.key == "" {
 		return v.usage("change name '" + v.name + "' or key '" + v.key + "' is not plain")
 	}
 	v.worktrees = []string{v.canon}
@@ -542,7 +544,7 @@ func (v *vvp) parse(args []string, prepare bool) error {
 		}
 	}
 	for _, w := range v.worktrees {
-		if !isDir(w) {
+		if !core.IsDir(w) {
 			return v.die("not-a-directory", "%s is not a directory", w)
 		}
 	}
@@ -551,13 +553,13 @@ func (v *vvp) parse(args []string, prepare bool) error {
 
 // flow runs one `flow` call from PATH, its combined output and exit code.
 func (v *vvp) flow(args ...string) (string, int) {
-	out, _, rc := pcFlow(v.env, true, args...)
+	out, _, rc := core.Flow(v.env, true, args...)
 	return strings.TrimSpace(string(out)), rc
 }
 
 // foldedGuards are the checks run in process by prepare and
 // close alone: none is a flow-guard subcommand (decision guard-checks-in-process).
-var foldedGuards = map[string]Func{
+var foldedGuards = map[string]core.Func{
 	"check-frame-list":          checkFrameList,
 	"check-verify-report":       checkVerifyReport,
 	"check-verify-green":        checkVerifyGreen,
@@ -569,7 +571,7 @@ var foldedGuards = map[string]Func{
 
 // guard runs a registered guard in process: its exit, stdout and stderr.
 func (v *vvp) guard(name string, stdin io.Reader, args ...string) (int, string, string) {
-	env := quietReasons(v.env)
+	env := core.QuietReasons(v.env)
 	env.Stdin = stdin
 	var out, errb bytes.Buffer
 	fn := foldedGuards[name]
@@ -580,7 +582,7 @@ func (v *vvp) guard(name string, stdin io.Reader, args ...string) (int, string, 
 	return rc, strings.TrimSpace(out.String()), strings.TrimSpace(errb.String())
 }
 
-func (v *vvp) git(args ...string) (string, bool) { return capture(envGit(v.env)(args...)) }
+func (v *vvp) git(args ...string) (string, bool) { return core.Capture(core.EnvGit(v.env)(args...)) }
 
 // repoName is a worktree's repository name: its main checkout's basename,
 // the name `check-visual-trigger.sh --repo` takes.

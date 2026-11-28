@@ -7,6 +7,8 @@ import (
 	"io"
 	"os/exec"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -66,7 +68,7 @@ const (
 		"       --force is accepted only by remove\n"
 )
 
-func workspace(args []string, env Env, stdout, stderr io.Writer) int {
+func workspace(args []string, env core.Env, stdout, stderr io.Writer) int {
 	arg := func(i int) string {
 		if i < len(args) {
 			return args[i]
@@ -74,14 +76,14 @@ func workspace(args []string, env Env, stdout, stderr io.Writer) int {
 		return ""
 	}
 	fail := func(id, msg string, rc int) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintln(stderr, msg)
 		return rc
 	}
 	cmd, id, forceFlag := arg(0), arg(1), arg(2)
 	if cmd == "" {
 		fmt.Fprint(stderr, wsUsage)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	if id == "" {
@@ -94,7 +96,7 @@ func workspace(args []string, env Env, stdout, stderr io.Writer) int {
 	if forceFlag != "" {
 		if cmd != "remove" || forceFlag != "--force" {
 			fmt.Fprintf(stderr, "ERROR: unrecognized argument '%s'\n%s", forceFlag, wsUsage)
-			Reason(env, "unrecognized-argument")
+			core.Reason(env, "unrecognized-argument")
 			return 2
 		}
 		force = true
@@ -105,7 +107,7 @@ func workspace(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 
 	docker := "docker"
-	if p, ok := lookPath(env, "docker"); ok {
+	if p, ok := core.LookPath(env, "docker"); ok {
 		docker = p
 	}
 	run := func(out io.Writer, dockerArgs ...string) int {
@@ -137,7 +139,7 @@ func workspace(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	default:
 		fmt.Fprint(stderr, wsUsage)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	return 0
@@ -152,7 +154,7 @@ func wsExitCode(err error) int {
 	case err == nil:
 		return 0
 	case errors.As(err, &exitErr):
-		return rrExitCode(exitErr.ProcessState)
+		return core.WaitExitCode(exitErr.ProcessState)
 	default:
 		return 127
 	}

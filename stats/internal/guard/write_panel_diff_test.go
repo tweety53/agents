@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -113,7 +114,7 @@ func TestWritePanelDiffParity(t *testing.T) {
 					want += wpdHand(t, scratch+"/d", sem, "--irreversible-delete", tc.shape, tc.triples[i:i+3])
 					wantTouched += wpdHand(t, scratch+"/t", "", "--name-status", tc.shape, tc.triples[i:i+3])
 				}
-				r := runGuard("write-panel-diff", tc.args, Env{Dir: dir, Getenv: os.Getenv})
+				r := runGuard("write-panel-diff", tc.args, core.Env{Dir: dir, Getenv: os.Getenv})
 				if r.rc != 0 {
 					t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
 				}
@@ -141,7 +142,7 @@ func TestWritePanelDiffFinalRemovesStaleLateFix(t *testing.T) {
 		t.Fatal(g.err)
 	}
 	for _, args := range [][]string{{"late-fix", w.path, w.path, w.held}, {"final", w.path, w.path, w.mb}} {
-		if r := runGuard("write-panel-diff", args, Env{Dir: dir, Getenv: os.Getenv}); r.rc != 0 {
+		if r := runGuard("write-panel-diff", args, core.Env{Dir: dir, Getenv: os.Getenv}); r.rc != 0 {
 			t.Fatalf("%s: exit %d\n%s", args[0], r.rc, r.out)
 		}
 	}
@@ -165,16 +166,16 @@ func TestWritePanelDiffRefusals(t *testing.T) {
 	for _, tc := range []struct {
 		label string
 		args  []string
-		env   Env
+		env   core.Env
 		err   string
 	}{
-		{"no arguments", nil, Env{}, "usage: flow-guard write-panel-diff"},
-		{"unknown kind", []string{"whole", w.path, w.path, w.mb}, Env{}, "usage: flow-guard write-panel-diff"},
-		{"a worktree without its sha", []string{"final", w.path, w.path}, Env{}, "usage: flow-guard write-panel-diff"},
-		{"a round that is not a number", []string{"fix-round", "x", w.path, w.path, w.mb}, Env{}, "usage: flow-guard write-panel-diff"},
-		{"a worktree that is no directory", []string{"final", w.path, dir + "/absent", w.mb}, Env{}, "is not a directory"},
-		{"a sha that does not resolve", []string{"final", w.path, w.path, "deadbeef"}, Env{}, "does not resolve"},
-		{"a git failure", []string{"final", w.path, w.path, w.mb}, Env{Getenv: pathEnv(stub)}, "write-panel-diff: git diff"},
+		{"no arguments", nil, core.Env{}, "usage: flow-guard write-panel-diff"},
+		{"unknown kind", []string{"whole", w.path, w.path, w.mb}, core.Env{}, "usage: flow-guard write-panel-diff"},
+		{"a worktree without its sha", []string{"final", w.path, w.path}, core.Env{}, "usage: flow-guard write-panel-diff"},
+		{"a round that is not a number", []string{"fix-round", "x", w.path, w.path, w.mb}, core.Env{}, "usage: flow-guard write-panel-diff"},
+		{"a worktree that is no directory", []string{"final", w.path, dir + "/absent", w.mb}, core.Env{}, "is not a directory"},
+		{"a sha that does not resolve", []string{"final", w.path, w.path, "deadbeef"}, core.Env{}, "does not resolve"},
+		{"a git failure", []string{"final", w.path, w.path, w.mb}, core.Env{Getenv: pathEnv(stub)}, "write-panel-diff: git diff"},
 	} {
 		t.Run(tc.label, func(t *testing.T) {
 			env := tc.env
@@ -203,7 +204,7 @@ func TestWritePanelDiffOmitsDeletedBodies(t *testing.T) {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
-	r := runGuard("write-panel-diff", []string{"final", w.path, w.path, w.mb}, Env{Dir: dir, Getenv: os.Getenv})
+	r := runGuard("write-panel-diff", []string{"final", w.path, w.path, w.mb}, core.Env{Dir: dir, Getenv: os.Getenv})
 	if r.rc != 0 {
 		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
 	}
@@ -240,7 +241,7 @@ func TestWritePanelDiffHonoursProjectExcludes(t *testing.T) {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
-	r := runGuard("write-panel-diff", []string{"final", w.path, w.path, w.mb}, Env{Dir: dir, Getenv: os.Getenv})
+	r := runGuard("write-panel-diff", []string{"final", w.path, w.path, w.mb}, core.Env{Dir: dir, Getenv: os.Getenv})
 	if r.rc != 0 {
 		t.Fatalf("exit %d, want 0\n%s", r.rc, r.out)
 	}
@@ -279,7 +280,7 @@ func TestPanelDiffHonoursProjectExcludes(t *testing.T) {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
-	env := Env{Dir: dir, Getenv: os.Getenv, LookupEnv: hermeticGitLookup}
+	env := core.Env{Dir: dir, Getenv: os.Getenv, LookupEnv: hermeticGitLookup}
 	r := runGuard("write-panel-diff", []string{"final", wt, wt, mb}, env)
 	if r.rc != 0 {
 		t.Fatalf("write-panel-diff: exit %d, want 0\n%s", r.rc, r.out)

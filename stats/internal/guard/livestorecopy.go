@@ -13,6 +13,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // liveStoreCopy is `flow-guard live-store-copy up <name> [<port>] | restart
@@ -70,13 +72,13 @@ var lscName = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 type lscExit int
 
 type lsc struct {
-	env            Env
+	env            core.Env
 	stdout, stderr io.Writer
 	environ        []string
 	port, dir, db  string
 }
 
-func liveStoreCopy(args []string, env Env, stdout, stderr io.Writer) (code int) {
+func liveStoreCopy(args []string, env core.Env, stdout, stderr io.Writer) (code int) {
 	l := &lsc{env: env, stdout: stdout, stderr: stderr, environ: icChildEnv(env)}
 	defer func() {
 		if r := recover(); r != nil {
@@ -182,13 +184,13 @@ func liveStoreCopy(args []string, env Env, stdout, stderr io.Writer) (code int) 
 		if len(args) != 2 {
 			l.usage()
 		}
-		if isFile(l.dir + "/port") {
+		if core.IsFile(l.dir + "/port") {
 			l.port = l.read("port")
 			l.portOK()
 			l.stopFlowd()
 		}
 		l.step(l.pg("dropdb", "-U", "flow", "--if-exists", "--force", l.db))
-		if isFile(l.dir + "/scratch") {
+		if core.IsFile(l.dir + "/scratch") {
 			l.check(os.RemoveAll(l.read("scratch")))
 		}
 		l.check(os.RemoveAll(l.dir))
@@ -200,12 +202,12 @@ func liveStoreCopy(args []string, env Env, stdout, stderr io.Writer) (code int) 
 
 func (l *lsc) usage() {
 	fmt.Fprintln(l.stderr, "usage: flow-guard live-store-copy up <name> [<port>] | restart <name> | down <name>")
-	Reason(l.env, "usage")
+	core.Reason(l.env, "usage")
 	panic(lscExit(2))
 }
 
 func (l *lsc) die(id string, code int, format string, a ...any) {
-	Reason(l.env, id)
+	core.Reason(l.env, id)
 	fmt.Fprintf(l.stderr, "live-store-copy: "+format+"\n", a...)
 	panic(lscExit(code))
 }
@@ -219,7 +221,7 @@ func (l *lsc) check(err error) {
 
 // cmd is name over the caller's PATH, run in the caller's environment.
 func (l *lsc) cmd(name string, args ...string) *exec.Cmd {
-	path, ok := lookPath(l.env, name)
+	path, ok := core.LookPath(l.env, name)
 	if !ok {
 		path = name
 	}
@@ -238,8 +240,8 @@ func (l *lsc) pg(args ...string) *exec.Cmd {
 // exit status when it fails.
 func (l *lsc) step(cmd *exec.Cmd) {
 	cmd.Stdout, cmd.Stderr = l.stdout, l.stderr
-	if rc := exitCode(cmd.Run()); rc != 0 {
-		Reason(l.env, "command-failed")
+	if rc := core.ExitCode(cmd.Run()); rc != 0 {
+		core.Reason(l.env, "command-failed")
 		panic(lscExit(rc))
 	}
 }

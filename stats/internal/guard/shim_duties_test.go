@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 func TestCannotAnswerCodes(t *testing.T) {
@@ -23,30 +25,30 @@ func TestCannotAnswerCodes(t *testing.T) {
 		"no-such-guard":         2,
 		"":                      2,
 	} {
-		if got := CannotAnswer(name); got != want {
+		if got := core.CannotAnswer(name); got != want {
 			t.Errorf("CannotAnswer(%q) = %d, want %d", name, got, want)
 		}
 	}
 }
 
-// TestRunSiblingSelfExec is not parallel: it clears siblingExe, which the
+// TestRunSiblingSelfExec is not parallel: it clears SiblingExe, which the
 // package's TestMain points at the built flow-guard, while no other test runs.
 func TestRunSiblingSelfExec(t *testing.T) {
-	saved := siblingExe
-	siblingExe = ""
-	t.Cleanup(func() { siblingExe = saved })
+	saved := core.SiblingExe
+	core.SiblingExe = ""
+	t.Cleanup(func() { core.SiblingExe = saved })
 	self, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	cmd := runSibling(Env{Dir: dir}, "close-task", "a", "b")
+	cmd := core.RunSibling(core.Env{Dir: dir}, "close-task", "a", "b")
 	if cmd.Path != self || !slices.Equal(cmd.Args, []string{self, "close-task", "a", "b"}) || cmd.Dir != dir {
 		t.Fatalf("path %q args %q dir %q; want %q running close-task a b in %q", cmd.Path, cmd.Args, cmd.Dir, self, dir)
 	}
 	// The real exec: this test binary dispatches a guard name as flow-guard
 	// does, so the sibling answers with its own usage refusal.
-	cmd = runSibling(Env{Dir: dir}, "close-task")
+	cmd = core.RunSibling(core.Env{Dir: dir}, "close-task")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err = cmd.Run()
@@ -78,8 +80,8 @@ func cwdFixture(t *testing.T) (main, wt, bare string) {
 	return main, wt, bare
 }
 
-func cwdEnv(root, dir string) Env {
-	return Env{Dir: dir, Getenv: func(k string) string {
+func cwdEnv(root, dir string) core.Env {
+	return core.Env{Dir: dir, Getenv: func(k string) string {
 		if k == "FLOW_GUARD_REPO_ROOT" {
 			return root
 		}
@@ -94,10 +96,10 @@ func cwdEnv(root, dir string) Env {
 func TestCwdCheckoutReexec(t *testing.T) {
 	t.Parallel()
 	main, wt, bare := cwdFixture(t)
-	if got, ok := CwdCheckout(cwdEnv(main, wt), "check-guard-calls"); !ok || got != wt+"/scripts/flow-guard" {
+	if got, ok := core.CwdCheckout(cwdEnv(main, wt), "check-guard-calls"); !ok || got != wt+"/scripts/flow-guard" {
 		t.Errorf("from another worktree: %q %v; want %s/scripts/flow-guard", got, ok, wt)
 	}
-	if got, ok := CwdCheckout(cwdEnv(main, wt+"/scripts"), "check-guard-calls"); !ok || got != wt+"/scripts/flow-guard" {
+	if got, ok := core.CwdCheckout(cwdEnv(main, wt+"/scripts"), "check-guard-calls"); !ok || got != wt+"/scripts/flow-guard" {
 		t.Errorf("from inside another worktree: %q %v; want %s/scripts/flow-guard", got, ok, wt)
 	}
 
@@ -118,7 +120,7 @@ func TestCwdCheckoutReexec(t *testing.T) {
 		{"a worktree without scripts/flow-guard", main, bare},
 		{"no FLOW_GUARD_REPO_ROOT", "", wt},
 	} {
-		if got, ok := CwdCheckout(cwdEnv(c.root, c.dir), "check-guard-calls"); ok {
+		if got, ok := core.CwdCheckout(cwdEnv(c.root, c.dir), "check-guard-calls"); ok {
 			t.Errorf("from %s: re-exec'd %q; want no re-exec", c.what, got)
 		}
 	}
@@ -131,17 +133,17 @@ func TestCwdCheckoutGuardSet(t *testing.T) {
 	want := []string{
 		"check-dev-stack-fresh", "check-guard-calls",
 	}
-	if got := slices.Sorted(maps.Keys(selfJudging)); !slices.Equal(got, want) {
+	if got := slices.Sorted(maps.Keys(core.SelfJudging)); !slices.Equal(got, want) {
 		t.Fatalf("selfJudging = %q, want %q", got, want)
 	}
 	main, wt, _ := cwdFixture(t)
 	for _, name := range []string{"check-unfinished-work", "run-reproducer", "integrate-change"} {
-		if got, ok := CwdCheckout(cwdEnv(main, wt), name); ok {
+		if got, ok := core.CwdCheckout(cwdEnv(main, wt), name); ok {
 			t.Errorf("%s is not self-judging but re-exec'd %q", name, got)
 		}
 	}
 	for _, name := range want {
-		if _, ok := CwdCheckout(cwdEnv(main, wt), name); !ok {
+		if _, ok := core.CwdCheckout(cwdEnv(main, wt), name); !ok {
 			t.Errorf("%s is self-judging but did not re-exec", name)
 		}
 	}
@@ -187,7 +189,7 @@ func TestBootstrapCannotAnswerMatches(t *testing.T) {
 		if !ok {
 			want = def
 		}
-		if got := CannotAnswer(name); got != want {
+		if got := core.CannotAnswer(name); got != want {
 			t.Errorf("%s: CannotAnswer %d, scripts/flow-guard %d", name, got, want)
 		}
 	}

@@ -12,6 +12,8 @@ import (
 	"testing"
 	"testing/iotest"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // Every case of scripts/test-check-visual-trigger.sh at 3915fbc0, one subtest
@@ -88,7 +90,7 @@ func vtRun(t *testing.T, c vtCase) (code int, stdout, stderr, root string) {
 		in += p + "\n"
 	}
 	var out, errb bytes.Buffer
-	code = fn([]string{root}, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader(in)}, &out, &errb)
+	code = fn([]string{root}, core.Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader(in)}, &out, &errb)
 	return code, out.String(), errb.String(), root
 }
 
@@ -215,7 +217,7 @@ func TestCheckVisualTrigger(t *testing.T) {
 			t.Fatal("check-visual-trigger is not registered")
 		}
 		var out, errb bytes.Buffer
-		code := fn([]string{"proj"}, Env{Getenv: os.Getenv, Dir: base + "/link",
+		code := fn([]string{"proj"}, core.Env{Getenv: os.Getenv, Dir: base + "/link",
 			Stdin: strings.NewReader("stats/web/src/App.tsx\n")}, &out, &errb)
 		want := vtMatched("stats/web/src/App.tsx", "stats/web/src/**") + strings.ReplaceAll(vtMatch, "$ROOT", "proj")
 		if code != 0 || out.String() != want || errb.String() != "" {
@@ -280,7 +282,7 @@ func TestCheckVisualTrigger(t *testing.T) {
 				t.Fatal("check-visual-trigger is not registered")
 			}
 			var out, errb bytes.Buffer
-			code := fn(e.args, Env{Getenv: os.Getenv, Dir: t.TempDir()}, &out, &errb)
+			code := fn(e.args, core.Env{Getenv: os.Getenv, Dir: t.TempDir()}, &out, &errb)
 			if code != e.c.code || out.String() != e.c.out || errb.String() != e.c.err {
 				t.Fatalf("got exit %d stdout %q stderr %q, want %d %q %q", code, out.String(), errb.String(), e.c.code, e.c.out, e.c.err)
 			}
@@ -294,7 +296,7 @@ func TestCheckVisualTrigger(t *testing.T) {
 		mkdir(t, root+"/.flow")
 		writeFile(t, root+"/.flow/project.md", vtMinimal+"\n")
 		var out, errb bytes.Buffer
-		code := Registry["check-visual-trigger"]([]string{root}, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: iotest.ErrReader(errors.New("boom"))}, &out, &errb)
+		code := Registry["check-visual-trigger"]([]string{root}, core.Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: iotest.ErrReader(errors.New("boom"))}, &out, &errb)
 		if code != 2 || out.Len() != 0 || errb.String() != vtPrefix+"cannot read stdin: boom\nVISUAL-TRIGGER-CANNOT-ANSWER: "+root+" — stdin could not be read\n" {
 			t.Fatalf("got exit %d stdout %q stderr %q", code, out.String(), errb.String())
 		}
@@ -305,7 +307,7 @@ func TestCheckVisualTrigger(t *testing.T) {
 		// pipe never held a refusal back.
 		var out, errb bytes.Buffer
 		missing := t.TempDir() + "/missing"
-		code := Registry["check-visual-trigger"]([]string{missing}, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: vtUnreadable{t}}, &out, &errb)
+		code := Registry["check-visual-trigger"]([]string{missing}, core.Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: vtUnreadable{t}}, &out, &errb)
 		if code != 2 || out.Len() != 0 || errb.String() != vtPrefix+missing+" is not a directory — cannot tell whether it declares a visual verification section\nVISUAL-TRIGGER-CANNOT-ANSWER: "+missing+" — not a directory\n" {
 			t.Fatalf("got exit %d stdout %q stderr %q", code, out.String(), errb.String())
 		}
@@ -356,13 +358,13 @@ func TestVisualTriggerExit2Tokens(t *testing.T) {
 	}
 	for _, args := range [][]string{{}, {"a", "b"}} {
 		var out, errb bytes.Buffer
-		code := Registry["check-visual-trigger"](args, Env{Getenv: os.Getenv, Dir: t.TempDir()}, &out, &errb)
+		code := Registry["check-visual-trigger"](args, core.Env{Getenv: os.Getenv, Dir: t.TempDir()}, &out, &errb)
 		vtAssertToken(t, code, out.String()+errb.String(), errb.String(), cannot, "(no root)")
 	}
 	root := t.TempDir()
 	writeFile(t, root+"/.flow/project.md", vtMinimal+"\n")
 	var out, errb bytes.Buffer
-	code := Registry["check-visual-trigger"]([]string{root}, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: iotest.ErrReader(errors.New("boom"))}, &out, &errb)
+	code := Registry["check-visual-trigger"]([]string{root}, core.Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: iotest.ErrReader(errors.New("boom"))}, &out, &errb)
 	vtAssertToken(t, code, out.String()+errb.String(), errb.String(), cannot, root)
 }
 
@@ -395,7 +397,7 @@ func TestVisualTriggerRepoPrefix(t *testing.T) {
 	writeFile(t, root+"/.flow/project.md", vtSection("`gymie-frontend/**`")+"\n")
 	run := func(args ...string) (int, string) {
 		var out, errb bytes.Buffer
-		code := Registry["check-visual-trigger"](args, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader("./composeApp/src/App.kt\n\n")}, &out, &errb)
+		code := Registry["check-visual-trigger"](args, core.Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader("./composeApp/src/App.kt\n\n")}, &out, &errb)
 		return code, out.String() + errb.String()
 	}
 	if code, out := run("--repo", "gymie-frontend", root); code != 0 || !strings.Contains(out, vtMatched("gymie-frontend/composeApp/src/App.kt", "gymie-frontend/**")) {
@@ -405,7 +407,7 @@ func TestVisualTriggerRepoPrefix(t *testing.T) {
 		t.Errorf("no --repo: exit %d output %q; want 1", code, out)
 	}
 	var out, errb bytes.Buffer
-	if code := Registry["check-visual-trigger"]([]string{"--repo", "gymie-frontend", root}, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader("/x/y\n")}, &out, &errb); code != 1 {
+	if code := Registry["check-visual-trigger"]([]string{"--repo", "gymie-frontend", root}, core.Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader("/x/y\n")}, &out, &errb); code != 1 {
 		t.Errorf("--repo with an absolute path: exit %d output %q; want 1, an absolute candidate never matches", code, out.String()+errb.String())
 	}
 	for _, args := range [][]string{{"--repo", "", root}, {"--repo", root}} {
@@ -445,7 +447,7 @@ func TestCheckVisualTriggerCoversEmbeddedSources(t *testing.T) {
 			t.Errorf("%s: the `fingerprint` row %q never compares it — a reused stack serves the old embed", m[1], fp)
 		}
 		var out, errb bytes.Buffer
-		code := Registry["check-visual-trigger"]([]string{root}, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader(m[1] + "\n")}, &out, &errb)
+		code := Registry["check-visual-trigger"]([]string{root}, core.Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader(m[1] + "\n")}, &out, &errb)
 		if code != 0 || !strings.Contains(out.String(), "MATCH: "+m[1]) {
 			t.Errorf("%s: exit %d stdout %q stderr %q; want 0 with `MATCH: %s` — `ui paths` misses an embedded source", m[1], code, out.String(), errb.String(), m[1])
 		}

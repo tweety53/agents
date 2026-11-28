@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // pgTask is one plan task for pgSelect: open unless done, its After set and Files.
@@ -55,7 +57,7 @@ func TestParallelGroupsSelect(t *testing.T) {
 
 // pgFixture is a canonical worktree on spectre/demo holding a plan of two independent tasks in two
 // groups, its decision recorded.
-func pgFixture(t *testing.T) (wt string, env Env) {
+func pgFixture(t *testing.T) (wt string, env core.Env) {
 	t.Helper()
 	wt = t.TempDir() + "/wt"
 	mkdir(t, wt)
@@ -68,7 +70,7 @@ func pgFixture(t *testing.T) (wt string, env Env) {
 	gitRun(t, wt, "commit", "-q", "-m", "base")
 	writeFile(t, wt+"/spectre/changes/demo/tasks.md", "# Tasks\n\n- [ ] 1. one\n\n**Files:**\n- `a.txt`\n\n**After:** none\n\n- [ ] 2. two\n\n**Files:**\n- `b.txt`\n\n**After:** none\n")
 	writeFile(t, wt+"/.superpowers/sdd/decision.json", `{"groups":[{"tasks":["1"],"reason":"r"},{"tasks":["2"],"reason":"r"}],"panel":[],"visual":{"verify":"skipped"}}`)
-	return wt, Env{Getenv: pathEnv(""), Dir: wt}
+	return wt, core.Env{Getenv: pathEnv(""), Dir: wt}
 }
 
 func TestParallelGroupsNext(t *testing.T) {
@@ -102,7 +104,7 @@ func TestParallelGroupsNext(t *testing.T) {
 
 // pgCopy creates group g's copy of wt through throwaway-worktree and commits files in it under
 // Task-Id id.
-func pgCopy(t *testing.T, wt string, env Env, g, id string, files ...string) string {
+func pgCopy(t *testing.T, wt string, env core.Env, g, id string, files ...string) string {
 	t.Helper()
 	cp := wt + "-group-" + g
 	if r := runGuard("throwaway-worktree", []string{"create", wt, cp, "--sdd"}, env); r.rc != 0 {

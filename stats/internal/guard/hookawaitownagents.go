@@ -12,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard hook await-own-agents — the SubagentStop hook (flow-guard hook await-own-agents runs it): a
@@ -85,7 +87,7 @@ var (
 	aoaStopped = regexp.MustCompile(`Successfully stopped task: ([A-Za-z0-9]+)`)
 )
 
-func awaitOwnAgents(env Env, payload map[string]any, stdout, _ io.Writer) {
+func awaitOwnAgents(env core.Env, payload map[string]any, stdout, _ io.Writer) {
 	if payload == nil {
 		return
 	}
@@ -198,7 +200,7 @@ func aoaOwesHandback(transcript string) bool {
 // aoaInProcess runs a dispatch-row guard in process in cwd, bounded, output discarded -- only
 // under a flow-guard checkout (FLOW_GUARD_REPO_ROOT), as when each ran as its own
 // scripts/flow-guard.
-func aoaInProcess(env Env, bound time.Duration, cwd string, fn Func, args ...string) {
+func aoaInProcess(env core.Env, bound time.Duration, cwd string, fn core.Func, args ...string) {
 	if env.Getenv("FLOW_GUARD_REPO_ROOT") != "" {
 		_, _, _, _ = hookInProcess(env, bound, cwd, fn, args...)
 	}
@@ -363,7 +365,7 @@ func aoaOutputPaths(text, task string) []string {
 }
 
 // aoaHolders is the pids holding path open, or ok false when lsof is missing or fails.
-func aoaHolders(env Env, path string) (pids []int, ok bool) {
+func aoaHolders(env core.Env, path string) (pids []int, ok bool) {
 	out, rc, err := hookRun(env, 10*time.Second, "", "lsof", "-t", "--", path)
 	if err != nil || rc > 1 {
 		return nil, false
@@ -378,7 +380,7 @@ func aoaHolders(env Env, path string) (pids []int, ok bool) {
 
 // aoaAlive: a background command lives while a process holds its output file; without lsof, while
 // the file is fresh.
-func aoaAlive(env Env, text, task string) bool {
+func aoaAlive(env core.Env, text, task string) bool {
 	for _, path := range aoaOutputPaths(text, task) {
 		st, err := os.Stat(path)
 		if err != nil {
@@ -394,7 +396,7 @@ func aoaAlive(env Env, text, task string) bool {
 
 // aoaKillBackground SIGTERMs every process holding an `<id>.output` file of the given background
 // commands open.
-func aoaKillBackground(env Env, transcript string, ids []string) {
+func aoaKillBackground(env core.Env, transcript string, ids []string) {
 	b, err := os.ReadFile(transcript)
 	if err != nil {
 		return

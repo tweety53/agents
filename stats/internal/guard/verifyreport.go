@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -132,7 +134,7 @@ var (
 	vrRestSegment = regexp.MustCompile(`-rest(-\d+)?\b`)
 )
 
-func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
+func checkVerifyReport(args []string, env core.Env, stdout, stderr io.Writer) int {
 	const prog = "check-verify-report"
 	const usage = "verify-report check, run in-process by visual-verify-pass close: <report file> <motions named> [--design <design.md>] [--frames <frame>[,<frame>…]]"
 	design := ""
@@ -140,7 +142,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	if i := slices.Index(args, "--frames"); i >= 0 {
 		if i+1 == len(args) || args[i+1] == "" {
 			fmt.Fprintf(stderr, "%s: usage: %s\n", prog, usage)
-			Reason(env, "usage")
+			core.Reason(env, "usage")
 			return 2
 		}
 		slice = strings.Split(args[i+1], ",")
@@ -149,7 +151,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	if i := slices.Index(args, "--design"); i >= 0 {
 		if i+1 == len(args) {
 			fmt.Fprintf(stderr, "%s: usage: %s\n", prog, usage)
-			Reason(env, "usage")
+			core.Reason(env, "usage")
 			return 2
 		}
 		design = args[i+1]
@@ -157,19 +159,19 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if len(args) != 2 {
 		fmt.Fprintf(stderr, "%s: usage: %s\n", prog, usage)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	motions, err := strconv.Atoi(args[1])
 	if err != nil || motions < 0 {
 		fmt.Fprintf(stderr, "%s: usage: %s — %q is not a count\n", prog, usage, args[1])
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	data, err := os.ReadFile(args[0])
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, args[0], err)
-		Reason(env, "cannot-read")
+		core.Reason(env, "cannot-read")
 		return 2
 	}
 	status := map[string]string{}
@@ -221,14 +223,14 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		body, err := os.ReadFile(design)
 		if err != nil {
 			fmt.Fprintf(stderr, "%s: cannot read %s: %v\n", prog, design, err)
-			Reason(env, "cannot-read")
+			core.Reason(env, "cannot-read")
 			return 2
 		}
 		wt := filepath.Dir(filepath.Dir(filepath.Dir(args[0])))
 		vv, _ := os.ReadFile(filepath.Join(filepath.Dir(design), "visual-verification.md"))
 		if strings.Contains(strings.Join(reportLines, "\n"), "no mockup source") || strings.Contains(string(vv), "no mockup source") {
 			for _, m := range vrMockupSource.FindAllStringSubmatch(string(body), -1) {
-				if isFile(filepath.Join(wt, m[1])) {
+				if core.IsFile(filepath.Join(wt, m[1])) {
 					status["10"] = "`no mockup source` while design.md cites " + m[1]
 					break
 				}
@@ -239,7 +241,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 		// contract names no view to compose.
 		if strings.HasPrefix(status["10"], "n/a") && !noView {
 			for _, m := range vrMockupSource.FindAllStringSubmatch(string(body), -1) {
-				if !strings.HasSuffix(m[1], ".css") && isFile(filepath.Join(wt, m[1])) {
+				if !strings.HasSuffix(m[1], ".css") && core.IsFile(filepath.Join(wt, m[1])) {
 					status["10"] = "n/a while design.md cites the prototype " + m[1] + " — render it as each capture's frame (visual-verify-verifier.md step 10)"
 					break
 				}
@@ -302,7 +304,7 @@ func checkVerifyReport(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if len(undone) > 0 {
 		fmt.Fprintf(stdout, "VERIFY-REPORT-INCOMPLETE: %s — %s\n", args[0], strings.Join(undone, "; "))
-		Reason(env, "verify-report-incomplete")
+		core.Reason(env, "verify-report-incomplete")
 		return 1
 	}
 	fmt.Fprintf(stdout, "VERIFY-REPORT-COMPLETE: %s\n", args[0])
@@ -321,7 +323,7 @@ func vrManifestPath(report string) string {
 // checked: step 9 blocks on it.
 // A `capture unchanged since` line accounts only for a capture in scoped, the
 // captures a scoped row may leave unread (vrScopedCaptures).
-func vrUnaccounted(wt, spec string, env Env, lines, scoped, slice []string) []string {
+func vrUnaccounted(wt, spec string, env core.Env, lines, scoped, slice []string) []string {
 	var buf strings.Builder
 	if resolveVisualScreenshots([]string{wt, filepath.Base(spec)}, env, &buf, io.Discard) != 0 {
 		return nil

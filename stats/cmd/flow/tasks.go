@@ -81,7 +81,7 @@ func runTasks(ctx context.Context, args []string, getenv func(string) string, st
 }
 
 // specRootLeaf ports the retired scripts/lib/spec-root.sh's spec_root_leaf
-// probe, whose Go twin is stats/internal/guard/specroot.go:
+// probe, whose Go twin is stats/internal/guard/core/specroot.go:
 // "spectre" when <dir>/spectre/changes exists, "openspec" when only
 // <dir>/openspec/changes does, "spectre" when neither does (a project
 // with no open changes yet is expected to gain the canonical tree, so
@@ -112,7 +112,7 @@ func specRootLeaf(dir string) string {
 }
 
 // holdsOpenChange reports whether changes/ holds any entry but archive/ --
-// the cmd twin of stats/internal/guard/specroot.go's.
+// the cmd twin of stats/internal/guard/core/specroot.go's.
 func holdsOpenChange(changes string) bool {
 	entries, _ := os.ReadDir(changes)
 	for _, e := range entries {
@@ -124,7 +124,7 @@ func holdsOpenChange(changes string) bool {
 }
 
 // changeNamePattern is the same containment allowlist
-// stats/internal/guard/changename.go's plainChangeName applies to a change
+// stats/internal/guard/core/changename.go's PlainChangeName applies to a change
 // name before concatenating it into a path: start with a letter or
 // digit, then only letters, digits, '.', '_' and '-' -- so a value like
 // "../escape" can never walk planPath outside <dir>/<spec-root>/changes/.

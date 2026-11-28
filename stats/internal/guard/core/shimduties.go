@@ -1,4 +1,4 @@
-package guard
+package core
 
 import (
 	"os"
@@ -23,27 +23,27 @@ func CannotAnswer(name string) int {
 	return 2
 }
 
-// siblingExe, when set, is the executable sibling guards run as instead of
+// SiblingExe, when set, is the executable sibling guards run as instead of
 // this one: this package's tests point it at a flow-guard built from these
 // sources, so a sibling runs as the production binary, never as the
 // race-instrumented test binary.
-var siblingExe string
+var SiblingExe string
 
-// selfExe is the executable a sibling guard runs as: siblingExe, else this
+// selfExe is the executable a sibling guard runs as: SiblingExe, else this
 // very executable.
 func selfExe() (string, error) {
-	if siblingExe != "" {
-		return siblingExe, nil
+	if SiblingExe != "" {
+		return SiblingExe, nil
 	}
 	return os.Executable()
 }
 
-// runSibling is the command that runs sibling guard name with args: this
+// RunSibling is the command that runs sibling guard name with args: this
 // very executable, the sibling's name its first argument — the same process
 // isolation and exit codes the sibling's own scripts/<name>.sh exec gave.
 // It runs in env.Dir; a caller sets the rest. An executable that cannot be
 // resolved surfaces as the command's start error.
-func runSibling(env Env, name string, args ...string) *exec.Cmd {
+func RunSibling(env Env, name string, args ...string) *exec.Cmd {
 	self, err := selfExe()
 	cmd := exec.Command(self, append([]string{name}, args...)...)
 	if err != nil {
@@ -53,20 +53,20 @@ func runSibling(env Env, name string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-// siblingCmd is runSibling, unless override — the sibling's
+// SiblingCmd is RunSibling, unless override — the sibling's
 // FLOW_GUARD_<NAME> test override — names an executable to run instead.
-func siblingCmd(env Env, override, name string, args ...string) *exec.Cmd {
+func SiblingCmd(env Env, override, name string, args ...string) *exec.Cmd {
 	if p := env.Getenv(override); p != "" {
 		cmd := exec.Command(p, args...)
 		cmd.Dir = env.Dir
 		return cmd
 	}
-	return runSibling(env, name, args...)
+	return RunSibling(env, name, args...)
 }
 
-// selfJudging is every guard that judges its own checkout — the guards whose
+// SelfJudging is every guard that judges its own checkout — the guards whose
 // bash shim called flow_guard_cwd_checkout before deriving its root.
-var selfJudging = map[string]bool{
+var SelfJudging = map[string]bool{
 	"check-dev-stack-fresh": true,
 	"check-guard-calls":     true,
 }
@@ -81,10 +81,10 @@ var selfJudging = map[string]bool{
 // re-exec'd bootstrap exports its own root, so it never loops.
 func CwdCheckout(env Env, name string) (string, bool) {
 	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
-	if !selfJudging[name] || root == "" {
+	if !SelfJudging[name] || root == "" {
 		return "", false
 	}
-	top, ok := gitOut(env, "rev-parse", "--show-toplevel")
+	top, ok := GitOut(env, "rev-parse", "--show-toplevel")
 	if !ok {
 		return "", false
 	}
@@ -100,11 +100,11 @@ func CwdCheckout(env Env, name string) (string, bool) {
 		return "", false
 	}
 	commonDir := []string{"rev-parse", "--path-format=absolute", "--git-common-dir"}
-	common, ok := gitOut(Env{Dir: root}, commonDir...)
+	common, ok := GitOut(Env{Dir: root}, commonDir...)
 	if !ok || common == "" {
 		return "", false
 	}
-	if other, ok := gitOut(Env{Dir: top}, commonDir...); !ok || other != common {
+	if other, ok := GitOut(Env{Dir: top}, commonDir...); !ok || other != common {
 		return "", false
 	}
 	return script, true

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // fakeFlowdRows is a flowd answering change records' GET with rows() as their dispatches, under
@@ -46,7 +48,7 @@ func gitWorktree(t *testing.T, dir, name string) string {
 // awaitRowsEnv serves the rows from a fake flowd: rows, or rowsEnded once a `flow record dispatch
 // end` -- the sweep's write, still the flow CLI on PATH -- has been called. It returns the env,
 // HOME and the change's worktree.
-func awaitRowsEnv(t *testing.T, rows, rowsEnded string) (Env, string, string) {
+func awaitRowsEnv(t *testing.T, rows, rowsEnded string) (core.Env, string, string) {
 	t.Helper()
 	tmp := t.TempDir()
 	swept := filepath.Join(tmp, "swept")
@@ -58,7 +60,7 @@ func awaitRowsEnv(t *testing.T, rows, rowsEnded string) (Env, string, string) {
 	}, nil)
 	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\ntouch "+swept+"\n")
 	home := filepath.Join(tmp, "home")
-	return Env{Getenv: func(k string) string {
+	return core.Env{Getenv: func(k string) string {
 		switch k {
 		case "HOME":
 			return home
@@ -145,7 +147,7 @@ func TestAwaitRowsAny(t *testing.T) {
 
 // awaitRowsGitEnv is a change worktree chg whose flowd serves rows.json as it stands and hands
 // every other route -- the wait route -- to wait.
-func awaitRowsGitEnv(t *testing.T, wait http.HandlerFunc, rows string) (Env, string, string) {
+func awaitRowsGitEnv(t *testing.T, wait http.HandlerFunc, rows string) (core.Env, string, string) {
 	t.Helper()
 	tmp := t.TempDir()
 	writeFile(t, filepath.Join(tmp, "rows.json"), rows)
@@ -153,7 +155,7 @@ func awaitRowsGitEnv(t *testing.T, wait http.HandlerFunc, rows string) (Env, str
 		b, _ := os.ReadFile(filepath.Join(tmp, "rows.json"))
 		return string(b)
 	}, wait)
-	return Env{Getenv: func(k string) string {
+	return core.Env{Getenv: func(k string) string {
 		switch k {
 		case "HOME":
 			return filepath.Join(tmp, "home")
@@ -230,7 +232,7 @@ func TestAwaitRowsFallsBackToPolling(t *testing.T) {
 // no wait route, its sleep -- lands in the run's collector as wait.
 func TestAwaitRowsRecordsItsWait(t *testing.T) {
 	t.Parallel()
-	env := Env{Reasons: &Reasons{}}
+	env := core.Env{Reasons: &core.Reasons{}}
 	awaitRowsBlock(env, "", 50*time.Millisecond)
 	if w := env.Reasons.Wait(); w < 50*time.Millisecond {
 		t.Errorf("wait = %s, want the 50 ms sleep", w)

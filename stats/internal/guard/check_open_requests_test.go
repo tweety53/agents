@@ -8,10 +8,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // openRequestsEnv serves body as the change's request rows from a fake flowd.
-func openRequestsEnv(t *testing.T, body string) (Env, string) {
+func openRequestsEnv(t *testing.T, body string) (core.Env, string) {
 	t.Helper()
 	tmp := t.TempDir()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +25,7 @@ func openRequestsEnv(t *testing.T, body string) (Env, string) {
 		http.NotFound(w, r)
 	}))
 	t.Cleanup(srv.Close)
-	return Env{Getenv: func(k string) string {
+	return core.Env{Getenv: func(k string) string {
 		switch k {
 		case "HOME":
 			return filepath.Join(tmp, "home")
@@ -58,7 +60,7 @@ func TestCheckOpenRequestsNoneOpen(t *testing.T) {
 func TestCheckOpenRequestsUsage(t *testing.T) {
 	t.Parallel()
 	var o, e bytes.Buffer
-	if rc := checkOpenRequests(nil, Env{Getenv: os.Getenv}, &o, &e); rc != 2 {
+	if rc := checkOpenRequests(nil, core.Env{Getenv: os.Getenv}, &o, &e); rc != 2 {
 		t.Fatalf("rc=%d", rc)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -77,7 +78,7 @@ func (fx *fpFx) mergeOrigin() {
 
 // fpEnv is the process's environment with PATH led by stub when there is
 // one.
-func fpEnv(dir, stub string) Env {
+func fpEnv(dir, stub string) core.Env {
 	lookup := func(k string) (string, bool) {
 		switch {
 		case k == "PATH" && stub != "":
@@ -85,7 +86,7 @@ func fpEnv(dir, stub string) Env {
 		}
 		return os.LookupEnv(k)
 	}
-	return Env{Dir: dir, LookupEnv: lookup, Getenv: func(k string) string { v, _ := lookup(k); return v }}
+	return core.Env{Dir: dir, LookupEnv: lookup, Getenv: func(k string) string { v, _ := lookup(k); return v }}
 }
 
 func TestCheckFinishPreflight(t *testing.T) {
@@ -197,7 +198,7 @@ func TestCheckFinishPreflight(t *testing.T) {
 			fx.withOrigin()
 			fx.g.git(fx.repo, "update-ref", "refs/remotes/origin/-weird", fx.g.git(fx.repo, "rev-parse", "HEAD"))
 		}, run: func(fx *fpFx) (guardResult, error) {
-			git := envGit(Env{Dir: fx.dir, Getenv: os.Getenv})
+			git := core.EnvGit(core.Env{Dir: fx.dir, Getenv: os.Getenv})
 			return guardResult{out: resolveRemoteBase(git, fx.repo, "-weird") + "|" +
 				resolveRemoteBase(git, fx.repo, "-no-such-ref")}, nil
 		}, checks: []bmCheck{

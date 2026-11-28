@@ -7,6 +7,7 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/testcost"
 )
 
@@ -31,7 +32,7 @@ import (
 func init() { Registry["test-cost"] = testCost }
 
 // testCost is `flow-guard test-cost`: the comment above is the contract.
-func testCost(args []string, env Env, stdout, stderr io.Writer) int {
+func testCost(args []string, env core.Env, stdout, stderr io.Writer) int {
 	min := 0.0
 	switch {
 	case len(args) == 0:
@@ -39,13 +40,13 @@ func testCost(args []string, env Env, stdout, stderr io.Writer) int {
 		v, err := strconv.ParseFloat(args[1], 64)
 		if err != nil {
 			fmt.Fprintln(stderr, "usage: flow-guard test-cost [-min <seconds>]")
-			Reason(env, "usage")
+			core.Reason(env, "usage")
 			return 2
 		}
 		min = v
 	default:
 		fmt.Fprintln(stderr, "usage: flow-guard test-cost [-min <seconds>]")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 

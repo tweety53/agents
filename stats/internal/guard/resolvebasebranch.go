@@ -9,6 +9,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -94,7 +96,7 @@ func init() {
 // rbbRemoteTimeout bounds each call resolve-base-branch makes to origin.
 var rbbRemoteTimeout = 20 * time.Second
 
-func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
+func resolveBaseBranch(args []string, env core.Env, stdout, stderr io.Writer) int {
 	// NO REFUSAL BELOW MAY DEPEND ON THE OPERATOR'S LOCALE. The bash pinned
 	// `export LC_ALL=C` because `A-Za-z0-9` in a `case` bracket expression is
 	// a collating range: under en_US.UTF-8 on bash 3.2 a non-ASCII byte such
@@ -102,7 +104,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// compares bytes, so no locale reaches it; git still runs under
 	// LC_ALL=C, as it did as a child of the bash, so the `HEAD branch:` line
 	// `remote show` prints is never translated.
-	git := envGit(env, "LC_ALL=C")
+	git := core.EnvGit(env, "LC_ALL=C")
 
 	force := len(args) > 0 && args[0] == "--fetch"
 	if force {
@@ -114,17 +116,17 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if dir == "" {
 		fmt.Fprintln(stderr, "usage: flow-guard resolve-base-branch [--fetch] <dir>")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
-	if !isDir(pcAbs(env, dir)) {
+	if !core.IsDir(core.CleanAbs(env, dir)) {
 		fmt.Fprintf(stderr, "resolve-base-branch: %s is not a directory\n", dir)
-		Reason(env, "not-a-directory")
+		core.Reason(env, "not-a-directory")
 		return 2
 	}
 	if git("-C", dir, "rev-parse", "--git-dir").Run() != nil {
 		fmt.Fprintf(stderr, "resolve-base-branch: %s is not a git worktree\n", dir)
-		Reason(env, "not-a-worktree")
+		core.Reason(env, "not-a-worktree")
 		return 2
 	}
 	// Exit 3 stays separate from exit 2: the finish contract requires a
@@ -132,7 +134,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// stderr text.
 	if git("-C", dir, "remote", "get-url", "origin").Run() != nil {
 		fmt.Fprintf(stderr, "resolve-base-branch: no 'origin' remote configured in %s\n", dir)
-		Reason(env, "no-origin-remote")
+		core.Reason(env, "no-origin-remote")
 		return 3
 	}
 
@@ -150,12 +152,12 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// an unreachable remote is an ordinary outcome here -- so only its output
 	// is read, as the bash's `|| true` read it: each line through the bash's
 	// sed, NUL bytes dropped and trailing newlines stripped as `$(...)` did.
-	symref, _ := capture(git("-C", dir, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
+	symref, _ := core.Capture(git("-C", dir, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
 	base := rbbSed(symref, func(l string) (string, bool) {
 		return strings.TrimPrefix(l, "origin/"), true
 	})
 	if base == "" {
-		show, _, _ := rbbRemote(envGit(env, "LC_ALL=C", "GIT_TERMINAL_PROMPT=0")("-C", dir, "remote", "show", "origin"))
+		show, _, _ := rbbRemote(core.EnvGit(env, "LC_ALL=C", "GIT_TERMINAL_PROMPT=0")("-C", dir, "remote", "show", "origin"))
 		base = rbbSed(show, func(l string) (string, bool) {
 			return strings.CutPrefix(strings.TrimLeft(l, " "), "HEAD branch: ")
 		})
@@ -168,16 +170,16 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// refused as its own case, exit 2, like the other cannot-read-this-tree
 	// checks above; exit 1 detached HEAD is reserved for the empty-but-
 	// successful case.
-	cur, ok := capture(git("-C", dir, "branch", "--show-current"))
+	cur, ok := core.Capture(git("-C", dir, "branch", "--show-current"))
 	if !ok {
 		fmt.Fprintf(stderr, "resolve-base-branch: could not read the current branch in %s\n", dir)
-		Reason(env, "cannot-read-current-branch")
+		core.Reason(env, "cannot-read-current-branch")
 		return 2
 	}
 	cur = strings.TrimRight(strings.ReplaceAll(cur, "\x00", ""), "\n")
 	if cur == "" {
 		fmt.Fprintf(stderr, "resolve-base-branch: HEAD is detached in %s\n", dir)
-		Reason(env, "head-detached")
+		core.Reason(env, "head-detached")
 		return 1
 	}
 	// A base recorded on this branch when its worktree was created
@@ -191,12 +193,12 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if base == "" {
 		fmt.Fprintf(stderr, "resolve-base-branch: could not resolve a base branch in %s\n", dir)
-		Reason(env, "could-not-resolve-a-base")
+		core.Reason(env, "could-not-resolve-a-base")
 		return 1
 	}
 	if base == cur {
 		fmt.Fprintf(stderr, "resolve-base-branch: base branch '%s' is the same as the current branch — refusing to compare a branch with itself\n", base)
-		Reason(env, "base-is-current-branch")
+		core.Reason(env, "base-is-current-branch")
 		return 1
 	}
 
@@ -209,7 +211,7 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	for i := 0; i < len(base); i++ {
 		if !rbbNameByte(base[i], i > 0) {
 			fmt.Fprintln(stderr, "resolve-base-branch: the resolved base branch name is invalid")
-			Reason(env, "base-name-invalid")
+			core.Reason(env, "base-name-invalid")
 			return 1
 		}
 	}
@@ -221,9 +223,9 @@ func resolveBaseBranch(args []string, env Env, stdout, stderr io.Writer) int {
 	// fetch that just failed already answered "unreachable", so the call is
 	// skipped rather than blocking a second time.
 	if rec != "" && fetched {
-		if _, _, rc := rbbRemote(envGit(env, "LC_ALL=C", "GIT_TERMINAL_PROMPT=0")("-C", dir, "-c", "core.askpass=true", "ls-remote", "--exit-code", "--heads", "origin", "refs/heads/"+base)); rc == 2 {
+		if _, _, rc := rbbRemote(core.EnvGit(env, "LC_ALL=C", "GIT_TERMINAL_PROMPT=0")("-C", dir, "-c", "core.askpass=true", "ls-remote", "--exit-code", "--heads", "origin", "refs/heads/"+base)); rc == 2 {
 			fmt.Fprintf(stderr, "resolve-base-branch: recorded base '%s' is not on origin — re-point the change (skills/flow/SKILL.md)\n", base)
-			Reason(env, "recorded-base-gone")
+			core.Reason(env, "recorded-base-gone")
 			return 1
 		}
 	}
@@ -243,7 +245,7 @@ var originFreshFor = 60 * time.Second
 // `git fetch origin <ref>` or another remote's fetch leaves origin's other
 // refs as old as they were.
 func fetchedRecently(git func(...string) *exec.Cmd, dir string) bool {
-	common, ok := capture(git("-C", dir, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+	common, ok := core.Capture(git("-C", dir, "rev-parse", "--path-format=absolute", "--git-common-dir"))
 	if !ok {
 		return false
 	}
@@ -263,8 +265,8 @@ func fetchedRecently(git func(...string) *exec.Cmd, dir string) bool {
 			continue
 		}
 		if url == "" {
-			u, ok := capture(git("-C", dir, "remote", "get-url", "origin"))
-			refs, ok2 := capture(git("-C", dir, "for-each-ref", "--format=%(refname:lstrip=3)", "refs/remotes/origin"))
+			u, ok := core.Capture(git("-C", dir, "remote", "get-url", "origin"))
+			refs, ok2 := core.Capture(git("-C", dir, "for-each-ref", "--format=%(refname:lstrip=3)", "refs/remotes/origin"))
 			if !ok || !ok2 {
 				return false
 			}
@@ -327,7 +329,7 @@ func fetchURL(url string) string {
 // recordedBase is the base kickoff-worktree.sh recorded on branch, or ""
 // when none was: `git config branch.<branch>.flowBase`.
 func recordedBase(git func(...string) *exec.Cmd, dir, branch string) string {
-	rec, _ := capture(git("-C", dir, "config", "--get", "branch."+branch+".flowBase"))
+	rec, _ := core.Capture(git("-C", dir, "config", "--get", "branch."+branch+".flowBase"))
 	return strings.TrimRight(strings.ReplaceAll(rec, "\x00", ""), "\n")
 }
 
@@ -338,17 +340,17 @@ func recordedBase(git func(...string) *exec.Cmd, dir, branch string) string {
 // the default branch itself the base is HEAD.
 func defaultBase(git func(...string) *exec.Cmd, root string) (sha, label string, ok bool) {
 	var candidates []string
-	if cur, ok := capture(git("-C", root, "branch", "--show-current")); ok && strings.TrimSpace(cur) != "" {
+	if cur, ok := core.Capture(git("-C", root, "branch", "--show-current")); ok && strings.TrimSpace(cur) != "" {
 		if rec := recordedBase(git, root, strings.TrimSpace(cur)); rec != "" {
 			candidates = append(candidates, "origin/"+rec)
 		}
 	}
-	if sym, ok := capture(git("-C", root, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")); ok && sym != "" {
+	if sym, ok := core.Capture(git("-C", root, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")); ok && sym != "" {
 		candidates = append(candidates, sym)
 	}
 	candidates = append(candidates, "origin/main", "main")
 	for _, c := range candidates {
-		if mb, ok := capture(git("-C", root, "merge-base", "HEAD", c)); ok && mb != "" {
+		if mb, ok := core.Capture(git("-C", root, "merge-base", "HEAD", c)); ok && mb != "" {
 			return mb, "merge-base(HEAD, " + c + ") " + mb[:min(12, len(mb))], true
 		}
 	}

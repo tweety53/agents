@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tweety53/agents/stats/internal/guard"
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -49,7 +49,7 @@ type guardRun struct {
 	// not clear; absent, the store records NULL.
 	Reasons []string `json:"reasons,omitempty"`
 	// Headless is the run's headless model call, absent when it made none.
-	Headless *guard.Headless `json:"headless,omitempty"`
+	Headless *core.Headless `json:"headless,omitempty"`
 }
 
 // outcomeFor classifies guard name's exit code and the first line it printed
@@ -64,7 +64,7 @@ func outcomeFor(name string, code int, first string) string {
 		return "fired"
 	case code == 0:
 		return "clear"
-	case code == guard.CannotAnswer(name):
+	case code == core.CannotAnswer(name):
 		return "cannot-answer"
 	default:
 		return "fired"
@@ -109,7 +109,7 @@ func (f *firstLine) Write(p []byte) (int, error) {
 
 // recordRun records one dispatched guard's run, and reports nothing: every
 // failure is swallowed, per this file's header.
-func recordRun(getenv func(string) string, dir, name string, code int, first string, reasons []string, headless *guard.Headless, wait, elapsed time.Duration) {
+func recordRun(getenv func(string) string, dir, name string, code int, first string, reasons []string, headless *core.Headless, wait, elapsed time.Duration) {
 	if telemetryOff[strings.ToLower(getenv("FLOW_GUARD_TELEMETRY"))] {
 		return
 	}

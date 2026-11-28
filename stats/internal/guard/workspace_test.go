@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -18,7 +19,7 @@ import (
 func TestWorkspace(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	ws := func(args ...string) guardResult { return runGuard("workspace", args, env) }
 
 	for _, c := range []struct {
@@ -48,7 +49,7 @@ func TestWorkspace(t *testing.T) {
 	t.Run("a failing docker exec is its own non-zero exit", func(t *testing.T) {
 		bin := t.TempDir()
 		writeExec(t, bin+"/docker", "#!/bin/sh\necho 'docker: daemon down' >&2\nexit 3\n")
-		fenv := Env{Getenv: func(k string) string {
+		fenv := core.Env{Getenv: func(k string) string {
 			if k == "PATH" {
 				return bin
 			}

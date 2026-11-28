@@ -5,6 +5,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -43,29 +45,29 @@ import (
 // branch origin/HEAD names (kan-1007).
 func init() { Registry["check-base-behind"] = checkBaseBehind }
 
-func checkBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
+func checkBaseBehind(args []string, env core.Env, stdout, stderr io.Writer) int {
 	return baseBehind(args, env, stdout, stderr, false)
 }
 
 // baseBehind is check-base-behind; force fetches even after a recent fetch.
-func baseBehind(args []string, env Env, stdout, stderr io.Writer, force bool) int {
+func baseBehind(args []string, env core.Env, stdout, stderr io.Writer, force bool) int {
 	const prog = "check-base-behind"
 	if len(args) == 0 {
 		fmt.Fprintf(stderr, "%s: usage: flow-guard check-base-behind <worktree>...\n", prog)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
-	git := envGit(env)
+	git := core.EnvGit(env)
 	var out strings.Builder
 	rc := 0
 	fetched := map[string]bool{}
 	for _, wt := range args {
-		if _, ok := capture(git("-C", wt, "rev-parse", "--is-inside-work-tree")); !ok {
+		if _, ok := core.Capture(git("-C", wt, "rev-parse", "--is-inside-work-tree")); !ok {
 			fmt.Fprintf(stderr, "%s: not a git worktree: %s\n", prog, wt)
-			Reason(env, "not-a-worktree")
+			core.Reason(env, "not-a-worktree")
 			return 2
 		}
-		branch, _ := capture(git("-C", wt, "symbolic-ref", "--short", "-q", "HEAD"))
+		branch, _ := core.Capture(git("-C", wt, "symbolic-ref", "--short", "-q", "HEAD"))
 		base := ""
 		if branch != "" {
 			base = recordedBase(git, wt, branch)
@@ -75,15 +77,15 @@ func baseBehind(args []string, env Env, stdout, stderr io.Writer, force bool) in
 			continue
 		}
 		// Worktrees of one repository share their origin: fetch it once. A failed fetch compares the refs on hand.
-		common, _ := capture(git("-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir"))
+		common, _ := core.Capture(git("-C", wt, "rev-parse", "--path-format=absolute", "--git-common-dir"))
 		if !fetched[common] && (force || !fetchedRecently(git, wt)) {
 			_ = git("-C", wt, "fetch", "-q", "origin").Run()
 			fetched[common] = true
 		}
-		head, ok := capture(git("-C", wt, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"))
+		head, ok := core.Capture(git("-C", wt, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"))
 		if !ok {
 			fmt.Fprintf(stderr, "%s: %s has no origin/HEAD\n", prog, wt)
-			Reason(env, "has-no-origin-head")
+			core.Reason(env, "has-no-origin-head")
 			return 2
 		}
 		tracked := strings.TrimPrefix(head, "origin/")
@@ -91,11 +93,11 @@ func baseBehind(args []string, env Env, stdout, stderr io.Writer, force bool) in
 			fmt.Fprintf(&out, "BASE-CURRENT: %s — %s is the tracked branch\n", wt, base)
 			continue
 		}
-		count, ok := capture(git("-C", wt, "rev-list", "--count", "origin/"+base+"..origin/"+tracked))
+		count, ok := core.Capture(git("-C", wt, "rev-list", "--count", "origin/"+base+"..origin/"+tracked))
 		n, err := strconv.Atoi(count)
 		if !ok || err != nil {
 			fmt.Fprintf(stderr, "%s: %s: git rev-list --count origin/%s..origin/%s failed\n", prog, wt, base, tracked)
-			Reason(env, "rev-list-failed")
+			core.Reason(env, "rev-list-failed")
 			return 2
 		}
 		if n == 0 {
@@ -103,7 +105,7 @@ func baseBehind(args []string, env Env, stdout, stderr io.Writer, force bool) in
 			continue
 		}
 		rc = 1
-		Reason(env, "base-behind")
+		core.Reason(env, "base-behind")
 		fmt.Fprintf(&out, "BASE-BEHIND: %s — origin/%s lacks %d commits of origin/%s; sync the base, never merge %s into the change branch (kan-1007):\n", wt, base, n, tracked, tracked)
 		fmt.Fprintf(&out, "  flow-guard sync-base-behind %s\n", wt)
 	}

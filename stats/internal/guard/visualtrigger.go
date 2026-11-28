@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -125,13 +127,13 @@ const (
 // as given, as the verdict lines print it.
 // The reason it records is the token's own id: not-configured or
 // cannot-answer.
-func vtRefuse(env Env, stderr io.Writer, token, root, cause string) int {
+func vtRefuse(env core.Env, stderr io.Writer, token, root, cause string) int {
 	fmt.Fprintf(stderr, "%s: %s — %s\n", token, root, cause)
-	Reason(env, strings.ToLower(strings.TrimPrefix(token, "VISUAL-TRIGGER-")))
+	core.Reason(env, strings.ToLower(strings.TrimPrefix(token, "VISUAL-TRIGGER-")))
 	return 2
 }
 
-func checkVisualTrigger(args []string, env Env, stdout, stderr io.Writer) int {
+func checkVisualTrigger(args []string, env core.Env, stdout, stderr io.Writer) int {
 	// `--repo <name>` matches each changed path as `<name>/<path>`: a
 	// cross-repo change's other worktree's diff, matched against the
 	// canonical project's `ui paths`, which name that repository's files by
@@ -176,12 +178,12 @@ func checkVisualTrigger(args []string, env Env, stdout, stderr io.Writer) int {
 // against env.Dir, as the bash resolved it against its working directory.
 // changed is called once, after every refusal about the root and its
 // config, for the diff's paths; its read error is the last refusal.
-func visualTrigger(env Env, root string, changed func() ([]string, error), stdout, stderr io.Writer) int {
+func visualTrigger(env core.Env, root string, changed func() ([]string, error), stdout, stderr io.Writer) int {
 	fsRoot := root
 	if root != "" && !strings.HasPrefix(root, "/") {
 		fsRoot = env.Dir + "/" + root
 	}
-	if root == "" || !isDir(fsRoot) {
+	if root == "" || !core.IsDir(fsRoot) {
 		fmt.Fprintf(stderr, "%s%s is not a directory — cannot tell whether it declares a visual verification section\n", vtPrefix, root)
 		return vtRefuse(env, stderr, vtCannotAnswer, root, "not a directory")
 	}
@@ -195,7 +197,7 @@ func visualTrigger(env Env, root string, changed func() ([]string, error), stdou
 		fmt.Fprintf(stderr, "%s%s has no .flow/project.md — not configured, so nothing was matched\n", vtPrefix, root)
 		return vtRefuse(env, stderr, vtNotConfigured, root, vtNoSection)
 	}
-	if !isFile(fsCfg) {
+	if !core.IsFile(fsCfg) {
 		fmt.Fprintf(stderr, "%s%s is not a regular file — cannot resolve what it declares\n", vtPrefix, cfg)
 		return vtRefuse(env, stderr, vtCannotAnswer, root, ".flow/project.md is not a regular file")
 	}
@@ -279,7 +281,7 @@ func visualTrigger(env Env, root string, changed func() ([]string, error), stdou
 		return 0
 	}
 	fmt.Fprintf(stdout, "VISUAL-TRIGGER-NO-MATCH: %s — no changed path matched `ui paths`\n", root)
-	Reason(env, "visual-trigger-no-match")
+	core.Reason(env, "visual-trigger-no-match")
 	return 1
 }
 

@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -118,7 +119,7 @@ func (f *vvpFix) run(sub string, args ...string) (int, string, string) {
 	writeFile(f.t, filepath.Join(filepath.Dir(f.log), "rows.json"), f.rows)
 	os.Remove(f.log)
 	var out, errb bytes.Buffer
-	env := Env{Getenv: f.getenv, Environ: func() []string { return f.environ }, Dir: f.wt}
+	env := core.Env{Getenv: f.getenv, Environ: func() []string { return f.environ }, Dir: f.wt}
 	rc := Registry["visual-verify-pass"](append([]string{sub}, args...), env, &out, &errb)
 	calls, _ := os.ReadFile(f.log)
 	return rc, out.String() + errb.String(), string(calls)
@@ -175,7 +176,7 @@ func TestVisualVerifyPassUsage(t *testing.T) {
 			}
 			return f.getenv(k)
 		}
-		env := Env{Getenv: getenv, Environ: func() []string { return f.environ }, Dir: f.wt}
+		env := core.Env{Getenv: getenv, Environ: func() []string { return f.environ }, Dir: f.wt}
 		rc := Registry["visual-verify-pass"](c.args, env, &out, &errb)
 		calls, _ := os.ReadFile(f.log)
 		if rc != 2 || !strings.Contains(errb.String(), "usage: flow-guard visual-verify-pass") || len(calls) != 0 || !strings.Contains(errb.String(), c.hint) {
@@ -751,7 +752,7 @@ func TestVisualVerifyPassPrepareContinueNamesSurvivorWithoutApp(t *testing.T) {
 		t.Fatalf("exit %d\n%s", rc, out)
 	}
 	var out, errb bytes.Buffer
-	env := Env{Getenv: g.getenv, Environ: func() []string { return g.environ }, Dir: g.wt}
+	env := core.Env{Getenv: g.getenv, Environ: func() []string { return g.environ }, Dir: g.wt}
 	writeFile(t, filepath.Join(filepath.Dir(g.log), "rows.json"), g.rows)
 	rc := Registry["visual-verify-pass"]([]string{"prepare", g.wt, "demo", "visual-verify-2", "--harness", "claude", "--session-token", "mf-tok", "--continue", "--app", w + ":.=" + g.app.URL}, env, &out, &errb)
 	if rc != 2 || !strings.Contains(errb.String(), "no --app passed for "+g.wt) || strings.Contains(out.String(), "NEXT: start-stack") {
@@ -786,7 +787,7 @@ func TestVisualVerifyPassPrepareDefaultsAppsFromTheProject(t *testing.T) {
 	f := vvpFixture(t, "| `preflight apps` | `web=http://localhost:${FRONTEND_PORT}`, `missing=http://localhost:1` |\n"+iso)
 	mkdir(t, filepath.Join(f.wt, "web"))
 	var kv bytes.Buffer
-	if rc := Registry["prepare-workspace"]([]string{f.wt}, Env{Getenv: f.getenv, Environ: func() []string { return f.environ }, Dir: f.wt}, &kv, &bytes.Buffer{}); rc != 0 {
+	if rc := Registry["prepare-workspace"]([]string{f.wt}, core.Env{Getenv: f.getenv, Environ: func() []string { return f.environ }, Dir: f.wt}, &kv, &bytes.Buffer{}); rc != 0 {
 		t.Fatalf("prepare-workspace exit %d", rc)
 	}
 	port := ""

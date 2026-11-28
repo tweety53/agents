@@ -1,6 +1,10 @@
 package guard
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
+)
 
 // envHarness: $FLOW_HARNESS, else claude-code under CLAUDECODE=1, else "".
 func TestEnvHarness(t *testing.T) {
@@ -10,7 +14,7 @@ func TestEnvHarness(t *testing.T) {
 		{"", "1", "claude-code"},
 		{"", "", ""},
 	} {
-		env := Env{Getenv: func(k string) string {
+		env := core.Env{Getenv: func(k string) string {
 			return map[string]string{"FLOW_HARNESS": c.flow, "CLAUDECODE": c.cc}[k]
 		}}
 		if got := envHarness(env); got != c.want {
@@ -28,7 +32,7 @@ func TestEnvToken(t *testing.T) {
 		{"", "s", "", "cc-s-main"},
 		{"", "", "a", ""},
 	} {
-		env := Env{Getenv: func(k string) string {
+		env := core.Env{Getenv: func(k string) string {
 			return map[string]string{"FLOW_SESSION_TOKEN": c.flow, "CLAUDE_CODE_SESSION_ID": c.session, "FLOW_CALLER_AGENT": c.agent}[k]
 		}}
 		if got := envToken(env); got != c.want {

@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"unicode"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // TestPyIsSpace: pyIsSpace is exactly Python's str.isspace() — the set
@@ -58,7 +60,7 @@ func TestBucRealpath(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	b := &buc{env: Env{Dir: root}}
+	b := &buc{env: core.Env{Dir: root}}
 	for in, want := range map[string]string{
 		"link/missing/f.txt": root + "/real/sub/missing/f.txt",
 		"dangling":           root + "/other/new.txt",

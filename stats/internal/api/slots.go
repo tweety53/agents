@@ -12,7 +12,7 @@ import (
 
 // slotHandler is the heavy-run semaphore: at most max holders at once, across
 // every worktree on the machine -- flow-guard's run-verify-list `test` and
-// `visual` lists and recapture (internal/guard/heavyslot.go) each hold one
+// `visual` lists and recapture (internal/guard/core/heavyslot.go) each hold one
 // for the life of the run. It lives in memory: a slot outlives no run, so a
 // flowd restart losing the table loses nothing a holder's next renewal does
 // not put back.

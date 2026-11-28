@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -103,10 +105,10 @@ type pwRow struct{ res, variable, def, cell, value string }
 // prepareWorkspace is `flow-guard prepare-workspace`. Its contract —
 // arguments, the KEY=value lines, the cache-index exception and the exit
 // codes — is the script's header; the reasoning behind each step is here.
-func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
+func prepareWorkspace(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		fmt.Fprint(stderr, "Usage: flow-guard prepare-workspace <worktree>\n")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	worktree := args[0]
@@ -117,7 +119,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	// `[ -d "" ]` is false: an empty argument is never the cwd.
 	if st, err := os.Stat(abs); worktree == "" || err != nil || !st.IsDir() {
 		fmt.Fprintf(stderr, "prepare-workspace: %s is not a directory\n", worktree)
-		Reason(env, "not-a-directory")
+		core.Reason(env, "not-a-directory")
 		return 2
 	}
 
@@ -132,7 +134,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 		if out := strings.TrimRight(guardOut.String(), "\n"); out != "" {
 			fmt.Fprintf(stdout, "%s\n", out)
 		}
-		Reason(env, "isolation-refused")
+		core.Reason(env, "isolation-refused")
 		return rc
 	}
 
@@ -149,7 +151,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	found := false
 	for _, l := range strings.Split(string(cfg), "\n") {
-		if pwHeading.MatchString(ccASCIILower(l)) {
+		if pwHeading.MatchString(core.ASCIILower(l)) {
 			found = true
 			break
 		}
@@ -175,7 +177,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 			got = "detached HEAD"
 		}
 		fmt.Fprintf(stderr, "prepare-workspace: %s is not on a spectre/<name>, self-review-<name>, pipeline-fix-<name>-<k> or <name>-r<n> branch (got '%s') — cannot derive a workspace id without the change name\n", worktree, got)
-		Reason(env, "not-on-a-spectre-name")
+		core.Reason(env, "not-on-a-spectre-name")
 		return 2
 	}
 
@@ -227,7 +229,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 			n, err := strconv.ParseInt(r.def, 10, 64)
 			if err != nil {
 				fmt.Fprintf(stderr, "prepare-workspace: `%s` (port) default %q is not a base-10 integer\n", r.variable, r.def)
-				Reason(env, "port-default-not-integer")
+				core.Reason(env, "port-default-not-integer")
 				return 1
 			}
 			r.value = strconv.FormatInt(n+offset, 10)
@@ -245,7 +247,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 		v, err := pwResolveValueRefs(substituteID(rows[i].cell), rows)
 		if err != nil {
 			fmt.Fprintf(stderr, "prepare-workspace: %v\n", err)
-			Reason(env, "value-ref-unresolved")
+			core.Reason(env, "value-ref-unresolved")
 			return 2
 		}
 		rows[i].value = v

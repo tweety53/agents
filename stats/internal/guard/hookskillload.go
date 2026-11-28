@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard hook flow-skill-load — tell flowd which instruction file a session just loaded, so
@@ -28,7 +30,7 @@ import (
 // cmd/flow-guard/telemetry.go gives for guard runs.
 func init() { hooks["flow-skill-load"] = flowSkillLoad }
 
-func flowSkillLoad(env Env, payload map[string]any, _, _ io.Writer) {
+func flowSkillLoad(env core.Env, payload map[string]any, _, _ io.Writer) {
 	in, _ := payload["tool_input"].(map[string]any)
 	var path string
 	switch payload["tool_name"] {
@@ -45,7 +47,7 @@ func flowSkillLoad(env Env, payload map[string]any, _, _ io.Writer) {
 	}
 	body := hookJSON(map[string]any{"path": rel, "sessionId": strOf(payload["session_id"])})
 	resp, err := (&http.Client{Timeout: 2 * time.Second, Transport: &http.Transport{}}).Post(
-		hookFlowAddr(env)+"/api/v1/skill-loads", "application/json", strings.NewReader(body))
+		core.FlowAddr(env)+"/api/v1/skill-loads", "application/json", strings.NewReader(body))
 	if err == nil {
 		_ = resp.Body.Close()
 	}

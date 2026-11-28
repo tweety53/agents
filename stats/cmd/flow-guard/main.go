@@ -23,6 +23,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/caller"
 	"github.com/tweety53/agents/stats/internal/guard"
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -48,11 +49,11 @@ func main() {
 	os.Args = append(os.Args[:1], callerArgs(os.Args[1:])...)
 	if len(os.Args) > 1 {
 		if cwd, err := os.Getwd(); err == nil {
-			env := guard.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd}
-			if path, ok := guard.CwdCheckout(env, os.Args[1]); ok {
+			env := core.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd}
+			if path, ok := core.CwdCheckout(env, os.Args[1]); ok {
 				err := syscall.Exec(path, append([]string{path}, os.Args[1:]...), os.Environ())
 				fmt.Fprintf(os.Stderr, "%s: cannot run %s: %v\n", os.Args[1], path, err)
-				os.Exit(guard.CannotAnswer(os.Args[1]))
+				os.Exit(core.CannotAnswer(os.Args[1]))
 			}
 		}
 	}
@@ -83,7 +84,7 @@ func callerArgs(args []string) []string {
 func runAndRecord(args []string, stdout, stderr io.Writer, getenv func(string) string, workingDir func() string) int {
 	start := time.Now()
 	out := &firstLine{w: stdout}
-	reasons := &guard.Reasons{}
+	reasons := &core.Reasons{}
 	code := run(args, reasons, out, stderr)
 	if name, ok := dispatched(args); ok {
 		if dir := workingDir(); dir != "" {
@@ -99,7 +100,7 @@ func runAndRecord(args []string, stdout, stderr io.Writer, getenv func(string) s
 
 // run dispatches args to its guard, recording the guard's reason ids into
 // reasons.
-func run(args []string, reasons *guard.Reasons, stdout, stderr io.Writer) int {
+func run(args []string, reasons *core.Reasons, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usage)
 		return 2
@@ -112,8 +113,8 @@ func run(args []string, reasons *guard.Reasons, stdout, stderr io.Writer) int {
 	cwd, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(stderr, "flow-guard: cannot read the working directory: %v\n", err)
-		guard.Reason(guard.Env{Reasons: reasons}, "cannot-read-working-dir")
-		return guard.CannotAnswer(args[0])
+		core.Reason(core.Env{Reasons: reasons}, "cannot-read-working-dir")
+		return core.CannotAnswer(args[0])
 	}
-	return fn(args[1:], guard.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd, Stdin: os.Stdin, Reasons: reasons, SlotGate: true, HookRuns: records.HookRunsPath(os.Getenv)}, stdout, stderr)
+	return fn(args[1:], core.Env{Getenv: os.Getenv, LookupEnv: os.LookupEnv, Dir: cwd, Stdin: os.Stdin, Reasons: reasons, SlotGate: true, HookRuns: records.HookRunsPath(os.Getenv)}, stdout, stderr)
 }

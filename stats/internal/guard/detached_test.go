@@ -8,10 +8,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
-func detachedEnv(dir string) Env {
-	return Env{Getenv: os.Getenv, Dir: dir}
+func detachedEnv(dir string) core.Env {
+	return core.Env{Getenv: os.Getenv, Dir: dir}
 }
 
 // waitForFile polls for path; the test's own wait, not the guard's.
@@ -126,7 +128,7 @@ func TestAwaitDetachedRecordsItsSleepAsWait(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "out.log"), "")
 	writeFile(t, filepath.Join(dir, "pid"), strconv.Itoa(os.Getpid())+"\n")
 	env := detachedEnv(dir)
-	env.Reasons = &Reasons{}
+	env.Reasons = &core.Reasons{}
 	var o, e bytes.Buffer
 	if rc := awaitDetached([]string{dir, "-timeout", "1"}, env, &o, &e); rc != 0 {
 		t.Fatalf("rc %d", rc)

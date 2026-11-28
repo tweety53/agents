@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard stop-worktree-processes <worktree>... — stop every process whose working directory
@@ -34,9 +36,9 @@ func init() { Registry["stop-worktree-processes"] = stopWorktreeProcesses }
 // swpGrace is how long a SIGTERMed process has to exit before SIGKILL.
 const swpGrace = 5 * time.Second
 
-func stopWorktreeProcesses(args []string, env Env, stdout, stderr io.Writer) int {
+func stopWorktreeProcesses(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard stop-worktree-processes <worktree>...")
 		return 2
 	}
@@ -50,8 +52,8 @@ func stopWorktreeProcesses(args []string, env Env, stdout, stderr io.Writer) int
 }
 
 // swpStop stops the processes inside the worktrees and returns how many it stopped, or why it could not look.
-func swpStop(env Env, worktrees []string, stdout io.Writer) (int, string) {
-	lsof, ok := lookPath(env, "lsof")
+func swpStop(env core.Env, worktrees []string, stdout io.Writer) (int, string) {
+	lsof, ok := core.LookPath(env, "lsof")
 	if !ok {
 		return 0, "lsof is not on PATH"
 	}

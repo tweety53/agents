@@ -31,6 +31,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 func init() {
@@ -39,22 +41,22 @@ func init() {
 
 const defaultRoundCeiling = 6
 
-func roundCeiling(args []string, env Env, stdout, stderr io.Writer) int {
+func roundCeiling(args []string, env core.Env, stdout, stderr io.Writer) int {
 	failed := 0
 	if len(args) == 2 {
 		failed, _ = strconv.Atoi(args[1])
 	}
 	if failed < 1 {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard round-ceiling <worktree> <failed rounds, a positive integer>")
 		return 2
 	}
 	ceiling := defaultRoundCeiling
-	body := projectSection(filepath.Join(args[0], ".flow", "project.md"), "fix round ceiling")
+	body := core.ProjectSection(filepath.Join(args[0], ".flow", "project.md"), "fix round ceiling")
 	if head := strings.Fields(body); len(head) > 0 {
 		n, err := strconv.Atoi(head[0])
 		if err != nil || n < 1 {
-			Reason(env, "malformed-ceiling")
+			core.Reason(env, "malformed-ceiling")
 			fmt.Fprintf(stderr, "round-ceiling: `## fix round ceiling` opens with %q, not a positive integer\n", head[0])
 			return 2
 		}

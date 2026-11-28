@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -95,7 +97,7 @@ func lpEffort(typ string) string {
 }
 
 // lpMain is <repo>'s main checkout, the -C every flow call runs with.
-func lpMain(env Env, git, repo string) (string, bool) {
+func lpMain(env core.Env, git, repo string) (string, bool) {
 	rc, out := kwRun(env, "", git, "-C", repo, "rev-parse", "--path-format=absolute", "--git-common-dir")
 	if rc != 0 {
 		return "", false
@@ -104,7 +106,7 @@ func lpMain(env Env, git, repo string) (string, bool) {
 }
 
 // lpBranchExists is whether refs/heads/<b> exists in repo.
-func lpBranchExists(env Env, git, repo, b string) bool {
+func lpBranchExists(env core.Env, git, repo, b string) bool {
 	rc, _ := kwRun(env, "", git, "-C", repo, "rev-parse", "-q", "--verify", "refs/heads/"+b)
 	return rc == 0
 }
@@ -112,7 +114,7 @@ func lpBranchExists(env Env, git, repo, b string) bool {
 // lpFromKey splits key into its loop, its suffix and the suffix's role id.
 // ok false with a message is a refusal (exit 1); ok false with msg "" means
 // the key is no loop key at all.
-func lpFromKey(env Env, git, repo, key string) (lpLoop, string, string, string, bool) {
+func lpFromKey(env core.Env, git, repo, key string) (lpLoop, string, string, string, bool) {
 	if m := lpPipelineKey.FindStringSubmatch(key); m != nil {
 		k, suffix := m[1], m[2]
 		role := lpRole(suffix)
@@ -122,7 +124,7 @@ func lpFromKey(env Env, git, repo, key string) (lpLoop, string, string, string, 
 		_, out := kwRun(env, "", git, "-C", repo, "for-each-ref", "--format=%(refname:short)", "refs/heads/")
 		var hits []string
 		for _, b := range strings.Fields(out) {
-			if strings.HasPrefix(b, "pipeline-fix-") && strings.HasSuffix(b, "-"+k) && plainChangeName(b) {
+			if strings.HasPrefix(b, "pipeline-fix-") && strings.HasSuffix(b, "-"+k) && core.PlainChangeName(b) {
 				hits = append(hits, b)
 			}
 		}
@@ -142,7 +144,7 @@ func lpFromKey(env Env, git, repo, key string) (lpLoop, string, string, string, 
 		}
 		name, suffix := rest[:i], rest[i+1:]
 		role := lpRole(suffix)
-		if role == "" || !plainChangeName(name) {
+		if role == "" || !core.PlainChangeName(name) {
 			continue
 		}
 		loop := lpLoop{token: "self-review-" + name, prefix: "self-review-" + name + "-", change: name, main: repo}
@@ -179,27 +181,27 @@ func lpFamily(suffix string) string {
 	return ""
 }
 
-func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
+func checkLoopDispatch(args []string, env core.Env, stdout, stderr io.Writer) int {
 	const self = "check-loop-dispatch"
 	if (len(args) != 4 && len(args) != 5) || args[0] == "" || args[1] == "" {
 		fmt.Fprint(stderr, "usage: flow-guard check-loop-dispatch <agents-repo> <key> <subagent_type> <model> [<role-id>]\n")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
-	repo, key, typ, model := smcAbs(env, args[0]), args[1], args[2], args[3]
+	repo, key, typ, model := core.Abs(env, args[0]), args[1], args[2], args[3]
 	roleID := "" // the prompt's `Role:` line id: Role costs counts the row under it
 	if len(args) == 5 {
 		roleID = args[4]
 	}
-	git, ok := panelResolveGit(env, self, stderr)
+	git, ok := core.ResolveGit(env, self, stderr)
 	if !ok {
-		Reason(env, "git-unresolved")
+		core.Reason(env, "git-unresolved")
 		return 2
 	}
 	main, ok := lpMain(env, git, repo)
 	if !ok {
 		fmt.Fprintf(stderr, "%s: %s is not a git checkout\n", self, repo)
-		Reason(env, "not-a-git-checkout")
+		core.Reason(env, "not-a-git-checkout")
 		return 2
 	}
 	lp, suffix, _, msg, ok := lpFromKey(env, git, main, key)
@@ -209,7 +211,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 			return 0
 		}
 		fmt.Fprintf(stderr, "%s: not recorded: %s\n", self, msg)
-		Reason(env, "key-unresolved")
+		core.Reason(env, "key-unresolved")
 		return 2
 	}
 	// The pass belongs to the change's own self-review stage, never to the fix
@@ -226,11 +228,11 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 	if roleID != "" {
 		begin = append(begin, "-policy-role", roleID)
 	}
-	out, _, rc := pcFlow(env, true, begin...)
+	out, _, rc := core.Flow(env, true, begin...)
 	if rc != 0 {
 		fmt.Fprintf(stderr, "%s: flow record dispatch begin failed (exit %d) -- not recorded:\n%s", self, rc, out)
 		fmt.Fprintf(stderr, "%s: a loop's rows need its change: flow-guard pipeline-fix start creates it\n", self)
-		Reason(env, "loop-begin-failed")
+		core.Reason(env, "loop-begin-failed")
 		return 2
 	}
 	fmt.Fprintf(stdout, "LOOP-DISPATCH-OK %s\n", key)
@@ -241,7 +243,7 @@ func checkLoopDispatch(args []string, env Env, stdout, stderr io.Writer) int {
 // under: change <name>, the checkout the caller's directory belongs to when it
 // resolves, lp.main otherwise. check-loop-dispatch begins the pass here and
 // flow-guard pipeline-fix end closes it here.
-func lpPassTarget(env Env, git string, lp lpLoop) (change, main string) {
+func lpPassTarget(env core.Env, git string, lp lpLoop) (change, main string) {
 	change, main = strings.TrimSuffix(strings.TrimPrefix(lp.prefix, "self-review-"), "-"), lp.main
 	if m, ok := lpMain(env, git, env.Dir); env.Dir != "" && ok {
 		main = m
@@ -252,13 +254,13 @@ func lpPassTarget(env Env, git string, lp lpLoop) (change, main string) {
 // lpFromBranch is the loop a branch carries: spectre/<name> an own-branch
 // self-review, pipeline-fix-<name>-<k> and self-review-<name> a loop branch.
 func lpFromBranch(branch string) (lpLoop, bool) {
-	if name, ok := strings.CutPrefix(branch, "spectre/"); ok && plainChangeName(name) {
+	if name, ok := strings.CutPrefix(branch, "spectre/"); ok && core.PlainChangeName(name) {
 		return lpLoop{change: name, token: "self-review-" + name, prefix: "self-review-" + name + "-"}, true
 	}
-	if m := lpPipelineBranch.FindStringSubmatch(branch); m != nil && plainChangeName(branch) {
+	if m := lpPipelineBranch.FindStringSubmatch(branch); m != nil && core.PlainChangeName(branch) {
 		return lpLoop{change: branch, token: branch, prefix: "pipeline-fix-" + m[2] + "-"}, true
 	}
-	if name, ok := strings.CutPrefix(branch, "self-review-"); ok && plainChangeName(name) {
+	if name, ok := strings.CutPrefix(branch, "self-review-"); ok && core.PlainChangeName(name) {
 		return lpLoop{change: branch, token: branch, prefix: branch + "-"}, true
 	}
 	return lpLoop{}, false

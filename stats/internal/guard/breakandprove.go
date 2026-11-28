@@ -17,6 +17,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -109,19 +111,19 @@ func init() {
 const bpUsageLine = "break-and-prove: usage: flow-guard break-and-prove [--clean <command>] <file> " +
 	"(--sed <expr> | --patch <patchfile>) -- <test-command> [<args>...]"
 
-func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {
+func breakAndProve(args []string, env core.Env, stdout, stderr io.Writer) int {
 	usageFail := func() int {
 		fmt.Fprintln(stderr, bpUsageLine)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 4
 	}
 	cannotAnswer := func(id, msg string) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stderr, "break-and-prove: cannot answer — %s\n", msg)
 		return 4
 	}
 	refuse := func(id, msg string) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stderr, "break-and-prove: refused — %s — nothing was mutated\n", msg)
 		return 2
 	}
@@ -190,13 +192,13 @@ func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {
 
 	// Step 2: the target file must exist and be readable — the loop mutates
 	// an existing config file; creating one is not part of the proof.
-	if !isFile(file) || syscall.Access(file, 4) != nil {
+	if !core.IsFile(file) || syscall.Access(file, 4) != nil {
 		return refuse("target-file-does-not-exist", "target file does not exist or is not readable: "+fileArg)
 	}
 
 	if patch != "" {
 		// Step 3: the patch, when given, must exist and be readable.
-		if !isFile(patch) || syscall.Access(patch, 4) != nil {
+		if !core.IsFile(patch) || syscall.Access(patch, 4) != nil {
 			return cannotAnswer("cannot-read-patch-file", "cannot read patch file: "+value)
 		}
 
@@ -253,7 +255,7 @@ func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {
 	snap, err := os.ReadFile(file)
 	if err != nil {
 		fmt.Fprintf(stderr, "break-and-prove: %s\n", bpErrText(file, err))
-		Reason(env, "cannot-read-target")
+		core.Reason(env, "cannot-read-target")
 		return 1
 	}
 
@@ -262,7 +264,7 @@ func breakAndProve(args []string, env Env, stdout, stderr io.Writer) int {
 	// the run actually left.
 	tree, rc := snapshotTreeState(root, stderr)
 	if rc != 0 {
-		Reason(env, "snapshot-failed")
+		core.Reason(env, "snapshot-failed")
 		return rc
 	}
 
@@ -311,7 +313,7 @@ func (r *bpRun) lock() {
 
 // main is steps 9-12: the mutation and the two legs. It returns the exit
 // code the trap starts from.
-func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env Env, stdout io.Writer,
+func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env core.Env, stdout io.Writer,
 	cannotAnswer, refuse func(id, msg string) int) int {
 	// Step 9: apply the mutation.
 	fmt.Fprintf(stdout, "break-and-prove: proving %s\n", r.fileArg)
@@ -319,7 +321,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 		var mutated bytes.Buffer
 		sed := exec.Command("sed", "-e", value, r.file)
 		sed.Dir, sed.Stdout, sed.Stderr = r.root, &mutated, r.stderr
-		if rc := exitCode(sed.Run()); rc != 0 {
+		if rc := core.ExitCode(sed.Run()); rc != 0 {
 			return refuse("sed-failed", fmt.Sprintf("sed failed with exit %d: %s", rc, value))
 		}
 		if bytes.Equal(mutated.Bytes(), r.snap) {
@@ -331,7 +333,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 		if err != nil {
 			r.mu.Unlock()
 			fmt.Fprintf(r.stderr, "break-and-prove: %s\n", bpErrText(r.file, err))
-			Reason(env, "cannot-write-mutation")
+			core.Reason(env, "cannot-write-mutation")
 			return 1
 		}
 		// Applied from the truncate on, not once the write succeeds as the
@@ -345,7 +347,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 		r.mu.Unlock()
 		if werr != nil {
 			fmt.Fprintf(r.stderr, "break-and-prove: %s\n", bpErrText(r.file, werr))
-			Reason(env, "cannot-write-mutation")
+			core.Reason(env, "cannot-write-mutation")
 			return 1
 		}
 	} else {
@@ -353,7 +355,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 		r.lock()
 		cmd := exec.Command("git", "apply", "--whitespace=nowarn", patch)
 		cmd.Dir, cmd.Stdout, cmd.Stderr = r.root, r.stdout, r.stderr
-		rc := exitCode(cmd.Run())
+		rc := core.ExitCode(cmd.Run())
 		r.applied = rc == 0
 		r.mu.Unlock()
 		if rc != 0 {
@@ -374,7 +376,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 	}
 	if rc == 0 {
 		fmt.Fprintln(r.stderr, "break-and-prove: run 1 exited 0 — the proof did not hold: the mutation did not break the test")
-		Reason(env, "mutation-not-caught")
+		core.Reason(env, "mutation-not-caught")
 		return 1
 	}
 
@@ -384,7 +386,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 	r.restore()
 	if !r.matches() {
 		r.mu.Unlock()
-		Reason(env, "restore-mismatch")
+		core.Reason(env, "restore-mismatch")
 		return 3
 	}
 	r.restored = true
@@ -403,7 +405,7 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 	if rc != 0 {
 		fmt.Fprintf(r.stderr, "break-and-prove: run 2 exited %d — the proof did not hold: the test fails on the restored file\n", rc)
 		fmt.Fprintf(r.stderr, "break-and-prove: the test command ran from the repository root, %s — a command for a subdirectory is written `go -C <dir> test …` or `sh -c 'cd <dir> && exec …'`\n", r.root)
-		Reason(env, "restored-run-failed")
+		core.Reason(env, "restored-run-failed")
 		return 1
 	}
 
@@ -422,15 +424,15 @@ func (r *bpRun) main(kind, value, patch, cleanCmd string, testCmd []string, env 
 // clean command is the operator's own, printed verbatim before it runs, and
 // is the one string this guard evaluates through a shell; the test command
 // is an argv vector, never a string through a shell.
-func (r *bpRun) leg(label, cleanCmd string, testCmd []string, env Env, stdout io.Writer) (int, bool) {
+func (r *bpRun) leg(label, cleanCmd string, testCmd []string, env core.Env, stdout io.Writer) (int, bool) {
 	if cleanCmd != "" {
-		fmt.Fprintf(stdout, "break-and-prove: clean — sh -c %s\n", smcQuote(cleanCmd, smcUTF8(env)))
+		fmt.Fprintf(stdout, "break-and-prove: clean — sh -c %s\n", smcQuote(cleanCmd, core.UTF8Locale(env)))
 		clean := exec.Command("sh", "-c", cleanCmd)
 		// r.stdout, not the EPIPE wrapper: an *os.File is inherited as the
 		// bash's fd was, so Run() returns once `sh` exits, never waiting on a
 		// child the clean command backgrounded that still holds a pipe.
 		clean.Dir, clean.Stdin, clean.Stdout, clean.Stderr = r.root, env.Stdin, r.stdout, r.stderr
-		if rc := exitCode(clean.Run()); rc != 0 {
+		if rc := core.ExitCode(clean.Run()); rc != 0 {
 			return rc, false
 		}
 	}
@@ -461,7 +463,7 @@ func bpRunArgv(argv []string, dir string, stdin io.Reader, out io.Writer) int {
 		if _, err := exec.LookPath(argv[0]); errors.Is(err, exec.ErrNotFound) && bpIsBuiltin(argv[0]) {
 			sh := exec.Command("bash", append([]string{"-c", `"$@"`, "break-and-prove"}, argv...)...)
 			sh.Dir, sh.Stdin, sh.Stdout, sh.Stderr = dir, stdin, out, out
-			return exitCode(sh.Run())
+			return core.ExitCode(sh.Run())
 		}
 	}
 	cmd := exec.Command(argv[0], argv[1:]...)
@@ -476,14 +478,14 @@ func bpRunArgv(argv []string, dir string, stdin io.Reader, out io.Writer) int {
 	var ee *exec.ExitError
 	switch {
 	case err == nil || errors.As(err, &ee):
-		return exitCode(err)
+		return core.ExitCode(err)
 	case errors.Is(err, exec.ErrNotFound):
 		fmt.Fprintf(out, "break-and-prove: %s: command not found\n", argv[0])
 		return 127
 	case errors.Is(err, syscall.ENOEXEC):
 		sh := exec.Command("bash", argv...)
 		sh.Dir, sh.Stdin, sh.Stdout, sh.Stderr = dir, stdin, out, out
-		return exitCode(sh.Run())
+		return core.ExitCode(sh.Run())
 	case errors.Is(err, fs.ErrNotExist):
 		fmt.Fprintf(out, "break-and-prove: %s\n", bpErrText(argv[0], err))
 		return 127

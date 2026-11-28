@@ -15,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard recapture <tasks.md>:<task-id> <capture-root> <source-worktree>=<base>[,<source-worktree>=<base>…] <command>
@@ -71,7 +73,7 @@ import (
 //	   <title>, …`, nothing run, no receipt written.
 //	2  usage, a <command> with no `<spec>`, affected-specs' own exit 2, or
 //	   a receipt that could not be written.
-//	3  no heavy slot freed (heavySlot): nothing ran and no receipt was
+//	3  no heavy slot freed (HeavySlot): nothing ran and no receipt was
 //	   written.
 func init() { Registry["recapture"] = recapture }
 
@@ -122,8 +124,8 @@ func rcLeft(token string, receipts []rcReceipt) []string {
 }
 
 // rcFile is a worktree's receipt file, "" when git cannot name its directory.
-func rcFile(env Env, worktree string) string {
-	dir, ok := capture(envGit(env)("-C", worktree, "rev-parse", "--absolute-git-dir"))
+func rcFile(env core.Env, worktree string) string {
+	dir, ok := core.Capture(core.EnvGit(env)("-C", worktree, "rev-parse", "--absolute-git-dir"))
 	if !ok || dir == "" {
 		return ""
 	}
@@ -131,7 +133,7 @@ func rcFile(env Env, worktree string) string {
 }
 
 // rcReceipts is a worktree's receipts, oldest first.
-func rcReceipts(env Env, worktree string) []rcReceipt {
+func rcReceipts(env core.Env, worktree string) []rcReceipt {
 	raw, _ := os.ReadFile(rcFile(env, worktree))
 	var out []rcReceipt
 	for _, line := range bytes.Split(raw, []byte("\n")) {
@@ -158,7 +160,7 @@ func rcBlobs(git func(...string) *exec.Cmd, worktree, rev string, paths []string
 	}
 	cmd := git("-C", worktree, "cat-file", "--batch-check=%(objectname)")
 	cmd.Stdin = strings.NewReader(in.String())
-	list, _ := capture(cmd)
+	list, _ := core.Capture(cmd)
 	lines := strings.Split(list, "\n")
 	for i, f := range paths {
 		out[f] = ""
@@ -171,8 +173,8 @@ func rcBlobs(git func(...string) *exec.Cmd, worktree, rev string, paths []string
 
 // rcSourcePaths keeps the paths of a diff that are sources: no capture
 // output, and no test outside the capture root.
-func rcSourcePaths(env Env, worktree, captureRoot string, paths []string) []string {
-	wt, root := filepath.Clean(pcAbs(env, worktree)), filepath.Clean(pcAbs(env, captureRoot))
+func rcSourcePaths(env core.Env, worktree, captureRoot string, paths []string) []string {
+	wt, root := filepath.Clean(core.CleanAbs(env, worktree)), filepath.Clean(core.CleanAbs(env, captureRoot))
 	var out []string
 	for _, f := range paths {
 		if f == "" || filepath.Base(f) == "full-app-suite.zip" || strings.Contains(filepath.Dir(f)+"/", "-snapshots/") {
@@ -203,10 +205,10 @@ func rcFailed(log []byte, specs []string) []string {
 	return out
 }
 
-func recapture(args []string, env Env, stdout, stderr io.Writer) int {
+func recapture(args []string, env core.Env, stdout, stderr io.Writer) int {
 	usage := func(msg string) int {
 		fmt.Fprintf(stderr, "recapture: %s\nusage: flow-guard recapture <tasks.md>:<task-id> <capture-root> <source-worktree>=<base>[,<source-worktree>=<base>…] <command with <spec>>\n", msg)
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	if len(args) != 4 {
@@ -216,7 +218,7 @@ func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 	if !strings.Contains(command, "<spec>") {
 		return usage("the command names no <spec>")
 	}
-	git := envGit(env)
+	git := core.EnvGit(env)
 	var all []string
 	receipts := map[string]*rcReceipt{} // by source worktree
 	var order []string
@@ -234,20 +236,20 @@ func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 				all = append(all, s)
 			}
 		}
-		diff, _ := capture(git("-C", wt, "diff", "--name-only", "--no-renames", base))
+		diff, _ := core.Capture(git("-C", wt, "diff", "--name-only", "--no-renames", base))
 		diff += "\n" + asUntracked(env, wt)
 		r := &rcReceipt{Blobs: map[string]string{}}
 		for _, f := range rcSourcePaths(env, wt, root, strings.Split(diff, "\n")) {
-			r.Blobs[f], _ = capture(git("-C", wt, "hash-object", "--", f))
+			r.Blobs[f], _ = core.Capture(git("-C", wt, "hash-object", "--", f))
 		}
 		receipts[wt] = r
 		order = append(order, wt)
 	}
 	if len(all) == 0 {
-		titles, found := rcTitleSpecs(task, pcAbs(env, root))
+		titles, found := rcTitleSpecs(task, core.CleanAbs(env, root))
 		if len(titles) > 0 && len(found) == 0 {
 			fmt.Fprintf(stdout, "recapture: task %s names tests no spec under %s holds: %s\n", task[strings.LastIndex(task, ":")+1:], root, strings.Join(titles, ", "))
-			Reason(env, "no-spec-for-title")
+			core.Reason(env, "no-spec-for-title")
 			return 1
 		}
 		all = found
@@ -275,22 +277,22 @@ func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 	case len(specs) == 0:
 		fmt.Fprintf(stdout, "recapture: all %d test selection(s) already passed on these sources — nothing to capture\n", len(all))
 	default:
-		release, ok := heavySlot(env, "recapture", "recapture "+task, stderr)
+		release, ok := core.HeavySlot(env, "recapture", "recapture "+task, stderr)
 		if !ok {
-			Reason(env, "no-heavy-slot")
+			core.Reason(env, "no-heavy-slot")
 			return 3
 		}
 		defer release()
 		var log bytes.Buffer
 		start := time.Now()
 		cmd := exec.Command("sh", "-c", strings.ReplaceAll(command, "<spec>", strings.Join(specs, " ")+" --retries=1"))
-		cmd.Dir = pcAbs(env, root)
+		cmd.Dir = core.CleanAbs(env, root)
 		cmd.Stdout, cmd.Stderr = io.MultiWriter(stdout, &log), io.MultiWriter(stderr, &log)
-		if rc = exitCode(cmd.Run()); rc != 0 {
+		if rc = core.ExitCode(cmd.Run()); rc != 0 {
 			failed = rcFailed(log.Bytes(), specs)
 		}
 		fmt.Fprintf(stdout, "recapture: %d test selection(s), exit %d\n", len(specs), rc)
-		branch, _ := capture(git("-C", order[0], "branch", "--show-current"))
+		branch, _ := core.Capture(git("-C", order[0], "branch", "--show-current"))
 		rvlRecordRun(env, order[0], strings.TrimPrefix(branch, "spectre/"), "recapture", task[strings.LastIndex(task, ":")+1:], start, log.Bytes(), rc)
 		if flaky := rvlSummaryBlocks(log.Bytes(), "flaky"); len(flaky) > 0 {
 			fmt.Fprintf(stdout, "recapture: flaky (%d): %s — passed on retry: fix each at its source\n", len(flaky), strings.Join(flaky, " "))
@@ -308,12 +310,12 @@ func recapture(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if path == "" || err != nil {
 			fmt.Fprintf(stderr, "recapture: cannot write the receipt for %s\n", wt)
-			Reason(env, "cannot-write-receipt")
+			core.Reason(env, "cannot-write-receipt")
 			return 2
 		}
 	}
 	if rc != 0 {
-		Reason(env, "capture-failed")
+		core.Reason(env, "capture-failed")
 		return 1
 	}
 	return 0
@@ -380,9 +382,9 @@ func errorsJoinClose(err error, f *os.File) error {
 
 // rcCommitReceipts is worktree's receipts that saw the blobs commit sha
 // holds for its own source paths, and whether the commit holds any.
-func rcCommitReceipts(env Env, worktree, captureRoot, sha string) ([]rcReceipt, bool) {
-	git := envGit(env)
-	names, _ := capture(git("-C", worktree, "diff-tree", "--no-renames", "--no-commit-id", "--name-only", "-r", sha))
+func rcCommitReceipts(env core.Env, worktree, captureRoot, sha string) ([]rcReceipt, bool) {
+	git := core.EnvGit(env)
+	names, _ := core.Capture(git("-C", worktree, "diff-tree", "--no-renames", "--no-commit-id", "--name-only", "-r", sha))
 	want := rcBlobs(git, worktree, sha, rcSourcePaths(env, worktree, captureRoot, strings.Split(names, "\n")))
 	return slices.DeleteFunc(rcReceipts(env, worktree), func(r rcReceipt) bool {
 		for f, blob := range want {
@@ -396,7 +398,7 @@ func rcCommitReceipts(env Env, worktree, captureRoot, sha string) ([]rcReceipt, 
 
 // rcCovered reports whether worktree's receipts that saw the blobs commit
 // sha holds for its own source paths leave nothing of specs to run (rcLeft).
-func rcCovered(env Env, worktree, captureRoot, sha string, specs []string) bool {
+func rcCovered(env core.Env, worktree, captureRoot, sha string, specs []string) bool {
 	receipts, _ := rcCommitReceipts(env, worktree, captureRoot, sha)
 	return !slices.ContainsFunc(specs, func(s string) bool {
 		return len(rcLeft(s, receipts)) > 0
@@ -418,11 +420,11 @@ func rcCovered(env Env, worktree, captureRoot, sha string, specs []string) bool 
 // ponytail: a capture is taken as the task commit's state -- a sibling
 // worktree's uncommitted edit at capture time is not seen; record every
 // worktree's HEAD in the receipt if that ever bites.
-func rcTaskCaptured(env Env, captureRoot string, bases map[string]string) []string {
-	git := envGit(env)
+func rcTaskCaptured(env core.Env, captureRoot string, bases map[string]string) []string {
+	git := core.EnvGit(env)
 	stands, moved := map[string]bool{}, map[string]bool{}
 	for wt, base := range bases {
-		log, ok := capture(git("-C", wt, "rev-list", base+"..HEAD"))
+		log, ok := core.Capture(git("-C", wt, "rev-list", base+"..HEAD"))
 		if !ok {
 			return nil
 		}
@@ -430,7 +432,7 @@ func rcTaskCaptured(env Env, captureRoot string, bases map[string]string) []stri
 		reach := func(from string) (map[string]bool, bool) {
 			if affected[from] == nil {
 				var out bytes.Buffer
-				if Registry["affected-specs"]([]string{wt, from + "..HEAD", captureRoot}, quietReasons(env), &out, io.Discard) != 0 {
+				if Registry["affected-specs"]([]string{wt, from + "..HEAD", captureRoot}, core.QuietReasons(env), &out, io.Discard) != 0 {
 					return nil, false
 				}
 				affected[from] = map[string]bool{}
@@ -487,12 +489,12 @@ func rcTaskCaptured(env Env, captureRoot string, bases map[string]string) []stri
 // ponytail: equal blob maps, not a run instant -- a file reverted and
 // re-applied across rounds matches the older receipt; record HEAD's tree in
 // the receipt if that ever bites.
-func rcCaptured(env Env, captureRoot string, bases map[string]string) []string {
-	git := envGit(env)
+func rcCaptured(env core.Env, captureRoot string, bases map[string]string) []string {
+	git := core.EnvGit(env)
 	var out []string
 	ranged := false
 	for wt, base := range bases {
-		names, _ := capture(git("-C", wt, "diff", "--name-only", "--no-renames", base, "HEAD"))
+		names, _ := core.Capture(git("-C", wt, "diff", "--name-only", "--no-renames", base, "HEAD"))
 		want := rcBlobs(git, wt, "HEAD", rcSourcePaths(env, wt, captureRoot, strings.Split(names, "\n")))
 		if len(want) == 0 {
 			continue

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -33,14 +34,14 @@ func pfNew(t *testing.T, rows string) pfFx {
 	}
 	fx := pfFx{lpFx: lpFx{repo: tmp + "/agents", log: tmp + "/flow.log", rows: tmp + "/rows.json"},
 		origin: tmp + "/origin.git", other: tmp + "/other", states: tmp + "/states.json"}
-	table, err := os.ReadFile("../../../" + mpFile)
+	table, err := os.ReadFile("../../../" + core.PolicyFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	fixtureRepo(t, fx.origin, repoShape{Branch: "main", Bare: true})
 	gitRun(t, "", "clone", "-q", fx.origin, fx.repo)
 	pfIdentity(t, fx.repo)
-	writeFile(t, fx.repo+"/"+mpFile, string(table))
+	writeFile(t, fx.repo+"/"+core.PolicyFile, string(table))
 	writeFile(t, fx.repo+"/.flow/project.md", pfProject)
 	writeFile(t, fx.repo+"/.gitignore", ".setup-ran\n.superpowers/\nspectre/changes/\n")
 	writeExec(t, fx.repo+"/scripts/foo.sh", "#!/usr/bin/env bash\necho foo\n")
@@ -63,7 +64,7 @@ case "$1 $2" in
 esac
 `)
 	projectGet := guardShim(t, "project-get")
-	fx.env = Env{Dir: tmp, Getenv: func(k string) string {
+	fx.env = core.Env{Dir: tmp, Getenv: func(k string) string {
 		switch k {
 		case "FLOW_GUARD_REPO_ROOT":
 			return fx.repo
@@ -129,7 +130,7 @@ func TestPipelineFixStart(t *testing.T) {
 func TestPipelineFixStartLeavesNothingWhenTheStateWriteFails(t *testing.T) {
 	t.Parallel()
 	fx := pfNew(t, "")
-	flow, ok := lookPath(fx.env, "flow")
+	flow, ok := core.LookPath(fx.env, "flow")
 	if !ok {
 		t.Fatal("no flow stub")
 	}
@@ -216,13 +217,13 @@ func TestPipelineFixChecksGoAudits(t *testing.T) {
 	wt := t.TempDir()
 	writeFile(t, wt+"/.flow/project.md", pfProject)
 	pe0 := pfEnv{}
-	if cmds, _ := pfChecks(Env{Getenv: os.Getenv}, pe0, wt, []string{"stats/internal/guard/x.go", "hooks/h.py"}); slices.ContainsFunc(cmds, func(c string) bool { return strings.Contains(c, "internal/repotest") }) {
+	if cmds, _ := pfChecks(core.Env{Getenv: os.Getenv}, pe0, wt, []string{"stats/internal/guard/x.go", "hooks/h.py"}); slices.ContainsFunc(cmds, func(c string) bool { return strings.Contains(c, "internal/repotest") }) {
 		t.Fatalf("a worktree without stats/internal/repotest: %q selects it", cmds)
 	}
 	writeFile(t, wt+"/stats/internal/repotest/doc.go", "package repotest\n")
 	audits := "cd stats && go test ./internal/repotest/ -run '^Test(GitConfigPins|FlowAddrDeclaration)$' -count=1"
 	pe := pfEnv{}
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	if cmds, rc := pfChecks(env, pe, wt, []string{"stats/internal/guard/x.go"}); rc != 0 || !slices.Contains(cmds, audits) {
 		t.Fatalf("a touched Go file: rc %d, %q lacks %s", rc, cmds, audits)
 	}
@@ -237,7 +238,7 @@ func TestPipelineFixChecksSkipLintAnnotations(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
 	writeFile(t, wt+"/.flow/project.md", "## lint\n\n```bash\n# concurrent\ntrue\n```\n")
-	cmds, rc := pfChecks(Env{Getenv: os.Getenv}, pfEnv{}, wt, nil)
+	cmds, rc := pfChecks(core.Env{Getenv: os.Getenv}, pfEnv{}, wt, nil)
 	if rc != 0 || slices.ContainsFunc(cmds, func(c string) bool { return strings.HasPrefix(c, "#") }) || !slices.Contains(cmds, "true") {
 		t.Fatalf("rc %d, checks %q: want `true` and no `#` line", rc, cmds)
 	}
@@ -250,7 +251,7 @@ func TestPipelineFixChecksScriptAudits(t *testing.T) {
 	wt := t.TempDir()
 	writeFile(t, wt+"/.flow/project.md", pfProject)
 	pe := pfEnv{}
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	if cmds, _ := pfChecks(env, pe, wt, []string{"scripts/pipeline-fix.sh"}); slices.Contains(cmds, pfScriptAudits) {
 		t.Fatalf("a worktree without stats/internal/guard: %q selects %s", cmds, pfScriptAudits)
 	}
@@ -273,7 +274,7 @@ func TestPipelineFixChecksHooks(t *testing.T) {
 	writeFile(t, wt+"/stats/internal/repotest/doc.go", "package repotest\n")
 	pe := pfEnv{}
 	want := "cd stats && go test ./internal/repotest/ -count=1"
-	if cmds, rc := pfChecks(Env{Getenv: os.Getenv}, pe, wt, []string{"hooks/block-unsafe-commands.py"}); rc != 0 || !slices.Contains(cmds, want) {
+	if cmds, rc := pfChecks(core.Env{Getenv: os.Getenv}, pe, wt, []string{"hooks/block-unsafe-commands.py"}); rc != 0 || !slices.Contains(cmds, want) {
 		t.Fatalf("a touched hook: rc %d, %q lacks %s", rc, cmds, want)
 	}
 }

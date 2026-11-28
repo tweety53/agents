@@ -22,6 +22,7 @@ import (
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
 	"github.com/tweety53/agents/stats/internal/guard"
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/stages"
 )
@@ -211,7 +212,7 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 		return refuse("no checkout of %s carries .superpowers/sdd/%s/ — pass -C the session's worktree", f.dir, f.change)
 	}
 
-	env := guard.Env{Getenv: getenv, Dir: wt}
+	env := core.Env{Getenv: getenv, Dir: wt}
 	var out, errBuf bytes.Buffer
 	if code := guard.Registry["resolve-base-branch"]([]string{wt}, env, &out, &errBuf); code != 0 {
 		return refuse("resolve-base-branch exited %d on %s: %s", code, wt, strings.TrimSpace(errBuf.String()))
@@ -329,7 +330,7 @@ func lintGreenAt(wt string) string {
 // lintDeclared reports whether wt's .flow/project.md declares a `## lint`
 // list: with none, no list could stamp flow-lint-green.
 func lintDeclared(wt string, getenv func(string) string) bool {
-	return guard.Registry["project-get"]([]string{wt, "lint"}, guard.Env{Getenv: getenv, Dir: wt}, io.Discard, io.Discard) == 0
+	return guard.Registry["project-get"]([]string{wt, "lint"}, core.Env{Getenv: getenv, Dir: wt}, io.Discard, io.Discard) == 0
 }
 
 // latestRequestRun reads the change's /flow-interactive runs of stage and

@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard check-frame-constants — two frames of one change must not draw
@@ -50,15 +52,15 @@ var (
 	fcDataAttr = regexp.MustCompile(`data-const-([A-Za-z0-9_.-]+)="([^"]*)"`)
 )
 
-func checkFrameConstants(args []string, env Env, stdout, stderr io.Writer) int {
+func checkFrameConstants(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard check-frame-constants <design.md> <frames dir or frame file>...")
 		return 2
 	}
-	design, err := os.ReadFile(pcAbs(env, args[0]))
+	design, err := os.ReadFile(core.CleanAbs(env, args[0]))
 	if err != nil {
-		Reason(env, "design-unreadable")
+		core.Reason(env, "design-unreadable")
 		fmt.Fprintf(stderr, "check-frame-constants: cannot read %s: %v\n", args[0], err)
 		return 2
 	}
@@ -72,7 +74,7 @@ func checkFrameConstants(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	if len(listed) == 0 {
-		Reason(env, "no-shared-constants")
+		core.Reason(env, "no-shared-constants")
 		fmt.Fprintf(stderr, "check-frame-constants: %s lists no constant under `## Shared constants` (\"- `<name>`: <value>\")\n", args[0])
 		return 2
 	}
@@ -115,7 +117,7 @@ func checkFrameConstants(args []string, env Env, stdout, stderr io.Writer) int {
 		return err
 	}
 	for _, arg := range args[1:] {
-		root := pcAbs(env, arg)
+		root := core.CleanAbs(env, arg)
 		err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
 				return err
@@ -127,13 +129,13 @@ func checkFrameConstants(args []string, env Env, stdout, stderr io.Writer) int {
 			return read(p, strings.TrimSuffix(frame, filepath.Ext(frame)))
 		})
 		if err != nil {
-			Reason(env, "frames-unreadable")
+			core.Reason(env, "frames-unreadable")
 			fmt.Fprintf(stderr, "check-frame-constants: cannot read %s: %v\n", arg, err)
 			return 2
 		}
 	}
 	if len(stated) == 0 {
-		Reason(env, "no-frames")
+		core.Reason(env, "no-frames")
 		fmt.Fprintf(stderr, "check-frame-constants: no `.png` or `.html` frame under %s\n", strings.Join(args[1:], ", "))
 		return 2
 	}
@@ -179,7 +181,7 @@ func checkFrameConstants(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "FRAME-CONSTANT-CONFLICT: %s — %s\n", name, strings.Join(sides, " vs "))
 	}
 	if failed != "" {
-		Reason(env, failed)
+		core.Reason(env, failed)
 		return 1
 	}
 	fmt.Fprintf(stdout, "FRAME-CONSTANTS-OK: %d listed constants, %d frames, %d frame values compared\n", len(listed), len(frames), compared)

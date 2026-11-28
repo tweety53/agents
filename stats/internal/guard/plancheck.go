@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard plan-check <worktree> <changeRoot> <out-decision.json> [-decide-only]
@@ -131,11 +133,11 @@ func pcDerive(body string) string {
 	return ""
 }
 
-func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
+func planCheck(args []string, env core.Env, stdout, stderr io.Writer) int {
 	decideOnly := len(args) == 4 && args[3] == "-decide-only"
 	if len(args) != 3 && !decideOnly {
 		fmt.Fprintln(stderr, "usage: flow-guard plan-check <worktree> <changeRoot> <out-decision.json> [-decide-only]")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	wt, root, out := args[0], args[1], args[2]
@@ -147,7 +149,7 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "plan-check: %v\n", err)
-		Reason(env, "plan-unreadable")
+		core.Reason(env, "plan-unreadable")
 		return 2
 	}
 	project, _ := os.ReadFile(filepath.Join(wt, ".flow", "project.md"))
@@ -162,7 +164,7 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 		if kept, err := os.ReadFile(shapePath); err == nil && outErr == nil && string(kept) == string(shape) {
 			if err := pcDropGroupPairs(out); err != nil {
 				fmt.Fprintf(stderr, "plan-check: %v\n", err)
-				Reason(env, "cannot-write-result")
+				core.Reason(env, "cannot-write-result")
 				return 2
 			}
 			fmt.Fprintf(stdout, "plan-check (unchanged): tasks.md kept its tasks and their Files:, After:, Size: and repository — %s kept\n", out)
@@ -185,7 +187,7 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	if d == nil {
 		fmt.Fprintf(stderr, "plan-check: no usable decision, the run is blocked — %s\n", strings.TrimSpace(pjSpace.ReplaceAllString(cause, " ")))
-		Reason(env, "decision-unusable")
+		core.Reason(env, "decision-unusable")
 		return 1
 	}
 	if cause != "" {
@@ -208,7 +210,7 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if err := write(filepath.Join(wt, ".superpowers", "sdd", "plan-check.md"), []byte(report)); err != nil {
 			fmt.Fprintf(stderr, "plan-check: %v\n", err)
-			Reason(env, "cannot-write-result")
+			core.Reason(env, "cannot-write-result")
 			return 2
 		}
 		last = strings.TrimSpace(report[strings.LastIndex(strings.TrimSpace(report), "\n")+1:])
@@ -232,18 +234,18 @@ func planCheck(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if err != nil {
 			fmt.Fprintf(stderr, "plan-check: %v\n", err)
-			Reason(env, "cannot-write-result")
+			core.Reason(env, "cannot-write-result")
 			return 2
 		}
 	}
 	if err := write(out, append(b, '\n')); err != nil {
 		fmt.Fprintf(stderr, "plan-check: %v\n", err)
-		Reason(env, "cannot-write-result")
+		core.Reason(env, "cannot-write-result")
 		return 2
 	}
 	if err := write(shapePath, shape); err != nil {
 		fmt.Fprintf(stderr, "plan-check: %v\n", err)
-		Reason(env, "cannot-write-result")
+		core.Reason(env, "cannot-write-result")
 		return 2
 	}
 	var bundles []string
@@ -324,7 +326,7 @@ func pcFindingText(report, id string) string {
 // pcAsk runs the check once, note appended to the system prompt; a nil decision or empty report
 // is the part to fall back. retry is why the answer is owed one more model call ("" none): a
 // failed run, an unusable decision, or a report with no terminal line.
-func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []string, visual, decideOnly bool, note string) (report string, d *dgpvDecision, source, spend, cause, retry string) {
+func pcAsk(env core.Env, wt, root string, lines []string, tasks []pdbTask, repoAt []string, visual, decideOnly bool, note string) (report string, d *dgpvDecision, source, spend, cause, retry string) {
 	source = "fallback"
 	repo := env.Getenv("FLOW_GUARD_REPO_ROOT")
 	promptFile, tools, limit := "plan-check-prompt.md", "Read,Grep,Glob", pcLimit
@@ -340,7 +342,7 @@ func pcAsk(env Env, wt, root string, lines []string, tasks []pdbTask, repoAt []s
 		return "", nil, source, "", "plan-check prompt unreadable: " + err.Error(), ""
 	}
 	prompt = append(append(prompt, '\n'), rules...)
-	rows, err := policyTable(env)
+	rows, err := core.PolicyTable(env)
 	if err != nil {
 		return "", nil, source, "", err.Error(), ""
 	}
@@ -431,7 +433,7 @@ type dgpvEntry struct {
 const dgpvBundleRole = "panel-reviewer"
 
 // dgpvBasePairs is the base pairs of the decided role, as `flow policy get` gives them.
-func dgpvBasePairs(rows map[string][]policyRow) map[string][]string {
+func dgpvBasePairs(rows map[string][]core.PolicyRow) map[string][]string {
 	base := map[string][]string{}
 	for _, c := range pjCandidates(rows, dgpvBundleRole) {
 		base[dgpvBundleRole] = append(base[dgpvBundleRole], c.pair)

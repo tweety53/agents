@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // TestCheckBaseBehind pins scripts/check-base-behind.sh's lines (kan-1007: a
@@ -29,7 +31,7 @@ func TestCheckBaseBehind(t *testing.T) {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	run := func(args ...string) guardResult { return runGuard("check-base-behind", args, env) }
 
 	if r := run(); r.rc != 2 || r.stdout != "" {
@@ -101,7 +103,7 @@ func TestCheckBaseBehindFetchesOncePerRepository(t *testing.T) {
 	if err := os.WriteFile(bin+"/git", []byte(wrapper), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	env := Env{Getenv: func(k string) string {
+	env := core.Env{Getenv: func(k string) string {
 		if k == "PATH" {
 			return bin + ":" + os.Getenv("PATH")
 		}

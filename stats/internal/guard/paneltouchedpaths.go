@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // This change's own touched paths, defined once for every guard asking
@@ -21,7 +23,7 @@ import (
 // panelGit runs gitBin -C worktree args from env's directory, its stderr
 // discarded, as the library's `2>/dev/null` calls do. core.quotePath=false
 // prints a non-ASCII path as itself, not as a quoted octal escape.
-func panelGit(env Env, gitBin, worktree string, args ...string) *exec.Cmd {
+func panelGit(env core.Env, gitBin, worktree string, args ...string) *exec.Cmd {
 	cmd := exec.Command(gitBin, append([]string{"-C", worktree, "-c", "core.quotePath=false"}, args...)...)
 	cmd.Dir = env.Dir
 	// GIT_CONFIG_GLOBAL is forwarded from env: a
@@ -38,11 +40,11 @@ func panelGit(env Env, gitBin, worktree string, args ...string) *exec.Cmd {
 // directory, a git worktree, and mergebase resolves to a commit inside it;
 // false, with a message on stderr naming the failed check, otherwise —
 // including an empty worktree or mergebase.
-func panelValidateWorktree(env Env, prog, worktree, mergebase, gitBin string, stderr io.Writer) bool {
+func panelValidateWorktree(env core.Env, prog, worktree, mergebase, gitBin string, stderr io.Writer) bool {
 	switch {
 	case worktree == "" || mergebase == "":
 		fmt.Fprintf(stderr, "%s: usage: flow-guard %s <worktree> <merge-base>\n", prog, prog)
-	case !isDir(smcAbs(env, worktree)):
+	case !core.IsDir(core.Abs(env, worktree)):
 		fmt.Fprintf(stderr, "%s: %s is not a directory — cannot determine anything\n", prog, worktree)
 	case panelGit(env, gitBin, worktree, "rev-parse", "--git-dir").Run() != nil:
 		fmt.Fprintf(stderr, "%s: %s is not a git worktree — cannot determine anything\n", prog, worktree)
@@ -60,9 +62,9 @@ func panelValidateWorktree(env Env, prog, worktree, mergebase, gitBin string, st
 // since mergebase, what is staged and what is unstaged (design.md:
 // touched-paths-include-index-and-worktree), blank lines dropped, sorted and
 // de-duplicated by an exec'd `sort -u` so the order is the caller's
-// collation (crSort). False, with a message on stderr naming the collection
+// collation (LocaleSort). False, with a message on stderr naming the collection
 // that failed, when a `git diff` fails.
-func panelTouchedPaths(env Env, prog, worktree, mergebase, gitBin string, stderr io.Writer) ([]string, bool) {
+func panelTouchedPaths(env core.Env, prog, worktree, mergebase, gitBin string, stderr io.Writer) ([]string, bool) {
 	var lines []string
 	for _, c := range []struct {
 		what string
@@ -74,7 +76,7 @@ func panelTouchedPaths(env Env, prog, worktree, mergebase, gitBin string, stderr
 	} {
 		// The worktree's `## panel diff exclude` globs leave the same paths
 		// out here as out of the panel diff.
-		out, ok := capture(panelGit(env, gitBin, worktree, append(c.args, wpdExcludes(smcAbs(env, worktree))...)...))
+		out, ok := core.Capture(panelGit(env, gitBin, worktree, append(c.args, wpdExcludes(core.Abs(env, worktree))...)...))
 		if !ok {
 			fmt.Fprintf(stderr, "%s: cannot list this change's %s paths in %s\n", prog, c.what, worktree)
 			return nil, false
@@ -86,7 +88,7 @@ func panelTouchedPaths(env Env, prog, worktree, mergebase, gitBin string, stderr
 			}
 		}
 	}
-	sorted, err := crSort(env, lines, true)
+	sorted, err := core.LocaleSort(env, lines, true)
 	if err != nil {
 		fmt.Fprintf(stderr, "%s: %v\n", prog, err)
 		return nil, false

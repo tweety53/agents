@@ -1,6 +1,6 @@
 // flowcli.go holds the flow CLI helpers several guards share.
 
-package guard
+package core
 
 import (
 	"bytes"
@@ -12,11 +12,11 @@ import (
 	"strings"
 )
 
-// pcFlow runs the flow CLI from env's PATH in env.Dir: stdout (with stderr
+// Flow runs the flow CLI from env's PATH in env.Dir: stdout (with stderr
 // folded in when combined, as `2>&1` does), stderr, and the exit code --
 // 127 with bash's "command not found" when there is no flow to run.
-func pcFlow(env Env, combined bool, args ...string) ([]byte, []byte, int) {
-	flow, ok := lookPath(env, "flow")
+func Flow(env Env, combined bool, args ...string) ([]byte, []byte, int) {
+	flow, ok := LookPath(env, "flow")
 	if !ok {
 		return []byte(pcNotFound), []byte(pcNotFound + "\n"), pcNotFoundC
 	}
@@ -34,20 +34,20 @@ func pcFlow(env Env, combined bool, args ...string) ([]byte, []byte, int) {
 	case err == nil:
 		return out.Bytes(), errb.Bytes(), 0
 	case errors.As(err, &ee):
-		return out.Bytes(), errb.Bytes(), rrExitCode(ee.ProcessState)
+		return out.Bytes(), errb.Bytes(), WaitExitCode(ee.ProcessState)
 	default:
 		return out.Bytes(), []byte(err.Error() + "\n"), 126
 	}
 }
 
-// pcRaw is `jq -r` of one value: a string's text, null (or absent) as
+// JQRaw is `jq -r` of one value: a string's text, null (or absent) as
 // "null", anything else as compact JSON.
-func pcRaw(raw json.RawMessage) string {
+func JQRaw(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return "null"
 	}
 	var s string
-	if pcIsString(raw) && json.Unmarshal(raw, &s) == nil {
+	if IsJSONString(raw) && json.Unmarshal(raw, &s) == nil {
 		return s
 	}
 	var c bytes.Buffer
@@ -57,14 +57,14 @@ func pcRaw(raw json.RawMessage) string {
 	return c.String()
 }
 
-// pfdRead is one `flow record <verb> -change <name> -C <worktree>` read:
+// RecordRead is one `flow record <verb> -change <name> -C <worktree>` read:
 // the hook when set, else the CLI on PATH, its stderr discarded as the
 // bash's 2>/dev/null did.
-func pfdRead(env Env, hook func(string) ([]byte, error), verb, name, worktree string) ([]byte, error) {
+func RecordRead(env Env, hook func(string) ([]byte, error), verb, name, worktree string) ([]byte, error) {
 	if hook != nil {
 		return hook(name)
 	}
-	out, _, rc := pcFlow(env, false, "record", verb, "-change", name, "-C", worktree)
+	out, _, rc := Flow(env, false, "record", verb, "-change", name, "-C", worktree)
 	if rc != 0 {
 		return nil, fmt.Errorf("flow exit %d", rc)
 	}
@@ -93,7 +93,15 @@ const (
 	pcNotFoundC = 127
 )
 
-// pcIsString reports whether raw is a JSON string.
-func pcIsString(raw json.RawMessage) bool {
+// IsJSONString reports whether raw is a JSON string.
+func IsJSONString(raw json.RawMessage) bool {
 	return strings.HasPrefix(strings.TrimSpace(string(raw)), `"`)
+}
+
+// FlowAddr is flowd's address: FLOW_ADDR, else the dev workspace's.
+func FlowAddr(env Env) string {
+	if a := env.Getenv("FLOW_ADDR"); a != "" {
+		return a
+	}
+	return "http://127.0.0.1:4173"
 }

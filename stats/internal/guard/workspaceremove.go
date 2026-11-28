@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard workspace-remove — tear down one parallel request's worktree,
@@ -51,24 +53,24 @@ import (
 // plain change name, or a <main> that is not a git repository.
 func init() { Registry["workspace-remove"] = workspaceRemove }
 
-func workspaceRemove(args []string, env Env, stdout, stderr io.Writer) int {
+func workspaceRemove(args []string, env core.Env, stdout, stderr io.Writer) int {
 	refuse := func(id, format string, a ...any) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stderr, "workspace-remove: "+format+"\n", a...)
 		return 2
 	}
 	if len(args) != 2 {
 		return refuse("usage", "usage: flow-guard workspace-remove <main-checkout> <change-or-branch>")
 	}
-	repo, branch := pcAbs(env, args[0]), args[1]
-	if !plainChangeName(branch) {
+	repo, branch := core.CleanAbs(env, args[0]), args[1]
+	if !core.PlainChangeName(branch) {
 		return refuse("bad-change-name", "change name %q is not a plain change name", branch)
 	}
-	git := envGit(env, "LC_ALL=C")
-	if !isDir(repo) || git("-C", repo, "rev-parse", "--git-dir").Run() != nil {
+	git := core.EnvGit(env, "LC_ALL=C")
+	if !core.IsDir(repo) || git("-C", repo, "rev-parse", "--git-dir").Run() != nil {
 		return refuse("not-a-git-repository", "%s is not a git repository", repo)
 	}
-	porcelain, ok := capture(git("-C", repo, "worktree", "list", "--porcelain"))
+	porcelain, ok := core.Capture(git("-C", repo, "worktree", "list", "--porcelain"))
 	if !ok {
 		return refuse("cannot-list-the-worktrees", "cannot list the worktrees of %s", repo)
 	}
@@ -83,17 +85,17 @@ func workspaceRemove(args []string, env Env, stdout, stderr io.Writer) int {
 	// The checks, all before anything is removed.
 	base := recordedBase(git, repo, branch)
 	if base == "" {
-		head, _ := capture(git("-C", repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
+		head, _ := core.Capture(git("-C", repo, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"))
 		base = strings.TrimPrefix(head, "origin/")
 	}
 	refused := func(id, what, format string, a ...any) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stdout, "REFUSED: %s — %s\n", what, rcwFlat(fmt.Sprintf(format, a...)))
 		return 1
 	}
-	live := wt != "" && isDir(wt)
+	live := wt != "" && core.IsDir(wt)
 	if live {
-		if s, ok := capture(git("-C", wt, "status", "--porcelain", "--untracked-files=all")); !ok {
+		if s, ok := core.Capture(git("-C", wt, "status", "--porcelain", "--untracked-files=all")); !ok {
 			return refused("status-unreadable", wt, "git status failed")
 		} else if s != "" {
 			return refused("dirty-worktree", wt, "uncommitted or untracked changes: %s", s)
@@ -144,7 +146,7 @@ func workspaceRemove(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	// ls-remote --exit-code exits 2 when origin does not carry the branch.
-	switch err := git("-C", repo, "ls-remote", "--exit-code", "--heads", "origin", branch).Run(); exitCode(err) {
+	switch err := git("-C", repo, "ls-remote", "--exit-code", "--heads", "origin", branch).Run(); core.ExitCode(err) {
 	case 0:
 		if out, err := git("-C", repo, "push", "origin", "--delete", branch).CombinedOutput(); err != nil {
 			failed = true
@@ -159,7 +161,7 @@ func workspaceRemove(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "REMOTE-REFUSED: origin/%s — cannot read origin\n", branch)
 	}
 	if failed {
-		Reason(env, "removal-failed")
+		core.Reason(env, "removal-failed")
 		return 1
 	}
 	return 0

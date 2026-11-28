@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -76,40 +78,40 @@ var (
 	dsfBlank = regexp.MustCompile("^[" + cSpace + "]*$")
 )
 
-func checkDevStackFresh(args []string, env Env, stdout, stderr io.Writer) int {
+func checkDevStackFresh(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
 		fmt.Fprintln(stderr, "check-dev-stack-fresh: usage: flow-guard check-dev-stack-fresh <worktree>")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	worktree := args[0]
-	if !isDir(smcAbs(env, worktree)) {
+	if !core.IsDir(core.Abs(env, worktree)) {
 		fmt.Fprintf(stderr, "check-dev-stack-fresh: %s is not a directory\n", worktree)
-		Reason(env, "not-a-directory")
+		core.Reason(env, "not-a-directory")
 		return 2
 	}
 	cfg := worktree + "/.flow/project.md"
-	if _, err := os.Lstat(smcAbs(env, cfg)); err != nil {
+	if _, err := os.Lstat(core.Abs(env, cfg)); err != nil {
 		fmt.Fprintf(stderr, "check-dev-stack-fresh: %s does not exist — no fingerprint is declared, so freshness cannot be checked\n", cfg)
-		Reason(env, "does-not-exist")
+		core.Reason(env, "does-not-exist")
 		return 2
 	}
-	if !isFile(smcAbs(env, cfg)) {
+	if !core.IsFile(core.Abs(env, cfg)) {
 		fmt.Fprintf(stderr, "check-dev-stack-fresh: %s is not a regular file\n", cfg)
-		Reason(env, "not-a-regular-file")
+		core.Reason(env, "not-a-regular-file")
 		return 2
 	}
 	// An unreadable file reaches the bash's awk as empty input: no row.
-	text, _ := os.ReadFile(smcAbs(env, cfg))
+	text, _ := os.ReadFile(core.Abs(env, cfg))
 	fpr, found := dsfFingerprint(string(text))
 	if !found {
 		fmt.Fprintf(stderr, "check-dev-stack-fresh: %s declares no readable `fingerprint` row under `## visual verification` — freshness cannot be checked\n", cfg)
-		Reason(env, "fingerprint-row-missing")
+		core.Reason(env, "fingerprint-row-missing")
 		return 2
 	}
 	if fpr == "" {
 		fmt.Fprintf(stderr, "check-dev-stack-fresh: the fingerprint row in %s resolves to an empty command — freshness cannot be checked\n", cfg)
-		Reason(env, "fingerprint-command-empty")
+		core.Reason(env, "fingerprint-command-empty")
 		return 2
 	}
 
@@ -118,11 +120,11 @@ func checkDevStackFresh(args []string, env Env, stdout, stderr io.Writer) int {
 	// noise, not a verdict line.
 	fmt.Fprintf(stdout, "check-dev-stack-fresh: fingerprint: %s\n", fpr)
 	bash := "bash"
-	if p, ok := lookPath(env, "bash"); ok {
+	if p, ok := core.LookPath(env, "bash"); ok {
 		bash = p
 	}
 	cmd := exec.Command(bash, "-c", fpr)
-	cmd.Dir = smcAbs(env, worktree)
+	cmd.Dir = core.Abs(env, worktree)
 	cmd.Env = append(os.Environ(), "PATH="+env.Getenv("PATH"))
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = env.Stdin, stdout, stderr
 	if cmd.Run() == nil {
@@ -130,7 +132,7 @@ func checkDevStackFresh(args []string, env Env, stdout, stderr io.Writer) int {
 		return 0
 	}
 	fmt.Fprintln(stderr, "stack-stale: the fingerprint exited non-zero — the stack is not serving the worktree's build (stale bundle, or nothing serving)")
-	Reason(env, "fingerprint-exited-non-zero")
+	core.Reason(env, "fingerprint-exited-non-zero")
 	return 1
 }
 

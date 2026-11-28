@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // sbbFixture is TestCheckBaseBehind's shape with the base behind: a bare origin on main, feature/x
@@ -40,7 +42,7 @@ func sbbFixture(t *testing.T) (g *fxGit, seed, origin, wt string) {
 func TestSyncBaseBehindSyncsTheBase(t *testing.T) {
 	t.Parallel()
 	g, _, origin, wt := sbbFixture(t)
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	if r := runGuard("check-base-behind", []string{wt}, env); r.rc != 1 {
 		t.Fatalf("fixture is not behind: rc %d %q", r.rc, r.stdout)
 	}
@@ -85,7 +87,7 @@ func TestSyncBaseBehindStopsOnAMergeConflict(t *testing.T) {
 		t.Fatal(g.err)
 	}
 	before := g.git(origin, "rev-parse", "feature/x")
-	r := runGuard("sync-base-behind", []string{wt}, Env{Getenv: os.Getenv})
+	r := runGuard("sync-base-behind", []string{wt}, core.Env{Getenv: os.Getenv})
 	if r.rc != 1 || !strings.Contains(r.stdout, "BASE-CONFLICT") || g.git(origin, "rev-parse", "feature/x") != before {
 		t.Fatalf("rc %d stdout %q stderr %q", r.rc, r.stdout, r.err)
 	}

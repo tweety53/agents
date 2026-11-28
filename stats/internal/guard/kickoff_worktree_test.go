@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -553,7 +554,7 @@ func TestKickoffWorktreeFromListsEveryRecordedWorktree(t *testing.T) {
 // the two distinct causes they are.
 func TestKwPeerNameNamesWhichReadFailed(t *testing.T) {
 	t.Parallel()
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	from := t.TempDir()
 	if _, msg := kwPeerName(env, "git", from, "/p"); !strings.HasPrefix(msg, "cannot read ") {
 		t.Errorf("no peers file: %q", msg)

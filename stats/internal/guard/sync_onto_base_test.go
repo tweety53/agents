@@ -6,12 +6,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
 // sobEnv runs the guard with root as FLOW_GUARD_REPO_ROOT,
 // and stub's directory first on PATH when stub is not "".
-func sobEnv(t *testing.T, dir, root, stub string) Env {
+func sobEnv(t *testing.T, dir, root, stub string) core.Env {
 	t.Helper()
 	// The moving stub execs fixtureGit itself; without it, fixtureGitPath.
 	path := fixtureGitPath(t)
@@ -24,7 +25,7 @@ func sobEnv(t *testing.T, dir, root, stub string) Env {
 	if stub != "" {
 		get = pathEnv(stub)
 	}
-	return Env{Dir: dir, Getenv: func(k string) string {
+	return core.Env{Dir: dir, Getenv: func(k string) string {
 		if k == "FLOW_GUARD_REPO_ROOT" {
 			return root
 		}

@@ -4,6 +4,8 @@ import (
 	"io"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard hook flow-active-change — UserPromptSubmit: name the session's active /flow or
@@ -31,7 +33,7 @@ import (
 // this hook exists to avoid.
 func init() { hooks["flow-active-change"] = flowActiveChange }
 
-func flowActiveChange(env Env, payload map[string]any, stdout, _ io.Writer) {
+func flowActiveChange(env core.Env, payload map[string]any, stdout, _ io.Writer) {
 	if payload == nil {
 		return
 	}
@@ -43,7 +45,7 @@ func flowActiveChange(env Env, payload map[string]any, stdout, _ io.Writer) {
 		return
 	}
 	q := func(s string) string { return strings.ReplaceAll(pyQuoteURL(s, " "), " ", "+") }
-	v, err := hookGetJSON(env, hookFlowAddr(env)+"/api/v1/stage-runs?session_id="+q(sessionID)+"&sort=-started_at&limit=50", 2*time.Second)
+	v, err := hookGetJSON(env, core.FlowAddr(env)+"/api/v1/stage-runs?session_id="+q(sessionID)+"&sort=-started_at&limit=50", 2*time.Second)
 	if err != nil {
 		return
 	}
@@ -82,7 +84,7 @@ func flowActiveChange(env Env, payload map[string]any, stdout, _ io.Writer) {
 
 // facSessionID is the payload's session_id, else the stem of a `.jsonl` transcript_path (a
 // claude-code transcript is named after the bare session id), else CLAUDE_SESSION_ID.
-func facSessionID(env Env, payload map[string]any) string {
+func facSessionID(env core.Env, payload map[string]any) string {
 	if s := strOf(payload["session_id"]); s != "" {
 		return s
 	}

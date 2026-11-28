@@ -4,12 +4,13 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // inProcessGuards are the guards that are no guard.Registry key: each runs only in process from
 // its one caller, and the tests reach it through runGuard by its former name.
-var inProcessGuards = map[string]Func{
+var inProcessGuards = map[string]core.Func{
 	"check-identical-baselines": checkIdenticalBaselines, // visual-verify-pass measure
 	"check-main-checkout-drift": checkMainCheckoutDrift,  // integrate-change prepare
 	"check-ui-task-measured":    checkUITaskMeasured,     // close-task, through utmJudge

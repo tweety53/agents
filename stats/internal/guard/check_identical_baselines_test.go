@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // Every case of the check-identical-baselines contract
@@ -45,7 +47,7 @@ func TestCheckIdenticalBaselines(t *testing.T) {
 				}
 				stdin.WriteString(p + "\n")
 			}
-			r := runGuard("check-identical-baselines", nil, Env{Stdin: strings.NewReader(stdin.String())})
+			r := runGuard("check-identical-baselines", nil, core.Env{Stdin: strings.NewReader(stdin.String())})
 			want := strings.ReplaceAll(c.want, "%D%", root)
 			if r.rc != c.rc || r.stdout != want {
 				t.Fatalf("rc=%d stdout=%q, want rc=%d stdout=%q", r.rc, r.stdout, c.rc, want)
@@ -62,7 +64,7 @@ func TestCheckIdenticalBaselines(t *testing.T) {
 		"a path that does not exist": {nil, filepath.Join(t.TempDir(), "absent.png") + "\n"},
 	} {
 		t.Run("exit 2: "+name, func(t *testing.T) {
-			r := runGuard("check-identical-baselines", tc.args, Env{Stdin: strings.NewReader(tc.stdin)})
+			r := runGuard("check-identical-baselines", tc.args, core.Env{Stdin: strings.NewReader(tc.stdin)})
 			if r.rc != 2 || r.stdout != "" {
 				t.Fatalf("rc=%d stdout=%q, want 2 and empty stdout", r.rc, r.stdout)
 			}

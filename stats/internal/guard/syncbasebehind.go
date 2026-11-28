@@ -6,6 +6,8 @@ import (
 	"io"
 	"regexp"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard sync-base-behind — the whole base sync check-base-behind prints the commands for, run
@@ -28,11 +30,11 @@ func init() { Registry["sync-base-behind"] = syncBaseBehind }
 
 var sbbBlock = regexp.MustCompile(`(?m)^BASE-BEHIND: (.+) — origin/(\S+) lacks [0-9]+ commits of origin/(\S+);`)
 
-func syncBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
+func syncBaseBehind(args []string, env core.Env, stdout, stderr io.Writer) int {
 	const prog = "sync-base-behind: "
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, prog+"usage: flow-guard sync-base-behind <worktree>...")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	var check bytes.Buffer
@@ -44,32 +46,32 @@ func syncBaseBehind(args []string, env Env, stdout, stderr io.Writer) int {
 	if rc != 1 {
 		return rc
 	}
-	git := envGit(env)
+	git := core.EnvGit(env)
 	blocks := sbbBlock.FindAllStringSubmatch(check.String(), -1)
 	for _, b := range blocks {
 		wt, base, tracked := b[1], b[2], b[3]
 		fmt.Fprintf(stdout, "BASE-BEHIND: %s — origin/%s lacks commits of origin/%s\n", wt, base, tracked)
-		mb, ok := capture(git("-C", wt, "merge-base", "HEAD", "origin/"+base))
+		mb, ok := core.Capture(git("-C", wt, "merge-base", "HEAD", "origin/"+base))
 		if !ok {
 			fmt.Fprintf(stderr, "%sgit merge-base HEAD origin/%s failed in %s\n", prog, base, wt)
-			Reason(env, "merge-base-failed")
+			core.Reason(env, "merge-base-failed")
 			return 2
 		}
-		tree, ok := capture(git("-C", wt, "merge-tree", "--write-tree", "origin/"+base, "origin/"+tracked))
+		tree, ok := core.Capture(git("-C", wt, "merge-tree", "--write-tree", "origin/"+base, "origin/"+tracked))
 		if !ok {
 			fmt.Fprintf(stdout, "BASE-CONFLICT: %s — origin/%s and origin/%s do not merge cleanly; resolve by hand\n", wt, base, tracked)
-			Reason(env, "base-merge-conflict")
+			core.Reason(env, "base-merge-conflict")
 			return 1
 		}
-		merge, ok := capture(git("-C", wt, "commit-tree", tree, "-p", "origin/"+base, "-p", "origin/"+tracked, "-m", "Merge "+tracked+" into "+base))
+		merge, ok := core.Capture(git("-C", wt, "commit-tree", tree, "-p", "origin/"+base, "-p", "origin/"+tracked, "-m", "Merge "+tracked+" into "+base))
 		if !ok || merge == "" {
 			fmt.Fprintf(stderr, "%scommit-tree failed in %s\n", prog, wt)
-			Reason(env, "commit-tree-failed")
+			core.Reason(env, "commit-tree-failed")
 			return 2
 		}
 		if out, err := git("-C", wt, "push", "origin", merge+":refs/heads/"+base).CombinedOutput(); err != nil {
 			fmt.Fprintf(stderr, "%spush of %s to %s failed: %s\n", prog, merge, base, strings.TrimSpace(string(out)))
-			Reason(env, "push-failed")
+			core.Reason(env, "push-failed")
 			return 2
 		}
 		_ = git("-C", wt, "fetch", "-q", "origin").Run()

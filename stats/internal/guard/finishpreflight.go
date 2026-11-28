@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -64,7 +66,7 @@ func init() {
 	Registry["check-finish-preflight"] = checkFinishPreflight
 }
 
-func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int {
+func checkFinishPreflight(args []string, env core.Env, stdout, stderr io.Writer) int {
 	arg := func(i int) string {
 		if i < len(args) {
 			return args[i]
@@ -74,18 +76,18 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	worktree, baseRef, recorded := arg(0), arg(1), arg(2)
 	if worktree == "" || baseRef == "" || recorded == "" {
 		fmt.Fprint(stderr, baseRefUsage("flow-guard check-finish-preflight"))
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
-	if !isDir(smcAbs(env, worktree)) {
+	if !core.IsDir(core.Abs(env, worktree)) {
 		fmt.Fprintf(stderr, "check-finish-preflight: %s is not a directory — cannot determine anything\n", worktree)
-		Reason(env, "not-a-directory")
+		core.Reason(env, "not-a-directory")
 		return 2
 	}
-	git := envGit(env)
+	git := core.EnvGit(env)
 	if git("-C", worktree, "rev-parse", "--git-dir").Run() != nil {
 		fmt.Fprintf(stderr, "check-finish-preflight: %s is not a git worktree — cannot determine anything\n", worktree)
-		Reason(env, "not-a-worktree")
+		core.Reason(env, "not-a-worktree")
 		return 2
 	}
 
@@ -98,13 +100,13 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	// Every ref this guard did not choose itself arrives from a state file
 	// and is passed after --end-of-options, so a value beginning with `-` is
 	// read as a ref and rejected rather than parsed as a git option.
-	headSHA, ok := capture(git("-C", worktree, "rev-parse", "--verify", "--end-of-options", "HEAD^{commit}"))
+	headSHA, ok := core.Capture(git("-C", worktree, "rev-parse", "--verify", "--end-of-options", "HEAD^{commit}"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-finish-preflight: cannot resolve HEAD in %s\n", worktree)
-		Reason(env, "head-unresolved")
+		core.Reason(env, "head-unresolved")
 		return 2
 	}
-	recordedSHA, ok := capture(git("-C", worktree, "rev-parse", "--verify", "--end-of-options", recorded+"^{commit}"))
+	recordedSHA, ok := core.Capture(git("-C", worktree, "rev-parse", "--verify", "--end-of-options", recorded+"^{commit}"))
 	if !ok {
 		fmt.Fprintf(stdout, "REFUSE: recorded merge base '%s' does not resolve in %s\n", recorded, worktree)
 		return 0
@@ -134,11 +136,11 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	//     else is git failing to answer, which must not be read as a RUN1
 	//     verdict. git's stderr is discarded so no chatter can prefix the
 	//     verdict line for a caller that merges the two streams.
-	if rc := exitCode(git("-C", worktree, "merge-base", "--is-ancestor", "--end-of-options", headSHA, ref).Run()); rc == 1 {
+	if rc := core.ExitCode(git("-C", worktree, "merge-base", "--is-ancestor", "--end-of-options", headSHA, ref).Run()); rc == 1 {
 		return runOne(env, stdout, stderr, worktree, baseRef, recorded, fmt.Sprintf("RUN1: HEAD is not an ancestor of %s — not merged", ref))
 	} else if rc != 0 {
 		fmt.Fprintf(stderr, "check-finish-preflight: merge-base failed in %s (exit %d) — cannot determine anything\n", worktree, rc)
-		Reason(env, "merge-base-failed")
+		core.Reason(env, "merge-base-failed")
 		return 2
 	}
 
@@ -149,10 +151,10 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 	//     I/O error, a worktree that became unreadable mid-run) is the same
 	//     class of failure as an unreadable worktree — exit 2, named — never a
 	//     silent 0 that falls through to RUN2, the destructive verdict.
-	status, ok := capture(git("-C", worktree, "status", "--porcelain", "--untracked-files=normal"))
+	status, ok := core.Capture(git("-C", worktree, "status", "--porcelain", "--untracked-files=normal"))
 	if !ok {
 		fmt.Fprintf(stderr, "check-finish-preflight: cannot read the worktree status in %s — cannot determine anything\n", worktree)
-		Reason(env, "cannot-read-the-worktree-status")
+		core.Reason(env, "cannot-read-the-worktree-status")
 		return 2
 	}
 	if status != "" {
@@ -170,10 +172,10 @@ func checkFinishPreflight(args []string, env Env, stdout, stderr io.Writer) int 
 // base only matters to a branch that is about to integrate, so one call answers
 // both. The base-moved answer is read first, so a tree it cannot read is exit 2
 // with nothing on stdout, never a RUN1 without its companion line.
-func runOne(env Env, stdout, stderr io.Writer, worktree, baseRef, recorded, run1 string) int {
+func runOne(env core.Env, stdout, stderr io.Writer, worktree, baseRef, recorded, run1 string) int {
 	bm := baseMoved(env, worktree, baseRef, recorded, stderr)
 	if bm.code != 0 {
-		Reason(env, "base-moved-unreadable")
+		core.Reason(env, "base-moved-unreadable")
 		return bm.code
 	}
 	fmt.Fprintln(stdout, run1)

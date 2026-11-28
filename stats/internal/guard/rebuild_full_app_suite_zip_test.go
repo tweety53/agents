@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -60,7 +61,7 @@ func TestRebuildFullAppSuiteZip(t *testing.T) {
 	}
 	runGo := func(p string, args ...string) res {
 		var o, e bytes.Buffer
-		rc := Registry["rebuild-full-app-suite-zip"](args, Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: p}, &o, &e)
+		rc := Registry["rebuild-full-app-suite-zip"](args, core.Env{Getenv: getenv, Environ: func() []string { return environ }, Dir: p}, &o, &e)
 		return res{rc, strings.ReplaceAll(o.String(), p, "<P>"), strings.ReplaceAll(e.String(), p, "<P>")}
 	}
 	runBash := func(t *testing.T, p string, args ...string) res {

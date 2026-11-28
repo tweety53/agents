@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -75,23 +77,23 @@ func init() {
 	Registry["refresh-main-checkout"] = refreshMainCheckout
 }
 
-func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
-	if len(args) != 2 || !isDir(pcAbs(env, args[0])) {
+func refreshMainCheckout(args []string, env core.Env, stdout, stderr io.Writer) int {
+	if len(args) != 2 || !core.IsDir(core.CleanAbs(env, args[0])) {
 		fmt.Fprintln(stderr, "usage: flow-guard refresh-main-checkout <main-checkout> <base>")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	repo, base := args[0], args[1]
-	git := envGit(env)
+	git := core.EnvGit(env)
 	// g is git -C <repo>, its stderr reaching the caller.
 	g := func(a ...string) (string, bool) {
 		cmd := git(append([]string{"-C", repo}, a...)...)
 		cmd.Stderr = stderr
-		return capture(cmd)
+		return core.Capture(cmd)
 	}
 	refuse := func(reason string) int {
 		fmt.Fprintf(stdout, "REFRESH-REFUSED: %s %s — nothing touched\n", repo, reason)
-		Reason(env, "refresh-refused")
+		core.Reason(env, "refresh-refused")
 		return 1
 	}
 
@@ -100,7 +102,7 @@ func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
 	// guard's failure -- a stale origin/<base> only means a smaller step.
 	_ = git("-C", repo, "-c", "core.askpass=true", "fetch", "--quiet", "origin").Run()
 
-	cur, _ := capture(git("-C", repo, "symbolic-ref", "-q", "--short", "HEAD"))
+	cur, _ := core.Capture(git("-C", repo, "symbolic-ref", "-q", "--short", "HEAD"))
 	if cur == "" {
 		return refuse("is detached")
 	}
@@ -112,15 +114,15 @@ func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
 	// untracked files are git's own concern.
 	status, ok := g("status", "--porcelain", "--untracked-files=no")
 	if !ok {
-		Reason(env, "git-failed")
+		core.Reason(env, "git-failed")
 		return 2
 	}
 	tip, ok := g("rev-parse", "--short", "HEAD")
 	if !ok {
-		Reason(env, "git-failed")
+		core.Reason(env, "git-failed")
 		return 2
 	}
-	remote, _ := capture(git("-C", repo, "rev-parse", "-q", "--verify", "--short", "refs/remotes/origin/"+base))
+	remote, _ := core.Capture(git("-C", repo, "rev-parse", "-q", "--verify", "--short", "refs/remotes/origin/"+base))
 	if remote == "" {
 		return refuse("has no origin/" + base)
 	}
@@ -143,23 +145,23 @@ func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
 		// path origin adds that sits here untracked, outside the copies.
 		added, _ := g("diff", "--name-only", "-z", "--no-renames", "--diff-filter=A", "HEAD", "refs/remotes/origin/"+base)
 		for _, p := range strings.Split(added, "\x00") {
-			if p != "" && !slices.Contains(paths, p) && rmcPresent(filepath.Join(pcAbs(env, repo), p)) {
+			if p != "" && !slices.Contains(paths, p) && rmcPresent(filepath.Join(core.CleanAbs(env, repo), p)) {
 				return refuse("has untracked " + p + " origin/" + base + " adds")
 			}
 		}
 		if _, ok := g(append([]string{"--literal-pathspecs", "restore", "--source=HEAD", "--staged", "--worktree", "--"}, paths...)...); !ok {
-			Reason(env, "restore-failed")
+			core.Reason(env, "restore-failed")
 			return 2
 		}
 		fmt.Fprintf(stdout, "REFRESH-DISCARDED: %s %d tracked paths identical to origin/%s\n", repo, len(paths), base)
 	}
 	if _, ok := g("merge", "--ff-only", "-q", "refs/remotes/origin/"+base); !ok {
-		Reason(env, "fast-forward-failed")
+		core.Reason(env, "fast-forward-failed")
 		return 2
 	}
 	fmt.Fprintf(stdout, "REFRESH-DONE: %s fast-forwarded %s -> %s\n", repo, tip, remote)
 	if restartFlowdIfStatsMoved(env, repo, tip, remote, stdout, stderr) != 0 {
-		Reason(env, "flowd-restart-failed")
+		core.Reason(env, "flowd-restart-failed")
 		return 2
 	}
 	return 0
@@ -173,12 +175,12 @@ func refreshMainCheckout(args []string, env Env, stdout, stderr io.Writer) int {
 // committed, so restoring exactly these paths to HEAD loses nothing the
 // fast-forward does not write back.
 func landedCopies(git func(args ...string) *exec.Cmd, repo, ref string) []string {
-	if u, ok := capture(git("-C", repo, "ls-files", "--unmerged")); !ok || u != "" {
+	if u, ok := core.Capture(git("-C", repo, "ls-files", "--unmerged")); !ok || u != "" {
 		return nil
 	}
 	names := func(cached ...string) ([]string, bool) {
 		args := append([]string{"-C", repo, "diff", "--name-only", "-z", "--no-renames"}, cached...)
-		out, ok := capture(git(append(args, "HEAD")...))
+		out, ok := core.Capture(git(append(args, "HEAD")...))
 		var ps []string
 		for _, p := range strings.Split(out, "\x00") {
 			if p != "" {
@@ -210,7 +212,7 @@ func landedCopies(git func(args ...string) *exec.Cmd, repo, ref string) []string
 	// A clean filter compares what it keeps, not the bytes on disk: a lossy
 	// one (output stripping, secret scrubbing) would pass differing content
 	// as identical, so any filtered path refuses.
-	attrs, ok := capture(git(append([]string{"-C", repo, "check-attr", "filter", "-z", "--"}, paths...)...))
+	attrs, ok := core.Capture(git(append([]string{"-C", repo, "check-attr", "filter", "-z", "--"}, paths...)...))
 	if !ok {
 		return nil
 	}

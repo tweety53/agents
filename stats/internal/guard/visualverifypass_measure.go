@@ -13,6 +13,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // vvmStep is one in-process guard run: its exit and stderr.
@@ -98,7 +100,7 @@ func (v *vvp) measure(args []string) error {
 		return v.usage("measure takes <worktree> <name> <key> <spec path>")
 	}
 	w, name, key, spec := v.abs(pos[0]), pos[1], pos[2], pos[3]
-	if !plainChangeName(name) || key == "" || strings.ContainsRune(key, '/') {
+	if !core.PlainChangeName(name) || key == "" || strings.ContainsRune(key, '/') {
 		return v.usage("change name '" + name + "' or key '" + key + "' is not plain")
 	}
 	spec = cellPath(w, spec)
@@ -112,7 +114,7 @@ func (v *vvp) measure(args []string) error {
 	if !vvmExists(spec) {
 		return v.usage("spec '" + spec + "' does not exist")
 	}
-	changeRoot := filepath.Join(w, specRootLeaf(w, io.Discard), "changes", name)
+	changeRoot := filepath.Join(w, core.SpecRootLeaf(w, io.Discard), "changes", name)
 	vvDir := filepath.Join(changeRoot, "visual-verification")
 	sdd := filepath.Join(w, ".superpowers", "sdd")
 	bandsDir := filepath.Join(sdd, "visual-measure-"+key)
@@ -125,7 +127,7 @@ func (v *vvp) measure(args []string) error {
 
 	env := v.env
 	env.Dir = w
-	run := func(fn func([]string, Env, io.Writer, io.Writer) int, stdin string, a ...string) (int, string, string) {
+	run := func(fn func([]string, core.Env, io.Writer, io.Writer) int, stdin string, a ...string) (int, string, string) {
 		var out, errb bytes.Buffer
 		e := env
 		e.Stdin = strings.NewReader(stdin)
@@ -386,7 +388,7 @@ func (v *vvp) writeManifest(sdd, vvDir, key, spec string, prototype bool, m vvmM
 	}
 	v.say("MANIFEST: %s", path)
 	if failed {
-		Reason(v.env, "measure-failed")
+		core.Reason(v.env, "measure-failed")
 		return guardExit(1)
 	}
 	return nil

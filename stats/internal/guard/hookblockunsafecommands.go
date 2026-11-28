@@ -15,6 +15,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/shlex"
 )
 
@@ -250,7 +251,7 @@ func bucIsDir(p string) bool {
 
 // bucExpandUser is p with a leading `~` or `~user` replaced by that user's home directory, as the
 // shell expands it; p unchanged when the user is unknown.
-func bucExpandUser(env Env, p string) string {
+func bucExpandUser(env core.Env, p string) string {
 	if !strings.HasPrefix(p, "~") {
 		return p
 	}
@@ -293,7 +294,7 @@ func bucLast(s string) string {
 }
 
 type buc struct {
-	env   Env
+	env   core.Env
 	cache map[string]bucGitOut
 }
 
@@ -310,7 +311,7 @@ type bucHit struct {
 	link bool
 }
 
-func blockUnsafeCommands(env Env, payload map[string]any, stdout, _ io.Writer) {
+func blockUnsafeCommands(env core.Env, payload map[string]any, stdout, _ io.Writer) {
 	if payload == nil {
 		return
 	}

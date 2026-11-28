@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/records"
 	"io"
 	"io/fs"
 	"net/http"
@@ -17,6 +16,9 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // prepare is `visual-verify-pass.sh prepare`: the stage's begin mark and
@@ -103,7 +105,7 @@ func (v *vvp) inSet(root string) string {
 // a recorded flowBase every `## apps` repository, the set holds no worktree
 // in prints `STOP: kickoff <repo>` before anything is begun.
 func (v *vvp) kickoff() error {
-	roots := tcfAppRoots(projectSection(filepath.Join(v.canon, ".flow", "project.md"), "apps"))
+	roots := tcfAppRoots(core.ProjectSection(filepath.Join(v.canon, ".flow", "project.md"), "apps"))
 	declared := func(p string) bool {
 		for _, r := range roots {
 			if realPath(r) == realPath(p) {
@@ -129,7 +131,7 @@ func (v *vvp) kickoff() error {
 		if fb, _ := v.git("-C", v.canon, "config", "--get", "branch."+branch+".flowBase"); fb != "" {
 			named := v.linkRoots(strings.TrimPrefix(branch, "spectre/"))
 			for _, r := range roots {
-				if isDir(r) && v.inSet(r) == "" && (named == nil || named[realPath(r)]) {
+				if core.IsDir(r) && v.inSet(r) == "" && (named == nil || named[realPath(r)]) {
 					add(r)
 				}
 			}
@@ -339,7 +341,7 @@ func (v *vvp) preflight(survivors []string) error {
 				}
 				targets = nil
 				for _, spec := range strings.Fields(out) {
-					if sc := cellPath(root, spec) + ".mockups"; isFile(sc) {
+					if sc := cellPath(root, spec) + ".mockups"; core.IsFile(sc) {
 						targets = append(targets, sc)
 					}
 				}
@@ -447,11 +449,11 @@ func (v *vvp) taskCaptured(w string) []string {
 // skips them.
 func (v *vvp) frameFiles(targets []string) []string {
 	var files []string
-	if d := filepath.Join(v.canon, specRootLeaf(v.canon, io.Discard), "changes", v.name, "design.md"); isFile(d) {
+	if d := filepath.Join(v.canon, core.SpecRootLeaf(v.canon, io.Discard), "changes", v.name, "design.md"); core.IsFile(d) {
 		files = append(files, d)
 	}
 	for _, tgt := range targets {
-		if !isDir(tgt) {
+		if !core.IsDir(tgt) {
 			files = append(files, tgt)
 			continue
 		}
@@ -486,7 +488,7 @@ func (v *vvp) declaredApps(w, kv string) {
 	r := strings.NewReplacer(repl...)
 	for _, cell := range strings.Split(v.cells(w)["preflight apps"], ",") {
 		root, url, ok := strings.Cut(r.Replace(strings.Trim(strings.TrimSpace(cell), "`")), "=")
-		if ok && root != "" && url != "" && isDir(filepath.Join(w, root)) {
+		if ok && root != "" && url != "" && core.IsDir(filepath.Join(w, root)) {
 			v.apps[w] = append(v.apps[w], root+"="+url)
 		}
 	}
@@ -592,11 +594,11 @@ var vvpRedispatch = regexp.MustCompile(`^visual-verify-[0-9]+(-|$)`)
 var vvpPairRe = regexp.MustCompile(`^([a-z0-9.-]+)/flow-([a-z]+)$`)
 
 // pair is the model and effort every verifier row begins on: the first base
-// pair of the `visual-verifier` allowed-pairs row (policyTable); the DISPATCH line names the Agent
+// pair of the `visual-verifier` allowed-pairs row (PolicyTable); the DISPATCH line names the Agent
 // call from it (kan-1086 self-review, F9). A failed read or an empty or
 // unparsable row stops prepare.
 func (v *vvp) pair() (model, effort string, err error) {
-	rows, err := policyTable(v.env)
+	rows, err := core.PolicyTable(v.env)
 	if err != nil {
 		return "", "", v.stop("policy-unreadable", "stopped", "pair — "+err.Error())
 	}
@@ -733,7 +735,7 @@ func (v *vvp) dispatch(survivors []string, stack string) error {
 // this change whose key a new pass (keep) replaces, so none outlives its
 // supersession until a later sweep (kan-1160 self-review, F2).
 func (v *vvp) closeSuperseded(keep []string) {
-	raw, err := pfdRead(v.env, v.env.Dispatches, "dispatches", v.name, v.canon)
+	raw, err := core.RecordRead(v.env, v.env.Dispatches, "dispatches", v.name, v.canon)
 	var rows []struct{ Key, Role, Outcome string }
 	if err == nil {
 		err = json.Unmarshal(raw, &rows)
@@ -776,7 +778,7 @@ func (v *vvp) relayContract() (string, error) {
 // greenRows is this session's completed or skipped inline verify rows with
 // a recorded HEAD, latest last, as `flow record dispatches` returns them.
 func (v *vvp) greenRows() ([]struct{ Key, DiffBase string }, error) {
-	raw, err := pfdRead(v.env, v.env.Dispatches, "dispatches", v.name, v.canon)
+	raw, err := core.RecordRead(v.env, v.env.Dispatches, "dispatches", v.name, v.canon)
 	var rows []struct{ Key, Role, SessionToken, Outcome, DiffBase string }
 	if err == nil {
 		err = json.Unmarshal(raw, &rows)
@@ -800,7 +802,7 @@ func (v *vvp) greenRows() ([]struct{ Key, DiffBase string }, error) {
 func (v *vvp) bundle(key, w, stack, relay string, green []struct{ Key, DiffBase string }, stage [][2]string) (string, error) {
 	sdd := filepath.Join(w, ".superpowers", "sdd")
 	report := filepath.Join(sdd, "verify-report-"+key+".md")
-	changeRoot := filepath.Join(v.canon, specRootLeaf(v.canon, io.Discard), "changes", v.name)
+	changeRoot := filepath.Join(v.canon, core.SpecRootLeaf(v.canon, io.Discard), "changes", v.name)
 	cells := v.cells(w)
 	var b strings.Builder
 	line := func(format string, a ...any) { fmt.Fprintf(&b, format+"\n", a...) }
@@ -853,7 +855,7 @@ func (v *vvp) bundle(key, w, stack, relay string, green []struct{ Key, DiffBase 
 	line("")
 	line("## Run")
 	line("")
-	line("%s", vvpOr(projectSection(filepath.Join(w, ".flow", "project.md"), "run")))
+	line("%s", vvpOr(core.ProjectSection(filepath.Join(w, ".flow", "project.md"), "run")))
 	line("")
 	line("## Stack")
 	line("")
@@ -918,7 +920,7 @@ func vvpOr(s string) string {
 }
 
 func vvpResolves(v *vvp, w, sha string) bool {
-	return envGit(v.env)("-C", w, "cat-file", "-e", sha+"^{commit}").Run() == nil
+	return core.EnvGit(v.env)("-C", w, "cat-file", "-e", sha+"^{commit}").Run() == nil
 }
 
 // attempts adds a remainder's `## Incomplete attempt` — the incomplete
@@ -968,7 +970,7 @@ func (v *vvp) mockupSources(key, w, changeRoot string) ([]string, []string, erro
 	seen := map[string]bool{}
 	for _, m := range vrMockupSource.FindAllStringSubmatch(string(body), -1) {
 		p := filepath.Join(v.canon, m[1])
-		if seen[m[1]] || !isFile(p) {
+		if seen[m[1]] || !core.IsFile(p) {
 			continue
 		}
 		seen[m[1]] = true

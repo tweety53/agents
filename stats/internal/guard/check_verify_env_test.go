@@ -4,6 +4,8 @@ import (
 	"net"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 func TestCheckVerifyEnv(t *testing.T) {
@@ -35,7 +37,7 @@ func TestCheckVerifyEnv(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			r := runGuard("check-verify-env", c.args, Env{})
+			r := runGuard("check-verify-env", c.args, core.Env{})
 			if r.rc != c.rc || !strings.Contains(r.out, c.want) {
 				t.Fatalf("rc=%d out=%q, want rc=%d containing %q", r.rc, r.out, c.rc, c.want)
 			}

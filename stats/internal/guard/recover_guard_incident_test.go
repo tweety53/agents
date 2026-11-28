@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -328,7 +329,7 @@ func TestRecoverGuardIncident(t *testing.T) {
 			if c.args != nil {
 				args = c.args(fx)
 			}
-			r := runGuard("recover-guard-incident", args, Env{Dir: fx.cwd, Getenv: os.Getenv, LookupEnv: os.LookupEnv})
+			r := runGuard("recover-guard-incident", args, core.Env{Dir: fx.cwd, Getenv: os.Getenv, LookupEnv: os.LookupEnv})
 			if r.rc == -1 {
 				return r, errors.New(r.out)
 			}

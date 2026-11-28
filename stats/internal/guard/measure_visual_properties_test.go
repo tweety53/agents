@@ -15,6 +15,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -95,7 +96,7 @@ func mvpRun(t *testing.T, dir string, args ...string) (rc int, stdout, stderr st
 		t.Fatal("measure-visual-properties is not registered")
 	}
 	var out, errb bytes.Buffer
-	rc = fn(args, Env{Getenv: os.Getenv, Dir: dir}, &out, &errb)
+	rc = fn(args, core.Env{Getenv: os.Getenv, Dir: dir}, &out, &errb)
 	return rc, out.String(), errb.String()
 }
 
@@ -390,7 +391,7 @@ func TestMeasureVisualProperties(t *testing.T) {
 			t.Errorf("measure stderr %q, want %q", got, want)
 		}
 		var out, errb bytes.Buffer
-		Registry["compose-mockup-frames"]([]string{bad, "root", "out"}, Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader("")}, &out, &errb)
+		Registry["compose-mockup-frames"]([]string{bad, "root", "out"}, core.Env{Getenv: os.Getenv, Dir: t.TempDir(), Stdin: strings.NewReader("")}, &out, &errb)
 		if got := errb.String(); !strings.HasSuffix(got, ": "+repr+"\n") {
 			t.Errorf("compose stderr %q, want it to end with %q", got, repr)
 		}

@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // testCostFixture reads the go test -json stream the shared rule's tests read too.
@@ -37,7 +39,7 @@ func TestTestCostAddsPausedDescendants(t *testing.T) {
 		{"-min 2.26", []string{"-min", "2.26"}, fixture, ""},
 		{"empty stdin", nil, "", ""},
 	} {
-		r := runGuard("test-cost", c.args, Env{Stdin: strings.NewReader(c.input)})
+		r := runGuard("test-cost", c.args, core.Env{Stdin: strings.NewReader(c.input)})
 		if r.rc != 0 || r.err != "" || r.stdout != c.want {
 			t.Errorf("%s: rc=%d stderr=%q stdout=%q, want 0, empty stderr and %q", c.name, r.rc, r.err, r.stdout, c.want)
 		}
@@ -47,7 +49,7 @@ func TestTestCostAddsPausedDescendants(t *testing.T) {
 func TestTestCostUsage(t *testing.T) {
 	t.Parallel()
 	for _, args := range [][]string{{"-min"}, {"-min", "abc"}, {"x"}, {"-min", "1", "x"}} {
-		r := runGuard("test-cost", args, Env{Stdin: strings.NewReader(testCostFixture(t))})
+		r := runGuard("test-cost", args, core.Env{Stdin: strings.NewReader(testCostFixture(t))})
 		if r.rc != 2 || r.err != "usage: flow-guard test-cost [-min <seconds>]\n" || r.stdout != "" {
 			t.Errorf("%q: rc=%d stderr=%q stdout=%q, want 2 and the usage line", args, r.rc, r.err, r.stdout)
 		}

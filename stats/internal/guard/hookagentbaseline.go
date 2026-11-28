@@ -18,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/tweety53/agents/stats/internal/caller"
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard hook enforce-agent-baseline — the PreToolUse hook that blocks subagent dispatches
@@ -140,14 +141,14 @@ func hasAnyPrefix(s string, prefixes []string) bool {
 // eab is one PreToolUse event's state: its payload, tool input and prompt, and the flow-session
 // answers each check shares.
 type eab struct {
-	env                 Env
+	env                 core.Env
 	payload, in         map[string]any
 	prompt              string
 	session, run        *bool
 	sessionID, cwd, typ string
 }
 
-func enforceAgentBaseline(env Env, payload map[string]any, stdout, _ io.Writer) {
+func enforceAgentBaseline(env core.Env, payload map[string]any, stdout, _ io.Writer) {
 	if payload == nil {
 		return
 	}
@@ -569,7 +570,7 @@ func (e *eab) changeFinished() bool {
 	if change == "" || key == "" {
 		return false
 	}
-	v, err := hookGetJSON(e.env, hookFlowAddr(e.env)+"/api/v1/changes/"+pyQuoteURL(key, "/")+"/"+pyQuoteURL(change, "/"), hookBound(e.env, 2*time.Second))
+	v, err := hookGetJSON(e.env, core.FlowAddr(e.env)+"/api/v1/changes/"+pyQuoteURL(key, "/")+"/"+pyQuoteURL(change, "/"), hookBound(e.env, 2*time.Second))
 	m, _ := v.(map[string]any)
 	return err == nil && m["state"] == "FINISHED"
 }
@@ -581,10 +582,10 @@ func (e *eab) changeFinished() bool {
 // pipeline-fix run that began and ended inside an open sdd-tdd run does not name the session's
 // change from then on (kan-1099 self-review, F12: row 139 was never begun). All "" when the store
 // does not answer.
-func eabSessionChange(env Env, sessionID string) (change, project, stage string) {
+func eabSessionChange(env core.Env, sessionID string) (change, project, stage string) {
 	// ponytail: an open run older than the 50 latest is missed; filter ended_at server-side if that bites.
 	q := url.Values{"session_id": {sessionID}, "sort": {"-started_at"}, "limit": {"50"}}
-	v, err := hookGetJSON(env, hookFlowAddr(env)+"/api/v1/stage-runs?"+q.Encode(), hookBound(env, 2*time.Second))
+	v, err := hookGetJSON(env, core.FlowAddr(env)+"/api/v1/stage-runs?"+q.Encode(), hookBound(env, 2*time.Second))
 	body, _ := v.(map[string]any)
 	if err != nil || body == nil {
 		return "", "", ""
@@ -610,7 +611,7 @@ func eabSessionChange(env Env, sessionID string) (change, project, stage string)
 }
 
 // eabMainCheckout is cwd's main checkout, from its git common dir; "" outside a repository.
-func eabMainCheckout(env Env, cwd string) string {
+func eabMainCheckout(env core.Env, cwd string) string {
 	out, rc, err := hookRun(env, hookBound(env, 5*time.Second), "", "git", "-C", cwd, "rev-parse", "--path-format=absolute", "--git-common-dir")
 	if err != nil || rc != 0 {
 		return ""

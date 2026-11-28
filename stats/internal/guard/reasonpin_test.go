@@ -5,7 +5,9 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -209,7 +211,7 @@ func pinTags(s ast.Stmt) bool {
 		case *ast.ReturnStmt:
 			ret = true
 		case *ast.CallExpr:
-			if pinIdent(n.Fun, "Reason") {
+			if pinName(n.Fun, "Reason") {
 				reason = true
 			}
 		}
@@ -220,7 +222,16 @@ func pinTags(s ast.Stmt) bool {
 
 func pinCalls(e ast.Expr, name string) bool {
 	c, ok := e.(*ast.CallExpr)
-	return ok && pinIdent(c.Fun, name)
+	return ok && pinName(c.Fun, name)
+}
+
+// pinName is name itself, or core.name: Env, Reason and CannotAnswer are
+// core's, read unqualified inside core and qualified everywhere else.
+func pinName(e ast.Expr, name string) bool {
+	if s, ok := e.(*ast.SelectorExpr); ok && pinIdent(s.X, "core") {
+		e = s.Sel
+	}
+	return pinIdent(e, name)
 }
 
 func pinIdent(e ast.Expr, name string) bool {
@@ -237,7 +248,7 @@ func pinIsEnv(e ast.Expr) bool {
 	if s, ok := e.(*ast.StarExpr); ok {
 		e = s.X
 	}
-	return pinIdent(e, "Env")
+	return pinName(e, "Env")
 }
 
 func pinParamsEnv(ft *ast.FuncType) bool {
@@ -263,24 +274,31 @@ func pinBaseType(e ast.Expr) string {
 }
 
 // reasonPinRange reads every non-test .go file of this package's directory
-// whose name keep accepts, keyed by file name.
+// and of every package under it whose name keep accepts, keyed by its path
+// relative to this directory.
 func reasonPinRange(t *testing.T, keep func(name string) bool) map[string]string {
 	t.Helper()
-	entries, err := os.ReadDir(".")
-	if err != nil {
-		t.Fatal(err)
-	}
 	files := map[string]string{}
-	for _, e := range entries {
+	err := filepath.WalkDir(".", func(p string, e fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if e.IsDir() && e.Name() == "testdata" {
+			return filepath.SkipDir
+		}
 		n := e.Name()
 		if e.IsDir() || !strings.HasSuffix(n, ".go") || strings.HasSuffix(n, "_test.go") || !keep(n) {
-			continue
+			return nil
 		}
-		b, err := os.ReadFile(n)
+		b, err := os.ReadFile(p)
 		if err != nil {
-			t.Fatal(err)
+			return err
 		}
-		files[n] = string(b)
+		files[p] = string(b)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 	return files
 }
@@ -379,8 +397,8 @@ type holder struct{ env Env }
 var reasonPinExempt = map[string]string{
 	"psWorse":            "combines exit codes its callers recorded",
 	"bpRunArgv":          "returns a child process's exit status",
-	"exitCode":           "returns a child process's exit status",
-	"pcFlow":             "returns the flow CLI's exit status",
+	"ExitCode":           "returns a child process's exit status",
+	"Flow":               "returns the flow CLI's exit status",
 	"changePlanStoreDir": "returns a lookup status (0 found, 1 none, 3 ambiguous), not an exit code",
 	"changePlanDir":      "returns a lookup status (0 found, 1 none, 3 ambiguous), not an exit code",
 	"ccRunSurvivors":     "returns the survivors command's exit status",
@@ -415,7 +433,7 @@ func TestEveryExitSiteRecordsAReason(t *testing.T) {
 		}
 		ast.Inspect(f, func(n ast.Node) bool {
 			c, ok := n.(*ast.CallExpr)
-			if !ok || !pinIdent(c.Fun, "Reason") || len(c.Args) != 2 {
+			if !ok || !pinName(c.Fun, "Reason") || len(c.Args) != 2 {
 				return true
 			}
 			lit, ok := c.Args[1].(*ast.BasicLit)

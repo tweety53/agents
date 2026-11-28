@@ -5,6 +5,8 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -70,9 +72,9 @@ const (
 	sobMaxRebases = 3
 )
 
-func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
+func syncOntoBase(args []string, env core.Env, stdout, stderr io.Writer) int {
 	refuse := func(id, format string, a ...any) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stderr, sobPrefix+format+"\n", a...)
 		return 2
 	}
@@ -98,7 +100,7 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 	var v bmVerdict
 	var ok bool
 	if resume {
-		if envGit(env)("-C", wt, "merge-base", "--is-ancestor", "--end-of-options", base, "HEAD").Run() != nil {
+		if core.EnvGit(env)("-C", wt, "merge-base", "--is-ancestor", "--end-of-options", base, "HEAD").Run() != nil {
 			return refuse("not-an-ancestor-of-head", "%s is not an ancestor of HEAD in %s — the rebase it resumes did not finish onto it", base, wt)
 		}
 		if busy, err := inProgress(env, wt, "rebase-merge", "rebase-apply", "MERGE_HEAD", "CHERRY_PICK_HEAD"); err != nil {
@@ -107,12 +109,12 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 			return refuse("resume-refused", "resume refused — a rebase/merge/cherry-pick is still in progress in: %s", wt)
 		}
 		if v, ok = check(base); !ok {
-			Reason(env, "base-check-failed")
+			core.Reason(env, "base-check-failed")
 			return 2
 		}
 	} else {
 		if v, ok = check(base); !ok {
-			Reason(env, "base-check-failed")
+			core.Reason(env, "base-check-failed")
 			return 2
 		}
 		if v.kind == "CLEAR" {
@@ -139,14 +141,14 @@ func syncOntoBase(args []string, env Env, stdout, stderr io.Writer) int {
 					fmt.Fprintf(stdout, "RECAPTURE: %s\n", u)
 				}
 			}
-			Reason(env, "rebase-conflict")
+			core.Reason(env, "rebase-conflict")
 			return 1
 		case "refused":
 			return refuse("rebase-refused", "git refused to rebase %s onto %s — nothing changed", wt, o.sha)
 		}
 		onto = o.sha
 		if v, ok = check(onto); !ok {
-			Reason(env, "base-check-failed")
+			core.Reason(env, "base-check-failed")
 			return 2
 		}
 	}

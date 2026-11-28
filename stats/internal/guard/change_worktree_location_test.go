@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"os"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // cwlFx is a main checkout on `main` with linked worktrees on spectre/demo,
@@ -30,7 +32,7 @@ func cwlFx(t *testing.T) (sandbox, main string) {
 
 // cwlRun calls checkChangeWorktreeLocation directly and pins its exit code
 // and its whole stdout; a cannot-answer exit must say why on stderr.
-func cwlRun(t *testing.T, env Env, rc int, want string, args ...string) {
+func cwlRun(t *testing.T, env core.Env, rc int, want string, args ...string) {
 	t.Helper()
 	var out, errb bytes.Buffer
 	got := checkChangeWorktreeLocation(args, env, &out, &errb)
@@ -44,7 +46,7 @@ func cwlRun(t *testing.T, env Env, rc int, want string, args ...string) {
 
 func TestChangeWorktreeLocationRefusesAMainCheckout(t *testing.T) {
 	t.Parallel()
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	sandbox, main := cwlFx(t)
 	t.Run("main checkout on its default branch is refused and is also the wrong branch", func(t *testing.T) {
 		t.Parallel()
@@ -88,7 +90,7 @@ func TestChangeWorktreeLocationRefusesAMainCheckout(t *testing.T) {
 
 func TestChangeWorktreeLocationAdmitsAChangeWorktree(t *testing.T) {
 	t.Parallel()
-	env := Env{Getenv: os.Getenv}
+	env := core.Env{Getenv: os.Getenv}
 	_, main := cwlFx(t)
 	t.Run("linked worktree on spectre/<name> passes", func(t *testing.T) {
 		t.Parallel()
@@ -100,6 +102,6 @@ func TestChangeWorktreeLocationAdmitsAChangeWorktree(t *testing.T) {
 	})
 	t.Run("a relative worktree resolves against the caller's cwd and is printed as given", func(t *testing.T) {
 		t.Parallel()
-		cwlRun(t, Env{Getenv: os.Getenv, Dir: main}, 0, "WORKTREE-LOCATION-OK: .worktrees/demo on spectre/demo\n", ".worktrees/demo", "demo")
+		cwlRun(t, core.Env{Getenv: os.Getenv, Dir: main}, 0, "WORKTREE-LOCATION-OK: .worktrees/demo on spectre/demo\n", ".worktrees/demo", "demo")
 	})
 }

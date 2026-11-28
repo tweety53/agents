@@ -17,6 +17,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/client"
 	"github.com/tweety53/agents/stats/internal/fallback"
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/records"
 )
 
@@ -31,7 +32,7 @@ import (
 // reads it long-polls that flowd's GET
 // /api/v1/records/{project}/{change}/dispatches/wait, which answers the moment a row closes, for
 // up to 20 s at a time; a flowd that is unreachable or does not answer that route with a JSON
-// array leaves it polling every 5 s. The time blocked between reads is the run's wait (recordWait),
+// array leaves it polling every 5 s. The time blocked between reads is the run's wait (RecordWait),
 // posted with its telemetry as wait_ms. skills/flow/implement.md's **Turn discipline** is the
 // contract.
 //
@@ -43,11 +44,11 @@ const (
 	awaitRowsLongPoll = 20 * time.Second
 )
 
-func awaitRows(args []string, env Env, stdout, stderr io.Writer) int {
+func awaitRows(args []string, env core.Env, stdout, stderr io.Writer) int {
 	anyMode := slices.Contains(args, "-any")
 	timeout, rest, ok := awaitTimeout(slices.DeleteFunc(slices.Clone(args), func(a string) bool { return a == "-any" }))
 	if !ok || len(rest) < 2 {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard await-rows <worktree> <key> [<key>…] [-any] [-timeout <seconds, max 570>]")
 		return 2
 	}
@@ -59,7 +60,7 @@ func awaitRows(args []string, env Env, stdout, stderr io.Writer) int {
 		endStaleDispatchRows([]string{worktree}, env, io.Discard, stderr)
 		rows, err := flowdDispatches(env, worktree, change)
 		if err != nil {
-			Reason(env, "store-unreadable")
+			core.Reason(env, "store-unreadable")
 			fmt.Fprintf(stderr, "await-rows: dispatches unreadable: %v\n", err)
 			return 1
 		}
@@ -72,7 +73,7 @@ func awaitRows(args []string, env Env, stdout, stderr io.Writer) int {
 		var open []string
 		for _, k := range keys {
 			if _, ok := outcome[k]; !ok {
-				Reason(env, "unknown-key")
+				core.Reason(env, "unknown-key")
 				fmt.Fprintf(stderr, "await-rows: %s records no dispatch row %s\n", change, k)
 				return 2
 			}
@@ -97,17 +98,17 @@ func awaitRows(args []string, env Env, stdout, stderr io.Writer) int {
 
 // awaitRowsBlock blocks between two reads for at most left: a long-poll on waitURL, else a sleep
 // of one poll interval, the time blocked recorded as the run's wait.
-func awaitRowsBlock(env Env, waitURL string, left time.Duration) {
+func awaitRowsBlock(env core.Env, waitURL string, left time.Duration) {
 	blocked := time.Now()
 	if !awaitRowsLongPollOnce(waitURL, min(awaitRowsLongPoll, left)) {
 		time.Sleep(min(awaitRowsPoll, left))
 	}
-	recordWait(env, time.Since(blocked))
+	core.RecordWait(env, time.Since(blocked))
 }
 
 // awaitRowsWaitURL is flowd's long-poll route for keys of change, without its timeout; "" when
 // worktree yields no project key, which leaves await-rows polling.
-func awaitRowsWaitURL(env Env, worktree, change string, keys []string, anyMode bool) string {
+func awaitRowsWaitURL(env core.Env, worktree, change string, keys []string, anyMode bool) string {
 	project, _, err := fallback.ProjectKey(worktree)
 	if err != nil {
 		return ""
@@ -141,19 +142,19 @@ func awaitRowsLongPollOnce(waitURL string, d time.Duration) bool {
 
 // recordsAddr is the flowd the run record lives in, as `flow record` resolves it:
 // FLOW_RECORDS_ADDR, then FLOW_ADDR, then the dev flowd.
-func recordsAddr(env Env) string {
+func recordsAddr(env core.Env) string {
 	if a := env.Getenv("FLOW_RECORDS_ADDR"); a != "" {
 		return a
 	}
-	return hookFlowAddr(env)
+	return core.FlowAddr(env)
 }
 
 // flowdDispatches is change's dispatch rows read straight from the records flowd with the flow
 // CLI's own client, as `flow record dispatches -change <change> -C <dir>` read them: the project
 // key from dir, the CLI's 2s timeout, a change flowd never heard of as no rows, and an
 // unreachable flowd an error -- a read has nothing to journal.
-func flowdDispatches(env Env, dir, change string) ([]records.Dispatch, error) {
-	project, _, err := fallback.ProjectKey(smcAbs(env, dir))
+func flowdDispatches(env core.Env, dir, change string) ([]records.Dispatch, error) {
+	project, _, err := fallback.ProjectKey(core.Abs(env, dir))
 	if err != nil {
 		return nil, err
 	}

@@ -35,6 +35,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -51,7 +52,7 @@ type wiResult struct {
 func wiRun(t *testing.T, vars map[string]string, args ...string) wiResult {
 	t.Helper()
 	var o, e bytes.Buffer
-	rc := checkWorkspaceIsolation(args, Env{Dir: "/", Getenv: func(k string) string { return vars[k] }}, &o, &e, nil)
+	rc := checkWorkspaceIsolation(args, core.Env{Dir: "/", Getenv: func(k string) string { return vars[k] }}, &o, &e, nil)
 	return wiResult{rc, o.String(), e.String()}
 }
 

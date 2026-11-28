@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // Every case of scripts/test-check-dev-stack-fresh.sh at b1b0d601, one
@@ -42,7 +44,7 @@ func dsfRoot(t *testing.T, cfg string, files map[string]string) string {
 }
 
 func dsfRun(args ...string) guardResult {
-	return runGuard("check-dev-stack-fresh", args, Env{Getenv: os.Getenv, Dir: "/"})
+	return runGuard("check-dev-stack-fresh", args, core.Env{Getenv: os.Getenv, Dir: "/"})
 }
 
 func dsfAssert(t *testing.T, r guardResult, rc int, wants ...string) {

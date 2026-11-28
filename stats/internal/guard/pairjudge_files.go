@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // pjNamedPath is a file reference in a digest: a backticked
@@ -141,7 +143,7 @@ func pjLines(body []byte, from, to string) []byte {
 // pjDigestCap: the digest comes first and is never cut for a file; the file
 // that crosses that total is cut there and followed by pjTruncated, and no
 // file follows it.
-func pjAppendNamed(env Env, digestFile string, digest []byte) []byte {
+func pjAppendNamed(env core.Env, digestFile string, digest []byte) []byte {
 	self, _ := filepath.EvalSymlinks(digestFile)
 	seen, ids := map[string]bool{}, pjTaskIDs(digest)
 	for _, m := range pjNamedPath.FindAllSubmatch(digest, -1) {
@@ -193,7 +195,7 @@ func pjAppendNamed(env Env, digestFile string, digest []byte) []byte {
 // UTF-8 text file with no NUL, inside a git working tree, not gitignored
 // unless under .superpowers/ or spectre/changes/, not a .env or secret-named file, and not under
 // ~/.claude or ~/.config. real is already symlink-resolved.
-func pjSendable(env Env, real string) ([]byte, bool) {
+func pjSendable(env core.Env, real string) ([]byte, bool) {
 	name := filepath.Base(real)
 	if strings.HasPrefix(name, ".env") || pjSecretName.MatchString(name) || !isRegular(real) {
 		return nil, false

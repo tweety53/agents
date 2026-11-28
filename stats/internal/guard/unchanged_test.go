@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 func TestUnchanged(t *testing.T) {
@@ -19,7 +21,7 @@ func TestUnchanged(t *testing.T) {
 	if g.err != nil {
 		t.Fatal(g.err)
 	}
-	env := Env{Getenv: verifyFullGetenv(""), Dir: repo}
+	env := core.Env{Getenv: verifyFullGetenv(""), Dir: repo}
 	specs := []string{".", ":!docs/"}
 
 	if r := runGuard("unchanged", specs, env); r.rc != 0 || !strings.Contains(r.stdout, "suite skipped") {
@@ -37,7 +39,7 @@ func TestUnchanged(t *testing.T) {
 	if r := runGuard("unchanged", nil, env); r.rc != 2 || !strings.Contains(r.err, "usage:") {
 		t.Errorf("no pathspec: rc=%d err=%q, want 2 and usage", r.rc, r.err)
 	}
-	if r := runGuard("unchanged", specs, Env{Getenv: verifyFullGetenv(""), Dir: t.TempDir()}); r.rc != 2 {
+	if r := runGuard("unchanged", specs, core.Env{Getenv: verifyFullGetenv(""), Dir: t.TempDir()}); r.rc != 2 {
 		t.Errorf("not a repository: rc=%d, want 2", r.rc)
 	}
 }
@@ -66,16 +68,16 @@ func TestUnchangedAnswersChangedUnderVerifyFull(t *testing.T) {
 		t.Fatal(g.err)
 	}
 	specs := []string{".", ":!docs/"}
-	if r := runGuard("unchanged", specs, Env{Getenv: verifyFullGetenv("1"), Dir: repo}); r.rc != 1 || r.stdout != "" {
+	if r := runGuard("unchanged", specs, core.Env{Getenv: verifyFullGetenv("1"), Dir: repo}); r.rc != 1 || r.stdout != "" {
 		t.Errorf("FLOW_VERIFY_FULL=1: rc=%d out=%q, want 1 and an empty stdout", r.rc, r.out)
 	}
-	if r := runGuard("unchanged", specs, Env{Getenv: verifyFullGetenv(""), Dir: repo}); r.rc != 0 || !strings.Contains(r.stdout, "suite skipped") {
+	if r := runGuard("unchanged", specs, core.Env{Getenv: verifyFullGetenv(""), Dir: repo}); r.rc != 0 || !strings.Contains(r.stdout, "suite skipped") {
 		t.Errorf("FLOW_VERIFY_FULL empty: rc=%d out=%q, want 0 and the skip line", r.rc, r.out)
 	}
-	if r := runGuard("unchanged", specs, Env{Getenv: verifyFullGetenv("1"), Dir: t.TempDir()}); r.rc != 1 {
+	if r := runGuard("unchanged", specs, core.Env{Getenv: verifyFullGetenv("1"), Dir: t.TempDir()}); r.rc != 1 {
 		t.Errorf("FLOW_VERIFY_FULL=1, not a repository: rc=%d out=%q, want 1", r.rc, r.out)
 	}
-	if r := runGuard("unchanged", nil, Env{Getenv: verifyFullGetenv("1"), Dir: repo}); r.rc != 2 || !strings.Contains(r.err, "usage:") {
+	if r := runGuard("unchanged", nil, core.Env{Getenv: verifyFullGetenv("1"), Dir: repo}); r.rc != 2 || !strings.Contains(r.err, "usage:") {
 		t.Errorf("FLOW_VERIFY_FULL=1, no pathspec: rc=%d err=%q, want 2 and usage", r.rc, r.err)
 	}
 }

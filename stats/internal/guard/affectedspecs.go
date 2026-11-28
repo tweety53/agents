@@ -12,6 +12,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard affected-specs [-task <tasks.md>:<task-id>] <source-root> <base> <spec-root>
@@ -163,41 +165,41 @@ func asImports(cp string, c *asFile, tp string, t *asFile) bool {
 		(filepath.Dir(cp) == filepath.Dir(tp) && named(c.words))
 }
 
-func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
+func affectedSpecs(args []string, env core.Env, stdout, stderr io.Writer) int {
 	named, task := "", len(args) == 5 && args[0] == "-task"
 	if task {
 		var ok bool
 		if named, ok = asTaskNames(args[1]); !ok {
 			fmt.Fprintf(stderr, "affected-specs: cannot read the task %s\n", args[1])
-			Reason(env, "cannot-read-task")
+			core.Reason(env, "cannot-read-task")
 			return 2
 		}
 		args = args[2:]
 	}
 	if len(args) != 3 {
 		fmt.Fprintln(stderr, "usage: flow-guard affected-specs [-task <tasks.md>:<task-id>] <source-root> <base> <spec-root>")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
-	src, specRoot := filepath.Clean(pcAbs(env, args[0])), filepath.Clean(pcAbs(env, args[2]))
+	src, specRoot := filepath.Clean(core.CleanAbs(env, args[0])), filepath.Clean(core.CleanAbs(env, args[2]))
 	for _, d := range []string{src, specRoot} {
-		if !isDir(d) {
+		if !core.IsDir(d) {
 			fmt.Fprintf(stderr, "affected-specs: %s is not a directory\n", d)
-			Reason(env, "not-a-directory")
+			core.Reason(env, "not-a-directory")
 			return 2
 		}
 	}
-	git := envGit(env)
-	diff, ok := capture(git("-C", src, "diff", "--name-only", "--no-renames", args[1]))
+	git := core.EnvGit(env)
+	diff, ok := core.Capture(git("-C", src, "diff", "--name-only", "--no-renames", args[1]))
 	if !ok {
 		fmt.Fprintf(stderr, "affected-specs: git cannot diff %s against %s\n", src, args[1])
-		Reason(env, "cannot-read-diff")
+		core.Reason(env, "cannot-read-diff")
 		return 2
 	}
 	if !strings.Contains(args[1], "..") {
 		diff += "\n" + asUntracked(env, src)
 	}
-	tracked, _ := capture(git("-C", src, "ls-files"))
+	tracked, _ := core.Capture(git("-C", src, "ls-files"))
 
 	type spec struct {
 		out, rel string // printed path; path relative to src, "" outside it
@@ -227,7 +229,7 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 		if rel, err := filepath.Rel(src, p); err == nil && !strings.HasPrefix(rel, "..") {
 			s.rel = rel
 		}
-		if isFile(p + ".sources") {
+		if core.IsFile(p + ".sources") {
 			s.mapped, s.globs = true, asGlobs(p+".sources")
 		}
 		specs = append(specs, s)
@@ -412,7 +414,7 @@ func affectedSpecs(args []string, env Env, stdout, stderr io.Writer) int {
 func asSpecOut(specRoot, spec string) string {
 	pkg := specRoot
 	for d := filepath.Dir(spec); ; d = filepath.Dir(d) {
-		if isFile(filepath.Join(d, "package.json")) {
+		if core.IsFile(filepath.Join(d, "package.json")) {
 			pkg = d
 			break
 		}
@@ -448,8 +450,8 @@ func asTaskNames(arg string) (string, bool) {
 }
 
 // asUntracked is the worktree's untracked, unignored paths, newline-joined.
-func asUntracked(env Env, worktree string) string {
-	out, _ := capture(envGit(env)("-C", worktree, "ls-files", "--others", "--exclude-standard"))
+func asUntracked(env core.Env, worktree string) string {
+	out, _ := core.Capture(core.EnvGit(env)("-C", worktree, "ls-files", "--others", "--exclude-standard"))
 	return out
 }
 

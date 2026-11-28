@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard run-detached <state-dir> -- <command> [args…] — start a command that can outrun the
@@ -37,20 +39,20 @@ func init() {
 // script file: it is the one process that outlives flow-guard to write the exit code.
 const detachedSupervisor = `"$@" >"$0/out.log" 2>&1; echo $? >"$0/exit.tmp"; mv "$0/exit.tmp" "$0/exit"`
 
-func runDetached(args []string, env Env, stdout, stderr io.Writer) int {
+func runDetached(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) < 3 || args[1] != "--" {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard run-detached <state-dir> -- <command> [args…]")
 		return 2
 	}
 	dir := args[0]
 	if pid, ok := detachedPid(dir); ok && pidAlive(pid) {
-		Reason(env, "already-running")
+		core.Reason(env, "already-running")
 		fmt.Fprintf(stderr, "run-detached: %s is still running (pid %d); wait on it with await-detached\n", dir, pid)
 		return 1
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		Reason(env, "mkdir-failed")
+		core.Reason(env, "mkdir-failed")
 		fmt.Fprintln(stderr, "run-detached:", err)
 		return 1
 	}
@@ -62,7 +64,7 @@ func runDetached(args []string, env Env, stdout, stderr io.Writer) int {
 	cmd.Dir = env.Dir
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	if err := cmd.Start(); err != nil {
-		Reason(env, "start-failed")
+		core.Reason(env, "start-failed")
 		fmt.Fprintln(stderr, "run-detached:", err)
 		return 1
 	}
@@ -73,10 +75,10 @@ func runDetached(args []string, env Env, stdout, stderr io.Writer) int {
 	return 0
 }
 
-func awaitDetached(args []string, env Env, stdout, stderr io.Writer) int {
+func awaitDetached(args []string, env core.Env, stdout, stderr io.Writer) int {
 	timeout, rest, ok := awaitTimeout(args)
 	if !ok || len(rest) != 1 {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard await-detached <state-dir> [-timeout <seconds, max 570>]")
 		return 2
 	}
@@ -93,7 +95,7 @@ func awaitDetached(args []string, env Env, stdout, stderr io.Writer) int {
 			if _, err := os.Stat(filepath.Join(dir, "exit")); err == nil {
 				continue // it ended between the two reads
 			}
-			Reason(env, "lost")
+			core.Reason(env, "lost")
 			fmt.Fprintln(stdout, "LOST")
 			return 1
 		}
@@ -108,7 +110,7 @@ func awaitDetached(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		pause := min(time.Second, time.Until(deadline))
 		time.Sleep(pause)
-		recordWait(env, pause) // the polling sleep is the run's wait, not its work
+		core.RecordWait(env, pause) // the polling sleep is the run's wait, not its work
 	}
 }
 

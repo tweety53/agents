@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // rbOutcome is one rebaseOntoTip answer. kind is "rebased"; "conflict" --
@@ -23,9 +25,9 @@ type rbOutcome struct {
 // goes to stderr; the caller owns stdout. An error is a question it cannot
 // answer: ref does not resolve, or the tree cannot be read after a failed
 // rebase.
-func rebaseOntoTip(env Env, wt, ref string, stderr io.Writer) (rbOutcome, error) {
-	git := envGit(env)
-	sha, ok := capture(git("-C", wt, "rev-parse", "--verify", "--end-of-options", ref+"^{commit}"))
+func rebaseOntoTip(env core.Env, wt, ref string, stderr io.Writer) (rbOutcome, error) {
+	git := core.EnvGit(env)
+	sha, ok := core.Capture(git("-C", wt, "rev-parse", "--verify", "--end-of-options", ref+"^{commit}"))
 	if !ok {
 		return rbOutcome{}, fmt.Errorf("base ref '%s' does not resolve in %s", ref, wt)
 	}
@@ -39,7 +41,7 @@ func rebaseOntoTip(env Env, wt, ref string, stderr io.Writer) (rbOutcome, error)
 	if rebasing, err := inProgress(env, wt, "rebase-merge", "rebase-apply"); err != nil {
 		return o, err
 	} else if rebasing {
-		paths, ok := capture(git("-C", wt, "diff", "--no-renames", "--name-only", "--diff-filter=U"))
+		paths, ok := core.Capture(git("-C", wt, "diff", "--no-renames", "--name-only", "--diff-filter=U"))
 		if !ok {
 			return o, fmt.Errorf("cannot list the unmerged paths in %s", wt)
 		}
@@ -57,16 +59,16 @@ func rebaseOntoTip(env Env, wt, ref string, stderr io.Writer) (rbOutcome, error)
 
 // inProgress reports whether any of markers (rebase-merge, MERGE_HEAD, …)
 // exists at its --git-path in wt: a sequencer operation is in progress.
-func inProgress(env Env, wt string, markers ...string) (bool, error) {
+func inProgress(env core.Env, wt string, markers ...string) (bool, error) {
 	for _, f := range markers {
-		p, ok := capture(envGit(env)("-C", wt, "rev-parse", "--git-path", f))
+		p, ok := core.Capture(core.EnvGit(env)("-C", wt, "rev-parse", "--git-path", f))
 		if !ok {
 			return false, fmt.Errorf("git rev-parse --git-path %s refused in %s", f, wt)
 		}
 		if !strings.HasPrefix(p, "/") {
 			p = wt + "/" + p
 		}
-		if _, err := os.Stat(smcAbs(env, p)); err == nil {
+		if _, err := os.Stat(core.Abs(env, p)); err == nil {
 			return true, nil
 		}
 	}

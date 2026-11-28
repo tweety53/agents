@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/tweety53/agents/stats/internal/records"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
+	"github.com/tweety53/agents/stats/internal/records"
 )
 
 // The contract below moved here from the header of the deleted
@@ -157,7 +159,7 @@ const uwPrefix = "check-unfinished-work: "
 // passed unquoted reaches a guard as one argument under zsh.
 const unsplitListHint = "looks like a list passed as one argument — zsh does not word-split an unquoted $VAR; pass each value as its own argument"
 
-func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
+func checkUnfinishedWork(args []string, env core.Env, stdout, stderr io.Writer) int {
 	arg := func(i int) string {
 		if i < len(args) {
 			return args[i]
@@ -167,7 +169,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	worktree, name, canonical := arg(0), arg(1), arg(2)
 	if worktree == "" || name == "" {
 		fmt.Fprintln(stderr, "usage: flow-guard check-unfinished-work <worktree> <change-name> [canonical-worktree] [<worktree>=<merge-base>]...")
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		return 2
 	}
 	// The change's commit ranges, one per worktree of its resolved set:
@@ -177,12 +179,12 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		wt, base, ok := strings.Cut(a, "=")
 		if !ok || wt == "" || base == "" {
 			fmt.Fprintf(stderr, "%s'%s' is not <worktree>=<merge-base>\n", uwPrefix, a)
-			Reason(env, "bad-range-arg")
+			core.Reason(env, "bad-range-arg")
 			return 2
 		}
 		if strings.ContainsAny(base, " \t\n") {
 			fmt.Fprintf(stderr, "%s'%s' is not <worktree>=<merge-base> — %s\n", uwPrefix, a, unsplitListHint)
-			Reason(env, "bad-range-arg")
+			core.Reason(env, "bad-range-arg")
 			return 2
 		}
 		ranges = append(ranges, [2]string{wt, base})
@@ -205,30 +207,30 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	// The rule is records.Destination's Protection 1
 	// (stats/internal/records/render.go), character for character, and that
 	// function's comment is canonical for why each hazard is in it. This is
-	// plainChangeName (changename.go) itself now, where the bash guard
+	// PlainChangeName (changename.go) itself now, where the bash guard
 	// kept its own `case` copy: TestCheckUnfinishedWork's 8e cases still
 	// assert the same rejected shapes.
 	//
 	// The bash guard exported LC_ALL=C because `case`'s ranges are
 	// collating ranges -- `démo` was rejected under C and accepted under
-	// en_US.UTF-8 on bash 3.2. plainChangeName compares bytes, so no locale
+	// en_US.UTF-8 on bash 3.2. PlainChangeName compares bytes, so no locale
 	// reaches it; the 8e-i cases pin that under both locales.
 	//
-	// It also closes the symlink question at these paths: isFile and isDir
+	// It also closes the symlink question at these paths: IsFile and IsDir
 	// follow symlinks, so a name that cannot leave the change's own directory
 	// is what makes the paths this guard reads the ones it was asked about.
-	if !plainChangeName(name) {
+	if !core.PlainChangeName(name) {
 		fmt.Fprintf(stderr, "%schange name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", uwPrefix, name)
-		Reason(env, "change-name-not-plain")
+		core.Reason(env, "change-name-not-plain")
 		return 2
 	}
-	if !isDir(worktree) {
+	if !core.IsDir(worktree) {
 		fmt.Fprintf(stderr, "%s%s is not a directory — cannot determine anything\n", uwPrefix, worktree)
-		Reason(env, "not-a-directory")
+		core.Reason(env, "not-a-directory")
 		return 2
 	}
 
-	changes := worktree + "/" + specRootLeaf(worktree, stderr) + "/changes"
+	changes := worktree + "/" + core.SpecRootLeaf(worktree, stderr) + "/changes"
 	var reasons []string
 
 	// unreadable is a file that exists but cannot be read: neither signal but
@@ -237,7 +239,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	// one failure direction this whole guard exists to remove.
 	unreadable := func(path string) int {
 		fmt.Fprintf(stderr, "%scannot read %s — cannot determine anything\n", uwPrefix, path)
-		Reason(env, "cannot-read")
+		core.Reason(env, "cannot-read")
 		return 2
 	}
 
@@ -274,7 +276,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	if planRC == 3 {
 		_, _ = stderr.Write(planErr.Bytes())
 		fmt.Fprintf(stderr, "%sthe state record resolves '%s' to more than one project's plan — cannot determine anything\n", uwPrefix, name)
-		Reason(env, "plan-ambiguous")
+		core.Reason(env, "plan-ambiguous")
 		return 2
 	}
 	planOpen, parentOpen := 0, 0
@@ -290,21 +292,21 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		if parentOpen, ok = uwCountParentActions(design); !ok {
 			return unreadable(design)
 		}
-		sweepDir, sweepID = gdcDirname(planDir), uwBasename(planDir)
+		sweepDir, sweepID = core.Dirname(planDir), uwBasename(planDir)
 	} else {
 		link := changes + "/" + name + "/link.md"
 		if uwHasLine(link, "## Part of") {
 			if canonical != "" {
 				fmt.Fprintf(stderr, "%s'%s' is a satellite change (link.md at %s); its canonical plan was not found under the supplied canonical worktree %s, and a canonical worktree that was supplied is never retried against peers — cannot determine anything\n", uwPrefix, name, link, canonical)
 			} else {
-				peers := worktree + "/" + specRootLeaf(worktree, stderr) + "/peers"
+				peers := worktree + "/" + core.SpecRootLeaf(worktree, stderr) + "/peers"
 				fmt.Fprintf(stderr, "%s'%s' is a satellite change (link.md at %s); no canonical worktree was supplied and its canonical plan could not be resolved through %s — cannot determine anything\n", uwPrefix, name, link, peers)
 			}
-			Reason(env, "canonical-plan-unresolved")
+			core.Reason(env, "canonical-plan-unresolved")
 			return 2
 		}
 		primary = changes + "/" + name + "/tasks.md"
-		Reason(env, "no-plan")
+		core.Reason(env, "no-plan")
 		reasons = append(reasons, "no plan at "+primary)
 		sweepDir, sweepID = changes, name
 	}
@@ -357,11 +359,11 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	if planOpen > 0 {
-		Reason(env, "unchecked-plan-items")
+		core.Reason(env, "unchecked-plan-items")
 		reasons = append(reasons, strconv.Itoa(planOpen)+" unchecked plan item(s)")
 	}
 	if parentOpen > 0 {
-		Reason(env, "unticked-parent-actions")
+		core.Reason(env, "unticked-parent-actions")
 		reasons = append(reasons, strconv.Itoa(parentOpen)+" unticked parent action(s) in "+planDir+"/design.md")
 	}
 
@@ -399,14 +401,14 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		var err error
 		if findingsJSON, err = env.Findings(name); err != nil {
 			fmt.Fprintf(stderr, "%scannot read findings for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(findingsJSON), "\n"))
-			Reason(env, "cannot-read-findings")
+			core.Reason(env, "cannot-read-findings")
 			return 2
 		}
 	} else {
-		out, errOut, rc := pcFlow(env, false, "record", "findings", "-change", name, "-C", anchor)
+		out, errOut, rc := core.Flow(env, false, "record", "findings", "-change", name, "-C", anchor)
 		if rc != 0 {
 			fmt.Fprintf(stderr, "%scannot read findings for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(errOut), "\n"))
-			Reason(env, "cannot-read-findings")
+			core.Reason(env, "cannot-read-findings")
 			return 2
 		}
 		findingsJSON = out
@@ -421,11 +423,11 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	open, ok := uwOpenFindings(findingsJSON)
 	if !ok {
 		fmt.Fprintln(stderr, uwPrefix+"jq failed — cannot determine anything")
-		Reason(env, "jq-failed")
+		core.Reason(env, "jq-failed")
 		return 2
 	}
 	if open > 0 {
-		Reason(env, "open-findings")
+		core.Reason(env, "open-findings")
 		reasons = append(reasons, strconv.Itoa(open)+" open Critical or Important finding(s) in the review panel record")
 	}
 	// Signal seven reads the change's dispatch rows, not a worktree's, and
@@ -433,10 +435,10 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	// (anchor == worktree) reads them. A failed or unreadable read is exit 2,
 	// like signal two's.
 	if anchor == worktree && len(ranges) > 0 {
-		dispOut, dispErr, dispRC := pcFlow(env, false, "record", "dispatches", "-change", name, "-C", anchor)
+		dispOut, dispErr, dispRC := core.Flow(env, false, "record", "dispatches", "-change", name, "-C", anchor)
 		if dispRC != 0 {
 			fmt.Fprintf(stderr, "%scannot read dispatches for '%s' from the store — cannot determine anything: %s\n", uwPrefix, name, strings.TrimRight(string(dispErr), "\n"))
-			Reason(env, "cannot-read-dispatches")
+			core.Reason(env, "cannot-read-dispatches")
 			return 2
 		}
 		var dispatches []struct {
@@ -447,7 +449,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 		if json.Unmarshal(dispOut, &dispatches) != nil || dispatches == nil {
 			fmt.Fprintf(stderr, "%sdispatches for '%s' are not one JSON array — cannot determine anything\n", uwPrefix, name)
-			Reason(env, "dispatches-unparseable")
+			core.Reason(env, "dispatches-unparseable")
 			return 2
 		}
 		// SIGNAL SEVEN — a code commit no completed inline verify row covers
@@ -476,11 +478,11 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			newest, newestAt := "", int64(-1)
 			for _, r := range ranges {
-				leaf := specRootLeaf(r[0], io.Discard)
-				out, ok := capture(envGit(env)("-C", r[0], "log", "--no-merges", "--format=%h %at %(trailers:key=Flow-Key,valueonly,separator=%x20)", r[1]+"..HEAD", "--", ".", ":(exclude)"+leaf+"/changes/"))
+				leaf := core.SpecRootLeaf(r[0], io.Discard)
+				out, ok := core.Capture(core.EnvGit(env)("-C", r[0], "log", "--no-merges", "--format=%h %at %(trailers:key=Flow-Key,valueonly,separator=%x20)", r[1]+"..HEAD", "--", ".", ":(exclude)"+leaf+"/changes/"))
 				if !ok {
 					fmt.Fprintf(stderr, "%scannot read the commits of %s..HEAD in %s — cannot determine anything\n", uwPrefix, r[1], r[0])
-					Reason(env, "cannot-read-the-commits")
+					core.Reason(env, "cannot-read-the-commits")
 					return 2
 				}
 				for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
@@ -499,7 +501,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 				}
 			}
 			if newest != "" && newestAt > lastVerify {
-				Reason(env, "no-inline-verify")
+				core.Reason(env, "no-inline-verify")
 				reasons = append(reasons, "no completed inline verify row since "+newest+" — run Inline verify (skills/flow/verify-and-handoff.md) and record its row before landing — a re-run after a new commit takes a fresh `verify-<k>` key (the store keeps a reused key's first start)")
 			}
 		}
@@ -518,9 +520,9 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 	if len(reasons) > 0 {
 		verdict = "OUTSTANDING: " + worktree + " — " + strings.Join(reasons, "; ")
 	}
-	pcFlow(env, false, "record", "verdict", "-change", name, "-guard", "check-unfinished-work", "-worktree", worktree, "-verdict", verdict, "-C", anchor)
+	core.Flow(env, false, "record", "verdict", "-change", name, "-guard", "check-unfinished-work", "-worktree", worktree, "-verdict", verdict, "-C", anchor)
 	if len(reasons) > 0 {
-		if prior, _, rc := pcFlow(env, false, "record", "verdicts", "-guard", "check-unfinished-work", "-false-positive", "-C", anchor); rc == 0 {
+		if prior, _, rc := core.Flow(env, false, "record", "verdicts", "-guard", "check-unfinished-work", "-false-positive", "-C", anchor); rc == 0 {
 			if n, last, ok := uwPriorFalsePositives(prior); ok && n > 0 {
 				fmt.Fprintf(stderr, "%sprior false positives for this guard on this project: %d — last: %s\n", uwPrefix, n, last)
 			}
@@ -533,7 +535,7 @@ func checkUnfinishedWork(args []string, env Env, stdout, stderr io.Writer) int {
 // uwDerivedRange is `<worktree>=<merge-base>` for a call that passed no
 // range: the base resolve-base-branch names, then `git merge-base HEAD
 // origin/<base>`. False on any failure.
-func uwDerivedRange(env Env, worktree string) ([2]string, bool) {
+func uwDerivedRange(env core.Env, worktree string) ([2]string, bool) {
 	var out bytes.Buffer
 	// A failure here only means no derived range, never a refusal of this
 	// run: the resolver's reason is not this run's.
@@ -542,7 +544,7 @@ func uwDerivedRange(env Env, worktree string) ([2]string, bool) {
 	if resolveBaseBranch([]string{worktree}, quiet, &out, io.Discard) != 0 {
 		return [2]string{}, false
 	}
-	base, ok := capture(envGit(env)("-C", worktree, "merge-base", "HEAD", "origin/"+strings.TrimSpace(out.String())))
+	base, ok := core.Capture(core.EnvGit(env)("-C", worktree, "merge-base", "HEAD", "origin/"+strings.TrimSpace(out.String())))
 	if !ok || strings.TrimSpace(base) == "" {
 		return [2]string{}, false
 	}
@@ -588,7 +590,7 @@ func uwCountParentActions(path string) (int, bool) {
 // uwHasLine is `grep -qxF <line> <file>`: false for an unreadable file.
 func uwHasLine(path, line string) bool {
 	b, err := os.ReadFile(path)
-	if err != nil || !isFile(path) {
+	if err != nil || !core.IsFile(path) {
 		return false
 	}
 	for _, l := range strings.Split(string(b), "\n") {
@@ -621,7 +623,7 @@ func uwFindTasks(dir string, visit func(string) bool) bool {
 }
 
 // uwBasename is basename(1) on a path with no trailing slash; dirname(1) is
-// gdcDirname.
+// Dirname.
 func uwBasename(p string) string { return p[strings.LastIndexByte(p, '/')+1:] }
 
 // uwOpenFindings is the count of open Critical and Important findings over one
@@ -638,7 +640,7 @@ func uwOpenFindings(b []byte) (int, bool) {
 	n := 0
 	for _, f := range all {
 		var status string
-		if f == nil || !pcIsString(f["status"]) || json.Unmarshal(f["status"], &status) != nil {
+		if f == nil || !core.IsJSONString(f["status"]) || json.Unmarshal(f["status"], &status) != nil {
 			return 0, false
 		}
 		// Closed is `fixed` or a reasoned `withdrawn` (KAN-791): the bare
@@ -678,8 +680,8 @@ func uwPriorFalsePositives(b []byte) (int, string, bool) {
 	if json.Unmarshal(all[0], &first) != nil || first == nil {
 		return len(all), "", true
 	}
-	flagged := pcRaw(first["flaggedAt"])
-	if pcIsString(first["flaggedAt"]) {
+	flagged := core.JQRaw(first["flaggedAt"])
+	if core.IsJSONString(first["flaggedAt"]) {
 		for i := range flagged {
 			if utf8.RuneCountInString(flagged[:i]) == 10 {
 				flagged = flagged[:i]
@@ -694,6 +696,6 @@ func uwPriorFalsePositives(b []byte) (int, string, bool) {
 	} else if flagged != "null" {
 		return len(all), "", true // jq cannot slice a number, object or bool
 	}
-	last := pcRaw(first["falsePositiveReason"]) + " (" + pcRaw(first["change"]) + ", " + flagged + ")"
+	last := core.JQRaw(first["falsePositiveReason"]) + " (" + core.JQRaw(first["change"]) + ", " + flagged + ")"
 	return len(all), strings.TrimRight(last, "\n"), true
 }

@@ -4,6 +4,8 @@ import (
 	"slices"
 	"sync"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // TestReasonKeepsDistinctIDsInFirstSeenOrder pins Reason's contract: distinct
@@ -11,11 +13,11 @@ import (
 // and a no-op on an Env with no collector.
 func TestReasonKeepsDistinctIDsInFirstSeenOrder(t *testing.T) {
 	t.Parallel()
-	r := &Reasons{}
-	env := Env{Reasons: r}
-	Reason(env, "b")
-	Reason(env, "a")
-	Reason(env, "b")
+	r := &core.Reasons{}
+	env := core.Env{Reasons: r}
+	core.Reason(env, "b")
+	core.Reason(env, "a")
+	core.Reason(env, "b")
 	if got := r.IDs(); !slices.Equal(got, []string{"b", "a"}) {
 		t.Fatalf("IDs() = %q, want [b a]", got)
 	}
@@ -24,7 +26,7 @@ func TestReasonKeepsDistinctIDsInFirstSeenOrder(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			Reason(env, "c")
+			core.Reason(env, "c")
 		}()
 	}
 	wg.Wait()
@@ -37,7 +39,7 @@ func TestReasonKeepsDistinctIDsInFirstSeenOrder(t *testing.T) {
 	if again := r.IDs(); !slices.Equal(again, want) {
 		t.Errorf("IDs() after mutating the returned slice = %q, want %q", again, want)
 	}
-	Reason(Env{}, "x")
+	core.Reason(core.Env{}, "x")
 }
 
 // TestProbeRecordsNoReasonIntoTheCaller: run-verify-list's unchanged probe
@@ -45,8 +47,8 @@ func TestReasonKeepsDistinctIDsInFirstSeenOrder(t *testing.T) {
 // refusal, so the parent run's collector stays empty.
 func TestProbeRecordsNoReasonIntoTheCaller(t *testing.T) {
 	t.Parallel()
-	r := &Reasons{}
-	env := Env{Getenv: func(k string) string {
+	r := &core.Reasons{}
+	env := core.Env{Getenv: func(k string) string {
 		if k == "FLOW_VERIFY_FULL" {
 			return "1"
 		}

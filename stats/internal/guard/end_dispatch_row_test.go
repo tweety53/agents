@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // TestEndDispatchRow: a stopping subagent's row is ended under the session's
@@ -57,7 +59,7 @@ func TestEndDispatchRow(t *testing.T) {
 			if c.meta != "" {
 				writeFile(t, filepath.Join(tmp, "agent.meta.json"), c.meta)
 			}
-			env := Env{Getenv: func(k string) string {
+			env := core.Env{Getenv: func(k string) string {
 				switch k {
 				case "FLOW_ADDR":
 					return srv.URL
@@ -97,7 +99,7 @@ func TestEndDispatchRowReadsTheHandbackReport(t *testing.T) {
 	sha := strings.Repeat("c", 40)
 	writeFile(t, tr, `{"type":"user","message":{"role":"user","content":"Key: operator-3\n"}}`+"\n"+
 		`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"SubagentHandback","input":{"message":"commit: request-9 `+sha+`\n"}}]}}`+"\n")
-	env := Env{Getenv: func(k string) string {
+	env := core.Env{Getenv: func(k string) string {
 		switch k {
 		case "FLOW_ADDR":
 			return srv.URL
@@ -134,7 +136,7 @@ func TestEndDispatchRowEndsAResumedChildsRow(t *testing.T) {
 		`{"type":"user","message":{"content":[{"type":"tool_result","content":"Key: task-9-implementer\n"}]}}`+"\n"+
 		`{"type":"user","message":{"content":"The coordinator sent a message:\nKey: task-3-implementer-resume-1\nFIX INPUT: close-task exit 1\n"}}`+"\n"+
 		`{"type":"assistant","message":{"content":[{"type":"text","text":"commit: 3 `+resumeSha+`\n"}]}}`+"\n")
-	env := Env{Getenv: func(k string) string {
+	env := core.Env{Getenv: func(k string) string {
 		switch k {
 		case "FLOW_ADDR":
 			return srv.URL
@@ -180,7 +182,7 @@ func TestSweepDispatchRows(t *testing.T) {
 	write("agent-noreport.jsonl", `{"type":"user","message":{"role":"user","content":"Key: task-3-implementer\n"}}`+"\n", time.Hour)
 	write("agent-swept.jsonl", handback("task-4-implementer"), time.Hour)
 	writeFile(t, filepath.Join(tmp, "agent-swept.jsonl.swept"), "")
-	env := Env{Getenv: func(k string) string {
+	env := core.Env{Getenv: func(k string) string {
 		switch k {
 		case "FLOW_ADDR":
 			return srv.URL
@@ -217,7 +219,7 @@ func TestSweepRetriesATransientMiss(t *testing.T) {
 	if err := os.Chtimes(f, old, old); err != nil {
 		t.Fatal(err)
 	}
-	env := Env{Getenv: func(k string) string {
+	env := core.Env{Getenv: func(k string) string {
 		if k == "FLOW_ADDR" {
 			return srv.URL
 		}
@@ -259,7 +261,7 @@ func TestEndDispatchRowEndsAKeylessAgentsRow(t *testing.T) {
 			tr := filepath.Join(tmp, "agent-a1.jsonl")
 			writeFile(t, tr, `{"type":"user","message":{"content":`+jsonString(c.prompt)+`}}`+"\n")
 			writeFile(t, filepath.Join(tmp, "agent-a1.meta.json"), `{"description":`+jsonString(c.description)+`,"agentType":`+jsonString(c.agentType)+`,"toolUseId":"tu1"}`)
-			env := Env{Getenv: func(k string) string {
+			env := core.Env{Getenv: func(k string) string {
 				switch k {
 				case "FLOW_ADDR":
 					return srv.URL
@@ -297,7 +299,7 @@ func TestSweepAbortsAbandonedVisualVerifyRows(t *testing.T) {
 	})
 	writeExec(t, filepath.Join(tmp, "bin", "flow"), "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >>"+log+"\n")
 	cwd := gitWorktree(t, tmp, "repo")
-	env := Env{Getenv: func(k string) string {
+	env := core.Env{Getenv: func(k string) string {
 		switch k {
 		case "FLOW_ADDR", "FLOW_RECORDS_ADDR":
 			return srv.URL

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The throwaway-worktree guard replaces three bash fences: the mutation
@@ -117,7 +119,7 @@ func twGuard(t *testing.T, args ...string) {
 	if !ok {
 		t.Fatal("no throwaway-worktree guard registered")
 	}
-	if rc := run(args, Env{Getenv: os.Getenv}, &out, &errb); rc != 0 {
+	if rc := run(args, core.Env{Getenv: os.Getenv}, &out, &errb); rc != 0 {
 		t.Fatalf("throwaway-worktree %v: exit %d\nstdout:\n%s\nstderr:\n%s", args, rc, out.String(), errb.String())
 	}
 }
@@ -368,7 +370,7 @@ func TestThrowawayWorktreeRemoveFoldBackFailureStillRemoves(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out, errb bytes.Buffer
-	if rc := Registry["throwaway-worktree"]([]string{"remove", wt, cp, "--fold-back"}, Env{Getenv: os.Getenv}, &out, &errb); rc != 2 {
+	if rc := Registry["throwaway-worktree"]([]string{"remove", wt, cp, "--fold-back"}, core.Env{Getenv: os.Getenv}, &out, &errb); rc != 2 {
 		t.Fatalf("exit %d, want 2\nstderr:\n%s", rc, errb.String())
 	}
 	if _, err := os.Stat(cp); err == nil {

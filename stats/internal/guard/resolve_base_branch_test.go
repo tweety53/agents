@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
@@ -134,7 +135,7 @@ func TestDefaultBaseHonoursRecordedBase(t *testing.T) {
 	wt := rbbCopy(t, fx.wt)
 	rbbGit(t, wt, "update-ref", "refs/remotes/origin/feature/x", "HEAD")
 	rbbGit(t, wt, "config", "branch.spectre/fixture.flowBase", "feature/x")
-	git := envGit(Env{Dir: wt, Getenv: os.Getenv})
+	git := core.EnvGit(core.Env{Dir: wt, Getenv: os.Getenv})
 	_, label, ok := defaultBase(git, wt)
 	if !ok || !strings.Contains(label, "merge-base(HEAD, origin/feature/x)") {
 		t.Fatalf("label %q ok=%v, want the recorded base", label, ok)
@@ -275,7 +276,7 @@ func TestResolveBaseBranch(t *testing.T) {
 			if r.skip != "" {
 				t.Skip(r.skip)
 			}
-			env := Env{Dir: t.TempDir(), Getenv: os.Getenv}
+			env := core.Env{Dir: t.TempDir(), Getenv: os.Getenv}
 			if r.pathDir != "" {
 				env.Getenv = pathEnv(r.pathDir)
 			}
@@ -320,7 +321,7 @@ func TestResolveBaseBranchRefusesARecordedBaseGoneFromOrigin(t *testing.T) {
 	wt := rbbCopy(t, fx.wt)
 	rbbGit(t, wt, "config", "branch.spectre/fixture.flowBase", "feature/gone")
 	var out, errb bytes.Buffer
-	code := Registry["resolve-base-branch"]([]string{wt}, Env{Dir: t.TempDir(), Getenv: os.Getenv}, &out, &errb)
+	code := Registry["resolve-base-branch"]([]string{wt}, core.Env{Dir: t.TempDir(), Getenv: os.Getenv}, &out, &errb)
 	if code != 1 || out.String() != "" || !strings.Contains(errb.String(), "recorded base 'feature/gone' is not on origin") {
 		t.Fatalf("exit %d stdout %q stderr %q, want exit 1 naming the gone base", code, out.String(), errb.String())
 	}
@@ -349,7 +350,7 @@ func TestResolveBaseBranchBoundsAStalledRemote(t *testing.T) {
 
 	start := time.Now()
 	var out, errb bytes.Buffer
-	code := Registry["resolve-base-branch"]([]string{wt}, Env{Dir: t.TempDir(), Getenv: os.Getenv}, &out, &errb)
+	code := Registry["resolve-base-branch"]([]string{wt}, core.Env{Dir: t.TempDir(), Getenv: os.Getenv}, &out, &errb)
 	if code != 0 || out.String() != "main\n" {
 		t.Errorf("exit %d stdout %q stderr %q, want exit 0 and main", code, out.String(), errb.String())
 	}

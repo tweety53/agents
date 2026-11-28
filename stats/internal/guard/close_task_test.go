@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The close-task fixture: the change "demo" on branch spectre/demo with a
@@ -15,7 +17,7 @@ import (
 
 type ctFx struct {
 	wt, peer, base, log string
-	env                 Env
+	env                 core.Env
 	origin              bool // the repositories carry an origin
 }
 
@@ -47,7 +49,7 @@ func ctFixture(t *testing.T, origin bool, tickRC string) *ctFx {
 	// across fixtures and each is assessed once (execFixtures).
 	writeExec(t, bin+"/flow", "#!/bin/sh\necho \"flow $*\" >> \"${0%/bin/flow}/calls.log\"\nexit "+tickRC+"\n")
 	writeExec(t, bin+"/git", "#!/bin/sh\ncase \" $* \" in *\" push \"*) echo \"git $*\" >> \"${0%/bin/git}/calls.log\";; *) exec "+fixtureGit+" \"$@\";; esac\nexec "+fixtureGit+" \"$@\"\n")
-	fx.env = Env{Getenv: pathEnv(bin), Dir: fx.wt}
+	fx.env = core.Env{Getenv: pathEnv(bin), Dir: fx.wt}
 	return fx
 }
 

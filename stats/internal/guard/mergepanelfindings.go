@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard merge-panel-findings <abs-worktree> <round> <id>=<dispatch-seq>... —
@@ -25,13 +27,13 @@ import (
 // 1 a role's file missing or not JSON objects (named), 2 usage.
 func init() { Registry["merge-panel-findings"] = mergePanelFindings }
 
-func mergePanelFindings(args []string, env Env, stdout, stderr io.Writer) int {
+func mergePanelFindings(args []string, env core.Env, stdout, stderr io.Writer) int {
 	round, err := 0, error(nil)
 	if len(args) >= 3 {
 		round, err = strconv.Atoi(args[1])
 	}
 	if len(args) < 3 || err != nil {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard merge-panel-findings <abs-worktree> <round> <id>=<dispatch-seq>...")
 		return 2
 	}
@@ -44,14 +46,14 @@ func mergePanelFindings(args []string, env Env, stdout, stderr io.Writer) int {
 		id, seq, ok := strings.Cut(a, "=")
 		n, err := strconv.Atoi(seq)
 		if !ok || id == "" || err != nil {
-			Reason(env, "usage")
+			core.Reason(env, "usage")
 			fmt.Fprintf(stderr, "merge-panel-findings: %q is not <id>=<dispatch-seq>\n", a)
 			return 2
 		}
 		path := filepath.Join(sdd, fmt.Sprintf("findings-%d-%s.jsonl", round, id))
 		body, err := os.ReadFile(path)
 		if err != nil {
-			Reason(env, "findings-file-missing")
+			core.Reason(env, "findings-file-missing")
 			fmt.Fprintf(stderr, "merge-panel-findings: %v — that role is not run\n", err)
 			return 1
 		}
@@ -63,7 +65,7 @@ func mergePanelFindings(args []string, env Env, stdout, stderr io.Writer) int {
 			}
 			var row map[string]any
 			if json.Unmarshal([]byte(line), &row) != nil || row == nil {
-				Reason(env, "findings-file-invalid")
+				core.Reason(env, "findings-file-invalid")
 				fmt.Fprintf(stderr, "merge-panel-findings: %s:%d is not a JSON object\n", path, i+1)
 				return 1
 			}
@@ -89,7 +91,7 @@ func mergePanelFindings(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	dst := filepath.Join(sdd, fmt.Sprintf("findings-%d.jsonl", round))
 	if err := os.WriteFile(dst, out.Bytes(), 0o644); err != nil {
-		Reason(env, "write-failed")
+		core.Reason(env, "write-failed")
 		fmt.Fprintf(stderr, "merge-panel-findings: %v\n", err)
 		return 1
 	}

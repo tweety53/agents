@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // TestMergePanelFindings: two roles' files merge into findings-<round>.jsonl with round, slot,
@@ -16,7 +18,7 @@ func TestMergePanelFindings(t *testing.T) {
 	writeFile(t, filepath.Join(sdd, "findings-1-primary.jsonl"), `{"task":"2","severity":"Important","location":"a.go:3","note":"x"}`+"\n")
 	writeFile(t, filepath.Join(sdd, "findings-1-principles-unread.jsonl"), `{"severity":"Minor","location":"a.go:3","note":"y"}`+"\n"+`{"severity":"Minor","location":"b.go:9","note":"z"}`+"\n")
 	writeFile(t, filepath.Join(sdd, "findings-1-test-sanity-gymie.jsonl"), "")
-	r := runGuard("merge-panel-findings", []string{wt, "1", "primary=4", "principles-unread=5", "test-sanity-gymie=6"}, Env{})
+	r := runGuard("merge-panel-findings", []string{wt, "1", "primary=4", "principles-unread=5", "test-sanity-gymie=6"}, core.Env{})
 	if r.rc != 0 {
 		t.Fatalf("rc %d: %s", r.rc, r.out)
 	}
@@ -40,7 +42,7 @@ func TestMergePanelFindings(t *testing.T) {
 	if !strings.HasPrefix(string(got), want+"\n") || strings.Count(string(got), "\n") != 3 || !strings.Contains(string(got), `"slot":"principles"`) {
 		t.Errorf("findings-1.jsonl:\n%s", got)
 	}
-	if r := runGuard("merge-panel-findings", []string{wt, "1", "security=6"}, Env{}); r.rc != 1 {
+	if r := runGuard("merge-panel-findings", []string{wt, "1", "security=6"}, core.Env{}); r.rc != 1 {
 		t.Errorf("missing file: rc %d, want 1", r.rc)
 	}
 }

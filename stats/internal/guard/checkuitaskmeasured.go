@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // flow-guard check-ui-task-measured — the measured gate of a UI task: answer
@@ -53,23 +55,23 @@ import (
 // of the task matches); 1 the record is missing, stale or flagged; 2 a usage
 // error, a worktree off a `spectre/<name>` branch, or a task the plan lacks.
 // Its verdict, utmJudge, runs in process from close-task; no guard.Registry key.
-func checkUITaskMeasured(args []string, env Env, stdout, stderr io.Writer) int {
+func checkUITaskMeasured(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
-		Reason(env, "usage")
+		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard check-ui-task-measured <worktree> <task-id> [<peer worktree>…]")
 		return 2
 	}
-	wt := pcAbs(env, args[0])
-	branch, _ := capture(envGit(env)("-C", wt, "rev-parse", "--abbrev-ref", "HEAD"))
+	wt := core.CleanAbs(env, args[0])
+	branch, _ := core.Capture(core.EnvGit(env)("-C", wt, "rev-parse", "--abbrev-ref", "HEAD"))
 	name, onChange := strings.CutPrefix(strings.TrimSpace(branch), "spectre/")
 	if !onChange {
-		Reason(env, "not-a-change-worktree")
+		core.Reason(env, "not-a-change-worktree")
 		fmt.Fprintf(stderr, "check-ui-task-measured: %s is not on a spectre/<name> branch\n", wt)
 		return 2
 	}
 	worktrees := []string{wt}
 	for _, p := range args[2:] {
-		worktrees = append(worktrees, pcAbs(env, p))
+		worktrees = append(worktrees, core.CleanAbs(env, p))
 	}
 	id, msg := utmJudge(env, worktrees, name, args[1])
 	switch id {
@@ -77,11 +79,11 @@ func checkUITaskMeasured(args []string, env Env, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "UI-TASK-MEASURED: %s — %s\n", args[1], msg)
 		return 0
 	case "task-not-in-plan":
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stderr, "check-ui-task-measured: %s\n", msg)
 		return 2
 	}
-	Reason(env, id)
+	core.Reason(env, id)
 	fmt.Fprintf(stderr, "UI-TASK-UNMEASURED: %s — %s\n", args[1], msg)
 	return 1
 }
@@ -90,9 +92,9 @@ func checkUITaskMeasured(args []string, env Env, stdout, stderr io.Writer) int {
 // why; `task-not-in-plan` cannot be answered; `measure-missing`, `measure-stale`
 // and `measure-not-clean` refuse, msg ending in the command that repairs it.
 // worktrees is the canonical worktree, then the task's other worktrees.
-func utmJudge(env Env, worktrees []string, name, taskID string) (id, msg string) {
+func utmJudge(env core.Env, worktrees []string, name, taskID string) (id, msg string) {
 	wt := worktrees[0]
-	changeRoot := filepath.Join(wt, specRootLeaf(wt, io.Discard), "changes", name)
+	changeRoot := filepath.Join(wt, core.SpecRootLeaf(wt, io.Discard), "changes", name)
 	raw, err := os.ReadFile(filepath.Join(changeRoot, "tasks.md"))
 	if err != nil {
 		return "", "no plan at " + filepath.Join(changeRoot, "tasks.md")
@@ -115,7 +117,7 @@ func utmJudge(env Env, worktrees []string, name, taskID string) (id, msg string)
 	if !found {
 		return "task-not-in-plan", "task " + taskID + " is not in " + filepath.Join(changeRoot, "tasks.md")
 	}
-	git := envGit(env)
+	git := core.EnvGit(env)
 	ui := false
 	for _, f := range task.files {
 		f = strings.TrimPrefix(f, "./")
@@ -128,7 +130,7 @@ func utmJudge(env Env, worktrees []string, name, taskID string) (id, msg string)
 				continue // not this repository's file
 			}
 			repo := filepath.Base(w)
-			if common, ok := capture(git("-C", w, "rev-parse", "--path-format=absolute", "--git-common-dir")); ok {
+			if common, ok := core.Capture(git("-C", w, "rev-parse", "--path-format=absolute", "--git-common-dir")); ok {
 				repo = filepath.Base(filepath.Dir(strings.TrimSpace(common)))
 			}
 			names = append(names, repo+"/"+f)
@@ -172,7 +174,7 @@ func utmJudge(env Env, worktrees []string, name, taskID string) (id, msg string)
 	}
 	var last int64 // the newest commit touching the task's files, in any worktree
 	for _, w := range worktrees {
-		out, _ := capture(git(append([]string{"-C", w, "log", "-1", "--format=%ct", "--"}, task.files...)...))
+		out, _ := core.Capture(git(append([]string{"-C", w, "log", "-1", "--format=%ct", "--"}, task.files...)...))
 		if ct, err := strconv.ParseInt(strings.TrimSpace(out), 10, 64); err == nil {
 			last = max(last, ct)
 		}

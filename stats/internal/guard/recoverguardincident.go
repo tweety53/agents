@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // The contract below moved here from the header of the deleted
@@ -50,9 +52,9 @@ func init() {
 	Registry["recover-guard-incident"] = recoverGuardIncident
 }
 
-func recoverGuardIncident(args []string, env Env, stdout, stderr io.Writer) int {
+func recoverGuardIncident(args []string, env core.Env, stdout, stderr io.Writer) int {
 	die := func(id string, rc int, msg string) int {
-		Reason(env, id)
+		core.Reason(env, id)
 		fmt.Fprintf(stderr, "recover-guard-incident: %s\n", msg)
 		return rc
 	}
@@ -137,7 +139,7 @@ func recoverGuardIncident(args []string, env Env, stdout, stderr io.Writer) int 
 	fmt.Fprintf(stdout, "running: git -C %s revert --abort\n", repo)
 	rc = rgiRun(env.Dir, stdout, stderr, "git", "-C", repo, "revert", "--abort")
 	if rc != 0 {
-		Reason(env, "revert-abort-failed")
+		core.Reason(env, "revert-abort-failed")
 	}
 	return rc
 }
@@ -156,7 +158,7 @@ func rgiRun(dir string, out, errw io.Writer, argv ...string) int {
 	case err == nil:
 		return 0
 	case errors.As(err, &ee):
-		return rrExitCode(ee.ProcessState)
+		return core.WaitExitCode(ee.ProcessState)
 	default:
 		return 127
 	}

@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/tweety53/agents/stats/internal/guard/core"
 )
 
 // changePlanRef, changePlanPath and changePlanDir -- the three functions the
@@ -115,7 +117,7 @@ func changePlanLinkPartOf(file string) (string, bool) {
 	}
 	inSection := false
 	ref := ""
-	for _, line := range lines(b) {
+	for _, line := range core.Lines(b) {
 		if inSection {
 			if strings.HasPrefix(line, "## ") {
 				break
@@ -136,12 +138,12 @@ func changePlanLinkPartOf(file string) (string, bool) {
 
 // changePlanMainCheckout is _change_plan_main_checkout: the main checkout
 // beside which a peers file's relative paths resolve.
-func changePlanMainCheckout(env Env, dir string) (string, bool) {
-	common, ok := gitOut(env, "-C", dir, "rev-parse", "--path-format=absolute", "--git-common-dir")
+func changePlanMainCheckout(env core.Env, dir string) (string, bool) {
+	common, ok := core.GitOut(env, "-C", dir, "rev-parse", "--path-format=absolute", "--git-common-dir")
 	if !ok || common == "" {
 		return "", false
 	}
-	if cw, _ := gitOut(env, "config", "--file", common+"/config", "core.worktree"); cw != "" {
+	if cw, _ := core.GitOut(env, "config", "--file", common+"/config", "core.worktree"); cw != "" {
 		if strings.HasPrefix(cw, "/") {
 			return cw, true
 		}
@@ -150,7 +152,7 @@ func changePlanMainCheckout(env Env, dir string) (string, bool) {
 	if strings.HasSuffix(common, "/.git") {
 		return filepath.Dir(common), true
 	}
-	gitdir, ok := gitOut(env, "-C", dir, "rev-parse", "--absolute-git-dir")
+	gitdir, ok := core.GitOut(env, "-C", dir, "rev-parse", "--absolute-git-dir")
 	if ok && gitdir == common {
 		return dir, true
 	}
@@ -159,13 +161,13 @@ func changePlanMainCheckout(env Env, dir string) (string, bool) {
 
 // changePlanPeerRoot is _change_plan_peer_root: the peer's checkout, read
 // from <worktree>/<spec_root>/peers and resolved beside the main checkout.
-func changePlanPeerRoot(env Env, worktree, specRoot, peerName string) (string, bool) {
+func changePlanPeerRoot(env core.Env, worktree, specRoot, peerName string) (string, bool) {
 	b, err := os.ReadFile(worktree + "/" + specRoot + "/peers")
 	if err != nil {
 		return "", false
 	}
 	resolved := ""
-	for _, line := range lines(b) {
+	for _, line := range core.Lines(b) {
 		// `read -r pname prel rest` with the default IFS: space and tab.
 		f := strings.FieldsFunc(line, func(r rune) bool { return r == ' ' || r == '\t' })
 		if len(f) == 0 {
@@ -192,7 +194,7 @@ func changePlanPeerRoot(env Env, worktree, specRoot, peerName string) (string, b
 		p = filepath.Join(env.Dir, p)
 	}
 	p = filepath.Clean(p)
-	if !isDir(p) {
+	if !core.IsDir(p) {
 		return "", false
 	}
 	return p, true
@@ -201,8 +203,8 @@ func changePlanPeerRoot(env Env, worktree, specRoot, peerName string) (string, b
 // changePlanStoreDir is _change_plan_store_dir: the change directory the
 // state store's `flow state find <key>` records point at. 0 exactly one
 // match, 1 none or the store is unusable, 3 more than one (named on stderr).
-func changePlanStoreDir(env Env, stderr io.Writer, key string) (string, int) {
-	flow, ok := lookPath(env, "flow")
+func changePlanStoreDir(env core.Env, stderr io.Writer, key string) (string, int) {
+	flow, ok := core.LookPath(env, "flow")
 	if !ok {
 		return "", 1
 	}
@@ -236,8 +238,8 @@ func changePlanStoreDir(env Env, stderr io.Writer, key string) (string, int) {
 			if tree == "" {
 				continue
 			}
-			dir := ChangeDir(tree+"/"+specRootLeaf(tree, io.Discard)+"/changes", key)
-			if isFile(dir + "/tasks.md") {
+			dir := ChangeDir(tree+"/"+core.SpecRootLeaf(tree, io.Discard)+"/changes", key)
+			if core.IsFile(dir + "/tasks.md") {
 				matches = append(matches, dir)
 				projects = append(projects, proj)
 			}
@@ -248,12 +250,12 @@ func changePlanStoreDir(env Env, stderr io.Writer, key string) (string, int) {
 		for j := range matches {
 			fmt.Fprintf(stderr, "change-plan: ambiguous state-record resolution for '%s': project %s resolves to %s\n", key, projects[j], matches[j])
 		}
-		Reason(env, "ambiguous-change-plan")
+		core.Reason(env, "ambiguous-change-plan")
 		return "", 3
 	case len(matches) == 1:
 		return matches[0], 0
 	}
-	Reason(env, "no-change-plan")
+	core.Reason(env, "no-change-plan")
 	return "", 1
 }
 
@@ -270,25 +272,25 @@ func ChangeDir(changes, name string) string {
 
 // changePlanDir is change_plan_dir (_change_plan_resolve_dir): the directory
 // holding the change's canonical tasks.md.
-func changePlanDir(env Env, stderr io.Writer, worktree, name, canonical string) (string, int) {
-	if !plainChangeName(name) {
+func changePlanDir(env core.Env, stderr io.Writer, worktree, name, canonical string) (string, int) {
+	if !core.PlainChangeName(name) {
 		fmt.Fprintf(stderr, "change-plan: change name '%s' is not a plain change name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", name)
-		Reason(env, "change-name-not-plain")
+		core.Reason(env, "change-name-not-plain")
 		return "", 1
 	}
-	specRoot := specRootLeaf(worktree, stderr)
+	specRoot := core.SpecRootLeaf(worktree, stderr)
 	dir := ChangeDir(worktree+"/"+specRoot+"/changes", name)
-	if isFile(dir + "/tasks.md") {
+	if core.IsFile(dir + "/tasks.md") {
 		return dir, 0
 	}
 	link := dir + "/link.md"
-	if !isFile(link) && canonical != "" {
-		absentDir := ChangeDir(canonical+"/"+specRootLeaf(canonical, stderr)+"/changes", name)
-		if isFile(absentDir + "/tasks.md") {
+	if !core.IsFile(link) && canonical != "" {
+		absentDir := ChangeDir(canonical+"/"+core.SpecRootLeaf(canonical, stderr)+"/changes", name)
+		if core.IsFile(absentDir + "/tasks.md") {
 			return absentDir, 0
 		}
 	}
-	if !isFile(link) {
+	if !core.IsFile(link) {
 		if canonical == "" {
 			return changePlanStoreDir(env, stderr, name)
 		}
@@ -306,37 +308,37 @@ func changePlanDir(env Env, stderr io.Writer, worktree, name, canonical string) 
 	if _, after, found := strings.Cut(ref, ":"); found {
 		changeID = after
 	}
-	if !plainChangeName(peer) {
+	if !core.PlainChangeName(peer) {
 		fmt.Fprintf(stderr, "change-plan: peer name '%s' in %s is not a plain peer name — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", peer, link)
-		Reason(env, "peer-name-not-plain")
+		core.Reason(env, "peer-name-not-plain")
 		return "", 1
 	}
-	if !plainChangeName(changeID) {
+	if !core.PlainChangeName(changeID) {
 		fmt.Fprintf(stderr, "change-plan: canonical change id '%s' in %s is not a plain change id — it must start with a letter or digit and contain only letters, digits, '.', '_' and '-'\n", changeID, link)
-		Reason(env, "canonical-id-not-plain")
+		core.Reason(env, "canonical-id-not-plain")
 		return "", 1
 	}
 	if canonical != "" {
-		canonDir := ChangeDir(canonical+"/"+specRootLeaf(canonical, stderr)+"/changes", changeID)
-		if isFile(canonDir + "/tasks.md") {
+		canonDir := ChangeDir(canonical+"/"+core.SpecRootLeaf(canonical, stderr)+"/changes", changeID)
+		if core.IsFile(canonDir + "/tasks.md") {
 			return canonDir, 0
 		}
-		Reason(env, "canonical-tasks-missing")
+		core.Reason(env, "canonical-tasks-missing")
 		return "", 1
 	}
 	peerRoot, ok := changePlanPeerRoot(env, worktree, specRoot, peer)
 	if !ok {
 		return changePlanStoreDir(env, stderr, changeID)
 	}
-	peerDir := peerRoot + "/" + specRootLeaf(peerRoot, stderr) + "/changes/" + changeID
-	if isFile(peerDir + "/tasks.md") {
+	peerDir := peerRoot + "/" + core.SpecRootLeaf(peerRoot, stderr) + "/changes/" + changeID
+	if core.IsFile(peerDir + "/tasks.md") {
 		return peerDir, 0
 	}
 	return changePlanStoreDir(env, stderr, changeID)
 }
 
 // changePlanPath is change_plan_path: changePlanDir's answer plus /tasks.md.
-func changePlanPath(env Env, stderr io.Writer, worktree, name, canonical string) (string, int) {
+func changePlanPath(env core.Env, stderr io.Writer, worktree, name, canonical string) (string, int) {
 	dir, rc := changePlanDir(env, stderr, worktree, name, canonical)
 	if rc != 0 {
 		return "", rc
@@ -348,11 +350,11 @@ func changePlanPath(env Env, stderr io.Writer, worktree, name, canonical string)
 // its link.md, or false for a local plan, a missing link.md, or no
 // `## Part of`.
 func changePlanRef(stderr io.Writer, worktree, name string) (string, bool) {
-	if !plainChangeName(name) {
+	if !core.PlainChangeName(name) {
 		return "", false
 	}
-	dir := worktree + "/" + specRootLeaf(worktree, stderr) + "/changes/" + name
-	if isFile(dir+"/tasks.md") || !isFile(dir+"/link.md") {
+	dir := worktree + "/" + core.SpecRootLeaf(worktree, stderr) + "/changes/" + name
+	if core.IsFile(dir+"/tasks.md") || !core.IsFile(dir+"/link.md") {
 		return "", false
 	}
 	return changePlanLinkPartOf(dir + "/link.md")
