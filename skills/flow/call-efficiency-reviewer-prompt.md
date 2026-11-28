@@ -39,7 +39,7 @@ The panel's `call-efficiency` slot, dispatched when the decision's `panel` carri
       behaviour — a pure computation with no boundary call has no call to count, and
       saying so is not a finding.
     - Do not restate a finding another panel slot's angle already owns (plan drift, a
-      principles violation with no failure-mode content, an ordinary logic defect, a
+      principles violation with no call-cost content, an ordinary logic defect, a
       missing test) unless the extra call is what makes it wrong.
     - Do not invent findings to look useful. An empty Critical/Important section after a
       genuine review is a valid and expected result.

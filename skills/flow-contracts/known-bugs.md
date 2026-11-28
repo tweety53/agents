@@ -63,19 +63,19 @@ that is no screenshot mismatch — a timeout, a screen only production serves, a
 never re-baselined: it is reported, and blocks as above.
 
 **A product defect the self-review pass meets is never dropped.** It stays out of the pass's
-report and filing, and stops the landing. Met inside a run, the pass stops at the end of its
+report and filing, and stops the run before cleanup. Met inside a run, the pass stops at the end of its
 step 2 — no fix, no filing, no store row, no report: nothing is committed for the pass, so the
 next run meets no committed report, runs the pass again, and meets the defect again if it was not
-fixed. The `flow.self-review` mark closes `-outcome stopped`, nothing lands, the change keeps its
+fixed. The `flow.self-review` mark closes `-outcome stopped`, the change keeps its
 state, and the run continues straight into the fix run that defect names, in the same invocation —
 never a handoff for the operator to start it.
 
 **A landing HEAD whose UI no verifier saw is such a defect.** A pass finding that a UI-path commit
 landed after the last HEAD a visual verifier saw — departures fixed and never re-captured, a fix
-run's UI change never verified — stops the landing exactly as above. It is never a risk line, a
-`noted` finding or an angle item the landing proceeds over.
+run's UI change never verified — stops the run exactly as above. It is never a risk line, a
+`noted` finding or an angle item the run proceeds over.
 
-- **`/flow`'s integrate run 1** stops before step 5's route and continues as
+- **`/flow`'s integrate run 1** stops after step 4's route, before cleanup, and continues as
   `/flow <name> <the defect, one line>` would: the fix run writes in the change directory still on
   disk and, once it writes its state, continues into integrate as a re-run with new work, which
   runs the pass again (**Run 1 — the branch is not merged**,

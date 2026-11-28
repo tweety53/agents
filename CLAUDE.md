@@ -83,8 +83,8 @@ These skills live in `skills/` next to this file (or in `<project>/.claude/skill
 To invoke a skill, type its slash command (`/flow`, `/flow-interactive`, …); the harness loads its
 `SKILL.md` through the Skill tool.
 
-Every skill below but `flow-plan` and `flow-contracts` requires the `spectre` CLI to be
-installed. Those two need none — reading a spectre tree, or a contract file, is reading markdown.
+Of the skills below only `flow` requires the `spectre` CLI to be installed. The others need
+none — reading a spectre tree, or a contract file, is reading markdown.
 
 ### Skill index
 

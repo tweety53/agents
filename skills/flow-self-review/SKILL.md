@@ -47,7 +47,7 @@ hand-back, never the files it names, save where a step below says it reads one; 
 `big`, filing, landing, and when a step runs again — stays this session's.
 Before the pass is dispatched, this session empties `<sr-dir>` of every file but `bundle.md`, so a re-run never fills an earlier run's draft. A pass already run is never run again: while the change holds a completed `self-review-<name>-pass` row (`flow record dispatches -change <name>`) and the loop branch `self-review-<name>` exists in `<agents repo>`, this session keeps `<sr-dir>` whole, dispatches no pass and resumes at step 3 from `<sr-dir>/findings.md`.
 
-Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, on the `pass` row
+Dispatch the pass, in-run and standalone alike: key `self-review-<name>-pass`, on the `self-review-pass` row
 of **Allowed pairs** (`skills/flow-contracts/model-policy.md`), its prompt naming the bundle's path — `<bundle>`
 standalone, `<sr-dir>/bundle.md` in-run — and `<sr-dir>`, and carrying this step's rules and step 3's classification, the
 dispatch paragraphs step 3 names and READ-ONLY REVIEW. It hands back the full content of `<sr-dir>/findings.md`: every finding under an `F<n>` id, with its angle, its
