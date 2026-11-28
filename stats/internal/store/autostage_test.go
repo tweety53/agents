@@ -378,3 +378,79 @@ func TestBeginAtARunsStartLinksToThatRun(t *testing.T) {
 		t.Errorf("begun at the run's start: stage_run_id %v, want %d", relinkDeref(d.StageRunID), run)
 	}
 }
+
+// TestParallelRequestDispatchesOpenOneAutoRunEach pins the request-less
+// auto run that executors in flight together used to share: two operator-asked
+// dispatches recorded with no stage open, for requests 158 and 168 while
+// several are open, each land in an auto run carrying its own request; a
+// begin for request 167 supersedes neither, and request 158's own begin
+// supersedes only its run.
+func TestParallelRequestDispatchesOpenOneAutoRunEach(t *testing.T) {
+	t.Parallel()
+	st, pool := newRecordStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-auto-parallel-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+	t0 := time.Date(2026, 11, 28, 12, 55, 23, 0, time.UTC)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO stage_runs (change_id, harness, command, stage, attempt, started_at, ended_at, metrics, auto_opened, session_token)
+		SELECT id, 'claude-code', '/flow-interactive', 'flow.verify', 1, $2, $3, '{}'::jsonb, false, 'cc-par'
+		FROM changes WHERE project_key = $1 AND name = 'kan-1'`, projectKey, t0.Add(-time.Minute), t0.Add(-30*time.Second)); err != nil {
+		t.Fatalf("seed stage run: %v", err)
+	}
+	for _, n := range []int{158, 167, 168} {
+		mustBegin(t, st, projectKey, n)
+	}
+	linked := map[int]int64{}
+	for i, n := range []int{158, 168} {
+		d := autoDispatch("cc-par", fmt.Sprintf("operator-%d", 172+i), t0.Add(time.Duration(i)*70*time.Millisecond))
+		d.Request = ptr(n)
+		got, err := st.RecordDispatch(ctx, projectKey, "kan-1", d)
+		if err != nil {
+			t.Fatalf("RecordDispatch request %d: %v", n, err)
+		}
+		if got.StageRunID == nil {
+			t.Fatalf("request %d's dispatch linked to no run", n)
+		}
+		linked[n] = *got.StageRunID
+	}
+	byID := func() map[int64]store.StageRun {
+		out := map[int64]store.StageRun{}
+		for _, r := range autoRuns(t, st, projectKey) {
+			out[r.ID] = r
+		}
+		return out
+	}
+	runs := byID()
+	for _, n := range []int{158, 168} {
+		r, ok := runs[linked[n]]
+		if !ok || r.RequestN == nil || *r.RequestN != n {
+			t.Fatalf("request %d's dispatch linked to run %d (%+v), want an auto run carrying request %d", n, linked[n], r, n)
+		}
+	}
+	begin := func(stage string, n int, at time.Time) {
+		t.Helper()
+		in := baseBeginInput(projectKey, "kan-1", "/flow-interactive", stage)
+		in.SessionToken = ptr("cc-par")
+		in.RequestN = ptr(n)
+		in.StartedAt = at
+		if _, err := st.BeginStage(ctx, in); err != nil {
+			t.Fatalf("BeginStage %s -request %d: %v", stage, n, err)
+		}
+	}
+	begin("flow.land", 167, t0.Add(6*time.Second))
+	runs = byID()
+	for _, n := range []int{158, 168} {
+		if r := runs[linked[n]]; r.EndedAt != nil {
+			t.Errorf("request 167's begin closed request %d's auto run: %+v", n, r)
+		}
+	}
+	begin("flow.implement", 158, t0.Add(30*time.Second))
+	runs = byID()
+	if r := runs[linked[158]]; r.EndedAt == nil || r.Outcome == nil || *r.Outcome != "superseded" {
+		t.Errorf("request 158's own begin left its auto run %+v, want it superseded", r)
+	}
+	if r := runs[linked[168]]; r.EndedAt != nil {
+		t.Errorf("request 158's begin closed request 168's auto run: %+v", r)
+	}
+}

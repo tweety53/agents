@@ -578,10 +578,16 @@ func (s *Store) recordDispatchTx(ctx context.Context, projectKey, change string,
 	}
 	if in.StageRunID == nil {
 		// The stage run holding the begin instant, by the rule
-		// 0069_dispatch_stage_run.sql states; NULL (or an unknown change,
-		// which insertDispatch reports) falls through to the auto run.
-		err := tx.QueryRow(ctx, `SELECT dispatch_stage_run(c.id, $3, $4) FROM changes c WHERE c.project_key = $1 AND c.name = $2`,
-			projectKey, change, nullIfEmpty(in.SessionToken), in.StartedAt).Scan(&in.StageRunID)
+		// 0069_dispatch_stage_run.sql states -- among the runs of the
+		// dispatch's own request when it carries one, so executors in flight
+		// together never link into each other's runs; NULL (or an unknown
+		// change, which insertDispatch reports) falls through to the auto run.
+		q := `SELECT dispatch_stage_run(c.id, $3, $4) FROM changes c WHERE c.project_key = $1 AND c.name = $2`
+		args := []any{projectKey, change, nullIfEmpty(in.SessionToken), in.StartedAt}
+		if in.Request != nil {
+			q, args = requestStageRun, append(args, *in.Request)
+		}
+		err := tx.QueryRow(ctx, q, args...).Scan(&in.StageRunID)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return records.Dispatch{}, err
 		}
@@ -597,6 +603,26 @@ func (s *Store) recordDispatchTx(ctx context.Context, projectKey, change string,
 	}
 	return out, tx.Commit(ctx)
 }
+
+// requestStageRun is dispatch_stage_run's rule (0069_dispatch_stage_run.sql)
+// over the change's runs of request $5, or over its request-less runs when
+// none of request $5 holds the instant -- never another request's.
+const requestStageRun = `
+	WITH covering AS (
+		SELECT sr.id, sr.session_token, sr.request_n FROM stage_runs sr JOIN changes c ON c.id = sr.change_id
+		WHERE c.project_key = $1 AND c.name = $2 AND (sr.request_n = $5 OR sr.request_n IS NULL)
+		  AND sr.started_at <= $4 AND (sr.ended_at IS NULL OR $4 < sr.ended_at)
+	), candidates AS (
+		SELECT id, session_token FROM covering
+		WHERE request_n IS NOT DISTINCT FROM
+			(CASE WHEN EXISTS (SELECT 1 FROM covering WHERE request_n = $5) THEN $5::int END)
+	), same_token AS (
+		SELECT id FROM candidates WHERE session_token = $3
+	)
+	SELECT CASE
+		WHEN (SELECT COUNT(*) FROM same_token) = 1 THEN (SELECT id FROM same_token)
+		WHEN (SELECT COUNT(*) FROM candidates) = 1 THEN (SELECT id FROM candidates)
+	END`
 
 // autoStageFor derives the stage an auto-opened run carries from the
 // dispatch key's shape.
@@ -620,15 +646,17 @@ func autoStageFor(key string) string {
 
 // openAutoStageRun opens a stage run marked auto_opened when the begin links
 // to no recorded run (dispatch_stage_run) and the change has no open stage
-// run, so every dispatch begin lands inside one: work a run
+// run -- of the dispatch's own request or none, when it carries one -- so every dispatch begin lands inside one: work a run
 // marked no stage for is otherwise invisible to every stage-run view. It
 // returns the new run's id, or nil when a run is open, the change is
 // unknown (insertDispatch reports that), or the begin replays a row already
 // recorded. The run takes the command, harness and repo root of the
 // change's latest run (/flow when there is none), and the dispatch's own
 // session token and id so harvesting attributes it as a marked stage. A
-// /flow-interactive run carries the change's request when exactly one is
-// open, and none otherwise (kan-1070 self-review, F3).
+// /flow-interactive run carries the dispatch's own request, else the
+// change's request when exactly one is open, and none otherwise (kan-1070
+// self-review, F3): a run opened for one executor in flight is never
+// request-less, so no other request's begin supersedes it.
 // EndDispatch closes it once its last open dispatch ends; an explicit stage
 // begin on the change supersedes it (insertStageRunAndSupersede). A
 // dispatch begun at an instant some recorded stage run already covers to its
@@ -648,10 +676,11 @@ func openAutoStageRun(ctx context.Context, tx pgx.Tx, projectKey, change string,
 	}
 	var skip bool
 	if err := tx.QueryRow(ctx, `
-		SELECT EXISTS (SELECT 1 FROM stage_runs WHERE change_id = $1 AND ended_at IS NULL)
+		SELECT EXISTS (SELECT 1 FROM stage_runs WHERE change_id = $1 AND ended_at IS NULL
+		               AND ($5::int IS NULL OR request_n IS NULL OR request_n = $5))
 		    OR EXISTS (SELECT 1 FROM dispatches WHERE change_id = $1 AND session_token = $2 AND dispatch_key = $3)
 		    OR EXISTS (SELECT 1 FROM stage_runs WHERE change_id = $1 AND ended_at > $4)`,
-		changeID, nullIfEmpty(in.SessionToken), nullIfEmpty(in.Key), in.StartedAt).Scan(&skip); err != nil {
+		changeID, nullIfEmpty(in.SessionToken), nullIfEmpty(in.Key), in.StartedAt, in.Request).Scan(&skip); err != nil {
 		return nil, err
 	}
 	if skip {
@@ -676,12 +705,12 @@ func openAutoStageRun(ctx context.Context, tx pgx.Tx, projectKey, change string,
 			$3, cmd.command, $4::text,
 			COALESCE((SELECT MAX(attempt) FROM stage_runs WHERE change_id = $1 AND command = cmd.command AND stage = $4::text), 0) + 1,
 			$5, '{}'::jsonb, true,
-			CASE WHEN cmd.command = '/flow-interactive' THEN
-				(SELECT MIN(n) FROM requests WHERE change_id = $1 AND outcome IS NULL HAVING COUNT(*) = 1)
+			CASE WHEN cmd.command = '/flow-interactive' THEN COALESCE($6::int,
+				(SELECT MIN(n) FROM requests WHERE change_id = $1 AND outcome IS NULL HAVING COUNT(*) = 1))
 			END
 		FROM cmd
 		RETURNING id`,
-		changeID, nullIfEmpty(in.SessionID), nullIfEmpty(in.SessionToken), autoStageFor(in.Key), in.StartedAt).Scan(&id)
+		changeID, nullIfEmpty(in.SessionID), nullIfEmpty(in.SessionToken), autoStageFor(in.Key), in.StartedAt, in.Request).Scan(&id)
 	if err != nil {
 		return nil, err
 	}

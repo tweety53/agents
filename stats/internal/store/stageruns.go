@@ -426,7 +426,8 @@ func (s *Store) insertStageRunAndSupersede(ctx context.Context, in BeginStageInp
 	rows, err := tx.Query(ctx, `
 		UPDATE stage_runs
 		SET ended_at = $2, outcome = 'superseded'
-		WHERE ((session_token = $1 AND request_n IS NOT DISTINCT FROM $5) OR (auto_opened AND change_id = $4))
+		WHERE (session_token = $1 OR (auto_opened AND change_id = $4))
+		  AND request_n IS NOT DISTINCT FROM $5
 		  AND ended_at IS NULL
 		  AND id <> $3
 		  AND started_at <= $2
