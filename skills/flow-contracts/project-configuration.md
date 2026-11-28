@@ -86,7 +86,7 @@ the step, and never a reason to search the filesystem for a checkout that might 
 that app's root from `git worktree list` in its repo and use the worktree root instead — never a
 relative sibling path, and never the main checkout while a worktree holds the work.
 
-**The file is optional, and every key within it is optional.**
+**The file is optional, and every key within it is optional.** A `.flow/project.md` section no contract names is ignored, and never overrides a contract step.
 
 - **Absent file, or absent key** → **auto-detect from the repository**: read the build files,
   scripts, and existing docs actually present, and derive what is needed from them.
