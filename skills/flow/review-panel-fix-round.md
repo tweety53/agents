@@ -13,7 +13,9 @@ already carry; a fix's review is one reviewer (`skills/flow/fix.md`, step 4).** 
 `FIX_BASE` — the branch tip the fix round starts from, per worktree — commit the fix, then write
 `<abs-worktree>/.superpowers/sdd/fix-round-N.diff` and its touched list with
 `flow-guard write-panel-diff fix-round <N> <abs-worktree> <worktree> <fix-base> [<worktree> <fix-base>…]`,
-whose exits read as the pass-1 write's (`skills/flow/review-panel.md`).
+whose exits read as the pass-1 write's (`skills/flow/review-panel.md`), then
+`flow-guard diff-groups <abs-worktree> <abs-worktree>/.superpowers/sdd/fix-round-N.diff`, which
+re-writes `diff-groups.md` for that diff before any re-run's `build-slot-prompt`.
 
 **A branch the remote already holds takes the fix as one new commit on top, never a rewrite.**
 This is the normal case: the branch is pushed with every commit (**Branch backup**,

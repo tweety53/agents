@@ -15,8 +15,9 @@ func TestBuildSlotPrompt(t *testing.T) {
 	t.Parallel()
 	skill, _ := filepath.Abs("../../../skills/flow")
 	wt := t.TempDir()
+	d := bspDiffDir(t)
 	r := runGuard("build-slot-prompt", []string{skill, wt, "2", "primary+principles",
-		"-diff", "/d/fix-round-2.diff", "-artifacts", "/c/proposal.md,/c/design.md", "-standards", "",
+		"-diff", d + "/fix-round-2.diff", "-artifacts", "/c/proposal.md,/c/design.md", "-standards", "",
 		"-global-constraints", "none", "-repo", "gymie", "-fix-report", "/r/panel-fix-report-2.md", "-panel", "primary,principles,security"}, Env{})
 	if r.rc != 0 {
 		t.Fatalf("rc %d: %s", r.rc, r.out)
@@ -34,7 +35,7 @@ func TestBuildSlotPrompt(t *testing.T) {
 		"> **FIX-ROUND SCOPE:**",
 		"`/r/panel-fix-report-2.md`",
 		"## PASS primary\n\nYou are a Senior Code Reviewer",
-		"**Diff file:** /d/fix-round-2.diff",
+		"**Diff file:** " + d + "/fix-round-2.diff",
 		"**Change artifacts:** /c/proposal.md, /c/design.md",
 		"**Principles:** " + skill + "/engineering-principles.md",
 		"REPORT FILE: " + wt + "/.superpowers/sdd/panel-report-2-primary-gymie.md",
@@ -50,10 +51,10 @@ func TestBuildSlotPrompt(t *testing.T) {
 	if strings.Contains(s, "<fix report>") || strings.Contains(s, "```") {
 		t.Errorf("unfilled fix report or a fence left in the prompt")
 	}
-	if r := runGuard("build-slot-prompt", []string{skill, wt, "0", "mutation", "-diff", "/d"}, Env{}); r.rc != 2 {
+	if r := runGuard("build-slot-prompt", []string{skill, wt, "0", "mutation", "-diff", d + "/x.diff"}, Env{}); r.rc != 2 {
 		t.Errorf("mutation without -copies: rc %d, want 2", r.rc)
 	}
-	if r := runGuard("build-slot-prompt", []string{skill, wt, "0", "primary", "-diff", "/d"}, Env{}); r.rc != 2 {
+	if r := runGuard("build-slot-prompt", []string{skill, wt, "0", "primary", "-diff", d + "/x.diff"}, Env{}); r.rc != 2 {
 		t.Errorf("primary without -artifacts: rc %d, want 2", r.rc)
 	}
 }
@@ -64,7 +65,8 @@ func TestBuildSlotPromptUnread(t *testing.T) {
 	t.Parallel()
 	skill, _ := filepath.Abs("../../../skills/flow")
 	wt := t.TempDir()
-	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "principles", "-diff", "/d/final-review.diff",
+	d := bspDiffDir(t)
+	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "principles", "-diff", d + "/final-review.diff",
 		"-standards", "", "-global-constraints", "none", "-unread", "gymie,gymie-frontend", "-panel", "primary,principles"}, Env{})
 	if r.rc != 0 {
 		t.Fatalf("rc %d: %s", r.rc, r.out)
@@ -81,7 +83,7 @@ func TestBuildSlotPromptUnread(t *testing.T) {
 			t.Errorf("prompt lacks %q", want)
 		}
 	}
-	if r := runGuard("build-slot-prompt", []string{skill, wt, "1", "principles", "-diff", "/d", "-standards", "",
+	if r := runGuard("build-slot-prompt", []string{skill, wt, "1", "principles", "-diff", d + "/x.diff", "-standards", "",
 		"-global-constraints", "none", "-unread", "a", "-repo", "b"}, Env{}); r.rc != 2 {
 		t.Errorf("-unread with -repo: rc %d, want 2", r.rc)
 	}
@@ -94,11 +96,12 @@ func TestBuildSlotPromptMutation(t *testing.T) {
 	t.Parallel()
 	skill, _ := filepath.Abs("../../../skills/flow")
 	wt := t.TempDir()
+	d := bspDiffDir(t)
 	test := filepath.Join(t.TempDir(), "foo_test.go")
 	if err := os.WriteFile(test, []byte("func TestFoo(t *testing.T) {}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation", "-diff", "/d/final-review.diff",
+	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation", "-diff", d + "/final-review.diff",
 		"-copies", "/w-mutation-1,/f-mutation-1", "-tests", test, "-panel", "primary,mutation"}, Env{})
 	if r.rc != 0 {
 		t.Fatalf("rc %d: %s", r.rc, r.out)
@@ -107,7 +110,7 @@ func TestBuildSlotPromptMutation(t *testing.T) {
 	s := string(got)
 	for _, want := range []string{
 		"## PASS mutation\n",
-		"**Diff file:** /d/final-review.diff",
+		"**Diff file:** " + d + "/final-review.diff",
 		"MUTATION COPIES: /w-mutation-1, /f-mutation-1",
 		"Wherever the panel dispatches Mutation, the dispatch prompt carries a mutation-testing",
 		"Never run `git worktree add`",
@@ -122,7 +125,7 @@ func TestBuildSlotPromptMutation(t *testing.T) {
 	if strings.Contains(s, "## The throwaway worktree") || strings.Contains(s, "### Principles") {
 		t.Errorf("the mutation brief ran past its section")
 	}
-	if r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation+primary", "-diff", "/d", "-copies", "/w"}, Env{}); r.rc != 2 {
+	if r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation+primary", "-diff", d + "/x.diff", "-copies", "/w"}, Env{}); r.rc != 2 {
 		t.Errorf("mutation bundled: rc %d, want 2", r.rc)
 	}
 }
@@ -133,11 +136,12 @@ func TestBuildSlotPromptMutationTestsNotInlined(t *testing.T) {
 	t.Parallel()
 	skill, _ := filepath.Abs("../../../skills/flow")
 	wt := t.TempDir()
+	d := bspDiffDir(t)
 	big := filepath.Join(t.TempDir(), "big_test.go")
 	if err := os.WriteFile(big, []byte(strings.Repeat("x", 300_000)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation", "-diff", "/d/final-review.diff",
+	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation", "-diff", d + "/final-review.diff",
 		"-copies", "/w", "-tests", big, "-panel", "primary,mutation"}, Env{})
 	if r.rc != 0 {
 		t.Fatalf("rc %d: %s", r.rc, r.out)
@@ -145,5 +149,33 @@ func TestBuildSlotPromptMutationTestsNotInlined(t *testing.T) {
 	got, _ := os.ReadFile(filepath.Join(wt, ".superpowers/sdd/slot-prompt-1-mutation.md"))
 	if len(got) >= 100000 || !strings.Contains(string(got), "### "+big+"\n\nRead by path.") {
 		t.Errorf("prompt is %d bytes or lacks the by-path line", len(got))
+	}
+}
+
+// bspDiffDir is a directory holding the diff-groups.md every slot prompt requires beside its diff.
+func bspDiffDir(t *testing.T) string {
+	t.Helper()
+	d := t.TempDir()
+	if err := os.WriteFile(filepath.Join(d, "diff-groups.md"), []byte("## x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+// TestBuildSlotPromptRefusesWithoutDiffGroups: every slot, mutation included, needs diff-groups.md
+// beside its diff; exit 2 names the guard that writes it and no prompt is written.
+func TestBuildSlotPromptRefusesWithoutDiffGroups(t *testing.T) {
+	t.Parallel()
+	skill, _ := filepath.Abs("../../../skills/flow")
+	for _, id := range []string{"primary", "mutation"} {
+		wt := t.TempDir()
+		r := runGuard("build-slot-prompt", []string{skill, wt, "1", id, "-diff", t.TempDir() + "/final-review.diff",
+			"-copies", "/w", "-artifacts", "/c/p.md", "-standards", "", "-global-constraints", "none", "-panel", id}, Env{})
+		if r.rc != 2 || !strings.Contains(r.out, "flow-guard diff-groups <abs-worktree> <diff-file>") {
+			t.Errorf("%s: rc %d: %s", id, r.rc, r.out)
+		}
+		if m, _ := filepath.Glob(filepath.Join(wt, ".superpowers/sdd/slot-prompt-*")); len(m) != 0 {
+			t.Errorf("%s: wrote %v", id, m)
+		}
 	}
 }

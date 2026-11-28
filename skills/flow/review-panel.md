@@ -170,7 +170,7 @@ only on one repository's dispatch of a multi-repository panel, and `-fix-report`
 path(s) on a fix round, and `-panel` every slot the round runs, so a slot takes up the angle of one
 the round omits; `-unread` the sections of a same-round re-dispatch (**The findings merger**), and on the `mutation` dispatch `-copies` its throwaway copies, `<worktree>-mutation-<round>` per repository, and `-tests` every test the plan's `**Tests:**` fields name and every test file in the touched-files list. Its header (`stats/internal/guard/buildslotprompt.go`) is canonical for the
 file it writes, `<canon>/.superpowers/sdd/slot-prompt-<round>-<ids>[-<repo>].md`, whose path it
-prints; exit 2 names a missing value and writes nothing.
+prints; exit 2 names a missing value, or a missing `diff-groups.md` beside the `-diff` file (the `diff-groups` call above, which every diff — `late-fix.diff` and a fix round's `fix-round-N.diff` included — needs first), and writes nothing.
 
 The Agent call's description is `panel-<round>-<slots>[-<repo>]` and its prompt opens `Role: panel-reviewer` (`Role: panel-rerun` on a fix round). Its prompt carries only that Role line
 (**Dispatch sites — the parent's closed list**, `skills/flow/implement.md`), the baseline

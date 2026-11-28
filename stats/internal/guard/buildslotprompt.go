@@ -35,8 +35,8 @@ import (
 // ENTRY CONTEXT blockquote with each -tests path listed beneath it under a
 // "Read by path." line (never inlined).
 //
-// Every prompt also carries a `**Diff groups:** <path>` line when diff-groups.md
-// (the diff-groups guard's output) sits beside the diff.
+// Every prompt carries a `**Diff groups:** <path>` line, and diff-groups.md
+// (the diff-groups guard's output) must sit beside the diff: without it, exit 2.
 //
 // Exit 0 written; 2 usage, an id with no template, mutation bundled or
 // without -copies, -unread with -repo, or a placeholder a template carries
@@ -97,9 +97,13 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "Read %s in full first — every paragraph binds you\n\n", filepath.Join(skillDir, "slot-brief.md"))
-	if groups := filepath.Join(filepath.Dir(*fill["DIFF_PATH"]), "diff-groups.md"); *fill["DIFF_PATH"] != "" && isFile(groups) {
-		fmt.Fprintf(&b, "**Diff groups:** %s\n\n", groups)
+	groups := filepath.Join(filepath.Dir(*fill["DIFF_PATH"]), "diff-groups.md")
+	if !isFile(groups) {
+		Reason(env, "diff-groups-missing")
+		fmt.Fprintln(stderr, "build-slot-prompt: "+groups+" is missing — run flow-guard diff-groups <abs-worktree> <diff-file> first")
+		return 2
 	}
+	fmt.Fprintf(&b, "**Diff groups:** %s\n\n", groups)
 	if *panel != "" {
 		fmt.Fprintf(&b, "PANEL SLOTS: %s\n\n", list(*panel))
 	}
