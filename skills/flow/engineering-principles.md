@@ -201,6 +201,12 @@ Redis or S3 runs before or after it, never inside. A read that issues more than 
 in one read-only transaction. An immutable, thread-safe object — a JWT verifier or parser, a
 compiled `Regex`, a `SecureRandom`, a `HexFormat` — is built once and held, never per call.
 
+Code works unchanged with two app instances and a Redis Cluster: Redis keys are hash-tagged by
+owner id, a Lua script gets every key in `KEYS`, nothing scans the whole keyspace; no state that
+must be correct lives in one instance (a short delay only if written down); scheduled and startup
+jobs are safe to run on two at once; a request is safe to retry, with uniqueness enforced by the
+database; files go to shared storage.
+
 **Violation looks like:** `@Transactional` on a method that calls an OAuth endpoint or BCrypt;
 three repository reads in a controller with no transaction under `open-in-view: false`;
 `JWT.require(algorithm).build()` inside `verify`; `Regex(...)` inside a function body;
