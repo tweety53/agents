@@ -351,7 +351,8 @@ URL `## run` serves, by the app's own run-view route, keyed by the project key a
 the executor opens it with the project's own installed Playwright through Bash — a short Node script written under `<changeRoot>` that navigates, reloads, takes the screenshot into `<changeRoot>` and exits — never an MCP browser tool, which a `flow-*` subagent does not carry —
 `location.reload()`, screenshot, and read the screenshot against the ask.
 Under step 6's operator-named-base exception, the page is that of the stack `## run` starts from
-`<wt-n>`, stopped once the check is done (`flow-guard stop-worktree-processes <wt-n>`).
+`<wt-n>`, stopped once the check is done: first the stop command the project's `## run` or `## stop` declares, run from
+`<wt-n>` (it reaches processes the run started from sibling worktrees), then `flow-guard stop-worktree-processes <wt-n>`.
 
 When the request changes a view's default (a window, a filter), the executor also reads that view against real live data on the new default and confirms it is non-empty; fixtures alone do not pass.
 
