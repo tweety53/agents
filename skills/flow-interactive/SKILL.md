@@ -249,7 +249,8 @@ A worked executor brief, for a request written while another executor holds the 
 it):
 
 ```text
-Role: operator-asked. Request 162, Key: operator-178. Change kan-1167-dispatch-recording-guard;
+Role: operator-asked
+Request 162, Key: operator-178. Change kan-1167-dispatch-recording-guard;
 worktree <project>-worktrees/kan-1167-dispatch-recording-guard-r162 on kan-1167-dispatch-recording-guard-r162.
 
 Ask: one phase→file load table in skills/README.md, derived from stats/internal/guard/loadsets.go,
