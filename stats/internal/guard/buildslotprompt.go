@@ -32,9 +32,8 @@ import (
 // line, a MUTATION COPIES line (-copies, required: the throwaway copies it
 // mutates and tests in), the body of review-panel-optional-slots.md's **The
 // mutation-testing brief** section, and that file's MUTATION
-// ENTRY CONTEXT blockquote with each -tests file inlined beneath it while the
-// inlined total stays within bspTestsBudget (150000 bytes); later files get a
-// heading and a read-by-path line.
+// ENTRY CONTEXT blockquote with each -tests path listed beneath it under a
+// "Read by path." line (never inlined).
 //
 // Exit 0 written; 2 usage, an id with no template, mutation bundled or
 // without -copies, -unread with -repo, or a placeholder a template carries
@@ -208,9 +207,6 @@ func bspBlockquote(src, head string) string {
 	return out.String()
 }
 
-// bspTestsBudget caps the bytes of -tests files inlined; later files are named by path.
-const bspTestsBudget = 150_000
-
 // bspMutationBody is the mutation slot's PASS body (see the header).
 func bspMutationBody(skillDir, diff, copies, tests string) (string, error) {
 	opt, err := os.ReadFile(filepath.Join(skillDir, "review-panel-optional-slots.md"))
@@ -233,20 +229,10 @@ func bspMutationBody(skillDir, diff, copies, tests string) (string, error) {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "**Diff file:** %s\n\nMUTATION COPIES: %s\n\n%s\n\n%s", diff, copies, strings.TrimSpace(brief), entry)
-	used := 0
 	for _, p := range strings.Split(tests, ",") {
-		if p == "" {
-			continue
+		if p != "" {
+			fmt.Fprintf(&b, "\n### %s\n\nRead by path.\n", p)
 		}
-		src, err := os.ReadFile(p)
-		if err != nil {
-			return "", err
-		}
-		if used += len(src); used > bspTestsBudget {
-			fmt.Fprintf(&b, "\n### %s\n\nRead by path: over the inline budget.\n", p)
-			continue
-		}
-		fmt.Fprintf(&b, "\n### %s\n\n```\n%s\n```\n", p, strings.TrimRight(string(src), "\n"))
 	}
 	return b.String(), nil
 }

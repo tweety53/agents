@@ -11,7 +11,7 @@ throwaway copy (**The throwaway worktree**, `skills/flow/review-panel-optional-s
 `<worktree>`.
 
 **The mutation slot's brief also carries the MUTATION ENTRY CONTEXT paragraph**, the tests
-`build-slot-prompt`'s `-tests` names inlined directly beneath it (up to 150000 bytes in all; later tests are listed by path to read):
+`build-slot-prompt`'s `-tests` names listed by path directly beneath it, each to be read by path:
 
 > **MUTATION ENTRY CONTEXT:** `final-review.diff`, at the merge-base sha each `# worktree:`
 > header carries, is your diff base; the tests beneath this paragraph are the tests your

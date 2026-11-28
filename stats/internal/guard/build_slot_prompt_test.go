@@ -89,7 +89,7 @@ func TestBuildSlotPromptUnread(t *testing.T) {
 
 // TestBuildSlotPromptMutation renders the mutation slot's brief: the mutation-testing brief and the
 // MUTATION ENTRY CONTEXT paragraph from the skill's own files, the throwaway copies it works in,
-// and each named test inlined beneath the paragraph.
+// and each named test listed by path beneath the paragraph.
 func TestBuildSlotPromptMutation(t *testing.T) {
 	t.Parallel()
 	skill, _ := filepath.Abs("../../../skills/flow")
@@ -112,7 +112,7 @@ func TestBuildSlotPromptMutation(t *testing.T) {
 		"Wherever the panel dispatches Mutation, the dispatch prompt carries a mutation-testing",
 		"Never run `git worktree add`",
 		"> **MUTATION ENTRY CONTEXT:**",
-		"### " + test + "\n\n```\nfunc TestFoo(t *testing.T) {}\n```",
+		"### " + test + "\n\nRead by path.",
 		"REPORT FILE: " + wt + "/.superpowers/sdd/panel-report-1-mutation.md",
 	} {
 		if !strings.Contains(s, want) {
@@ -127,31 +127,23 @@ func TestBuildSlotPromptMutation(t *testing.T) {
 	}
 }
 
-// TestBuildSlotPromptMutationTestsBudget: tests past the inline budget are named by path, so the
-// prompt stays readable.
-func TestBuildSlotPromptMutationTestsBudget(t *testing.T) {
+// TestBuildSlotPromptMutationTestsNotInlined: a test file is named by path, never inlined, so the
+// prompt stays small however large the file is.
+func TestBuildSlotPromptMutationTestsNotInlined(t *testing.T) {
 	t.Parallel()
 	skill, _ := filepath.Abs("../../../skills/flow")
 	wt := t.TempDir()
-	dir := t.TempDir()
-	big, small := filepath.Join(dir, "big_test.go"), filepath.Join(dir, "small_test.go")
-	if err := os.WriteFile(big, []byte(strings.Repeat("x", 2*150_000)), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(small, []byte("func TestSmall(t *testing.T) {}\n"), 0o644); err != nil {
+	big := filepath.Join(t.TempDir(), "big_test.go")
+	if err := os.WriteFile(big, []byte(strings.Repeat("x", 300_000)), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	r := runGuard("build-slot-prompt", []string{skill, wt, "1", "mutation", "-diff", "/d/final-review.diff",
-		"-copies", "/w", "-tests", big + "," + small, "-panel", "primary,mutation"}, Env{})
+		"-copies", "/w", "-tests", big, "-panel", "primary,mutation"}, Env{})
 	if r.rc != 0 {
 		t.Fatalf("rc %d: %s", r.rc, r.out)
 	}
 	got, _ := os.ReadFile(filepath.Join(wt, ".superpowers/sdd/slot-prompt-1-mutation.md"))
-	s := string(got)
-	if len(s) >= 200000 {
-		t.Errorf("prompt is %d bytes, want < 200000", len(s))
-	}
-	if !strings.Contains(s, "### "+small+"\n\nRead by path") || strings.Contains(s, "func TestSmall") {
-		t.Errorf("small test not listed by path")
+	if len(got) >= 100000 || !strings.Contains(string(got), "### "+big+"\n\nRead by path.") {
+		t.Errorf("prompt is %d bytes or lacks the by-path line", len(got))
 	}
 }
