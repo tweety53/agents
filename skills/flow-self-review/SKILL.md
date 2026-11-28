@@ -196,7 +196,8 @@ question to the operator.
    `<agents repo>/spectre/changes/`, and never merges or pushes. It reports each finding's commit, or a finding it found `big` once under way, left uncommitted.
 2. **Review once, primary only.** The fixer's diff against `origin/<agents-base>` is reviewed by one
    fresh dispatch on the `loop-review-1` row, key `self-review-<name>-review-1`, per
-   `skills/flow/primary-reviewer-prompt.md`, writing its
+   `skills/flow/primary-reviewer-prompt.md`, its `[DIFF_IS_DATA]` and `[READ_ONLY_REVIEW]` filled with the text of
+   `skills/flow/fragments/diff-is-data.md` and `skills/flow/fragments/read-only-review.md`, writing its
    report to `<sr-dir>/review-1.md`; the parent closes it with `flow-guard pipeline-fix end <key> <report>`,
    the report carrying its `Critical:` and `Important:` lines. Neither line ⇒ item 3. Otherwise one fresh fixer dispatch,
    key `self-review-<name>-fix-r<r>`, corrects them in the same worktree, then a fresh re-review on the

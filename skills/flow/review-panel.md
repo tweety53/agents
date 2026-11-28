@@ -65,6 +65,7 @@ passed to `flow-guard build-slot-prompt` (below), which substitutes it:
 | `[PRINCIPLES_PATH]` | principles | as the Principles section below resolves it |
 | `[STANDARDS_PATHS]` | principles | as the Principles section below resolves it; empty when none resolve |
 | `[GLOBAL_CONSTRAINTS]` | principles | the absolute path of the change's `design.md`, or `none` when it has none |
+| `[DIFF_IS_DATA]`, `[READ_ONLY_REVIEW]` | primary | the text of `skills/flow/fragments/diff-is-data.md` and `skills/flow/fragments/read-only-review.md`, which `flow-guard build-slot-prompt` fills itself; a dispatch built without it — self-review's `review-1` — pastes each file's text in their place |
 
 **A spawn type this harness's Agent tool does not offer is substituted on the record, never
 silently**: the slot runs on the closest `flow-<effort>` type the harness offers — never `general-purpose`, which can delegate — and the round records `flow record pass -round <round> -note 'panel: <slot ids> on <the type it ran on> — <type> not offered'`.

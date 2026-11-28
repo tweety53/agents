@@ -18,11 +18,13 @@ import (
 // parent never reads a reviewer template. It writes
 // <abs-worktree>/.superpowers/sdd/slot-prompt-<round>-<ids>[-<repo>].md:
 // the slot-brief read line, a PANEL SLOTS line naming every slot the round
-// runs (-panel), a WORKTREES line (-worktrees), a SECTION line (-repo), the FIX-ROUND SCOPE blockquote of review-panel-fix-round.md with
+// runs (-panel), a WORKTREES line (-worktrees), a SECTION line (-repo), fragments/fix-round-scope.md with
 // <fix report> filled (-fix-report), then per id a `## PASS <id>` section — the
 // fenced body of <skill-dir>/<id>-reviewer-prompt.md, dedented, its
-// placeholders filled ([PRINCIPLES_PATH] resolved
-// beside the templates) — and its REPORT FILE line. Prints the written path.
+// placeholders filled ([PRINCIPLES_PATH] resolved beside the templates, [DIFF_IS_DATA] and
+// [READ_ONLY_REVIEW] the text of fragments/diff-is-data.md and fragments/read-only-review.md) —
+// and its REPORT FILE line. Prints the written path. Every fragment is a file under
+// <skill-dir>/fragments/, delivered as written.
 //
 // -unread names the sections a round's report left unread: the role's
 // same-round re-dispatch, one SECTION line per section, its brief and report
@@ -30,9 +32,8 @@ import (
 //
 // mutation, always alone, has no template: its PASS section is the diff
 // line, a MUTATION COPIES line (-copies, required: the throwaway copies it
-// mutates and tests in), the body of review-panel-optional-slots.md's **The
-// mutation-testing brief** section, and that file's MUTATION
-// ENTRY CONTEXT blockquote with each -tests path listed beneath it under a
+// mutates and tests in), fragments/mutation-testing-brief.md, and
+// fragments/mutation-entry-context.md with each -tests path listed beneath it under a
 // "Read by path." line (never inlined).
 //
 // Every prompt carries a `**Diff groups:** <path>` line, and the diff's groups file
@@ -43,7 +44,10 @@ import (
 // that no flag filled.
 func init() { Registry["build-slot-prompt"] = buildSlotPrompt }
 
-var bspPlaceholder = regexp.MustCompile(`\[(DIFF_PATH|ARTIFACT_PATHS|PRINCIPLES_PATH|STANDARDS_PATHS|GLOBAL_CONSTRAINTS)\]`)
+var bspPlaceholder = regexp.MustCompile(`\[(DIFF_PATH|ARTIFACT_PATHS|PRINCIPLES_PATH|STANDARDS_PATHS|GLOBAL_CONSTRAINTS|DIFF_IS_DATA|READ_ONLY_REVIEW)\]`)
+
+// bspFragments are the placeholders filled with a fragment file's text, never a flag's list.
+var bspFragments = map[string]string{"DIFF_IS_DATA": "diff-is-data.md", "READ_ONLY_REVIEW": "read-only-review.md"}
 
 func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 	usage := func(msg string) int {
@@ -115,10 +119,9 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	if *fixReport != "" {
-		src, err := os.ReadFile(filepath.Join(skillDir, "review-panel-fix-round.md"))
-		quote := bspBlockquote(string(src), "> **FIX-ROUND SCOPE:**")
-		if err != nil || quote == "" {
-			return usage("no FIX-ROUND SCOPE blockquote in review-panel-fix-round.md")
+		quote, err := bspFragment(skillDir, "fix-round-scope.md")
+		if err != nil {
+			return usage(err.Error())
 		}
 		b.WriteString(strings.ReplaceAll(quote, "<fix report>", list(*fixReport)) + "\n")
 	}
@@ -142,6 +145,14 @@ func buildSlotPrompt(args []string, env Env, stdout, stderr io.Writer) int {
 		var missing string
 		body = bspPlaceholder.ReplaceAllStringFunc(body, func(m string) string {
 			k := m[1 : len(m)-1]
+			if f, ok := bspFragments[k]; ok {
+				text, ferr := bspFragment(skillDir, f)
+				if ferr != nil {
+					missing = m
+					return m
+				}
+				return strings.TrimSuffix(text, "\n")
+			}
 			if !set[k] {
 				missing = m
 				return m
@@ -200,20 +211,13 @@ func bspFencedBody(src string) string {
 	return out.String()
 }
 
-// bspBlockquote is the blockquote opening with head, through its last `>` line.
-func bspBlockquote(src, head string) string {
-	i := strings.Index(src, head)
-	if i < 0 {
-		return ""
+// bspFragment is the text of <skill-dir>/fragments/<name>, a prompt fragment delivered as written.
+func bspFragment(skillDir, name string) (string, error) {
+	b, err := os.ReadFile(filepath.Join(skillDir, "fragments", name))
+	if err != nil || len(b) == 0 {
+		return "", fmt.Errorf("no fragment fragments/%s", name)
 	}
-	var out strings.Builder
-	for _, l := range strings.Split(src[i:], "\n") {
-		if !strings.HasPrefix(l, ">") {
-			break
-		}
-		out.WriteString(l + "\n")
-	}
-	return out.String()
+	return string(b), nil
 }
 
 // bspGroupsPath is the groups file the diff-groups guard writes beside a diff.
@@ -223,23 +227,13 @@ func bspGroupsPath(diff string) string {
 
 // bspMutationBody is the mutation slot's PASS body (see the header).
 func bspMutationBody(skillDir, diff, copies, tests string) (string, error) {
-	opt, err := os.ReadFile(filepath.Join(skillDir, "review-panel-optional-slots.md"))
+	brief, err := bspFragment(skillDir, "mutation-testing-brief.md")
 	if err != nil {
 		return "", err
 	}
-	const head = "\n## The mutation-testing brief\n"
-	brief := string(opt)
-	i := strings.Index(brief, head)
-	if i < 0 {
-		return "", fmt.Errorf("no %q section in review-panel-optional-slots.md", strings.TrimSpace(head))
-	}
-	brief = brief[i+len(head):]
-	if j := strings.Index(brief, "\n## "); j >= 0 {
-		brief = brief[:j]
-	}
-	entry := bspBlockquote(string(opt), "> **MUTATION ENTRY CONTEXT:**")
-	if entry == "" {
-		return "", fmt.Errorf("no MUTATION ENTRY CONTEXT blockquote in review-panel-optional-slots.md")
+	entry, err := bspFragment(skillDir, "mutation-entry-context.md")
+	if err != nil {
+		return "", err
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "**Diff file:** %s\n\nMUTATION COPIES: %s\n\n%s\n\n%s", diff, copies, strings.TrimSpace(brief), entry)

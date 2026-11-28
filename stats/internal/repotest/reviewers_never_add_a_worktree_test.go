@@ -19,27 +19,10 @@ func TestReviewersNeverAddAWorktree(t *testing.T) {
 		}
 		return string(b)
 	}
-	brief := read("skills/flow/slot-brief.md")
-	i := strings.Index(brief, "**READ-ONLY REVIEW:**")
-	if i < 0 {
-		t.Fatal("skills/flow/slot-brief.md: no READ-ONLY REVIEW block")
-	}
-	block := brief[i:]
-	if j := strings.Index(block, "\n\n"); j >= 0 {
-		block = block[:j]
-	}
-	if !strings.Contains(block, "`git worktree add`") {
+	if !strings.Contains(read("skills/flow/fragments/read-only-review.md"), "`git worktree add`") {
 		t.Errorf("READ-ONLY REVIEW does not forbid `git worktree add`")
 	}
-	panel := read("skills/flow/review-panel-optional-slots.md")
-	i = strings.Index(panel, "## The mutation-testing brief")
-	if i < 0 {
-		t.Fatal("skills/flow/review-panel-optional-slots.md: no mutation-testing brief")
-	}
-	mut := panel[i:]
-	if j := strings.Index(mut[3:], "\n## "); j >= 0 {
-		mut = mut[:j+3]
-	}
+	mut := read("skills/flow/fragments/mutation-testing-brief.md")
 	for _, want := range []string{"Never run `git worktree add`", "`git show <base>:<path>`"} {
 		if !strings.Contains(mut, want) {
 			t.Errorf("the mutation-testing brief lacks %q", want)
