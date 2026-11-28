@@ -309,8 +309,25 @@ export const hintTail = (f: Flow, count: string, t: string): string | undefined 
 const planOf = async ($: Parameters<Hook<'ui.render'>>[0], change: string | null): Promise<string> =>
   change ? $.fs.read(`${await $.session.root()}-worktrees/${change}/spectre/changes/${change}/tasks.md`).catch(() => '') : ''
 
-const landedOf = async ($: Parameters<Hook<'ui.render'>>[0], change: string | null): Promise<number[]> =>
-  change ? landedIn(argv => $.process.run(argv), `${await $.session.root()}-worktrees/${change}`) : []
+// How long one git read of the landed tasks serves the draws no event of this session prompted: the band redraws
+// each second, and each draw of the hint line and the band read it, so without it a tick spawned up to eight git
+// processes. A Bash call or a finished turn, where this session's commits land, drops the read at once.
+// ponytail: a TTL for commits made outside this session, not keyed on the worktree's refs; key on the refs' mtimes
+// if that lag matters.
+const LANDED_TTL = 5000
+
+// The last landed read, its worktree and when it was taken; a read in flight is shared by the draws that ask.
+let landedRead: { dir: string; at: number; value: Promise<number[]> } | undefined
+
+const landedOf = async ($: Parameters<Hook<'ui.render'>>[0], change: string | null): Promise<number[]> => {
+  if (!change) return []
+  const dir = `${await $.session.root()}-worktrees/${change}`
+  const now = await $.clock.now()
+  if (!landedRead || landedRead.dir !== dir || now - landedRead.at >= LANDED_TTL) {
+    landedRead = { dir, at: now, value: landedIn(argv => $.process.run(argv), dir) }
+  }
+  return landedRead.value
+}
 
 export const register: Register = on => {
   // Redraws the band each second while a subagent row runs, so its elapsed time ticks, and while the main turn runs a
@@ -377,6 +394,7 @@ export const register: Register = on => {
     } else {
       await update($, main, m => (m ? { ...m, busy: false } : m))
     }
+    landedRead = undefined
     return next(e)
   })
 
@@ -384,6 +402,7 @@ export const register: Register = on => {
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
     const result = await next(e)
     if (result.deny === undefined) {
+      landedRead = undefined
       const current = await read($, flow)
       const after = flowAfter(e.command, current)
       if (after !== current) {

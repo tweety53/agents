@@ -988,10 +988,58 @@ test('an inline run: a task ticked or landed while the main turn runs leaves the
     '  ⎿ ◻ Task 2/3 (Two) — pending',
     '  ⎿ ◻ Task 3/3 (Three) — pending',
   ])
-  // No subagent and no state write: task 1 ticked, tasks 2 and 3 landed by their Task-Id trailers.
+  // No subagent and no state write: task 1 ticked at the next tick, tasks 2 and 3 landed by their Task-Id trailers
+  // once the landed read is five seconds old.
   plan = plan.replace('- [ ] 1.', '- [x] 1.')
   log = '3\n\n2\n'
   await clock.advance(1000)
+  expect(await rows(ui)).toEqual(['⎿ opus ◼ main: sdd-tdd — in progress', '  ⎿ ◻ Task 2/3 (Two) — pending', '  ⎿ ◻ Task 3/3 (Three) — pending'])
+  await clock.advance(4000)
   expect(await rows(ui)).toEqual(['⎿ opus ◼ main: sdd-tdd — in progress'])
   await ui.unmount()
+})
+
+test('the hint line and the band share one git read per five seconds: ticks inside the window spawn no git', async ($, on) => {
+  const clock = mock.clock(on)
+  on('session.root', () => ({ value: '/u/Projects/gymie' }))
+  on('tool.call', () => ({ result: '' }))
+  on('fs.read', () => ({ value: ['# Plan', '', '- [ ] 1. One', '- [ ] 2. Two'].join('\n') }))
+  let log = ''
+  let git = 0
+  on('process.run', (_$, e) => {
+    git++
+    return { value: { exitCode: e.argv[3] === 'config' ? 1 : 0, stdout: e.argv[3] === 'log' ? log : 'c\n', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
+  on('turn.step', async function* (_$, e) {
+    return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: 'end_turn', usage: null }
+  })
+  const tails: (string | undefined)[] = []
+  on('ui.render', (r, e) => {
+    if (e.component === 'PromptHint') tails.push(e.props.tail)
+    const { Box } = r.ui.resolve(e)
+    return <Box />
+  })
+  for await (const _ of $.turn.step({ turnId: 't1', index: 0, model: 'claude-opus-5-5', messageCount: 1 })) {
+    // drain
+  }
+  await $.tool.call({ tool: 'Bash', command: mark('begin', 'sdd-tdd', 'kan-934-x') })
+  const band = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  const hint = await $.ui.mount({ plugin: 'flow-task-list', component: 'PromptHint', props: { isDraft: false, isWorking: true, hint: '' }, surface: 'terminal' })
+  // One landedIn read: branch, config, log.
+  expect(git).toBe(3)
+  log = '2\n'
+  for (let s = 1; s < 5; s++) await clock.advance(1000)
+  expect(git).toBe(3)
+  expect(tails.at(-1)).toBe('KAN-934 flow-implement 0/2')
+  await clock.advance(1000)
+  expect(git).toBe(6)
+  expect(tails.at(-1)).toBe('KAN-934 flow-implement 1/2')
+  // A Bash call, where this session's own commits land, drops the read: the next tick reads git again.
+  log = '2\n\n1\n'
+  await $.tool.call({ tool: 'Bash', command: 'git commit -m x' })
+  await clock.advance(1000)
+  expect(git).toBe(9)
+  expect(tails.at(-1)).toBe('KAN-934 flow-implement 2/2')
+  await hint.unmount()
+  await band.unmount()
 })
