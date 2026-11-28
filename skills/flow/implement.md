@@ -16,6 +16,17 @@ plan is already ready, or on a fix run at `IN_PROGRESS`.
 
 **Never** invoke `finishing-a-development-branch`. Integration is `skills/flow/integrate.md`'s job.
 
+**The phase in order.** Each step is stated in the section it names; this list only orders them.
+
+| Step | Action | Next |
+|---|---|---|
+| 1 | `flow-guard implement-change prepare` (**1. Load context and validate the plan**) | `NEXT: execute` → 2; `NEXT: review-panel` → `skills/flow/review-panel.md`; `STOP:` → its handoff |
+| 2 | Resume and record the worktrees, resolve `## apps` (**2. Isolate the workspace**) | 3 |
+| 3 | Load `fix.md` on a fix run, `visual-verify.md` on a `ui paths` match (**3. Fixing**) | 4 |
+| 4 | Launch the next wave's implementers, wait with `await-rows` (**4. Execute (SDD + TDD)**) | 5 |
+| 5 | Close each returned group with `flow-guard close-task` (**A group boundary is one `ENDED`, one Bash call and one launch message.**) | groups left → 4; else 6 |
+| 6 | Push every worktree, `flow stage end` (**Push at the stage boundary**) | `skills/flow/review-panel.md`, the test list beside its pass 1, or before it when the list carries its visual tail (**The parent runs the test list**) |
+
 ## The parent orchestrates directly
 
 Sections **1**, **2** and **4** below, `skills/flow/review-panel.md` and
@@ -375,9 +386,13 @@ group — the group holding the plan's last task — has passed the guard, by it
 runs `flow-guard run-verify-list <worktree> test` — by hand in the order `## test` lists it only where
 that exits 3 — for each worktree in this run's resolved set, one worktree after another, skipping a
 worktree the skip rule of **Inline verify** (`skills/flow/verify-and-handoff.md`) prints nothing for,
-under that section's **A command that can outrun the shell tool's foreground limit**. The green sha
+under that section's **A command that can outrun the shell tool's foreground limit**.
+
+The green sha
 each run records in its own worktree is what lets **Inline verify** skip what no later commit
-touched. The list re-runs each failing command once itself and ends with its `VERDICT:` block, the
+touched.
+
+The list re-runs each failing command once itself and ends with its `VERDICT:` block, the
 script's header canonical (THE ONE RE-RUN); the parent reads that block only: `VERDICT: PASS` goes on,
 a command its re-run passed counted passed as `flaky`; a `defect` line is fixed at its root cause by a
 fresh one-shot `full-suite-fix-<n>` (**Every fix is a fresh one-shot** below), its `FIX INPUT:` the
@@ -386,11 +401,14 @@ instead (**A test-list defect joins the round**, `skills/flow/review-panel-fix-r
 agent, `Role: general` and `Key: triage-<n>`, `<n>` counting this run's triages from 1, its prompt the
 `failing:` line and the command's `full output:` path, its answer `defect` or `environment` with the
 evidence — a `defect` is then fixed as above, an `environment` cause ends the turn as **Inline verify**
-says, once every pass-1 bundle beside it has ended. After a fix the parent re-runs only what failed — a visual `verify` row narrowed as **Narrowed
+says, once every pass-1 bundle beside it has ended.
+
+After a fix the parent re-runs only what failed — a visual `verify` row narrowed as **Narrowed
 visual re-runs** states (`skills/flow/fix-visual.md`), any other failing test by name — and re-runs the
 list once, after the last fix, when those pass; its rounds escalate as **The fix loop** (`skills/flow/fix.md`) states. The commit
 carries `-m "Flow-Key: full-suite-fix-<n>"` (**Commits outside every task**,
 `skills/flow-contracts/git-boundaries.md`).
+
 `flow-guard run-verify-list`'s `test` list ends with the project's visual check list when its own
 worktree's diff from its base branch touches a `ui paths` glob, as **The test list's visual tail**
 (`skills/flow/visual-verify.md`) states.
@@ -462,7 +480,9 @@ panel verdict is taken, and no round after pass 1 is dispatched, on a red branch
 
 **Turn discipline.** Calls that do not depend on one another share one Bash call, and launches
 that do not depend on one another share one message; a stage's `flow stage begin` rides its first
-command and its `flow stage end` its last. **A wait on children is one bounded call, never the end of the
+command and its `flow stage end` its last.
+
+**A wait on children is one bounded call, never the end of the
 turn:** every child goes out with `run_in_background: true`, so children run in parallel, and the
 parent then waits with `flow-guard await-rows <abs-worktree> <key> [<key>…]`
 — one foreground call that returns `ENDED <key> <outcome>` per key, re-issued on `WAITING` — never a
@@ -473,7 +493,9 @@ the ended key's return, and re-issues the wait on the keys still open. A child's
 meanwhile is harmless. Once a key is `ENDED`, one `test -s` settles its
 report; an absent file takes that dispatch's no-report path (**The return**), and a child still
 `running` after its report exists is stopped with `TaskStop`, its row ended by hand — its own leftover
-background shell is already killed when it stops (`flow-guard hook await-own-agents`), so this is the rare child that stalled without one. A finished
+background shell is already killed when it stops (`flow-guard hook await-own-agents`), so this is the rare child that stalled without one.
+
+A finished
 phase is never a stop: the same turn loads the next phase's file and dispatches its first step.
 
 **Read discipline.** These five rules are the run's own size
