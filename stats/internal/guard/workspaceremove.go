@@ -93,7 +93,7 @@ func workspaceRemove(args []string, env Env, stdout, stderr io.Writer) int {
 	}
 	live := wt != "" && isDir(wt)
 	if live {
-		if s, ok := capture(git("-C", wt, "status", "--porcelain")); !ok {
+		if s, ok := capture(git("-C", wt, "status", "--porcelain", "--untracked-files=all")); !ok {
 			return refused("status-unreadable", wt, "git status failed")
 		} else if s != "" {
 			return refused("dirty-worktree", wt, "uncommitted or untracked changes: %s", s)
