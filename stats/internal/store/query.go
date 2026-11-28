@@ -308,6 +308,9 @@ var stageRunOwnFieldColumns = map[string]string{
 	// session_token elsewhere.
 	"jira_key":      "sr.jira_key",
 	"session_token": "sr.session_token",
+	// request_n lets an end mark carrying a /flow-interactive request close
+	// that request's open run (internal/api's findOpenStageRun).
+	"request_n": "sr.request_n",
 	// project_key mirrors changeFieldColumns["project"] but through the
 	// stage run's own column, COALESCE'd with the owning change's --
 	// changeFieldColumns["project"] cannot be changed to do this itself,

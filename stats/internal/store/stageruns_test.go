@@ -402,6 +402,45 @@ func TestBeginStageSupersedesAnEarlierOpenRunOfTheSameSession(t *testing.T) {
 	}
 }
 
+// TestBeginStageSupersedesOnlyItsOwnRequestsRuns pins that a begin closes
+// a still-open run of its own session only when both carry the same
+// /flow-interactive request: two executors in one stage for different
+// requests never close each other's runs, while a second begin for the same
+// request still supersedes.
+func TestBeginStageSupersedesOnlyItsOwnRequestsRuns(t *testing.T) {
+	t.Parallel()
+	st := newTestStore(t)
+	ctx := context.Background()
+	projectKey := fmt.Sprintf("proj-supersede-request-%d", time.Now().UnixNano())
+	seedChange(t, st, projectKey, "kan-1")
+
+	begin := func(n int, at time.Time) store.StageRun {
+		t.Helper()
+		in := baseBeginInput(projectKey, "kan-1", "/flow-interactive", "flow.implement")
+		in.SessionToken = ptr("mf-shared-token")
+		in.RequestN = ptr(n)
+		in.StartedAt = at
+		run, err := st.BeginStage(ctx, in)
+		if err != nil {
+			t.Fatalf("BeginStage (request %d): %v", n, err)
+		}
+		return run
+	}
+	at := time.Date(2026, 11, 28, 12, 0, 0, 0, time.UTC)
+	first := begin(137, at)
+	second := begin(138, at.Add(time.Minute))
+	if len(second.SupersededRuns) != 0 {
+		t.Fatalf("request 138's begin superseded %v, want nothing (request 137's run is another request's)", second.SupersededRuns)
+	}
+	if got, err := st.GetStageRun(ctx, first.ID); err != nil || got.EndedAt != nil {
+		t.Fatalf("request 137's run after request 138's begin: EndedAt=%v err=%v, want still open", got.EndedAt, err)
+	}
+	again := begin(137, at.Add(2*time.Minute))
+	if len(again.SupersededRuns) != 1 || again.SupersededRuns[0].ID != first.ID {
+		t.Fatalf("request 137's second begin superseded %v, want only its own earlier run %d", again.SupersededRuns, first.ID)
+	}
+}
+
 // TestBeginStageLeavesAnOpenRunThatStartedLaterAlone is
 // design.md's supersede-guarded-on-start-order decision: a journalled
 // begin mark replayed later carries its original, older start instant,

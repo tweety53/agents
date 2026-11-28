@@ -185,6 +185,10 @@ func stageRunMatchesFilters(r stageRunRecord, filters []store.Filter) bool {
 			if r.run.SessionToken == nil || *r.run.SessionToken != f.Value {
 				return false
 			}
+		case "request_n":
+			if r.run.RequestN == nil || *r.run.RequestN != f.Value {
+				return false
+			}
 		case "ended_at":
 			switch f.Op {
 			case store.OpNull:
@@ -679,6 +683,39 @@ func TestStageEndClosesTheRunCarryingItsToken(t *testing.T) {
 	end("cc-s-unknown", "failed")
 	if runB.EndedAt == nil || *runB.Outcome != "failed" || *runA.Outcome != "completed" {
 		t.Fatalf("unmatched token: A %v, B %v; want B closed failed by the fallback, A still completed", runA.Outcome, runB.Outcome)
+	}
+}
+
+// TestStageEndWithARequestClosesThatRequestsRun pins that an end carrying a
+// request closes the open run of that request even when another request's
+// run, begun later under the same token, is open in the same stage.
+func TestStageEndWithARequestClosesThatRequestsRun(t *testing.T) {
+	t.Parallel()
+	fs := newFakeStore()
+	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
+	srv := newStageTestServer(t, fs)
+	defer srv.Close()
+
+	for i, n := range []int{137, 138} {
+		begin := map[string]any{
+			"projectKey": "proj", "changeName": "chg", "harness": "claude-code",
+			"command": "/flow-interactive", "stage": "flow.implement",
+			"startedAt": fmt.Sprintf("2026-11-28T12:0%d:00Z", i), "sessionToken": "cc-s-main", "request": n,
+		}
+		if resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", begin); resp.StatusCode != http.StatusOK {
+			t.Fatalf("begin %d: status = %d; body: %s", n, resp.StatusCode, body)
+		}
+	}
+	req := map[string]any{
+		"projectKey": "proj", "changeName": "chg", "command": "/flow-interactive", "stage": "flow.implement",
+		"endedAt": "2026-11-28T12:05:00Z", "outcome": "completed", "sessionToken": "cc-s-main", "request": 137,
+	}
+	if resp, body := postJSON(t, srv.URL+"/api/v1/stages/end", req); resp.StatusCode != http.StatusOK {
+		t.Fatalf("end: status = %d; body: %s", resp.StatusCode, body)
+	}
+	run137, run138 := &fs.stageRuns[0].run, &fs.stageRuns[1].run
+	if run137.EndedAt == nil || run138.EndedAt != nil {
+		t.Fatalf("end -request 137: 137 ended %v, 138 ended %v; want 137 closed, 138 open", run137.EndedAt, run138.EndedAt)
 	}
 }
 

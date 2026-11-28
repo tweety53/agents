@@ -193,7 +193,7 @@ type BeginStageInput struct {
 // number for the (change, command, stage) triple, so that a fix re-run is
 // recorded as a new attempt rather than overwriting the one before it. It
 // also closes every still-open run sharing this call's own session token
-// that started no later than the new one, recording that run's outcome as
+// and request that started no later than the new one, recording that run's outcome as
 // "superseded" -- the only caller-visible surface of design.md's
 // begin-supersedes-open-runs decision; insertStageRunAndSupersede's own
 // doc comment carries the reasoning for why and how, not repeated here.
@@ -286,7 +286,11 @@ func (s *Store) BeginStage(ctx context.Context, in BeginStageInput) (StageRun, e
 // exactly the marks that need this rule. As with the insert's own
 // subquery above, a NULL session_token matches no row through SQL's `=`,
 // so a run recorded without one is never touched, and a begin mark
-// carrying no token closes nothing either.
+// carrying no token closes nothing either. A run of the session's token is
+// closed only when it carries this begin's own /flow-interactive request, or
+// both carry none: two executors in flight on one change work different
+// requests, and one's begin is no proof the other's stage is over. The
+// change's auto-opened placeholder is closed whatever its request.
 //
 // ended_at is set to this run's own started_at, not now(): it is the
 // truthful boundary (the superseded stage ended no later than the moment
@@ -422,12 +426,12 @@ func (s *Store) insertStageRunAndSupersede(ctx context.Context, in BeginStageInp
 	rows, err := tx.Query(ctx, `
 		UPDATE stage_runs
 		SET ended_at = $2, outcome = 'superseded'
-		WHERE (session_token = $1 OR (auto_opened AND change_id = $4))
+		WHERE ((session_token = $1 AND request_n IS NOT DISTINCT FROM $5) OR (auto_opened AND change_id = $4))
 		  AND ended_at IS NULL
 		  AND id <> $3
 		  AND started_at <= $2
 		RETURNING id, command, stage, attempt
-	`, in.SessionToken, run.StartedAt, run.ID, run.ChangeID)
+	`, in.SessionToken, run.StartedAt, run.ID, run.ChangeID, in.RequestN)
 	if err != nil {
 		return StageRun{}, err
 	}

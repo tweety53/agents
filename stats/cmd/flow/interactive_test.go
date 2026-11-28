@@ -139,8 +139,8 @@ func TestInteractiveLand(t *testing.T) {
 		if p[0].body["stage"] != "flow.land" || p[0].body["request"] != float64(3) {
 			t.Errorf("begin = %v, want flow.land carrying request 3", p[0].body)
 		}
-		if p[1].body["outcome"] != "completed" {
-			t.Errorf("end = %v, want completed", p[1].body)
+		if p[1].body["outcome"] != "completed" || p[1].body["request"] != float64(3) {
+			t.Errorf("end = %v, want completed carrying request 3", p[1].body)
 		}
 	})
 	t.Run("dirty", func(t *testing.T) {

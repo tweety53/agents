@@ -338,7 +338,8 @@ change's worktree carries no `-change`: the CLI reads the change off that checko
 **The session token is the calling agent's, and inferred.** A `flow stage` or `flow record` call,
 and a `flow-guard` call that marks or records, carries no `-session-token`: the CLI uses
 `cc-<harness session id>-<agent id>`, `main` on the main thread. Subagents share their parent's
-harness session id, and the store supersedes a token's open run on its next begin, so the agent id
+harness session id, and the store supersedes a token's open run of the same `-request` (or of none,
+when the begin carries none) on its next begin, so the agent id
 is what keeps a subagent's mark from closing its parent's run: the block-unsafe-commands hook adds
 `-caller-agent <agent id>` to a subagent's `flow` and `flow-guard` calls
 (`stats/internal/caller/caller.go`). A call the hook cannot see as one — inside `bash -c` or a
@@ -346,7 +347,9 @@ quoted string — runs under the main thread's token, so a mark or record is alw
 top-level call. A harness with no session id passes `-session-token <literal>`; an explicit token
 always wins. A `flow stage end` closes the open run of its command, stage and change begun under
 the caller's inferred token, so two agents inside the same stage each close their own; with no
-inferred token, or none of its runs open, it closes that stage's highest open attempt.
+inferred token, or none of its runs open, it closes that stage's highest open attempt. An end given
+`-request <n>` looks only among request `<n>`'s runs, so two requests in the same stage never close
+each other's.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.plan <name>

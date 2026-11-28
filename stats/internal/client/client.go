@@ -444,6 +444,9 @@ type EndStageRequest struct {
 	// SessionToken, when set, makes the daemon close the open run begun
 	// under it before falling back to the highest open attempt.
 	SessionToken string
+	// Request, when set, makes the daemon close only that
+	// /flow-interactive request's open run.
+	Request *int
 }
 
 type beginStageWireRequest struct {
@@ -481,6 +484,7 @@ type endStageWireRequest struct {
 	// SessionToken is omitted when empty, so a no-token end reads exactly
 	// as before.
 	SessionToken string `json:"sessionToken,omitempty"`
+	Request      *int   `json:"request,omitempty"`
 }
 
 // ErrUndocumentedStage means the store was reached and correctly refused
@@ -610,6 +614,7 @@ func (c *Client) EndStage(ctx context.Context, in EndStageRequest) (BeginStageRe
 		Metrics:      in.Metrics,
 		JiraKey:      in.JiraKey,
 		SessionToken: in.SessionToken,
+		Request:      in.Request,
 	}
 	respBody, status, err := c.sendJSON(ctx, http.MethodPost, c.stagesEndURL(), wire)
 	if err != nil {

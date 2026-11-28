@@ -139,8 +139,8 @@ func runInteractiveLand(ctx context.Context, args []string, getenv func(string) 
 		return refuse("HEAD %s is not the commit a green lint list stamped (flow-lint-green holds %q) — run flow-guard run-verify-list %s lint (step 4), then land again", head, lintGreenAt(*wt), *wt)
 	}
 
-	conn := []string{"-addr", addr, "-timeout", timeout.String(), "-C", *wt, "-command", "/flow-interactive", "-stage", "flow.land"}
-	begin := append(append([]string{}, conn...), "-request", strconv.Itoa(*n))
+	conn := []string{"-addr", addr, "-timeout", timeout.String(), "-C", *wt, "-command", "/flow-interactive", "-stage", "flow.land", "-request", strconv.Itoa(*n)}
+	begin := append([]string{}, conn...)
 	if *harness != "" {
 		begin = append(begin, "-harness", *harness)
 	}

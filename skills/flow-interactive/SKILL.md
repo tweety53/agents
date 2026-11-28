@@ -49,10 +49,10 @@ key list, in the order each section below marks them:
 | **One request** | `flow.plan`, `flow.implement`, `flow.verify`, `flow.land` |
 | **Explicit stop** | `flow.self-review`, `flow.cleanup` |
 
-Every **One request** stage is a `flow stage begin … -request <n>` / `flow stage end` pair; the
-stop's stages carry no `-request`. Each executor makes its request's pairs from that request's
-worktree, and an end closes the open run its own caller began, so executors in flight together
-never close each other's runs.
+Every **One request** stage is a `flow stage begin … -request <n>` / `flow stage end … -request <n>`
+pair; the stop's stages carry no `-request`. Each executor makes its request's pairs from that
+request's worktree; a begin supersedes and an end closes only its own request's run, so executors
+in flight together never close each other's runs.
 
 ## Session start
 
@@ -149,7 +149,7 @@ itself, the log — then the code. Never answer from code alone.
 
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.plan -request <n> <name>
-flow stage end   -command '/flow-interactive' -stage flow.plan -outcome completed <name>
+flow stage end   -command '/flow-interactive' -stage flow.plan -request <n> -outcome completed <name>
 ```
 
 **Big requests.** Once looked at, judge the request's size. It is big when it would not land as
@@ -175,7 +175,7 @@ ask the operator through **AskUserQuestion**, per **Unanswered mid-run asks**
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.plan -request <n> <name>
 flow record request begin -change <name> -n <n> -brainstorm-reason '<why>'
-flow stage end   -command '/flow-interactive' -stage flow.plan -outcome completed <name>
+flow stage end   -command '/flow-interactive' -stage flow.plan -request <n> -outcome completed <name>
 ```
 
 **3. Execute.** A request that changes code is executed by **one fresh subagent**, never by the
@@ -242,7 +242,7 @@ under the **fix ledger** (**The fix ledger**, `skills/flow/fix.md`): `flow-guard
 
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.implement -request <n> <name>
-flow stage end   -command '/flow-interactive' -stage flow.implement -outcome completed <name>
+flow stage end   -command '/flow-interactive' -stage flow.implement -request <n> -outcome completed <name>
 ```
 
 **4. Verify** (the subagent runs it itself).
@@ -260,7 +260,7 @@ request's last commit.
 
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> <name>
-flow stage end   -command '/flow-interactive' -stage flow.verify -outcome completed <name>
+flow stage end   -command '/flow-interactive' -stage flow.verify -request <n> -outcome completed <name>
 ```
 
 **5. Land** (under the landing grant). One call lands the request and marks `flow.land` around its
@@ -296,7 +296,7 @@ never chained to its begin. The order is fixed: the stage's begin is made first,
 
 ```bash
 flow stage begin -command '/flow-interactive' -stage flow.verify -request <n> <name>
-flow stage end   -command '/flow-interactive' -stage flow.verify -outcome completed|failed [-screenshot <path>] [-reason '<the defect, one line>'] <name>
+flow stage end   -command '/flow-interactive' -stage flow.verify -request <n> -outcome completed|failed [-screenshot <path>] [-reason '<the defect, one line>'] <name>
 ```
 
 **8. End** (the coordinator, on the subagent's report: Verdict, the last landed sha, the base sha, the

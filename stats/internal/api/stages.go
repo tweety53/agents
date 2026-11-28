@@ -94,6 +94,9 @@ type stageEndRequest struct {
 	// SessionToken is the ending caller's token: the open run begun under
 	// it is the one closed (findOpenStageRun).
 	SessionToken string `json:"sessionToken,omitempty"`
+	// Request, when set, limits the close to that /flow-interactive
+	// request's open run (findOpenStageRun).
+	Request *int `json:"request,omitempty"`
 }
 
 // stageRunResponse is the wire shape both endpoints answer with on
@@ -185,6 +188,9 @@ type EndStageMark struct {
 	// SessionToken, when set, picks the open run begun under it
 	// (findOpenStageRun).
 	SessionToken string
+	// Request, when set, limits the close to that request's open run
+	// (findOpenStageRun).
+	Request *int
 }
 
 // harvestedHarnesses is the set of harness values whose sessions write a
@@ -581,6 +587,7 @@ func (h *stageHandler) end(w http.ResponseWriter, r *http.Request) {
 		Metrics:      req.Metrics,
 		JiraKey:      req.JiraKey,
 		SessionToken: req.SessionToken,
+		Request:      req.Request,
 	})
 	if err != nil {
 		var unknownStage *stages.ErrUnknownStage
@@ -680,7 +687,7 @@ func ApplyEndStageMark(ctx context.Context, ss StageStore, mark EndStageMark) (S
 	if mark.ChangeName == "" && mark.JiraKey != "" {
 		openRun, err = findOpenPlanSession(ctx, ss, mark.ProjectKey, mark.JiraKey, mark.Command, mark.Stage)
 	} else {
-		openRun, err = findOpenStageRun(ctx, ss, mark.ProjectKey, mark.ChangeName, mark.Command, mark.Stage, mark.SessionToken)
+		openRun, err = findOpenStageRun(ctx, ss, mark.ProjectKey, mark.ChangeName, mark.Command, mark.Stage, mark.SessionToken, mark.Request)
 	}
 	if err != nil {
 		return StageMarkResult{}, err
@@ -825,13 +832,20 @@ func withTokensUnavailable(metrics json.RawMessage) (json.RawMessage, error) {
 // token first; with no token, or none of its runs open (a journal replay, a
 // caller whose begin carried an explicit -session-token), it falls back to
 // the highest open attempt, as above.
-func findOpenStageRun(ctx context.Context, ss StageStore, projectKey, changeName, command, stage, sessionToken string) (*store.StageRun, error) {
+//
+// A non-nil request narrows every one of those lookups to that
+// /flow-interactive request's runs, so two executors sharing one token never
+// close each other's run; with none of its runs open, nothing is closed.
+func findOpenStageRun(ctx context.Context, ss StageStore, projectKey, changeName, command, stage, sessionToken string, request *int) (*store.StageRun, error) {
 	filters := []store.Filter{
 		{Field: "project", Op: store.OpEq, Value: projectKey},
 		{Field: "name", Op: store.OpEq, Value: changeName},
 		{Field: "command", Op: store.OpEq, Value: command},
 		{Field: "stage", Op: store.OpEq, Value: stage},
 		{Field: "ended_at", Op: store.OpNull},
+	}
+	if request != nil {
+		filters = append(filters, store.Filter{Field: "request_n", Op: store.OpEq, Value: *request})
 	}
 	if sessionToken != "" {
 		run, err := highestOpenRun(ctx, ss, append(filters, store.Filter{Field: "session_token", Op: store.OpEq, Value: sessionToken}))

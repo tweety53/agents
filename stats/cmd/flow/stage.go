@@ -38,7 +38,7 @@ const defaultHarness = "unknown"
 
 const stageUsage = `usage: flow stage begin [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id] [-request n]
                           -command cmd -stage key [-session-token token] [<change> | -change name | -jira-key KEY]
-       flow stage end [-addr url] [-timeout dur] [-C dir]
+       flow stage end [-addr url] [-timeout dur] [-C dir] [-request n]
                         -command cmd -stage key -outcome outcome
                         [-fix-rounds n] [-panel-rounds n] [-findings json] [-reason line] [-screenshot path] [<change> | -change name | -jira-key KEY]
        flow stage wrap [-addr url] [-timeout dur] [-C dir] [-harness name] [-session id]
@@ -62,7 +62,9 @@ stage keys prints every documented stage key, one per line, from this
 checkout's own internal/stages table -- the vocabulary's one served source.
 
 -request tags a begin with the /flow-interactive request it works on: a
-positive integer, refused (exit 2) with any other -command.
+positive integer, refused (exit 2) with any other -command. A begin closes
+its session's still-open runs of the same request only. On an end, -request
+closes that request's open run only.
 
 -jira-key records a /flow-plan session against its Jira key before the change
 exists; it replaces the <change> argument and is accepted for the plan.session
@@ -387,19 +389,10 @@ func runStageBegin(ctx context.Context, args []string, getenv func(string) strin
 		stageErr(stderr, "begin", err)
 		return 2
 	}
-	var request *int
-	requestGiven := false
-	fset.Visit(func(fl *flag.Flag) { requestGiven = requestGiven || fl.Name == "request" })
-	if requestGiven {
-		if f.command != string(stages.FlowInteractive) {
-			stageErr(stderr, "begin", fmt.Errorf("-request is only valid with -command %s, not %s", stages.FlowInteractive, f.command))
-			return 2
-		}
-		if *requestFlag <= 0 {
-			stageErr(stderr, "begin", fmt.Errorf("-request must be a positive integer, got %d", *requestFlag))
-			return 2
-		}
-		request = requestFlag
+	request, err := requestFromFlag(fset, f.command, *requestFlag)
+	if err != nil {
+		stageErr(stderr, "begin", err)
+		return 2
 	}
 	if *sessionTokenFlag == "" {
 		*sessionTokenFlag = defaultSessionToken(f, getenv)
@@ -466,6 +459,24 @@ func runStageBegin(ctx context.Context, args []string, getenv func(string) strin
 		journalStageMark(projectKey, journalName(f), "begin", req, stderr, getenv)
 		return 0
 	}
+}
+
+// requestFromFlag is the -request a begin or end was given: nil when absent,
+// an error when given with a command other than /flow-interactive or as a
+// non-positive number.
+func requestFromFlag(fset *flag.FlagSet, command string, n int) (*int, error) {
+	given := false
+	fset.Visit(func(fl *flag.Flag) { given = given || fl.Name == "request" })
+	if !given {
+		return nil, nil
+	}
+	if command != string(stages.FlowInteractive) {
+		return nil, fmt.Errorf("-request is only valid with -command %s, not %s", stages.FlowInteractive, command)
+	}
+	if n <= 0 {
+		return nil, fmt.Errorf("-request must be a positive integer, got %d", n)
+	}
+	return &n, nil
 }
 
 // journalName returns the name a stage mark's journal path is keyed by:
@@ -535,6 +546,7 @@ func runStageEnd(ctx context.Context, args []string, getenv func(string) string,
 	findings := fset.String("findings", "", "metrics.findings_by_severity, as a JSON object")
 	reason := fset.String("reason", "", "metrics.reason, why the stage ended as it did -- one line, for a failed outcome")
 	screenshot := fset.String("screenshot", "", "metrics.screenshot, the screenshot a UI check read -- an existing file, recorded as its absolute path")
+	requestFlag := fset.Int("request", 0, "close only this /flow-interactive request's open run, a positive integer (only with -command /flow-interactive)")
 	pos, err := parseInterspersed(fset, args)
 	if err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -551,6 +563,11 @@ func runStageEnd(ctx context.Context, args []string, getenv func(string) string,
 	}
 	if *outcome == "" {
 		stageErr(stderr, "end", errors.New("-outcome is required"))
+		return 2
+	}
+	request, err := requestFromFlag(fset, f.command, *requestFlag)
+	if err != nil {
+		stageErr(stderr, "end", err)
 		return 2
 	}
 
@@ -603,6 +620,7 @@ func runStageEnd(ctx context.Context, args []string, getenv func(string) string,
 		// store closes this caller's run and not another session's in the
 		// same stage; empty outside a harness session.
 		SessionToken: caller.Token(getenv),
+		Request:      request,
 	}
 
 	_, endErr := endStage(ctx, f.addr, f.timeout, req)

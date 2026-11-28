@@ -597,6 +597,7 @@ func (r *Reconciler) applyStageMarkEntry(ctx context.Context, e fallback.Entry) 
 			Metrics:      req.Metrics,
 			JiraKey:      req.JiraKey,
 			SessionToken: req.SessionToken,
+			Request:      req.Request,
 		})
 		return err
 	default:
