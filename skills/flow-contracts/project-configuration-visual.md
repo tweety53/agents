@@ -67,6 +67,11 @@ frame's px (the `a` box `top` its matrix file carries):
 - `# owns task-<id> <frame id> <top>-<bottom>` — the rows of that frame plan task `<id>` builds;
   a frame no `owns` line names for a task is the task's whole.
 
+A row `measure` cannot measure — its frame or capture box an empty rect, such as a row laid out
+past the bottom of a short box — is listed as `unmeasurable` with the reason `empty rect`, and is
+never a pass: it counts toward the flagged total `check-ui-task-measured` refuses, and no sidecar
+line sets it aside.
+
 With `mockup frame` declared, the composite `flow.verify` writes is three panels — the
 captured frame, the cropped mockup, and a difference panel white wherever any channel differs —
 and the stage prints one `<composite path> diff=<ratio>` line per pair, the ratio being the share

@@ -646,6 +646,34 @@ func TestVisualVerifyPassMeasureScopesToOwnedRows(t *testing.T) {
 	}
 }
 
+// TestVisualVerifyPassMeasureNamesUnmeasurableRows: a matrix row whose frame
+// or capture box is an empty rect — zero width or height, as for a row laid
+// out past the bottom of a short box — is listed as `unmeasurable` with the
+// reason `empty rect` and named on the frame line, never read as clean.
+func TestVisualVerifyPassMeasureNamesUnmeasurableRows(t *testing.T) {
+	t.Parallel()
+	box := func(w, h float64) map[string]any { return map[string]any{"top": 10.0, "width": w, "height": h} }
+	matrix := []map[string]any{
+		{"status": "paired", "a": box(20, 8), "b": box(20, 8)},
+		{"status": "paired", "a": box(20, 8), "b": box(20, 0)},
+		{"status": "missing", "a": box(0, 8), "b": nil},
+	}
+	got := vvmUnmeasurable(matrix)
+	if len(got) != 2 {
+		t.Fatalf("unmeasurable %+v, want rows 2 and 3", got)
+	}
+	for i, want := range []float64{2, 3} {
+		r, _ := got[i].(map[string]any)
+		if r["row"] != want || r["reason"] != "empty rect" {
+			t.Fatalf("unmeasurable[%d] = %+v, want row %v reason empty rect", i, r, want)
+		}
+	}
+	line := vvmFrameLine(vvmPair{Frame: "frame-a", Unmeasurable: got})
+	if !strings.Contains(line, "— unmeasurable: #2, #3") {
+		t.Fatalf("frame line does not name the unmeasurable rows: %q", line)
+	}
+}
+
 // TestVisualVerifyPassMeasureTakesNoFrames: a pass is one verifier, so
 // measure takes no frame slice and refuses --frames as an unknown argument.
 func TestVisualVerifyPassMeasureTakesNoFrames(t *testing.T) {

@@ -38,7 +38,7 @@ import (
 //   - carry no flagged band, seam or `over` row and no failed compose, after
 //     the declared tolerance, the whole-frame shift fold and the sidecar's
 //     `# departure` and `# owns` lines, which set rows aside as `departures`
-//     and `not_owned`.
+//     and `not_owned`; an `unmeasurable` row counts as flagged.
 //
 // A UI task is not measured per task when a LATER task of the plan lists a
 // `*.mockups` capture-spec sidecar in its **Files:** — no capture spec exists
@@ -182,7 +182,7 @@ func utmJudge(env Env, worktrees []string, name, taskID string) (id, msg string)
 	}
 	var flagged []string
 	for _, p := range m.Pairs {
-		n := len(p.Bands) + len(p.Seams) + len(p.Over)
+		n := len(p.Bands) + len(p.Seams) + len(p.Over) + len(p.Unmeasurable)
 		if p.Exits.Compose == nil || *p.Exits.Compose != 0 {
 			n++
 		}

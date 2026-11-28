@@ -46,6 +46,9 @@ type vvmPair struct {
 	Shift      *vvmShift         `json:"shift,omitempty"`
 	Departures []any             `json:"departures,omitempty"` // flagged entries a sidecar `# departure` span declares: reported, never flagged
 	NotOwned   []any             `json:"not_owned,omitempty"`  // flagged entries outside every `# owns` span of this key: reported, never flagged
+	// Matrix rows whose frame or capture box is an empty rect: not measured, so
+	// never a pass — check-ui-task-measured counts them toward the flagged total.
+	Unmeasurable []any `json:"unmeasurable,omitempty"`
 }
 
 // vvmShift is one whole-frame offset, found one of two ways. `--props matrix`
@@ -276,6 +279,7 @@ func (v *vvp) measure(args []string) {
 		}
 		if parsed {
 			vvmSetAside(&p, mx.Matrix, body, key)
+			p.Unmeasurable = vvmUnmeasurable(mx.Matrix)
 		}
 		v.say("%s", vvmFrameLine(p))
 		m.Pairs = append(m.Pairs, p)
@@ -412,10 +416,10 @@ func vvmFrameLine(p vvmPair) string {
 	for _, l := range []struct {
 		name string
 		rows []any
-	}{{"departure", p.Departures}, {"not-owned", p.NotOwned}} {
+	}{{"departure", p.Departures}, {"not-owned", p.NotOwned}, {"unmeasurable", p.Unmeasurable}} {
 		var ns []string
 		for _, o := range l.rows {
-			if r, _ := o.(map[string]any); r["list"] == "over" {
+			if r, _ := o.(map[string]any); r["list"] == "over" || l.name == "unmeasurable" {
 				ns = append(ns, "#"+strconv.FormatFloat(r["row"].(float64), 'f', -1, 64))
 			}
 		}
@@ -504,6 +508,26 @@ func vvmSetAside(p *vvmPair, matrix []map[string]any, sidecar []byte, key string
 		}
 		return nil
 	})
+}
+
+// vvmUnmeasurable is one `{row, reason: "empty rect"}` entry (row 1-based) per
+// matrix row whose `a` or `b` box has a zero or negative width or height — a
+// row laid out past the bottom of a short box measures as nothing, and nothing
+// is not a match.
+func vvmUnmeasurable(matrix []map[string]any) []any {
+	var out []any
+	for i, r := range matrix {
+		for _, side := range []string{"a", "b"} {
+			box, _ := r[side].(map[string]any)
+			w, okW := box["width"].(float64)
+			h, okH := box["height"].(float64)
+			if okW && w <= 0 || okH && h <= 0 {
+				out = append(out, map[string]any{"row": float64(i + 1), "reason": "empty rect"})
+				break
+			}
+		}
+	}
+	return out
 }
 
 // vvmTop is an entry's frame-side top, else its capture-side one.

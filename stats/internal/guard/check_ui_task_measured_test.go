@@ -39,6 +39,9 @@ func TestCloseTaskRefusesAnUnmeasuredUITask(t *testing.T) {
 	refused("a record older than the last commit", "older than the task's last source commit")
 	writeFile(t, record, `{"pairs":[{"frame":"frame-a","exits":{"compose":0},"over":[{"row":3}]}]}`)
 	refused("a record with a flagged row", "flagged rows remain (frame-a 1)")
+	// An unmeasurable row is not a pass: it counts toward the flagged total.
+	writeFile(t, record, `{"pairs":[{"frame":"frame-a","exits":{"compose":0},"unmeasurable":[{"row":4,"reason":"empty rect"}]}]}`)
+	refused("a record with an unmeasurable row", "flagged rows remain (frame-a 1)")
 
 	// The task that touches no `ui paths` file closes with no record at all.
 	if r := fx.run(fx.wt, "demo", fx.base, "2:"+s2); r.rc != 0 {

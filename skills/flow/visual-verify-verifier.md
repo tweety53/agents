@@ -209,6 +209,8 @@ reported BLOCKED, naming it.
    gives another form — is reported as declared, citing the declaration, never as a departure.
    A row the `frame:` line names under `departure:` is one the sidecar declares, its `cause` in the
    manifest; it is reported as declared, citing that line, and never judged again.
+   A row the `frame:` line names under `unmeasurable:` was not measured; it is judged from the
+   composite by eye, never reported as matching on the numbers.
 
    **Enumerate every mockup frame the change touches into an explicit checklist before starting
    the sweep, and account for each one by name at handoff — done, or why not.** "Did a
