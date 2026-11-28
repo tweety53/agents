@@ -142,7 +142,7 @@ func seedOnce() {
 		seeded.err = fmt.Errorf("seed pricing: %w", err)
 		return
 	}
-	if err := seedFixture(ctx, st); err != nil {
+	if err := seedFixture(ctx, st, seeded.dsn); err != nil {
 		seeded.err = fmt.Errorf("seedFixture: %w", err)
 	}
 }
@@ -688,5 +688,27 @@ func TestSeedRunCostsFixture(t *testing.T) {
 	}
 	if dq["superseded-stage-runs"] == 0 || dq["no-tokens"] == 0 {
 		t.Errorf("data quality = %v, want a superseded stage run and a no-tokens row", dq)
+	}
+}
+
+// TestSeedDatesSelfReviewFindingsInJanuary2025 proves the self-review
+// pair's findings carry their changes' own January 2025 dates, not the
+// database's now() at seed time.
+func TestSeedDatesSelfReviewFindingsInJanuary2025(t *testing.T) {
+	t.Parallel()
+	st := seededStore(t)
+	for _, change := range []string{"kan-120-main-before", "kan-121-main-after"} {
+		got, err := st.ListSelfReviewFindings(t.Context(), "uitest-alpha", change)
+		if err != nil {
+			t.Fatalf("list self-review findings for %s: %v", change, err)
+		}
+		if len(got) == 0 {
+			t.Fatalf("%s: no self-review findings seeded", change)
+		}
+		for _, f := range got {
+			if y, m := f.RecordedAt.UTC().Year(), f.RecordedAt.UTC().Month(); y != 2025 || m != time.January {
+				t.Fatalf("%s finding %d: recorded_at %s, want January 2025", change, f.ID, f.RecordedAt)
+			}
+		}
 	}
 }

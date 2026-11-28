@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/tweety53/agents/stats/internal/records"
 	"github.com/tweety53/agents/stats/internal/stages"
 	"github.com/tweety53/agents/stats/internal/store"
@@ -472,7 +474,7 @@ func mainTokens(input, output float64) map[string]any {
 // that changes a column stops this compiling instead of loading data into
 // a shape the views render wrongly (spec's own "written against the
 // application's own persistence types").
-func seedFixture(ctx context.Context, st *store.Store) error {
+func seedFixture(ctx context.Context, st *store.Store, dsn string) error {
 	for _, project := range fixtureData() {
 		for _, change := range project.Changes {
 			updatedAt := change.UpdatedAt
@@ -578,7 +580,7 @@ func seedFixture(ctx context.Context, st *store.Store) error {
 	if err := seedReviewDynamics(ctx, st); err != nil {
 		return err
 	}
-	if err := seedSelfReviewPair(ctx, st); err != nil {
+	if err := seedSelfReviewPair(ctx, st, dsn); err != nil {
 		return err
 	}
 	if err := seedExplorerDispatches(ctx, st); err != nil {
@@ -859,9 +861,17 @@ func seedExplorerDispatches(ctx context.Context, st *store.Store) error {
 // long before every spec's pinned period, so no other capture's figures
 // move: one on opus, one on sonnet at low effort, each with a
 // flow.self-review run and graded self-review findings, which the
-// Self-review view's finding table and its period controls read.
-func seedSelfReviewPair(ctx context.Context, st *store.Store) error {
+// Self-review view reads. RecordSelfReviewFinding stamps the database's
+// now(), so each finding's recorded_at is set to its change's own January
+// 2025 date after insert, over a connection of the seeder's own rather
+// than a store API production has no use for.
+func seedSelfReviewPair(ctx context.Context, st *store.Store, dsn string) error {
 	const project = "uitest-alpha"
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		return fmt.Errorf("uitest-seed: open pool for self-review dates: %w", err)
+	}
+	defer pool.Close()
 	start := time.Date(2025, 1, 13, 9, 0, 0, 0, time.UTC)
 	for _, c := range []struct {
 		name, model, effort string
@@ -898,8 +908,12 @@ func seedSelfReviewPair(ctx context.Context, st *store.Store) error {
 		}
 		for _, f := range c.findings {
 			f.Change = c.name
-			if _, err := st.RecordSelfReviewFinding(ctx, project, f); err != nil {
+			got, err := st.RecordSelfReviewFinding(ctx, project, f)
+			if err != nil {
 				return fmt.Errorf("uitest-seed: record self-review finding for %s: %w", c.name, err)
+			}
+			if _, err := pool.Exec(ctx, `UPDATE self_review_findings SET recorded_at = $1 WHERE id = $2`, c.at.Add(20*time.Minute), got.ID); err != nil {
+				return fmt.Errorf("uitest-seed: date self-review finding for %s: %w", c.name, err)
 			}
 		}
 	}

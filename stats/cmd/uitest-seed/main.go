@@ -67,7 +67,7 @@ func run(logger *slog.Logger) error {
 		return fmt.Errorf("uitest-seed: run migrations: %w", err)
 	}
 
-	if err := seedFixture(ctx, st); err != nil {
+	if err := seedFixture(ctx, st, cfg.DSN); err != nil {
 		return err
 	}
 
