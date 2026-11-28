@@ -176,10 +176,9 @@ the key shape **Resolution (how `jiraIssue` is decided)** scans for.
 
 Every project key a `## jira` section names is validated before use:
 
-**Every key that reaches the clause matches `[A-Z]{2,10}` in its entirety, or it does not reach
-it.** An entry carrying JQL rather than a key (`KAN" OR project != "KAN`, or a bare `OR` between two
-keys) would widen or corrupt the very scoping the clause exists to establish, which is this
-paragraph's own failure mode returning through its own input. So each key the section names is
+**Every project key that is used matches `[A-Z]{2,10}` in its entirety, or it is not used.** An
+entry carrying JQL rather than a key (`KAN" OR project != "KAN`, or a bare `OR` between two keys)
+would widen or corrupt the very project scoping the key exists to establish. So each key the section names is
 required to match that shape before it is used, and one that does not is
 **reported by name and dropped** — never repaired, never quoted around, never used "just to search",
 exactly as an unresolvable `## standards` entry is. If every named key is dropped, the section is
