@@ -338,7 +338,9 @@ is what keeps a subagent's mark from closing its parent's run: the block-unsafe-
 (`stats/internal/caller/caller.go`). A call the hook cannot see as one — inside `bash -c` or a
 quoted string — runs under the main thread's token, so a mark or record is always its own
 top-level call. A harness with no session id passes `-session-token <literal>`; an explicit token
-always wins.
+always wins. A `flow stage end` closes the open run of its command, stage and change begun under
+the caller's inferred token, so two agents inside the same stage each close their own; with no
+inferred token, or none of its runs open, it closes that stage's highest open attempt.
 
 ```bash
 flow stage begin -command '/flow' -stage flow.plan <name>

@@ -441,6 +441,9 @@ type EndStageRequest struct {
 	// JiraKey, with ChangeName empty, closes the open plan session for
 	// this Jira key instead of an open stage run for a change.
 	JiraKey string
+	// SessionToken, when set, makes the daemon close the open run begun
+	// under it before falling back to the highest open attempt.
+	SessionToken string
 }
 
 type beginStageWireRequest struct {
@@ -475,6 +478,9 @@ type endStageWireRequest struct {
 	Outcome    string          `json:"outcome"`
 	Metrics    json.RawMessage `json:"metrics,omitempty"`
 	JiraKey    string          `json:"jiraKey,omitempty"`
+	// SessionToken is omitted when empty, so a no-token end reads exactly
+	// as before.
+	SessionToken string `json:"sessionToken,omitempty"`
 }
 
 // ErrUndocumentedStage means the store was reached and correctly refused
@@ -595,14 +601,15 @@ func (c *Client) BeginStage(ctx context.Context, in BeginStageRequest) (BeginSta
 // comment for how a 400 is told apart between the first two.
 func (c *Client) EndStage(ctx context.Context, in EndStageRequest) (BeginStageResult, error) {
 	wire := endStageWireRequest{
-		ProjectKey: in.ProjectKey,
-		ChangeName: in.ChangeName,
-		Command:    in.Command,
-		Stage:      in.Stage,
-		EndedAt:    in.EndedAt.UTC().Format(time.RFC3339Nano),
-		Outcome:    in.Outcome,
-		Metrics:    in.Metrics,
-		JiraKey:    in.JiraKey,
+		ProjectKey:   in.ProjectKey,
+		ChangeName:   in.ChangeName,
+		Command:      in.Command,
+		Stage:        in.Stage,
+		EndedAt:      in.EndedAt.UTC().Format(time.RFC3339Nano),
+		Outcome:      in.Outcome,
+		Metrics:      in.Metrics,
+		JiraKey:      in.JiraKey,
+		SessionToken: in.SessionToken,
 	}
 	respBody, status, err := c.sendJSON(ctx, http.MethodPost, c.stagesEndURL(), wire)
 	if err != nil {

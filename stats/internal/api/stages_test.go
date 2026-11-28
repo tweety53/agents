@@ -181,6 +181,10 @@ func stageRunMatchesFilters(r stageRunRecord, filters []store.Filter) bool {
 			if r.run.Stage != f.Value {
 				return false
 			}
+		case "session_token":
+			if r.run.SessionToken == nil || *r.run.SessionToken != f.Value {
+				return false
+			}
 		case "ended_at":
 			switch f.Op {
 			case store.OpNull:
@@ -631,6 +635,50 @@ func TestStageEndClosesHighestOpenAttempt(t *testing.T) {
 	}
 	if attempt2.Outcome == nil || *attempt2.Outcome != "completed" {
 		t.Errorf("attempt 2's Outcome = %v, want completed", attempt2.Outcome)
+	}
+}
+
+// TestStageEndClosesTheRunCarryingItsToken pins that two sessions inside the
+// same (change, command, stage) close their own runs: an end carrying a
+// session token closes the open run begun under that token, never the other
+// session's higher attempt, and a token no open run carries falls back to the
+// highest open attempt.
+func TestStageEndClosesTheRunCarryingItsToken(t *testing.T) {
+	t.Parallel()
+	fs := newFakeStore()
+	fs.changes[changeKey("proj", "chg")] = store.Change{ProjectKey: "proj", Name: "chg", State: store.StateStarted}
+	srv := newStageTestServer(t, fs)
+	defer srv.Close()
+
+	for i, token := range []string{"cc-s-a", "cc-s-b"} {
+		begin := map[string]any{
+			"projectKey": "proj", "changeName": "chg", "harness": "claude-code",
+			"command": "/flow-interactive", "stage": "flow.verify",
+			"startedAt": fmt.Sprintf("2026-08-13T10:0%d:00Z", i), "sessionToken": token,
+		}
+		if resp, body := postJSON(t, srv.URL+"/api/v1/stages/begin", begin); resp.StatusCode != http.StatusOK {
+			t.Fatalf("begin %s: status = %d; body: %s", token, resp.StatusCode, body)
+		}
+	}
+	end := func(token, outcome string) {
+		t.Helper()
+		req := map[string]any{
+			"projectKey": "proj", "changeName": "chg", "command": "/flow-interactive", "stage": "flow.verify",
+			"endedAt": "2026-08-13T10:05:00Z", "outcome": outcome, "sessionToken": token,
+		}
+		if resp, body := postJSON(t, srv.URL+"/api/v1/stages/end", req); resp.StatusCode != http.StatusOK {
+			t.Fatalf("end %s: status = %d; body: %s", token, resp.StatusCode, body)
+		}
+	}
+	runA, runB := &fs.stageRuns[0].run, &fs.stageRuns[1].run
+
+	end("cc-s-a", "completed")
+	if runA.EndedAt == nil || runB.EndedAt != nil {
+		t.Fatalf("end under token A: A ended %v, B ended %v; want A closed, B open", runA.EndedAt, runB.EndedAt)
+	}
+	end("cc-s-unknown", "failed")
+	if runB.EndedAt == nil || *runB.Outcome != "failed" || *runA.Outcome != "completed" {
+		t.Fatalf("unmatched token: A %v, B %v; want B closed failed by the fallback, A still completed", runA.Outcome, runB.Outcome)
 	}
 }
 

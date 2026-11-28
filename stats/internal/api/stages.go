@@ -91,6 +91,9 @@ type stageEndRequest struct {
 	// JiraKey, with ChangeName empty, closes the open plan session for
 	// this Jira key instead of an open stage run for a change.
 	JiraKey string `json:"jiraKey,omitempty"`
+	// SessionToken is the ending caller's token: the open run begun under
+	// it is the one closed (findOpenStageRun).
+	SessionToken string `json:"sessionToken,omitempty"`
 }
 
 // stageRunResponse is the wire shape both endpoints answer with on
@@ -179,6 +182,9 @@ type EndStageMark struct {
 	// JiraKey, with ChangeName empty, closes the open plan session for
 	// this Jira key -- see stageEndRequest.JiraKey's doc comment.
 	JiraKey string
+	// SessionToken, when set, picks the open run begun under it
+	// (findOpenStageRun).
+	SessionToken string
 }
 
 // harvestedHarnesses is the set of harness values whose sessions write a
@@ -566,14 +572,15 @@ func (h *stageHandler) end(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := ApplyEndStageMark(r.Context(), h.store, EndStageMark{
-		ProjectKey: req.ProjectKey,
-		ChangeName: req.ChangeName,
-		Command:    req.Command,
-		Stage:      req.Stage,
-		EndedAt:    endedAt,
-		Outcome:    req.Outcome,
-		Metrics:    req.Metrics,
-		JiraKey:    req.JiraKey,
+		ProjectKey:   req.ProjectKey,
+		ChangeName:   req.ChangeName,
+		Command:      req.Command,
+		Stage:        req.Stage,
+		EndedAt:      endedAt,
+		Outcome:      req.Outcome,
+		Metrics:      req.Metrics,
+		JiraKey:      req.JiraKey,
+		SessionToken: req.SessionToken,
 	})
 	if err != nil {
 		var unknownStage *stages.ErrUnknownStage
@@ -673,7 +680,7 @@ func ApplyEndStageMark(ctx context.Context, ss StageStore, mark EndStageMark) (S
 	if mark.ChangeName == "" && mark.JiraKey != "" {
 		openRun, err = findOpenPlanSession(ctx, ss, mark.ProjectKey, mark.JiraKey, mark.Command, mark.Stage)
 	} else {
-		openRun, err = findOpenStageRun(ctx, ss, mark.ProjectKey, mark.ChangeName, mark.Command, mark.Stage)
+		openRun, err = findOpenStageRun(ctx, ss, mark.ProjectKey, mark.ChangeName, mark.Command, mark.Stage, mark.SessionToken)
 	}
 	if err != nil {
 		return StageMarkResult{}, err
@@ -809,17 +816,38 @@ func withTokensUnavailable(metrics json.RawMessage) (json.RawMessage, error) {
 // properly, avoiding the spurious attempt rather than merely superseding
 // it; it is not attempted here -- it needs its own schema and tests, and
 // is a candidate for a future task rather than this one.
-func findOpenStageRun(ctx context.Context, ss StageStore, projectKey, changeName, command, stage string) (*store.StageRun, error) {
+//
+// That invariant breaks for good once two sessions -- two request executors
+// of one /flow-interactive change -- are inside the same stage at once: each
+// begin supersedes only its own token's runs, so both stay open, and
+// "highest attempt" would close the other session's run. A non-empty
+// sessionToken therefore picks the highest open attempt begun under that
+// token first; with no token, or none of its runs open (a journal replay, a
+// caller whose begin carried an explicit -session-token), it falls back to
+// the highest open attempt, as above.
+func findOpenStageRun(ctx context.Context, ss StageStore, projectKey, changeName, command, stage, sessionToken string) (*store.StageRun, error) {
+	filters := []store.Filter{
+		{Field: "project", Op: store.OpEq, Value: projectKey},
+		{Field: "name", Op: store.OpEq, Value: changeName},
+		{Field: "command", Op: store.OpEq, Value: command},
+		{Field: "stage", Op: store.OpEq, Value: stage},
+		{Field: "ended_at", Op: store.OpNull},
+	}
+	if sessionToken != "" {
+		run, err := highestOpenRun(ctx, ss, append(filters, store.Filter{Field: "session_token", Op: store.OpEq, Value: sessionToken}))
+		if run != nil || err != nil {
+			return run, err
+		}
+	}
+	return highestOpenRun(ctx, ss, filters)
+}
+
+// highestOpenRun is the highest-attempt stage run filters match, or nil.
+func highestOpenRun(ctx context.Context, ss StageStore, filters []store.Filter) (*store.StageRun, error) {
 	runs, _, err := ss.QueryStageRuns(ctx, store.Query{
-		Filters: []store.Filter{
-			{Field: "project", Op: store.OpEq, Value: projectKey},
-			{Field: "name", Op: store.OpEq, Value: changeName},
-			{Field: "command", Op: store.OpEq, Value: command},
-			{Field: "stage", Op: store.OpEq, Value: stage},
-			{Field: "ended_at", Op: store.OpNull},
-		},
-		Sort:  []store.SortKey{{Field: "attempt", Desc: true}},
-		Limit: 1,
+		Filters: filters,
+		Sort:    []store.SortKey{{Field: "attempt", Desc: true}},
+		Limit:   1,
 	})
 	if err != nil {
 		return nil, err
@@ -838,22 +866,11 @@ func findOpenStageRun(ctx context.Context, ss StageStore, projectKey, changeName
 // via a join to the changes table that an unattached row has none of), so
 // it reaches rows findOpenStageRun's own "project" filter would miss.
 func findOpenPlanSession(ctx context.Context, ss StageStore, projectKey, jiraKey, command, stage string) (*store.StageRun, error) {
-	runs, _, err := ss.QueryStageRuns(ctx, store.Query{
-		Filters: []store.Filter{
-			{Field: "project_key", Op: store.OpEq, Value: projectKey},
-			{Field: "jira_key", Op: store.OpEq, Value: jiraKey},
-			{Field: "command", Op: store.OpEq, Value: command},
-			{Field: "stage", Op: store.OpEq, Value: stage},
-			{Field: "ended_at", Op: store.OpNull},
-		},
-		Sort:  []store.SortKey{{Field: "attempt", Desc: true}},
-		Limit: 1,
+	return highestOpenRun(ctx, ss, []store.Filter{
+		{Field: "project_key", Op: store.OpEq, Value: projectKey},
+		{Field: "jira_key", Op: store.OpEq, Value: jiraKey},
+		{Field: "command", Op: store.OpEq, Value: command},
+		{Field: "stage", Op: store.OpEq, Value: stage},
+		{Field: "ended_at", Op: store.OpNull},
 	})
-	if err != nil {
-		return nil, err
-	}
-	if len(runs) == 0 {
-		return nil, nil
-	}
-	return &runs[0], nil
 }

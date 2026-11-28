@@ -599,6 +599,10 @@ func runStageEnd(ctx context.Context, args []string, getenv func(string) string,
 		Outcome:    *outcome,
 		Metrics:    metrics,
 		JiraKey:    f.jiraKey,
+		// The caller's own token, the one its begin defaulted to, so the
+		// store closes this caller's run and not another session's in the
+		// same stage; empty outside a harness session.
+		SessionToken: caller.Token(getenv),
 	}
 
 	_, endErr := endStage(ctx, f.addr, f.timeout, req)
@@ -906,13 +910,14 @@ func runStageWrap(ctx context.Context, args []string, getenv func(string) string
 	}
 
 	endReq := client.EndStageRequest{
-		ProjectKey: projectKey,
-		ChangeName: f.name,
-		Command:    f.command,
-		Stage:      f.stage,
-		EndedAt:    time.Now(),
-		Outcome:    stages.OutcomeCompleted,
-		JiraKey:    f.jiraKey,
+		ProjectKey:   projectKey,
+		ChangeName:   f.name,
+		Command:      f.command,
+		Stage:        f.stage,
+		EndedAt:      time.Now(),
+		Outcome:      stages.OutcomeCompleted,
+		JiraKey:      f.jiraKey,
+		SessionToken: *sessionTokenFlag,
 	}
 	if exitCode != 0 {
 		endReq.Outcome = "failed"

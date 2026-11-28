@@ -1559,6 +1559,49 @@ func TestStageBeginDefaultsSessionToken(t *testing.T) {
 	}
 }
 
+// TestStageEndSendsTheCallerToken pins that `stage end` carries the token
+// `stage begin` infers for the same caller, so the store closes that caller's
+// own run, and none outside a harness session.
+func TestStageEndSendsTheCallerToken(t *testing.T) {
+	t.Parallel()
+	repo := gitRepo(t)
+	var token *string
+	srv := httptest.NewServer(genuineDaemon(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		token = nil
+		if s, ok := body["sessionToken"].(string); ok {
+			token = &s
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"stageRunId":1,"attempt":1}`))
+	}))
+	defer srv.Close()
+	for _, c := range []struct {
+		session, want string
+		args          []string
+	}{
+		{"s1", "cc-s1-a9", []string{"-caller-agent", "a9"}},
+		{"", "", nil},
+	} {
+		env := newTestEnv(t)
+		env["CLAUDE_CODE_SESSION_ID"] = c.session
+		var stdout, stderr bytes.Buffer
+		args := append(c.args, "stage", "end", "-addr", srv.URL, "-timeout", "500ms", "-C", repo,
+			"-command", "/flow", "-stage", "flow.plan", "-outcome", "completed", "kan-860")
+		if code := run(context.Background(), args, env.get, strings.NewReader(""), &stdout, &stderr); code != 0 {
+			t.Fatalf("exit %d; stderr:\n%s", code, stderr.String())
+		}
+		got := "<absent>"
+		if token != nil {
+			got = *token
+		}
+		if want := map[bool]string{true: c.want, false: "<absent>"}[c.want != ""]; got != want {
+			t.Errorf("session %q: sessionToken = %q, want %q", c.session, got, want)
+		}
+	}
+}
+
 // TestStageMarkJournalFallback pins the never-block guarantee `stage
 // begin`/`stage end` hold, carried by `stage mark`: a dead store journals
 // every half of every key, in order, into the stage journal, and exits 0.

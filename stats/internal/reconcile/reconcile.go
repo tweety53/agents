@@ -588,14 +588,15 @@ func (r *Reconciler) applyStageMarkEntry(ctx context.Context, e fallback.Entry) 
 			return fmt.Errorf("decode end stage mark: %w", err)
 		}
 		_, err := api.ApplyEndStageMark(ctx, r.stageStore, api.EndStageMark{
-			ProjectKey: req.ProjectKey,
-			ChangeName: req.ChangeName,
-			Command:    req.Command,
-			Stage:      req.Stage,
-			EndedAt:    req.EndedAt,
-			Outcome:    req.Outcome,
-			Metrics:    req.Metrics,
-			JiraKey:    req.JiraKey,
+			ProjectKey:   req.ProjectKey,
+			ChangeName:   req.ChangeName,
+			Command:      req.Command,
+			Stage:        req.Stage,
+			EndedAt:      req.EndedAt,
+			Outcome:      req.Outcome,
+			Metrics:      req.Metrics,
+			JiraKey:      req.JiraKey,
+			SessionToken: req.SessionToken,
 		})
 		return err
 	default:
