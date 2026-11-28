@@ -69,3 +69,6 @@ inventing a scheme" and "the old code did the same" are never reasons to leave a
 repository you were not given, a change only the operator can decide — report it with the evidence
 that confirmed it. A dispatcher relaying a subagent's finding holds it to the same bar before it
 reaches the operator.
+
+**Never write a wait loop for your own background command — you are notified when it ends.** Any
+other wait has a timeout and a liveness check. Leave no shell running when you report.
