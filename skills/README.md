@@ -69,6 +69,79 @@ Every skill above but `flow-plan` and `flow-contracts` requires the `spectre` CL
 (`go install github.com/tweety53/spectre/cmd/spectre@latest`); those two need none — reading a
 spectre tree, or a contract file, is reading markdown.
 
+## Phase load table
+
+The files each phase loads, in load order, and the condition under which each is loaded. Every
+row indexes the load directive in the file named under **Loaded by**; that directive is canonical.
+`TestPhaseLoadTableMatchesTheTree` (`stats/internal/guard/load_table_test.go`) fails when a file
+named here does not exist or a conditional load set (`stats/internal/guard/loadsets.go`) lists a
+file this table omits.
+
+| Phase | File | Condition | Loaded by |
+|---|---|---|---|
+| every `/flow` run | `skills/flow/SKILL.md` | always | the harness |
+| every `/flow` run | `skills/flow-contracts/pipeline.md` | always, first | `skills/flow/SKILL.md` |
+| every `/flow` run | `skills/flow-contracts/progress-visibility.md` | the harness lacks the `flow-task-list` mod, or the run edits it, the board or `tasks.md`'s markers | `skills/flow-contracts/pipeline.md` |
+| every `/flow` run | `skills/flow-contracts/quiet-progress.md` | the project's `## progress` mode is on | `skills/flow-contracts/pipeline.md` |
+| every `/flow` run | `skills/flow-contracts/pipeline-defects.md` | the run hits a pipeline defect | `skills/flow-contracts/pipeline.md` |
+| every `/flow` run | `skills/flow-contracts/guard-verdict-verification.md` | a gate guard prints `DRIFT-DIRTY`, `REFUSE`, `OUTSTANDING` or `MOVED` | `skills/flow-contracts/pipeline.md` |
+| every `/flow` run | `skills/flow-contracts/state-file.md` | before reading or writing the state file | `skills/flow-contracts/pipeline.md` |
+| every `/flow` run | `skills/flow-contracts/project-configuration.md` | before reading `.flow/project.md` | `skills/flow-contracts/pipeline.md` |
+| every `/flow` run | `skills/flow-contracts/project-configuration-visual.md` | `flow.verify` begins, or a `## visual verification` section is written or reviewed | `skills/flow-contracts/project-configuration.md` |
+| every `/flow` run | `skills/flow-contracts/jira-integration.md` | before any Jira call | `skills/flow-contracts/pipeline.md` |
+| creating run (no state) | `skills/flow/brainstorm.md` | always | `skills/flow/SKILL.md` |
+| creating run | `skills/flow/resume.md` | the name resolves to a change already recorded | `skills/flow/brainstorm.md` |
+| creating run, planner | `skills/flow/brainstorm-planner.md` | the planner dispatch | `skills/flow/brainstorm.md` |
+| creating run, planner | `skills/flow/brainstorm-ui.md` | the change carries UI | `skills/flow/brainstorm-planner.md` |
+| creating run, planner | `skills/flow/designer-brief.md` | a `designer` is dispatched | `skills/flow/brainstorm-planner.md` |
+| creating run, planner | `skills/flow/plan-triage.md` | the dispatch that triages a plan check | `skills/flow/brainstorm-planner.md` |
+| resume at `STARTED` | `skills/flow/resume.md` | always | `skills/flow/SKILL.md` |
+| resume at `STARTED` | `skills/flow/brainstorm.md` | the resume point is not `implement.md` | `skills/flow/resume.md` |
+| implement | `skills/flow/implement.md` | planning artifacts exist | `skills/flow/SKILL.md` |
+| implement | `skills/flow-contracts/worktree-resolution.md` | always | `skills/flow/implement.md` |
+| implement | `skills/flow/cross-repo-worktrees.md` | the change links a peer or a second `## apps` repository | `skills/flow/implement.md` |
+| implement | `skills/flow/implementer-brief.md`, `skills/flow/fixer-brief.md` | read by the implementer or fixer it dispatches | `skills/flow/implement.md` |
+| implement | `skills/flow/fix.md` | a fix run | `skills/flow/implement.md` |
+| implement | `skills/flow/visual-verify.md` | `flow-guard check-visual-trigger` matches | `skills/flow/implement.md` |
+| verify and handoff | `skills/flow-contracts/session-records.md` | before reading a render outcome | `skills/flow/verify-and-handoff.md` |
+| review panel | `skills/flow/review-panel.md` | after `flow.implement` | `skills/flow/SKILL.md` |
+| review panel | `skills/flow/slot-brief.md` | read by every panel slot | `flow-guard build-slot-prompt` |
+| review panel | `skills/flow/review-panel-optional-slots.md` | a round dispatching `mutation` | `skills/flow/review-panel.md` |
+| review panel | `skills/flow/review-panel-fix-round.md` | a round recorded a Critical or Important | `skills/flow/review-panel.md` |
+| verify and handoff | `skills/flow/verify-and-handoff.md` | the panel closes clean | `skills/flow/SKILL.md` |
+| verify and handoff | `skills/flow-contracts/worktree-resolution.md` | always | `skills/flow/verify-and-handoff.md` |
+| verify and handoff | `skills/flow-contracts/workspace-isolation.md` | by section, the one each trigger names | `skills/flow/verify-and-handoff.md` |
+| verify and handoff | `skills/flow/fix.md` | a stage's final run is red | `skills/flow/verify-and-handoff.md` |
+| verify and handoff | `skills/flow/live-check.md` | the live check runs | `skills/flow/verify-and-handoff.md` |
+| verify and handoff | `skills/flow/visual-verify.md` | the visual closing line is not `NEXT: skip` | `skills/flow/verify-and-handoff.md` |
+| verify and handoff | `skills/flow/visual-verify-verifier.md` | read by the visual verifier | `skills/flow/visual-verify.md` |
+| verify and handoff | `skills/flow-contracts/git-boundaries.md` | before committing | `skills/flow/verify-and-handoff.md` |
+| verify and handoff | `skills/flow-contracts/git-boundaries-commit-chain.md` | the state file records a commit chain | `skills/flow/verify-and-handoff.md` |
+| fix run (`IN_PROGRESS` with an argument) | `skills/flow/fix.md` | always | `skills/flow/SKILL.md` |
+| fix run | `skills/flow/fix-visual.md` | a visual fix | `skills/flow/fix.md` |
+| integrate (bare at `IN_PROGRESS`) | `skills/flow/integrate.md` | always | `skills/flow/SKILL.md` |
+| integrate | `skills/flow-contracts/finish-contract-run1.md` | a stop cites it | `skills/flow/integrate.md` |
+| integrate | `skills/flow/integrate-own-tooling.md` | the canonical repository is `<agents repo>` | `skills/flow/integrate.md` |
+| integrate | `skills/flow/unfinished-work-gate.md` | `STOP: unfinished-work` | `skills/flow/integrate.md` |
+| integrate | `skills/flow/sync-onto-base.md` | `sync-conflict` or a moved base | `skills/flow/integrate.md` |
+| integrate | `skills/flow/sync-onto-base-visual.md` | the guard prints `RECAPTURE:` | `skills/flow/sync-onto-base.md` |
+| integrate | `skills/flow-contracts/git-boundaries-commit-chain.md` | before writing the subjects | `skills/flow/integrate.md` |
+| integrate | `skills/flow-self-review/SKILL.md` | the self-review pass | `skills/flow-contracts/finish-contract-run1.md` |
+| cleanup (run 2) | `skills/flow/cleanup.md` | merge-and-push, or a merged branch | `skills/flow/integrate.md` |
+| cleanup | `skills/flow-contracts/finish-contract-run2.md` | always | `skills/flow/cleanup.md` |
+| cleanup | `skills/flow-contracts/artifacts-registry.md` | always | `skills/flow-contracts/finish-contract-run2.md` |
+| cleanup | `skills/flow-contracts/jira-integration.md` | the Done transition | `skills/flow/cleanup.md` |
+| `/flow-interactive` | `skills/flow-interactive/SKILL.md` | always | the harness |
+| `/flow-interactive` | `skills/flow-contracts/operator-prompts-auto-resolution.md` | a question with a recommended option | `skills/flow-interactive/SKILL.md` |
+| `/flow-interactive` | `skills/flow-contracts/workspace-isolation.md` | a request worktree | `skills/flow-interactive/SKILL.md` |
+| `/flow-interactive`, step 4 | `skills/flow/visual-verify.md` | the diff touches `ui paths` | `skills/flow-interactive/SKILL.md` |
+| `/flow-interactive`, step 5 | `skills/flow/sync-onto-base.md` | a rebase conflict | `skills/flow-interactive/SKILL.md` |
+| `/flow-interactive`, step 3a | `skills/flow/fix.md` | a fix of a red step 4 or a step 7 defect | `skills/flow-interactive/SKILL.md` |
+| `/flow-interactive`, stop | `skills/flow-self-review/SKILL.md` | the explicit stop | `skills/flow-interactive/SKILL.md` |
+| `/flow-self-review` | `skills/flow-self-review/SKILL.md` | always | the pipeline, or standalone |
+| `/flow-self-review` | `skills/flow-self-review/themes.md` | read by the pass | `skills/flow-self-review/SKILL.md` |
+| `/flow-self-review` | `skills/flow-contracts/model-policy.md` | every dispatch | `skills/flow-self-review/SKILL.md` |
+
 ## Naming a guard in skill prose
 
 **Prose describing this repository's own guard is not an invocation.** A guard invoked by name
