@@ -1,6 +1,7 @@
 package guard
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -51,6 +52,25 @@ func (c *ic) selfReviewCompleted() (done, ok bool) {
 	}
 }
 
+// selfReviewPassRow: the change holds a completed self-review-<name>-pass
+// dispatch row, the pass the flow.self-review stage mark stands for.
+func (c *ic) selfReviewPassRow() bool {
+	out, rc := c.capture(c.cmd("/", "flow", "record", "dispatches", "-change", c.name, "-C", c.main))
+	if rc != 0 {
+		c.die("self-review-state-unknown", "flowd cannot list the dispatches of %s — nothing was removed", c.name)
+	}
+	var rows []struct{ Key, Outcome string }
+	if json.Unmarshal([]byte(out), &rows) != nil {
+		return false
+	}
+	for _, r := range rows {
+		if r.Key == "self-review-"+c.name+"-pass" && r.Outcome == "completed" {
+			return true
+		}
+	}
+	return false
+}
+
 // icWithID: <command> with the workspace id tokens substituted.
 func icWithID(command, id string) string {
 	command = strings.ReplaceAll(command, "<id_underscored>", strings.ReplaceAll(id, "-", "_"))
@@ -70,6 +90,9 @@ func (c *ic) cleanup() {
 	}
 	if !done {
 		c.stopAs("self-review-not-done", "self-review-report", "flow.self-review has not completed for "+c.name+" — run the self-review pass and end its stage completed, then re-run cleanup; nothing was removed")
+	}
+	if !c.selfReviewPassRow() {
+		c.stopAs("self-review-pass-missing", "self-review-report", "flow.self-review completed for "+c.name+" with no completed self-review-"+c.name+"-pass dispatch row — run the self-review pass, then re-run cleanup; nothing was removed")
 	}
 	c.markBegin("flow.cleanup")
 	// The save keeps tasks.md and self-review-context.md in flowd before

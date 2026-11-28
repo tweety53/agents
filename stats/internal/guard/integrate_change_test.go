@@ -119,7 +119,7 @@ case "$1 $2" in
   "self-review bundle") printf 'found: 1 of 1 sources; skipped: 0 of 1 sources\n' ;;
   "self-review finding") echo "$*" >>"$W/fixed.log" ;;
   "record dispatch") echo "$*" >>"$W/dispatch.log" ;;
-  "record dispatches") cat "$W/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"},{"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-02T00:00:00Z"}]' ;;
+  "record dispatches") cat "$W/dispatches.json" 2>/dev/null || echo '[{"key":"task-1-implementer","outcome":"completed"},{"key":"self-review-demo-pass","outcome":"completed"},{"key":"verify","role":"verifier","outcome":"completed","startedAt":"2026-01-02T00:00:00Z"}]' ;;
   "record decisions") echo '[]' ;;
   "record passes") echo '[{"id":1,"round":0,"note":"roster: full"}]' ;;
   "change save") echo "$*" >>"$W/saves.log"; [ -f "$W/fail-save" ] && { echo "missing: tasks.md"; exit 1; }; : ;;

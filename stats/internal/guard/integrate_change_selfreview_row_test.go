@@ -79,6 +79,22 @@ sut cleanup "$WORK/a" demo
 check "cleanup_refuses: flowd unreachable is exit 2" '[ "$RC" -eq 2 ] && grep -q "flowd cannot say whether flow.self-review completed for demo" "$WORK/stderr"'`}})
 }
 
+// TestCleanupRefusesStageWithoutPassRow pins that a completed flow.self-review
+// stage with no completed self-review-<name>-pass dispatch row stops cleanup.
+func TestCleanupRefusesStageWithoutPassRow(t *testing.T) {
+	smoke.Heavy(t)
+	icRunCases(t, []icCaseDef{{"cleanup_no_pass_row", `# --- cleanup_no_pass_row ---
+fixture
+to_land "no_pass_row: " no-report
+sut land "$WORK/a" demo
+touch "$WORK/sr-completed"
+echo '[{"key":"self-review-demo-pass","outcome":"failed"}]' >"$WORK/dispatches.json"
+sut cleanup "$WORK/a" demo
+check "no_pass_row: stops at self-review-report" \
+  '[ "$RC" -eq 1 ] && printf "%s" "$OUT" | tail -1 | grep -q "^STOP: self-review-report — .*self-review-demo-pass"'
+check "no_pass_row: nothing was removed" '[ -d "$WORK/a-worktrees/demo" ]'`}})
+}
+
 // TestCleanupRunsAfterSelfReview pins that a completed run lets cleanup
 // reach its merge check and finish.
 func TestCleanupRunsAfterSelfReview(t *testing.T) {
