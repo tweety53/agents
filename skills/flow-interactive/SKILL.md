@@ -138,6 +138,13 @@ see X") — recorded at once, `<n>` one past the highest recorded:
 flow record request begin -change <name> -n <n> -title '<one line>'
 ```
 
+A message carrying several distinct asks — a pasted list, numbered or bulleted — is recorded at
+intake as one request per item, its `-title` that item's text on one line, before anything is
+dispatched; an item needing no code ends `answered`. A request is ended only `landed`, `answered`
+with what was found, or `dropped` with a reason the operator can read in the report; that a list is
+worked through, done or all landed is derived from those rows — `flow-guard check-open-requests
+<worktree>` printing nothing — never from memory.
+
 A message that changes an in-flight request's own ask is applied to that request instead.
 Outside a brainstorm, a question carrying a recommended option is taken, never asked
 (**Auto-resolution**, `skills/flow-contracts/operator-prompts-auto-resolution.md`). A pipeline
@@ -310,7 +317,8 @@ flow record request end -change <name> -n <n> -outcome dropped
 
 `landed` runs the **Request-end guard**, below. Then the request's worktree is removed (**Request
 worktree**), the landing grant passes and the queue's head is dispatched (**3. Execute**), and a
-short report.
+short report. A report may not call a list done while `flow-guard check-open-requests <worktree>`
+exits 1; it names the `OPEN` rows instead.
 
 A request that implements a self-review finding is not ended `landed` until its executor ran `flow self-review finding-implement <id> -commit <last landed sha>` (`skills/flow-self-review/SKILL.md`).
 
@@ -385,7 +393,9 @@ Only a message whose intent is to end the session; anything that could also be a
 as a request and the session stays open, saying so in one line. Stop:
 
 1. Every in-flight request lands, one landing grant at a time (unless the stop drops it); queued
-   requests not started end `dropped` and are listed in the stop report. Every `<name>-r<n>`
+   requests not started end `dropped` and are listed in the stop report, each with its reason.
+   `flow-guard check-open-requests <worktree>` must then exit 0 — an exit 1 lists the requests with
+   no outcome, and the stop goes no further until each is ended. Every `<name>-r<n>`
    worktree is removed with `flow-guard workspace-remove` (**Request worktree**) before the
    session worktree's cleanup (item 4); an exit 1 stops the stop there, ⛔ blocked.
 2. **Self-review**, with `-command '/flow-interactive'`.
