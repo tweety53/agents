@@ -194,6 +194,18 @@ Undo does nothing after the user navigates away; a scope obtained after an early
 work is cancelled together with the screen; background work cancelled silently because the
 component that started it was left.
 
+### Resource scope
+
+A database transaction covers database work and nothing else: an HTTP call, password hashing,
+Redis or S3 runs before or after it, never inside. A read that issues more than one query runs
+in one read-only transaction. An immutable, thread-safe object — a JWT verifier or parser, a
+compiled `Regex`, a `SecureRandom`, a `HexFormat` — is built once and held, never per call.
+
+**Violation looks like:** `@Transactional` on a method that calls an OAuth endpoint or BCrypt;
+three repository reads in a controller with no transaction under `open-in-view: false`;
+`JWT.require(algorithm).build()` inside `verify`; `Regex(...)` inside a function body;
+`list.first { it.id == x }` inside a loop over the same list.
+
 ### Principle of Least Astonishment / Surprise
 
 A component behaves the way its name, signature, and neighbours lead a reader to expect.
