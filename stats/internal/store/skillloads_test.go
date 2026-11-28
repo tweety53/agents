@@ -38,6 +38,13 @@ func TestSkillLoads(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []store.SkillLoadCount{{Path: "rules/agent-baseline.md", Loads: 1}, {Path: "skills/flow/fix.md", Loads: 2}}
+	// First is the earliest load in the window, to the column's microsecond.
+	if len(got) == 2 && got[1].First.Sub(now.Add(-2*time.Hour)).Abs() > time.Microsecond {
+		t.Errorf("first = %v, want %v", got[1].First, now.Add(-2*time.Hour))
+	}
+	for i := range got {
+		got[i].First = time.Time{}
+	}
 	if !slices.Equal(got, want) {
 		t.Errorf("counts = %+v, want %+v", got, want)
 	}

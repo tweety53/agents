@@ -65,7 +65,7 @@ func TestSkillLoadRoutes(t *testing.T) {
 	}
 	b, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK || string(b) != `{"rows":[{"path":"skills/flow/fix.md","loads":2}]}`+"\n" ||
+	if resp.StatusCode != http.StatusOK || string(b) != `{"rows":[{"path":"skills/flow/fix.md","loads":2,"first":"0001-01-01T00:00:00Z"}]}`+"\n" ||
 		f.from.Format(time.RFC3339) != from || f.to.Format(time.RFC3339) != to {
 		t.Errorf("GET: status %d body %s window %v..%v", resp.StatusCode, b, f.from, f.to)
 	}

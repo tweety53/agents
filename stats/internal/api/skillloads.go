@@ -54,11 +54,12 @@ func (h *skillLoadHandler) record(w http.ResponseWriter, r *http.Request) {
 }
 
 type skillLoadRowDTO struct {
-	Path  string `json:"path"`
-	Loads int    `json:"loads"`
+	Path  string    `json:"path"`
+	Loads int       `json:"loads"`
+	First time.Time `json:"first"`
 }
 
-// counts serves GET /api/v1/skill-loads?from&to (RFC 3339): {"rows": [{"path", "loads"}]}, every
+// counts serves GET /api/v1/skill-loads?from&to (RFC 3339): {"rows": [{"path", "loads", "first"}]}, every
 // path loaded in the window, ordered by path.
 func (h *skillLoadHandler) counts(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()

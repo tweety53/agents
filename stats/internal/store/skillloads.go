@@ -13,6 +13,8 @@ import (
 type SkillLoadCount struct {
 	Path  string
 	Loads int
+	// First is the path's earliest load in the window.
+	First time.Time
 }
 
 // RecordSkillLoad records one load of path, repo-relative, by sessionID at loadedAt (now when zero).
@@ -31,7 +33,7 @@ func (s *Store) RecordSkillLoad(ctx context.Context, path, sessionID string, loa
 // SkillLoadCounts is each path loaded in [from, to) with its load count, ordered by path.
 func (s *Store) SkillLoadCounts(ctx context.Context, from, to time.Time) ([]SkillLoadCount, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT path, COUNT(*)::int FROM skill_loads
+		SELECT path, COUNT(*)::int, MIN(loaded_at) FROM skill_loads
 		WHERE loaded_at >= $1 AND loaded_at < $2
 		GROUP BY path ORDER BY path`, from, to)
 	if err != nil {
@@ -41,7 +43,7 @@ func (s *Store) SkillLoadCounts(ctx context.Context, from, to time.Time) ([]Skil
 	out := []SkillLoadCount{}
 	for rows.Next() {
 		var c SkillLoadCount
-		if err := rows.Scan(&c.Path, &c.Loads); err != nil {
+		if err := rows.Scan(&c.Path, &c.Loads, &c.First); err != nil {
 			return nil, fmt.Errorf("store: skill load counts: %w", err)
 		}
 		out = append(out, c)

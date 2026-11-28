@@ -29,6 +29,7 @@ import (
 //	never-fired <guard> runs=<n>                        a guard that ran and never refused
 //	friction <guard> incidents=<n> minutes-lost=<m> latest: <symptom>
 //	                                                    a guard or hook with two or more incidents
+//	never-loaded window: <first load> .. <to>           the part of the window the lines below cover
 //	never-loaded <file> [conditional: <condition>]      a .md under <repo>/skills/ no session loaded
 //
 // A load is what the flow-skill-load hook records (stats/internal/guard/hookskillload.go): a Read
@@ -162,8 +163,19 @@ func pruneCandidates(args []string, env Env, stdout, stderr io.Writer) int {
 		}
 	}
 	var unloaded []string
-	if root := env.Getenv("FLOW_GUARD_REPO_ROOT"); root != "" {
+	root := env.Getenv("FLOW_GUARD_REPO_ROOT")
+	if root != "" {
 		unloaded = neverLoaded(root, loads.Rows)
+	}
+	// Load recording may be younger than the window: say which part the never-loaded lines cover.
+	var first time.Time
+	for _, r := range loads.Rows {
+		if !r.First.IsZero() && (first.IsZero() || r.First.Before(first)) {
+			first = r.First
+		}
+	}
+	if root != "" && !first.IsZero() {
+		fmt.Fprintf(stdout, "never-loaded window: %s .. %s\n", first.UTC().Format(time.RFC3339), to.Format(time.RFC3339))
 	}
 	for _, lines := range [][]string{never, fired, friction, unloaded} {
 		sort.Strings(lines)
@@ -176,8 +188,9 @@ func pruneCandidates(args []string, env Env, stdout, stderr io.Writer) int {
 
 // skillLoadRow is one row of GET /api/v1/skill-loads: a repo-relative path and its loads in the window.
 type skillLoadRow struct {
-	Path  string `json:"path"`
-	Loads int    `json:"loads"`
+	Path  string    `json:"path"`
+	Loads int       `json:"loads"`
+	First time.Time `json:"first"`
 }
 
 // neverLoaded is the never-loaded lines for root's skills/, given the window's per-path loads.

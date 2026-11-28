@@ -144,3 +144,19 @@ func TestPruneCandidatesNeverLoaded(t *testing.T) {
 		t.Errorf("no loads: rc=%d stdout:\n%s", r.rc, r.stdout)
 	}
 }
+
+// TestPruneCandidatesNeverLoadedWindow: with loads only in the window's tail, the never-loaded
+// lines are headed by the window they cover, opening at the earliest recorded load.
+func TestPruneCandidatesNeverLoadedWindow(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "skills"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var query string
+	srv := pcServer(t, "[]", "[]", `[{"path":"skills/a.md","loads":1,"first":"2026-11-28T09:00:00Z"},{"path":"skills/b.md","loads":1,"first":"2026-11-27T20:08:00Z"}]`, &query)
+	r := runGuard("prune-candidates", nil, pcEnvAt(srv.URL, root))
+	if r.rc != 0 || !strings.Contains(r.stdout, "never-loaded window: 2026-11-27T20:08:00Z .. ") {
+		t.Errorf("rc=%d stdout:\n%s", r.rc, r.stdout)
+	}
+}
