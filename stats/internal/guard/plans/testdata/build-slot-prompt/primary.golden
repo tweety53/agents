@@ -133,8 +133,10 @@ defect of the review.
 - **Critical** — bugs, security issues, data-loss risks, broken functionality; a
   planned piece missing outright.
 - **Important** — architecture problems, poor error handling, test gaps; a defect that produces a wrong result under a
-  realistic input.
-- **Minor** — code style, optimization opportunities, documentation polish; drift in a plan
+  realistic input; a read on a request path whose rows grow with the table or a user's history, or a
+  query per item of a list.
+- **Minor** — code style, optimization opportunities on a cold path or a constant-bounded input,
+  documentation polish; drift in a plan
   bookkeeping field (`**Files:**`, `**Tests:**`, `**Commit:**` of `tasks.md`), which the
   implementer may not write and the parent re-records.
 
