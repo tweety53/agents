@@ -26,11 +26,12 @@ func TestInProcessGuardsAreUnregistered(t *testing.T) {
 	}
 }
 
-// TestInProcessSweepsAreHidden: the dispatch-row sweeps refuse nothing and no longer record a run,
-// so their past guard_runs rows are hidden from guard health and prune-candidates' never-fired.
-func TestInProcessSweepsAreHidden(t *testing.T) {
+// TestNoLongerRunGuardsAreHidden: the dispatch-row sweeps (in process only) and capture-workers
+// (folded into the visual-verify bundle) record no run any more, so their past guard_runs rows are
+// hidden from guard health and prune-candidates' never-fired.
+func TestNoLongerRunGuardsAreHidden(t *testing.T) {
 	t.Parallel()
-	for _, n := range []string{"sweep-dispatch-rows", "end-stale-dispatch-rows"} {
+	for _, n := range []string{"sweep-dispatch-rows", "end-stale-dispatch-rows", "capture-workers"} {
 		if !slices.Contains(records.RetiredGuards, n) {
 			t.Errorf("%s is not in records.RetiredGuards", n)
 		}

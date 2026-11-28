@@ -766,7 +766,7 @@ var GuardRunOutcomes = []string{"clear", "fired", "cannot-answer"}
 // RetiredGuards names guards that no longer exist as flow-guard commands -- removed, or run in
 // process only and so recording no run: their past runs stay in guard_runs, and the
 // guard-health view leaves them out at read time, as it does a helper.
-var RetiredGuards = []string{"check-gated-verdicts", "end-stale-dispatch-rows", "sweep-dispatch-rows"}
+var RetiredGuards = []string{"capture-workers", "check-gated-verdicts", "end-stale-dispatch-rows", "sweep-dispatch-rows"}
 
 // GuardHelpers names the flow-guard commands that are helpers, not guards.
 // Their non-zero exits are recorded in guard_runs as fires, but they refuse
