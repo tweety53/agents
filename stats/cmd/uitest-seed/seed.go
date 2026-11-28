@@ -430,8 +430,8 @@ func fixtureData() []projectFixture {
 // guardRuns is the fixture's guard runs (decision seed-guard-runs). The
 // table draws every state of the flow-health prototype: catching and
 // never-fired guards, cannot-answer runs, more than three never-fired guards
-// and speed-up candidates, durations in every unit, two helper commands that
-// would otherwise top Fires and Run time, and runs outside 7d and 30d. No
+// and costly guards, durations in every unit, two helper commands drawn
+// without fire columns, and runs outside 7d and 30d. No
 // other view reads guard_runs, so no other capture moves.
 func guardRuns() []guardRunsFixture {
 	recent := fixtureNow.Add(-time.Hour)
@@ -446,8 +446,8 @@ func guardRuns() []guardRunsFixture {
 		{"uitest-alpha", "check-stage-mark-calls", 15, 0, 0, 120000, recent},
 		{"uitest-alpha", "check-no-bash", 12, 0, 0, 300, recent},
 		{"uitest-alpha", "check-markdown-integrity", 10, 0, 0, 50, recent},
-		{"uitest-alpha", "project-get", 50, 30, 0, 20, recent},        // helper: left out by guard-health
-		{"uitest-alpha", "run-verify-list", 4, 1, 0, 7200000, recent}, // helper: left out by guard-health
+		{"uitest-alpha", "project-get", 50, 30, 0, 20, recent},        // helper: no fire columns
+		{"uitest-alpha", "run-verify-list", 4, 1, 0, 7200000, recent}, // helper: no fire columns
 		{"uitest-beta", "check-guard-calls", 8, 0, 2, 2000, recent},
 		{"uitest-beta", "check-dispatch-paragraphs", 5, 1, 0, 150, recent},
 		{"uitest-beta", "check-references", 1, 1, 0, 120, fixtureNow.Add(-3 * time.Hour)},         // the fire the old fixture recorded
