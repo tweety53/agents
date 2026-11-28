@@ -1,7 +1,9 @@
 package guard
 
 import (
+	"bytes"
 	"cmp"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -265,8 +267,9 @@ import (
 //      scan line that finds no edge, a corner scan that never reaches the
 //      straight side, or the region's centre outside the box. The reason is on
 //      stderr; nothing is guessed.
-//   2  cannot answer: usage error, two images with no calibration, `--ref-*`
-//      boxes whose aspect disagrees, a region starting outside its image,
+//   2  cannot answer: usage error, two images with no calibration, a `--scale`
+//      that is not a positive finite number or a measurement that overflows
+//      to no finite number, `--ref-*` boxes whose aspect disagrees, a region starting outside its image,
 //      `matrix` without two images or with a `--region-*`, or
 //      an unreadable image (anything but a PNG
 //      included).
@@ -276,8 +279,8 @@ import (
 // error is one `measure-visual-properties: …` line on stderr.
 
 // measure-visual-properties: one UI control's visual properties measured from
-// pixels, in one image or two, printed as the Python script's JSON byte for
-// byte (design.md byte-identical-json). The interface, the region layout,
+// pixels, in one image or two, printed as indented JSON (encoding/json), each
+// object's keys in insertion order (mvpObj). The interface, the region layout,
 // every property and the exit codes are the comment above's; the comments here are the algorithm's.
 
 func init() {
@@ -345,7 +348,6 @@ type mvpArgs struct {
 	props                        string
 	edge, noise                  float64
 	tolerance                    float64              // --tolerance: the length tolerance of summary.over, mvpOverLength by default
-	edgeText                     string               // str(edge): argparse left the default an int
 	decoded                      map[string]*rgbImage // each image file decoded once per call; regions only read it
 }
 
@@ -388,6 +390,9 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 		case a.scale != nil && (a.refA != nil || a.refB != nil):
 			return refuse("scale-and-refs-both-given", "give --scale or the --ref-a/--ref-b pair, not both")
 		case a.scale != nil:
+			if math.IsNaN(*a.scale) || math.IsInf(*a.scale, 0) {
+				return refuse("scale-not-finite", "--scale must be finite")
+			}
 			if *a.scale <= 0 {
 				return refuse("scale-must-be-positive", "--scale must be positive")
 			}
@@ -412,7 +417,7 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 		}
 		props = slices.DeleteFunc(props, func(p string) bool { return p == "matrix" })
 	}
-	result := pyObj{}
+	result := mvpObj{}
 	if len(props) > 0 {
 		var code int
 		if result, code = mvpPage(env, a, props, imageB, scale, refuse, stderr); code >= 0 {
@@ -429,18 +434,58 @@ func measureVisualProperties(args []string, env Env, stdout, stderr io.Writer) i
 		}
 		result = append(result, out...)
 	}
-	fmt.Fprintln(stdout, pyDump(result))
+	out, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return refuse("measurement-not-finite", "a measurement is no finite number: "+err.Error())
+	}
+	fmt.Fprintln(stdout, string(out))
 	return 0
+}
+
+// mvpObj is a JSON object whose keys print in insertion order. A value in an mvpObj tree is nil,
+// int, float64, string, mvpObj or []mvpObj.
+type mvpObj []mvpKV
+
+type mvpKV struct {
+	k string
+	v any
+}
+
+func (o mvpObj) MarshalJSON() ([]byte, error) {
+	var b bytes.Buffer
+	b.WriteByte('{')
+	for i, kv := range o {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		k, _ := json.Marshal(kv.k)
+		v, err := json.Marshal(kv.v)
+		if err != nil {
+			return nil, err
+		}
+		b.Write(k)
+		b.WriteByte(':')
+		b.Write(v)
+	}
+	b.WriteByte('}')
+	return b.Bytes(), nil
+}
+
+// roundTo is x rounded to n decimals, half to even on x's exact binary value (strconv's correctly
+// rounded 'f' format, read back). -0.0 keeps its sign; NaN and ±Inf pass through.
+func roundTo(x float64, n int) float64 {
+	f, _ := strconv.ParseFloat(strconv.FormatFloat(x, 'f', n, 64), 64)
+	return f
 }
 
 // mvpPage measures every prop but matrix on the two images, or the one; code
 // is -1 when it measured.
-func mvpPage(env Env, a mvpArgs, props []string, imageB string, scale float64, refuse func(id, msg string) int, stderr io.Writer) (pyObj, int) {
+func mvpPage(env Env, a mvpArgs, props []string, imageB string, scale float64, refuse func(id, msg string) int, stderr io.Writer) (mvpObj, int) {
 	page := true
 	for _, p := range props {
 		page = page && slices.Contains(mvpPageProps, p)
 	}
-	result := pyObj{}
+	result := mvpObj{}
 	which := "a"
 	measure := func(path string, box *[4]int) (mvpMeasured, error) {
 		r, err := mvpOpen(env, path, box, a, page)
@@ -454,12 +499,12 @@ func mvpPage(env Env, a mvpArgs, props []string, imageB string, scale float64, r
 	}
 	ma, err := measure(a.images[0], a.regionA)
 	if err == nil {
-		result = append(result, pyKV{"a", ma.out})
+		result = append(result, mvpKV{"a", ma.out})
 		if imageB != "" {
 			which = "b"
 			var mb mvpMeasured
 			if mb, err = measure(imageB, a.regionB); err == nil {
-				result = append(result, pyKV{"b", mb.out}, pyKV{"scale", scale}, pyKV{"delta", mvpDelta(ma, mb, props, scale)})
+				result = append(result, mvpKV{"b", mb.out}, mvpKV{"scale", scale}, mvpKV{"delta", mvpDelta(ma, mb, props, scale)})
 			}
 		}
 	}
@@ -484,7 +529,7 @@ func mvpPage(env Env, a mvpArgs, props []string, imageB string, scale float64, r
 // missing image and an unrecognized argument are reported after the scan.
 // code is -1 when the arguments parsed.
 func mvpParse(args []string, env Env, stdout, stderr io.Writer) (a mvpArgs, code int) {
-	a = mvpArgs{props: strings.Join(mvpAllProps, ","), edge: 24, noise: 8, edgeText: "24", tolerance: mvpOverLength, decoded: map[string]*rgbImage{}}
+	a = mvpArgs{props: strings.Join(mvpAllProps, ","), edge: 24, noise: 8, tolerance: mvpOverLength, decoded: map[string]*rgbImage{}}
 	usage := func(msg string) (mvpArgs, int) {
 		fmt.Fprintln(stderr, mvpPrefix+msg)
 		Reason(env, "usage")
@@ -568,7 +613,7 @@ func (a *mvpArgs) set(name, val string) string {
 		case "--scale":
 			a.scale = &f
 		case "--edge":
-			a.edge, a.edgeText = f, pyFloat(f)
+			a.edge = f
 		case "--tolerance":
 			if f < 0 {
 				return "must not be negative"
@@ -643,7 +688,6 @@ type mvpRegion struct {
 	im               *rgbImage
 	x0, y0, w, h     int
 	edge, noise      float64
-	edgeText         string
 	bg               [3]byte
 	box              mvpBox
 	radius           [4]int // top_left, top_right, bottom_left, bottom_right
@@ -710,7 +754,7 @@ func mvpOpen(env Env, path string, box *[4]int, a mvpArgs, page bool) (*mvpRegio
 	if box != nil {
 		b = *box
 	}
-	r := &mvpRegion{im: im, x0: b[0], y0: b[1], w: b[2], h: b[3], edge: a.edge, noise: a.noise, edgeText: a.edgeText, cropped: box != nil}
+	r := &mvpRegion{im: im, x0: b[0], y0: b[1], w: b[2], h: b[3], edge: a.edge, noise: a.noise, cropped: box != nil}
 	if r.x0 >= im.W || r.y0 >= im.H {
 		return nil, fmt.Errorf("region (%d, %d, %d, %d) exceeds %s (%dx%d)", b[0], b[1], b[2], b[3], path, im.W, im.H)
 	}
@@ -946,7 +990,7 @@ func (c *mvpCounter) darkest() (colour [3]byte, share float64) {
 	if math.IsInf(lum, 1) {
 		colour, _ = c.top()
 	}
-	return colour, pyRound(float64(n1+n2)/float64(total), 3)
+	return colour, roundTo(float64(n1+n2)/float64(total), 3)
 }
 
 // row and col are the region-relative points of a scan line, both ends
@@ -1006,7 +1050,7 @@ func (r *mvpRegion) outward(side string) [][2]int {
 
 var mvpSides = []string{"left", "right", "top", "bottom"}
 
-func (r *mvpRegion) measureBox() (pyObj, error) {
+func (r *mvpRegion) measureBox() (mvpObj, error) {
 	cx, cy := r.w/2, r.h/2
 	lines := [][][2]int{r.row(cy, 0, cx), r.row(cy, r.w-1, cx), r.col(cx, 0, cy), r.col(cx, r.h-1, cy)}
 	var found [4]int
@@ -1017,17 +1061,17 @@ func (r *mvpRegion) measureBox() (pyObj, error) {
 		}
 		i := r.firstEdge(pts)
 		if i < 0 {
-			return nil, mvpUnresolved(fmt.Sprintf("no edge on the centre scan line from the %s (jump >= %s); the region's centre may lie outside the control, or lower --edge", mvpSides[k], r.edgeText))
+			return nil, mvpUnresolved(fmt.Sprintf("no edge on the centre scan line from the %s (jump >= %s); the region's centre may lie outside the control, or lower --edge", mvpSides[k], strconv.FormatFloat(r.edge, 'g', -1, 64)))
 		}
 		found[k] = pts[i][k/2] // x for left/right, y for top/bottom
 	}
 	b := mvpBox{left: found[0], right: found[1], top: found[2], bottom: found[3]}
 	b.width, b.height = b.right-b.left+1, b.bottom-b.top+1
 	r.box = b
-	return pyObj{{"left", b.left}, {"right", b.right}, {"top", b.top}, {"bottom", b.bottom}, {"width", b.width}, {"height", b.height}}, nil
+	return mvpObj{{"left", b.left}, {"right", b.right}, {"top", b.top}, {"bottom", b.bottom}, {"width", b.width}, {"height", b.height}}, nil
 }
 
-func (r *mvpRegion) measureRadius() (pyObj, error) {
+func (r *mvpRegion) measureRadius() (mvpObj, error) {
 	b, cx := r.box, r.w/2
 	limit := min(b.width, b.height)/2 + 1
 	corners := []struct {
@@ -1039,11 +1083,11 @@ func (r *mvpRegion) measureRadius() (pyObj, error) {
 		{"bottom_left", b.bottom, -1, 0, b.left},
 		{"bottom_right", b.bottom, -1, r.w - 1, b.right},
 	}
-	out := pyObj{}
+	out := mvpObj{}
 	sides := r.corners()
 	for k, c := range corners {
 		if r.clipped[sides[k][2]] || r.clipped[sides[k][3]] {
-			out = append(out, pyKV{c.name, "clipped"})
+			out = append(out, mvpKV{c.name, "clipped"})
 			continue
 		}
 		// The area between the straight side and the curve is r²(1 − π/4);
@@ -1071,8 +1115,8 @@ func (r *mvpRegion) measureRadius() (pyObj, error) {
 		if !reached {
 			return nil, mvpUnresolved(fmt.Sprintf("%s corner never reaches the straight side x=%d within %d rows — not a clean rectangle", c.name, c.target, limit))
 		}
-		r.radius[k] = int(pyRound(math.Sqrt(float64(area)/(1-math.Pi/4)), 0))
-		out = append(out, pyKV{c.name, r.radius[k]})
+		r.radius[k] = int(roundTo(math.Sqrt(float64(area)/(1-math.Pi/4)), 0))
+		out = append(out, mvpKV{c.name, r.radius[k]})
 	}
 	return out, nil
 }
@@ -1083,7 +1127,7 @@ func (r *mvpRegion) interiorInset() (l, t, rt, btm int) {
 	return b.left + ix, b.top + iy, b.right - ix, b.bottom - iy
 }
 
-func (r *mvpRegion) measureFill() pyObj {
+func (r *mvpRegion) measureFill() mvpObj {
 	l, t, rt, btm := r.interiorInset()
 	var c mvpCounter
 	for y := t; y <= btm; y++ {
@@ -1093,16 +1137,16 @@ func (r *mvpRegion) measureFill() pyObj {
 	}
 	colour, n := c.top()
 	r.fill = colour
-	return pyObj{{"colour", mvpHex(colour)}, {"share", pyRound(float64(n)/float64((btm-t+1)*(rt-l+1)), 3)}}
+	return mvpObj{{"colour", mvpHex(colour)}, {"share", roundTo(float64(n)/float64((btm-t+1)*(rt-l+1)), 3)}}
 }
 
-func (r *mvpRegion) measureBorder() pyObj {
+func (r *mvpRegion) measureBorder() mvpObj {
 	b, cx, cy := r.box, r.w/2, r.h/2
 	lines := [][][2]int{r.row(cy, b.left, cx), r.row(cy, b.right, cx), r.col(cx, b.top, cy), r.col(cx, b.bottom, cy)}
-	out := pyObj{}
+	out := mvpObj{}
 	for k, pts := range lines {
 		if r.clipped[k] {
-			out = append(out, pyKV{mvpSides[k], "clipped"})
+			out = append(out, mvpKV{mvpSides[k], "clipped"})
 			continue
 		}
 		var solid [][3]byte
@@ -1116,26 +1160,26 @@ func (r *mvpRegion) measureBorder() pyObj {
 			}
 		}
 		r.border[k] = len(solid)
-		out = append(out, pyKV{mvpSides[k], len(solid)})
+		out = append(out, mvpKV{mvpSides[k], len(solid)})
 		if len(solid) > 0 && !r.haveBorderColour {
 			r.borderColour, r.haveBorderColour = solid[len(solid)/2], true
 		}
 	}
 	if !r.haveBorderColour {
-		return append(out, pyKV{"colour", nil})
+		return append(out, mvpKV{"colour", nil})
 	}
-	return append(out, pyKV{"colour", mvpHex(r.borderColour)})
+	return append(out, mvpKV{"colour", mvpHex(r.borderColour)})
 }
 
-func (r *mvpRegion) measureShadow() pyObj {
+func (r *mvpRegion) measureShadow() mvpObj {
 	black := mvpDist(r.bg, [3]byte{})
 	if black == 0 {
 		black = 1
 	}
-	out := pyObj{}
+	out := mvpObj{}
 	for k, side := range mvpSides {
 		if r.clipped[k] {
-			out = append(out, pyKV{side, "clipped"})
+			out = append(out, mvpKV{side, "clipped"})
 			continue
 		}
 		width, peak := 0, 0.0
@@ -1150,14 +1194,14 @@ func (r *mvpRegion) measureShadow() pyObj {
 		// max() of no deltas was the int 0, and round(0, 1) keeps it an int.
 		var peakDelta any = 0
 		if width > 0 {
-			peakDelta = pyRound(peak, 1)
+			peakDelta = roundTo(peak, 1)
 		}
-		out = append(out, pyKV{side, pyObj{{"width", width}, {"peak_delta", peakDelta}, {"approx_opacity", pyRound(math.Min(1.0, peak/black), 2)}}})
+		out = append(out, mvpKV{side, mvpObj{{"width", width}, {"peak_delta", peakDelta}, {"approx_opacity", roundTo(math.Min(1.0, peak/black), 2)}}})
 	}
 	return out
 }
 
-func (r *mvpRegion) measureContent() pyObj {
+func (r *mvpRegion) measureContent() mvpObj {
 	b, bd, rad := r.box, r.border, r.radius
 	l, t := b.left+bd[0]+2, b.top+bd[2]+2
 	rt, btm := b.right-bd[1]-2, b.bottom-bd[3]-2
@@ -1186,27 +1230,27 @@ func (r *mvpRegion) measureContent() pyObj {
 		}
 	}
 	if tint.order == nil {
-		return pyObj{{"width", nil}, {"height", nil}, {"ratio", nil}, {"padding", nil}, {"colour", nil}}
+		return mvpObj{{"width", nil}, {"height", nil}, {"ratio", nil}, {"padding", nil}, {"colour", nil}}
 	}
 	w, h := cr-cl+1, cb-ct+1
 	// The tint: the modal colour of the content pixels themselves. `fill`
 	// is the box behind an icon, never the icon — a grey glyph on the
 	// right fill reads as a match on every other property (KAN-437).
 	colour, _ := tint.top()
-	return pyObj{
+	return mvpObj{
 		{"width", w},
 		{"height", h},
 		{"colour", mvpHex(colour)},
-		{"ratio", pyObj{{"width", pyRound(float64(w)/float64(b.width), 3)}, {"height", pyRound(float64(h)/float64(b.height), 3)}}},
-		{"padding", pyObj{{"left", cl - b.left}, {"top", ct - b.top}, {"right", b.right - cr}, {"bottom", b.bottom - cb}}},
+		{"ratio", mvpObj{{"width", roundTo(float64(w)/float64(b.width), 3)}, {"height", roundTo(float64(h)/float64(b.height), 3)}}},
+		{"padding", mvpObj{{"left", cl - b.left}, {"top", ct - b.top}, {"right", b.right - cr}, {"bottom", b.bottom - cb}}},
 	}
 }
 
-func (r *mvpRegion) measureGap() pyObj {
-	out := pyObj{}
+func (r *mvpRegion) measureGap() mvpObj {
+	out := mvpObj{}
 	for k, side := range mvpSides {
 		if r.clipped[k] {
-			out = append(out, pyKV{side, "clipped"})
+			out = append(out, mvpKV{side, "clipped"})
 			continue
 		}
 		pts := r.outward(side)
@@ -1221,12 +1265,12 @@ func (r *mvpRegion) measureGap() pyObj {
 		if i < len(pts) {
 			gap = i
 		}
-		out = append(out, pyKV{side, gap})
+		out = append(out, mvpKV{side, gap})
 	}
 	return out
 }
 
-func (r *mvpRegion) measureInk() pyObj {
+func (r *mvpRegion) measureInk() mvpObj {
 	l, rt, t, btm := math.MaxInt, math.MinInt, math.MaxInt, math.MinInt
 	var tint mvpCounter
 	for y := 0; y < r.h; y++ {
@@ -1238,19 +1282,19 @@ func (r *mvpRegion) measureInk() pyObj {
 		}
 	}
 	if tint.order == nil {
-		return pyObj{{"width", nil}, {"height", nil}, {"colour", nil}}
+		return mvpObj{{"width", nil}, {"height", nil}, {"colour", nil}}
 	}
 	// The tint of the ink itself — a text run has no box for `content` to
 	// look inside, so this is the one reading of a label's colour (KAN-437
 	// final verification: a caption and a summary row shipped in the wrong
 	// colour on a frame whose every label had been transcribed).
 	colour, _ := tint.top()
-	return pyObj{{"left", l}, {"top", t}, {"width", rt - l + 1}, {"height", btm - t + 1}, {"colour", mvpHex(colour)}}
+	return mvpObj{{"left", l}, {"top", t}, {"width", rt - l + 1}, {"height", btm - t + 1}, {"colour", mvpHex(colour)}}
 }
 
-func (r *mvpRegion) measureRuns() pyObj {
+func (r *mvpRegion) measureRuns() mvpObj {
 	cx, cy := r.w/2, r.h/2
-	out := pyObj{}
+	out := mvpObj{}
 	for _, line := range []struct {
 		name string
 		pts  [][2]int
@@ -1270,11 +1314,11 @@ func (r *mvpRegion) measureRuns() pyObj {
 				runs = append(runs, run{i, i, c})
 			}
 		}
-		list := make([]pyObj, len(runs))
+		list := make([]mvpObj, len(runs))
 		for i, u := range runs {
-			list[i] = pyObj{{"from", u.from}, {"to", u.to}, {"length", u.to - u.from + 1}, {"colour", mvpHex(u.colour)}}
+			list[i] = mvpObj{{"from", u.from}, {"to", u.to}, {"length", u.to - u.from + 1}, {"colour", mvpHex(u.colour)}}
 		}
-		out = append(out, pyKV{line.name, list})
+		out = append(out, mvpKV{line.name, list})
 	}
 	return out
 }
@@ -1302,29 +1346,29 @@ type mvpLine struct {
 	offset                   float64
 }
 
-func (b mvpBand) obj() pyObj {
-	return pyObj{{"top", b.top}, {"height", b.height}, {"gap_above", b.gapAbove}, {"edge", mvpHex(b.edge)}, {"colour", mvpHex(b.colour)}, {"share", b.share}}
+func (b mvpBand) obj() mvpObj {
+	return mvpObj{{"top", b.top}, {"height", b.height}, {"gap_above", b.gapAbove}, {"edge", mvpHex(b.edge)}, {"colour", mvpHex(b.colour)}, {"share", b.share}}
 }
 
-func (s mvpSeam) obj() pyObj {
-	return pyObj{{"left", s.left}, {"width", s.width}, {"gap_left", s.gapLeft}, {"colour", mvpHex(s.colour)}}
+func (s mvpSeam) obj() mvpObj {
+	return mvpObj{{"left", s.left}, {"width", s.width}, {"gap_left", s.gapLeft}, {"colour", mvpHex(s.colour)}}
 }
 
 // seamsObj is a boxed band as `seams` prints it: the band, its seams, its cells.
-func (b mvpBand) seamsObj() pyObj {
-	seams := make([]pyObj, len(b.seams))
+func (b mvpBand) seamsObj() mvpObj {
+	seams := make([]mvpObj, len(b.seams))
 	for i, s := range b.seams {
 		seams[i] = s.obj()
 	}
-	cells := make([]pyObj, len(b.cells))
+	cells := make([]mvpObj, len(b.cells))
 	for i, c := range b.cells {
-		lines := make([]pyObj, len(c.lines))
+		lines := make([]mvpObj, len(c.lines))
 		for j, ln := range c.lines {
-			lines[j] = pyObj{{"top", ln.top}, {"height", ln.height}, {"left", ln.left}, {"right", ln.right}, {"offset", ln.offset}}
+			lines[j] = mvpObj{{"top", ln.top}, {"height", ln.height}, {"left", ln.left}, {"right", ln.right}, {"offset", ln.offset}}
 		}
-		cells[i] = pyObj{{"left", c.left}, {"width", c.width}, {"lines", lines}}
+		cells[i] = mvpObj{{"left", c.left}, {"width", c.width}, {"lines", lines}}
 	}
-	return append(b.obj(), pyKV{"seams", seams}, pyKV{"cells", cells})
+	return append(b.obj(), mvpKV{"seams", seams}, mvpKV{"cells", cells})
 }
 
 func (r *mvpRegion) measureBands() []mvpBand {
@@ -1452,7 +1496,7 @@ func (r *mvpRegion) measureSeams(bands []mvpBand) []mvpBand {
 			// and its centre's offset from the cell's centre.
 			for i, ln := range cell.lines {
 				cell.lines[i] = mvpLine{top: ln.top - y0, height: ln.height, left: ln.left - x0, right: x1 - ln.right,
-					offset: pyRound(float64(ln.left+ln.right)/2-float64(x0+x1)/2, 1)}
+					offset: roundTo(float64(ln.left+ln.right)/2-float64(x0+x1)/2, 1)}
 			}
 			band.cells = append(band.cells, cell)
 		}
@@ -1469,7 +1513,7 @@ func (r *mvpRegion) measureSeams(bands []mvpBand) []mvpBand {
 // mvpMeasured is one image's measurement: the printed object, plus the bands
 // and boxed bands the delta pairs.
 type mvpMeasured struct {
-	out          pyObj
+	out          mvpObj
 	bands, seams []mvpBand
 	surfaceTop   int
 	elements     []mvpElement
@@ -1479,9 +1523,9 @@ func (r *mvpRegion) measure(props []string) (mvpMeasured, error) {
 	has := func(names ...string) bool {
 		return slices.ContainsFunc(names, func(n string) bool { return slices.Contains(props, n) })
 	}
-	m := mvpMeasured{out: pyObj{{"background", mvpHex(r.bg)}}}
+	m := mvpMeasured{out: mvpObj{{"background", mvpHex(r.bg)}}}
 	if c := r.clippedText(); c != "" {
-		m.out = append(m.out, pyKV{"clipped", c})
+		m.out = append(m.out, mvpKV{"clipped", c})
 	}
 	needsBox := slices.ContainsFunc(props, func(p string) bool { return !slices.Contains([]string{"ink", "runs", "bands", "seams", "elements"}, p) })
 	if needsBox {
@@ -1490,7 +1534,7 @@ func (r *mvpRegion) measure(props []string) (mvpMeasured, error) {
 			return m, err
 		}
 		if has("box") {
-			m.out = append(m.out, pyKV{"box", box})
+			m.out = append(m.out, mvpKV{"box", box})
 		}
 		if has("radius", "content") {
 			radius, err := r.measureRadius()
@@ -1498,61 +1542,61 @@ func (r *mvpRegion) measure(props []string) (mvpMeasured, error) {
 				return m, err
 			}
 			if has("radius") {
-				m.out = append(m.out, pyKV{"radius", radius})
+				m.out = append(m.out, mvpKV{"radius", radius})
 			}
 		}
 		if has("fill", "border", "content") {
 			if fill := r.measureFill(); has("fill") {
-				m.out = append(m.out, pyKV{"fill", fill})
+				m.out = append(m.out, mvpKV{"fill", fill})
 			}
 		}
 		if has("border", "content") {
 			if border := r.measureBorder(); has("border") {
-				m.out = append(m.out, pyKV{"border", border})
+				m.out = append(m.out, mvpKV{"border", border})
 			}
 		}
 		if has("shadow") {
-			m.out = append(m.out, pyKV{"shadow", r.measureShadow()})
+			m.out = append(m.out, mvpKV{"shadow", r.measureShadow()})
 		}
 		if has("content") {
-			m.out = append(m.out, pyKV{"content", r.measureContent()})
+			m.out = append(m.out, mvpKV{"content", r.measureContent()})
 		}
 		if has("gap") {
-			m.out = append(m.out, pyKV{"gap", r.measureGap()})
+			m.out = append(m.out, mvpKV{"gap", r.measureGap()})
 		}
 	}
 	if has("ink") {
-		m.out = append(m.out, pyKV{"ink", r.measureInk()})
+		m.out = append(m.out, mvpKV{"ink", r.measureInk()})
 	}
 	if has("runs") {
-		m.out = append(m.out, pyKV{"runs", r.measureRuns()})
+		m.out = append(m.out, mvpKV{"runs", r.measureRuns()})
 	}
 	if has("bands", "seams") {
 		m.bands = r.measureBands()
 		if has("bands") {
-			list := make([]pyObj, len(m.bands))
+			list := make([]mvpObj, len(m.bands))
 			for i, b := range m.bands {
 				list[i] = b.obj()
 			}
-			m.out = append(m.out, pyKV{"bands", list})
+			m.out = append(m.out, mvpKV{"bands", list})
 		}
 		if has("seams") {
 			m.seams = r.measureSeams(m.bands)
-			list := make([]pyObj, len(m.seams))
+			list := make([]mvpObj, len(m.seams))
 			for i, b := range m.seams {
 				list[i] = b.seamsObj()
 			}
-			m.out = append(m.out, pyKV{"seams", list})
+			m.out = append(m.out, mvpKV{"seams", list})
 		}
 	}
 	if has("elements") {
 		var bg [3]byte
-		list := []pyObj{}
+		list := []mvpObj{}
 		m.surfaceTop, bg, m.elements = r.measureElements()
 		for _, e := range m.elements {
 			list = append(list, e.obj())
 		}
-		m.out = append(m.out, pyKV{"elements", pyObj{{"surface_top", m.surfaceTop}, {"background", mvpHex(bg)}, {"elements", list}}})
+		m.out = append(m.out, mvpKV{"elements", mvpObj{{"surface_top", m.surfaceTop}, {"background", mvpHex(bg)}, {"elements", list}}})
 	}
 	return m, nil
 }
@@ -1644,8 +1688,8 @@ func mvpGroup(rows [][]int) [2]int {
 	return [2]int{best[1] - best[0] + 1, bot - top + 1}
 }
 
-func (e mvpElement) obj() pyObj {
-	return pyObj{{"top", e.top}, {"height", e.height}, {"left", e.left}, {"width", e.width}, {"right", e.right},
+func (e mvpElement) obj() mvpObj {
+	return mvpObj{{"top", e.top}, {"height", e.height}, {"left", e.left}, {"width", e.width}, {"right", e.right},
 		{"colour", mvpHex(e.colour)}, {"kind", e.kind}, {"gap", e.gap}}
 }
 
@@ -1743,7 +1787,7 @@ var mvpKindProps = map[string][]string{
 // mvpMatrix is `--props matrix`: both whole images' elements, paired in
 // order, each pair measured on its own region — the element's box with a
 // 4px margin, clipped to the image — with its kind's columns.
-func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
+func mvpMatrix(env Env, a mvpArgs, scale float64) (mvpObj, error) {
 	var sides [2]mvpMeasured
 	for i, path := range a.images {
 		r, err := mvpOpen(env, path, nil, a, true)
@@ -1771,18 +1815,18 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 	// for one offset and pairing by position under it pairs more of them — and
 	// at least half of the shorter side, or it is another page, not this one
 	// moved — that pairing stands and the summary names the shift once.
-	var shift pyObj
+	var shift mvpObj
 	if dy, ok := mvpShiftDy(ra, rb, scale); ok {
 		alt := mvpPairInOrder(ra, rb, scale, &dy, "gap", "height", []string{"colour"})
 		was, _, _ := mvpCountStatus(pairs)
 		if n, _, _ := mvpCountStatus(alt); n > was && 2*n >= min(len(ra), len(rb)) {
-			pairs, shift = mvpRepair(alt, ra, rb, scale), pyObj{{"dy", dy}, {"rows", n}}
+			pairs, shift = mvpRepair(alt, ra, rb, scale), mvpObj{{"dy", dy}, {"rows", n}}
 		}
 	}
-	rows := []pyObj{}
+	rows := []mvpObj{}
 	for _, p := range pairs {
 		if p.status != "paired" {
-			rows = append(rows, append(pyObj{{"class", p.status}}, p.obj...))
+			rows = append(rows, append(mvpObj{{"class", p.status}}, p.obj...))
 			continue
 		}
 		p.obj = append(p.obj, mvpSegsAndScale(ea[p.i], eb[p.j], scale)...)
@@ -1791,8 +1835,8 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 		ma, errA := measure(a.images[0], ea[p.i], props)
 		mb, errB := measure(a.images[1], eb[p.j], props)
 		if errA != nil || errB != nil {
-			row := append(pyObj{{"kind", kind}, {"class", "unresolved"}}, p.obj...)
-			rows = append(rows, append(row, pyKV{"unresolved", errors.Join(errA, errB).Error()}))
+			row := append(mvpObj{{"kind", kind}, {"class", "unresolved"}}, p.obj...)
+			rows = append(rows, append(row, mvpKV{"unresolved", errors.Join(errA, errB).Error()}))
 			continue
 		}
 		class := kind
@@ -1802,7 +1846,7 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 			if ba, err := measure(a.images[0], ea[p.i], box); err == nil {
 				if bb, err := measure(a.images[1], eb[p.j], box); err == nil {
 					// Skip the box's own background and clipped keys: ma/mb carry them.
-					rest := func(o pyObj) pyObj {
+					rest := func(o mvpObj) mvpObj {
 						if len(o) > 1 && o[1].k == "clipped" {
 							return o[2:]
 						}
@@ -1813,16 +1857,16 @@ func mvpMatrix(env Env, a mvpArgs, scale float64) (pyObj, error) {
 				}
 			}
 		}
-		row := append(pyObj{{"kind", kind}, {"class", class}}, p.obj...)
-		rows = append(rows, append(row, pyKV{"measured", pyObj{{"a", ma.out}, {"b", mb.out}, {"delta", mvpDelta(ma, mb, props, scale)}}}))
+		row := append(mvpObj{{"kind", kind}, {"class", class}}, p.obj...)
+		rows = append(rows, append(row, mvpKV{"measured", mvpObj{{"a", ma.out}, {"b", mb.out}, {"delta", mvpDelta(ma, mb, props, scale)}}}))
 	}
 	paired, missing, extra := mvpCountStatus(pairs)
 	over, within := mvpOver(rows, a.tolerance)
-	summary := pyObj{{"paired", paired}, {"missing", missing}, {"extra", extra}, {"over", over}, {"within", within}}
+	summary := mvpObj{{"paired", paired}, {"missing", missing}, {"extra", extra}, {"over", over}, {"within", within}}
 	if shift != nil {
-		summary = append(summary, pyKV{"shift", shift})
+		summary = append(summary, mvpKV{"shift", shift})
 	}
-	return pyObj{{"scale", scale}, {"matrix", rows}, {"summary", summary}}, nil
+	return mvpObj{{"scale", scale}, {"matrix", rows}, {"summary", summary}}, nil
 }
 
 // mvpRepair pairs by gap each run of unpaired records the shift pairing left
@@ -1878,11 +1922,11 @@ func mvpRepair(pairs []mvpPair, a, b []mvpRec, scale float64) []mvpPair {
 // beside them can hide from the row's own width. A text set in another face
 // changes its width far more than its height, and carries none; nor does a
 // rail, whose marks are no glyphs.
-func mvpSegsAndScale(a, b mvpElement, scale float64) pyObj {
-	var out pyObj
+func mvpSegsAndScale(a, b mvpElement, scale float64) mvpObj {
+	var out mvpObj
 	if len(a.segs) == len(b.segs) {
 		for k := range a.segs {
-			out = append(out, pyKV{fmt.Sprintf("segment%d.colour", k+1), mvpColourDelta(mvpHex(a.segs[k]), mvpHex(b.segs[k]))})
+			out = append(out, mvpKV{fmt.Sprintf("segment%d.colour", k+1), mvpColourDelta(mvpHex(a.segs[k]), mvpHex(b.segs[k]))})
 		}
 	}
 	if a.segs == nil && b.segs == nil && a.group[0] > 0 && b.group[0] > 0 {
@@ -1890,7 +1934,7 @@ func mvpSegsAndScale(a, b mvpElement, scale float64) pyObj {
 		rh := float64(b.group[1]) / (float64(a.group[1]) * scale)
 		if math.Abs(rw-1) >= 0.05 && math.Abs(rw-rh) < 0.05 {
 			size := func(g [2]int) string { return fmt.Sprintf("%dx%d", g[0], g[1]) }
-			out = append(out, pyKV{"scale", pyObj{{"a", size(a.group)}, {"b", size(b.group)}, {"ratio", pyRound(rw, 3)}}})
+			out = append(out, mvpKV{"scale", mvpObj{{"a", size(a.group)}, {"b", size(b.group)}, {"ratio", roundTo(rw, 3)}}})
 		}
 	}
 	return out
@@ -1970,12 +2014,12 @@ const (
 // missing or an extra row. within is summary.within: one {row, values} entry
 // per paired row off the over list that carries a non-zero length delta, every
 // one of them inside tol, values its `<leaf>=<abs>` deltas comma-separated.
-func mvpOver(rows []pyObj, tol float64) (over, within []pyObj) {
-	over, within = []pyObj{}, []pyObj{}
+func mvpOver(rows []mvpObj, tol float64) (over, within []mvpObj) {
+	over, within = []mvpObj{}, []mvpObj{}
 	for i, row := range rows {
 		status, keys, inside := "", []string{}, []string{}
 		judge := func(key string, v any) {
-			d, ok := v.(pyObj)
+			d, ok := v.(mvpObj)
 			if !ok {
 				return
 			}
@@ -2001,9 +2045,9 @@ func mvpOver(rows []pyObj, tol float64) (over, within []pyObj) {
 			case "unresolved", "scale":
 				keys = append(keys, kv.k)
 			case "measured":
-				for _, m := range kv.v.(pyObj) {
+				for _, m := range kv.v.(mvpObj) {
 					if m.k == "delta" {
-						for _, dk := range m.v.(pyObj) {
+						for _, dk := range m.v.(mvpObj) {
 							judge(dk.k, dk.v)
 						}
 					}
@@ -2013,9 +2057,9 @@ func mvpOver(rows []pyObj, tol float64) (over, within []pyObj) {
 			}
 		}
 		if status == "missing" || status == "extra" || len(keys) > 0 {
-			over = append(over, pyObj{{"row", i + 1}, {"status", status}, {"keys", strings.Join(keys, ", ")}})
+			over = append(over, mvpObj{{"row", i + 1}, {"status", status}, {"keys", strings.Join(keys, ", ")}})
 		} else if len(inside) > 0 {
-			within = append(within, pyObj{{"row", i + 1}, {"values", strings.Join(inside, ", ")}})
+			within = append(within, mvpObj{{"row", i + 1}, {"values", strings.Join(inside, ", ")}})
 		}
 	}
 	return over, within
@@ -2030,19 +2074,19 @@ func mvpElementRecs(elems []mvpElement) []mvpRec {
 }
 
 // mvpLeaves is every non-object value under d, keyed by its dotted path.
-func mvpLeaves(d pyObj, prefix string) []pyKV {
-	var out []pyKV
+func mvpLeaves(d mvpObj, prefix string) []mvpKV {
+	var out []mvpKV
 	for _, kv := range d {
-		if sub, ok := kv.v.(pyObj); ok {
+		if sub, ok := kv.v.(mvpObj); ok {
 			out = append(out, mvpLeaves(sub, prefix+kv.k+".")...)
 		} else {
-			out = append(out, pyKV{prefix + kv.k, kv.v})
+			out = append(out, mvpKV{prefix + kv.k, kv.v})
 		}
 	}
 	return out
 }
 
-func mvpColourDelta(av, bv string) pyObj {
+func mvpColourDelta(av, bv string) mvpObj {
 	parse := func(h string) (c [3]byte) {
 		for i := range c {
 			n, _ := strconv.ParseUint(h[1+2*i:3+2*i], 16, 8)
@@ -2050,7 +2094,7 @@ func mvpColourDelta(av, bv string) pyObj {
 		}
 		return c
 	}
-	return pyObj{{"a", av}, {"b", bv}, {"distance", pyRound(mvpDist(parse(av), parse(bv)), 1)}}
+	return mvpObj{{"a", av}, {"b", bv}, {"distance", roundTo(mvpDist(parse(av), parse(bv)), 1)}}
 }
 
 // Python's arithmetic on an int or a float64: int op int stays an int, any
@@ -2083,28 +2127,28 @@ func mvpSub(a, b any) any {
 // mvpRoundN is round(v, n): an int comes back unchanged, a float rounded.
 func mvpRoundN(v any, n int) any {
 	if f, ok := v.(float64); ok {
-		return pyRound(f, n)
+		return roundTo(f, n)
 	}
 	return v
 }
 
 // mvpNumberDelta is number_delta; scale is the int 1 for an unscaled leaf,
 // else the float scale.
-func mvpNumberDelta(av, bv, scale any) pyObj {
+func mvpNumberDelta(av, bv, scale any) mvpObj {
 	scaled := mvpMul(av, scale)
 	ab := mvpSub(bv, scaled)
 	var pct any
 	if mvpF(scaled) != 0 {
-		pct = pyRound(mvpF(ab)/mvpF(scaled)*100, 1)
+		pct = roundTo(mvpF(ab)/mvpF(scaled)*100, 1)
 	}
-	return pyObj{{"a", av}, {"a_scaled", mvpRoundN(scaled, 2)}, {"b", bv}, {"abs", mvpRoundN(ab, 2)}, {"pct", pct}}
+	return mvpObj{{"a", av}, {"a_scaled", mvpRoundN(scaled, 2)}, {"b", bv}, {"abs", mvpRoundN(ab, 2)}, {"pct", pct}}
 }
 
 // mvpRec is one band or seam as pairInOrder reads it.
 type mvpRec struct {
 	pos, size, gap int
 	colours        []string
-	obj            pyObj
+	obj            mvpObj
 }
 
 // mvpPair is one pairInOrder entry: i and j index the records it holds, -1
@@ -2112,7 +2156,7 @@ type mvpRec struct {
 type mvpPair struct {
 	status string
 	i, j   int
-	obj    pyObj
+	obj    mvpObj
 }
 
 func mvpBandRecs(bands []mvpBand) []mvpRec {
@@ -2153,10 +2197,10 @@ func mvpSeamRecs(seams []mvpSeam) []mvpRec {
 func mvpPairInOrder(a, b []mvpRec, scale float64, shift *float64, gapKey, sizeKey string, colourKeys []string) []mvpPair {
 	var out []mvpPair
 	missing := func(i int) mvpPair {
-		return mvpPair{"missing", i, -1, pyObj{{"status", "missing"}, {"a", a[i].obj}, {"b", nil}}}
+		return mvpPair{"missing", i, -1, mvpObj{{"status", "missing"}, {"a", a[i].obj}, {"b", nil}}}
 	}
 	extra := func(j int) mvpPair {
-		return mvpPair{"extra", -1, j, pyObj{{"status", "extra"}, {"a", nil}, {"b", b[j].obj}}}
+		return mvpPair{"extra", -1, j, mvpObj{{"status", "extra"}, {"a", nil}, {"b", b[j].obj}}}
 	}
 	i, j := 0, 0
 	aAnchor, bAnchor := -1, -1 // last row/column of the last paired record, per image
@@ -2176,13 +2220,13 @@ func mvpPairInOrder(a, b []mvpRec, scale float64, shift *float64, gapKey, sizeKe
 				}
 			}
 			if math.Abs(off) <= tol && math.Abs(float64(b[j].size)-float64(a[i].size)*scale) <= tol {
-				obj := pyObj{{"status", "paired"}, {"a", a[i].obj}, {"b", b[j].obj}, {gapKey, mvpNumberDelta(a[i].gap, b[j].gap, scale)},
+				obj := mvpObj{{"status", "paired"}, {"a", a[i].obj}, {"b", b[j].obj}, {gapKey, mvpNumberDelta(a[i].gap, b[j].gap, scale)},
 					// Distance from the last PAIRED record, so a padding lost
 					// around a missing divider still reads as one number here.
 					{"since_pair", mvpNumberDelta(a[i].pos-aAnchor-1, gb, scale)},
 					{sizeKey, mvpNumberDelta(a[i].size, b[j].size, scale)}}
 				for k, key := range colourKeys {
-					obj = append(obj, pyKV{key, mvpColourDelta(a[i].colours[k], b[j].colours[k])})
+					obj = append(obj, mvpKV{key, mvpColourDelta(a[i].colours[k], b[j].colours[k])})
 				}
 				out = append(out, mvpPair{"paired", i, j, obj})
 				aAnchor, bAnchor = a[i].pos+a[i].size-1, b[j].pos+b[j].size-1
@@ -2201,8 +2245,8 @@ func mvpPairInOrder(a, b []mvpRec, scale float64, shift *float64, gapKey, sizeKe
 	return out
 }
 
-func mvpPairObjs(pairs []mvpPair) []pyObj {
-	objs := make([]pyObj, len(pairs))
+func mvpPairObjs(pairs []mvpPair) []mvpObj {
+	objs := make([]mvpObj, len(pairs))
 	for i, p := range pairs {
 		objs[i] = p.obj
 	}
@@ -2226,18 +2270,18 @@ func mvpCountStatus(pairs []mvpPair) (paired, missing, extra int) {
 // mvpPairSeams pairs the boxed bands, then each band's seams; a cell pairs
 // where its two bounding seams paired with consecutive seams in the other
 // image, and its lines pair by index.
-func mvpPairSeams(a, b []mvpBand, scale float64) ([]pyObj, pyObj) {
-	var out []pyObj
+func mvpPairSeams(a, b []mvpBand, scale float64) ([]mvpObj, mvpObj) {
+	var out []mvpObj
 	var paired, missing, extra, bandsUnpaired, linesPaired, linesUnpaired int
 	for _, band := range mvpPairInOrder(mvpBandRecs(a), mvpBandRecs(b), scale, nil, "gap_above", "height", []string{"edge", "colour"}) {
 		var ea, eb any
 		if band.i >= 0 {
-			ea = pyObj{{"top", a[band.i].top}, {"height", a[band.i].height}}
+			ea = mvpObj{{"top", a[band.i].top}, {"height", a[band.i].height}}
 		}
 		if band.j >= 0 {
-			eb = pyObj{{"top", b[band.j].top}, {"height", b[band.j].height}}
+			eb = mvpObj{{"top", b[band.j].top}, {"height", b[band.j].height}}
 		}
-		entry := pyObj{{"status", band.status}, {"a", ea}, {"b", eb}}
+		entry := mvpObj{{"status", band.status}, {"a", ea}, {"b", eb}}
 		if band.status != "paired" {
 			bandsUnpaired++
 			out = append(out, entry)
@@ -2263,7 +2307,7 @@ func mvpPairSeams(a, b []mvpBand, scale float64) ([]pyObj, pyObj) {
 			}
 			return mvpCell{}, false
 		}
-		cells := []pyObj{}
+		cells := []mvpObj{}
 		for k := 0; k+1 < len(idx); k++ {
 			ia, ib, ja, jb := idx[k][0], idx[k][1], idx[k+1][0], idx[k+1][1]
 			if ja != ia+1 || jb != ib+1 {
@@ -2274,42 +2318,42 @@ func mvpPairSeams(a, b []mvpBand, scale float64) ([]pyObj, pyObj) {
 			if !okA || !okB {
 				continue
 			}
-			lines := []pyObj{}
+			lines := []mvpObj{}
 			for n := 0; n < min(len(ca.lines), len(cb.lines)); n++ {
 				la, lb := ca.lines[n], cb.lines[n]
-				lines = append(lines, pyObj{{"offset", mvpNumberDelta(la.offset, lb.offset, scale)},
+				lines = append(lines, mvpObj{{"offset", mvpNumberDelta(la.offset, lb.offset, scale)},
 					{"left", mvpNumberDelta(la.left, lb.left, scale)}, {"right", mvpNumberDelta(la.right, lb.right, scale)}})
 			}
 			linesPaired += len(lines)
 			linesUnpaired += max(len(ca.lines)-len(cb.lines), len(cb.lines)-len(ca.lines))
-			cells = append(cells, pyObj{{"a", ia}, {"b", ib}, {"count", pyObj{{"a", len(ca.lines)}, {"b", len(cb.lines)}}}, {"lines", lines}})
+			cells = append(cells, mvpObj{{"a", ia}, {"b", ib}, {"count", mvpObj{{"a", len(ca.lines)}, {"b", len(cb.lines)}}}, {"lines", lines}})
 		}
-		out = append(out, append(entry, pyKV{"seams", mvpPairObjs(seams)}, pyKV{"cells", cells}))
+		out = append(out, append(entry, mvpKV{"seams", mvpPairObjs(seams)}, mvpKV{"cells", cells}))
 	}
-	return out, pyObj{{"paired", paired}, {"missing", missing}, {"extra", extra}, {"bands_unpaired", bandsUnpaired},
-		{"lines", pyObj{{"paired", linesPaired}, {"unpaired", linesUnpaired}}}}
+	return out, mvpObj{{"paired", paired}, {"missing", missing}, {"extra", extra}, {"bands_unpaired", bandsUnpaired},
+		{"lines", mvpObj{{"paired", linesPaired}, {"unpaired", linesUnpaired}}}}
 }
 
-func mvpDelta(a, b mvpMeasured, props []string, scale float64) pyObj {
-	out := pyObj{}
+func mvpDelta(a, b mvpMeasured, props []string, scale float64) mvpObj {
+	out := mvpObj{}
 	if slices.Contains(props, "bands") {
 		pairs := mvpPairInOrder(mvpBandRecs(a.bands), mvpBandRecs(b.bands), scale, nil, "gap_above", "height", []string{"edge", "colour"})
 		p, m, e := mvpCountStatus(pairs)
-		out = append(out, pyKV{"bands", mvpPairObjs(pairs)}, pyKV{"bands_summary", pyObj{{"paired", p}, {"missing", m}, {"extra", e}}})
+		out = append(out, mvpKV{"bands", mvpPairObjs(pairs)}, mvpKV{"bands_summary", mvpObj{{"paired", p}, {"missing", m}, {"extra", e}}})
 	}
 	if slices.Contains(props, "seams") {
 		seams, summary := mvpPairSeams(a.seams, b.seams, scale)
-		out = append(out, pyKV{"seams", seams}, pyKV{"seams_summary", summary})
+		out = append(out, mvpKV{"seams", seams}, mvpKV{"seams_summary", summary})
 	}
 	if slices.Contains(props, "elements") {
 		pairs := mvpPairInOrder(mvpElementRecs(a.elements), mvpElementRecs(b.elements), scale, nil, "gap", "height", []string{"colour"})
 		for k, p := range pairs {
 			if p.status == "paired" {
-				pairs[k].obj = append(p.obj, pyKV{"top", mvpNumberDelta(a.elements[p.i].top, b.elements[p.j].top, scale)})
+				pairs[k].obj = append(p.obj, mvpKV{"top", mvpNumberDelta(a.elements[p.i].top, b.elements[p.j].top, scale)})
 			}
 		}
 		p, m, e := mvpCountStatus(pairs)
-		out = append(out, pyKV{"elements", mvpPairObjs(pairs)}, pyKV{"elements_summary", pyObj{{"paired", p}, {"missing", m}, {"extra", e}}})
+		out = append(out, mvpKV{"elements", mvpPairObjs(pairs)}, mvpKV{"elements_summary", mvpObj{{"paired", p}, {"missing", m}, {"extra", e}}})
 	}
 	bl := map[string]any{}
 	for _, kv := range mvpLeaves(b.out, "") {
@@ -2331,15 +2375,15 @@ func mvpDelta(a, b mvpMeasured, props []string, scale float64) pyObj {
 		bs, bok := bv.(string)
 		switch {
 		case aok && bok && strings.HasPrefix(as, "#") && strings.HasPrefix(bs, "#"):
-			out = append(out, pyKV{key, mvpColourDelta(as, bs)})
+			out = append(out, mvpKV{key, mvpColourDelta(as, bs)})
 		case isNum(av) && isNum(bv):
 			var s any = scale
 			if slices.ContainsFunc(strings.Split(key, "."), func(seg string) bool { return slices.Contains(mvpUnscaled, seg) }) {
 				s = 1
 			}
-			out = append(out, pyKV{key, mvpNumberDelta(av, bv, s)})
+			out = append(out, mvpKV{key, mvpNumberDelta(av, bv, s)})
 		case av == nil || bv == nil || av == "clipped" || bv == "clipped":
-			out = append(out, pyKV{key, pyObj{{"a", av}, {"b", bv}, {"abs", nil}, {"pct", nil}}})
+			out = append(out, mvpKV{key, mvpObj{{"a", av}, {"b", bv}, {"abs", nil}, {"pct", nil}}})
 		}
 	}
 	return out

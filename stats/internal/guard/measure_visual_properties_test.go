@@ -18,47 +18,10 @@ import (
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
-// TestPyJSON pins pyjson.go against Python's own output. Each expected string
-// is copied from the python3 command in the comment above its table.
-func TestPyJSON(t *testing.T) {
+// TestMvpJSON: an mvpObj prints its keys in insertion order through encoding/json, and roundTo
+// rounds half to even on the float's exact binary value.
+func TestMvpJSON(t *testing.T) {
 	t.Parallel()
-	// python3 -c 'import json
-	// for v in [3.0, 0.1, 1e-05, 0.0001, 1e16, 1.5e16, -0.0, 123456789012345.0, 0.0, 1e15,
-	//           9999999999999998.0, 9.999999999999999e-05, float("nan"), float("inf"), -float("inf")]:
-	//     print(repr(v), json.dumps(v))'
-	for _, c := range []struct {
-		f          float64
-		repr, json string
-	}{
-		{3.0, "3.0", "3.0"},
-		{0.1, "0.1", "0.1"},
-		{1e-05, "1e-05", "1e-05"},
-		{0.0001, "0.0001", "0.0001"},
-		{1e16, "1e+16", "1e+16"},
-		{1.5e16, "1.5e+16", "1.5e+16"},
-		{math.Copysign(0, -1), "-0.0", "-0.0"},
-		{123456789012345.0, "123456789012345.0", "123456789012345.0"},
-		{0, "0.0", "0.0"},
-		{1e15, "1000000000000000.0", "1000000000000000.0"},
-		{9999999999999998.0, "9999999999999998.0", "9999999999999998.0"},
-		{9.999999999999999e-05, "9.999999999999999e-05", "9.999999999999999e-05"},
-		{math.NaN(), "nan", "NaN"},
-		{math.Inf(1), "inf", "Infinity"},
-		{math.Inf(-1), "-inf", "-Infinity"},
-	} {
-		if got := pyFloat(c.f); got != c.repr {
-			t.Errorf("pyFloat(%v) = %q, python repr says %q", c.f, got, c.repr)
-		}
-		if got := pyDump(c.f); got != c.json {
-			t.Errorf("pyDump(%v) = %q, python json.dumps says %q", c.f, got, c.json)
-		}
-	}
-	// python3 -c 'import json; print(json.dumps(0), json.dumps(-12))'
-	if got := pyDump(0) + " " + pyDump(-12); got != "0 -12" {
-		t.Errorf("pyDump of ints = %q, want %q", got, "0 -12")
-	}
-	// python3 -c 'print(repr(round(0.125, 2)), repr(round(2.675, 2)), repr(round(-0.04, 1)),
-	//                   repr(round(56.0089, 1)), repr(round(-2.5, 0)))'
 	for _, c := range []struct {
 		x    float64
 		n    int
@@ -66,36 +29,30 @@ func TestPyJSON(t *testing.T) {
 	}{
 		{0.125, 2, "0.12"},
 		{2.675, 2, "2.67"},
-		{-0.04, 1, "-0.0"},
-		{56.0089, 1, "56.0"},
-		{-2.5, 0, "-2.0"},
+		{-0.04, 1, "-0"},
+		{56.0089, 1, "56"},
+		{-2.5, 0, "-2"},
 	} {
-		if got := pyFloat(pyRound(c.x, c.n)); got != c.want {
-			t.Errorf("pyRound(%v, %d) = %s, python round says %s", c.x, c.n, got, c.want)
+		if got := strconv.FormatFloat(roundTo(c.x, c.n), 'g', -1, 64); got != c.want {
+			t.Errorf("roundTo(%v, %d) = %s, want %s", c.x, c.n, got, c.want)
 		}
 	}
-	// python3 -c 'print(round(0.5), round(1.5), round(2.5), round(-2.5))' — ndigits omitted, an int
 	for x, want := range map[float64]int{0.5: 0, 1.5: 2, 2.5: 2, -2.5: -2} {
-		if got := int(pyRound(x, 0)); got != want {
-			t.Errorf("int(pyRound(%v, 0)) = %d, python round says %d", x, got, want)
+		if got := int(roundTo(x, 0)); got != want {
+			t.Errorf("int(roundTo(%v, 0)) = %d, want %d", x, got, want)
 		}
 	}
-	// python3 -c 'import json; print(json.dumps({"b": 1, "a": [], "c": {}, "d": None,
-	//     "e": [{"x": 1.0, "y": "#00ff00"}], "f": -0.0}, indent=2))'
-	obj := pyObj{
+	obj := mvpObj{
 		{"b", 1},
-		{"a", []pyObj{}},
-		{"c", pyObj{}},
+		{"a", []mvpObj{}},
+		{"c", mvpObj{}},
 		{"d", nil},
-		{"e", []pyObj{{{"x", 1.0}, {"y", "#00ff00"}}}},
+		{"e", []mvpObj{{{"x", 1.0}, {"y", "#00ff00"}}}},
 		{"f", math.Copysign(0, -1)},
 	}
-	want := "{\n  \"b\": 1,\n  \"a\": [],\n  \"c\": {},\n  \"d\": null,\n  \"e\": [\n    {\n      \"x\": 1.0,\n      \"y\": \"#00ff00\"\n    }\n  ],\n  \"f\": -0.0\n}"
-	if got := pyDump(obj); got != want {
-		t.Errorf("pyDump(obj) =\n%s\npython json.dumps(indent=2) says\n%s", got, want)
-	}
-	if got := pyDump([]pyObj(nil)); got != "[]" {
-		t.Errorf("pyDump of an empty list = %q, want []", got)
+	want := "{\n  \"b\": 1,\n  \"a\": [],\n  \"c\": {},\n  \"d\": null,\n  \"e\": [\n    {\n      \"x\": 1,\n      \"y\": \"#00ff00\"\n    }\n  ],\n  \"f\": -0\n}"
+	if got, err := json.MarshalIndent(obj, "", "  "); err != nil || string(got) != want {
+		t.Errorf("MarshalIndent(obj) = %s, %v\nwant\n%s", got, err, want)
 	}
 }
 
@@ -820,26 +777,6 @@ func TestMeasureVisualPropertiesMatrixClippedOnce(t *testing.T) {
 	}
 }
 
-// TestPyJSONEscapesStrings pins pyDump's string escaping: the two-sided
-// unresolved row joins two errors with a newline, and the document must
-// still parse (design.md pyjson-escape).
-func TestPyJSONEscapesStrings(t *testing.T) {
-	s := "region corner (0,9) is not background\nregion \"b\" \\ \t\x01 — end"
-	out := pyDump(pyObj{{"unresolved", s}})
-	if !json.Valid([]byte(out)) {
-		t.Fatalf("pyDump wrote invalid JSON:\n%s", out)
-	}
-	var got map[string]string
-	if err := json.Unmarshal([]byte(out), &got); err != nil || got["unresolved"] != s {
-		t.Fatalf("round trip = %q, %v; want %q", got["unresolved"], err, s)
-	}
-	for _, want := range []string{`\n`, `\"`, `\\`, `\t`, `\u0001`, "—"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("output lacks %q:\n%s", want, out)
-		}
-	}
-}
-
 // kan-1044 self-review (F1-e): a modal sheet under a flat scrim measures its
 // bands inside the sheet, not as one scrim-plus-sheet band.
 func TestMeasureVisualPropertiesBandsUnderScrim(t *testing.T) {
@@ -904,17 +841,18 @@ func TestMeasureVisualPropertiesMatrixOver(t *testing.T) {
 
 	// A paired row whose only delta over 2 sits on an unscaled leaf, and one
 	// within both tolerances, are absent; an unresolved row is named.
-	within := pyObj{{"a", 10}, {"a_scaled", 10.0}, {"b", 12}, {"abs", 2.0}, {"pct", 20.0}}
-	rows := []pyObj{
-		{{"kind", "rule"}, {"status", "paired"}, {"gap", within}, {"colour", pyObj{{"a", "#000000"}, {"b", "#030000"}, {"distance", 3.0}}},
-			{"measured", pyObj{{"delta", pyObj{{"ink.ratio", pyObj{{"a", 1}, {"a_scaled", 1}, {"b", 9}, {"abs", 8}, {"pct", 800.0}}}}}}}},
+	within := mvpObj{{"a", 10}, {"a_scaled", 10.0}, {"b", 12}, {"abs", 2.0}, {"pct", 20.0}}
+	rows := []mvpObj{
+		{{"kind", "rule"}, {"status", "paired"}, {"gap", within}, {"colour", mvpObj{{"a", "#000000"}, {"b", "#030000"}, {"distance", 3.0}}},
+			{"measured", mvpObj{{"delta", mvpObj{{"ink.ratio", mvpObj{{"a", 1}, {"a_scaled", 1}, {"b", 9}, {"abs", 8}, {"pct", 800.0}}}}}}}},
 		{{"kind", "rule"}, {"status", "paired"}, {"unresolved", "no box"}},
-		{{"kind", "rule"}, {"status", "paired"}, {"colour", pyObj{{"a", "#000000"}, {"b", "#ffffff"}, {"distance", 441.7}}}},
+		{{"kind", "rule"}, {"status", "paired"}, {"colour", mvpObj{{"a", "#000000"}, {"b", "#ffffff"}, {"distance", 441.7}}}},
 	}
 	got = nil
 	synthetic, _ := mvpOver(rows, mvpOverLength)
 	for _, o := range synthetic {
-		got = append(got, pyDump(o))
+		b, _ := json.MarshalIndent(o, "", "  ")
+		got = append(got, string(b))
 	}
 	if s := strings.Join(got, "|"); strings.Contains(s, `"row": 1`) || !strings.Contains(s, `"row": 2`) || !strings.Contains(s, `"keys": "unresolved"`) || !strings.Contains(s, `"row": 3`) || !strings.Contains(s, `"keys": "colour"`) {
 		t.Fatalf("synthetic rows: %s", s)

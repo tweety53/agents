@@ -43,66 +43,66 @@
       "bottom": null
     }
   },
-  "scale": 1e+20,
+  "scale": 100000000000000000000,
   "delta": {
     "background": {
       "a": "#f3f2f2",
       "b": "#f3f2f2",
-      "distance": 0.0
+      "distance": 0
     },
     "box.left": {
       "a": 10,
       "a_scaled": 1e+21,
       "b": 10,
       "abs": -1e+21,
-      "pct": -100.0
+      "pct": -100
     },
     "box.right": {
       "a": 89,
       "a_scaled": 8.9e+21,
       "b": 89,
       "abs": -8.9e+21,
-      "pct": -100.0
+      "pct": -100
     },
     "box.top": {
       "a": 10,
       "a_scaled": 1e+21,
       "b": 10,
       "abs": -1e+21,
-      "pct": -100.0
+      "pct": -100
     },
     "box.bottom": {
       "a": 69,
       "a_scaled": 6.9e+21,
       "b": 69,
       "abs": -6.9e+21,
-      "pct": -100.0
+      "pct": -100
     },
     "box.width": {
       "a": 80,
       "a_scaled": 8e+21,
       "b": 80,
       "abs": -8e+21,
-      "pct": -100.0
+      "pct": -100
     },
     "box.height": {
       "a": 60,
       "a_scaled": 6e+21,
       "b": 60,
       "abs": -6e+21,
-      "pct": -100.0
+      "pct": -100
     },
     "fill.colour": {
       "a": "#ffffff",
       "b": "#ffffff",
-      "distance": 0.0
+      "distance": 0
     },
     "fill.share": {
       "a": 0.8,
       "a_scaled": 0.8,
       "b": 0.8,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     },
     "gap.left": {
       "a": null,
@@ -115,7 +115,7 @@
       "a_scaled": 2e+21,
       "b": 20,
       "abs": -2e+21,
-      "pct": -100.0
+      "pct": -100
     },
     "gap.top": {
       "a": null,

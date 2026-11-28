@@ -20,8 +20,7 @@ import (
 // hook is registered on ~/.claude/hooks/flow-guard-hook, the binary `setup.sh global` builds
 // (install_hook_binary), as `"$HOME/.claude/hooks/flow-guard-hook" hook <name> || true`. The hooks
 // and the guards share one binary, one set of patterns and one state reader. A hook's contract is the leading comment of its own file
-// (hook<name>.go); every hook prints what the Python hook printed, byte for byte — JSON written
-// with Python's json.dump spacing and ASCII escaping (pyDumpASCII) — and exits 0: a hook fault, a panic
+// (hook<name>.go); every hook writes its JSON with hookJSON and exits 0: a hook fault, a panic
 // included, lets the event through. flow-guard records no guard-run telemetry for a hook, so a hook
 // makes no flowd call its contract does not name; with Env.HookRuns set (flow-guard's main sets
 // it to records.HookRunsPath) each run appends its wall time to that local file instead.
@@ -66,84 +65,16 @@ func appendHookRun(path, hook string, start time.Time) {
 	records.AppendJSONLine(path, records.HookRun{Hook: hook, DurationUS: now.Sub(start).Microseconds(), At: now.UTC()})
 }
 
-// pyDumpASCII is Python's json.dumps(v): ", " and ": " separators, every character outside
-// printable ASCII escaped. v is a string, bool, nil, int, pyObj or []any of those.
-func pyDumpASCII(v any) string {
+// hookJSON is v as one line of JSON, HTML characters unescaped so a raw transcript reads as the
+// reason was written.
+func hookJSON(v any) string {
 	var b strings.Builder
-	pyDumpTo(&b, v)
-	return b.String()
-}
-
-func pyDumpTo(b *strings.Builder, v any) {
-	switch x := v.(type) {
-	case nil:
-		b.WriteString("null")
-	case bool:
-		if x {
-			b.WriteString("true")
-		} else {
-			b.WriteString("false")
-		}
-	case int:
-		fmt.Fprint(b, x)
-	case string:
-		pyQuote(b, x)
-	case pyObj:
-		b.WriteByte('{')
-		for i, kv := range x {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			pyQuote(b, kv.k)
-			b.WriteString(": ")
-			pyDumpTo(b, kv.v)
-		}
-		b.WriteByte('}')
-	case []any:
-		b.WriteByte('[')
-		for i, e := range x {
-			if i > 0 {
-				b.WriteString(", ")
-			}
-			pyDumpTo(b, e)
-		}
-		b.WriteByte(']')
-	default:
-		panic(fmt.Sprintf("pyDumpASCII: %T", v))
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		panic(err)
 	}
-}
-
-func pyQuote(b *strings.Builder, s string) {
-	b.WriteByte('"')
-	for _, r := range s {
-		switch r {
-		case '"':
-			b.WriteString(`\"`)
-		case '\\':
-			b.WriteString(`\\`)
-		case '\n':
-			b.WriteString(`\n`)
-		case '\r':
-			b.WriteString(`\r`)
-		case '\t':
-			b.WriteString(`\t`)
-		case '\b':
-			b.WriteString(`\b`)
-		case '\f':
-			b.WriteString(`\f`)
-		default:
-			switch {
-			case r >= ' ' && r <= '~':
-				b.WriteRune(r)
-			case r > 0xFFFF:
-				r -= 0x10000
-				fmt.Fprintf(b, `\u%04x\u%04x`, 0xD800+(r>>10), 0xDC00+(r&0x3FF))
-			default:
-				fmt.Fprintf(b, `\u%04x`, r)
-			}
-		}
-	}
-	b.WriteByte('"')
+	return strings.TrimSuffix(b.String(), "\n")
 }
 
 // pyTruthy is Python's bool(v) for a decoded JSON value.
@@ -331,13 +262,13 @@ func hookRecordIncident(env Env, guardName, reason, cwd, change string) {
 	_, _, _ = hookRun(env, hookBound(env, 10*time.Second), "", cmd, args...)
 }
 
-// hookDenyJSON is a PreToolUse deny decision as the Python hooks wrote it.
+// hookDenyJSON is a PreToolUse deny decision.
 func hookDenyJSON(reason string) string {
-	return pyDumpASCII(pyObj{{"hookSpecificOutput", pyObj{
-		{"hookEventName", "PreToolUse"},
-		{"permissionDecision", "deny"},
-		{"permissionDecisionReason", reason},
-	}}})
+	return hookJSON(map[string]any{"hookSpecificOutput": map[string]any{
+		"hookEventName":            "PreToolUse",
+		"permissionDecision":       "deny",
+		"permissionDecisionReason": reason,
+	}})
 }
 
 // hookInProcess runs guard fn with args in dir as its own `scripts/flow-guard` process did, its

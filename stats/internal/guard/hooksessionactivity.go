@@ -46,11 +46,12 @@ func flowSessionActivity(env Env, payload map[string]any, _, _ io.Writer) {
 			detail = detail[:len(detail)-1]
 		}
 	}
-	fields := pyObj{{"state", state}, {"detail", detail}}
-	if event := payload["hook_event_name"]; (event == "PreToolUse" || event == "PostToolUse") && pyTruthy(payload["agent_id"]) {
-		fields = append(fields, pyObj{{"subagent", true}}...)
-	}
-	body := pyDumpASCII(fields)
+	event := payload["hook_event_name"]
+	body := hookJSON(struct {
+		State    string `json:"state"`
+		Detail   string `json:"detail"`
+		Subagent bool   `json:"subagent,omitempty"`
+	}{state, detail, (event == "PreToolUse" || event == "PostToolUse") && pyTruthy(payload["agent_id"])})
 	req, err := http.NewRequest(http.MethodPut, hookFlowAddr(env)+"/api/v1/sessions/"+pyQuoteURL(sessionID, "")+"/activity", strings.NewReader(body))
 	if err != nil {
 		return

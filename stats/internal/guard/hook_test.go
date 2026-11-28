@@ -40,8 +40,8 @@ func runHookStreams(t *testing.T, name, stdin string, vars ...string) (string, s
 }
 
 // TestHookEnforceAgentBaselineBytes pins the hook's deny output byte for byte against what
-// hooks/enforce-agent-baseline.py printed before its port: Python's json.dump spacing, its
-// \u escaping of every non-ASCII character, and no trailing newline.
+// hooks/enforce-agent-baseline.py printed before its port, written by hookJSON (encoding/json, no
+// HTML escaping), and no trailing newline.
 func TestHookEnforceAgentBaselineBytes(t *testing.T) {
 	t.Parallel()
 	const baseline = "Before anything else, read `~/.claude/rules/agent-baseline.md` and follow it for this whole task. Include this instruction verbatim in any prompt you write for another agent."
@@ -59,13 +59,13 @@ func TestHookEnforceAgentBaselineBytes(t *testing.T) {
 	}
 	cases := []struct{ name, stdin, want string }{
 		{"no pointer", payload(map[string]any{"prompt": "do <it> & go", "subagent_type": "flow-high"}, false),
-			`{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "Dispatch blocked: the subagent prompt does not carry the agent-baseline pointer.\n\nA dispatched agent starts from an empty context. It has never read ~/.claude/CLAUDE.md, and neither will anything it dispatches. Without the pointer it operates under no rules at all \u2014 production access, lint suppression, pushes to main, dependency versions.\n\nRe-send this call with the following two sentences included verbatim in ` + "`prompt`" + `:\n\nBefore anything else, read ` + "`~/.claude/rules/agent-baseline.md`" + ` and follow it for this whole task. Include this instruction verbatim in any prompt you write for another agent.\n\nThe second sentence is not optional: it is what carries the rules past depth 1.\nExempt: subagent_type \"fork\" outside a flow session, which inherits this session's context already."}}`},
+			`{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Dispatch blocked: the subagent prompt does not carry the agent-baseline pointer.\n\nA dispatched agent starts from an empty context. It has never read ~/.claude/CLAUDE.md, and neither will anything it dispatches. Without the pointer it operates under no rules at all — production access, lint suppression, pushes to main, dependency versions.\n\nRe-send this call with the following two sentences included verbatim in ` + "`prompt`" + `:\n\nBefore anything else, read ` + "`~/.claude/rules/agent-baseline.md`" + ` and follow it for this whole task. Include this instruction verbatim in any prompt you write for another agent.\n\nThe second sentence is not optional: it is what carries the rules past depth 1.\nExempt: subagent_type \"fork\" outside a flow session, which inherits this session's context already."}}`},
 		{"fork naming a flow skill", payload(map[string]any{"prompt": "read skills/flow/x", "subagent_type": "fork"}, false),
-			`{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "Dispatch blocked: no flow phase, and no loop a phase or the self-review runs, dispatches subagent_type \"fork\" (skills/flow/implement.md, KAN-1000).\n\nRe-send this call as a fresh agent on the pair its contract names, its prompt carrying what it needs -- paths to the run's artifacts, reports and records -- never this session's context."}}`},
+			`{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Dispatch blocked: no flow phase, and no loop a phase or the self-review runs, dispatches subagent_type \"fork\" (skills/flow/implement.md, KAN-1000).\n\nRe-send this call as a fresh agent on the pair its contract names, its prompt carrying what it needs -- paths to the run's artifacts, reports and records -- never this session's context."}}`},
 		{"no effort in a flow session", payload(map[string]any{"prompt": baseline, "subagent_type": "general-purpose"}, true),
-			`{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "Dispatch blocked: ` + "`subagent_type: general-purpose`" + ` carries no effort and the call sets none, so it would run at the model's built-in effort.\n\nRun ` + "`flow-guard pair-judge <role> <prompt file>`" + ` and re-send on the pair it prints (` + "`skills/flow-contracts/model-policy.md`" + `, **Model and effort**): a ` + "`flow-<effort>`" + ` type, or an ` + "`Explore`/`Plan`" + ` type with the pair's ` + "`effort`" + ` set on the call."}}`},
+			`{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Dispatch blocked: ` + "`subagent_type: general-purpose`" + ` carries no effort and the call sets none, so it would run at the model's built-in effort.\n\nRun ` + "`flow-guard pair-judge <role> <prompt file>`" + ` and re-send on the pair it prints (` + "`skills/flow-contracts/model-policy.md`" + `, **Model and effort**): a ` + "`flow-<effort>`" + ` type, or an ` + "`Explore`/`Plan`" + ` type with the pair's ` + "`effort`" + ` set on the call."}}`},
 		{"loop key without its Key line", payload(map[string]any{"prompt": baseline, "description": "pipeline-fix-x go", "subagent_type": "flow-low"}, true),
-			`{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "Dispatch blocked: ` + "`pipeline-fix-x`" + ` is a loop key \u2014 its prompt carries ` + "`Key: pipeline-fix-x`" + ` as a line of its own, and flow-guard hook enforce-loop-dispatch records its row under the loop's change off that line. Add the line and re-send; never ` + "`flow record dispatch begin`" + ` it under the run's change."}}`},
+			`{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Dispatch blocked: ` + "`pipeline-fix-x`" + ` is a loop key — its prompt carries ` + "`Key: pipeline-fix-x`" + ` as a line of its own, and flow-guard hook enforce-loop-dispatch records its row under the loop's change off that line. Add the line and re-send; never ` + "`flow record dispatch begin`" + ` it under the run's change."}}`},
 		{"pointer outside a flow session", payload(map[string]any{"prompt": baseline, "subagent_type": "flow-low"}, false), ""},
 		{"no JSON", "{not json", ""},
 	}
@@ -98,7 +98,7 @@ func TestHookAwaitOwnAgentsBytes(t *testing.T) {
 	}
 	stdin := `{"agent_id":"p","agent_transcript_path":"` + filepath.Join(dir, "agent-p.jsonl") + `"}`
 	out, rc := runHookInProcess(t, "await-own-agents", stdin, "AWAIT_CHILDREN_SECONDS=0")
-	want := `{"decision": "block", "reason": "Agents you launched are still running (c1). Stop again to keep waiting for them -- ending your turn on your own would lose your 5-minute prompt cache."}` + "\n"
+	want := `{"decision":"block","reason":"Agents you launched are still running (c1). Stop again to keep waiting for them -- ending your turn on your own would lose your 5-minute prompt cache."}` + "\n"
 	if rc != 0 || out != want {
 		t.Errorf("rc=%d\n got: %q\nwant: %q", rc, out, want)
 	}
@@ -122,8 +122,8 @@ func TestHookEnforceLoopDispatchBytes(t *testing.T) {
 }
 
 // TestHookFlowSessionActivityBytes pins the PUTs hooks/flow-session-activity.py sent before its
-// port, path and body byte for byte: the session id quoted with no safe character, Python's
-// json.dumps spacing and \u escaping, the detail cut to 500 UTF-8 bytes on a character boundary,
+// port, path and body byte for byte: the session id quoted with no safe character, the body
+// written by hookJSON, the detail cut to 500 UTF-8 bytes on a character boundary,
 // and a subagent's tool event marked "subagent": true, so flowd lets it only end a permission wait.
 func TestHookFlowSessionActivityBytes(t *testing.T) {
 	t.Parallel()
@@ -151,13 +151,13 @@ func TestHookFlowSessionActivityBytes(t *testing.T) {
 	}
 	const put = "PUT /api/v1/sessions/"
 	want := []string{
-		put + `a%20b%2Fc/activity application/json {"state": "working", "detail": "Bash: h\u00e9llo \u2014 x"}`,
-		put + `s/activity application/json {"state": "question", "detail": "Pick \ud83d\ude00?"}`,
-		put + `s/activity application/json {"state": "working", "detail": "Edit z.go"}`,
-		put + `s/activity application/json {"state": "permission", "detail": "Claude needs your Permission"}`,
-		put + `s/activity application/json {"state": "idle", "detail": ""}`,
-		put + `s/activity application/json {"state": "working", "detail": "Read", "subagent": true}`,
-		put + `s/activity application/json {"state": "working", "detail": "Bash: ` + strings.Repeat(`\u00e9`, 247) + `"}`,
+		put + `a%20b%2Fc/activity application/json {"state":"working","detail":"Bash: héllo — x"}`,
+		put + `s/activity application/json {"state":"question","detail":"Pick 😀?"}`,
+		put + `s/activity application/json {"state":"working","detail":"Edit z.go"}`,
+		put + `s/activity application/json {"state":"permission","detail":"Claude needs your Permission"}`,
+		put + `s/activity application/json {"state":"idle","detail":""}`,
+		put + `s/activity application/json {"state":"working","detail":"Read","subagent":true}`,
+		put + `s/activity application/json {"state":"working","detail":"Bash: ` + strings.Repeat(`é`, 247) + `"}`,
 	}
 	mu.Lock()
 	defer mu.Unlock()
@@ -168,7 +168,7 @@ func TestHookFlowSessionActivityBytes(t *testing.T) {
 
 // TestHookFlowActiveChangeBytes pins what hooks/flow-active-change.py asked flowd and printed before
 // its port, byte for byte: the stage-runs query (urlencode's quote_plus), a loop's own run skipped,
-// the session id from a transcript's stem, and the context line in Python's json.dump with no
+// the session id from a transcript's stem, and the context line written by hookJSON with no
 // trailing newline.
 func TestHookFlowActiveChangeBytes(t *testing.T) {
 	t.Parallel()
@@ -176,11 +176,11 @@ func TestHookFlowActiveChangeBytes(t *testing.T) {
 		{`{"prompt":"hi","session_id":"a b/c+&"}`,
 			`{"stageRuns":[{"changeName":"self-review-x"},{"changeName":"kan-1","command":"/flow","stage":"flow.implement"}]}`,
 			"/api/v1/stage-runs?session_id=a+b%2Fc%2B%26&sort=-started_at&limit=50",
-			`{"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": "flow: this session's last /flow run marked change kan-1. A plain message reporting a problem or asking for a change to it is a fix run of kan-1 \u2014 **A plain message at IN_PROGRESS** (skills/flow/SKILL.md)."}}`},
+			`{"hookSpecificOutput":{"additionalContext":"flow: this session's last /flow run marked change kan-1. A plain message reporting a problem or asking for a change to it is a fix run of kan-1 — **A plain message at IN_PROGRESS** (skills/flow/SKILL.md).","hookEventName":"UserPromptSubmit"}}`},
 		{`{"prompt":"hi","transcript_path":"/t/sess-9.jsonl"}`,
 			`{"stageRuns":[{"changeName":"kan-2","command":"/flow-interactive","stage":"flow.verify"}]}`,
 			"/api/v1/stage-runs?session_id=sess-9&sort=-started_at&limit=50",
-			"{\"hookSpecificOutput\": {\"hookEventName\": \"UserPromptSubmit\", \"additionalContext\": \"flow: this session runs /flow-interactive change `kan-2`. A plain message is its next request \\u2014 or its stop (**One request**, **Explicit stop**, `skills/flow-interactive/SKILL.md`).\"}}"},
+			"{\"hookSpecificOutput\":{\"additionalContext\":\"flow: this session runs /flow-interactive change `kan-2`. A plain message is its next request — or its stop (**One request**, **Explicit stop**, `skills/flow-interactive/SKILL.md`).\",\"hookEventName\":\"UserPromptSubmit\"}}"},
 		{`{"prompt":"hi","session_id":"s"}`,
 			`{"stageRuns":[{"changeName":"kan-3","command":"/flow-interactive","stage":"flow.cleanup"}]}`,
 			"/api/v1/stage-runs?session_id=s&sort=-started_at&limit=50", ""},

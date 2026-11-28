@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/user"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/tweety53/agents/stats/internal/shlex"
@@ -76,11 +79,11 @@ import (
 // Fails open: any unexpected input, parse error, git failure or internal fault exits 0 and lets
 // the call through. A guardrail on hygiene must never be the reason work stops.
 //
-// Byte-identical to hooks/block-unsafe-commands.py, the Python original it replaced, on the golden
+// Decides as hooks/block-unsafe-commands.py, the Python original it replaced, did on the golden
 // corpus testdata/block-unsafe-commands-golden.json, save case 145's `-caller-agent` rewrite, which
-// the Python hook never made, and the bare-`cat` cases whose entry carries a `note`: every regular expression keeps Python's
-// Unicode `\s`, `\w`, `\d` and `\b` (pyposix.go), and a lookahead the RE2 syntax lacks is a check
-// in code after the match. Where Python raised an exception the hook did not catch, this panics,
+// the Python hook never made, and the bare-`cat` cases whose entry carries a `note`: every regular
+// expression keeps Unicode `\s`, `\w`, `\d` and `\b` (bucSpace, bucWord), and a lookahead the RE2
+// syntax lacks is a check in code after the match. Where Python raised an exception the hook did not catch, this panics,
 // and hook()'s recover makes it the same silent exit.
 //
 // ponytail: Bash coverage is by token scan — a heredoc piped into python, a script that edits a
@@ -105,7 +108,7 @@ var bucFallbackDefaultBranches = bucSet("main", "master", "develop")
 // bucBareCatRE is a bare `cat > <file>` with no input of its own: it reads stdin, which a Bash
 // call never has, so it waits until the call times out. Python's trailing
 // `\s*(?=$|[;&)]|\|\|)` (multiline) is bareCatEnds.
-var bucBareCatRE = regexp.MustCompile(`(?m)(?:^|[;&(]|\|\|)[` + pyReS + `]*cat[` + pyReS + `]*>>?[` + pyReS + `]*[^` + pyReS + `<>|;&()]+`)
+var bucBareCatRE = regexp.MustCompile(`(?m)(?:^|[;&(]|\|\|)[` + bucSpace + `]*cat[` + bucSpace + `]*>>?[` + bucSpace + `]*[^` + bucSpace + `<>|;&()]+`)
 
 const bucBareCatReason = "a bare `cat > <file>` reads stdin, which a Bash call never has, so it waits until the " +
 	"call times out — write the file with the Write tool, or give cat a heredoc " +
@@ -116,9 +119,9 @@ const bucBareCatReason = "a bare `cat > <file>` reads stdin, which a Bash call n
 // never judged; a session names the tests it touched with `-run`. Python's `(?=\s|$)` after the
 // package is a check in fullGoTest.
 var (
-	bucFullGoTestRE = regexp.MustCompile(`(?:^|[` + pyReS + `])\./(?:internal/guard|cmd/flow|\.\.\.)/?`)
+	bucFullGoTestRE = regexp.MustCompile(`(?:^|[` + bucSpace + `])\./(?:internal/guard|cmd/flow|\.\.\.)/?`)
 	bucGoTestSplit  = regexp.MustCompile(`[;&|\n]+`)
-	bucRunFlagRE    = regexp.MustCompile(`(?:^|[` + pyReS + `])-run[` + pyReS + `=]`)
+	bucRunFlagRE    = regexp.MustCompile(`(?:^|[` + bucSpace + `])-run[` + bucSpace + `=]`)
 )
 
 const bucFullGoTestReason = "`go test` over a whole heavy package (./internal/guard, ./cmd/flow or ./...) takes minutes — name " +
@@ -126,8 +129,8 @@ const bucFullGoTestReason = "`go test` over a whole heavy package (./internal/gu
 	"operator's to ask for, and runs from their own `!` prompt."
 
 const (
-	bucLiteralAbs = `(/[^` + pyReS + `'"$` + "`" + `\\;&|<>(){}*?\[\]~!#]+)`
-	bucDelim      = `(?:'([` + pyReW + `]+)'|"([` + pyReW + `]+)"|([` + pyReW + `]+))`
+	bucLiteralAbs = `(/[^` + bucSpace + `'"$` + "`" + `\\;&|<>(){}*?\[\]~!#]+)`
+	bucDelim      = `(?:'([` + bucWord + `]+)'|"([` + bucWord + `]+)"|([` + bucWord + `]+))`
 )
 
 var (
@@ -135,17 +138,17 @@ var (
 		bucLiteralAbs + `(?:[ \t]+>[ \t]*/dev/null)?)[ \t]+<<[ \t]*` + bucDelim + `[ \t]*\r?$`)
 	bucHeredocOpenRE  = regexp.MustCompile(`<<-?[ \t]*` + bucDelim)
 	bucSegmentSplitRE = regexp.MustCompile(`&&|\|\||[;|]`)
-	bucCatTargetRE    = regexp.MustCompile(`>>?[ \t]*([^` + pyReS + `;&|<>]+)`)
+	bucCatTargetRE    = regexp.MustCompile(`>>?[ \t]*([^` + bucSpace + `;&|<>]+)`)
 	bucSubstRE        = regexp.MustCompile(`[<>]\(|\$\(|` + "`")
 	bucCommandCutRE   = regexp.MustCompile(`&&|\|\||[\n;|&(){}]`)
 	// A `flow` opener's later words must be plain tokens and none a shell or interpreter name
 	// (`flow run csh <<EOF`), or its heredoc body stays scanned.
 	bucFlowPlainWordRE = regexp.MustCompile(`^[A-Za-z0-9_.,=-]+$`)
-	bucCheckScriptRE   = regexp.MustCompile(`^check-[` + pyReW + `.-]*\.(?:sh|py)$`)
+	bucCheckScriptRE   = regexp.MustCompile(`^check-[` + bucWord + `.-]*\.(?:sh|py)$`)
 	// A guard run through the bootstrap: `flow-guard check-…`, bare or as `…/scripts/flow-guard`.
-	bucCheckGuardRE   = regexp.MustCompile(`^check-[` + pyReW + `.-]*$`)
+	bucCheckGuardRE   = regexp.MustCompile(`^check-[` + bucWord + `.-]*$`)
 	bucDollarParenRE  = regexp.MustCompile(`\$\(([^()]*)\)`)
-	bucProgramGitRE   = regexp.MustCompile(`(?:^|[` + pyReS + `])(git[` + pyReS + `].*)$`)
+	bucProgramGitRE   = regexp.MustCompile(`(?:^|[` + bucSpace + `])(git[` + bucSpace + `].*)$`)
 	bucProgramPunctRE = regexp.MustCompile(`["'()\[\],<>|;&{}]`)
 	// A `$(...)` without a nested paren, or a backtick pair: the spans of an unquoted heredoc body
 	// that bash runs.
@@ -154,13 +157,13 @@ var (
 	// `>&1` duplicates a descriptor and writes no file.
 	bucAttachedRedirectRE = regexp.MustCompile(`^\p{Nd}*(&>>|&>|>>|>\||>)([^&].*)$`)
 	// A heredoc opener's segment cut into words so `x=$(bash` yields `bash`.
-	bucOpenerWordSplitRE = regexp.MustCompile(`[` + pyReS + `=$()` + "`" + `'"]+`)
+	bucOpenerWordSplitRE = regexp.MustCompile(`[` + bucSpace + `=$()` + "`" + `'"]+`)
 	bucPunctWordRE       = regexp.MustCompile(`^[();&|<>]+$`)
 	bucVarRE             = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)`)
 	// Python's `\bgit((?:\s+-[Cc]\s+\S+)*)\s+stash\s+(pop|apply|drop|branch)\b([^;&|\n)]*)`, matched
 	// at each `git` behind a word boundary; the `\b` after the verb is a check in stashDenial.
-	bucStashRE = regexp.MustCompile(`^git((?:[` + pyReS + `]+-[Cc][` + pyReS + `]+[^` + pyReS + `]+)*)[` + pyReS +
-		`]+stash[` + pyReS + `]+(pop|apply|drop|branch)([^;&|\n)]*)`)
+	bucStashRE = regexp.MustCompile(`^git((?:[` + bucSpace + `]+-[Cc][` + bucSpace + `]+[^` + bucSpace + `]+)*)[` + bucSpace +
+		`]+stash[` + bucSpace + `]+(pop|apply|drop|branch)([^;&|\n)]*)`)
 	bucStashRefRE  = regexp.MustCompile(`^stash@\{(\p{Nd}+)\}$`)
 	bucDigitsRE    = regexp.MustCompile(`^\p{Nd}+$`)
 	bucStashListRE = regexp.MustCompile(`^stash@\{(\p{Nd}+)\}: (?:WIP on|On) ([^:]+):`)
@@ -207,8 +210,73 @@ const bucHeredocNote = " A heredoc body the hook could not read as data is scann
 	"command of its own."
 
 // bucBadCwd stands for a payload `cwd` that is truthy but no string: Python's hook raised on the
-// first use of it, which here is a panic in resolve, git or pyRealpath (its NUL).
+// first use of it, which here is a panic in resolve, git or realpath (its NUL).
 const bucBadCwd = "\x00cwd"
+
+// bucSpace is the character class, for use inside `[...]`, of pyIsSpace: unicode.IsSpace's
+// characters plus \x1C-\x1F, where RE2's `\s` is ASCII only.
+const bucSpace = `\s\v\x1C-\x1F\x{85}\x{2028}\x{2029}\p{Zs}`
+
+// bucWord is the character class of a Unicode word character, for use inside `[...]`.
+const bucWord = `\p{L}\p{N}_`
+
+// bucIsWord is one character of bucWord.
+func bucIsWord(r rune) bool { return r == '_' || unicode.IsLetter(r) || unicode.IsNumber(r) }
+
+// bucFD is true when s is a file descriptor number: ASCII digits, as the shell reads one.
+func bucFD(s string) bool { return s != "" && strings.Trim(s, "0123456789") == "" }
+
+// bucDigitValue is the number a run of unicode.Nd digits spells, leading zeros dropped. Nd
+// characters come in contiguous runs of ten from zero.
+func bucDigitValue(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		zero := r
+		for unicode.Is(unicode.Nd, zero-1) {
+			zero--
+		}
+		b.WriteByte(byte('0' + (r-zero)%10))
+	}
+	if t := strings.TrimLeft(b.String(), "0"); t != "" {
+		return t
+	}
+	return "0"
+}
+
+func bucIsDir(p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && fi.IsDir()
+}
+
+// bucExpandUser is p with a leading `~` or `~user` replaced by that user's home directory, as the
+// shell expands it; p unchanged when the user is unknown.
+func bucExpandUser(env Env, p string) string {
+	if !strings.HasPrefix(p, "~") {
+		return p
+	}
+	i := strings.IndexByte(p, '/')
+	if i < 0 {
+		i = len(p)
+	}
+	home := ""
+	if i == 1 {
+		home = env.Getenv("HOME")
+	}
+	if home == "" {
+		u, err := user.Current()
+		if i > 1 {
+			u, err = user.Lookup(p[1:i])
+		}
+		if err != nil {
+			return p
+		}
+		home = u.HomeDir
+	}
+	if out := strings.TrimRight(home, "/") + p[i:]; out != "" {
+		return out
+	}
+	return "/"
+}
 
 func bucSet(words ...string) map[string]bool {
 	m := make(map[string]bool, len(words))
@@ -218,8 +286,11 @@ func bucSet(words ...string) map[string]bool {
 	return m
 }
 
-// bucLast is Python's s.rsplit("/", 1)[-1].
-func bucLast(s string) string { return pyBasename(s) }
+// bucLast is s after its last `/`.
+func bucLast(s string) string {
+	_, f := filepath.Split(s)
+	return f
+}
 
 type buc struct {
 	env   Env
@@ -429,7 +500,7 @@ func bucGoTestWord(s string) bool {
 			return false
 		}
 		i += k
-		if r, _ := utf8.DecodeLastRuneInString(s[:i]); i > 0 && pyIsWord(r) {
+		if r, _ := utf8.DecodeLastRuneInString(s[:i]); i > 0 && bucIsWord(r) {
 			continue
 		}
 		rest := s[i+2:]
@@ -437,7 +508,7 @@ func bucGoTestWord(s string) bool {
 		if len(ws) == len(rest) || !strings.HasPrefix(ws, "test") {
 			continue
 		}
-		if r, _ := utf8.DecodeRuneInString(ws[4:]); len(ws) == 4 || !pyIsWord(r) {
+		if r, _ := utf8.DecodeRuneInString(ws[4:]); len(ws) == 4 || !bucIsWord(r) {
 			return true
 		}
 	}
@@ -485,9 +556,13 @@ func bucNewlines(s string) string {
 // existingDir is the nearest existing directory at or above path (a Write may create the file),
 // "" when none.
 func (b *buc) existingDir(path string) string {
-	p := pyAbspath(path, b.env.Dir)
-	for !pyIsDir(p) {
-		parent := pyDirname(p)
+	p := path
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(b.env.Dir, p)
+	}
+	p = filepath.Clean(p)
+	for !bucIsDir(p) {
+		parent := filepath.Dir(p)
 		if parent == p {
 			return ""
 		}
@@ -506,22 +581,66 @@ func (b *buc) isMainCheckout(p string) bool {
 		return false
 	}
 	if !strings.HasPrefix(common, "/") {
-		common = pyJoin(p, common)
+		common = p + "/" + common
 	}
 	return b.realpath(top) == b.realpath(p) && b.realpath(gitDir) == b.realpath(common)
 }
 
-func (b *buc) realpath(p string) string { return pyRealpath(p, b.env.Dir) }
+// realpath is p, relative to the hook's cwd, with every symlink resolved; a tail that does not
+// exist is kept as written, `..` in it taken lexically. A NUL in p panics, as Python's lstat
+// raised on one.
+func (b *buc) realpath(p string) string {
+	if strings.ContainsRune(p, 0) {
+		panic("realpath: embedded null byte")
+	}
+	if !filepath.IsAbs(p) {
+		p = b.env.Dir + "/" + p
+	}
+	return bucResolve(p, 0)
+}
+
+// bucResolve is absolute p with its symlinks resolved, depth the links followed so far: past 40 a
+// symlink loop is kept as written.
+func bucResolve(p string, depth int) string {
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		return r
+	}
+	p = strings.TrimRight(p, "/")
+	if p == "" || depth > 40 {
+		return filepath.Clean("/" + p)
+	}
+	dir, name := filepath.Split(p)
+	parent := bucResolve(dir, depth)
+	switch name {
+	case ".":
+		return parent
+	case "..":
+		return filepath.Dir(parent)
+	}
+	joined := filepath.Join(parent, name)
+	fi, err := os.Lstat(joined)
+	if err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		return joined
+	}
+	target, err := os.Readlink(joined)
+	if err != nil {
+		return joined
+	}
+	if !filepath.IsAbs(target) {
+		target = parent + "/" + target
+	}
+	return bucResolve(target, depth+1)
+}
 
 // localClone is true when p is the toplevel of a clone whose origin is a local non-bare checkout —
 // a scratch copy, whose whole removal writes no main checkout.
 func (b *buc) localClone(p string) bool {
-	if !pyIsDir(p) || !b.isMainCheckout(p) {
+	if !bucIsDir(p) || !b.isMainCheckout(p) {
 		return false
 	}
 	origin, _ := b.git(p, "remote", "get-url", "origin")
 	origin = strings.TrimPrefix(origin, "file://")
-	if !strings.HasPrefix(origin, "/") || !pyIsDir(origin) {
+	if !strings.HasPrefix(origin, "/") || !bucIsDir(origin) {
 		return false
 	}
 	bare, ok := b.git(origin, "rev-parse", "--is-bare-repository")
@@ -531,12 +650,12 @@ func (b *buc) localClone(p string) bool {
 // worktreeRoot is true when d is a worktree root: `<main>-worktrees` beside a main checkout
 // `<main>`, or the pre-migration `<main>/.worktrees` the hook no longer suggests.
 func (b *buc) worktreeRoot(d string) bool {
-	name := pyBasename(d)
+	name := filepath.Base(d)
 	if name == ".worktrees" {
 		return true
 	}
 	main, ok := strings.CutSuffix(name, "-worktrees")
-	return ok && main != "" && b.isMainCheckout(pyJoin(pyDirname(d), main))
+	return ok && main != "" && b.isMainCheckout(filepath.Join(filepath.Dir(d), main))
 }
 
 // protected is the (toplevel, branch) when the hit lies in a main checkout on its default branch.
@@ -544,8 +663,8 @@ func (b *buc) worktreeRoot(d string) bool {
 // `<link>/..` lexically, and a link into a checkout's subdirectory would hide the checkout.
 func (b *buc) protected(h bucHit) (string, string, bool) {
 	path := h.path
-	if h.link && pyIsLink(path) {
-		path = b.realpath(pyDirname(path)) // the link's own directory is what changes
+	if fi, err := os.Lstat(path); h.link && err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		path = b.realpath(path[:strings.LastIndex(path, "/")+1]) // the link's own directory is what changes
 	} else {
 		path = b.realpath(path)
 	}
@@ -553,7 +672,7 @@ func (b *buc) protected(h bucHit) (string, string, bool) {
 	if d == "" {
 		return "", "", false
 	}
-	if b.worktreeRoot(d) && pyAbspath(path, b.env.Dir) != d {
+	if b.worktreeRoot(d) && path != d {
 		// the nearest existing ancestor is a worktree root, so a missing component below it is a
 		// future worktree — never main-checkout content. The root itself stays protected.
 		return "", "", false
@@ -568,7 +687,7 @@ func (b *buc) protected(h bucHit) (string, string, bool) {
 		return "", "", false
 	}
 	if !strings.HasPrefix(common, "/") {
-		common = pyJoin(d, common)
+		common = d + "/" + common
 	}
 	if b.realpath(gitDir) != b.realpath(common) {
 		return "", "", false // a linked worktree
@@ -594,7 +713,7 @@ func (b *buc) resolve(path, cwd string) string {
 	if strings.ContainsAny(path, "$`") {
 		return ""
 	}
-	path = pyExpandUser(b.env, path)
+	path = bucExpandUser(b.env, path)
 	if strings.HasPrefix(path, "/") {
 		return path
 	}
@@ -604,7 +723,7 @@ func (b *buc) resolve(path, cwd string) string {
 	if cwd == "" {
 		return ""
 	}
-	return pyJoin(cwd, path)
+	return strings.TrimSuffix(cwd, "/") + "/" + path
 }
 
 // tokenize is the shell words with `;`, `&&`, `|` and redirects split out even where they touch a
@@ -1285,9 +1404,9 @@ func (b *buc) inChangeState(target string) bool {
 	if top == "" {
 		return false
 	}
-	name := pyBasename(top)
+	name := filepath.Base(top)
 	top = b.realpath(top)
-	for _, c := range append([]string{top}, bucGlobSiblings(pyDirname(pyDirname(top)), name)...) {
+	for _, c := range append([]string{top}, bucGlobSiblings(filepath.Dir(filepath.Dir(top)), name)...) {
 		keys, ok := b.stateWorktrees(c, name)
 		if !ok {
 			continue
@@ -1316,10 +1435,10 @@ func bucGlobSiblings(parent, name string) []string {
 	var out []string
 	for _, e := range entries {
 		n := e.Name()
-		if strings.HasPrefix(n, ".") || !strings.HasSuffix(n, "-worktrees") || !pyIsDir(pyJoin(parent, n)) {
+		if strings.HasPrefix(n, ".") || !strings.HasSuffix(n, "-worktrees") || !bucIsDir(filepath.Join(parent, n)) {
 			continue
 		}
-		p := pyJoin(parent, n, name)
+		p := filepath.Join(parent, n, name)
 		if _, err := os.Lstat(p); err == nil {
 			out = append(out, p)
 		}
@@ -1436,7 +1555,7 @@ func (b *buc) discardsUnstaged(verb string, args []string, target string) string
 		return ""
 	}
 	if !strings.HasPrefix(common, "/") {
-		common = pyJoin(target, common)
+		common = target + "/" + common
 	}
 	if b.realpath(gitDir) == b.realpath(common) {
 		return "" // not a linked worktree
@@ -1453,7 +1572,7 @@ func (b *buc) discardsUnstaged(verb string, args []string, target string) string
 	if dirty == "" {
 		return ""
 	}
-	files := pySplitLines(dirty)
+	files := strings.Split(dirty, "\n")
 	if !slices.ContainsFunc(files, func(d string) bool { return !strings.HasSuffix(strings.ToLower(d), ".png") }) {
 		return "" // drifted visual-capture baselines: regenerable bytes, restored to base
 	}
@@ -1473,7 +1592,7 @@ func gitArgs(tokens []string, start int) []string {
 			break
 		}
 		if strings.HasPrefix(t, "<") || strings.HasPrefix(t, ">") || strings.HasPrefix(t, "&>") {
-			if len(out) > 0 && pyIsDigit(out[len(out)-1]) {
+			if len(out) > 0 && bucFD(out[len(out)-1]) {
 				out = out[:len(out)-1] // the fd of `2>&1`
 			}
 			break
@@ -1577,8 +1696,10 @@ func (b *buc) bashHits(command, cwd string, landings *[]string) []bucHit {
 					if t == "" || strings.HasPrefix(t, "-") {
 						continue
 					}
-					if path := b.resolve(t, cur); path != "" && pyExists(path) {
-						add(path, false)
+					if path := b.resolve(t, cur); path != "" {
+						if _, err := os.Stat(path); err == nil {
+							add(path, false)
+						}
 					}
 				}
 				i++
@@ -1597,7 +1718,7 @@ func (b *buc) bashHits(command, cwd string, landings *[]string) []bucHit {
 				continue
 			}
 			// `>& f` writes stdout and stderr to f; `>& 2` and `>& -` only duplicate or close
-			if i+1 < n && (bucRedirectOps[tok] || tok == ">&" && !pyIsDigit(tokens[i+1]) && tokens[i+1] != "-") {
+			if i+1 < n && (bucRedirectOps[tok] || tok == ">&" && !bucFD(tokens[i+1]) && tokens[i+1] != "-") {
 				add(b.resolve(tokens[i+1], cur), false)
 				i += 2
 				continue
@@ -1638,7 +1759,8 @@ func (b *buc) bashHits(command, cwd string, landings *[]string) []bucHit {
 					if path == "" {
 						continue
 					}
-					if _, ok := b.git(bucOr(pyDirname(path), "/"), "ls-files", "--error-unmatch", pyBasename(path)); ok {
+					dir, file := filepath.Split(path)
+					if _, ok := b.git(bucOr(dir, "/"), "ls-files", "--error-unmatch", file); ok {
 						add(path, false)
 					}
 				}
@@ -1661,14 +1783,14 @@ func (b *buc) stashDenial(command, cwd string) string {
 		}
 		start := p + k
 		p = start + 1
-		if r, _ := utf8.DecodeLastRuneInString(command[:start]); start > 0 && pyIsWord(r) {
+		if r, _ := utf8.DecodeLastRuneInString(command[:start]); start > 0 && bucIsWord(r) {
 			continue
 		}
 		m := bucStashRE.FindStringSubmatchIndex(command[start:])
 		if m == nil {
 			continue
 		}
-		if r, _ := utf8.DecodeRuneInString(command[start+m[5]:]); start+m[5] < len(command) && pyIsWord(r) {
+		if r, _ := utf8.DecodeRuneInString(command[start+m[5]:]); start+m[5] < len(command) && bucIsWord(r) {
 			continue // the verb runs on into a word: no `\b`
 		}
 		group := func(g int) string { return command[start+m[2*g] : start+m[2*g+1]] }
@@ -1705,12 +1827,12 @@ func (b *buc) stashDenial(command, cwd string) string {
 			current = "None"
 		}
 		madeOn := map[string]string{}
-		for _, l := range pySplitLines(listing) {
+		for _, l := range strings.Split(listing, "\n") {
 			if x := bucStashListRE.FindStringSubmatch(l); x != nil {
-				madeOn[pyIntDigits(x[1])] = x[2]
+				madeOn[bucDigitValue(x[1])] = x[2]
 			}
 		}
-		branch, ok := madeOn[pyIntDigits(ref)]
+		branch, ok := madeOn[bucDigitValue(ref)]
 		if !ok || branch != current {
 			reason := "is not in the stash list."
 			if ok {
@@ -1723,7 +1845,7 @@ func (b *buc) stashDenial(command, cwd string) string {
 }
 
 func bucDenyReason(top, branch string) string {
-	name := pyBasename(top)
+	name := filepath.Base(top)
 	return "Blocked: " + top + " is the main checkout of " + name + ", and it is on `" + branch + "`, the default " +
 		"branch. Agents never edit, stage, commit, stash or reset there — it is the landing " +
 		"target every pipeline run pushes to, and anything left behind becomes residue no later " +

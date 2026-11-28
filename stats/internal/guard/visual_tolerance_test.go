@@ -19,16 +19,16 @@ import (
 // flagged whatever the length tolerance, and a wider tolerance moves the line.
 func TestMvpOverAppliesTheLengthTolerance(t *testing.T) {
 	t.Parallel()
-	length := func(abs float64) pyObj {
-		return pyObj{{"a", 10}, {"a_scaled", 10.0}, {"b", 10 + abs}, {"abs", abs}, {"pct", 0.0}}
+	length := func(abs float64) mvpObj {
+		return mvpObj{{"a", 10}, {"a_scaled", 10.0}, {"b", 10 + abs}, {"abs", abs}, {"pct", 0.0}}
 	}
-	rows := []pyObj{
+	rows := []mvpObj{
 		{{"kind", "rule"}, {"status", "paired"}, {"gap", length(2)}},
 		{{"kind", "rule"}, {"status", "paired"}, {"gap", length(-3)}},
-		{{"kind", "rule"}, {"status", "paired"}, {"colour", pyObj{{"a", "#000000"}, {"b", "#0d0000"}, {"distance", 13.0}}}},
+		{{"kind", "rule"}, {"status", "paired"}, {"colour", mvpObj{{"a", "#000000"}, {"b", "#0d0000"}, {"distance", 13.0}}}},
 		{{"class", "missing"}, {"status", "missing"}},
 	}
-	rowsOf := func(list []pyObj) string {
+	rowsOf := func(list []mvpObj) string {
 		var got []string
 		for _, o := range list {
 			got = append(got, fmt.Sprint(mvpDigObj(o, "row")))
@@ -51,7 +51,7 @@ func TestMvpOverAppliesTheLengthTolerance(t *testing.T) {
 	}
 }
 
-func mvpDigObj(o pyObj, key string) any {
+func mvpDigObj(o mvpObj, key string) any {
 	for _, kv := range o {
 		if kv.k == key {
 			return kv.v
@@ -255,10 +255,10 @@ func TestVisualVerifyPassMeasureNamesAWholeFrameShiftOnce(t *testing.T) {
 // different greys, as measured on kan-1155's captures: 3.5 passes, 5.2 flags.
 func TestMvpOverColourThreshold(t *testing.T) {
 	t.Parallel()
-	colour := func(a, b string, d float64) pyObj {
-		return pyObj{{"kind", "rule"}, {"status", "paired"}, {"colour", pyObj{{"a", a}, {"b", b}, {"distance", d}}}}
+	colour := func(a, b string, d float64) mvpObj {
+		return mvpObj{{"kind", "rule"}, {"status", "paired"}, {"colour", mvpObj{{"a", a}, {"b", b}, {"distance", d}}}}
 	}
-	over, _ := mvpOver([]pyObj{colour("#ebebeb", "#ededed", 3.5), colour("#e9e9ec", "#e6e6e9", 5.2)}, mvpOverLength)
+	over, _ := mvpOver([]mvpObj{colour("#ebebeb", "#ededed", 3.5), colour("#e9e9ec", "#e6e6e9", 5.2)}, mvpOverLength)
 	if len(over) != 1 || mvpDigObj(over[0], "row") != 2 {
 		t.Fatalf("over %v, want row 2 alone — a 5.2 grey mismatch flags and 3.5 of rendering noise does not", over)
 	}

@@ -74,10 +74,10 @@ func flowActiveChange(env Env, payload map[string]any, stdout, _ io.Writer) {
 	default:
 		return
 	}
-	_, _ = io.WriteString(stdout, pyDumpASCII(pyObj{{"hookSpecificOutput", pyObj{
-		{"hookEventName", "UserPromptSubmit"},
-		{"additionalContext", line},
-	}}}))
+	_, _ = io.WriteString(stdout, hookJSON(map[string]any{"hookSpecificOutput": map[string]any{
+		"hookEventName":     "UserPromptSubmit",
+		"additionalContext": line,
+	}}))
 }
 
 // facSessionID is the payload's session_id, else the stem of a `.jsonl` transcript_path (a

@@ -2,6 +2,7 @@ package guard
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"unicode"
 )
@@ -36,5 +37,36 @@ func TestEabReadPickSplitsOnPythonSpace(t *testing.T) {
 	}
 	if got := eabReadPick(p); got != "src: why" {
 		t.Errorf("eabReadPick = %q, want %q", got, "src: why")
+	}
+}
+
+// TestBucRealpath: a missing tail is kept below its resolved parent, a dangling symlink resolves
+// to its target, and `..` after a symlink is taken from the link's target, as the kernel does.
+func TestBucRealpath(t *testing.T) {
+	t.Parallel()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []string{"real/sub", "other"} {
+		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for link, target := range map[string]string{"link": "real/sub", "dangling": "other/new.txt"} {
+		if err := os.Symlink(target, filepath.Join(root, link)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b := &buc{env: Env{Dir: root}}
+	for in, want := range map[string]string{
+		"link/missing/f.txt": root + "/real/sub/missing/f.txt",
+		"dangling":           root + "/other/new.txt",
+		"link/../x":          root + "/real/x",
+		root + "/link/./y/":  root + "/real/sub/y",
+	} {
+		if got := b.realpath(in); got != want {
+			t.Errorf("realpath(%q) = %q, want %q", in, got, want)
+		}
 	}
 }

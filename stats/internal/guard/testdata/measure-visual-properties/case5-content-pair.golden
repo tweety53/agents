@@ -37,26 +37,26 @@
       }
     }
   },
-  "scale": 1.0,
+  "scale": 1,
   "delta": {
     "background": {
       "a": "#eae9e9",
       "b": "#eae9e9",
-      "distance": 0.0
+      "distance": 0
     },
     "content.width": {
       "a": 12,
-      "a_scaled": 12.0,
+      "a_scaled": 12,
       "b": 12,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     },
     "content.height": {
       "a": 12,
-      "a_scaled": 12.0,
+      "a_scaled": 12,
       "b": 12,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     },
     "content.colour": {
       "a": "#1e6fe0",
@@ -67,43 +67,43 @@
       "a": 0.25,
       "a_scaled": 0.25,
       "b": 0.25,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     },
     "content.ratio.height": {
       "a": 0.25,
       "a_scaled": 0.25,
       "b": 0.25,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     },
     "content.padding.left": {
       "a": 18,
-      "a_scaled": 18.0,
+      "a_scaled": 18,
       "b": 18,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     },
     "content.padding.top": {
       "a": 18,
-      "a_scaled": 18.0,
+      "a_scaled": 18,
       "b": 18,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     },
     "content.padding.right": {
       "a": 18,
-      "a_scaled": 18.0,
+      "a_scaled": 18,
       "b": 18,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     },
     "content.padding.bottom": {
       "a": 18,
-      "a_scaled": 18.0,
+      "a_scaled": 18,
       "b": 18,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     }
   }
 }

@@ -23,54 +23,54 @@
       "height": 60
     }
   },
-  "scale": 1.0,
+  "scale": 1,
   "delta": {
     "background": {
       "a": "#f3f2f2",
       "b": "#f3f2f2",
-      "distance": 0.0
+      "distance": 0
     },
     "box.left": {
       "a": 10,
-      "a_scaled": 10.0,
+      "a_scaled": 10,
       "b": 10,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     },
     "box.right": {
       "a": 89,
-      "a_scaled": 89.0,
+      "a_scaled": 89,
       "b": 89,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     },
     "box.top": {
       "a": 10,
-      "a_scaled": 10.0,
+      "a_scaled": 10,
       "b": 10,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     },
     "box.bottom": {
       "a": 69,
-      "a_scaled": 69.0,
+      "a_scaled": 69,
       "b": 69,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     },
     "box.width": {
       "a": 80,
-      "a_scaled": 80.0,
+      "a_scaled": 80,
       "b": 80,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     },
     "box.height": {
       "a": 60,
-      "a_scaled": 60.0,
+      "a_scaled": 60,
       "b": 60,
-      "abs": 0.0,
-      "pct": 0.0
+      "abs": 0,
+      "pct": 0
     }
   }
 }

@@ -124,7 +124,7 @@ func awaitOwnAgents(env Env, payload map[string]any, stdout, _ io.Writer) {
 		background = nil
 	}
 	block := func(reason string) {
-		_, _ = io.WriteString(stdout, pyDumpASCII(pyObj{{"decision", "block"}, {"reason", reason}})+"\n")
+		_, _ = io.WriteString(stdout, hookJSON(map[string]any{"decision": "block", "reason": reason})+"\n")
 	}
 	if len(background) > 0 {
 		block("Background commands you launched are still running (" + strings.Join(background, " ") + "). " +

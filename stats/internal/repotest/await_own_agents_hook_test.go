@@ -50,11 +50,11 @@ func TestAwaitOwnAgentsHook(t *testing.T) {
 	meta("run1", "planner", false)
 	meta("run2", "planner", false)
 	out, rc := run("planner", false)
-	if rc != 0 || !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "still running (run1 run2)") {
+	if rc != 0 || !strings.Contains(out, `"decision":"block"`) || !strings.Contains(out, "still running (run1 run2)") {
 		t.Errorf("running children: rc %d, out %q; want a block saying run1 run2 still run", rc, out)
 	}
 	// stop_hook_active still blocks: the wait is the point.
-	if out, _ := run("planner", true); !strings.Contains(out, `"decision": "block"`) {
+	if out, _ := run("planner", true); !strings.Contains(out, `"decision":"block"`) {
 		t.Errorf("stop_hook_active with a running child: out %q; want a block", out)
 	}
 	// The hook waits for the children itself: they finish mid-wait, and the hook answers once that they have.
@@ -139,7 +139,7 @@ func TestAwaitOwnAgentsHookWaitsOnBackgroundBash(t *testing.T) {
 	bg1, bg2 := holdOutput(t, dir, "bg1"), holdOutput(t, dir, "bg2")
 	call("t1", "Bash")
 	appendLine(result("Command running in background with ID: bg1. Output is being written to: " + bg1 + "."))
-	if out := run(); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "bg1") {
+	if out := run(); !strings.Contains(out, `"decision":"block"`) || !strings.Contains(out, "bg1") {
 		t.Errorf("(a) running bg1: out %q; want a block naming bg1", out)
 	}
 	appendLine(note("bg1", "completed"))
@@ -148,7 +148,7 @@ func TestAwaitOwnAgentsHookWaitsOnBackgroundBash(t *testing.T) {
 	}
 	call("t1", "Bash")
 	appendLine(result("1 2 3\nCommand did not complete within its 600s timeout and was moved to the background (ID: bg2). Output is being written to: " + bg2 + "."))
-	if out := run(); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "bg2") {
+	if out := run(); !strings.Contains(out, `"decision":"block"`) || !strings.Contains(out, "bg2") {
 		t.Errorf("(c) running bg2: out %q; want a block naming bg2", out)
 	}
 	appendLine(note("bg2", "killed"))
@@ -213,7 +213,7 @@ func TestAwaitOwnAgentsHookTaskStopEndsBackground(t *testing.T) {
 	bg1, bg2 := holdOutput(t, dir, "bg1"), holdOutput(t, dir, "bg2")
 	call("b1", "Bash")
 	resultOf("b1", "Command running in background with ID: bg1. Output is being written to: "+bg1+".")
-	if out := run(); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "bg1") {
+	if out := run(); !strings.Contains(out, `"decision":"block"`) || !strings.Contains(out, "bg1") {
 		t.Errorf("(a) running bg1: out %q; want a block naming bg1", out)
 	}
 	call("s1", "TaskStop")
@@ -227,7 +227,7 @@ func TestAwaitOwnAgentsHookTaskStopEndsBackground(t *testing.T) {
 	resultOf("r1", "Successfully stopped task: bg2 (sleep 3000)")
 	call("b3", "Bash")
 	resultOf("b3", "Successfully stopped task: bg2")
-	if out := run(); !strings.Contains(out, `"decision": "block"`) || !strings.Contains(out, "bg2") {
+	if out := run(); !strings.Contains(out, `"decision":"block"`) || !strings.Contains(out, "bg2") {
 		t.Errorf("(c) stop only quoted: out %q; want a block naming bg2", out)
 	}
 }
@@ -286,7 +286,7 @@ func TestAwaitOwnAgentsHookKillsLeftoverBackground(t *testing.T) {
 		}
 	}
 
-	if out := run(""); !strings.Contains(out, `"decision": "block"`) {
+	if out := run(""); !strings.Contains(out, `"decision":"block"`) {
 		t.Fatalf("no final message: out %q; want a block", out)
 	}
 	if out := run("task 19 done\ncommit: 19 " + strings.Repeat("a", 40)); out != "" {
@@ -369,12 +369,12 @@ func TestAwaitOwnAgentsHookBackgroundLiveness(t *testing.T) {
 	if out := run(launch("bgdead", dead)); out != "" {
 		t.Errorf("no live holder: out %q; want allow", out)
 	}
-	if out := run(launch("bglive", live)); !strings.Contains(out, `"decision": "block"`) {
+	if out := run(launch("bglive", live)); !strings.Contains(out, `"decision":"block"`) {
 		t.Errorf("live holder: out %q; want a block", out)
 	}
 	tr := launch("bgquiet", quiet)
 	age(quiet, 10*time.Second)
-	if out := run(tr, noLsof); !strings.Contains(out, `"decision": "block"`) {
+	if out := run(tr, noLsof); !strings.Contains(out, `"decision":"block"`) {
 		t.Errorf("lsof failing, file modified 10 s ago: out %q; want a block", out)
 	}
 	age(quiet, 10*time.Minute)

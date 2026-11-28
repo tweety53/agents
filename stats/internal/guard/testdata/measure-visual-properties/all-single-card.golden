@@ -32,21 +32,21 @@
       "left": {
         "width": 0,
         "peak_delta": 0,
-        "approx_opacity": 0.0
+        "approx_opacity": 0
       },
       "right": {
         "width": 3,
-        "peak_delta": 56.0,
+        "peak_delta": 56,
         "approx_opacity": 0.13
       },
       "top": {
         "width": 0,
         "peak_delta": 0,
-        "approx_opacity": 0.0
+        "approx_opacity": 0
       },
       "bottom": {
         "width": 3,
-        "peak_delta": 56.0,
+        "peak_delta": 56,
         "approx_opacity": 0.13
       }
     },

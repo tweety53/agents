@@ -15,7 +15,9 @@ import (
 // The block-unsafe-commands golden corpus: every payload below was fed to hooks/block-unsafe-commands.py
 // as it stood before its port, against the fixture bucFixture builds, and what it printed — stdout,
 // stderr and exit code — is testdata/block-unsafe-commands-golden.json, the fixture's root written
-// {ROOT}. TestHookBlockUnsafeCommandsGolden requires the Go hook to print the same bytes on every case.
+// {ROOT} and stdout's JSON document re-encoded by bucReencode, since the Go hook writes its JSON with
+// encoding/json rather than Python's json.dumps spacing and ASCII escaping.
+// TestHookBlockUnsafeCommandsGolden requires the Go hook to print the same bytes on every case.
 //
 // To capture it again (a case added), point BLOCK_UNSAFE_GOLDEN_PY at the Python original, recovered
 // from git history:
@@ -695,6 +697,16 @@ func bucRunGo(stdin, root string, env []string) bucOut {
 	return bucOut{Stdout: out.String(), Stderr: errb.String(), Exit: rc}
 }
 
+// bucReencode is a Python-captured stdout's JSON document as hookJSON encodes the same value — the
+// Go hook's spacing and escaping, never Python's; stdout that is no JSON document stays as it is.
+func bucReencode(s string) string {
+	var v any
+	if json.Unmarshal([]byte(s), &v) != nil {
+		return s
+	}
+	return hookJSON(v)
+}
+
 func bucRunPython(t *testing.T, py, stdin, root string, env []string) bucOut {
 	t.Helper()
 	cmd := exec.Command("python3", py)
@@ -735,7 +747,9 @@ func TestHookBlockUnsafeCommandsGolden(t *testing.T) {
 			if golden[c.name].Note != "" {
 				continue // the Go hook's own bytes, never Python's
 			}
-			golden[c.name] = unroot(bucRunPython(t, py, bucExpand(c.stdin, root), root, env))
+			o := unroot(bucRunPython(t, py, bucExpand(c.stdin, root), root, env))
+			o.Stdout = bucReencode(o.Stdout)
+			golden[c.name] = o
 		}
 		data, err := json.MarshalIndent(golden, "", "  ")
 		if err != nil {

@@ -32,22 +32,22 @@
       "left": {
         "width": 0,
         "peak_delta": 0,
-        "approx_opacity": 0.0
+        "approx_opacity": 0
       },
       "right": {
         "width": 0,
         "peak_delta": 0,
-        "approx_opacity": 0.0
+        "approx_opacity": 0
       },
       "top": {
         "width": 0,
         "peak_delta": 0,
-        "approx_opacity": 0.0
+        "approx_opacity": 0
       },
       "bottom": {
         "width": 0,
         "peak_delta": 0,
-        "approx_opacity": 0.0
+        "approx_opacity": 0
       }
     },
     "content": {
@@ -151,7 +151,7 @@
         "gap_above": 16,
         "edge": "#ffffff",
         "colour": "#1e6fe0",
-        "share": 1.0
+        "share": 1
       }
     ],
     "seams": [
@@ -161,7 +161,7 @@
         "gap_above": 16,
         "edge": "#ffffff",
         "colour": "#1e6fe0",
-        "share": 1.0,
+        "share": 1,
         "seams": [
           {
             "left": 16,

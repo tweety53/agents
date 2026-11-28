@@ -100,7 +100,7 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 				}
 				return
 			}
-			if rc != 0 || !strings.Contains(out, `"permissionDecision": "deny"`) {
+			if rc != 0 || !strings.Contains(out, `"permissionDecision":"deny"`) {
 				t.Fatalf("rc=%d out=%s", rc, out)
 			}
 			for _, s := range c.deny {
@@ -227,7 +227,7 @@ func TestEnforceAgentBaselineHookAsksForTheLoopKeyLine(t *testing.T) {
 			t.Parallel()
 			env, called := openRowFixture(t, `[]`, false)
 			out, _, rc := runHook(t, "enforce-agent-baseline", openRowPayload(t, c.description, c.prompt), env...)
-			denied := strings.Contains(out, `"permissionDecision": "deny"`)
+			denied := strings.Contains(out, `"permissionDecision":"deny"`)
 			if rc != 0 || denied != c.deny {
 				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)
 			}
@@ -274,7 +274,7 @@ func TestEnforceAgentBaselineHookSkipsAFinishedChange(t *testing.T) {
 			t.Cleanup(srv.Close)
 			out, _, rc := runHook(t, "enforce-agent-baseline", openRowPayload(t, "self-review-x-plan y", "plan"),
 				"FLOW_ADDR="+srv.URL, "FLOW_HOOK_UNBOUNDED=1")
-			if denied := strings.Contains(out, `"permissionDecision": "deny"`); rc != 0 || denied != c.deny {
+			if denied := strings.Contains(out, `"permissionDecision":"deny"`); rc != 0 || denied != c.deny {
 				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)
 			}
 		})
@@ -298,7 +298,7 @@ func TestEnforceAgentBaselineHookRecordsADenial(t *testing.T) {
 	t.Run("missing pointer", func(t *testing.T) {
 		cmd, log := incidentStub(t, 0)
 		out, _, rc := runHook(t, "enforce-agent-baseline", noPointer, "FLOW_HOOK_INCIDENT_CMD="+cmd)
-		if rc != 0 || !strings.Contains(out, `"permissionDecision": "deny"`) {
+		if rc != 0 || !strings.Contains(out, `"permissionDecision":"deny"`) {
 			t.Fatalf("rc=%d out=%s", rc, out)
 		}
 		calls := incidentCalls(t, log)
@@ -317,7 +317,7 @@ func TestEnforceAgentBaselineHookRecordsADenial(t *testing.T) {
 		cmd, log := incidentStub(t, 0)
 		env, _ := openRowFixture(t, `[]`, false)
 		out, _, rc := runHook(t, "enforce-agent-baseline", openRowPayload(t, "self-review-x-plan y", "plan"), append(env, "FLOW_HOOK_INCIDENT_CMD="+cmd)...)
-		if rc != 0 || !strings.Contains(out, `"permissionDecision": "deny"`) {
+		if rc != 0 || !strings.Contains(out, `"permissionDecision":"deny"`) {
 			t.Fatalf("rc=%d out=%s", rc, out)
 		}
 		calls := incidentCalls(t, log)
@@ -340,7 +340,7 @@ func TestEnforceAgentBaselineHookRecordsADenial(t *testing.T) {
 		cmd, _ := incidentStub(t, 1)
 		out, _, rc := runHook(t, "enforce-agent-baseline", noPointer, "FLOW_HOOK_INCIDENT_CMD="+cmd)
 		var v map[string]any
-		if rc != 0 || json.Unmarshal([]byte(out), &v) != nil || !strings.Contains(out, `"permissionDecision": "deny"`) {
+		if rc != 0 || json.Unmarshal([]byte(out), &v) != nil || !strings.Contains(out, `"permissionDecision":"deny"`) {
 			t.Errorf("rc=%d stdout=%q, want the deny JSON alone", rc, out)
 		}
 	})
@@ -419,7 +419,7 @@ func runBegin(t *testing.T, payload []byte, env ...string) (denied bool, out str
 	if rc != 0 {
 		t.Fatalf("rc=%d out=%s", rc, out)
 	}
-	return strings.Contains(out, `"permissionDecision": "deny"`), out
+	return strings.Contains(out, `"permissionDecision":"deny"`), out
 }
 
 // TestEnforceAgentBaselineHookBeginsTheRow pins decisions hook-same-file and
@@ -834,7 +834,7 @@ func TestEnforceAgentBaselineHookAdmitsOnlyAPolicyRoleAndPair(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			out, _, rc := runHook(t, "enforce-agent-baseline", roleCheckPayload(t, c.role, c.model, c.agent), "FLOW_HOOK_ROLE_CHECK=on")
-			denied := strings.Contains(out, `"permissionDecision": "deny"`)
+			denied := strings.Contains(out, `"permissionDecision":"deny"`)
 			if rc != 0 || denied != c.deny {
 				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)
 			}
@@ -870,7 +870,7 @@ func TestEnforceAgentBaselineHookRoleCheckReadsItsOwnPolicy(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if denied := strings.Contains(string(out), `"permissionDecision": "deny"`); denied != c.deny {
+			if denied := strings.Contains(string(out), `"permissionDecision":"deny"`); denied != c.deny {
 				t.Fatalf("deny=%v want %v out=%s", denied, c.deny, out)
 			}
 		})
@@ -960,7 +960,7 @@ func TestEnforceAgentBaselineHookDeniesAnEffortlessType(t *testing.T) {
 				payload = []byte(strings.Replace(string(payload), `"model":`, `"effort":"`+c.effort+`","model":`, 1))
 			}
 			out, _, rc := runHook(t, "enforce-agent-baseline", payload, "FLOW_HOOK_ROLE_CHECK=off")
-			denied := strings.Contains(out, `"permissionDecision": "deny"`)
+			denied := strings.Contains(out, `"permissionDecision":"deny"`)
 			if rc != 0 || denied != c.deny {
 				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)
 			}

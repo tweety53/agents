@@ -157,12 +157,12 @@
       ]
     }
   },
-  "scale": 1.0,
+  "scale": 1,
   "delta": {
     "background": {
       "a": "#eae9e9",
       "b": "#eae9e9",
-      "distance": 0.0
+      "distance": 0
     }
   }
 }

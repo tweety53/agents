@@ -10,7 +10,7 @@
         "gap_above": 12,
         "edge": "#d7d3d3",
         "colour": "#d7d3d3",
-        "share": 1.0,
+        "share": 1,
         "seams": [
           {
             "left": 20,
@@ -50,7 +50,7 @@
     "background": "#f3f2f2",
     "seams": []
   },
-  "scale": 1.0,
+  "scale": 1,
   "delta": {
     "seams": [
       {
@@ -75,7 +75,7 @@
     "background": {
       "a": "#f3f2f2",
       "b": "#f3f2f2",
-      "distance": 0.0
+      "distance": 0
     }
   }
 }
