@@ -207,6 +207,15 @@ func TestPrepareWorkspace(t *testing.T) {
 				return r.rc == 0 && strings.Contains(r.out, "API_PORT=")
 			}},
 		}},
+		// A parallel executor's worktree, branch <name>-r<n>, is its own workspace:
+		// the whole branch is the id's name, so -r1 and -r2 never share one.
+		{"executor-r1", func(t *testing.T) pwResult {
+			return pwLoopRun(t, "kan-1-x-r1")
+		}, []check{
+			{"<name>-r1 branch derives the id from the branch", func(r pwResult) bool {
+				return r.rc == 0 && r.out != pwLoopRun(t, "kan-1-x-r2").out
+			}},
+		}},
 		{"other", func(t *testing.T) pwResult {
 			repo := pwRepo(t, "kan-12-other", pwPortSection("8080"))
 			// A loop prefix anywhere but the branch's start is no loop branch.
@@ -223,7 +232,7 @@ func TestPrepareWorkspace(t *testing.T) {
 			return pwRun(t, repo)
 		}, []check{
 			{"a detached worktree is exit 2 naming detached HEAD", func(r pwResult) bool {
-				return r.rc == 2 && r.out == "" && strings.Contains(r.err, "is not on a spectre/<name>, self-review-<name> or pipeline-fix-<name>-<k> branch (got 'detached HEAD') — cannot derive a workspace id without the change name\n")
+				return r.rc == 2 && r.out == "" && strings.Contains(r.err, "is not on a spectre/<name>, self-review-<name>, pipeline-fix-<name>-<k> or <name>-r<n> branch (got 'detached HEAD') — cannot derive a workspace id without the change name\n")
 			}},
 		}},
 	}
@@ -240,6 +249,18 @@ func TestPrepareWorkspace(t *testing.T) {
 					t.Errorf("rc=%d\nstdout:\n%s\nstderr:\n%s", r.rc, r.out, r.err)
 				}
 			})
+		}
+	}
+}
+
+// TestPwChangeNameExecutorBranches: a session branch <name> names no workspace,
+// and each <name>-r<n> executor branch names its own, whole.
+func TestPwChangeNameExecutorBranches(t *testing.T) {
+	t.Parallel()
+	for branch, want := range map[string]bool{"kan-1-x": false, "kan-1-x-r1": true, "kan-1-x-r2": true, "kan-1-x-r": false, "kan-1-x-rx": false} {
+		name, ok := pwChangeName(branch)
+		if ok != want || (ok && name != branch) {
+			t.Errorf("pwChangeName(%q) = %q, %v; want %v", branch, name, ok, want)
 		}
 	}
 }

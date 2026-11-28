@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -18,6 +19,8 @@ import (
 // directory (.superpowers/sdd/<name> or spectre/changes/<name>) — the same
 // evidence requireChangeCheckout accepts. "" anywhere else, the main
 // checkout on its base branch included.
+var executorBranch = regexp.MustCompile(`^(.+)-r[0-9]+$`)
+
 func inferChange(dir string) string {
 	git := func(a ...string) string {
 		out, err := exec.Command("git", append([]string{"-C", dir}, a...)...).Output()
@@ -31,9 +34,22 @@ func inferChange(dir string) string {
 	if top == "" || name == "" || strings.Contains(name, "/") {
 		return ""
 	}
-	for _, root := range []string{".superpowers/sdd", "spectre/changes"} {
-		if fi, err := os.Stat(filepath.Join(top, root, name)); err == nil && fi.IsDir() {
-			return name
+	isChange := func(n string) bool {
+		for _, root := range []string{".superpowers/sdd", "spectre/changes"} {
+			if fi, err := os.Stat(filepath.Join(top, root, n)); err == nil && fi.IsDir() {
+				return true
+			}
+		}
+		return false
+	}
+	if isChange(name) {
+		return name
+	}
+	// A parallel executor's branch is <name>-r<n>, in a checkout carrying
+	// .superpowers/sdd/<name>/.
+	if m := executorBranch.FindStringSubmatch(name); m != nil {
+		if fi, err := os.Stat(filepath.Join(top, ".superpowers/sdd", m[1])); err == nil && fi.IsDir() {
+			return m[1]
 		}
 	}
 	return ""

@@ -53,6 +53,27 @@ func TestInferChange(t *testing.T) {
 	}
 }
 
+// A parallel executor's worktree is on <name>-r<n> and carries the change's
+// .superpowers/sdd/<name>/; a branch merely shaped like it, with no such
+// directory, names no change.
+func TestInferChangeExecutorBranch(t *testing.T) {
+	t.Parallel()
+	wt := changeWorktree(t, "kan-9")
+	if out, err := exec.Command("git", "-C", wt, "checkout", "-q", "-b", "kan-9-r2").CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	if got := inferChange(wt); got != "kan-9" {
+		t.Errorf("inferChange(kan-9-r2 worktree) = %q, want kan-9", got)
+	}
+	bare := gitRepo(t)
+	if out, err := exec.Command("git", "-C", bare, "checkout", "-q", "-b", "foo-r2").CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	if got := inferChange(bare); got != "" {
+		t.Errorf("inferChange(foo-r2, no change dir) = %q, want empty", got)
+	}
+}
+
 func TestResolveHarnessUnderClaudeCode(t *testing.T) {
 	t.Parallel()
 	env := testEnv{"FLOW_HARNESS": "", "CLAUDECODE": "1"}

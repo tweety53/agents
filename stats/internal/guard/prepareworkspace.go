@@ -43,7 +43,8 @@ import (
 // already recorded where a script can read it without being handed it
 // separately. A self-review or pipeline-fix loop worktree is its own change,
 // named after its whole branch — `self-review-<name>`, `pipeline-fix-<name>-<k>`
-// — by flow-guard pipeline-fix, so that whole branch is its name (KAN-997). A
+// — by flow-guard pipeline-fix, so that whole branch is its name (KAN-997); so
+// is a parallel executor's `<name>-r<n>`, which needs a workspace of its own. A
 // worktree on none of these — detached HEAD, or checked out on something else —
 // cannot be resolved, and this script refuses rather than guessing at a name.
 //
@@ -79,14 +80,17 @@ func init() { Registry["prepare-workspace"] = prepareWorkspace }
 
 // pwChangeName is the change a worktree's branch names: the <name> of
 // `spectre/<name>`, or a loop branch whole (`self-review-<name>`,
-// `pipeline-fix-<name>-<k>`); ok false on any other branch, a detached HEAD's
-// "" included.
+// `pipeline-fix-<name>-<k>`) or a parallel executor's `<name>-r<n>` whole;
+// ok false on any other branch, a detached HEAD's "" included.
 func pwChangeName(branch string) (name string, ok bool) {
 	if name, ok = strings.CutPrefix(branch, "spectre/"); ok {
 		return name, true
 	}
-	return branch, strings.HasPrefix(branch, "self-review-") || strings.HasPrefix(branch, "pipeline-fix-")
+	return branch, strings.HasPrefix(branch, "self-review-") || strings.HasPrefix(branch, "pipeline-fix-") || pwExecutorBranch.MatchString(branch)
 }
+
+// pwExecutorBranch is a parallel executor's `<name>-r<n>` branch.
+var pwExecutorBranch = regexp.MustCompile(`^[^/]+-r[0-9]+$`)
 
 // pwHeading is the bash's `grep -qiE '^##[[:space:]]+workspace
 // isolation[[:space:]]*$'`, matched against the ASCII-lowered line.
@@ -158,7 +162,8 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 	// worktree is created on `spectre/<name>` per skills/flow/implement.md; a
 	// self-review or pipeline-fix loop worktree is its own change, named after
 	// its whole branch — `self-review-<name>`, `pipeline-fix-<name>-<k>` — by
-	// flow-guard pipeline-fix (KAN-997). The id is derived from the change name
+	// flow-guard pipeline-fix (KAN-997), or a parallel executor's `<name>-r<n>`
+	// whole. The id is derived from the change name
 	// and nothing else, per **The workspace id**
 	// (skills/flow-contracts/workspace-isolation.md).
 	branch, _ := gitExec(env.Dir, nil, io.Discard, "-C", worktree, "symbolic-ref", "--quiet", "--short", "HEAD")
@@ -169,7 +174,7 @@ func prepareWorkspace(args []string, env Env, stdout, stderr io.Writer) int {
 		if got == "" {
 			got = "detached HEAD"
 		}
-		fmt.Fprintf(stderr, "prepare-workspace: %s is not on a spectre/<name>, self-review-<name> or pipeline-fix-<name>-<k> branch (got '%s') — cannot derive a workspace id without the change name\n", worktree, got)
+		fmt.Fprintf(stderr, "prepare-workspace: %s is not on a spectre/<name>, self-review-<name>, pipeline-fix-<name>-<k> or <name>-r<n> branch (got '%s') — cannot derive a workspace id without the change name\n", worktree, got)
 		Reason(env, "not-on-a-spectre-name")
 		return 2
 	}
