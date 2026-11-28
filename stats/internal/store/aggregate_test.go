@@ -2550,6 +2550,9 @@ func TestLiveStateBoardCarriesCommandAndRequests(t *testing.T) {
 	if _, err := st.EndRequest(ctx, projectKey, "kan-int", records.RequestEnd{N: 1, Outcome: "landed", CommitSHA: "abc", BaseSHA: "def", EndedAt: &at}); err != nil {
 		t.Fatalf("EndRequest: %v", err)
 	}
+	if _, err := st.EndRequest(ctx, projectKey, "kan-int", records.RequestEnd{N: 3, Outcome: "dropped", Reason: "superseded by request 1", EndedAt: &at}); err != nil {
+		t.Fatalf("EndRequest dropped: %v", err)
+	}
 	tagged := baseBeginInput(projectKey, "kan-int", "/flow-interactive", "flow.sdd-tdd")
 	tagged.RequestN = ptr(2)
 	if _, err := st.BeginStage(ctx, tagged); err != nil {
@@ -2575,9 +2578,9 @@ func TestLiveStateBoardCarriesCommandAndRequests(t *testing.T) {
 	}
 	var got []string
 	for _, r := range in.Requests {
-		got = append(got, fmt.Sprintf("%d %s %s %s", r.N, r.Title, r.State, r.CommitSHA))
+		got = append(got, fmt.Sprintf("%d %s %s %s %s", r.N, r.Title, r.State, r.CommitSHA, r.Reason))
 	}
-	want := []string{"1 first landed abc", "2 second in progress ", "3 third queued "}
+	want := []string{"1 first landed abc ", "2 second in progress  ", "3 third dropped  superseded by request 1"}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("kan-int requests = %q, want %q", got, want)
 	}

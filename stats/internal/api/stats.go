@@ -837,6 +837,8 @@ type taskDTO struct {
 	Outcome string `json:"outcome,omitempty"`
 	Commit  string `json:"commit,omitempty"`
 	Reason  string `json:"reason,omitempty"`
+	// DropReason is a dropped request's stored why (requests.reason).
+	DropReason string `json:"dropReason,omitempty"`
 }
 
 // requestTasks serves a change's requests as its board tasks (KAN-1061's
@@ -846,7 +848,7 @@ type taskDTO struct {
 func requestTasks(reqs []records.Request) []taskDTO {
 	var out []taskDTO
 	for _, r := range reqs {
-		t := taskDTO{N: r.N, Title: r.Title, State: "done", Outcome: r.Outcome, Commit: r.CommitSHA, Reason: r.BrainstormReason}
+		t := taskDTO{N: r.N, Title: r.Title, State: "done", Outcome: r.Outcome, Commit: r.CommitSHA, Reason: r.BrainstormReason, DropReason: r.Reason}
 		switch r.State {
 		case "in progress":
 			t.State = "in progress"

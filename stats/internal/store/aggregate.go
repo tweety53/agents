@@ -265,7 +265,7 @@ func (s *Store) LiveStateBoard(ctx context.Context, period Period, project, chan
 			SELECT COALESCE(jsonb_agg(jsonb_build_object(
 			         'n', requests.n, 'title', requests.title, 'brainstormReason', requests.brainstorm_reason,
 			         'receivedAt', requests.received_at, 'endedAt', requests.ended_at, 'outcome', COALESCE(requests.outcome, ''),
-			         'commitSha', COALESCE(requests.commit_sha, ''), 'baseSha', COALESCE(requests.base_sha, ''),
+			         'commitSha', COALESCE(requests.commit_sha, ''), 'baseSha', COALESCE(requests.base_sha, ''), 'reason', requests.reason,
 			         'started', `+requestStarted+`
 			       ) ORDER BY requests.n), '[]'::jsonb) AS list
 			FROM requests

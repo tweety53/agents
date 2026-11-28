@@ -2355,6 +2355,7 @@ func TestStateBoardServesRequestsAsTasks(t *testing.T) {
 					{N: 2, Title: "Answered", Outcome: "answered", State: "answered", BrainstormReason: "two readings"},
 					{N: 3, Title: "Current", State: "in progress"},
 					{N: 4, Title: "Queued", State: "queued"},
+					{N: 5, Title: "Dropped", Outcome: "dropped", State: "dropped", Reason: "superseded"},
 				}},
 			{ProjectKey: "agents", Name: "kan-2", State: store.StateInProgress, UpdatedAt: updatedAt, Command: &flow, RepoRoots: []string{root}},
 		},
@@ -2383,6 +2384,7 @@ func TestStateBoardServesRequestsAsTasks(t *testing.T) {
 		{"n": float64(2), "title": "Answered", "state": "done", "outcome": "answered", "reason": "two readings"},
 		{"n": float64(3), "title": "Current", "state": "in progress"},
 		{"n": float64(4), "title": "Queued", "state": "pending"},
+		{"n": float64(5), "title": "Dropped", "state": "done", "outcome": "dropped", "dropReason": "superseded"},
 	}
 	if fmt.Sprint(rows[0].Tasks) != fmt.Sprint(want) {
 		t.Errorf("kan-1 tasks = %v, want %v", rows[0].Tasks, want)

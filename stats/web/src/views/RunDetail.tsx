@@ -677,6 +677,7 @@ function RequestsPanel({ tasks, order }: { tasks: PlanTask[]; order: number }) {
                 <span>{cls === "current" ? "" : cls}</span>
               )}
               {t.reason && <span className="why">brainstormed — {t.reason}</span>}
+              {t.outcome === "dropped" && t.dropReason && <span className="why">{t.dropReason}</span>}
             </li>
           );
         })}

@@ -287,6 +287,8 @@ export interface PlanTask {
   outcome?: "landed" | "answered" | "dropped";
   commit?: string;
   reason?: string;
+  /** A dropped request's stored why. */
+  dropReason?: string;
 }
 
 /** Mirrors store.ActiveDispatch: a dispatch begun and not yet ended. */
