@@ -33,7 +33,7 @@ in a detached checkout of the merge-base:
   merge-base: the change's own defect. It blocks and is fixed in the change.
 - `PRE-EXISTING` (exit 0) — no named path is in the change's diff and the command fails on the
   merge-base too: the one defect that does not block the landing. The run files it at once as its
-  own issue, titled as **Follow-up issues** (`skills/flow-contracts/jira-followups.md`) names a
+  own issue, titled as **Follow-up issues** (`skills/flow-contracts/jira-integration.md`) names a
   follow-up and never joined to one, labelled and bodied per **Labels and body of issues the
   pipeline creates** (`skills/flow-contracts/jira-integration-finish.md`) — its `## Why` carrying
   the guard's `PRE-EXISTING` line and the failing output — records it with

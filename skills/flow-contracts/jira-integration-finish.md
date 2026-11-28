@@ -3,20 +3,6 @@
 The parts of **Jira integration** (`skills/flow-contracts/jira-integration.md`) only a finish run or an
 issue-creating command acts on. Loaded by bare `/flow` run 1 and by every command that creates an issue.
 
-### The join confirmation
-
-**The join confirmation** is the other carve-out from **Never blocking** (`skills/flow-contracts/jira-integration.md`), stated under
-**Joining a follow-up** (`skills/flow-contracts/jira-followups-join.md`), and bounded identically: asked once,
-only when a candidate was actually found, with anything but an explicit yes taking the safe course
-and the run continuing regardless. Both exist for the same reason — a write aimed at an issue this
-pipeline did not choose — and neither ever gates a state write.
-
-### The join echo — the exception to Description sync's pre-edit echo
-
-**A join is the one write this echo does not cover**, because the description it would reproduce
-belongs to another change's issue and this pipeline never authored it. What is echoed there instead
-is under **Joining a follow-up** (`skills/flow-contracts/jira-followups-join.md`).
-
 ### Labels and body of issues the pipeline creates
 
 An issue any `/flow*` command creates carries **every label on the change's linked issue, plus
@@ -55,9 +41,3 @@ missing required field, and a session may have no Atlassian tooling at all. Any 
 **Never blocking** (`skills/flow-contracts/jira-integration.md`). A command whose operator chose an option that
 *includes* filing still does the rest of what that option promised; the filing failing does not silently convert the answer
 into a different one, and it is never left unmentioned.
-
-### Follow-up issues
-
-Follow-up naming, the join search, and the append-only join write are governed by
-**Follow-up issues** (`skills/flow-contracts/jira-followups.md`), loaded by bare `/flow`
-run 1.

@@ -154,8 +154,6 @@ explicit yes transitions the issue**. Anything else — No, silence, an answer t
 a session that cannot ask at all — leaves the status untouched, emits one `⚠ Jira: skipped —
 <reason>` line, and the run continues and writes its state exactly as it would have.
 
-The other is **The join confirmation** (`skills/flow-contracts/jira-integration-finish.md`).
-
 **`flow jira transition` is not this pipeline's transition path.** The command fires the same
 four-position, forward-only table through flowd, but only on a daemon configured with
 `FLOWD_JIRA_SITE`, `FLOWD_JIRA_EMAIL` and `FLOWD_JIRA_TOKEN`, and it cannot ask: an unrecognised
@@ -163,6 +161,50 @@ status exits 1 with the status named on stderr — this section's default **No**
 No `/flow*` command calls it; every transition in **Transitions** above runs in the session. A
 caller that wires it in treats that exit 1 as reaching this section and asks once, as above,
 rather than printing it straight as a skip.
+
+### Follow-up issues
+
+A **follow-up** is an issue the pipeline files for work a run left outstanding. It is titled
+`<KEY> follow-up`, where `<KEY>` is the change's linked issue; with no linked issue it is titled
+`flow follow-up`. Labelling is governed by **Labels and body of issues the pipeline creates**
+(`jira-integration-finish.md`) — a follow-up is not special.
+
+**This naming governs every follow-up the integrate run files.** `<KEY>` matches `[A-Z]{2,10}-\d+`,
+the key shape **Resolution (how `jiraIssue` is decided)** scans for.
+
+### Project keys
+
+Every project key a `## jira` section names is validated before use:
+
+**Every key that reaches the clause matches `[A-Z]{2,10}` in its entirety, or it does not reach
+it.** An entry carrying JQL rather than a key (`KAN" OR project != "KAN`, or a bare `OR` between two
+keys) would widen or corrupt the very scoping the clause exists to establish, which is this
+paragraph's own failure mode returning through its own input. So each key the section names is
+required to match that shape before it is used, and one that does not is
+**reported by name and dropped** — never repaired, never quoted around, never used "just to search",
+exactly as an unresolvable `## standards` entry is. If every named key is dropped, the section is
+treated as naming none and the linked issue's prefix is used as above. The literal `none` is a
+documented legal value and not a malformed key: it names no project, resolves `jiraIssue` to `null`
+per **Resolution (how `jiraIssue` is decided)** (`jira-integration.md`), and leaves no key from
+either source — the no-key case the paragraph below already settles.
+
+**How the body becomes candidate keys, and what "matches" means.** Take the `## jira` body — everything between that heading and the next
+`##` heading — split it on whitespace and on commas, strip surrounding backticks and any leading list
+marker (`-`, `*`, `+`) from each piece, and discard what is then empty; every remaining piece is one
+candidate. The test is applied to **the whole of a candidate and never to a substring of it**: a
+candidate passes only if it is two to ten uppercase ASCII letters *and nothing else* — the same
+exactness the title comparison below requires, and the deliberate opposite of the *scan* in
+**Resolution (how `jiraIssue` is decided)** (`jira-integration.md`), which looks for an
+occurrence inside free text because it is finding a key someone mentioned rather than validating one
+someone declared. Whole-value matching is what makes the example above fail rather than pass:
+`KAN" OR project != "KAN` yields the candidates `KAN"`, `OR`, `project`, `!=` and `"KAN`, not one of
+which is uppercase letters and nothing else, so all five are reported and dropped and the section
+names no key — whereas under a substring reading the first of them *contains* `KAN`, and would be
+accepted with its stray quote riding into the query. The literal `none` is compared before the shape
+test and case-sensitively, and is the body's only legal non-key candidate; that the body holds keys
+or `none` rather than prose is the `## jira` row in
+**Project configuration** (`project-configuration.md`), so a body written as anything else reports
+its pieces and names no key instead of yielding one.
 
 ### Never blocking
 

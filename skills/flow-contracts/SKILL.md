@@ -30,8 +30,6 @@ flow's pipeline and its contract definitions.
 | [project-configuration-visual.md](project-configuration-visual.md) | The `## visual verification` tables, the `mockups` sidecar and the full app suite. **Loaded when `flow.verify` begins** |
 | [jira-integration.md](jira-integration.md) | Resolve a linked issue, transition it, or sync its description |
 | [jira-integration-finish.md](jira-integration-finish.md) | The join carve-out and echo, and labels on created issues. **Cited by every command that creates an issue** |
-| [jira-followups.md](jira-followups.md) | File or join a follow-up issue for work a run left outstanding: the naming, the scoped join search, and the create path. **Loaded by `/flow`'s integrate run** |
-| [jira-followups-join.md](jira-followups-join.md) | Join the follow-up the search found: the confirmation, the append and its per-write guards, and the three ordered writes a join makes. **Loaded by jira-followups.md only when the join search returned a candidate** |
 | [plan-amendment.md](plan-amendment.md) | What an implementer does when a measurement contradicts the plan. **Cited by `/flow`'s implementer dispatch** |
 | [workspace-isolation.md](workspace-isolation.md) | Resolve a worktree's own database, cache index, bucket or ports: the workspace id, what it derives, why the cache index is probed rather than derived, the empty id, and creation and cleanup |
 | [git-boundaries.md](git-boundaries.md) | Which git actions each command may take, that the change directory is never committed, and the branch backup. **Loaded by `/flow`'s creating run, `/flow`'s implement phase, bare `/flow`, and `/flow-plan`** |

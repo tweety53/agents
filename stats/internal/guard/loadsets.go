@@ -17,9 +17,9 @@ func conditionalLoadSets(r string) []loadSet {
 			catSets(inDir(f, "fix.md", "fix-visual.md", "cross-repo-worktrees.md", "fixer-brief.md", "slot-brief.md", "review-panel-fix-round.md", "review-panel-optional-slots.md", "live-check.md"),
 				inDir(c, "workspace-isolation.md", "pipeline-defects.md", "progress-visibility.md", "quiet-progress.md"), inDir(f, "visual-verify.md"),
 				inDir(c, "git-boundaries-commit-chain.md", "project-configuration-visual.md", "guard-verdict-verification.md"))},
-		{"finish contracts, registry, gate, base moved, stops, own tooling, follow-ups, state file, config, verdicts",
+		{"finish contracts, registry, gate, base moved, stops, own tooling, state file, config, verdicts",
 			catSets(inDir(c, "finish-contract-run1.md", "finish-contract-run2.md", "artifacts-registry.md"), inDir(f, "unfinished-work-gate.md", "sync-onto-base.md", "sync-onto-base-visual.md", "integrate-stops.md", "integrate-own-tooling.md"),
-				inDir(c, "jira-followups.md", "jira-followups-join.md", "state-file.md", "project-configuration.md", "guard-verdict-verification.md"))},
+				inDir(c, "state-file.md", "project-configuration.md", "guard-verdict-verification.md"))},
 	}
 }
 

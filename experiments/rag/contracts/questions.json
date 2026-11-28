@@ -192,18 +192,6 @@
   "snippet": "## What is closed Every route, not a list of blocked tools: - SSH or any remote "
  },
  {
-  "question": "How is a candidate issue title shown to the user when asking whether to join it, and what counts as consent?",
-  "kind": "any",
-  "file": "skills/flow-contracts/jira-followups-join.md",
-  "snippet": "4. **Truncate to at most 120 characters**, appending `…` when truncated. A title"
- },
- {
-  "question": "Which list of leftover work do the follow-up ticket rules refer to when they say this run's items?",
-  "kind": "any",
-  "file": "skills/flow-contracts/jira-followups.md",
-  "snippet": "**The outstanding items are the integrate run's own** — that run's outstanding w"
- },
- {
   "question": "What should an implementer do when their measurements show the plan is wrong?",
   "kind": "any",
   "file": "skills/flow-contracts/plan-amendment.md",
@@ -238,12 +226,6 @@
   "kind": "late",
   "file": "skills/flow-contracts/known-bugs.md",
   "snippet": "**A product defect the self-review pass meets is never dropped.** It stays out o"
- },
- {
-  "question": "Which contract do I load before filing or joining a follow-up ticket, and which one only when a search found a candidate?",
-  "kind": "late",
-  "file": "rules/flow-manual-review.mdc",
-  "snippet": "**States** and **State transitions** (`skills/flow-contracts/pipeline.md`) — **l"
  },
  {
   "question": "What happens to an unanswered question in a planning round, and how many questions can one prompt call hold?",
