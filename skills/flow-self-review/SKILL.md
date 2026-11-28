@@ -1,6 +1,6 @@
 ---
 name: flow-self-review
-description: Run a change's self-review pass, a one-shot dispatch — inside `/flow`'s integrate and `/flow-interactive`'s stop, or standalone from the context bundle flowd saved at cleanup; fix and land every flow-fix finding that is not big with one fixer, suggest the impactful big ones and other angles' findings, record each in the flow store. Standalone, not a pipeline stage. Use for /flow-self-review.
+description: Run a change's self-review pass, a one-shot dispatch — inside `/flow`'s integrate and `/flow-interactive`'s stop, or standalone from the context bundle flowd saved at cleanup; fix and land every flow-fix finding that is not big with one fixer, suggest the impactful big ones and other angles' findings, record each in the flow store. Standalone, not a pipeline stage.
 user-invocable: false
 allowed-tools: Bash(git:*), Bash(flow:*), Bash(go:*)
 license: MIT
@@ -10,12 +10,12 @@ compatibility: Standalone, requires the change's default branch, or its `--base`
 Run a change's self-review reasoning pass — the only one the pipeline has — over the bundle
 `/flow`'s run 1 (**Run the self-review pass**,
 `skills/flow-contracts/finish-contract-run1.md`, canonical for that bundle's shape) or **Explicit stop**
-(`skills/flow-interactive/SKILL.md`) assembles: inside that run, or, as this standalone command, from the
-bundle run 2's cleanup saved in flowd (`flow change save`). This file is canonical for the seven angles, what is fixed, what is suggested and the store record. **Neither the pass nor its fixes run
+(`skills/flow-interactive/SKILL.md`) assembles: inside that run, or, as the pass run by `/flow` from a saved bundle, over the one
+run 2's cleanup saved in flowd (`flow change save`). This file is canonical for the seven angles, what is fixed, what is suggested and the store record. **Neither the pass nor its fixes run
 in this session**: step 2 dispatches the pass, and step 3 fixes, each a one-shot
 dispatch on the pair this file names — never the model this session runs on.
 
-**This is a standalone command, not a pipeline stage.** It takes one change name, writes no
+**This is not a pipeline stage.** It takes one change name, writes no
 per-change state file, and marks no `flow stage` call.
 
 **No flags.** The only argument is the change name.
@@ -291,9 +291,3 @@ the shas landed, the suggestions recorded (the count), each theme miss the pass 
 
 - **Never** push directly to a protected branch under any name but the project's own default
   branch, or the `<landing-branch>` step 1 accepted, and never force-push.
-
-## Commands (user-facing)
-
-| Intent | Say |
-|--------|-----|
-| Run a deferred self-review pass for `<name>` | `/flow-self-review <name>` |

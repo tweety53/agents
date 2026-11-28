@@ -78,7 +78,7 @@ A run 2 that **completes step 4** is terminal and names **no** next command.
 **The Finished handoff, and the run's final report beside it, carry no open item** — nothing
 "still open", unverified, untraced or left as the operator's call. Each one is resolved before the handoff prints: fixed,
 disproved with its evidence, or a finding filed at step 5 of
-`/flow-self-review` (`skills/flow-self-review/SKILL.md`).
+the self-review pass (`skills/flow-self-review/SKILL.md`).
 
 **Every post-landing item is finished before the handoff prints — a "Not done" line is never the way
 out.** The parent records the self-review `fixed` rows for every fix commit

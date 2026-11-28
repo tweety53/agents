@@ -51,8 +51,7 @@ finishing — integration is not a stage, it is the first half of finishing.
 ## Command surface
 
 One command, `/flow`, drives the whole pipeline, plus one that creates a change at `STARTED` and stops there (`/flow-plan`), one conversational session that lands each
-request as it goes and writes no state file (`/flow-interactive`) and one standalone,
-non-pipeline command (`/flow-self-review`). **No command accepts
+request as it goes and writes no state file (`/flow-interactive`). **No command accepts
 a flag**, save one: `--base <branch>` on a run that creates a change — `/flow`, `/flow-plan` —
 names the branch it is cut from and lands on, in place of the one `origin/HEAD`
 points at (`skills/flow/SKILL.md`). The only argument is the optional change name — see **Change name resolution** — or,
