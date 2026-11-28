@@ -1,4 +1,4 @@
-package guard
+package integrate
 
 import (
 	"encoding/json"
@@ -57,7 +57,7 @@ import (
 // of the task matches); 1 the record is missing, stale or flagged; 2 a usage
 // error, a worktree off a `spectre/<name>` branch, or a task the plan lacks.
 // Its verdict, utmJudge, runs in process from close-task; no guard.Registry key.
-func checkUITaskMeasured(args []string, env core.Env, stdout, stderr io.Writer) int {
+func CheckUITaskMeasured(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
 		core.Reason(env, "usage")
 		fmt.Fprintln(stderr, "usage: flow-guard check-ui-task-measured <worktree> <task-id> [<peer worktree>…]")

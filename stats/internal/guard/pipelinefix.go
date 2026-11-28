@@ -96,7 +96,7 @@ import (
 // loop (skills/flow-contracts/pipeline.md **Pipeline defects found
 // mid-run**), so no step is retyped or skipped. The comment above is the contract.
 func init() {
-	Registry["pipeline-fix"] = pipelineFix
+	core.Registry["pipeline-fix"] = pipelineFix
 }
 
 const pfUsage = `usage: flow-guard pipeline-fix start <name> [<k>]

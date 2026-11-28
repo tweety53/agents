@@ -1,4 +1,4 @@
-package guard
+package integrate
 
 import (
 	"bytes"
@@ -150,7 +150,7 @@ func (f *uwFix) setFindings(t *testing.T, statuses ...string) {
 
 func (f *uwFix) run(t *testing.T, args ...string) uwResult {
 	t.Helper()
-	fn := Registry["check-unfinished-work"]
+	fn := core.Registry["check-unfinished-work"]
 	if fn == nil {
 		t.Fatal("check-unfinished-work is not registered")
 	}

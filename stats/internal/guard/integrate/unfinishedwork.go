@@ -1,4 +1,4 @@
-package guard
+package integrate
 
 import (
 	"bytes"
@@ -151,7 +151,7 @@ import (
 // reasoning for each branch, moved here from the bash body it replaced
 // (3e48ecac), sits beside the code it explains.
 func init() {
-	Registry["check-unfinished-work"] = checkUnfinishedWork
+	core.Registry["check-unfinished-work"] = checkUnfinishedWork
 }
 
 const uwPrefix = "check-unfinished-work: "

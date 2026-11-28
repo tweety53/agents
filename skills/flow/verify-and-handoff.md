@@ -16,7 +16,7 @@ flow-guard verify-change <main-checkout> <name> --model <model> --effort <effort
   [--key <key>] [--cache-index-claimed]
 ```
 
-Its header (`stats/internal/guard/verifychange.go`) is canonical for every step it runs — the
+Its header (`stats/internal/guard/integrate/verifychange.go`) is canonical for every step it runs — the
 `flow.verify` `begin` mark, this run's resolved worktree set, `flow-guard prepare-workspace` per
 worktree, the base check, both groups of **Inline verify** per worktree under **Recording**'s keys,
 and the ledger render of **Close the stage** — and for its `NEXT:` and `STOP:` lines. `NEXT:` names

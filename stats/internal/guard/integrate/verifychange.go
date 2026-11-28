@@ -1,4 +1,4 @@
-package guard
+package integrate
 
 import (
 	"bytes"
@@ -73,8 +73,8 @@ import (
 // verification and the IN_PROGRESS write, and on a stop the fix procedure's
 // step 1 (skills/flow/fix.md) closes it `stopped`.
 //
-// Go, in flow-guard (stats/internal/guard/verifychange.go).
-func init() { Registry["verify-change"] = verifyChange }
+// Go, in flow-guard (stats/internal/guard/integrate/verifychange.go).
+func init() { core.Registry["verify-change"] = verifyChange }
 
 func verifyChange(args []string, env core.Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "verify-change", stopOutcome: "stopped",

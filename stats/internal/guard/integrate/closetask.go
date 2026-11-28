@@ -1,4 +1,4 @@
-package guard
+package integrate
 
 import (
 	"fmt"
@@ -45,7 +45,7 @@ import (
 // run did not make, or a stash entry the run did not push means the tree is
 // not the one the run left — the run stops with both outputs verbatim,
 // never re-running the guard on top of it.
-func init() { Registry["close-task"] = closeTask }
+func init() { core.Registry["close-task"] = closeTask }
 
 func closeTask(args []string, env core.Env, stdout, stderr io.Writer) int {
 	if len(args) < 4 {

@@ -1,4 +1,4 @@
-package guard
+package integrate
 
 import (
 	"fmt"
@@ -52,7 +52,7 @@ import (
 // Exit 0 every part removed or already gone; 1 refused (dirty, not landed —
 // nothing removed) or a removal failed; 2 usage, a change name that is not a
 // plain change name, or a <main> that is not a git repository.
-func init() { Registry["workspace-remove"] = workspaceRemove }
+func init() { core.Registry["workspace-remove"] = workspaceRemove }
 
 func workspaceRemove(args []string, env core.Env, stdout, stderr io.Writer) int {
 	refuse := func(id, format string, a ...any) int {

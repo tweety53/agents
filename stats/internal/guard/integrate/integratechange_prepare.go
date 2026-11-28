@@ -1,4 +1,4 @@
-package guard
+package integrate
 
 import (
 	"fmt"
@@ -68,10 +68,10 @@ func (c *ic) prepare() error {
 	// the base the change records (KAN-911: run 2 refreshes it), stops.
 	dirty := false
 	for _, m := range c.mains {
-		c.runIn(checkMainCheckoutDrift, m)
+		c.runIn(CheckMainCheckoutDrift, m)
 		if c.rc == 0 && c.verdict("DRIFT-BRANCH") != "" && c.verdict("DRIFT-DIRTY") == "" {
 			c.switchBack(m)
-			c.runIn(checkMainCheckoutDrift, m)
+			c.runIn(CheckMainCheckoutDrift, m)
 		}
 		if !(c.rc == 0 && c.verdict("DRIFT-CLEAN") != "") {
 			b, _ := c.gitQuiet("-C", m, "branch", "--show-current")

@@ -1,4 +1,4 @@
-package guard
+package integrate
 
 import (
 	"fmt"
@@ -68,13 +68,13 @@ import (
 // mid-rebase or carrying an unrelated staged file is a typical structural
 // cause — fix the cause, never the verdict.
 
-// checkMainCheckoutDrift is `flow-guard check-main-checkout-drift`: the comment above is the contract -- DRIFT-BRANCH and DRIFT-DIRTY
+// CheckMainCheckoutDrift is `flow-guard check-main-checkout-drift`: the comment above is the contract -- DRIFT-BRANCH and DRIFT-DIRTY
 // findings in that order, DRIFT-CLEAN exactly when neither prints, exit 0 on
 // any verdict; exit 2 with NOTHING on stdout when it cannot answer. Every
 // git read is silenced, as the bash's 2>/dev/null silenced it: the named
 // cause on stderr is the whole of a refusal.
 // Run in process by integrate-change prepare only; no guard.Registry key.
-func checkMainCheckoutDrift(args []string, env core.Env, stdout, stderr io.Writer) int {
+func CheckMainCheckoutDrift(args []string, env core.Env, stdout, stderr io.Writer) int {
 	const self = "check-main-checkout-drift"
 	die := func(id, format string, a ...any) int {
 		core.Reason(env, id)

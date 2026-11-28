@@ -1,4 +1,4 @@
-package guard
+package integrate
 
 import (
 	"bufio"
@@ -24,7 +24,7 @@ import (
 // and `peer_fix_case`, kept verbatim so every case's setup
 // and every `check` expression is the harness's own. Only `sut` changes: it
 // hands its argv and environment back to this test, which runs
-// Registry["integrate-change"] in process and returns OUT, RC and the
+// core.Registry["integrate-change"] in process and returns OUT, RC and the
 // stderr file — so the cases exercise the Go under `go test -cover`, and
 // each `check` label is a subtest of its case.
 
@@ -144,7 +144,7 @@ func icRunCases(t *testing.T, cases []icCaseDef) {
 
 func icRun(t *testing.T, script string) {
 	tmp := t.TempDir()
-	scripts, err := filepath.Abs("../../../scripts")
+	scripts, err := filepath.Abs("../../../../scripts")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -306,7 +306,7 @@ func icServe(t *testing.T, tmp string) {
 	if guard == "" {
 		guard = "integrate-change"
 	}
-	rc := Registry[guard](args, env, &out, &errOut)
+	rc := core.Registry[guard](args, env, &out, &errOut)
 	for name, b := range map[string][]byte{"sut.out": out.Bytes(), "sut.err": errOut.Bytes(), "sut.rc": []byte(strconv.Itoa(rc))} {
 		if err := os.WriteFile(tmp+"/"+name, b, 0o644); err != nil {
 			t.Fatal(err)

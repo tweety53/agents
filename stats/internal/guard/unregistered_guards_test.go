@@ -6,6 +6,7 @@ import (
 
 	"github.com/tweety53/agents/stats/internal/guard/core"
 	"github.com/tweety53/agents/stats/internal/guard/hook"
+	"github.com/tweety53/agents/stats/internal/guard/integrate"
 	"github.com/tweety53/agents/stats/internal/guard/visual"
 	"github.com/tweety53/agents/stats/internal/records"
 )
@@ -13,11 +14,11 @@ import (
 // inProcessGuards are the guards that are no guard.Registry key: each runs only in process from
 // its one caller, and the tests reach it through runGuard by its former name.
 var inProcessGuards = map[string]core.Func{
-	"check-identical-baselines": visual.CheckIdenticalBaselines, // visual-verify-pass measure
-	"check-main-checkout-drift": checkMainCheckoutDrift,         // integrate-change prepare
-	"check-ui-task-measured":    checkUITaskMeasured,            // close-task, through utmJudge
-	"sweep-dispatch-rows":       hook.SweepDispatchRows,         // the await-own-agents hook
-	"end-stale-dispatch-rows":   hook.EndStaleDispatchRows,      // the await-own-agents hook and await-rows
+	"check-identical-baselines": visual.CheckIdenticalBaselines,   // visual-verify-pass measure
+	"check-main-checkout-drift": integrate.CheckMainCheckoutDrift, // integrate-change prepare
+	"check-ui-task-measured":    integrate.CheckUITaskMeasured,    // close-task, through utmJudge
+	"sweep-dispatch-rows":       hook.SweepDispatchRows,           // the await-own-agents hook
+	"end-stale-dispatch-rows":   hook.EndStaleDispatchRows,        // the await-own-agents hook and await-rows
 }
 
 func TestInProcessGuardsAreUnregistered(t *testing.T) {

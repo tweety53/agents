@@ -1,4 +1,4 @@
-package guard
+package integrate
 
 import (
 	"bytes"
@@ -31,11 +31,11 @@ import (
 //   flow-guard integrate-change cleanup <main-checkout> <name>
 //
 // Go, in flow-guard: integrateChange's doc comment in
-// stats/internal/guard/integratechange.go is the contract — every
+// stats/internal/guard/integrate/integratechange.go is the contract — every
 // subcommand, its flags, the NEXT:/STOP:/JIRA: closing line and exit 0/1/2.
 
 func init() {
-	Registry["integrate-change"] = integrateChange
+	core.Registry["integrate-change"] = integrateChange
 }
 
 // ic is the bash's global state: its flags, the worktree set load_set

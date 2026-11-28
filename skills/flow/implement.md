@@ -157,7 +157,7 @@ state file's worktrees, findings in the store) through this file's own re-entry 
 flow-guard implement-change prepare <main-checkout> <name>
 ```
 
-Its header (`stats/internal/guard/implementchange.go`) is canonical for every step it runs — the
+Its header (`stats/internal/guard/integrate/implementchange.go`) is canonical for every step it runs — the
 `flow.implement` `begin` mark, the resolved worktree set, `spectre validate`, the base check,
 `flow workspace-id`, and `spectre list --json`'s count — and for its `NEXT:` and `STOP:` lines.
 `NEXT: execute` continues below; `NEXT: review-panel` is the every-task-checked case below.
@@ -436,7 +436,7 @@ entry. At each boundary, in this order:
    task's commits. A task that landed in one repository passes that repository's
    pair alone, which is the single-sha form; the guard runs on a cross-repo change too.
    A bare `<task-id>` resolves to the newest commit since `<merge-base>` in the canonical worktree whose `Task-Id:` trailer names it.
-   The guard's header (`stats/internal/guard/closetask.go`) is
+   The guard's header (`stats/internal/guard/integrate/closetask.go`) is
    canonical for its arguments and its order.
 
    The guard reads git objects and `tasks.md` only, so it is safe while the tree changes, and

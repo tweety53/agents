@@ -74,7 +74,7 @@ import (
 // verdict on stdout. A git read that fails outright -- an unborn HEAD -- is
 // exit 2 with git's own message on stderr.
 func init() {
-	Registry["refresh-main-checkout"] = refreshMainCheckout
+	core.Registry["refresh-main-checkout"] = refreshMainCheckout
 }
 
 func refreshMainCheckout(args []string, env core.Env, stdout, stderr io.Writer) int {

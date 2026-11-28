@@ -1,4 +1,4 @@
-package guard
+package integrate
 
 import (
 	"encoding/json"
@@ -49,8 +49,8 @@ import (
 // `-reason "STOP: <kind>"`; 2 usage, an unplain change name, or a state
 // record that cannot be read.
 //
-// Go, in flow-guard (stats/internal/guard/implementchange.go).
-func init() { Registry["implement-change"] = implementChange }
+// Go, in flow-guard (stats/internal/guard/integrate/implementchange.go).
+func init() { core.Registry["implement-change"] = implementChange }
 
 func implementChange(args []string, env core.Env, stdout, stderr io.Writer) int {
 	c := &ic{env: env, stdout: stdout, stderr: stderr, prog: "implement-change", stopOutcome: "stopped",

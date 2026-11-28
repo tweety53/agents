@@ -41,7 +41,7 @@ nothing tracked modified, staged or unmerged and no untracked file.
 
 The affected repositories are resolved from the worktree set: for each worktree, the main checkout
 `git rev-parse --git-common-dir` resolves, made absolute and physical, deduplicated.
-`flow-guard integrate-change prepare` runs its main-checkout drift check (`stats/internal/guard/maincheckoutdrift.go`) once per distinct main checkout, and its header is
+`flow-guard integrate-change prepare` runs its main-checkout drift check (`stats/internal/guard/integrate/maincheckoutdrift.go`) once per distinct main checkout, and its header is
 canonical for the verdict grammar it prints: a `DRIFT-BRANCH` line names a checkout on any other
 branch than the one `refs/remotes/origin/HEAD` points at, a `DRIFT-DIRTY` line counts
 entries, staged and untracked ones included. On `DRIFT-CLEAN` from every repository the run continues with
