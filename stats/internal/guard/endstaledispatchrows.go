@@ -20,7 +20,7 @@ import (
 // report delivered it: its row ends with the outcome and commit end-dispatch-row derives from that
 // report, never `aborted`. Prints `ENDED <key> <agentId>` per row. Exit 0
 // always (fail open: a store failure on one row goes to stderr and the sweep continues).
-// hooks/await-own-agents.py runs it after every SubagentStop.
+// flow-guard hook await-own-agents runs it after every SubagentStop.
 //
 // Go, in flow-guard (stats/internal/guard/endstaledispatchrows.go).
 // Run in process by the await-own-agents hook and await-rows only; no guard.Registry key.

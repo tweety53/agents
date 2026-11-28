@@ -466,7 +466,7 @@ type AgentLaunch struct {
 	// LoopKey is the fix-loop dispatch key the launched prompt's own
 	// `Key:` line names (loopKeyPattern), empty for any other launch. A
 	// loop dispatch's begin is recorded by the PreToolUse hook
-	// (hooks/enforce-loop-dispatch.py), never by a Bash command this
+	// (flow-guard hook enforce-loop-dispatch), never by a Bash command this
 	// transcript carries, so no begin event exists to pair with: the key
 	// names the row instead (KAN-967).
 	LoopKey string
@@ -481,13 +481,13 @@ type AgentLaunch struct {
 	// belongs to.
 	Key string
 	// ToolUseID is the launching Agent call's id: a dispatch naming no key
-	// is begun under "agent-<id>" (hooks/enforce-agent-baseline.py row_key).
+	// is begun under "agent-<id>" (flow-guard hook enforce-agent-baseline row_key).
 	ToolUseID string
 }
 
 // loopKeyPattern reads a fix-loop dispatch key off a launched prompt --
 // the `Key: pipeline-fix-<k>-...` or `Key: self-review-...` line
-// hooks/enforce-loop-dispatch.py admits and records the row under.
+// flow-guard hook enforce-loop-dispatch admits and records the row under.
 var loopKeyPattern = regexp.MustCompile(`(?m)^[ \t]*Key:[ \t]*((?:pipeline-fix|self-review)-\S+)[ \t]*$`)
 
 // loopKey returns the fix-loop key prompt names, or "".
@@ -626,7 +626,7 @@ func toolResultID(raw rawLine) string {
 var taskDescriptionRE = regexp.MustCompile(`^Tasks? (\d+(?:\+\d+)*)/\d+(?:\s|$)`)
 
 // promptKeyLineRE is a prompt's column-0 `Key:` line, the one
-// hooks/enforce-agent-baseline.py's KEY_LINE begins the row under.
+// flow-guard hook enforce-agent-baseline's KEY_LINE begins the row under.
 var promptKeyLineRE = regexp.MustCompile(`(?m)^Key:[ \t]*(\S+)[ \t]*$`)
 
 // launchKey returns the dispatch key, or key prefix ending in "-", a

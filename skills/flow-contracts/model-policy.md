@@ -165,7 +165,7 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 
 ### Choosing a role
 
-**Never invent a role name. Every `flow-*` dispatch's prompt carries a `Role: <id>` line naming a role above, on a pair that role admits** — `hooks/enforce-agent-baseline.py` denies one that does not. A task no role fits takes `general`.
+**Never invent a role name. Every `flow-*` dispatch's prompt carries a `Role: <id>` line naming a role above, on a pair that role admits** — `flow-guard hook enforce-agent-baseline` denies one that does not. A task no role fits takes `general`.
 
 | Situation | Role |
 |---|---|
@@ -181,5 +181,5 @@ pairs, on `GET /api/v1/roles`, and the Agent roles view groups its roles table b
 inline row.** Where the session does not state one, `<parent model>` is `unknown (agent-defined)`.
 No dispatch runs at a model's built-in effort: its effort is its `flow-<effort>` /
 `flow-planner-<effort>` type's, or the Agent call's `effort` on any other type, and the dispatch
-hook (`hooks/enforce-agent-baseline.py`) refuses a flow-session Agent call carrying neither.
+hook (`flow-guard hook enforce-agent-baseline`) refuses a flow-session Agent call carrying neither.
 

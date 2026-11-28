@@ -21,7 +21,7 @@ import (
 )
 
 // flow-guard hook enforce-agent-baseline — the PreToolUse hook that blocks subagent dispatches
-// omitting the agent-baseline pointer (hooks/enforce-agent-baseline.py runs it).
+// omitting the agent-baseline pointer (flow-guard hook enforce-agent-baseline runs it).
 //
 // Rules in ~/.claude/CLAUDE.md are injected into a session's system prompt and are NOT inherited
 // by dispatched agents, nor by agents those agents dispatch. The prompt is the only channel, so
@@ -211,7 +211,7 @@ func (e *eab) loopKeyLineReason() string {
 		return ""
 	}
 	return "Dispatch blocked: `" + word + "` is a loop key — its prompt carries `Key: " + word + "` as a line of " +
-		"its own, and hooks/enforce-loop-dispatch.py records its row under the loop's change off " +
+		"its own, and flow-guard hook enforce-loop-dispatch records its row under the loop's change off " +
 		"that line. Add the line and re-send; never `flow record dispatch begin` it under the " +
 		"run's change."
 }

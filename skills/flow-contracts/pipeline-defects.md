@@ -53,7 +53,7 @@ the change, its branch, its worktree and `<fix-branch>` — and `origin/<agents-
    comes before any edit, a parent's hand fix included: `pipeline-fix land` refuses a worktree not on
    the loop branch `start` creates. It dispatches one fixer, `pipeline-fix-<k>-fix`, its prompt carrying the defect, its evidence and the counted blast
    radius, as item 1 there states. The prompt carries its `Key: pipeline-fix-<k>-fix` as a line
-   of its own, from which `hooks/enforce-loop-dispatch.py` records the row under the loop's change;
+   of its own, from which `flow-guard hook enforce-loop-dispatch` records the row under the loop's change;
    the parent never runs `flow record dispatch begin` or `end` for it under its own change. The fixer also adds one test or guard that fails without the fix,
    and updates a saved memory that encoded the defect.
 2. **Review once, primary only** — as item 2 there states it, on the `loop-review-1` and `loop-review-r` rows, keys `pipeline-fix-<k>-review-1`, `pipeline-fix-<k>-fix-r<r>` and `pipeline-fix-<k>-review-r<r>`.

@@ -20,7 +20,7 @@ var (
 
 // TestEveryRoleLineIsAPolicyRow: every `Role: <id>` line a skill names is a
 // role of the **Allowed pairs** table (skills/flow-contracts/model-policy.md),
-// so no dispatch template carries a role hooks/enforce-agent-baseline.py
+// so no dispatch template carries a role flow-guard hook enforce-agent-baseline
 // refuses as unknown.
 func TestEveryRoleLineIsAPolicyRow(t *testing.T) {
 	smoke.Heavy(t)

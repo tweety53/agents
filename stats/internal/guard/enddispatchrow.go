@@ -18,9 +18,9 @@ import (
 )
 
 // flow-guard end-dispatch-row <agent-transcript> <session-id> <cwd> [<final-message>] — close a
-// flow dispatch's row when its subagent stops. hooks/await-own-agents.py runs
+// flow dispatch's row when its subagent stops. flow-guard hook await-own-agents runs
 // it on every SubagentStop it lets through, so the parent ends no row of its
-// own (the begin is hooks/enforce-agent-baseline.py's).
+// own (the begin is flow-guard hook enforce-agent-baseline's).
 //
 // The row is the one the transcript's last prompt carrying a `Key:` line names
 // — a child resumed by a SendMessage whose message carries its own `Key:` line
@@ -218,7 +218,7 @@ func edrText(raw json.RawMessage) string {
 }
 
 // edrSessionChange is the session's change from flowd's stage
-// runs, as hooks/enforce-agent-baseline.py's session_change reads them.
+// runs, as flow-guard hook enforce-agent-baseline's session_change reads them.
 func edrSessionChange(env Env, sessionID string) string {
 	addr := env.Getenv("FLOW_ADDR")
 	if addr == "" {
@@ -269,7 +269,7 @@ func edrSessionChange(env Env, sessionID string) string {
 // old, holds a SubagentHandback report and carries no `.swept` sidecar, it runs end-dispatch-row
 // on it (the guard reads the report) and writes the sidecar so it is tried once, unless the end
 // failed for a transient reason (no flow change for the session, a refused end). It then aborts the
-// change's visual-verify rows open past 30 minutes (sweepVisualVerifyRows). hooks/await-own-agents.py
+// change's visual-verify rows open past 30 minutes (sweepVisualVerifyRows). flow-guard hook await-own-agents
 // runs it after each stop. An agent with no report is never swept: a quiet long build looks the same.
 // Exit 0 always. Go, in flow-guard (stats/internal/guard/enddispatchrow.go).
 // Run in process by the await-own-agents hook only; no guard.Registry key.

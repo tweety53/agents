@@ -57,7 +57,7 @@ the **Role** column names — and runs on a pair that role's rows of **Allowed p
 (`skills/flow-contracts/model-policy.md`) admit. A
 no-progress escalation carries `Role: no-progress-fixer` (a pipeline-fix loop's, its loop's `Key:` line too).
 
-The in-run pipeline fix row's dispatches are recorded by `hooks/enforce-loop-dispatch.py` under
+The in-run pipeline fix row's dispatches are recorded by `flow-guard hook enforce-loop-dispatch` under
 the loop's own change, off each prompt's `Key:` line: the parent never begins or ends one under its
 own change.
 
@@ -72,7 +72,7 @@ no row above is not made.
 **No row is ever a fork.** No `/flow*` phase, and no loop a phase or the self-review runs,
 dispatches `subagent_type: "fork"`: every flow dispatch is a fresh agent whose prompt carries what
 it needs — paths to the run's artifacts, reports and records — never the parent's context, and
-`hooks/enforce-agent-baseline.py` denies a fork in a flow session.
+`flow-guard hook enforce-agent-baseline` denies a fork in a flow session.
 
 **Every dispatch's Agent-tool `description` names what it carries, in the operator's status-line
 shape.** A dispatch carrying plan tasks — an implementer — names them
@@ -83,7 +83,7 @@ words, with no parentheses: `panel-1-primary correctness review`. The `flow-task
 row its description's first word names. The `Role:` line is the **Role** column's id above.
 
 **The hook writes the row's begin.** On a flow dispatch with no open row for its key,
-`hooks/enforce-agent-baseline.py` runs `flow record dispatch begin` itself once its other checks
+`flow-guard hook enforce-agent-baseline` runs `flow record dispatch begin` itself once its other checks
 pass — the key from the prompt's `Key:` line, else the description's first word; the role from the
 prompt's `Role:` line; the model and effort from the Agent call; the change from
 the session's latest stage run that is not a loop's own (`pipeline-fix-…`, `self-review-…`); the
@@ -92,7 +92,7 @@ whose begin needs a flag the Agent call cannot carry — an
 operator-asked row's `-request` — is still begun by its own
 site, and the hook then finds it open and writes nothing.
 
-**The hook writes the row's end too.** When a subagent stops, `hooks/await-own-agents.py` runs
+**The hook writes the row's end too.** When a subagent stops, `flow-guard hook await-own-agents` runs
 `flow-guard end-dispatch-row`, which ends the row its prompt's `Key:` line names — its outcome and
 commit read off the agent's final message (the guard's header is canonical) — so the parent runs no
 `end` for such a row; each stop also runs the end-stale-dispatch-rows sweep in process, which ends the change's open rows whose agent finished and went quiet 10 minutes ago `aborted`. A row whose end needs what the final message cannot carry — `-outcome
@@ -473,7 +473,7 @@ the ended key's return, and re-issues the wait on the keys still open. A child's
 meanwhile is harmless. Once a key is `ENDED`, one `test -s` settles its
 report; an absent file takes that dispatch's no-report path (**The return**), and a child still
 `running` after its report exists is stopped with `TaskStop`, its row ended by hand — its own leftover
-background shell is already killed when it stops (`hooks/await-own-agents.py`), so this is the rare child that stalled without one. A finished
+background shell is already killed when it stops (`flow-guard hook await-own-agents`), so this is the rare child that stalled without one. A finished
 phase is never a stop: the same turn loads the next phase's file and dispatches its first step.
 
 **Read discipline.** These five rules are the run's own size

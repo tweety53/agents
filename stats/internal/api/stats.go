@@ -1196,7 +1196,7 @@ type stageRunDTO struct {
 	RepoRoot   *string `json:"repoRoot,omitempty"`
 	Harness    string  `json:"harness"`
 	SessionID  *string `json:"sessionId,omitempty"`
-	// SessionToken is read by hooks/enforce-agent-baseline.py to begin a dispatch row itself.
+	// SessionToken is read by flow-guard hook enforce-agent-baseline to begin a dispatch row itself.
 	SessionToken *string         `json:"sessionToken,omitempty"`
 	Command      string          `json:"command"`
 	Stage        string          `json:"stage"`

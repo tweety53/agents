@@ -1,7 +1,7 @@
 package repotest
 
 // TestEnforceLoopDispatchHook ports the retired shell harness,
-// the harness for hooks/enforce-loop-dispatch.py. It points the hook at a stub
+// the harness for flow-guard hook enforce-loop-dispatch. It points the hook at a stub
 // checker through LOOP_DISPATCH_CHECK — the guard itself is covered by
 // stats/internal/guard/check_loop_dispatch_test.go — and pipes PreToolUse
 // payloads to it, asserting the hook never denies and what the checker was
@@ -72,7 +72,7 @@ func TestEnforceLoopDispatchHook(t *testing.T) {
 	// and print nothing -- an allow -- and returns its stderr.
 	hook := func(t *testing.T, check, stdin string) string {
 		t.Helper()
-		out, errOut, rc := runHook(t, "enforce-loop-dispatch.py", []byte(stdin), "LOOP_DISPATCH_CHECK="+check)
+		out, errOut, rc := runHook(t, "enforce-loop-dispatch", []byte(stdin), "LOOP_DISPATCH_CHECK="+check)
 		if rc != 0 || strings.TrimSpace(out) != "" {
 			t.Fatalf("expected an allow, got exit %d: %s", rc, out)
 		}

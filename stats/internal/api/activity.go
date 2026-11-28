@@ -10,13 +10,13 @@ import (
 // the store's is the boundary.
 var sessionActivityStates = map[string]bool{"working": true, "question": true, "permission": true, "idle": true, "ended": true}
 
-// maxActivityDetailBytes caps detail. hooks/flow-session-activity.py
+// maxActivityDetailBytes caps detail. flow-guard hook flow-session-activity
 // truncates to it, so a longer detail is a caller bug and refused.
 const maxActivityDetailBytes = 500
 
 // putSessionActivity serves PUT /api/v1/sessions/{session}/activity:
 // what the session is doing now, reported by
-// hooks/flow-session-activity.py. 204 on success; 400 on an unknown state
+// flow-guard hook flow-session-activity. 204 on success; 400 on an unknown state
 // or a detail over maxActivityDetailBytes, before the store is touched.
 func (h *statsHandler) putSessionActivity(w http.ResponseWriter, r *http.Request) {
 	session := r.PathValue("session")

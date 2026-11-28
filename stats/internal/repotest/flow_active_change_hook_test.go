@@ -1,7 +1,7 @@
 package repotest
 
 // TestFlowActiveChangeHook ports the retired shell harness, the
-// harness for hooks/flow-active-change.py. Each subtest starts its own stub
+// harness for flow-guard hook flow-active-change. Each subtest starts its own stub
 // store (an httptest server answering GET /api/v1/stage-runs with a canned body
 // and status, logging every request's path), points the hook at it through
 // FLOW_ADDR, and pipes fixture stdin JSON to the hook, asserting its output
@@ -73,7 +73,7 @@ func TestFlowActiveChangeHook(t *testing.T) {
 	// run pipes stdin to the hook against addr; it returns stdout+stderr and the exit code.
 	run := func(t *testing.T, addr, stdin string) (string, int) {
 		t.Helper()
-		out, errOut, rc := runHook(t, "flow-active-change.py", []byte(stdin), "FLOW_ADDR="+addr)
+		out, errOut, rc := runHook(t, "flow-active-change", []byte(stdin), "FLOW_ADDR="+addr)
 		return strings.TrimRight(out+errOut, "\n"), rc
 	}
 	// transcript is a payload naming a transcript under a temp dir.
@@ -222,7 +222,7 @@ func TestFlowActiveChangeHookSkipsALoopRun(t *testing.T) {
 	t.Parallel()
 	loop := `{"stageRunId":8,"command":"/flow","stage":"flow.pipeline-fix","startedAt":"2026-09-17T10:00:00Z","changeName":"pipeline-fix-fixture-one-81"}`
 	s := newStageStore(t, 200, stageBody(2, loop, stageRow("fixture-one")))
-	out, errOut, rc := runHook(t, "flow-active-change.py", []byte(`{"prompt":"still broken","session_id":"abc"}`), "FLOW_ADDR="+s.addr)
+	out, errOut, rc := runHook(t, "flow-active-change", []byte(`{"prompt":"still broken","session_id":"abc"}`), "FLOW_ADDR="+s.addr)
 	out += errOut
 	if rc != 0 || !strings.Contains(out, "marked change fixture-one") || strings.Contains(out, "pipeline-fix-") {
 		t.Errorf("rc=%d out=%s", rc, out)
@@ -247,7 +247,7 @@ func TestFlowActiveChangeHookInteractive(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			s := newStageStore(t, 200, stageBody(1, row(tc.command, tc.stage)))
-			out, errOut, rc := runHook(t, "flow-active-change.py",
+			out, errOut, rc := runHook(t, "flow-active-change",
 				[]byte(`{"prompt":"next thing","session_id":"abc"}`), "FLOW_ADDR="+s.addr)
 			out = strings.TrimRight(out+errOut, "\n")
 			if rc != 0 {

@@ -15,7 +15,7 @@ import (
 // flow-guard check-loop-dispatch <agents-repo> <key> <subagent_type> <model> [<role-id>] — open
 // the row of one dispatch of a pipeline-fix or self-review fix loop, <role-id> its
 // prompt's `Role:` line, recorded as the row's -policy-role when given
-// (hooks/enforce-loop-dispatch.py runs it on every Agent/Task call whose
+// (flow-guard hook enforce-loop-dispatch runs it on every Agent/Task call whose
 // prompt carries a `Key: pipeline-fix-<k>-…` or `Key: self-review-…` line).
 // It refuses nothing: recording is best-effort, and the hook never denies.
 //

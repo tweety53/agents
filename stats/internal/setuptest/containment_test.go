@@ -69,14 +69,12 @@ func TestCoreExcerptsLinksAndBaseline(t *testing.T) {
 	g.assertContains("the linked full text has what the block dropped", filepath.Join(rules, "cored.md"), "BODY-AFTER-CORE")
 
 	hooks := filepath.Join(home, ".claude/hooks")
-	g.assertExists("the enforcement hook is installed", filepath.Join(hooks, "enforce-agent-baseline.py"))
+	g.assertExists("the hook binary is installed", filepath.Join(hooks, "flow-guard-hook"))
+	g.assertAbsent("no python hook shim is installed", filepath.Join(hooks, "enforce-agent-baseline.py"))
 	g.assertContains("an unregistered hook is reported, not assumed", g.log, "NOT registered")
 
-	g.assertExists("the flow-active-change hook is installed", filepath.Join(hooks, "flow-active-change.py"))
 	g.assertContains("an unregistered flow-active-change hook is reported", g.log,
 		"flow-active-change hook is installed but NOT registered")
-
-	g.assertExists("the block-unsafe-commands hook is installed", filepath.Join(hooks, "block-unsafe-commands.py"))
 
 	// Every hook's warning and every printed registration snippet the installers emit is
 	// pinned output: the shared registration-warning helper must keep each line byte-identical.
@@ -85,7 +83,6 @@ func TestCoreExcerptsLinksAndBaseline(t *testing.T) {
 	g.assertContains("the block-unsafe-commands registration snippet is printed", g.log, `.claude/hooks/flow-guard-hook\" hook block-unsafe-commands || true`)
 	g.assertContains("the claude agent-baseline registration snippet is printed", g.log, `.claude/hooks/flow-guard-hook\" hook enforce-agent-baseline || true`)
 	g.assertContains("the claude flow-active-change registration snippet is printed", g.log, `.claude/hooks/flow-guard-hook\" hook flow-active-change || true`)
-	g.assertExists("the enforce-loop-dispatch hook is installed", filepath.Join(hooks, "enforce-loop-dispatch.py"))
 	g.assertContains("an unregistered enforce-loop-dispatch hook is reported", g.log,
 		"enforce-loop-dispatch hook is installed but NOT registered")
 	g.assertContains("the claude enforce-loop-dispatch registration snippet is printed", g.log, `.claude/hooks/flow-guard-hook\" hook enforce-loop-dispatch || true`)
@@ -261,8 +258,8 @@ func TestRegisteredHookTimeoutIsChecked(t *testing.T) {
 	g := newGroup(t)
 	home := g.newHome()
 	g.seedFile(filepath.Join(home, ".claude/settings.json"), 0o644, `{"hooks":{"PreToolUse":[
-  {"matcher":"Bash","hooks":[{"type":"command","command":"python3 \"$HOME/.claude/hooks/block-unsafe-commands.py\""}]},
-  {"matcher":"Agent|Task","hooks":[{"type":"command","command":"python3 \"$HOME/.claude/hooks/enforce-loop-dispatch.py\"","timeout":300}]}
+  {"matcher":"Bash","hooks":[{"type":"command","command":"\"$HOME/.claude/hooks/flow-guard-hook\" hook block-unsafe-commands || true"}]},
+  {"matcher":"Agent|Task","hooks":[{"type":"command","command":"\"$HOME/.claude/hooks/flow-guard-hook\" hook enforce-loop-dispatch || true","timeout":300}]}
 ]}}`)
 	g.runSetup(repoRoot, home, "global", "")
 	g.assertRCZero("the install succeeds", g.rc, g.log)

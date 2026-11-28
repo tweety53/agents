@@ -315,9 +315,9 @@ PY
 
 # install_hook_binary <dest>
 # Builds flow-guard from this checkout to <dest>, the binary every hook snippet below registers
-# directly as `"<dest>" hook <name> || true`. A hook runs on every tool call; through its
-# hooks/<name>.py shim it paid python3's start, scripts/flow-guard's bash bootstrap and the
-# source hashing that keys the bootstrap's cache, where this binary pays one Go start. No per-call
+# directly as `"<dest>" hook <name> || true`. A hook runs on every tool call; through
+# scripts/flow-guard it would pay the bash bootstrap and the source hashing that keys the
+# bootstrap's cache, where this binary pays one Go start. No per-call
 # staleness check is needed: the bootstrap's hashing exists because a guard runs from any
 # worktree with uncommitted edits, while this binary is only ever built from the main checkout
 # this installer runs in, and every landing on it is followed by this reinstall. The checkout is
@@ -326,8 +326,7 @@ PY
 # so a hook never execs a half-written binary; GOOS, GOARCH and GOFLAGS are removed, as the
 # bootstrap removes them. The `|| true` keeps a registration fail-open when <dest> is missing or
 # dies: only exit 2 blocks an event, and a missing binary must let it through. A failed build
-# warns and leaves any earlier binary in place; the shims stay installed, so a registration that
-# still names one keeps working.
+# warns and leaves any earlier binary in place.
 install_hook_binary() {
   local dest="$1" tmp="$1.$$"
   if ! command -v go >/dev/null 2>&1; then
@@ -354,16 +353,10 @@ install_hook_binary() {
 # that eventually eats a config it did not understand. The hook file is installed and the
 # exact snippet is printed instead; registering it is one paste, and it stays the user's call.
 install_hooks() {
-  local claude_dir="$1" hooks_src="$SCRIPT_DIR/hooks" hook_file hook_name settings
-  [[ -d "$hooks_src" ]] || return 0
+  local claude_dir="$1" settings
   info "Installing hooks into $claude_dir/hooks"
   mkdir -p "$claude_dir/hooks"
   prune_stale_links "$claude_dir/hooks"
-  for hook_file in "$hooks_src"/*; do
-    [[ -f "$hook_file" ]] || continue
-    hook_name=$(basename "$hook_file")
-    link_into "$hook_file" "$claude_dir/hooks/$hook_name" "$hook_name"
-  done
   install_hook_binary "$claude_dir/hooks/flow-guard-hook"
   settings="$claude_dir/settings.json"
   warn_unregistered_hook "$settings" 'flow-guard sync-base-behind' sync-base-behind-permission \

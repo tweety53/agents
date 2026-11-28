@@ -1,6 +1,6 @@
 package repotest
 
-// TestAwaitOwnAgentsHook pins hooks/await-own-agents.py, the SubagentStop
+// TestAwaitOwnAgentsHook pins flow-guard hook await-own-agents, the SubagentStop
 // hook that keeps a subagent from ending its turn while an agent it launched
 // still runs: the wait would outlive its 5-minute prompt cache (kan-1068).
 
@@ -36,7 +36,7 @@ func TestAwaitOwnAgentsHook(t *testing.T) {
 			"hook_event_name": "SubagentStop", "agent_id": agent, "stop_hook_active": active,
 			"agent_transcript_path": filepath.Join(dir, "agent-"+agent+".jsonl"),
 		})
-		out, _, rc := runHook(t, "await-own-agents.py", p, "AWAIT_CHILDREN_SECONDS="+wait)
+		out, _, rc := runHook(t, "await-own-agents", p, "AWAIT_CHILDREN_SECONDS="+wait)
 		return out, rc
 	}
 
@@ -88,7 +88,7 @@ func TestAwaitOwnAgentsHook(t *testing.T) {
 	}
 
 	// Fails open on a payload it cannot read.
-	if out, _, rc := runHook(t, "await-own-agents.py", []byte("not json")); rc != 0 || out != "" {
+	if out, _, rc := runHook(t, "await-own-agents", []byte("not json")); rc != 0 || out != "" {
 		t.Errorf("bad payload: rc %d, out %q; want allow", rc, out)
 	}
 }
@@ -129,7 +129,7 @@ func TestAwaitOwnAgentsHookWaitsOnBackgroundBash(t *testing.T) {
 	run := func() string {
 		t.Helper()
 		p, _ := json.Marshal(map[string]any{"hook_event_name": "SubagentStop", "agent_id": "impl", "stop_hook_active": false, "agent_transcript_path": tr})
-		out, _, rc := runHook(t, "await-own-agents.py", p)
+		out, _, rc := runHook(t, "await-own-agents", p)
 		if rc != 0 {
 			t.Fatalf("rc %d, out %q", rc, out)
 		}
@@ -203,7 +203,7 @@ func TestAwaitOwnAgentsHookTaskStopEndsBackground(t *testing.T) {
 	run := func() string {
 		t.Helper()
 		p, _ := json.Marshal(map[string]any{"hook_event_name": "SubagentStop", "agent_id": "impl", "stop_hook_active": false, "agent_transcript_path": tr})
-		out, _, rc := runHook(t, "await-own-agents.py", p)
+		out, _, rc := runHook(t, "await-own-agents", p)
 		if rc != 0 {
 			t.Fatalf("rc %d, out %q", rc, out)
 		}
@@ -269,7 +269,7 @@ func TestAwaitOwnAgentsHookKillsLeftoverBackground(t *testing.T) {
 	run := func(final string) string {
 		t.Helper()
 		p, _ := json.Marshal(map[string]any{"hook_event_name": "SubagentStop", "agent_id": "impl", "agent_transcript_path": tr, "last_assistant_message": final})
-		out, _, rc := runHook(t, "await-own-agents.py", p)
+		out, _, rc := runHook(t, "await-own-agents", p)
 		if rc != 0 {
 			t.Fatalf("rc %d, out %q", rc, out)
 		}
@@ -345,7 +345,7 @@ func TestAwaitOwnAgentsHookBackgroundLiveness(t *testing.T) {
 	run := func(tr string, env ...string) string {
 		t.Helper()
 		p, _ := json.Marshal(map[string]any{"hook_event_name": "SubagentStop", "agent_id": "impl", "agent_transcript_path": tr})
-		out, _, rc := runHook(t, "await-own-agents.py", p, env...)
+		out, _, rc := runHook(t, "await-own-agents", p, env...)
 		if rc != 0 {
 			t.Fatalf("rc %d, out %q", rc, out)
 		}

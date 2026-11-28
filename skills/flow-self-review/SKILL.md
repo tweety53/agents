@@ -174,7 +174,7 @@ it returns.
 on **the fixer pair** per **Model and effort** (`skills/flow-contracts/model-policy.md`).
 
 **Every dispatch is recorded mechanically.**
-`<agents repo>/hooks/enforce-loop-dispatch.py` hands each Agent call whose prompt carries a
+`flow-guard hook enforce-loop-dispatch` hands each Agent call whose prompt carries a
 `Key: self-review-<name>-…` line to
 `<agents repo>/scripts/flow-guard check-loop-dispatch`, which records it in flowd. The parent closes each dispatch
 once it returns with `<agents repo>/scripts/flow-guard pipeline-fix end <key> <outcome>`: `completed`, or

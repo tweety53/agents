@@ -136,22 +136,24 @@ func writeStub(t *testing.T, path, body string) {
 	}
 }
 
-// runHook execs `python3 <repo>/hooks/<hook>` with payload on stdin and HOME set
-// to a fresh temp dir; env entries are appended last, so they override. An
-// absolute hook path is run as given (a hook reached through an install symlink).
+// runHook execs `<repo>/scripts/flow-guard hook <hook>` with payload on stdin and HOME set
+// to a fresh temp dir; env entries are appended last, so they override.
 // FLOW_GUARD_CACHE_DIR points every call at one flow-guard cache built once per
 // package run: under load, each call building flow-guard into its own HOME
 // could turn an allow into a deny (kan-1045 self-review, F-E).
 func runHook(t *testing.T, hook string, payload []byte, env ...string) (stdout, stderr string, rc int) {
 	t.Helper()
-	if !filepath.IsAbs(hook) {
-		hook = filepath.Join(repoRoot(t), "hooks", hook)
-	}
+	return runHookArgv(t, []string{filepath.Join(repoRoot(t), "scripts", "flow-guard"), "hook", hook}, payload, env...)
+}
+
+// runHookArgv is runHook's body for any argv, so a test can observe the environment it sets.
+func runHookArgv(t *testing.T, argv []string, payload []byte, env ...string) (stdout, stderr string, rc int) {
+	t.Helper()
 	cache, err := sharedGuardCache()
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command("python3", hook)
+	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdin = bytes.NewReader(payload)
 	// FLOW_HOOK_INCIDENT_CMD=true keeps a deny's incident write off the dev store; a caller's
 	// env, appended after it, may point it at a stub. FLOW_HOOK_UNBOUNDED=1 lifts the hooks'
@@ -168,7 +170,7 @@ func runHook(t *testing.T, hook string, payload []byte, env ...string) (stdout, 
 	case errors.As(err, &ee):
 		rc = ee.ExitCode()
 	case err != nil:
-		t.Fatalf("run %s: %v", hook, err)
+		t.Fatalf("run %v: %v", argv, err)
 	}
 	return out.String(), errb.String(), rc
 }
@@ -194,8 +196,8 @@ func TestRunHookSharesOneGuardCache(t *testing.T) {
 	if err := os.WriteFile(script, []byte("import os\nprint(os.environ.get(\"FLOW_GUARD_CACHE_DIR\", \"\"))\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	first, _, _ := runHook(t, script, nil)
-	second, _, _ := runHook(t, script, nil)
+	first, _, _ := runHookArgv(t, []string{"python3", script}, nil)
+	second, _, _ := runHookArgv(t, []string{"python3", script}, nil)
 	dir := strings.TrimSpace(first)
 	if dir == "" || first != second {
 		t.Fatalf("FLOW_GUARD_CACHE_DIR = %q then %q; want one shared, non-empty directory", first, second)

@@ -27,7 +27,7 @@ import (
 // reason one line (runs of whitespace collapsed to one space). The same line
 // is saved, overwriting, beside the digest file as `<digest less its
 // extension>.pick` -- `pair-judge/<key>.md` saves `pair-judge/<key>.pick`, which
-// hooks/enforce-agent-baseline.py reads as the row's -pair-pick (decision
+// flow-guard hook enforce-agent-baseline reads as the row's -pair-pick (decision
 // pair-pick-file); a failed save is one stderr line and leaves the exit 0.
 //
 // Every role with base pairs in flowd is judged, bar pair-judge itself, which is refused (exit 2).

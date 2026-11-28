@@ -1,7 +1,7 @@
 package repotest
 
 // TestEnforceAgentBaselineHook ports the retired shell harness,
-// the harness for hooks/enforce-agent-baseline.py. It pipes PreToolUse payloads
+// the harness for flow-guard hook enforce-agent-baseline. It pipes PreToolUse payloads
 // to the hook and asserts its decision, one subtest per harness case:
 //
 //	 1. no baseline pointer                                 -> deny (baseline reason)
@@ -28,7 +28,7 @@ import (
 	"github.com/tweety53/agents/stats/internal/smoke"
 )
 
-// Cost: thirteen runs of the real hook, each a python3 start; the shared
+// Cost: thirteen runs of the real hook, each a flow-guard start; the shared
 // flow-guard build is TestMain's, not this test's. Cutting a run drops a
 // dispatch shape the gate proves.
 // smoke: core — the hook that gates every dispatch, through the real guard and CLI
@@ -70,7 +70,7 @@ func TestEnforceAgentBaselineHook(t *testing.T) {
 		return string(b)
 	}
 
-	const hook = "enforce-agent-baseline.py"
+	const hook = "enforce-agent-baseline"
 	cases := []struct {
 		name, hook, stdin string
 		deny              []string // nil: allow; else deny, reason carrying each
@@ -200,7 +200,7 @@ func TestEnforceAgentBaselineHookAllowsAnotherRepoCwd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, _, rc := runHook(t, "enforce-agent-baseline.py", b, env...)
+	out, _, rc := runHook(t, "enforce-agent-baseline", b, env...)
 	if rc != 0 || out != "" {
 		t.Fatalf("rc=%d out=%s", rc, out)
 	}
@@ -226,7 +226,7 @@ func TestEnforceAgentBaselineHookAsksForTheLoopKeyLine(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			env, called := openRowFixture(t, `[]`, false)
-			out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, c.description, c.prompt), env...)
+			out, _, rc := runHook(t, "enforce-agent-baseline", openRowPayload(t, c.description, c.prompt), env...)
 			denied := strings.Contains(out, `"permissionDecision": "deny"`)
 			if rc != 0 || denied != c.deny {
 				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)
@@ -238,7 +238,7 @@ func TestEnforceAgentBaselineHookAsksForTheLoopKeyLine(t *testing.T) {
 				return
 			}
 			word := strings.Fields(c.description)[0]
-			for _, s := range []string{"Key: " + word, "enforce-loop-dispatch.py"} {
+			for _, s := range []string{"Key: " + word, "enforce-loop-dispatch"} {
 				if !strings.Contains(out, s) {
 					t.Errorf("reason lacks %q: %s", s, out)
 				}
@@ -272,7 +272,7 @@ func TestEnforceAgentBaselineHookSkipsAFinishedChange(t *testing.T) {
 				}
 			}))
 			t.Cleanup(srv.Close)
-			out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, "self-review-x-plan y", "plan"),
+			out, _, rc := runHook(t, "enforce-agent-baseline", openRowPayload(t, "self-review-x-plan y", "plan"),
 				"FLOW_ADDR="+srv.URL, "FLOW_HOOK_UNBOUNDED=1")
 			if denied := strings.Contains(out, `"permissionDecision": "deny"`); rc != 0 || denied != c.deny {
 				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)
@@ -297,7 +297,7 @@ func TestEnforceAgentBaselineHookRecordsADenial(t *testing.T) {
 	}
 	t.Run("missing pointer", func(t *testing.T) {
 		cmd, log := incidentStub(t, 0)
-		out, _, rc := runHook(t, "enforce-agent-baseline.py", noPointer, "FLOW_HOOK_INCIDENT_CMD="+cmd)
+		out, _, rc := runHook(t, "enforce-agent-baseline", noPointer, "FLOW_HOOK_INCIDENT_CMD="+cmd)
 		if rc != 0 || !strings.Contains(out, `"permissionDecision": "deny"`) {
 			t.Fatalf("rc=%d out=%s", rc, out)
 		}
@@ -316,7 +316,7 @@ func TestEnforceAgentBaselineHookRecordsADenial(t *testing.T) {
 	t.Run("loop key deny carries the change", func(t *testing.T) {
 		cmd, log := incidentStub(t, 0)
 		env, _ := openRowFixture(t, `[]`, false)
-		out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, "self-review-x-plan y", "plan"), append(env, "FLOW_HOOK_INCIDENT_CMD="+cmd)...)
+		out, _, rc := runHook(t, "enforce-agent-baseline", openRowPayload(t, "self-review-x-plan y", "plan"), append(env, "FLOW_HOOK_INCIDENT_CMD="+cmd)...)
 		if rc != 0 || !strings.Contains(out, `"permissionDecision": "deny"`) {
 			t.Fatalf("rc=%d out=%s", rc, out)
 		}
@@ -328,7 +328,7 @@ func TestEnforceAgentBaselineHookRecordsADenial(t *testing.T) {
 	t.Run("allowed dispatch", func(t *testing.T) {
 		cmd, log := incidentStub(t, 0)
 		env, _ := openRowFixture(t, `[{"key":"panel-4-primary","outcome":""}]`, false)
-		out, _, rc := runHook(t, "enforce-agent-baseline.py", openRowPayload(t, "panel-4-primary review", "review"), append(env, "FLOW_HOOK_INCIDENT_CMD="+cmd)...)
+		out, _, rc := runHook(t, "enforce-agent-baseline", openRowPayload(t, "panel-4-primary review", "review"), append(env, "FLOW_HOOK_INCIDENT_CMD="+cmd)...)
 		if rc != 0 || out != "" {
 			t.Fatalf("rc=%d out=%s, want an allow", rc, out)
 		}
@@ -338,7 +338,7 @@ func TestEnforceAgentBaselineHookRecordsADenial(t *testing.T) {
 	})
 	t.Run("failing write", func(t *testing.T) {
 		cmd, _ := incidentStub(t, 1)
-		out, _, rc := runHook(t, "enforce-agent-baseline.py", noPointer, "FLOW_HOOK_INCIDENT_CMD="+cmd)
+		out, _, rc := runHook(t, "enforce-agent-baseline", noPointer, "FLOW_HOOK_INCIDENT_CMD="+cmd)
 		var v map[string]any
 		if rc != 0 || json.Unmarshal([]byte(out), &v) != nil || !strings.Contains(out, `"permissionDecision": "deny"`) {
 			t.Errorf("rc=%d stdout=%q, want the deny JSON alone", rc, out)
@@ -415,7 +415,7 @@ func beginPayload(t *testing.T, cwd, description, prompt, typ, model, effort str
 // non-zero exit.
 func runBegin(t *testing.T, payload []byte, env ...string) (denied bool, out string) {
 	t.Helper()
-	out, _, rc := runHook(t, "enforce-agent-baseline.py", payload, env...)
+	out, _, rc := runHook(t, "enforce-agent-baseline", payload, env...)
 	if rc != 0 {
 		t.Fatalf("rc=%d out=%s", rc, out)
 	}
@@ -833,7 +833,7 @@ func TestEnforceAgentBaselineHookAdmitsOnlyAPolicyRoleAndPair(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
-			out, _, rc := runHook(t, "enforce-agent-baseline.py", roleCheckPayload(t, c.role, c.model, c.agent), "FLOW_HOOK_ROLE_CHECK=on")
+			out, _, rc := runHook(t, "enforce-agent-baseline", roleCheckPayload(t, c.role, c.model, c.agent), "FLOW_HOOK_ROLE_CHECK=on")
 			denied := strings.Contains(out, `"permissionDecision": "deny"`)
 			if rc != 0 || denied != c.deny {
 				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)
@@ -863,7 +863,7 @@ func TestEnforceAgentBaselineHookRoleCheckReadsItsOwnPolicy(t *testing.T) {
 			t.Parallel()
 			bin := t.TempDir()
 			writeStub(t, filepath.Join(bin, "flow"), c.flowBody)
-			cmd := exec.Command("python3", filepath.Join(repoRoot(t), "hooks", "enforce-agent-baseline.py"))
+			cmd := exec.Command(filepath.Join(repoRoot(t), "scripts", "flow-guard"), "hook", "enforce-agent-baseline")
 			cmd.Stdin = strings.NewReader(string(roleCheckPayload(t, c.role, c.model, c.agent)))
 			cmd.Env = append(os.Environ(), "HOME="+t.TempDir(), "FLOW_HOOK_UNBOUNDED=1", "FLOW_HOOK_INCIDENT_CMD=true", "FLOW_ADDR=http://127.0.0.1:1", "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 			out, err := cmd.Output()
@@ -959,7 +959,7 @@ func TestEnforceAgentBaselineHookDeniesAnEffortlessType(t *testing.T) {
 			if c.effort != "" {
 				payload = []byte(strings.Replace(string(payload), `"model":`, `"effort":"`+c.effort+`","model":`, 1))
 			}
-			out, _, rc := runHook(t, "enforce-agent-baseline.py", payload, "FLOW_HOOK_ROLE_CHECK=off")
+			out, _, rc := runHook(t, "enforce-agent-baseline", payload, "FLOW_HOOK_ROLE_CHECK=off")
 			denied := strings.Contains(out, `"permissionDecision": "deny"`)
 			if rc != 0 || denied != c.deny {
 				t.Fatalf("rc=%d deny=%v want %v out=%s", rc, denied, c.deny, out)

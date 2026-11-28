@@ -27,7 +27,7 @@ Two carve-outs — a `fork` subagent inherits this file already, and an agent wi
 needs the relevant rules inlined instead.
 
 **This is enforced, not just asked for.** The `PreToolUse` hook
-`~/.claude/hooks/enforce-agent-baseline.py` denies any `Agent`/`Task` call whose prompt lacks the
+`flow-guard hook enforce-agent-baseline` denies any `Agent`/`Task` call whose prompt lacks the
 pointer, and returns the text to add.
 
 <!-- /core -->

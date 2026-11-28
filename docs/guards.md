@@ -19,13 +19,14 @@ Canonical: the `## flow-guard` section of [`stats/README.md`](../stats/README.md
 
 Hooks run inside Claude Code itself, before or after a tool call:
 
-- `enforce-agent-baseline.py` denies a dispatch missing the baseline pointer, and records its row.
-- `enforce-loop-dispatch.py` records a pipeline-fix or self-review loop dispatch.
-- `block-unsafe-commands.py` denies edits, commits and resets on a main checkout's default branch.
-- `flow-active-change.py` routes a plain problem report to the open change as a fix run.
-- `await-own-agents.py` holds a subagent's stop while an agent it launched still runs.
-- `flow-session-activity.py` reports each session's working or waiting state to `flowd`.
-- `flow-skill-load.py` records to `flowd` each skill, rule or doc file of this repository a session loads.
+- `enforce-agent-baseline` denies a dispatch missing the baseline pointer, and records its row.
+- `enforce-loop-dispatch` records a pipeline-fix or self-review loop dispatch.
+- `block-unsafe-commands` denies edits, commits and resets on a main checkout's default branch.
+- `flow-active-change` routes a plain problem report to the open change as a fix run.
+- `await-own-agents` holds a subagent's stop while an agent it launched still runs.
+- `flow-session-activity` reports each session's working or waiting state to `flowd`.
+- `flow-skill-load` records to `flowd` each skill, rule or doc file of this repository a session loads.
 
-They live in [`hooks/`](../hooks/). `setup.sh` installs them and prints the snippet that registers
-them; it never registers them for you.
+Each is `flow-guard hook <name>` (`stats/internal/guard/hook*.go`), run through the
+`~/.claude/hooks/flow-guard-hook` binary `setup.sh` builds. `setup.sh` prints the snippet that
+registers them; it never registers them for you.

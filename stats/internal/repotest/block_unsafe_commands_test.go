@@ -1,7 +1,7 @@
 package repotest
 
 // TestBlockUnsafeCommands ports the retired shell harness, the
-// harness for the block-unsafe-commands hook, run through its shim hooks/block-unsafe-commands.py.
+// harness for the block-unsafe-commands hook, run through its shim flow-guard hook block-unsafe-commands.
 //
 // It builds one bare origin with a clone whose main checkout sits on `main`
 // (origin/HEAD set), a linked worktree of it on a feature branch, and one repo
@@ -92,7 +92,7 @@ func (f *pmFixture) run(t *testing.T, cwd, tool string, input map[string]string,
 	if err := enc.Encode(map[string]any{"tool_name": tool, "tool_input": input, "cwd": cwd}); err != nil {
 		t.Fatal(err)
 	}
-	out, stderr, rc := runHook(t, "block-unsafe-commands.py", buf.Bytes(), env...)
+	out, stderr, rc := runHook(t, "block-unsafe-commands", buf.Bytes(), env...)
 	if rc != 0 {
 		// a crashing hook prints nothing, which would read as allow
 		t.Fatalf("hook exited %d: %s", rc, stderr)
@@ -211,7 +211,7 @@ func TestBlockUnsafeCommands(t *testing.T) {
 	f.bash("12 Bash cat from main", "allow", "{ROOT}", `cat {MAIN}/f.txt`)
 	f.writeTool("13 Write outside any repo", "allow", "{ROOT}/loose.txt")
 	f.check("14 malformed JSON passes through", func(t *testing.T) {
-		out, _, rc := runHook(t, "block-unsafe-commands.py", []byte("not json"))
+		out, _, rc := runHook(t, "block-unsafe-commands", []byte("not json"))
 		if rc != 0 || strings.TrimRight(out, "\n") != "" {
 			t.Errorf("rc=%d out=%s", rc, out)
 		}
@@ -350,7 +350,7 @@ func TestBlockUnsafeCommands(t *testing.T) {
 			if err := json.NewEncoder(&buf).Encode(map[string]any{"tool_name": "Bash", "tool_input": map[string]string{"command": f.x(rec)}, "cwd": f.x("{ROOT}"), c.key: c.val}); err != nil {
 				t.Fatal(err)
 			}
-			out, stderr, rc := runHook(t, "block-unsafe-commands.py", buf.Bytes())
+			out, stderr, rc := runHook(t, "block-unsafe-commands", buf.Bytes())
 			if rc != 0 || decision(out) != "allow" {
 				t.Errorf("wanted allow, got rc %d out %q %s", rc, out, stderr)
 			}

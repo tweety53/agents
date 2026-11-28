@@ -40,7 +40,7 @@ import (
 // Each group and each panel bundle carries the `pair` its dispatch runs on, one of the base pairs
 // of its role — implementer for a group, panel-reviewer for a bundle — and a pair outside them, an
 // opt-in pair included, or a missing one makes the decision unusable; a role with no base pair owes
-// none. hooks/enforce-agent-baseline.py records that pair's dispatch with `-pair-pick decider: group
+// none. flow-guard hook enforce-agent-baseline records that pair's dispatch with `-pair-pick decider: group
 // <ids>` or `decider: bundle <slots>` (dgpvPick) and asks no pair-judge pick for it; the security
 // bundle this guard adds carries no pair, so its dispatch takes the pair judge's.
 //

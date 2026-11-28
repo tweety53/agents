@@ -1411,7 +1411,7 @@ func TestListStageRunsCarriesChangeNameAndProject(t *testing.T) {
 }
 
 // TestListStageRunsCarriesSessionToken pins the field
-// hooks/enforce-agent-baseline.py reads to begin a dispatch row itself
+// flow-guard hook enforce-agent-baseline reads to begin a dispatch row itself
 // (KAN-1115): a run begun with a session token carries it, and a run begun
 // with none omits the key.
 func TestListStageRunsCarriesSessionToken(t *testing.T) {

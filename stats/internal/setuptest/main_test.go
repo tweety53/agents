@@ -360,21 +360,6 @@ func makeFixtureRepo(d string, badRule bool) error {
 		// read. install_rules_claude links it beside the rules and warns when it is missing,
 		// so the fixture needs one for an otherwise-clean install to stay clean.
 		{"rules/agent-baseline.md", "# fixture agent baseline\n", 0o644},
-		// The hook that enforces the baseline in dispatches. Named as the real one is, because
-		// install_hooks reports on registration by looking for that name in settings.json.
-		{"hooks/enforce-agent-baseline.py", "#!/usr/bin/env python3\n\"\"\"fixture hook\"\"\"\n", 0o644},
-		// The UserPromptSubmit hook that names the session's active flow change. Named as the
-		// real one is, because install_hooks reports on its registration by looking for that
-		// name in settings.json.
-		{"hooks/flow-active-change.py", "#!/usr/bin/env python3\n\"\"\"fixture hook\"\"\"\n", 0o644},
-		// The main-checkout protection hook. Named as the real one is, because install_hooks
-		// reports on its registration by looking for that name in settings.json — the pins in
-		// the "Core excerpts" group assert that warning, so the fixture has to install the hook
-		// the warning names for their precondition to be real.
-		{"hooks/block-unsafe-commands.py", "#!/usr/bin/env python3\n\"\"\"fixture hook\"\"\"\n", 0o644},
-		// The loop-dispatch hook. Named as the real one is, because install_hooks reports on
-		// its registration by looking for that name.
-		{"hooks/enforce-loop-dispatch.py", "#!/usr/bin/env python3\n\"\"\"fixture hook\"\"\"\n", 0o644},
 	}
 	if badRule {
 		// An always-on rule whose BODY carries a bare begin delimiter. Inlining it would put a

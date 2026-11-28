@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// flow-guard hook await-own-agents — the SubagentStop hook (hooks/await-own-agents.py runs it): a
+// flow-guard hook await-own-agents — the SubagentStop hook (flow-guard hook await-own-agents runs it): a
 // subagent may not end its turn while an agent it launched still runs (kan-1068).
 //
 // A subagent's prompt cache lives 5 minutes. A planner that ended its turn to wait for its Plan

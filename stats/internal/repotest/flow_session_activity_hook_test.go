@@ -1,6 +1,6 @@
 package repotest
 
-// TestFlowSessionActivityHook drives hooks/flow-session-activity.py against a
+// TestFlowSessionActivityHook drives flow-guard hook flow-session-activity against a
 // stub store (an httptest server logging every request's method, path and
 // body), pointed at through FLOW_ADDR, for each hook event it maps, and
 // asserts the PUT it sends -- or that it sends none and stays silent.
@@ -50,7 +50,7 @@ func TestFlowSessionActivityHook(t *testing.T) {
 
 	run := func(t *testing.T, addr, stdin string) (string, int) {
 		t.Helper()
-		out, errOut, rc := runHook(t, "flow-session-activity.py", []byte(stdin), "FLOW_ADDR="+addr)
+		out, errOut, rc := runHook(t, "flow-session-activity", []byte(stdin), "FLOW_ADDR="+addr)
 		return out + errOut, rc
 	}
 

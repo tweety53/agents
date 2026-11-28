@@ -390,7 +390,7 @@ cycle; only `metrics` waits on the harvester.
 A dispatch row begun late is corrected with `flow record dispatch retime`, which requires
 `-reason`; the row's first original instants are kept in its `retimed` column across later
 retimes, beside the latest reason. There is no `flowd` verb for it. A gated reviewer's or merger's
-plan check runs at its hand-back: `hooks/await-own-agents.py` runs `flow record dispatch handback`
+plan check runs at its hand-back: `flow-guard hook await-own-agents` runs `flow record dispatch handback`
 when the agent stops, and the parent's later `flow record dispatch end` trusts the marker it
 leaves, so a plan edit after the hand-back no longer blocks the end.
 

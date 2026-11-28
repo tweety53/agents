@@ -77,7 +77,7 @@ to report, never a creating run.
 **Trigger.** A message with no `/flow` invocation that reports a problem or asks for a change to
 the change's code or artifacts, in a session whose most recent `/flow` run marked `<name>`. `<name>`
 comes from the `flow: this session's last /flow run marked change <name>` context line
-`hooks/flow-active-change.py` injects, or from this session's own context when no hook is
+`flow-guard hook flow-active-change` injects, or from this session's own context when no hook is
 registered.
 
 **Gate.** `flow state get <name>` must answer `IN_PROGRESS`. Any other answer, or an unreachable
