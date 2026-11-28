@@ -157,8 +157,9 @@ func runRecordRequestEnd(ctx context.Context, args []string, getenv func(string)
 
 // gateLandedRequest is design.md's Request-end guard, run in-process before
 // the write and before the store is contacted for anything else: the
-// change's checkout (the first linked worktree carrying .superpowers/sdd/<change>/,
-// else the main checkout when it carries it), commit an ancestor of
+// change's checkout (the carrying linked worktree on branch <change>-r<n>,
+// else the first linked worktree carrying .superpowers/sdd/<change>/, else the
+// main checkout when it carries it), commit an ancestor of
 // origin/<base> and base an ancestor of commit, .superpowers/ gitignored in
 // that checkout and tracked at commit by no path, commit the sha the
 // checkout's flow-lint-green holds when it declares a `## lint` list (a
@@ -182,8 +183,17 @@ func gateLandedRequest(ctx context.Context, f recordIdentityFlags, projectKey st
 				continue
 			}
 			if c != main {
-				wt = c
-				break
+				// Request n's parallel executor worktree, on <change>-r<n>,
+				// wins over the session worktree listed before it.
+				head, _ := exec.Command("git", "-C", c, "symbolic-ref", "--short", "HEAD").Output()
+				if strings.TrimSpace(string(head)) == fmt.Sprintf("%s-r%d", f.change, n) {
+					wt = c
+					break
+				}
+				if wt == "" || wt == main {
+					wt = c
+				}
+				continue
 			}
 			if wt == "" {
 				wt = c

@@ -593,3 +593,60 @@ func TestRecordRequestEndRefusesSuperpowers(t *testing.T) {
 		}
 	})
 }
+
+// TestRecordRequestEndPrefersRequestWorktree pins the Request-end guard's
+// checkout choice under parallel executors: request n's landing is checked
+// in the linked worktree on branch <name>-r<n> when one carries the change,
+// even though the session worktree <name> is listed first; without one, the
+// first carrying linked worktree is checked as before.
+func TestRecordRequestEndPrefersRequestWorktree(t *testing.T) {
+	smoke.Heavy(t)
+	t.Parallel()
+	env := newTestEnv(t)
+	fx := newRequestFixture(t)
+	base := fx.git("rev-parse", "HEAD")
+	docs := fx.commit(t, "docs/a.md", true)
+	fx.git("checkout", "-q", "main")
+	root := filepath.Dir(fx.peer)
+	session, parallel := filepath.Join(root, "a"), filepath.Join(root, "b")
+	fx.git("worktree", "add", "-q", session, fx.name)
+	fx.git("worktree", "add", "-q", "-b", fx.name+"-r3", parallel, docs)
+	for _, wt := range []string{session, parallel} {
+		if err := os.MkdirAll(filepath.Join(wt, ".superpowers/sdd", fx.name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stamp := func(wt, sha string) {
+		t.Helper()
+		out, err := exec.Command("git", "-C", wt, "rev-parse", "--path-format=absolute", "--git-path", "flow-lint-green").Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(strings.TrimSpace(string(out)), []byte(sha+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	d := &requestDaemon{runs: `[{"stageRunId":99,"command":"/flow-interactive","stage":"flow.verify","request":3,"startedAt":"2026-10-30T09:00:00Z","outcome":"completed"},{"stageRunId":98,"command":"/flow-interactive","stage":"flow.verify","request":4,"startedAt":"2026-10-30T09:00:00Z","outcome":"completed"}]`}
+	srv := httptest.NewServer(d.handler(t))
+	defer srv.Close()
+	end := func(n string) (int, string) {
+		t.Helper()
+		d.reset()
+		code, _, stderr := runRequest(srv.URL, fx.peer, env, "end", "-change", fx.name, "-n", n, "-outcome", "landed", "-commit", docs, "-base", base)
+		return code, stderr
+	}
+	stamp(session, docs)
+	stamp(parallel, base)
+	if code, stderr := end("3"); code != 1 || !strings.Contains(stderr, "flow-lint-green") || d.count("POST") != 0 {
+		t.Errorf("stamp in session only: exit=%d writes=%d stderr=%q, want 1 naming flow-lint-green", code, d.count("POST"), stderr)
+	}
+	if code, stderr := end("4"); code != 0 || d.count("POST") != 1 {
+		t.Errorf("no -r4 worktree: exit=%d writes=%d stderr=%q, want 0 from the session worktree", code, d.count("POST"), stderr)
+	}
+	stamp(session, base)
+	stamp(parallel, docs)
+	if code, stderr := end("3"); code != 0 || d.count("POST") != 1 {
+		t.Errorf("stamp in -r3: exit=%d writes=%d stderr=%q, want 0 and one write", code, d.count("POST"), stderr)
+	}
+}

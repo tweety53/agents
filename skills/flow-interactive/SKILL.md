@@ -299,8 +299,9 @@ Every end names the agent's id, an aborted row's included, so its tokens are mea
 
 `flow record request end -outcome landed` checks, in-process and before the write:
 
-1. The worktree is the checkout carrying `<changeRoot>` — its first carrying linked worktree, else
-   the main checkout when it carries it; none is refused. `<base>` is what the `resolve-base-branch`
+1. The worktree is the checkout carrying `<changeRoot>` — the carrying linked worktree on branch
+   `<name>-r<n>` for request `<n>`, else its first carrying linked worktree, else the main checkout
+   when it carries it; none is refused. `<base>` is what the `resolve-base-branch`
    guard prints for it. `<project>-worktrees/<name>/.superpowers/` must be gitignored there, and
    `-commit` must track no path under it.
 2. `-commit` must be an ancestor of `origin/<base>` — the local ref a successful push updates — and
