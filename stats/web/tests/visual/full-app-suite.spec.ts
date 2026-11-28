@@ -14,7 +14,7 @@ const VIEWS: { view: string; label: string; query: string }[] = [
   { view: "trend", label: "Trend over time", query: PINNED_QUERY },
   { view: "reviewers", label: "Reviewers", query: PINNED_QUERY },
   { view: "flow-health", label: "Flow guards", query: PINNED_QUERY },
-  { view: "self-review", label: "Self-review fixes", query: PINNED_QUERY },
+  { view: "self-review", label: "Self-review", query: PINNED_QUERY },
   { view: "review-dynamics", label: "Reviewer findings", query: PINNED_QUERY },
   // The view reads no period.
   { view: "agent-roles", label: "Agent roles", query: PINNED_QUERY },
