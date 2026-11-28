@@ -190,7 +190,7 @@ file marks each key is **Stage keys** (`skills/flow-contracts/pipeline.md`).
 | `docs/` | The detail pages linked above |
 | `spectre/peers` | Declared peer repositories (name and relative path) for cross-repo changes (`skills/flow/cross-repo-worktrees.md`) |
 | `.flow/project.md` | This repository's own flow config: lint, test, run, stop |
-| `setup.sh` | The installer |
+| `setup.sh` | The installer's bootstrap: builds `flow` from this checkout and runs `flow setup` (`stats/cmd/flow/setup.go`) |
 
 ## Developing this repository
 

@@ -118,11 +118,11 @@ by that directory, and it holds the session's edit scripts. The main checkout is
 The session worktree holds the coordinator's briefs and the explicit stop's self-review fix
 commits; each code request gets a worktree of its own (**3. Execute**).
 
-**Hook registrations.** Grep the harness's hook config for every identifier `<agents repo>/setup.sh`'s
-`warn_unregistered_hook` checks for that harness (on Claude Code: `enforce-agent-baseline`,
+**Hook registrations.** Grep the harness's hook config for every identifier `flow setup`'s
+`warnUnregisteredHook` (`<agents repo>/stats/cmd/flow/setup_hooks.go`) checks for that harness (on Claude Code: `enforce-agent-baseline`,
 `enforce-loop-dispatch`, `flow-active-change`, `flow-session-activity`, `await-own-agents`,
 `block-unsafe-commands` in `~/.claude/settings.json`). Any missing gets one line naming them and
-`<agents repo>/setup.sh global`, which prints each registration snippet. Never edit that file, ask
+`<agents repo>/setup.sh global`, which prints each registration snippet, or `<agents repo>/setup.sh global --register-hooks`, which merges them in. Never edit that file, ask
 nothing about it, and continue.
 
 Read `<project>/.flow/project.md`'s `## lint`, `## test`, `## visual verification` and `## run`

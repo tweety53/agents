@@ -46,6 +46,6 @@ every dispatch.
 
 ## Registration is not automatic
 
-`<agents repo>/setup.sh global` installs the hook file but never edits `settings.json` — that file is the user's
-own. Until the printed snippet is pasted into it, nothing enforces this rule and the convention is
+`<agents repo>/setup.sh global` installs the hook file but edits `settings.json` only when run with `--register-hooks` — that file is the user's
+own. Until the printed snippet is pasted into it, or merged by that flag, nothing enforces this rule and the convention is
 all that holds. Check for the registration rather than assuming it.

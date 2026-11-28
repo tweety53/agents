@@ -29,4 +29,4 @@ Hooks run inside Claude Code itself, before or after a tool call:
 
 Each is `flow-guard hook <name>` (`stats/internal/guard/hook/`), run through the
 `~/.claude/hooks/flow-guard-hook` binary `setup.sh` builds from `stats/cmd/flow-guard-hook`. `setup.sh` prints the snippet that
-registers them; it never registers them for you.
+registers them; it registers them for you only when run as `./setup.sh global --register-hooks`.
