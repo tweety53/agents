@@ -102,6 +102,17 @@ order, with one call:
 flow-guard write-panel-diff final <abs-worktree> <worktree> <merge-base> [<worktree> <merge-base>…]
 ```
 
+Then, once per round before any slot is dispatched, group the diff mechanically:
+
+```bash
+flow-guard diff-groups <abs-worktree> <abs-worktree>/.superpowers/sdd/final-review.diff
+```
+
+It writes `<abs-worktree>/.superpowers/sdd/diff-groups.md` — one `## <dir>` group per directory
+(a test joins the group of the file sharing its stem; docs and config join their directory's
+group, else `## docs and config`), each file with its absolute path and added/removed line
+counts. `build-slot-prompt` names that file in every slot prompt written beside the diff.
+
 Its header (`stats/internal/guard/writepaneldiff.go`) is canonical for both files' shape. Exit 0
 prints the two paths; exit 2 — it cannot answer, and nothing was written — stops the run with its
 stderr. Then dispatch the round's

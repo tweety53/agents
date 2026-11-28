@@ -27,11 +27,10 @@ each pass's REPORT FILE path are filled in by that brief.
 > **GO CHANGES:** When a reviewed diff includes a `*.go` file, read and follow the `go-code-review` skill
 > first. A diff with no `.go` file skips this.
 
-> **DIFF READING:** Whatever the diff's size, first list its files (`grep '^diff --git'` or
-> `git diff --stat`), then group them by the functionality they implement together — a feature's
-> code, its tests and its docs/config are one group, not one group per directory — and read each
-> group's hunks with Read offset/limit or Grep, judging each group as a whole before the next.
-> Findings still name task ids, never diff line numbers.
+> **DIFF READING:** Whatever the diff's size, read the file named on the prompt's `**Diff groups:**`
+> line first — the diff's files, already grouped — then read the diff group by group with Read
+> offset/limit or Grep, judging each group as a whole before the next; never regroup the files
+> yourself. Findings still name task ids, never diff line numbers.
 
 > **REPORT FILE:** write your full report to
 > `<abs-worktree>/.superpowers/sdd/panel-report-<round>-<id>.md` before you end your turn — every
