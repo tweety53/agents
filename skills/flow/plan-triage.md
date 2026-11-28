@@ -20,32 +20,19 @@ recommended` included; it is never written to `## Risks` as `Accepted`.
 probe and its fallback into the task it concerns, so the implementer runs it on reaching that
 task, and also writes the gap into `## Risks` as `Accepted: <the gap> — <why>`.
 
-**A confidence below 100% is put to the operator, before anything is triaged.** When
-`<abs-worktree>/.superpowers/sdd/confidence.json` exists and its `score` is below 100, the
-triaging dispatch's first return is `QUESTIONS`, its round file holding one question:
-`### Q<n>. The plan check is <score>% confident this plan is executed as written — raise it now?`
-Its `**Context:**` lists every entry of the file's `gaps` that closes with `operator` or `running
-it`, verbatim, each followed by the suggestion that closes it — the question the operator would be
-asked, or what only running the work can show. It has exactly two options, **Raise it** — apply
-every suggestion now — and **Later** *(recommended)* — file the estimate and go on. Under the
-`## decisions: recommended` mode (**Auto-resolution**,
-`skills/flow-contracts/operator-prompts-auto-resolution.md`) the question is not asked and
-**Later** is taken. A gap that closes with `operator` is not asked in this round: it is asked
-only once the answer is **Raise it**.
-
-- **Raise it** — the fresh final planner that takes the answer triages the report as above, with
-  every gap in scope: a `closes with: operator` gap is one more `QUESTIONS` round. It then files
-  the estimate with `-disposition raised`.
-- **Later** — it defers only the `operator` gaps: each is written into `## Risks` as
-  `Accepted: <the gap> — deferred at the confidence question`, the report's other
-  findings are triaged as above, and the estimate is filed with `-disposition later`.
+**A confidence below 100% is raised, never asked.** When
+`<abs-worktree>/.superpowers/sdd/confidence.json` exists and its `score` is below 100, **Raise it**
+is taken automatically, in every mode: no question asks whether to raise it. The triaging dispatch
+triages the report as above with every gap in scope, applying the suggestion that closes each gap;
+a `closes with: operator` gap is a `QUESTIONS` round asking the operator that gap's question. It
+then files the estimate with `-disposition raised`.
 
 **Filing is list, then reuse or create.** Run `flow confidence tags`; for each kind of gap, reuse
 a printed tag that fits it, and write a new lowercase kebab-case tag only when none does — a tag
 names the kind of gap (`unchecked-premise`, `missing-fixture`), never the change. Then, once:
 
 ```bash
-flow confidence record -change <name> -stage plan -score <score> -disposition <raised|later> \
+flow confidence record -change <name> -stage plan -score <score> -disposition raised \
   -gap '<one entry of gaps, verbatim>' [-gap …] -tag <tag> [-tag …]
 ```
 

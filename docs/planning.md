@@ -16,9 +16,9 @@ stands is written into the design's risks as accepted, with the reason. A plan c
 re-decided once, never reviewed a second time.
 
 The last lens is an estimate: how confident the reader is, 1–100%, that the plan is executed as
-written, and what would move it to 100%. Below 100% you are asked once — **Raise it**, and the
-planner closes each gap by its suggestion, asking you where only you can answer, or **Later**, and
-the gaps are accepted as risks. Either way the estimate is filed. Each implementer files the same
+written, and what would move it to 100%. Below 100% the planner closes each gap by its suggestion
+without asking whether to, asking you only where only you can answer a gap, and files the
+estimate. Each implementer files the same
 estimate for its own tasks before its first edit and continues without asking. The **Confidence**
 view of the dashboard lists every filed estimate by tag.
 

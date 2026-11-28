@@ -67,8 +67,7 @@ Investigate read-only, then present the design.
 
 - **Now or later is never asked.** Where the options are doing work the design needs in this
   change or deferring it to a later change or ticket, now is taken and recorded under
-  `## Decisions`. The one exception is the plan check's confidence question (**Plan triage**,
-  `skills/flow/plan-triage.md`).
+  `## Decisions`.
 
 - **A round file opens with `## Summary`** — at most ten lines: the decisions the operator's answers settled
   and what is still open. The Summary names no auto-taken decision — an auto-taken pick lives only
