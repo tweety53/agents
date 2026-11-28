@@ -738,9 +738,9 @@ func TestEnforceAgentBaselineHookDeniesAJudgedRoleWithoutAPick(t *testing.T) {
 	}
 }
 
-// TestEnforceAgentBaselineHookTakesTheDecidedPair: a group implementer or pass-1 bundle whose pair the
-// decision names is begun with `-pair-pick decider: …` and no .pick; a dispatch the decision does
-// not cover, or a decided pair the role no longer admits, still owes the pair judge's pick.
+// TestEnforceAgentBaselineHookTakesTheDecidedPair: a pass-1 bundle whose pair the decision names is
+// begun with `-pair-pick decider: …` and no .pick; a dispatch the decision does not cover — an
+// implementer, even with a pair on its group — still owes the pair judge's pick.
 func TestEnforceAgentBaselineHookTakesTheDecidedPair(t *testing.T) {
 	smoke.Heavy(t)
 	t.Parallel()
@@ -749,9 +749,8 @@ func TestEnforceAgentBaselineHookTakesTheDecidedPair(t *testing.T) {
 	for _, c := range []struct {
 		name, role, key, want string
 	}{
-		{"decided group", "implementer", "task-1+3-implementer", " -pair-pick decider: group 1+3"},
+		{"implementer owes the judge", "implementer", "task-1+3-implementer", ""},
 		{"decided bundle", "panel-reviewer", "panel-2-primary", " -pair-pick decider: bundle primary"},
-		{"pair no longer admitted", "implementer", "task-2-implementer", ""},
 		{"not decided", "panel-fix", "panel-fix-2", ""},
 	} {
 		t.Run(c.name, func(t *testing.T) {

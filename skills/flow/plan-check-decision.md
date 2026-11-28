@@ -45,9 +45,9 @@ response a page consumes, the CORS, auth or routing the frontend depends on — 
 nothing can. A path inside a UI directory is not by itself a reason for `required`; answer genuine
 doubt with `required`.
 
-**4. Pairs.** Each group and each bundle names the `pair` its dispatch runs on: one of the
-implementer role's allowed pairs for a group, one of the panel-reviewer role's for a bundle, copied
-verbatim from the user message's `## Allowed pairs`. Weigh what the dispatch's work is, not how big it
+**4. Pairs.** Each bundle names the `pair` its dispatch runs on: one of the panel-reviewer role's
+allowed pairs, copied
+verbatim from the user message's `## Allowed pairs`. A group names no pair: the pair judge picks its implementer's at dispatch time. Weigh what the dispatch's work is, not how big it
 looks: verification-only, documentation, configuration and test-only work sits at the cheap end;
 concurrency, data-model, platform-interop and performance-sensitive work at the dear end. Pick the
 cheapest pair near-certain to succeed on the first try. A role listed with no pairs takes no `pair`.
@@ -59,7 +59,7 @@ End the answer with a line reading exactly `===DECISION===`, then the decision J
 
 ```json
 {
-  "groups": [{ "tasks": ["1", "2"], "pair": "<pair>", "reason": "…" }],
+  "groups": [{ "tasks": ["1", "2"], "reason": "…" }],
   "panel": [
     { "slots": ["primary", "principles"], "pair": "<pair>", "reason": "…" },
     { "slots": ["mutation"], "pair": "<pair>", "reason": "…" }

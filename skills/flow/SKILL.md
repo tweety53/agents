@@ -36,7 +36,7 @@ A recorded base gone from origin — merged and deleted — is refused by name b
 configured** — by the headless plan check at **Plan check** (`skills/flow/brainstorm.md`) — and the
 run reads them from the recorded `decision.json`.
 
-**Every dispatch runs on its role's pair, the decision's for a group or a pass-1 bundle, else
+**Every dispatch runs on its role's pair, the decision's for a pass-1 bundle, else
 picked by `flow-guard pair-judge` at dispatch time** — **Model and effort**
 (`skills/flow-contracts/model-policy.md`) is canonical.
 

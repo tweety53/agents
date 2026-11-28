@@ -63,16 +63,14 @@ A role with exactly one `base` pair needs no judge call: the hook asks for no `.
 `tasks.md` gives the sections of the tasks the prompt names, and any other bare path nothing.
 
 **Decided pairs — a dispatch the decision names runs on the decision's pair, with no pair-judge
-call**: each
-implementer group's dispatch (`task-<ids>-implementer`) on its group's `pair`, and each pass-1
-panel bundle's dispatch (`panel-<round>-<slots>[-<repo>]`, role `panel-reviewer`) on its bundle's
-`pair`, both read from `<abs-worktree>/.superpowers/sdd/decision.json`. The decider picks each from
-the role's base pairs, and `flow-guard plan-check` refuses a decision naming any other (its header,
-`stats/internal/guard/plancheck.go`, is canonical for the field). The dispatch hook records the row
-with `-pair-pick decider: group <ids>` or `decider: bundle <slots>`; a decided pair the role no
-longer admits, a decision carrying no pair, and every dispatch the decision does not name — the
-`security` bundle, a re-run, a fix, an operator-asked executor, a loop or self-review dispatch —
-take the pair judge's pick as above.
+call**: each pass-1 panel bundle's dispatch (`panel-<round>-<slots>[-<repo>]`, role
+`panel-reviewer`) on its bundle's `pair`, read from `<abs-worktree>/.superpowers/sdd/decision.json`.
+The decider picks each from the role's base pairs, and `flow-guard plan-check` refuses a decision
+naming any other (its header, `stats/internal/guard/plancheck.go`, is canonical for the field). The
+dispatch hook records the row with `-pair-pick decider: bundle <slots>`; a decided pair the role no
+longer admits, a decision carrying no pair, and every dispatch the decision does not name — an
+implementer, the `security` bundle, a re-run, a fix, an operator-asked executor, a loop or
+self-review dispatch — take the pair judge's pick as above.
 
 A pair is a model and an agent type joined by `/`: `opus/flow-low` dispatches
 `subagent_type: flow-low` on `model: opus`; `opus/flow-planner-medium` is `flow-planner-medium` on

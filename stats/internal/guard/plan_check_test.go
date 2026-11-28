@@ -615,14 +615,14 @@ var pcPairPolicy = pjPolicy(dgpvPolicy,
 	`"implementer":{"base":["opus/flow-low","sonnet/flow-medium"],"optin":["opus/flow-high"],"marked":[]}`,
 	`"panel-reviewer":{"base":["opus/flow-low","opus/flow-medium"],"optin":[],"marked":[]}`)
 
-// dgpvPaired is dgpvGood with a pair on every group and bundle.
+// dgpvPaired is dgpvGood with a pair on every group and bundle; a group's is one the guard drops.
 const dgpvPaired = `{"groups":[{"tasks":["1","3"],"pair":"sonnet/flow-medium","reason":"a"},{"tasks":["2"],"pair":"opus/flow-low","reason":"b"}],` +
 	`"panel":[{"slots":["primary","principles"],"pair":"opus/flow-medium","reason":"c"},{"slots":["mutation"],"pair":"opus/flow-low","reason":"d"}],` +
 	`"visual":{"verify":"skipped","reason":"e"}}`
 
-// TestPlanCheckDecidesEachDispatchPair: the decider is shown each decided role's base pairs and its
-// pair for every group and bundle is written with the decision; a pair outside the role's base
-// pairs, an opt-in one included, or a missing one blocks.
+// TestPlanCheckDecidesEachDispatchPair: the decider is shown panel-reviewer's base pairs alone and
+// its pair for every bundle is written with the decision, a group's dropped; a bundle pair outside
+// the base pairs or a missing one blocks.
 func TestPlanCheckDecidesEachDispatchPair(t *testing.T) {
 	t.Parallel()
 	args, _, out := pcFixture(t)
@@ -631,17 +631,19 @@ func TestPlanCheckDecidesEachDispatchPair(t *testing.T) {
 		t.Fatalf("rc=%d err=%q", r.rc, r.err)
 	}
 	d := dgpvRead(t, out)
-	if d.Groups[0].Pair != "sonnet/flow-medium" || d.Panel[0].Pair != "opus/flow-medium" {
-		t.Errorf("decision %+v lost its pairs", d)
+	if d.Groups[0].Pair != "" || d.Groups[1].Pair != "" || d.Panel[0].Pair != "opus/flow-medium" {
+		t.Errorf("decision %+v: want bundle pairs and no group pair", d)
 	}
-	for _, want := range []string{"- `implementer`: opus/flow-low, sonnet/flow-medium\n", "- `panel-reviewer`: opus/flow-low, opus/flow-medium\n"} {
+	if strings.Contains(stub.stdin(t), "- `implementer`:") {
+		t.Error("digest offers implementer pairs")
+	}
+	for _, want := range []string{"- `panel-reviewer`: opus/flow-low, opus/flow-medium\n"} {
 		if !strings.Contains(stub.stdin(t), want) {
 			t.Errorf("digest lacks %q", want)
 		}
 	}
 	for name, c := range map[string]struct{ old, new, cause string }{
-		"outside":  {`"pair":"sonnet/flow-medium"`, `"pair":"sonnet/flow-high"`, "group 1's pair sonnet/flow-high is not one of implementer's allowed pairs"},
-		"opt-in":   {`"pair":"sonnet/flow-medium"`, `"pair":"opus/flow-high"`, "group 1's pair opus/flow-high is not one of implementer's allowed pairs"},
+		"outside":  {`"pair":"opus/flow-medium"`, `"pair":"opus/flow-high"`, "bundle 1's pair opus/flow-high is not one of panel-reviewer's allowed pairs"},
 		"missing":  {`"pair":"opus/flow-medium",`, ``, "bundle 1 names no pair"},
 		"panel no": {`"pair":"opus/flow-low","reason":"d"`, `"pair":"sonnet/flow-low","reason":"d"`, "bundle 2's pair sonnet/flow-low"},
 	} {
@@ -657,18 +659,17 @@ func TestPlanCheckDecidesEachDispatchPair(t *testing.T) {
 	}
 }
 
-// TestDgpvPick: a decided dispatch's key and role find its group's or pass-1 bundle's pair, which
-// must still be one of the role's base pairs; any other dispatch, and a decision carrying no pair,
-// finds none.
+// TestDgpvPick: a pass-1 bundle's key and role find its pair, which must still be one of the role's
+// base pairs; any other dispatch — an implementer included, whatever its group holds — finds none.
 func TestDgpvPick(t *testing.T) {
 	t.Parallel()
 	wt := t.TempDir()
-	writeFile(t, wt+"/.superpowers/sdd/decision.json", strings.Replace(dgpvPaired, `"pair":"opus/flow-low","reason":"b"`, `"reason":"b"`, 1))
+	writeFile(t, wt+"/.superpowers/sdd/decision.json", dgpvPaired)
 	base := []string{"opus/flow-low", "opus/flow-medium", "sonnet/flow-medium"}
 	for _, c := range []struct{ role, key, want string }{
-		{"implementer", "task-1+3-implementer", "sonnet/flow-medium decider: group 1+3"},
-		{"implementer", "task-2-implementer", ""}, // no pair decided
-		{"implementer", "task-1-implementer", ""}, // no such group
+		{"implementer", "task-1+3-implementer", ""},
+		{"implementer", "task-2-implementer", ""},
+		{"implementer", "task-1-implementer", ""},
 		{"implementer", "fix-1-implementer", ""},
 		{"panel-reviewer", "panel-4-primary+principles", "opus/flow-medium decider: bundle primary+principles"},
 		{"panel-reviewer", "panel-4-primary+principles-api", "opus/flow-medium decider: bundle primary+principles"},
@@ -682,10 +683,30 @@ func TestDgpvPick(t *testing.T) {
 			t.Errorf("dgpvPick(%s, %s) = %q, want %q", c.role, c.key, got, c.want)
 		}
 	}
-	if pair, _ := dgpvPick(wt, "implementer", "task-1+3-implementer", []string{"opus/flow-low"}); pair != "" {
+	if pair, _ := dgpvPick(wt, "panel-reviewer", "panel-4-mutation", []string{"opus/flow-medium"}); pair != "" {
 		t.Errorf("a pair the role no longer admits was used: %s", pair)
 	}
-	if pair, _ := dgpvPick(t.TempDir(), "implementer", "task-1+3-implementer", base); pair != "" {
+	if pair, _ := dgpvPick(t.TempDir(), "panel-reviewer", "panel-4-mutation", base); pair != "" {
 		t.Errorf("no decision.json gave pair %s", pair)
+	}
+}
+
+// TestPlanCheckDropsAKeptDecisionsGroupPairs: an unchanged plan keeps its decision, bundle pairs and
+// all, but loses the group pairs an earlier decider wrote, with no model call.
+func TestPlanCheckDropsAKeptDecisionsGroupPairs(t *testing.T) {
+	t.Parallel()
+	args, _, out := pcFixture(t)
+	stub := newPJStub(t, pjJSON(pcAnswer(pcReport, dgpvPaired), ""))
+	env := pjEnv(t, pcPairPolicy, stub)
+	if r := runGuard("plan-check", args, env); r.rc != 0 {
+		t.Fatalf("rc=%d err=%q", r.rc, r.err)
+	}
+	writeFile(t, out, dgpvPaired)
+	r := runGuard("plan-check", append(args, "-decide-only"), env)
+	if r.rc != 0 || !strings.Contains(r.out, "unchanged") {
+		t.Fatalf("rc=%d out=%q err=%q", r.rc, r.out, r.err)
+	}
+	if d := dgpvRead(t, out); d.Groups[0].Pair != "" || d.Groups[1].Pair != "" || d.Panel[0].Pair != "opus/flow-medium" {
+		t.Errorf("decision %+v: want bundle pairs and no group pair", d)
 	}
 }
