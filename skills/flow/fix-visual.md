@@ -4,6 +4,15 @@ Loaded by `skills/flow/fix.md` for a visual fix — one whose defect or fix inst
 mockup departure, a capture or a `ui paths` file. Every "you" addresses the parent, as in
 `skills/flow/fix.md`, whose steps these sections bind.
 
+**The sections in the order the fix reaches them.**
+
+| Order | Section | Binds | Read by | Next |
+|---|---|---|---|---|
+| 1 | **Measuring first** | step 1 of `skills/flow/fix.md` | the parent | step 2 |
+| 2 | **The visual fix implementer's brief** | step 2's fix implementer | the fix implementer | step 3 |
+| 3 | **Measuring by hand** | every `flow-guard measure-visual-properties` call of steps 1–2 | the parent, the fix implementer | the calling step |
+| 4 | **Narrowed visual re-runs** | step 3's re-run of a failing visual `verify` row | the parent | step 4's reviewer |
+
 ## Measuring first
 
 Binds step 1 of `skills/flow/fix.md`.
@@ -32,8 +41,12 @@ Binds the fix implementer beside **The fix implementer's brief** (`skills/flow/f
 too, the data every spec renders such as a UI-test seed or fixture — is fixed at that source, whatever else the fix moves.** A shared-source fix is never offered as "a separate change"
 (**Fewest operator actions**, `skills/flow-contracts/pipeline.md`). A shared source's shipped look departing
 from one feature's frames is not such a defect (**A departure from the mockup**,
-`skills/flow-contracts/operator-prompts-auto-resolution.md`). The fix never patches the
-changed screen alone to spare the others, and its steps carry two more. Every baseline the fix
+`skills/flow-contracts/operator-prompts-auto-resolution.md`).
+
+The fix never patches the
+changed screen alone to spare the others, and its steps carry two more.
+
+Every baseline the fix
 moves is recaptured: every spec `flow-guard affected-specs <worktree> <round base> <capture root>`
 prints for the fix's own diff where the capture root holds a `<spec>.sources` sidecar, else every
 spec `specs` prints for it — none when it prints
@@ -43,10 +56,14 @@ raised the fix, never left for the diff to reveal — runs through one `capture`
 appended (step 8, `skills/flow/visual-verify-verifier.md`), and every PNG whose bytes changed is
 read first, per **The sweep** (`skills/flow-contracts/known-bugs.md`), and
 committed with the fix, in the checkout step 12 of **Steps 3–13** (`skills/flow/visual-verify.md`)
-commits the stage's PNGs to. The fix's run takes the tests a
+commits the stage's PNGs to.
+
+The fix's run takes the tests a
 sidecar maps a changed file to and the tests its fix adds, a bare
 spec path its every test, never
-every spec a shared file reaches, which step 3's `visual-verify` re-run captures once. And every step-3 `visual-verify` re-run of the fix names under `moved:` in its prompt every frame a `<spec>.mockups` sidecar maps to a
+every spec a shared file reaches, which step 3's `visual-verify` re-run captures once.
+
+And every step-3 `visual-verify` re-run of the fix names under `moved:` in its prompt every frame a `<spec>.mockups` sidecar maps to a
 spec whose baseline moved — the verifier compares each against its mockup exactly as it does the
 change's own frames, so a screen the shared fix regressed is a departure the next fix fixes.
 
@@ -173,13 +190,16 @@ font size by eye from a resized or cropped image; measure it with
 and layout, never edges or centres — interpolation and a small viewport shift an edge by
 pixels and hide a gap outright. Every per-control comparison runs the tool on a crop around that one
 control and reads the JSON's `delta` block; its options, properties, output and exit codes are the
-header of `<agents repo>/stats/internal/guard/measurevisualproperties.go`, canonical. **Both halves are mandatory and neither substitutes for the other.** The
+header of `<agents repo>/stats/internal/guard/measurevisualproperties.go`, canonical.
+
+**Both halves are mandatory and neither substitutes for the other.** The
 script's numbers are the only admissible measurement — no ad-hoc PIL, no reading a coordinate
 off a crop; and its output is then eyeballed against the two crops before any number is
 reported: state, per control, that the `box` the script found is that control (its edges land
 where the control's edges are seen), that `content` is the icon or label and not a corner
 artefact, and that a `null` or an exit 1 was resolved by a wider or better-centred region, not
 by dropping the property. A number no eye confirmed is a methodology error waiting to ship.
+
 Exit 2 with no calibration is the script refusing
 precondition 1 below; supply it, never work around it. Four preconditions on any number
 compared across two images:
@@ -247,6 +267,7 @@ checkable line of code before any screenshot.
 the failing run prints, run once with one retry, and one fixer gets every test that run fails and
 every test it prints as `flaky` in one batch. A flaky test is a failure the fixer fixes at its
 source (`rules/fix-determinism-at-the-source.mdc`), and never a reason to run the selection again.
+
 Each fix round then re-runs that file the same way. Once a narrowed run is green and prints no
 `flaky` line, one plain run of the `test`
 group under the round's `-fix-<k>` key is the gate, and when it fails the next round narrows to
@@ -254,6 +275,7 @@ its failures. That re-run selects from the round's diff, never the change's, plu
 each `visual-failing.txt` entry, and `-only` selects as the row it follows did — `flow-guard
 run-verify-list` reads the round base from the previous verify row itself (THE ROUND'S SELECTION,
 its header canonical). `-only` records no dispatch row, writes no green cache and never stands as the gate.
+
 A plain run is the `specs` row's selection — the
 change's tests plus the smoke tail —
 and never the whole suite. A selection naming more than 40 spec files runs the specs the change edits plus that tail, and is never refused (A WIDE SELECTION, `flow-guard run-verify-list`'s header canonical). Each failing run prints its failures in two groups, the
