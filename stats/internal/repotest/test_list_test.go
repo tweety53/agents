@@ -35,8 +35,8 @@ func TestTestListRunsTheGuardPackageOnce(t *testing.T) {
 		t.Errorf("## test guard-tests line %q does not run go test -json -short over ./internal/guard/...", g)
 	}
 	goLine := suites["stats-go"]
-	if !strings.Contains(goLine, "$(go list ./... | grep -v '/internal/guard$')") || strings.Contains(goLine, "go test ./...") {
-		t.Errorf("## test Go line %q does not draw its packages from go list with /internal/guard filtered out", goLine)
+	if !strings.Contains(goLine, "$(go list ./... | grep -v -e '/internal/guard$' -e '/internal/guard/')") || strings.Contains(goLine, "go test ./...") {
+		t.Errorf("## test Go line %q does not draw its packages from go list with /internal/guard and its subpackages filtered out", goLine)
 	}
 }
 

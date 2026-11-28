@@ -16,7 +16,7 @@ halves live in the one repo and are covered below.
 
 **This repository is Go, with two bash files.** The Claude Code hooks are Go too, `flow-guard hook <name>`. The guards ported into `flow-guard` — among them `check-unfinished-work`, `check-guard-calls`, `check-finish-preflight`, `recover-guard-incident`, `resolve-base-branch`, `check-visual-trigger`, `resolve-visual-screenshots`, `compose-mockup-frames`, `measure-visual-properties`, `check-foreign-staged`, `refresh-main-checkout`, `break-and-prove`, and `prepare-workspace` — are Go (`stats/internal/guard/`), every one called as `flow-guard <name>` through `scripts/flow-guard`, the one bash bootstrap, which runs the binary built from this checkout; `setup.sh` is the only other bash file and stays bash.
 
-**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/<name>.go`, registered in `guard.Registry`, tested beside it, called as `flow-guard <name>`; there is no per-guard script. A new `check-*` guard lands with its Go test, `stats/internal/guard/<name, - replaced by _>_test.go`, in the same change — `check_guard_calls_test.go` for `flow-guard check-guard-calls` — and `flow-guard check-guard-calls`'s rule C fails lint while it is missing.
+**Every new guard, and any new logic added to an existing guard, is written in Go in `flow-guard`** — `stats/internal/guard/[<package>/]<name>.go`, in the subpackage of its family (`hook`, `gitops`, …) or in `guard` itself, registered in `core.Registry` (read as `guard.Registry`), tested beside it, called as `flow-guard <name>`; there is no per-guard script. A new `check-*` guard lands with its Go test, `<name, - replaced by _>_test.go` beside it, in the same change — `check_guard_calls_test.go` for `flow-guard check-guard-calls` — and `flow-guard check-guard-calls`'s rule C fails lint while it is missing.
 
 ### artifact tree
 
@@ -79,7 +79,7 @@ forbids any agent action touching it at all.
 # suite: guard-tests
 scripts/flow-guard unchanged . ':!docs/' ':!spectre/' ':!stats/web/' || { keep=$(scripts/flow-guard smoke-keep stats/go.mod=stats/ stats/go.sum=stats/ hooks/=stats/internal/repotest/ hooks/=stats/internal/setuptest/ scripts/=stats/internal/repotest/ scripts/=stats/internal/setuptest/ setup.sh=stats/internal/setuptest/) && cd stats && FLOW_SMOKE_KEEP="$keep" GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) go test -json ${FLOW_VERIFY_FULL:+-race} -short -count=1 ./internal/guard/...; }
 # suite: stats-go
-scripts/flow-guard unchanged . ':!docs/' ':!spectre/' ':!stats/web/' || { keep=$(scripts/flow-guard smoke-keep stats/go.mod=stats/ stats/go.sum=stats/ hooks/=stats/internal/repotest/ hooks/=stats/internal/setuptest/ scripts/=stats/internal/repotest/ scripts/=stats/internal/setuptest/ setup.sh=stats/internal/setuptest/) && cd stats && make -s web-dist && FLOW_SMOKE_KEEP="$keep" GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) go test -json ${FLOW_VERIFY_FULL:+-race} -short -count=1 $(go list ./... | grep -v '/internal/guard$'); }
+scripts/flow-guard unchanged . ':!docs/' ':!spectre/' ':!stats/web/' || { keep=$(scripts/flow-guard smoke-keep stats/go.mod=stats/ stats/go.sum=stats/ hooks/=stats/internal/repotest/ hooks/=stats/internal/setuptest/ scripts/=stats/internal/repotest/ scripts/=stats/internal/setuptest/ setup.sh=stats/internal/setuptest/) && cd stats && make -s web-dist && FLOW_SMOKE_KEEP="$keep" GOMAXPROCS=$(( ($(getconf _NPROCESSORS_ONLN) + 2) / 3 )) go test -json ${FLOW_VERIFY_FULL:+-race} -short -count=1 $(go list ./... | grep -v -e '/internal/guard$' -e '/internal/guard/'); }
 # suite: stats-spa
 # inputs: stats/web/ stats/Makefile
 scripts/flow-guard unchanged stats/web/ stats/Makefile || { cd stats && make -s web-dist && cd web && npm test; }
@@ -151,21 +151,21 @@ refuses to compile without it, so `make -s web-dist` (`stats/Makefile`) opens ev
 
 Only the SPA and `flow-task-list` lines declare `# inputs:` (`skills/flow-contracts/project-configuration.md`): the Go
 tests read files across the whole repository — `stats/internal/guard`'s tests
-open `skills/`, `scripts/` and `setup.sh` through `../../../` — so both always run.
+open `skills/`, `scripts/` and `setup.sh` through `../../../`, a subpackage's through one `../` more — so both always run.
 
 The `flow-task-list` suite runs the mod's tests on the harness's own runner: `claude plugin test <dir>` runs every `*.test.ts` and `*.test.tsx` under `<dir>` in an environment like the one the mod's hooks run in and supplies the `claude-code/testing` module they import, which nothing else in this repository resolves.
 
-The `guard-tests` suite is `go test` over `stats/internal/guard/` — every guard's tests, a new one
+The `guard-tests` suite is `go test` over `stats/internal/guard/` and its subpackages — every guard's tests, a new one
 picked up with no edit here; the tests that exec a guard build `flow-guard` once per package run
-into a temp `FLOW_GUARD_CACHE_DIR`, never the operator's cache. The package's `TestMain` fails the run when it leaves the
+into a temp `FLOW_GUARD_CACHE_DIR`, never the operator's cache. Each package's `TestMain` (`guardtest.Main`) fails the run when it leaves the
 repository's `git status` changed — a test or reproducer writing into the checkout. The `stats-go` line excludes
-`internal/guard`, which `guard-tests` runs, so the package runs once per verify. A new `check-*` guard lands with its Go test in the same change — plans declare it and
+`internal/guard` and its subpackages, which `guard-tests` runs, so each package runs once per verify. A new `check-*` guard lands with its Go test in the same change — plans declare it and
 review panels look for it, and `flow-guard check-guard-calls`'s rule C fails `## lint` while it is
 missing.
 
 **Measured runtime: recorded per run in the flow store — query it with `flow suite list`.** The
 canonical suites are `guard-tests` (`go test -json ${FLOW_VERIFY_FULL:+-race} -short -count=1 ./internal/guard/...`), `stats-go`
-(`go test -json ${FLOW_VERIFY_FULL:+-race} -short -count=1 $(go list ./... | grep -v '/internal/guard$')`), `stats-spa` (`stats/web` `npm test`) and `flow-task-list` (`claude plugin test mods/flow-task-list`); each row carries the
+(`go test -json ${FLOW_VERIFY_FULL:+-race} -short -count=1 $(go list ./... | grep -v -e '/internal/guard$' -e '/internal/guard/')`), `stats-spa` (`stats/web` `npm test`) and `flow-task-list` (`claude plugin test mods/flow-task-list`); each row carries the
 machine that ran it, and the per-(suite, host) summary line is the median of the last 10 passing
 runs. Both Go lines print test2json, which `flow suite record` turns back into plain output and
 folds into the run's per-test costs. Whether the whole `## test` list still fits inside this harness's default tool timeout in one
@@ -255,7 +255,7 @@ launchd agent.
 ## scripts
 
 Every new script in this repository is written in Go: its logic goes in the `flow-guard` binary
-(`stats/internal/guard/<name>.go`, registered in `guard.Registry`, with its cases in a Go test
+(`stats/internal/guard/[<package>/]<name>.go`, registered in `guard.Registry`, with its cases in a Go test
 beside it), called as `flow-guard <name>`. `scripts/flow-guard` is the one bash bootstrap that
 builds and runs that binary; it and `setup.sh` stay bash, and the patches landed changes carried
 are readable only in history.

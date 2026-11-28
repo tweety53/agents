@@ -1,10 +1,11 @@
 // Command flow-guard runs the flow guards. Each is called as
 // `flow-guard <name> [arguments]`, through scripts/flow-guard, which builds
 // this command from its own checkout and execs it. The guards live in
-// internal/guard, one file each, registered by name in guard.Registry; each
-// guard's Go file's leading comment is its canonical contract — arguments,
-// environment overrides, verdict lines, the stdout/stderr split and exit
-// codes. This command only dispatches to them, after the KAN-902 re-exec
+// internal/guard and its subpackages, one file each, registered by name in
+// guard.Registry; each guard's Go file's leading comment is its canonical
+// contract — arguments, environment overrides, verdict lines, the
+// stdout/stderr split and exit codes. This command only dispatches to them,
+// after the KAN-902 re-exec
 // (guard.CwdCheckout): a self-judging guard called from another worktree of
 // its checkout's repository runs that worktree's own scripts/flow-guard.
 //
