@@ -454,3 +454,15 @@ steps state.
 
 **A step-3 pre-flight failure ends `flow.verify`
 `-outcome stopped` instead of `completed`**, per those steps.
+
+## Signal → Action
+
+An index; each row's cited section is canonical.
+
+| Signal | Action |
+|---|---|
+| `NEXT: rest`, `NEXT: redispatch`, `NEXT: cure-environment`, `NEXT: loop`, `NEXT: judge`, `NEXT: done` | **Recording** (**The verifier dispatch**) |
+| `ESCALATE:` above `NEXT: loop` or `NEXT: judge` | **Recording** (**The verifier dispatch**) |
+| `NEXT: skip` | **Steps 1–2** |
+| `NEXT: start-stack`, `NEXT: dispatch`, `STOP: kickoff <repo>`, `STOP: verify-not-green` | **Steps 3–13** |
+| a blocking failure | **Blocking** (**Steps 3–13**) |

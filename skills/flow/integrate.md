@@ -221,3 +221,16 @@ Nothing external blocks this route.
 Run step 5, then stop, printing the handoff above. Each of these two routes needs an
 action outside this command's control before the branch merges. The next bare `/flow <name>`
 call, once the branch is integrated, runs run 2's cleanup (`skills/flow/cleanup.md`).
+
+## Signal → Action
+
+An index of the stops above; each row's cited section is canonical.
+
+| Signal | Action |
+|---|---|
+| `NEXT:` naming `cleanup` | **Deciding which run this is** |
+| `STOP: unfinished-work` | **1. Check for unfinished work** |
+| `STOP: base-moved`, `STOP: sync-conflict` | **2. Ask how the branch should land** |
+| `STOP: main-checkout`, `STOP: preflight`, `STOP: base`, `STOP: base-mismatch`, `STOP: no-remote`, `STOP: no-verdict` | **Stops** — `prepare` |
+| `STOP: push`, `STOP: sync`, `STOP: rebase-lint`, `STOP: state`, `STOP: pr` | **Stops** — `land` |
+| exit 2 | **Deciding which run this is** |

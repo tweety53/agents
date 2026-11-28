@@ -380,3 +380,15 @@ orchestrates directly**, `skills/flow/implement.md`).
 ## Guardrails
 
 - **Never** create a second worktree for the same change.
+
+## Signal → Action
+
+An index; each row's cited section is canonical.
+
+| Signal | Action |
+|---|---|
+| `NEXT: auto-detect`, `NEXT: live-check`, `NEXT: visual-verification` | **Verify** |
+| `STOP: no-worktrees`, `STOP: prepare-workspace`, `STOP: cache-index`, `STOP: base-sync` | **Verify** |
+| `BASE-BEHIND-UNKNOWN:` | **Verify** |
+| a red final run | **Verify** (the `fix.md` load) |
+| visual `NEXT: skip — <why>`; any other closing line | **Visual verification** |

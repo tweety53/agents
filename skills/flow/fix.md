@@ -225,3 +225,14 @@ without a test, a baseline moved without a reason. The dispatch takes its pair f
 reviewer's work falls under in `flow policy get`, never a pair named here. What it finds takes
 this procedure as any defect does, and the late review runs again only if that fix round added
 more than one commit.
+
+## Signal → Action
+
+An index; each row's cited section is canonical.
+
+| Signal | Action |
+|---|---|
+| `NEXT: loop` from `visual-verify-pass close` | **The fix loop**, step 1 |
+| `NEXT: compose-only` | **The fix loop**, step 3 |
+| `run-verify-list` exit 2 on a `fix-<k>-verify…` key | **The fix loop**, step 3 |
+| `check-fix-revert` exit 1, or a fixer's `CONFLICT:` | **The fix implementer's brief** |

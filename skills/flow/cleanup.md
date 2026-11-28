@@ -91,3 +91,15 @@ clear, never a reason to print `Not done` and end the turn.
 ## Guardrails
 
 - **Never** `git add` the state file, and never move it into the change directory.
+
+## Signal → Action
+
+An index of the stops above; each row's cited bullet is canonical.
+
+| Signal | Action |
+|---|---|
+| `STOP: self-review-report` | its bullet, above **Finished** |
+| `STOP: change-save` | its bullet, above **Finished** |
+| `STOP: worktree-cleanup`, `REFUSED: … check 3` | its bullet, above **Finished** |
+| `STOP: state` | its bullet, above **Finished** |
+| `REFRESH-REFUSED` | the paragraph above **Finished** |

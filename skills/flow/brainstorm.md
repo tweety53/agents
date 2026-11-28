@@ -239,3 +239,14 @@ design and plan-check lines and the next commands; a conditional line prints onl
 condition holds.
 
 **The block is the run's final message, whole — never the `Next:` lines alone.**
+
+## Signal → Action
+
+An index; each row's cited section is canonical.
+
+| Signal | Action |
+|---|---|
+| kickoff exit 0 (`worktree:`, `merge-base:`) | **A. Resolve the change and write `STARTED`** |
+| kickoff exit 1 or 2 | **A. Resolve the change and write `STARTED`** |
+| `plan-check` exit 1 or 2 | **Plan check**, step 1 |
+| `PLAN-CHECK-CLEAN`, `PLAN-CHECK-FINDINGS <n>`, `PLAN-CHECK-NOT-RUN` | **Plan check** |
