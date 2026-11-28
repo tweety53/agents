@@ -1,14 +1,15 @@
 // The run's latest recorded decision, one line per role: the model and
 // effort the run gave it, the decision's reason on hover. A plan-check
 // decision names no model: each line shows the pair the run's own dispatch for that point was given
-// (matched by its key), or "not run yet", with the decision's reason beneath it.
+// (matched by its key), else the pair the decision names for it, else "not run yet", with the decision's
+// reason beneath it.
 
 import type { ConfidenceRow, RecordDispatch } from "../api";
 
 // Older rows hold `pairs` as prose rather than a list; this panel ignores those.
 type Override = { to?: string; pairs?: unknown; instruction?: string };
 
-type Pick = { model?: string; effort?: string; reason?: string; slots?: string[]; bundles?: number[]; tasks?: string[] };
+type Pick = { model?: string; effort?: string; pair?: string; reason?: string; slots?: string[]; bundles?: number[]; tasks?: string[] };
 
 /** A recorded decision, as `flow record decision` stores it; only the fields this panel reads. */
 export interface Decision {
@@ -61,11 +62,17 @@ function implemented(dispatches: RecordDispatch[], ids: string[]): string {
   return latest.size ? [...new Set([...latest.values()].map(pairOf))].join(" / ") : "not run yet";
 }
 
+/** A decided "<model>/<agent definition>" pair as "model · effort", the definition ending in its effort. */
+const named = (pair: string) => {
+  const [model, agent] = pair.split("/");
+  return `${model} · ${agent?.split("-").at(-1)}`;
+};
+
 const pick = (role: string, p: Pick | undefined, run?: string): Line[] =>
   p?.model
     ? [{ role, model: p.effort ? `${p.model} · ${p.effort}` : p.model, reason: p.reason }]
     : p?.reason
-      ? [{ role, model: run ?? "", reason: p.reason, prose: true }]
+      ? [{ role, model: p.pair && run === "not run yet" ? named(p.pair) : (run ?? ""), reason: p.reason, prose: true }]
       : [];
 
 const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -85,9 +92,7 @@ function lines(d: Decision, dispatches: RecordDispatch[], confidence: Confidence
   };
   // An override names its pair as "<model>/<agent definition>", the definition ending in its effort.
   const overrides = (Array.isArray(d.overrides) ? (d.overrides as Override[]) : []).flatMap((o) => {
-    const [model, agent] = (o.to ?? "").split("/");
-    const effort = agent?.split("-").at(-1);
-    return (Array.isArray(o.pairs) ? o.pairs : []).map((role) => ({ role: role[0].toUpperCase() + role.slice(1), model: `${model} · ${effort}`, reason: o.instruction }));
+    return (Array.isArray(o.pairs) ? o.pairs : []).map((role) => ({ role: role[0].toUpperCase() + role.slice(1), model: named(o.to ?? ""), reason: o.instruction }));
   });
   const implementers = d.groups?.length
     ? d.groups.flatMap((g) =>

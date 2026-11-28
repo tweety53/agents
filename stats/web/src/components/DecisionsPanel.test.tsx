@@ -52,6 +52,11 @@ describe("DecisionsPanel", () => {
     expect(screen.getByRole("region", { name: "Decisions" })).toHaveTextContent("big · sdd");
   });
 
+  it("shows the pair a plan-check decision names before its dispatch runs", () => {
+    render(<DecisionsPanel decision={{ groups: [{ tasks: ["6"], pair: "sonnet/flow-low", reason: "r" }], panel: [{ slots: ["mutation"], pair: "opus/flow-medium", reason: "r" }] }} />);
+    expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual(["Task 6sonnet · lowr", "Review: mutationopus · mediumr"]);
+  });
+
   it("falls back to the implementer when the decision records no groups", () => {
     render(<DecisionsPanel decision={{ implementer: { model: "opus", effort: "high", reason: "seam" } }} />);
     expect(screen.getAllByTestId("decision-row").map((r) => r.textContent)).toEqual(["Implementeropus · high"]);
