@@ -17,7 +17,7 @@ import {
   type StageRunDTO,
   type StatsResponse,
 } from "../api";
-import { RunDetail, residualCosts, unrecordedRole, closeOpen, policyEffort, versionResolver, headlessRoles } from "./RunDetail";
+import { RunDetail, residualCosts, unrecordedRole, closeOpen, policyEffort, versionResolver, headlessRoles, mergeUnrecorded } from "./RunDetail";
 
 const { listConfidenceMock, listStageRunsMock, fetchStatsViewMock, listStagesMock, listFindingsMock, runRecordMock, findChangesMock, decisionsMock, fetchRolesMock } = vi.hoisted(() => ({
   listConfidenceMock: vi.fn((_project: string, _change: string) => Promise.resolve([] as unknown[])),
@@ -1665,5 +1665,32 @@ describe("a change with confidence estimates below 100%", () => {
     render(<RunDetail project={PROJECT} change={CHANGE} />);
     await screen.findByRole("region", { name: "Stage runs" });
     expect(screen.queryByRole("region", { name: "Confidence" })).not.toBeInTheDocument();
+  });
+});
+
+describe("a role with recorded and unrecorded agents renders as one line (request 130)", () => {
+  const recorded = [{ role: "explorer", count: 4, models: "opus · low ×3 ($1.84), sonnet · low ×1 ($0.31)", cost: 2.15 }];
+  const unrecorded = [
+    { role: "explorer", count: 1, models: "opus · low ×1", cost: 0.33 },
+    { role: "fixer", count: 2, models: "opus · low ×2", cost: 0.5 },
+  ];
+
+  it("merges the same-role unrecorded entry: count and cost summed, its pair marked unrecorded", () => {
+    const { roles, rest } = mergeUnrecorded(recorded, unrecorded);
+    expect(roles).toHaveLength(1);
+    expect(roles[0]).toMatchObject({ role: "explorer", count: 5, models: "opus · low ×3 ($1.84), sonnet · low ×1 ($0.31), opus · low ×1 unrecorded" });
+    expect(roles[0].cost).toBeCloseTo(2.48);
+    expect(rest.map((u) => u.role)).toEqual(["fixer"]);
+  });
+
+  it("keeps the lines' total equal to the inputs' total", () => {
+    const { roles, rest } = mergeUnrecorded(recorded, unrecorded);
+    const total = [...roles, ...rest].reduce((a, r) => a + (r.cost ?? 0), 0);
+    expect(total).toBeCloseTo(2.15 + 0.33 + 0.5);
+  });
+
+  it("an unpriced recorded role takes the unrecorded cost", () => {
+    const { roles } = mergeUnrecorded([{ ...recorded[0], cost: null }], unrecorded);
+    expect(roles[0].cost).toBe(0.33);
   });
 });

@@ -240,6 +240,19 @@ export function headlessRoles(rows: HeadlessRow[], versionOf: (model: string) =>
 /** The agents no dispatch row claims, one row per role: an "explore…" description is an explorer, any other keeps its own name. */
 export type UnrecordedRole = { role: string; count: number; models: string; cost: number };
 
+/** Each unrecorded role folded into the recorded line of the same role (count and cost summed, its pairs marked `unrecorded`); `rest` is the unrecorded roles with no recorded line. */
+export function mergeUnrecorded<R extends { role: string; count: number; models: string; cost: number | null }>(roles: R[], unrecorded: UnrecordedRole[]): { roles: R[]; rest: UnrecordedRole[] } {
+  const byRole = new Map(unrecorded.map((u) => [u.role, u]));
+  const merged = roles.map((r) => {
+    const u = byRole.get(r.role);
+    if (!u) return r;
+    byRole.delete(r.role);
+    const models = u.models.split(", ").map((m) => `${m} unrecorded`).join(", ");
+    return { ...r, count: r.count + u.count, models: `${r.models}, ${models}`, cost: (r.cost ?? 0) + u.cost };
+  });
+  return { roles: merged, rest: [...byRole.values()] };
+}
+
 /** `xs` with every entry still open (no `endedAt`) ended at `at`. */
 export function closeOpen<T extends { endedAt?: string }>(xs: T[], at: string): T[] {
   return xs.map((x) => (x.endedAt ? x : { ...x, endedAt: at }));
@@ -432,8 +445,9 @@ function WorkPanel({
   const cost = measuredSum(runs.map((r) => readCostUsd(r.metrics)));
   // Costs are this panel's own runs' priced buckets, so its lines add up to its header.
   const costs = dispatchCosts(runs);
-  const roles = roleSummary(steps, costs);
-  const rest = residualCosts(runs, steps, costs, policy);
+  const residual = residualCosts(runs, steps, costs, policy);
+  const { roles, rest: unrecorded } = mergeUnrecorded(roleSummary(steps, costs), residual.unrecorded);
+  const rest = { ...residual, unrecorded };
   const versionOf = versionResolver(steps, runs);
   const groups = useContext(RoleGroupsContext);
   const rowItems: { role: string; node: ReactNode }[] = [
