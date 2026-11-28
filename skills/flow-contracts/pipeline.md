@@ -440,12 +440,6 @@ still running without having to ask.
 Its own `**Summary:**` carries the first bullet above alone, and its block is the whole handoff (**Write `IN_PROGRESS`**,
 `skills/flow/verify-and-handoff.md`).
 
-### The block each state renders
-
-The block a state hands off is defined in **The block each state renders**
-(`skills/flow-contracts/handoff-blocks.md`); `/flow`
-carries only the block it prints.
-
 ## Artifact brevity
 
 **Every artifact a `/flow` run writes is written brief** — bullets over prose, no preamble, no

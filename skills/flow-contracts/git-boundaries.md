@@ -20,7 +20,6 @@ The reasoning behind this file lives in `docs/rationale/flow-contracts/git-bound
 | `/flow`'s implement phase | at `IN_PROGRESS`, `prUrl` recorded | **Commits the implementation and pushes `--force-with-lease`** to the PR branch |
 | bare `/flow` | run 1 | **Reshapes** — folds every commit since the merge base — then **commits** the implementation, then each self-review fix, each its own commit, all on `spectre/<name>` in the apply worktree; pushes `--force-with-lease` and opens a PR, or fast-forwards `<base>` to it with one push, by the operator's choice (**The routes**, `skills/flow-contracts/finish-contract-run1.md`) |
 | bare `/flow` | run 2 | **Commits nothing and pushes no commit**: removes worktrees and the local and remote branch, then fast-forwards the main checkout (step 5 of **Run 2 — the branch is merged**, `skills/flow-contracts/finish-contract-run2.md`) |
-| `/flow-status` | — | None — read-only |
 | `/flow-plan` | change captured | **Creates the change worktree and pushes its empty branch** through the kickoff (**Capturing a new change**, `skills/flow-plan/SKILL.md`); commits nothing, ever |
 
 **No command writes the main checkout.** `/flow` creates `<project>-worktrees/<name>` inside

@@ -68,7 +68,7 @@ machine with an unusual layout can state the answer instead of having one derive
 
 **Otherwise derive it from the skill you are reading, in two steps.**
 
-1. Take the directory holding that `SKILL.md` — `skills/flow/`, `skills/flow-status/`,
+1. Take the directory holding that `SKILL.md` — `skills/flow/`, `skills/flow-plan/`,
    whichever one you are in — and resolve **that directory** to its physical path, following it if
    it is a symlink.
 2. `<agents repo>` is **two levels above** the resolved directory: up out of the skill's own

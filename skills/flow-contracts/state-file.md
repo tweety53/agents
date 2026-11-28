@@ -130,7 +130,7 @@ field is how it gets erased.
   emits it. A payload still carrying the field is accepted with its value ignored rather than
   refused. A journal entry replays through the daemon's own decoder
   rather than back through the CLI, and that decoder accepts a second-precision instant and a
-  sub-second one alike. `/flow-status` reports
+  sub-second one alike. The dashboard reports
   "last update" from this field, and the store uses it to order same-state writes (see **Writes are
   monotonic in both dimensions** below).
 - `updatedBy` — the command that last wrote the record, always `/flow`.

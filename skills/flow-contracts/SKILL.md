@@ -22,7 +22,6 @@ flow's pipeline and its contract definitions.
 | [pipeline.md](pipeline.md) | **Run any `/flow*` command — load this first.** The three states and what each means, the command→state transition table, the wrong-state handoff, the handoff output shape, guard resolution and stage marks |
 | [finish-contract-run1.md](finish-contract-run1.md) | `/flow`'s integrate run: the preflight-signal decision, run 1's procedure — the self-review pass included — base-branch resolution, and resolving a change's worktrees. **Loaded by `skills/flow/integrate.md`; `/flow-self-review` also reads single sections of it** |
 | [finish-contract-run2.md](finish-contract-run2.md) | `/flow`'s cleanup run: run 2's procedure and worktree cleanup. **Loaded by `skills/flow/cleanup.md`** |
-| [handoff-blocks.md](handoff-blocks.md) | The per-state handoff block templates and the rules governing their regeneration: the three per-state templates, the run-only rule, the missing-rather-than-dropped rule and the `IN_PROGRESS` rendering-selection table. **Loaded by `/flow-status` and no other command** |
 | [state-file.md](state-file.md) | Read or write a change's state file: its full shape, monotonic state writes, carry-forward |
 | [state-file-internals.md](state-file-internals.md) | How the CLI and daemon keep the record: the fallback paths, the project-key derivation, write ordering and journal replay. **Loaded by no `/flow*` command** |
 | [project-configuration.md](project-configuration.md) | Resolve `<project>/.flow/project.md` — every key it defines and the single-line-literal keys. Resolution rules only — see below for authoring guidance |
@@ -40,7 +39,7 @@ flow's pipeline and its contract definitions.
 | [model-policy.md](model-policy.md) | Which model each role runs on, their defaults, how an override applies, and per-harness enforcement. **Loaded by `/flow`'s creating run and `/flow`'s implement phase** |
 | [artifacts-registry.md](artifacts-registry.md) | Every artifact the pipeline creates, with what creates it, where it lives, and what removes it. **Loaded by `/flow`'s cleanup run** |
 | [session-records.md](session-records.md) | The outcome table for `flow record render`, and what each outcome means for the caller. **Loaded by `/flow`'s implement phase, and bare `/flow`** |
-| [worktree-resolution.md](worktree-resolution.md) | How any step resolves the set of worktrees belonging to a change. **Loaded by `/flow`'s creating run, `/flow`'s implement phase, bare `/flow`, and `/flow-status`** |
+| [worktree-resolution.md](worktree-resolution.md) | How any step resolves the set of worktrees belonging to a change. **Loaded by `/flow`'s creating run, `/flow`'s implement phase and bare `/flow`** |
 | [project-configuration-authoring.md](project-configuration-authoring.md) | Write or edit a project's own `<project>/.flow/project.md` — rationale for a key's shape and worked examples not consulted by any run. **Loaded by no `/flow*` command** |
 
 Each file is **canonical** for its own contract. Where a skill and one of these files disagree, the

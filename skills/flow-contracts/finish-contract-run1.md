@@ -3,7 +3,7 @@
 **This file is canonical for `/flow`'s integrate run** — the preflight-signal decision, run 1's
 procedure, and resolving a change's worktrees.
 
-bare `/flow` is the only command that loads this file whole; `/flow-status` cites single sections of it.
+bare `/flow` is the only command that loads this file whole.
 
 ## Finish contract
 

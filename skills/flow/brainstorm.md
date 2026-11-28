@@ -214,8 +214,6 @@ again.**
 
 ### The `STARTED` handoff block
 
-Defined by **The block each state renders** (`skills/flow-contracts/handoff-blocks.md`), cited here and never loaded by this run.
-
 ````text
 ## Plan ready
 

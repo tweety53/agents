@@ -31,7 +31,6 @@ nothing checks it:
 | [artifacts-registry.md](artifacts-registry.md) | [artifacts-registry.md](../../../skills/flow-contracts/artifacts-registry.md) |
 | [session-records.md](session-records.md) | [session-records.md](../../../skills/flow-contracts/session-records.md) |
 | [worktree-resolution.md](worktree-resolution.md) | [worktree-resolution.md](../../../skills/flow-contracts/worktree-resolution.md) |
-| [handoff-blocks.md](handoff-blocks.md) | [handoff-blocks.md](../../../skills/flow-contracts/handoff-blocks.md) |
 | [jira-integration.md](jira-integration.md) | [jira-integration.md](../../../skills/flow-contracts/jira-integration.md) |
 | [project-configuration.md](project-configuration.md) | [project-configuration.md](../../../skills/flow-contracts/project-configuration.md) |
 | [workspace-isolation.md](workspace-isolation.md) | [workspace-isolation.md](../../../skills/flow-contracts/workspace-isolation.md) |

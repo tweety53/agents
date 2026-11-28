@@ -172,9 +172,9 @@ Next:
 | **merge and push** | *merged and waiting on run 2* — continue below |
 | manual | *waiting on the merge* |
 
-Where the route is not certain — a run resumed after a partial failure — take the answer from the
-merge-status test in **The block each state renders**
-(`skills/flow-contracts/handoff-blocks.md`) rather than assuming.
+Where the route is not certain — a run resumed after a partial failure — test whether the branch
+has reached the base branch rather than assuming: proven merged is *merged and waiting on run 2*;
+not merged, or inconclusive, is *waiting on the merge*.
 
 ## After merge-and-push specifically
 

@@ -2,8 +2,8 @@
 
 How any step resolves the set of worktrees belonging to a change.
 
-**Loaded by `/flow`'s creating run and implement phase, bare `/flow`, and `/flow-status`** — before a
-preflight verdict, a gate that runs once per worktree, a status report, or a removal.
+**Loaded by `/flow`'s creating run and implement phase, and bare `/flow`** — before a
+preflight verdict, a gate that runs once per worktree, or a removal.
 
 This file is **canonical** for everything in it.
 
@@ -23,7 +23,7 @@ operator, exactly as it would on any other refusal; a read-only report says so i
 instead of silently omitting the change.
 
 This binds every command that iterates a change's worktrees: the verify stage's workspace-isolation
-gate (`flow-guard prepare-workspace`, `skills/flow/verify-and-handoff.md`), `/flow-status`'s merge-status report, and bare `/flow`'s preflight verdict,
+gate (`flow-guard prepare-workspace`, `skills/flow/verify-and-handoff.md`), and bare `/flow`'s preflight verdict,
 unfinished-work gate and run 2 removal alike — each resolves its own set through this rule rather
 than restating it. How a command resolves the set beyond reading the state file's map — whether it
 falls back to a filesystem scan, and what an inconclusive answer does next — is that command's own;

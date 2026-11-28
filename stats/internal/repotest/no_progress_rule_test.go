@@ -88,7 +88,6 @@ func TestRoundCeilingRule(t *testing.T) {
 	for _, l := range []struct{ file, phrase string }{
 		{"skills/flow/fix.md", "for **Three failed rounds** and for **The round ceiling**"},
 		{"skills/flow-contracts/project-configuration.md", "| `## fix round ceiling` |"},
-		{"skills/flow-contracts/handoff-blocks.md", "an item **The round ceiling** (`skills/flow-contracts/pipeline.md`) deferred"},
 	} {
 		if !strings.Contains(repoText(t, l.file), l.phrase) {
 			t.Errorf("%s lacks %q", l.file, l.phrase)
